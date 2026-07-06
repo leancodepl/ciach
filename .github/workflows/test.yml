@@ -1,0 +1,37 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+    tags-ignore: ['v*']
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test and analyze
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: '3.12'
+
+      - name: Run analyzer
+        run: dart analyze
+
+      - name: Run tests
+        run: dart test
+
+      - name: Check formatting
+        run: dart format --set-exit-if-changed .
+
+      - name: Dry run pub publish
+        uses: leancodepl/mobile-tools/.github/actions/pub-release@pub-release-v1
+        with:
+          dry-run: true
