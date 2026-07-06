@@ -23,5 +23,8 @@ jobs:
         with:
           sdk: '3.12'
 
+      - name: Download pub dependencies
+        run: dart pub get
+
       - name: Publish and release
         uses: leancodepl/mobile-tools/.github/actions/pub-release@pub-release-v1

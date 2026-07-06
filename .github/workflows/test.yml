@@ -22,6 +22,9 @@ jobs:
         with:
           sdk: '3.12'
 
+      - name: Download pub dependencies
+        run: dart pub get
+
       - name: Run analyzer
         run: dart analyze
 
