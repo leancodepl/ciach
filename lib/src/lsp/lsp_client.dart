@@ -89,10 +89,7 @@ class LspClient {
   Future<void> initialize(Uri rootUri) async {
     final uri = rootUri.toString();
     await _client.start(
-      clientInfo: const .new(
-        name: 'ciach',
-        version: '1.0.0',
-      ),
+      clientInfo: const .new(name: 'ciach', version: '1.0.0'),
       rootUri: uri,
       workspaceFolders: [.new(uri: uri, name: 'root')],
       // Advertise hierarchical document symbols so the server returns
