@@ -11,9 +11,9 @@
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:path/path.dart' as p;
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/reporter.dart';
+import 'package:path/path.dart' as p;
 
 /// Friendly `--kinds` names mapped to LSP symbol kinds.
 const _kindAliases = <String, SymbolKind>{

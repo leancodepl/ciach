@@ -8,9 +8,9 @@
  *     - mark-ai-provenance
  */
 
-import 'package:test/test.dart';
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/reporter.dart';
+import 'package:test/test.dart';
 
 void main() {
   FinderResult resultWith(List<UnusedDeclaration> unused) => .new(

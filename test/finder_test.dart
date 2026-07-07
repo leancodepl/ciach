@@ -13,11 +13,11 @@ library;
 
 import 'dart:io';
 
+import 'package:ciach/src/finder.dart';
+import 'package:ciach/src/models.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 import 'package:test/test.dart';
-import 'package:ciach/src/finder.dart';
-import 'package:ciach/src/models.dart';
 
 void main() {
   // The example package doubles as the test fixture: a real `sample_pkg`

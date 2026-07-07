@@ -11,11 +11,11 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, SymbolKind;
 import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/models.dart';
+import 'package:path/path.dart' as p;
+import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, SymbolKind;
 
 /// A declaration to check: the symbol plus enough context to query references
 /// for it and to report it later.
