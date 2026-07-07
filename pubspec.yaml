@@ -1,4 +1,4 @@
-name: unused_declarations_finder
+name: ciach
 description: >-
   Finds unused (never-referenced) declarations in a Dart/Flutter package by
   driving the Dart analysis server over LSP and querying textDocument/references.
@@ -21,4 +21,4 @@ dev_dependencies:
   test: ^1.31.2
 
 executables:
-  unused_declarations_finder:
+  ciach:

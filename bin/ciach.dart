@@ -12,8 +12,8 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:path/path.dart' as p;
-import 'package:unused_declarations_finder/src/reporter.dart';
-import 'package:unused_declarations_finder/unused_declarations_finder.dart';
+import 'package:ciach/ciach.dart';
+import 'package:ciach/src/reporter.dart';
 
 /// Friendly `--kinds` names mapped to LSP symbol kinds.
 const _kindAliases = <String, SymbolKind>{
@@ -119,7 +119,7 @@ Future<int> _run(List<String> arguments) async {
 
   final FinderResult result;
   try {
-    result = await UnusedDeclarationsFinder(options).run();
+    result = await Ciach(options).run();
   } on Object catch (e, st) {
     if (showProgress) {
       stderr.writeln();
@@ -277,7 +277,7 @@ String _usage(ArgParser parser) =>
     '''
 Find unused (never-referenced) declarations in a Dart/Flutter package.
 
-Usage: unused_declarations_finder [options] [path]
+Usage: ciach [options] [path]
 
   path   Package root to analyze (defaults to the current directory).
 
@@ -285,13 +285,13 @@ ${parser.usage}
 
 Examples:
   # Scan the current package
-  unused_declarations_finder
+  ciach
 
   # Only private declarations, excluding tests, as JSON
-  unused_declarations_finder --no-public -e 'test/**' -f json lib/
+  ciach --no-public -e 'test/**' -f json lib/
 
   # GitHub Actions annotations, fail the job if anything is found
-  unused_declarations_finder -f github --set-exit-if-changed''';
+  ciach -f github --set-exit-if-changed''';
 
 /// Prints single-line, overwriting progress to stderr.
 class _ProgressPrinter {

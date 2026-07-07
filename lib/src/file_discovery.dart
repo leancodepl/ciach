@@ -12,7 +12,7 @@ import 'dart:io';
 
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
-import 'package:unused_declarations_finder/src/models.dart';
+import 'package:ciach/src/models.dart';
 
 /// Directory names that never contain source worth analyzing.
 const _skippedDirs = {'.dart_tool', '.git', 'build', '.fvm', 'node_modules'};

@@ -16,8 +16,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 import 'package:test/test.dart';
-import 'package:unused_declarations_finder/src/finder.dart';
-import 'package:unused_declarations_finder/src/models.dart';
+import 'package:ciach/src/finder.dart';
+import 'package:ciach/src/models.dart';
 
 void main() {
   // The example package doubles as the test fixture: a real `sample_pkg`
@@ -46,7 +46,7 @@ void main() {
     List<String> exclude = const [],
     List<String> include = const [],
   }) async {
-    final result = await UnusedDeclarationsFinder(
+    final result = await Ciach(
       .new(
         rootPath: fixturePath,
         includePublic: includePublic,

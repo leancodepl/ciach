@@ -8,7 +8,11 @@ AI-Provenance:
     - mark-ai-provenance
 -->
 
-# unused_declarations_finder
+# ciach 🔪
+
+*"Ciach!"* is Polish for the sound of a clean chop — the noise a knife makes
+right before something falls off. Fitting, since that's exactly what this tool
+finds for you: dead code, waiting to be cut.
 
 Finds **unused (never-referenced) declarations** — classes, functions, methods,
 fields, constants, enum values, and so on — in a Dart or Flutter package.
@@ -46,20 +50,20 @@ by tests.
 
 ```bash
 # Scan the current package
-dart run unused_declarations_finder
+dart run ciach
 
 # Scan a specific package
-dart run unused_declarations_finder path/to/package
+dart run ciach path/to/package
 
 # Only the highest-confidence dead code (private, never-referenced), as JSON
-dart run unused_declarations_finder --no-public -f json
+dart run ciach --no-public -f json
 
 # GitHub Actions annotations; fail the job if anything is found
-dart run unused_declarations_finder -f github --set-exit-if-changed
+dart run ciach -f github --set-exit-if-changed
 ```
 
 Install it globally with `dart pub global activate --source path .` and then run
-`unused_declarations_finder` directly.
+`ciach` directly.
 
 ### Options
 
@@ -85,12 +89,12 @@ usage or analysis error.
 ### GitHub Actions
 
 ```yaml
-- run: dart run unused_declarations_finder -f github --set-exit-if-changed
+- run: dart run ciach -f github --set-exit-if-changed
 ```
 
 Each finding becomes a `::warning` annotation shown inline on the PR diff. Run
 it from the repository root so annotation paths resolve; when scanning a
-sub-package (e.g. `unused_declarations_finder -f github app`), the scan path is
+sub-package (e.g. `ciach -f github app`), the scan path is
 prepended automatically so annotations still point at the right files.
 
 ## What it skips by default
@@ -145,7 +149,7 @@ The biggest lever is **how much you ask**:
   diminishing returns for the analysis server's internal parallelism.
 
 For repeated runs, compile once to skip the JIT warmup:
-`dart compile exe bin/unused_declarations_finder.dart -o udf` (or
+`dart compile exe bin/ciach.dart -o ciach` (or
 `dart pub global activate --source path .`).
 
 ## Library usage
@@ -153,9 +157,9 @@ For repeated runs, compile once to skip the JIT warmup:
 The tool also exposes a public API for running the finder programmatically:
 
 ```dart
-import 'package:unused_declarations_finder/unused_declarations_finder.dart';
+import 'package:ciach/ciach.dart';
 
-final result = await UnusedDeclarationsFinder(
+final result = await Ciach(
   FinderOptions(rootPath: 'path/to/package', includePublic: false),
 ).run();
 for (final decl in result.unused) {

@@ -9,8 +9,8 @@
  */
 
 import 'package:test/test.dart';
-import 'package:unused_declarations_finder/src/reporter.dart';
-import 'package:unused_declarations_finder/unused_declarations_finder.dart';
+import 'package:ciach/ciach.dart';
+import 'package:ciach/src/reporter.dart';
 
 void main() {
   FinderResult resultWith(List<UnusedDeclaration> unused) => .new(

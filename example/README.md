@@ -7,7 +7,7 @@ integration-test fixture, so it is a real, runnable demonstration of the tool.
 Run the finder against it from the repository root:
 
 ```console
-$ dart run unused_declarations_finder example
+$ dart run ciach example
 ```
 
 Expected output:

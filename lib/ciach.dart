@@ -11,12 +11,12 @@
 /// Finds declarations that are never referenced in a Dart/Flutter package by
 /// driving the Dart analysis server over LSP.
 ///
-/// The primary entry point is `UnusedDeclarationsFinder`: configure it with
+/// The primary entry point is `Ciach`: configure it with
 /// `FinderOptions`, call `run()`, and inspect the `FinderResult`'s
 /// `UnusedDeclaration`s.
 ///
 /// ```dart
-/// final result = await UnusedDeclarationsFinder(
+/// final result = await Ciach(
 ///   FinderOptions(rootPath: 'path/to/package', includePublic: false),
 /// ).run();
 /// for (final decl in result.unused) {
@@ -27,6 +27,6 @@ library;
 
 export 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
-export 'src/finder.dart' show UnusedDeclarationsFinder;
+export 'src/finder.dart' show Ciach;
 export 'src/models.dart'
     show FinderOptions, FinderResult, SymbolKindLabel, UnusedDeclaration;

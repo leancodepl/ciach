@@ -13,9 +13,9 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, SymbolKind;
-import 'package:unused_declarations_finder/src/file_discovery.dart';
-import 'package:unused_declarations_finder/src/lsp/lsp_client.dart';
-import 'package:unused_declarations_finder/src/models.dart';
+import 'package:ciach/src/file_discovery.dart';
+import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/models.dart';
 
 /// A declaration to check: the symbol plus enough context to query references
 /// for it and to report it later.
@@ -32,9 +32,9 @@ typedef _Candidate = ({
 /// For every declaration reported by `textDocument/documentSymbol`, a
 /// `textDocument/references` query is issued at the declaration's name, with
 /// `includeDeclaration: false`. An empty result means the declaration is unused.
-class UnusedDeclarationsFinder {
+class Ciach {
   /// Creates a finder that runs with the given [options].
-  UnusedDeclarationsFinder(this.options);
+  Ciach(this.options);
 
   /// The configuration for this run.
   final FinderOptions options;

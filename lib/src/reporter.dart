@@ -11,7 +11,7 @@
 import 'dart:convert';
 
 import 'package:path/path.dart' as p;
-import 'package:unused_declarations_finder/src/models.dart';
+import 'package:ciach/src/models.dart';
 
 /// Renders a [FinderResult] for humans or machines.
 abstract final class Reporter {

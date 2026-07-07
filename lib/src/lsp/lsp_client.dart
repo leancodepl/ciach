@@ -50,7 +50,7 @@ class LspClient {
     final process = await Process.start(executable, [
       'language-server',
       '--protocol=lsp',
-      '--client-id=unused_declarations_finder',
+      '--client-id=ciach',
       '--client-version=1.0.0',
     ]);
 
@@ -90,7 +90,7 @@ class LspClient {
     final uri = rootUri.toString();
     await _client.start(
       clientInfo: const .new(
-        name: 'unused_declarations_finder',
+        name: 'ciach',
         version: '1.0.0',
       ),
       rootUri: uri,
