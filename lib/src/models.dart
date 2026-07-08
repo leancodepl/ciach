@@ -10,6 +10,18 @@
 
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
+/// A `[start, end)` span within a file, using 0-based line/column positions
+/// (columns are UTF-16 code units), matching the Language Server Protocol.
+///
+/// Identifies the full extent of a declaration — including its body — so it
+/// can be located again for removal.
+typedef DeclarationRange = ({
+  int startLine,
+  int startColumn,
+  int endLine,
+  int endColumn,
+});
+
 /// Configuration for a single run of the finder.
 class FinderOptions {
   /// Creates options for analyzing the package rooted at [rootPath].
@@ -21,6 +33,7 @@ class FinderOptions {
     this.includePublic = true,
     this.includeGenerated = false,
     this.skipOverrides = true,
+    this.skipOperators = true,
     this.concurrency = 16,
     this.dartExecutable,
     this.onProgress,
@@ -50,6 +63,13 @@ class FinderOptions {
   /// reached polymorphically, which a plain reference search can miss).
   final bool skipOverrides;
 
+  /// Whether to skip operator overloads (`operator +`, `operator ==`, …).
+  /// The analysis server's reference search does not resolve infix operator
+  /// syntax (`a + b`) back to the operator's declaration, so a used operator
+  /// overload is reported as unused every time — on by default to avoid that
+  /// false positive.
+  final bool skipOperators;
+
   /// How many `textDocument/references` requests to keep in flight at once.
   /// Higher values keep the analysis server busier; there are diminishing
   /// returns past its internal parallelism.
@@ -65,6 +85,10 @@ class FinderOptions {
   /// The declaration kinds reported by default. Deliberately excludes
   /// [SymbolKind.typeParameter] (always "used" within its scope) and the
   /// primitive value kinds the server never emits for Dart declarations.
+  ///
+  /// Operator overloads are *not* a separate kind here: the analysis server
+  /// reports them as plain [SymbolKind.method] declarations named `+`, `==`,
+  /// etc. — see [skipOperators] for how they're excluded by default instead.
   static const defaultKinds = <SymbolKind>{
     .class$,
     .interface$,
@@ -78,7 +102,6 @@ class FinderOptions {
     .variable,
     .constant,
     .enumMember,
-    .operator$,
   };
 }
 
@@ -107,7 +130,9 @@ class UnusedDeclaration {
     required this.line,
     required this.column,
     required this.isPrivate,
+    required this.range,
     this.container,
+    this.isEnumValue = false,
   });
 
   /// Simple (unqualified) name of the declaration.
@@ -131,6 +156,16 @@ class UnusedDeclaration {
   /// Enclosing declaration name (e.g. the class for a method), if any.
   final String? container;
 
+  /// The full source span of the declaration (including its body), used to
+  /// locate it again for removal. Unlike [line]/[column] (the name's
+  /// position), this covers the whole node.
+  final DeclarationRange range;
+
+  /// Whether this is an enum value (e.g. `south` in `enum Direction`).
+  /// Removing one requires also tidying up a neighboring comma, unlike other
+  /// declaration kinds.
+  final bool isEnumValue;
+
   /// Fully qualified display name, e.g. `MyClass.myMethod`.
   String get qualifiedName => container == null ? name : '$container.$name';
 
@@ -152,13 +187,24 @@ class FinderResult {
   /// Creates a result describing a completed finder run.
   const FinderResult({
     required this.unused,
+    required this.docOnly,
     required this.filesScanned,
     required this.declarationsChecked,
     required this.elapsed,
   });
 
-  /// Unused declarations, sorted by file then position.
+  /// Declarations with zero references of any kind — the tool's actual
+  /// "unused" verdict. Sorted by file then position. These, and only these,
+  /// are eligible for `--remove`.
   final List<UnusedDeclaration> unused;
+
+  /// Declarations with no *code* references, but at least one dartdoc
+  /// `[Xxx]`-style comment link — informational, not a removal candidate.
+  /// A link resolves to a real declaration, so the analysis server counts it
+  /// as a reference; reporting these separately surfaces likely-dead code
+  /// without risking deletion of something that really is pointed to, just
+  /// only from documentation. Sorted by file then position.
+  final List<UnusedDeclaration> docOnly;
 
   /// Number of files scanned for declarations.
   final int filesScanned;

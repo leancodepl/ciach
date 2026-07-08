@@ -15,7 +15,7 @@ import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/models.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, SymbolKind;
+import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location, SymbolKind;
 
 /// A declaration to check: the symbol plus enough context to query references
 /// for it and to report it later.
@@ -24,7 +24,20 @@ typedef _Candidate = ({
   String path,
   DocumentSymbol symbol,
   String? container,
+  bool isEnumValue,
 });
+
+/// How a candidate's references classify it.
+enum _RefStatus {
+  /// At least one real (non-doc-comment) reference.
+  used,
+
+  /// No real references, but at least one dartdoc `[Xxx]` comment link.
+  docOnly,
+
+  /// No references of any kind.
+  unused,
+}
 
 /// Finds declarations that are never referenced by driving the Dart analysis
 /// server over LSP.
@@ -48,6 +61,55 @@ class Ciach {
     .struct,
   };
 
+  /// Names of Dart's overloadable operators. The analysis server reports an
+  /// `operator +`/`operator ==`/… declaration as a plain [SymbolKind.method]
+  /// named exactly one of these — there is no distinct operator symbol kind —
+  /// so this is the only reliable way to recognize one.
+  static const _operatorNames = <String>{
+    '+',
+    '-',
+    '*',
+    '/',
+    '%',
+    '~/',
+    '&',
+    '|',
+    '^',
+    '~',
+    '<<',
+    '>>',
+    '>>>',
+    '<',
+    '<=',
+    '>',
+    '>=',
+    '==',
+    '[]',
+    '[]=',
+  };
+
+  bool _isOperator(DocumentSymbol symbol) =>
+      symbol.kind == .method && _operatorNames.contains(symbol.name);
+
+  /// Lines of every scanned file, keyed by absolute path, populated as each
+  /// file is opened in [_collectCandidatesFor]. Reused to classify reference
+  /// locations as doc comments without re-reading files from disk.
+  final _fileLines = <String, List<String>>{};
+
+  /// Whether [location] points at a dartdoc `[Xxx]`-style reference rather
+  /// than real code — i.e. its line, in the file it points into, starts with
+  /// `///`. Block (`/** */`) doc comments aren't recognized; `///` is the
+  /// standard and lint-enforced style.
+  bool _isDocReference(Location location) {
+    final path = Uri.parse(location.uri).toFilePath();
+    final lines = _fileLines[path] ??= _readFile(path)?.split('\n') ?? const [];
+    final line = location.range.start.line;
+    if (line < 0 || line >= lines.length) {
+      return false;
+    }
+    return lines[line].trim().startsWith('///');
+  }
+
   void _report(String message) => options.onProgress?.call(message);
 
   /// Runs the analysis and returns the declarations that are never referenced.
@@ -61,6 +123,7 @@ class Ciach {
     if (files.isEmpty) {
       return .new(
         unused: const [],
+        docOnly: const [],
         filesScanned: 0,
         declarationsChecked: 0,
         elapsed: stopwatch.elapsed,
@@ -73,6 +136,7 @@ class Ciach {
     );
 
     final unused = <UnusedDeclaration>[];
+    final docOnly = <UnusedDeclaration>[];
     var declarationsChecked = 0;
 
     try {
@@ -110,7 +174,7 @@ class Ciach {
       final totalFiles = files.length;
       var filesDone = totalFiles - remainingPerFile.length;
 
-      final isUnused = await _mapPooled<_Candidate, bool>(
+      final statuses = await _mapPooled<_Candidate, _RefStatus>(
         candidates,
         options.concurrency,
         (candidate) async {
@@ -127,13 +191,22 @@ class Ciach {
               '${p.relative(candidate.path, from: rootPath)}',
             );
           }
-          return refs.isEmpty;
+          if (refs.isEmpty) {
+            return _RefStatus.unused;
+          }
+          final hasRealRef = refs.any((loc) => !_isDocReference(loc));
+          return hasRealRef ? _RefStatus.used : _RefStatus.docOnly;
         },
       );
 
       for (var i = 0; i < candidates.length; i++) {
-        if (isUnused[i]) {
-          unused.add(_toUnused(candidates[i], rootPath));
+        switch (statuses[i]) {
+          case _RefStatus.unused:
+            unused.add(_toUnused(candidates[i], rootPath));
+          case _RefStatus.docOnly:
+            docOnly.add(_toUnused(candidates[i], rootPath));
+          case _RefStatus.used:
+            break;
         }
       }
     } finally {
@@ -141,9 +214,11 @@ class Ciach {
     }
 
     unused.sort(_byLocation);
+    docOnly.sort(_byLocation);
     stopwatch.stop();
     return .new(
       unused: unused,
+      docOnly: docOnly,
       filesScanned: files.length,
       declarationsChecked: declarationsChecked,
       elapsed: stopwatch.elapsed,
@@ -163,24 +238,36 @@ class Ciach {
     client.didOpen(uri, content);
     final symbols = await client.documentSymbol(uri);
     final lines = content.split('\n');
+    _fileLines[path] = lines;
     final out = <_Candidate>[];
-    _collectCandidates(uri, path, symbols, null, lines, out);
+    _collectCandidates(uri, path, symbols, null, false, lines, out);
     return out;
   }
 
   /// Recursively walks the symbol tree, keeping only symbols worth checking,
   /// and records the enclosing type name as their container.
+  ///
+  /// [parentIsEnum] marks children of an enum declaration: the analysis
+  /// server reports enum values with the same [SymbolKind.enum$] kind as the
+  /// enum type itself, so this is the only way to tell them apart.
   void _collectCandidates(
     Uri uri,
     String path,
     List<DocumentSymbol> symbols,
     String? container,
+    bool parentIsEnum,
     List<String> lines,
     List<_Candidate> out,
   ) {
     for (final symbol in symbols) {
       if (_shouldConsider(symbol, lines)) {
-        out.add((uri: uri, path: path, symbol: symbol, container: container));
+        out.add((
+          uri: uri,
+          path: path,
+          symbol: symbol,
+          container: container,
+          isEnumValue: parentIsEnum && symbol.kind == .enum$,
+        ));
       }
       final childContainer = _typeLikeKinds.contains(symbol.kind)
           ? symbol.name
@@ -190,6 +277,7 @@ class Ciach {
         path,
         symbol.children ?? const [],
         childContainer,
+        symbol.kind == .enum$,
         lines,
         out,
       );
@@ -206,6 +294,9 @@ class Ciach {
     }
     final private = _isPrivateName(symbol.name);
     if (!private && !options.includePublic) {
+      return false;
+    }
+    if (options.skipOperators && _isOperator(symbol)) {
       return false;
     }
 
@@ -233,6 +324,13 @@ class Ciach {
       column: start.character + 1,
       isPrivate: _isPrivateName(name),
       container: candidate.container,
+      isEnumValue: candidate.isEnumValue,
+      range: (
+        startLine: symbol.range.start.line,
+        startColumn: symbol.range.start.character,
+        endLine: symbol.range.end.line,
+        endColumn: symbol.range.end.character,
+      ),
     );
   }
 

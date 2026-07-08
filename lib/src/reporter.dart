@@ -18,8 +18,32 @@ abstract final class Reporter {
   /// A grouped, aligned, human-readable report.
   static String text(FinderResult result, {bool useColor = false}) {
     final buffer = StringBuffer();
+    _writeGroup(buffer, result.unused, useColor);
+
+    if (result.docOnly.isNotEmpty) {
+      buffer.writeln(
+        _style(
+          'Referenced only from doc comments — not counted as unused, '
+          'never removed:',
+          _dim,
+          useColor,
+        ),
+      );
+      _writeGroup(buffer, result.docOnly, useColor);
+    }
+
+    buffer.write(_summary(result));
+    return buffer.toString();
+  }
+
+  /// Writes one file-grouped, aligned block of [decls] to [buffer].
+  static void _writeGroup(
+    StringBuffer buffer,
+    List<UnusedDeclaration> decls,
+    bool useColor,
+  ) {
     final byFile = <String, List<UnusedDeclaration>>{};
-    for (final decl in result.unused) {
+    for (final decl in decls) {
       byFile.putIfAbsent(decl.filePath, () => []).add(decl);
     }
 
@@ -47,9 +71,6 @@ abstract final class Reporter {
       }
       buffer.writeln();
     }
-
-    buffer.write(_summary(result));
-    return buffer.toString();
   }
 
   /// A machine-readable JSON report.
@@ -60,15 +81,17 @@ abstract final class Reporter {
         'filesScanned': result.filesScanned,
         'declarationsChecked': result.declarationsChecked,
         'unusedCount': result.unused.length,
+        'docOnlyCount': result.docOnly.length,
         'elapsedMs': result.elapsed.inMilliseconds,
       },
       'unused': [for (final decl in result.unused) decl.toJson()],
+      'docOnly': [for (final decl in result.docOnly) decl.toJson()],
     });
   }
 
   /// [GitHub Actions workflow commands][] — one `::warning` annotation per
-  /// finding, so unused declarations surface inline on the PR diff and Checks
-  /// tab.
+  /// unused finding (surfacing them inline on the PR diff and Checks tab) and
+  /// one lower-severity `::notice` per doc-only finding.
   ///
   /// Annotation paths are resolved relative to the repository root. [pathPrefix]
   /// (POSIX, `/`-separated) is prepended to each finding's path so that scans of
@@ -79,22 +102,51 @@ abstract final class Reporter {
   static String github(FinderResult result, {String pathPrefix = '.'}) {
     final buffer = StringBuffer();
     for (final decl in result.unused) {
-      final file = pathPrefix == '.' || pathPrefix.isEmpty
-          ? decl.filePath
-          : p.posix.normalize('$pathPrefix/${decl.filePath}');
-      final visibility = decl.isPrivate ? 'private ' : '';
-      final message =
-          "Unused $visibility${decl.kind.label} '${decl.qualifiedName}'";
-      buffer.writeln(
-        '::warning '
-        'file=${_escapeProperty(file)},'
-        'line=${decl.line},'
-        'col=${decl.column},'
-        'title=Unused declaration'
-        '::${_escapeData(message)}',
+      _writeAnnotation(
+        buffer,
+        decl,
+        pathPrefix,
+        level: 'warning',
+        title: 'Unused declaration',
+        message:
+            "Unused ${decl.isPrivate ? 'private ' : ''}${decl.kind.label} "
+            "'${decl.qualifiedName}'",
+      );
+    }
+    for (final decl in result.docOnly) {
+      _writeAnnotation(
+        buffer,
+        decl,
+        pathPrefix,
+        level: 'notice',
+        title: 'Referenced only from a doc comment',
+        message:
+            "${decl.kind.label} '${decl.qualifiedName}' has no code "
+            'references, only a dartdoc link',
       );
     }
     return buffer.toString();
+  }
+
+  static void _writeAnnotation(
+    StringBuffer buffer,
+    UnusedDeclaration decl,
+    String pathPrefix, {
+    required String level,
+    required String title,
+    required String message,
+  }) {
+    final file = pathPrefix == '.' || pathPrefix.isEmpty
+        ? decl.filePath
+        : p.posix.normalize('$pathPrefix/${decl.filePath}');
+    buffer.writeln(
+      '::$level '
+      'file=${_escapeProperty(file)},'
+      'line=${decl.line},'
+      'col=${decl.column},'
+      'title=${_escapeProperty(title)}'
+      '::${_escapeData(message)}',
+    );
   }
 
   // Escaping per the workflow-command spec.
@@ -110,15 +162,21 @@ abstract final class Reporter {
     final count = result.unused.length;
     final fileCount = result.unused.map((d) => d.filePath).toSet().length;
     final seconds = (result.elapsed.inMilliseconds / 1000).toStringAsFixed(1);
+    final docOnlyCount = result.docOnly.length;
+    final docOnlySuffix = docOnlyCount == 0
+        ? ''
+        : ' $docOnlyCount more referenced only from doc comments.';
     if (count == 0) {
       return 'No unused declarations found '
           '(scanned ${result.filesScanned} files, '
-          '${result.declarationsChecked} declarations, ${seconds}s).';
+          '${result.declarationsChecked} declarations, ${seconds}s).'
+          '$docOnlySuffix';
     }
     return 'Found $count unused declaration${count == 1 ? '' : 's'} '
         'in $fileCount file${fileCount == 1 ? '' : 's'} '
         '(scanned ${result.filesScanned} files, '
-        '${result.declarationsChecked} declarations, ${seconds}s).';
+        '${result.declarationsChecked} declarations, ${seconds}s).'
+        '$docOnlySuffix';
   }
 
   // Minimal ANSI styling helpers.

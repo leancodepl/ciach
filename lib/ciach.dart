@@ -29,4 +29,10 @@ export 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
 export 'src/finder.dart' show Ciach;
 export 'src/models.dart'
-    show FinderOptions, FinderResult, SymbolKindLabel, UnusedDeclaration;
+    show
+        DeclarationRange,
+        FinderOptions,
+        FinderResult,
+        SymbolKindLabel,
+        UnusedDeclaration;
+export 'src/remover.dart' show removeDeclarations;
