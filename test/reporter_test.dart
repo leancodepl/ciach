@@ -8,13 +8,19 @@
  *     - mark-ai-provenance
  */
 
+import 'dart:convert';
+
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/reporter.dart';
 import 'package:test/test.dart';
 
 void main() {
-  FinderResult resultWith(List<UnusedDeclaration> unused) => .new(
+  FinderResult resultWith(
+    List<UnusedDeclaration> unused, {
+    List<UnusedDeclaration> docOnly = const [],
+  }) => .new(
     unused: unused,
+    docOnly: docOnly,
     filesScanned: 3,
     declarationsChecked: 10,
     elapsed: const .new(seconds: 1),
@@ -83,6 +89,67 @@ void main() {
 
     test('produces no output when nothing is unused', () {
       expect(Reporter.github(resultWith(const [])), isEmpty);
+    });
+
+    test('emits a lower-severity ::notice for doc-only findings', () {
+      final out = Reporter.github(
+        resultWith(const [], docOnly: [decl(name: 'docOnlyThing')]),
+      );
+      expect(out, startsWith('::notice '));
+      expect(out, contains("docOnlyThing' has no code references"));
+    });
+  });
+
+  group('Reporter.text', () {
+    test('lists doc-only findings in a separate, labeled section', () {
+      final out = Reporter.text(
+        resultWith(
+          [decl(name: 'trulyDead')],
+          docOnly: [decl(name: 'onlyLinkedFromDocs')],
+        ),
+      );
+      expect(out, contains('trulyDead'));
+      expect(out, contains('onlyLinkedFromDocs'));
+      expect(out, contains('not counted as unused, never removed'));
+      // The doc-only entry appears after the "not counted..." label, not
+      // mixed into the unused listing above it.
+      expect(
+        out.indexOf('not counted as unused'),
+        greaterThan(out.indexOf('trulyDead')),
+      );
+    });
+
+    test(
+      'omits the doc-only section entirely when there is nothing to show',
+      () {
+        final out = Reporter.text(resultWith([decl()]));
+        expect(out, isNot(contains('doc comment')));
+      },
+    );
+  });
+
+  group('Reporter.json', () {
+    test('reports unused and docOnly as separate arrays', () {
+      final json =
+          jsonDecode(
+                Reporter.json(
+                  resultWith(
+                    [decl(name: 'trulyDead')],
+                    docOnly: [decl(name: 'onlyLinkedFromDocs')],
+                  ),
+                ),
+              )
+              as Map<String, Object?>;
+      final summary = json['summary']! as Map<String, Object?>;
+      expect(summary['unusedCount'], 1);
+      expect(summary['docOnlyCount'], 1);
+      final unused = json['unused']! as List<Object?>;
+      final docOnly = json['docOnly']! as List<Object?>;
+      expect((unused.single! as Map<String, Object?>)['name'], 'trulyDead');
+      expect(
+        (docOnly.single! as Map<String, Object?>)['name'],
+        'onlyLinkedFromDocs',
+      );
     });
   });
 }

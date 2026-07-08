@@ -114,7 +114,6 @@ ciach --remove --force
 | `--[no-]generated` | off | Scan generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, …). |
 | `--[no-]overrides` | off | Report `@override` members too. Off by default — see limitations. |
 | `--[no-]operators` | off | Report operator overloads (`operator +`, `operator ==`, …) too. Off by default — see limitations. |
-| `--ignore-doc-references` | off | Don't count dartdoc `[Xxx]` comment links as a use. Off by default — see limitations. |
 | `--set-exit-if-changed` | off | Exit with status `1` when anything is found (for CI). Named after `dart format`. |
 | `--remove` | off | Remove unused declarations after reporting them. Prompts for confirmation first. |
 | `--force` | off | Skip the confirmation prompt for `--remove`. Requires `--remove`. |
@@ -129,6 +128,32 @@ ciach --remove --force
 
 Exit codes: `0` success, `1` unused found with `--set-exit-if-changed`, `2`
 usage or analysis error.
+
+### Doc-only findings
+
+A dartdoc `[Xxx]` comment link resolves to a real declaration, so the
+analysis server counts it as a reference — but "someone linked to this in a
+comment" isn't the same confidence level as "something actually calls this".
+Declarations with no *code* references, only a comment link, are reported
+separately as **doc-only**, in every format:
+
+```
+$ ciach
+lib/greeting.dart
+  15:6  function  danglingFunction  (public)
+
+Referenced only from doc comments — not counted as unused, never removed:
+lib/greeting.dart
+  40:6  function  docOnlyMentioned  (public)
+
+Found 1 unused declaration in 1 file (scanned 6 files, 44 declarations, 0.5s). 1 more referenced only from doc comments.
+```
+
+Doc-only findings are informational: they never count toward
+`--set-exit-if-changed`, are never touched by `--remove`, and get a `::notice`
+(not `::warning`) in `-f github` output. If one really is dead code, remove
+its doc comment link (or the comment itself) and re-run to have it reported
+as properly unused.
 
 ### GitHub Actions
 
@@ -174,9 +199,10 @@ expect the odd extra blank line.
 Because removal acts on whatever the finder reports, it inherits the same
 false-positive risk as the report itself (see [What it skips by
 default](#what-it-skips-by-default) and [Limitations](#limitations) below) —
-enabling `--overrides` or `--operators` widens that risk considerably. Review
-the diff (or your test suite) after removing, the same as you would after any
-automated refactor.
+enabling `--overrides` or `--operators` widens that risk considerably.
+[Doc-only findings](#doc-only-findings) are never included, regardless of
+those flags. Review the diff (or your test suite) after removing, the same as
+you would after any automated refactor.
 
 ## What it skips by default
 
@@ -200,14 +226,12 @@ back in, at the cost of reintroducing that risk:
   `GENERATED CODE - DO NOT MODIFY BY HAND` banner. Use `--generated` to include.
 - **`type parameters`** and non-declaration symbols.
 
-By contrast, **dartdoc `[Xxx]` reference links count as a use** — this
-errs the other way, toward under-reporting: a link resolves to a real
-declaration, so the analysis server treats it as a reference even if nothing
-actually calls the declaration. This can hide genuinely dead code (e.g. `///
-See [Dog.sound]` keeps `Dog.sound` looking used). Pass
-`--ignore-doc-references` to disregard those comment-only references and
-surface declarations like that as unused — at the cost of flagging things
-that are legitimately referenced only from documentation.
+**dartdoc `[Xxx]` reference links** are a related wrinkle, handled a bit
+differently: a link resolves to a real declaration, so the analysis server
+counts it as a reference, which would otherwise hide genuinely dead code
+(e.g. `/// See [Dog.sound]` would keep `Dog.sound` looking used). Rather than
+a flag, these get their own always-on category — see [Doc-only
+findings](#doc-only-findings).
 
 ## Limitations
 

@@ -34,7 +34,8 @@ int staleCounter = 0;
 /// ever gets.
 void _referencesOnlyInDocs() {}
 
-/// Never called from real code, only named by the link above -> that link
-/// counts as a reference, so this looks USED by default even though nothing
-/// calls it. Pass --ignore-doc-references to have it reported as UNUSED too.
+/// Never called from real code, only named by the link above -> DOC-ONLY,
+/// not UNUSED: the link counts as a reference, so a plain reference search
+/// can't tell this apart from something genuinely called. Reported
+/// separately, and never touched by --remove.
 void _docOnlyMentioned() {}

@@ -27,6 +27,18 @@ typedef _Candidate = ({
   bool isEnumValue,
 });
 
+/// How a candidate's references classify it.
+enum _RefStatus {
+  /// At least one real (non-doc-comment) reference.
+  used,
+
+  /// No real references, but at least one dartdoc `[Xxx]` comment link.
+  docOnly,
+
+  /// No references of any kind.
+  unused,
+}
+
 /// Finds declarations that are never referenced by driving the Dart analysis
 /// server over LSP.
 ///
@@ -111,6 +123,7 @@ class Ciach {
     if (files.isEmpty) {
       return .new(
         unused: const [],
+        docOnly: const [],
         filesScanned: 0,
         declarationsChecked: 0,
         elapsed: stopwatch.elapsed,
@@ -123,6 +136,7 @@ class Ciach {
     );
 
     final unused = <UnusedDeclaration>[];
+    final docOnly = <UnusedDeclaration>[];
     var declarationsChecked = 0;
 
     try {
@@ -160,7 +174,7 @@ class Ciach {
       final totalFiles = files.length;
       var filesDone = totalFiles - remainingPerFile.length;
 
-      final isUnused = await _mapPooled<_Candidate, bool>(
+      final statuses = await _mapPooled<_Candidate, _RefStatus>(
         candidates,
         options.concurrency,
         (candidate) async {
@@ -177,16 +191,22 @@ class Ciach {
               '${p.relative(candidate.path, from: rootPath)}',
             );
           }
-          final realRefs = options.ignoreDocReferences
-              ? refs.where((loc) => !_isDocReference(loc))
-              : refs;
-          return realRefs.isEmpty;
+          if (refs.isEmpty) {
+            return _RefStatus.unused;
+          }
+          final hasRealRef = refs.any((loc) => !_isDocReference(loc));
+          return hasRealRef ? _RefStatus.used : _RefStatus.docOnly;
         },
       );
 
       for (var i = 0; i < candidates.length; i++) {
-        if (isUnused[i]) {
-          unused.add(_toUnused(candidates[i], rootPath));
+        switch (statuses[i]) {
+          case _RefStatus.unused:
+            unused.add(_toUnused(candidates[i], rootPath));
+          case _RefStatus.docOnly:
+            docOnly.add(_toUnused(candidates[i], rootPath));
+          case _RefStatus.used:
+            break;
         }
       }
     } finally {
@@ -194,9 +214,11 @@ class Ciach {
     }
 
     unused.sort(_byLocation);
+    docOnly.sort(_byLocation);
     stopwatch.stop();
     return .new(
       unused: unused,
+      docOnly: docOnly,
       filesScanned: files.length,
       declarationsChecked: declarationsChecked,
       elapsed: stopwatch.elapsed,

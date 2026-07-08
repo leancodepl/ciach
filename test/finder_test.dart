@@ -43,7 +43,6 @@ void main() {
     bool includePublic = true,
     bool skipOverrides = true,
     bool skipOperators = true,
-    bool ignoreDocReferences = false,
     Set<SymbolKind>? kinds,
     List<String> exclude = const [],
     List<String> include = const [],
@@ -53,7 +52,6 @@ void main() {
       includePublic: includePublic,
       skipOverrides: skipOverrides,
       skipOperators: skipOperators,
-      ignoreDocReferences: ignoreDocReferences,
       kinds: kinds ?? FinderOptions.defaultKinds,
       excludeGlobs: exclude,
       includeGlobs: include,
@@ -64,7 +62,6 @@ void main() {
     bool includePublic = true,
     bool skipOverrides = true,
     bool skipOperators = true,
-    bool ignoreDocReferences = false,
     Set<SymbolKind>? kinds,
     List<String> exclude = const [],
     List<String> include = const [],
@@ -73,12 +70,16 @@ void main() {
       includePublic: includePublic,
       skipOverrides: skipOverrides,
       skipOperators: skipOperators,
-      ignoreDocReferences: ignoreDocReferences,
       kinds: kinds,
       exclude: exclude,
       include: include,
     );
     return result.unused.map((d) => d.qualifiedName).toSet();
+  }
+
+  Future<Set<String>> findDocOnly({bool includePublic = true}) async {
+    final result = await runFinder(includePublic: includePublic);
+    return result.docOnly.map((d) => d.qualifiedName).toSet();
   }
 
   test('reports exactly the expected unused declarations by default', () async {
@@ -108,19 +109,13 @@ void main() {
     expect(unused, containsAll(['Vector2.+', 'Vector2.-']));
   });
 
-  test('ignoring doc references also reports declarations only mentioned in '
-      'a doc comment link', () async {
-    final unused = await findUnused(ignoreDocReferences: true);
-    expect(unused, contains('_docOnlyMentioned'));
+  test('reports a declaration only mentioned in a doc comment link as '
+      'doc-only, not unused', () async {
+    final docOnly = await findDocOnly();
+    expect(docOnly, contains('_docOnlyMentioned'));
+    final unused = await findUnused();
+    expect(unused, isNot(contains('_docOnlyMentioned')));
   });
-
-  test(
-    'by default, a doc comment link keeps a declaration looking used',
-    () async {
-      final unused = await findUnused();
-      expect(unused, isNot(contains('_docOnlyMentioned')));
-    },
-  );
 
   test('spans multiple files, one group per file in the report', () async {
     final result = await runFinder();

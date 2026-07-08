@@ -34,7 +34,6 @@ class FinderOptions {
     this.includeGenerated = false,
     this.skipOverrides = true,
     this.skipOperators = true,
-    this.ignoreDocReferences = false,
     this.concurrency = 16,
     this.dartExecutable,
     this.onProgress,
@@ -70,15 +69,6 @@ class FinderOptions {
   /// overload is reported as unused every time — on by default to avoid that
   /// false positive.
   final bool skipOperators;
-
-  /// Whether to disregard dartdoc `[Xxx]`-style comment links when deciding
-  /// if a declaration is unused. Off by default: such a link resolves to a
-  /// real declaration, so the analysis server counts it as a reference,
-  /// which can hide dead code (a method only ever mentioned in a `/// See
-  /// Foo.bar` doc comment is not flagged). Enabling this ignores those
-  /// comment-only references — findings are more complete, at the cost of
-  /// flagging declarations that are intentionally documented-but-unused.
-  final bool ignoreDocReferences;
 
   /// How many `textDocument/references` requests to keep in flight at once.
   /// Higher values keep the analysis server busier; there are diminishing
@@ -197,13 +187,24 @@ class FinderResult {
   /// Creates a result describing a completed finder run.
   const FinderResult({
     required this.unused,
+    required this.docOnly,
     required this.filesScanned,
     required this.declarationsChecked,
     required this.elapsed,
   });
 
-  /// Unused declarations, sorted by file then position.
+  /// Declarations with zero references of any kind — the tool's actual
+  /// "unused" verdict. Sorted by file then position. These, and only these,
+  /// are eligible for `--remove`.
   final List<UnusedDeclaration> unused;
+
+  /// Declarations with no *code* references, but at least one dartdoc
+  /// `[Xxx]`-style comment link — informational, not a removal candidate.
+  /// A link resolves to a real declaration, so the analysis server counts it
+  /// as a reference; reporting these separately surfaces likely-dead code
+  /// without risking deletion of something that really is pointed to, just
+  /// only from documentation. Sorted by file then position.
+  final List<UnusedDeclaration> docOnly;
 
   /// Number of files scanned for declarations.
   final int filesScanned;

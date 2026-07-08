@@ -117,7 +117,6 @@ Future<int> _run(List<String> arguments) async {
     includeGenerated: args.flag('generated'),
     skipOverrides: !args.flag('overrides'),
     skipOperators: !args.flag('operators'),
-    ignoreDocReferences: args.flag('ignore-doc-references'),
     concurrency: concurrency,
     dartExecutable: args.option('dart'),
     onProgress: showProgress ? _ProgressPrinter().update : null,
@@ -269,14 +268,6 @@ ArgParser _buildParser() {
           'by default: the analysis server never resolves infix operator\n'
           "syntax (a + b) back to the operator's declaration, so a used\n"
           'operator is reported as unused every time.',
-    )
-    ..addFlag(
-      'ignore-doc-references',
-      help:
-          "Don't count dartdoc [Xxx] comment links as a use. Off by\n"
-          'default: such a link resolves to a real declaration, so\n'
-          'treating it as unused risks flagging something that really is\n'
-          'referenced, just only from documentation.',
     )
     ..addFlag(
       'set-exit-if-changed',
