@@ -1,0 +1,30 @@
+name: publish
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  publish:
+    name: Publish to pub.dev
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
+        with:
+          sdk: '3.12'
+
+      - name: Download pub dependencies
+        run: dart pub get
+
+      - name: Publish and release
+        uses: leancodepl/mobile-tools/.github/actions/pub-release@0bfd6b4b187d1b99fb2cd5e0e6ea4d626837005f # pub-release-v1
