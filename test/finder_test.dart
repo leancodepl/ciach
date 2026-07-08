@@ -42,6 +42,8 @@ void main() {
   Future<FinderResult> runFinder({
     bool includePublic = true,
     bool skipOverrides = true,
+    bool skipOperators = true,
+    bool ignoreDocReferences = false,
     Set<SymbolKind>? kinds,
     List<String> exclude = const [],
     List<String> include = const [],
@@ -50,6 +52,8 @@ void main() {
       rootPath: fixturePath,
       includePublic: includePublic,
       skipOverrides: skipOverrides,
+      skipOperators: skipOperators,
+      ignoreDocReferences: ignoreDocReferences,
       kinds: kinds ?? FinderOptions.defaultKinds,
       excludeGlobs: exclude,
       includeGlobs: include,
@@ -59,6 +63,8 @@ void main() {
   Future<Set<String>> findUnused({
     bool includePublic = true,
     bool skipOverrides = true,
+    bool skipOperators = true,
+    bool ignoreDocReferences = false,
     Set<SymbolKind>? kinds,
     List<String> exclude = const [],
     List<String> include = const [],
@@ -66,6 +72,8 @@ void main() {
     final result = await runFinder(
       includePublic: includePublic,
       skipOverrides: skipOverrides,
+      skipOperators: skipOperators,
+      ignoreDocReferences: ignoreDocReferences,
       kinds: kinds,
       exclude: exclude,
       include: include,
@@ -79,6 +87,7 @@ void main() {
       '_danglingPrivate',
       'unusedConstant',
       'staleCounter',
+      '_referencesOnlyInDocs',
       'UsedClass.named',
       'UsedClass.shout',
       'UsedClass.unusedMethod',
@@ -91,10 +100,27 @@ void main() {
       'Direction.west',
       'Loud.whisper',
       'tripled',
-      'Vector2.+',
-      'Vector2.-',
     });
   });
+
+  test('including operators also reports operator overloads', () async {
+    final unused = await findUnused(skipOperators: false);
+    expect(unused, containsAll(['Vector2.+', 'Vector2.-']));
+  });
+
+  test('ignoring doc references also reports declarations only mentioned in '
+      'a doc comment link', () async {
+    final unused = await findUnused(ignoreDocReferences: true);
+    expect(unused, contains('_docOnlyMentioned'));
+  });
+
+  test(
+    'by default, a doc comment link keeps a declaration looking used',
+    () async {
+      final unused = await findUnused();
+      expect(unused, isNot(contains('_docOnlyMentioned')));
+    },
+  );
 
   test('spans multiple files, one group per file in the report', () async {
     final result = await runFinder();
@@ -148,6 +174,7 @@ void main() {
   test('--no-public reports only private declarations', () async {
     expect(await findUnused(includePublic: false), {
       '_danglingPrivate',
+      '_referencesOnlyInDocs',
       'UsedClass._unusedField',
     });
   });

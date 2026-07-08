@@ -33,6 +33,8 @@ class FinderOptions {
     this.includePublic = true,
     this.includeGenerated = false,
     this.skipOverrides = true,
+    this.skipOperators = true,
+    this.ignoreDocReferences = false,
     this.concurrency = 16,
     this.dartExecutable,
     this.onProgress,
@@ -62,6 +64,22 @@ class FinderOptions {
   /// reached polymorphically, which a plain reference search can miss).
   final bool skipOverrides;
 
+  /// Whether to skip operator overloads (`operator +`, `operator ==`, …).
+  /// The analysis server's reference search does not resolve infix operator
+  /// syntax (`a + b`) back to the operator's declaration, so a used operator
+  /// overload is reported as unused every time — on by default to avoid that
+  /// false positive.
+  final bool skipOperators;
+
+  /// Whether to disregard dartdoc `[Xxx]`-style comment links when deciding
+  /// if a declaration is unused. Off by default: such a link resolves to a
+  /// real declaration, so the analysis server counts it as a reference,
+  /// which can hide dead code (a method only ever mentioned in a `/// See
+  /// Foo.bar` doc comment is not flagged). Enabling this ignores those
+  /// comment-only references — findings are more complete, at the cost of
+  /// flagging declarations that are intentionally documented-but-unused.
+  final bool ignoreDocReferences;
+
   /// How many `textDocument/references` requests to keep in flight at once.
   /// Higher values keep the analysis server busier; there are diminishing
   /// returns past its internal parallelism.
@@ -77,6 +95,10 @@ class FinderOptions {
   /// The declaration kinds reported by default. Deliberately excludes
   /// [SymbolKind.typeParameter] (always "used" within its scope) and the
   /// primitive value kinds the server never emits for Dart declarations.
+  ///
+  /// Operator overloads are *not* a separate kind here: the analysis server
+  /// reports them as plain [SymbolKind.method] declarations named `+`, `==`,
+  /// etc. — see [skipOperators] for how they're excluded by default instead.
   static const defaultKinds = <SymbolKind>{
     .class$,
     .interface$,
@@ -90,7 +112,6 @@ class FinderOptions {
     .variable,
     .constant,
     .enumMember,
-    .operator$,
   };
 }
 

@@ -28,3 +28,13 @@ int visitCount = 0;
 
 /// Never referenced anywhere -> UNUSED (mutable top-level variable).
 int staleCounter = 0;
+
+/// Never called from real code -> UNUSED (private function). Its own doc
+/// comment link to [_docOnlyMentioned] is the only "reference" that function
+/// ever gets.
+void _referencesOnlyInDocs() {}
+
+/// Never called from real code, only named by the link above -> that link
+/// counts as a reference, so this looks USED by default even though nothing
+/// calls it. Pass --ignore-doc-references to have it reported as UNUSED too.
+void _docOnlyMentioned() {}

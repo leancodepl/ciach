@@ -32,7 +32,6 @@ const _kindAliases = <String, SymbolKind>{
   'variable': .variable,
   'constant': .constant,
   'enum-value': .enumMember,
-  'operator': .operator$,
 };
 
 Future<void> main(List<String> arguments) async {
@@ -117,6 +116,8 @@ Future<int> _run(List<String> arguments) async {
     includePublic: args.flag('public'),
     includeGenerated: args.flag('generated'),
     skipOverrides: !args.flag('overrides'),
+    skipOperators: !args.flag('operators'),
+    ignoreDocReferences: args.flag('ignore-doc-references'),
     concurrency: concurrency,
     dartExecutable: args.option('dart'),
     onProgress: showProgress ? _ProgressPrinter().update : null,
@@ -260,6 +261,22 @@ ArgParser _buildParser() {
           'Report members annotated with @override too. Off by default,\n'
           'since overrides are often reached polymorphically and a plain\n'
           'reference search can miss those uses.',
+    )
+    ..addFlag(
+      'operators',
+      help:
+          'Report operator overloads (operator +, operator ==, …) too. Off\n'
+          'by default: the analysis server never resolves infix operator\n'
+          "syntax (a + b) back to the operator's declaration, so a used\n"
+          'operator is reported as unused every time.',
+    )
+    ..addFlag(
+      'ignore-doc-references',
+      help:
+          "Don't count dartdoc [Xxx] comment links as a use. Off by\n"
+          'default: such a link resolves to a real declaration, so\n'
+          'treating it as unused risks flagging something that really is\n'
+          'referenced, just only from documentation.',
     )
     ..addFlag(
       'set-exit-if-changed',

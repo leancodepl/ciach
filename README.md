@@ -89,12 +89,14 @@ Install it globally with `dart pub global activate --source path .` and then run
 | `--[no-]public` | on | Report unused public declarations too. Disable to report only private (`_`-prefixed) ones. |
 | `--[no-]generated` | off | Scan generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, …). |
 | `--[no-]overrides` | off | Report `@override` members too. Off by default — see limitations. |
+| `--[no-]operators` | off | Report operator overloads (`operator +`, `operator ==`, …) too. Off by default — see limitations. |
+| `--ignore-doc-references` | off | Don't count dartdoc `[Xxx]` comment links as a use. Off by default — see limitations. |
 | `--set-exit-if-changed` | off | Exit with status `1` when anything is found (for CI). Named after `dart format`. |
 | `--remove` | off | Remove unused declarations after reporting them. Prompts for confirmation first. |
 | `--force` | off | Skip the confirmation prompt for `--remove`. Requires `--remove`. |
 | `-e, --exclude <glob>` | — | Skip files matching the glob (repeatable). |
 | `-i, --include <glob>` | — | Only scan files matching the glob (repeatable). |
-| `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, function, method, constructor, field, property, getter, setter, variable, constant, enum-value, operator`. |
+| `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
 | `-f, --format <fmt>` | `text` | `text`, `json`, or `github` (GitHub Actions `::warning` annotations). |
 | `-j, --concurrency <n>` | `16` | Reference queries kept in flight against the analysis server. |
 | `--[no-]color` | auto | Colorize text output. |
@@ -142,22 +144,42 @@ alone unless every declarator in them is unused) but not about spacing, so
 expect the odd extra blank line.
 
 Because removal acts on whatever the finder reports, it inherits the same
-false positives described in [Limitations](#limitations) below — most
-notably operator overloads and `@override` targets — so review the diff (or
-your test suite) after removing, the same as you would after any automated
-refactor.
+false-positive risk as the report itself (see [What it skips by
+default](#what-it-skips-by-default) and [Limitations](#limitations) below) —
+enabling `--overrides` or `--operators` widens that risk considerably. Review
+the diff (or your test suite) after removing, the same as you would after any
+automated refactor.
 
 ## What it skips by default
 
-- **`main`** — the program entry point.
+These are all off by default because they're known sources of false
+positives — a used declaration reported as unused. Each has a flag to opt
+back in, at the cost of reintroducing that risk:
+
+- **`main`** — the program entry point. Always skipped; there's no flag for
+  this one.
 - **`@override` members** — they are frequently reached polymorphically or by a
   framework (Flutter's `build`, `initState`, `dispose`, `toString`, `==`, …),
   which a name-based reference search can miss. Use `--overrides` to include
   them.
+- **Operator overloads** (`operator +`, `operator ==`, …) — the analysis
+  server's reference search does not resolve infix operator syntax (`a + b`)
+  back to the operator's declaration, so a used operator is reported as
+  unused every time. See `example/lib/extensions.dart`. Use `--operators` to
+  include them.
 - **`@pragma('vm:entry-point')`** — reachable from native code / reflection.
 - **Generated files** — by filename convention and the
   `GENERATED CODE - DO NOT MODIFY BY HAND` banner. Use `--generated` to include.
 - **`type parameters`** and non-declaration symbols.
+
+By contrast, **dartdoc `[Xxx]` reference links count as a use** — this
+errs the other way, toward under-reporting: a link resolves to a real
+declaration, so the analysis server treats it as a reference even if nothing
+actually calls the declaration. This can hide genuinely dead code (e.g. `///
+See [Dog.sound]` keeps `Dog.sound` looking used). Pass
+`--ignore-doc-references` to disregard those comment-only references and
+surface declarations like that as unused — at the cost of flagging things
+that are legitimately referenced only from documentation.
 
 ## Limitations
 
@@ -172,14 +194,6 @@ than delete blindly:
   visible to a reference search.
 - **Entry points beyond `main`** (isolate entry points, plugin registrants) may
   need excluding or annotating with `@pragma('vm:entry-point')`.
-- **Operator overloads** (`operator +`, `operator ==`, …) are effectively always
-  reported: the analysis server's reference search does not resolve infix
-  operator syntax (`a + b`) back to the operator's declaration, even though the
-  call is perfectly real. See `example/lib/extensions.dart`.
-- **Dartdoc `[Xxx]` reference links** count as references too, which can hide
-  real dead code: linking to a method that overrides or implements another
-  (e.g. `/// See [Dog.sound]`) can mark the interface member it overrides as
-  "used" as a side effect.
 - Results are only as good as the analysis: a package that does not analyze
   cleanly (missing `pub get`, errors) may yield incomplete references.
 

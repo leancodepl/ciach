@@ -15,7 +15,7 @@ import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/models.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, SymbolKind;
+import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location, SymbolKind;
 
 /// A declaration to check: the symbol plus enough context to query references
 /// for it and to report it later.
@@ -48,6 +48,55 @@ class Ciach {
     .enum$,
     .struct,
   };
+
+  /// Names of Dart's overloadable operators. The analysis server reports an
+  /// `operator +`/`operator ==`/… declaration as a plain [SymbolKind.method]
+  /// named exactly one of these — there is no distinct operator symbol kind —
+  /// so this is the only reliable way to recognize one.
+  static const _operatorNames = <String>{
+    '+',
+    '-',
+    '*',
+    '/',
+    '%',
+    '~/',
+    '&',
+    '|',
+    '^',
+    '~',
+    '<<',
+    '>>',
+    '>>>',
+    '<',
+    '<=',
+    '>',
+    '>=',
+    '==',
+    '[]',
+    '[]=',
+  };
+
+  bool _isOperator(DocumentSymbol symbol) =>
+      symbol.kind == .method && _operatorNames.contains(symbol.name);
+
+  /// Lines of every scanned file, keyed by absolute path, populated as each
+  /// file is opened in [_collectCandidatesFor]. Reused to classify reference
+  /// locations as doc comments without re-reading files from disk.
+  final _fileLines = <String, List<String>>{};
+
+  /// Whether [location] points at a dartdoc `[Xxx]`-style reference rather
+  /// than real code — i.e. its line, in the file it points into, starts with
+  /// `///`. Block (`/** */`) doc comments aren't recognized; `///` is the
+  /// standard and lint-enforced style.
+  bool _isDocReference(Location location) {
+    final path = Uri.parse(location.uri).toFilePath();
+    final lines = _fileLines[path] ??= _readFile(path)?.split('\n') ?? const [];
+    final line = location.range.start.line;
+    if (line < 0 || line >= lines.length) {
+      return false;
+    }
+    return lines[line].trim().startsWith('///');
+  }
 
   void _report(String message) => options.onProgress?.call(message);
 
@@ -128,7 +177,10 @@ class Ciach {
               '${p.relative(candidate.path, from: rootPath)}',
             );
           }
-          return refs.isEmpty;
+          final realRefs = options.ignoreDocReferences
+              ? refs.where((loc) => !_isDocReference(loc))
+              : refs;
+          return realRefs.isEmpty;
         },
       );
 
@@ -164,6 +216,7 @@ class Ciach {
     client.didOpen(uri, content);
     final symbols = await client.documentSymbol(uri);
     final lines = content.split('\n');
+    _fileLines[path] = lines;
     final out = <_Candidate>[];
     _collectCandidates(uri, path, symbols, null, false, lines, out);
     return out;
@@ -219,6 +272,9 @@ class Ciach {
     }
     final private = _isPrivateName(symbol.name);
     if (!private && !options.includePublic) {
+      return false;
+    }
+    if (options.skipOperators && _isOperator(symbol)) {
       return false;
     }
 
