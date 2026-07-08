@@ -56,30 +56,54 @@ Because the whole package is analyzed, references from anywhere — including te
 files — count as usage, so the tool won't flag production code that is only used
 by tests.
 
+## Installation
+
+There are two ways to get the `ciach` command, depending on how you want to
+run it:
+
+- **Global activation** — a single `ciach` command available everywhere,
+  independent of any particular project:
+
+  ```bash
+  dart pub global activate ciach
+  ciach
+  ```
+
+  This puts `ciach` in `~/.pub-cache/bin`; add that to your `PATH` if
+  `dart pub global activate` warns that it isn't there already.
+
+- **As a dev dependency** — pinned per-project, so everyone on the team (and
+  CI) uses the same version:
+
+  ```bash
+  dart pub add --dev ciach
+  dart run ciach
+  ```
+
+The rest of this README shows bare `ciach …` commands; prefix them with
+`dart run` if you installed it as a dev dependency instead of globally.
+
 ## Usage
 
 ```bash
 # Scan the current package
-dart run ciach
+ciach
 
 # Scan a specific package
-dart run ciach path/to/package
+ciach path/to/package
 
 # Only the highest-confidence dead code (private, never-referenced), as JSON
-dart run ciach --no-public -f json
+ciach --no-public -f json
 
 # GitHub Actions annotations; fail the job if anything is found
-dart run ciach -f github --set-exit-if-changed
+ciach -f github --set-exit-if-changed
 
 # Remove what's found, after confirming
-dart run ciach --remove
+ciach --remove
 
 # Remove without asking (e.g. from a script)
-dart run ciach --remove --force
+ciach --remove --force
 ```
-
-Install it globally with `dart pub global activate --source path .` and then run
-`ciach` directly.
 
 ### Options
 
@@ -108,7 +132,11 @@ usage or analysis error.
 
 ### GitHub Actions
 
+Add `ciach` as a dev dependency (see [Installation](#installation)) so the
+version is pinned and `dart pub get` is all the setup CI needs:
+
 ```yaml
+- run: dart pub get
 - run: dart run ciach -f github --set-exit-if-changed
 ```
 
@@ -124,7 +152,7 @@ and annotations included — after showing what it's about to remove and asking
 for confirmation:
 
 ```
-$ dart run ciach --remove
+$ ciach --remove
 lib/greeting.dart
   15:6  function  danglingFunction  (public)
 ...
@@ -221,8 +249,8 @@ The biggest lever is **how much you ask**:
   diminishing returns for the analysis server's internal parallelism.
 
 For repeated runs, compile once to skip the JIT warmup:
-`dart compile exe bin/ciach.dart -o ciach` (or
-`dart pub global activate --source path .`).
+`dart compile exe bin/ciach.dart -o ciach` — `dart pub global activate` already
+does this for you.
 
 ## Library usage
 
