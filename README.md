@@ -10,9 +10,13 @@ AI-Provenance:
 
 # ciach 🔪
 
-*"Ciach!"* is Polish for the sound of a clean chop — the noise a knife makes
-right before something falls off. Fitting, since that's exactly what this tool
-finds for you: dead code, waiting to be cut.
+[![ciach pub.dev badge][pub-badge]][pub-badge-link]
+[![Test status][test-badge]][test-badge-link]
+[![License: Apache 2.0][license-badge]][license-badge-link]
+
+*"Ciach!"* — pronounced **/t͡ɕax/** — is Polish for the sound of a clean chop,
+the noise a knife makes right before something falls off. Fitting, since
+that's exactly what this tool finds for you: dead code, waiting to be cut.
 
 Finds **unused (never-referenced) declarations** — classes, functions, methods,
 fields, constants, enum values, and so on — in a Dart or Flutter package.
@@ -189,3 +193,44 @@ The implementation lives under `lib/src/`; the CLI entry point is `bin/`. See
 ## License
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE).
+
+---
+
+## 🛠️ Maintained by LeanCode
+
+<div align="center">
+
+  [<img src="https://leancodepublic.blob.core.windows.net/public/wide.png" alt="LeanCode Logo" height="100" />][leancode-landing]
+
+</div>
+
+This package is built with 💙 by **[LeanCode][leancode-landing]**.
+We are **top-tier experts** focused on Flutter Enterprise solutions.
+
+### Why LeanCode?
+
+- **Creators of [Patrol][patrol-landing]** – the next-gen testing framework for Flutter.
+- **Battle-Tested** – we run `ciach` across our own Flutter and Dart codebases to keep them free of dead code.
+- **Full-Cycle Product Development** – we take your product from scratch to long-term maintenance.
+
+<div align="center">
+  <br />
+
+  **Need help with your Flutter project?**
+
+  [**👉 Hire our team**][leancode-estimate]
+  &nbsp;&nbsp;•&nbsp;&nbsp;
+  [Check our other packages][leancode-packages]
+
+</div>
+
+[pub-badge]: https://img.shields.io/pub/v/ciach
+[pub-badge-link]: https://pub.dev/packages/ciach
+[test-badge]: https://github.com/leancodepl/ciach/actions/workflows/test.yml/badge.svg
+[test-badge-link]: https://github.com/leancodepl/ciach/actions/workflows/test.yml
+[license-badge]: https://img.shields.io/github/license/leancodepl/ciach
+[license-badge-link]: https://github.com/leancodepl/ciach/blob/main/LICENSE
+[leancode-landing]: https://leancode.co/?utm_source=github.com&utm_medium=referral&utm_campaign=ciach
+[leancode-estimate]: https://leancode.co/get-estimate?utm_source=github.com&utm_medium=referral&utm_campaign=ciach
+[leancode-packages]: https://pub.dev/packages?q=publisher%3Aleancode.co&sort=downloads
+[patrol-landing]: https://patrol.leancode.co/?utm_source=github.com&utm_medium=referral&utm_campaign=ciach
