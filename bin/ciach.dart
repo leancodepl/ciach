@@ -150,10 +150,58 @@ Future<int> _run(List<String> arguments) async {
       stdout.writeln(Reporter.text(result, useColor: useColor));
   }
 
+  if (result.unused.isNotEmpty && (args.flag('remove') || args.flag('force'))) {
+    await _removeUnused(result, rootDir.absolute.path, args, format, useColor);
+  }
+
   if (result.unused.isNotEmpty && args.flag('set-exit-if-changed')) {
     return 1;
   }
   return 0;
+}
+
+/// Reports what would be removed, confirms unless [ArgResults.flag]
+/// `'force'` is set, and deletes the unused declarations from disk.
+Future<void> _removeUnused(
+  FinderResult result,
+  String rootPath,
+  ArgResults args,
+  String format,
+  bool useColor,
+) async {
+  final count = result.unused.length;
+  final plural = count == 1 ? '' : 's';
+
+  var proceed = args.flag('force');
+  if (!proceed) {
+    // The chosen --format may not be human-readable; show the findings
+    // again so the confirmation prompt is never a shot in the dark.
+    if (format != 'text') {
+      stderr.writeln(Reporter.text(result, useColor: useColor));
+    }
+    if (!stdin.hasTerminal) {
+      stdout.writeln(
+        'Refusing to remove declarations without a terminal to confirm on; '
+        'pass --force to remove without asking.',
+      );
+      return;
+    }
+    stdout.write('Remove $count unused declaration$plural? [y/N] ');
+    final answer = stdin.readLineSync()?.trim().toLowerCase();
+    proceed = answer == 'y' || answer == 'yes';
+  }
+
+  if (!proceed) {
+    stdout.writeln('Skipped removal.');
+    return;
+  }
+
+  final filesChanged = removeDeclarations(result.unused, rootPath);
+  stdout.writeln(
+    'Removed $count unused declaration$plural from $filesChanged '
+    'file${filesChanged == 1 ? '' : 's'}. '
+    "Run 'dart format' to tidy up spacing.",
+  );
 }
 
 Set<SymbolKind> _parseKinds(List<String> raw) {
@@ -213,6 +261,18 @@ ArgParser _buildParser() {
       help:
           'Exit with a non-zero status when any unused declaration is found\n'
           '(useful in CI).',
+    )
+    ..addFlag(
+      'remove',
+      help:
+          'Remove unused declarations from source after reporting them.\n'
+          'Prompts for confirmation first, unless --force is also given.',
+    )
+    ..addFlag(
+      'force',
+      help:
+          'Remove unused declarations without asking for confirmation.\n'
+          'Implies --remove.',
     )
     ..addMultiOption(
       'exclude',
@@ -291,7 +351,13 @@ Examples:
   ciach --no-public -e 'test/**' -f json lib/
 
   # GitHub Actions annotations, fail the job if anything is found
-  ciach -f github --set-exit-if-changed''';
+  ciach -f github --set-exit-if-changed
+
+  # Remove what's found, after confirming
+  ciach --remove
+
+  # Remove without asking (e.g. in a script)
+  ciach --force''';
 
 /// Prints single-line, overwriting progress to stderr.
 class _ProgressPrinter {

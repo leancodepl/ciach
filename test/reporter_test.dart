@@ -36,6 +36,12 @@ void main() {
     column: column,
     isPrivate: isPrivate,
     container: container,
+    range: (
+      startLine: line - 1,
+      startColumn: column - 1,
+      endLine: line - 1,
+      endColumn: column - 1 + name.length,
+    ),
   );
 
   group('Reporter.github', () {

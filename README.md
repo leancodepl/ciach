@@ -70,6 +70,12 @@ dart run ciach --no-public -f json
 
 # GitHub Actions annotations; fail the job if anything is found
 dart run ciach -f github --set-exit-if-changed
+
+# Remove what's found, after confirming
+dart run ciach --remove
+
+# Remove without asking (e.g. from a script)
+dart run ciach --force
 ```
 
 Install it globally with `dart pub global activate --source path .` and then run
@@ -84,6 +90,8 @@ Install it globally with `dart pub global activate --source path .` and then run
 | `--[no-]generated` | off | Scan generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, …). |
 | `--[no-]overrides` | off | Report `@override` members too. Off by default — see limitations. |
 | `--set-exit-if-changed` | off | Exit with status `1` when anything is found (for CI). Named after `dart format`. |
+| `--remove` | off | Remove unused declarations after reporting them. Prompts for confirmation first. |
+| `--force` | off | Remove without asking. Implies `--remove`. |
 | `-e, --exclude <glob>` | — | Skip files matching the glob (repeatable). |
 | `-i, --include <glob>` | — | Only scan files matching the glob (repeatable). |
 | `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, function, method, constructor, field, property, getter, setter, variable, constant, enum-value, operator`. |
@@ -106,6 +114,37 @@ Each finding becomes a `::warning` annotation shown inline on the PR diff. Run
 it from the repository root so annotation paths resolve; when scanning a
 sub-package (e.g. `ciach -f github app`), the scan path is
 prepended automatically so annotations still point at the right files.
+
+### Removing declarations
+
+`--remove` deletes every reported declaration from source — its doc comment
+and annotations included — after showing what it's about to remove and asking
+for confirmation:
+
+```
+$ dart run ciach --remove
+lib/greeting.dart
+  15:6  function  danglingFunction  (public)
+...
+Found 4 unused declarations in 2 files (scanned 6 files, 44 declarations, 0.5s).
+Remove 4 unused declarations? [y/N] y
+Removed 4 unused declarations from 2 files.
+```
+
+`--force` skips the prompt (implies `--remove`); use it in a script once
+you're confident in the results. Without a terminal to confirm on (e.g. piped
+into another program) and without `--force`, nothing is removed.
+
+Run `dart format` afterward — removal is conservative about *what* to delete
+(it leaves ambiguous multi-variable statements like `int a = 1, b = 2;`
+alone unless every declarator in them is unused) but not about spacing, so
+expect the odd extra blank line.
+
+Because removal acts on whatever the finder reports, it inherits the same
+false positives described in [Limitations](#limitations) below — most
+notably operator overloads and `@override` targets — so review the diff (or
+your test suite) after removing, the same as you would after any automated
+refactor.
 
 ## What it skips by default
 

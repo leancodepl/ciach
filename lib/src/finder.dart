@@ -24,6 +24,7 @@ typedef _Candidate = ({
   String path,
   DocumentSymbol symbol,
   String? container,
+  bool isEnumValue,
 });
 
 /// Finds declarations that are never referenced by driving the Dart analysis
@@ -164,23 +165,34 @@ class Ciach {
     final symbols = await client.documentSymbol(uri);
     final lines = content.split('\n');
     final out = <_Candidate>[];
-    _collectCandidates(uri, path, symbols, null, lines, out);
+    _collectCandidates(uri, path, symbols, null, false, lines, out);
     return out;
   }
 
   /// Recursively walks the symbol tree, keeping only symbols worth checking,
   /// and records the enclosing type name as their container.
+  ///
+  /// [parentIsEnum] marks children of an enum declaration: the analysis
+  /// server reports enum values with the same [SymbolKind.enum$] kind as the
+  /// enum type itself, so this is the only way to tell them apart.
   void _collectCandidates(
     Uri uri,
     String path,
     List<DocumentSymbol> symbols,
     String? container,
+    bool parentIsEnum,
     List<String> lines,
     List<_Candidate> out,
   ) {
     for (final symbol in symbols) {
       if (_shouldConsider(symbol, lines)) {
-        out.add((uri: uri, path: path, symbol: symbol, container: container));
+        out.add((
+          uri: uri,
+          path: path,
+          symbol: symbol,
+          container: container,
+          isEnumValue: parentIsEnum && symbol.kind == .enum$,
+        ));
       }
       final childContainer = _typeLikeKinds.contains(symbol.kind)
           ? symbol.name
@@ -190,6 +202,7 @@ class Ciach {
         path,
         symbol.children ?? const [],
         childContainer,
+        symbol.kind == .enum$,
         lines,
         out,
       );
@@ -233,6 +246,13 @@ class Ciach {
       column: start.character + 1,
       isPrivate: _isPrivateName(name),
       container: candidate.container,
+      isEnumValue: candidate.isEnumValue,
+      range: (
+        startLine: symbol.range.start.line,
+        startColumn: symbol.range.start.character,
+        endLine: symbol.range.end.line,
+        endColumn: symbol.range.end.character,
+      ),
     );
   }
 
