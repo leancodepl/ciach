@@ -8,6 +8,12 @@ AI-Provenance:
     - mark-ai-provenance
 -->
 
+<div align="center">
+
+[![Banner][banner-img]][leancode-landing]
+
+</div>
+
 # ciach 🔪
 
 [![ciach pub.dev badge][pub-badge]][pub-badge-link]
@@ -234,3 +240,4 @@ We are **top-tier experts** focused on Flutter Enterprise solutions.
 [leancode-estimate]: https://leancode.co/get-estimate?utm_source=github.com&utm_medium=referral&utm_campaign=ciach
 [leancode-packages]: https://pub.dev/packages?q=publisher%3Aleancode.co&sort=downloads
 [patrol-landing]: https://patrol.leancode.co/?utm_source=github.com&utm_medium=referral&utm_campaign=ciach
+[banner-img]: https://raw.githubusercontent.com/leancodepl/ciach/refs/heads/main/doc/imgs/banner.png
