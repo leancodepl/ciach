@@ -74,6 +74,11 @@ Future<int> _run(List<String> arguments) async {
     return 2;
   }
 
+  if (args.flag('force') && !args.flag('remove')) {
+    stderr.writeln('--force requires --remove.');
+    return 2;
+  }
+
   final Set<SymbolKind> kinds;
   try {
     kinds = _parseKinds(args.multiOption('kinds'));
@@ -150,7 +155,7 @@ Future<int> _run(List<String> arguments) async {
       stdout.writeln(Reporter.text(result, useColor: useColor));
   }
 
-  if (result.unused.isNotEmpty && (args.flag('remove') || args.flag('force'))) {
+  if (result.unused.isNotEmpty && args.flag('remove')) {
     await _removeUnused(result, rootDir.absolute.path, args, format, useColor);
   }
 
@@ -270,9 +275,7 @@ ArgParser _buildParser() {
     )
     ..addFlag(
       'force',
-      help:
-          'Remove unused declarations without asking for confirmation.\n'
-          'Implies --remove.',
+      help: 'Skip the confirmation prompt for --remove. Requires --remove.',
     )
     ..addMultiOption(
       'exclude',
@@ -357,7 +360,7 @@ Examples:
   ciach --remove
 
   # Remove without asking (e.g. in a script)
-  ciach --force''';
+  ciach --remove --force''';
 
 /// Prints single-line, overwriting progress to stderr.
 class _ProgressPrinter {

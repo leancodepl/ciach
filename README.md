@@ -75,7 +75,7 @@ dart run ciach -f github --set-exit-if-changed
 dart run ciach --remove
 
 # Remove without asking (e.g. from a script)
-dart run ciach --force
+dart run ciach --remove --force
 ```
 
 Install it globally with `dart pub global activate --source path .` and then run
@@ -91,7 +91,7 @@ Install it globally with `dart pub global activate --source path .` and then run
 | `--[no-]overrides` | off | Report `@override` members too. Off by default — see limitations. |
 | `--set-exit-if-changed` | off | Exit with status `1` when anything is found (for CI). Named after `dart format`. |
 | `--remove` | off | Remove unused declarations after reporting them. Prompts for confirmation first. |
-| `--force` | off | Remove without asking. Implies `--remove`. |
+| `--force` | off | Skip the confirmation prompt for `--remove`. Requires `--remove`. |
 | `-e, --exclude <glob>` | — | Skip files matching the glob (repeatable). |
 | `-i, --include <glob>` | — | Only scan files matching the glob (repeatable). |
 | `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, function, method, constructor, field, property, getter, setter, variable, constant, enum-value, operator`. |
@@ -131,9 +131,10 @@ Remove 4 unused declarations? [y/N] y
 Removed 4 unused declarations from 2 files.
 ```
 
-`--force` skips the prompt (implies `--remove`); use it in a script once
-you're confident in the results. Without a terminal to confirm on (e.g. piped
-into another program) and without `--force`, nothing is removed.
+`--remove --force` skips the prompt; use it in a script once you're confident
+in the results (`--force` on its own, without `--remove`, is a usage error).
+Without a terminal to confirm on (e.g. piped into another program) and
+without `--force`, nothing is removed.
 
 Run `dart format` afterward — removal is conservative about *what* to delete
 (it leaves ambiguous multi-variable statements like `int a = 1, b = 2;`
