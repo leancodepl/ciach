@@ -39,6 +39,23 @@ void main() {
     }
   });
 
+  Future<FinderResult> runFinder({
+    bool includePublic = true,
+    bool skipOverrides = true,
+    Set<SymbolKind>? kinds,
+    List<String> exclude = const [],
+    List<String> include = const [],
+  }) => Ciach(
+    .new(
+      rootPath: fixturePath,
+      includePublic: includePublic,
+      skipOverrides: skipOverrides,
+      kinds: kinds ?? FinderOptions.defaultKinds,
+      excludeGlobs: exclude,
+      includeGlobs: include,
+    ),
+  ).run();
+
   Future<Set<String>> findUnused({
     bool includePublic = true,
     bool skipOverrides = true,
@@ -46,16 +63,13 @@ void main() {
     List<String> exclude = const [],
     List<String> include = const [],
   }) async {
-    final result = await Ciach(
-      .new(
-        rootPath: fixturePath,
-        includePublic: includePublic,
-        skipOverrides: skipOverrides,
-        kinds: kinds ?? FinderOptions.defaultKinds,
-        excludeGlobs: exclude,
-        includeGlobs: include,
-      ),
-    ).run();
+    final result = await runFinder(
+      includePublic: includePublic,
+      skipOverrides: skipOverrides,
+      kinds: kinds,
+      exclude: exclude,
+      include: include,
+    );
     return result.unused.map((d) => d.qualifiedName).toSet();
   }
 
@@ -64,13 +78,32 @@ void main() {
       'danglingFunction',
       '_danglingPrivate',
       'unusedConstant',
+      'staleCounter',
       'UsedClass.named',
+      'UsedClass.shout',
       'UsedClass.unusedMethod',
       'UsedClass._unusedField',
       'UnusedClass',
       'UnusedClass.orphanMethod',
       'Unconstructed.new',
       'Animal.sound',
+      'Direction.south',
+      'Direction.west',
+      'Loud.whisper',
+      'tripled',
+      'Vector2.+',
+      'Vector2.-',
+    });
+  });
+
+  test('spans multiple files, one group per file in the report', () async {
+    final result = await runFinder();
+    expect(result.unused.map((d) => d.filePath).toSet(), {
+      'lib/extensions.dart',
+      'lib/greeting.dart',
+      'lib/orphans.dart',
+      'lib/shapes.dart',
+      'lib/user.dart',
     });
   });
 
@@ -89,13 +122,23 @@ void main() {
     expect(unused, isNot(contains('registerHandlers')));
     expect(unused, isNot(contains('_internalHelper')));
     expect(unused, isNot(contains('usedConstant')));
+    expect(unused, isNot(contains('visitCount')));
     expect(unused, isNot(contains('UsedClass')));
     expect(unused, isNot(contains('UsedClass.greet')));
     expect(unused, isNot(contains('UsedClass._format')));
     expect(unused, isNot(contains('UsedClass.name')));
+    expect(unused, isNot(contains('UsedClass.nickname')));
+    expect(unused, isNot(contains('doubled')));
+    expect(unused, isNot(contains('Loud')));
+    expect(unused, isNot(contains('Loud.emphasize')));
+    expect(unused, isNot(contains('Direction')));
+    expect(unused, isNot(contains('Direction.north')));
+    expect(unused, isNot(contains('Direction.east')));
     // Cross-file references from bin/app.dart keep these alive.
     expect(unused, isNot(contains('Animal')));
     expect(unused, isNot(contains('Dog')));
+    expect(unused, isNot(contains('Dog.pace')));
+    expect(unused, isNot(contains('Vector2')));
     // `main` is an entry point and is always skipped.
     expect(unused, isNot(contains('main')));
     // Skipped because it is annotated with @override.

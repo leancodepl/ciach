@@ -122,6 +122,14 @@ than delete blindly:
   visible to a reference search.
 - **Entry points beyond `main`** (isolate entry points, plugin registrants) may
   need excluding or annotating with `@pragma('vm:entry-point')`.
+- **Operator overloads** (`operator +`, `operator ==`, …) are effectively always
+  reported: the analysis server's reference search does not resolve infix
+  operator syntax (`a + b`) back to the operator's declaration, even though the
+  call is perfectly real. See `example/lib/extensions.dart`.
+- **Dartdoc `[Xxx]` reference links** count as references too, which can hide
+  real dead code: linking to a method that overrides or implements another
+  (e.g. `/// See [Dog.sound]`) can mark the interface member it overrides as
+  "used" as a side effect.
 - Results are only as good as the analysis: a package that does not analyze
   cleanly (missing `pub get`, errors) may yield incomplete references.
 
