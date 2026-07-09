@@ -25,13 +25,11 @@ AI-Provenance:
 fields, constants, enum values, and so on — in a Dart or Flutter package, and
 can remove them for you.
 
-Rather than re-implementing reference resolution, it drives the **Dart analysis
-server over LSP** and asks it, for every declaration, `textDocument/references`
-with `includeDeclaration: false`. If the server reports zero references, the
-declaration is unused. This reuses the analyzer's battle-tested, cross-file
-reference search (including polymorphic dispatch through interfaces), so
-references from anywhere — including test files — count as usage; the tool
-won't flag production code that is only used by tests.
+### About the name
+
+*"Ciach!"* — pronounced **/t͡ɕax/** — is Polish for the sound of a clean chop,
+the noise a knife makes right before something falls off. Fitting, since
+that's exactly what this tool finds for you: dead code, waiting to be cut.
 
 ## Installation
 
@@ -278,12 +276,6 @@ dart test          # spins up a real analysis server against the example/ packag
 
 The implementation lives under `lib/src/`; the CLI entry point is `bin/`. See
 [example/](example) for a runnable demonstration.
-
-## About the name
-
-*"Ciach!"* — pronounced **/t͡ɕax/** — is Polish for the sound of a clean chop,
-the noise a knife makes right before something falls off. Fitting, since
-that's exactly what this tool finds for you: dead code, waiting to be cut.
 
 ## License
 
