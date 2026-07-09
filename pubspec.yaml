@@ -5,6 +5,13 @@ description: >-
 version: 0.2.0
 repository: https://github.com/leancodepl/ciach
 homepage: https://github.com/leancodepl/ciach
+issue_tracker: https://github.com/leancodepl/ciach/issues
+topics:
+  - static-analysis
+  - dead-code
+  - linter
+  - cli
+  - developer-tools
 
 environment:
   sdk: ^3.12.2
