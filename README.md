@@ -29,30 +29,9 @@ Rather than re-implementing reference resolution, it drives the **Dart analysis
 server over LSP** and asks it, for every declaration, `textDocument/references`
 with `includeDeclaration: false`. If the server reports zero references, the
 declaration is unused. This reuses the analyzer's battle-tested, cross-file
-reference search (including polymorphic dispatch through interfaces).
-
-The LSP transport (JSON-RPC framing, request/response correlation, lifecycle,
-and the typed wire models) is handled by the
-[`pro_lsp`](https://pub.dev/packages/pro_lsp) package, whose types are used
-directly throughout. `lib/src/lsp/lsp_client.dart` is a thin session wrapper
-that adds only what `pro_lsp` doesn't: spawning the server process, awaiting the
-Dart-specific `$/analyzerStatus` idle signal, and shutting the process down
-cleanly.
-
-## How it works
-
-1. Spawn the analysis server: `dart language-server --protocol=lsp`, using the
-   same SDK that runs the tool (`Platform.resolvedExecutable`).
-2. `initialize` at the package root and wait for the initial analysis to settle
-   (tracked via the server's `$/analyzerStatus` notifications).
-3. For each `.dart` file, enumerate declarations with
-   `textDocument/documentSymbol`.
-4. For each declaration, query `textDocument/references` at its name. Empty
-   result ⇒ unused.
-
-Because the whole package is analyzed, references from anywhere — including test
-files — count as usage, so the tool won't flag production code that is only used
-by tests.
+reference search (including polymorphic dispatch through interfaces), so
+references from anywhere — including test files — count as usage; the tool
+won't flag production code that is only used by tests.
 
 ## Installation
 
