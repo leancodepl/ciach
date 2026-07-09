@@ -1,3 +1,8 @@
+## 0.2.0+1
+
+- Add pub.dev `topics` and `issue_tracker` metadata for discoverability. No
+  code changes.
+
 ## 0.2.0
 
 - Add `--remove` to delete unused declarations from source after reporting
