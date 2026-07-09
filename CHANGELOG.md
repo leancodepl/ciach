@@ -1,3 +1,7 @@
+## 0.2.0+2
+
+- Update the README.
+
 ## 0.2.0+1
 
 - Add pub.dev `topics` and `issue_tracker` metadata for discoverability. No
