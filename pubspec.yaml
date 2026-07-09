@@ -2,9 +2,16 @@ name: ciach
 description: >-
   Finds unused (never-referenced) declarations in a Dart/Flutter package by
   driving the Dart analysis server over LSP and querying textDocument/references.
-version: 0.2.0
+version: 0.2.0+1
 repository: https://github.com/leancodepl/ciach
 homepage: https://github.com/leancodepl/ciach
+issue_tracker: https://github.com/leancodepl/ciach/issues
+topics:
+  - static-analysis
+  - dead-code
+  - linter
+  - cli
+  - developer-tools
 
 environment:
   sdk: ^3.12.2
