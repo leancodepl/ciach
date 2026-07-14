@@ -32,12 +32,36 @@ const _generatedSuffixes = [
   '.chopper.dart',
 ];
 
+/// The `.dart` files discovered under the configured root, split by role.
+typedef DiscoveredDartFiles = ({
+  /// Files whose declarations are scanned and reported as candidates.
+  List<String> candidates,
+
+  /// Generated files excluded from [candidates] (because `includeGenerated` is
+  /// off) that are nonetheless opened to keep the analysis server's resolved
+  /// units warm — so a declaration referenced *only* from generated code is
+  /// not misreported as unused once the server evicts the unopened unit. Empty
+  /// when generated files are already scan candidates.
+  List<String> warmOnly,
+});
+
 /// Discovers the `.dart` files under the configured root that should be
 /// scanned for declarations, honouring include/exclude globs and
 /// generated-file rules.
 ///
 /// Results are returned as absolute file paths, sorted for stable output.
-List<String> discoverDartFiles(FinderOptions options) {
+List<String> discoverDartFiles(FinderOptions options) =>
+    discoverDartFilesSplit(options).candidates;
+
+/// Like [discoverDartFiles], but also returns the generated files that are
+/// excluded from the scan so the caller can still open them for reference
+/// resolution — see the `warmOnly` field of [DiscoveredDartFiles].
+///
+/// The warm-only set is deliberately *not* filtered by include/exclude globs:
+/// its only purpose is to let reference queries resolve, and a reference can
+/// legitimately live in a generated file the user isn't scanning. Files inside
+/// skipped directories (`build/`, `.dart_tool/`, …) are still excluded.
+DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
   final rootPath = p.normalize(p.absolute(options.rootPath));
   final root = Directory(rootPath);
   final context = p.Context(style: p.Style.posix);
@@ -49,7 +73,8 @@ List<String> discoverDartFiles(FinderOptions options) {
     for (final pattern in options.excludeGlobs) Glob(pattern, context: context),
   ];
 
-  final files = <String>[];
+  final candidates = <String>[];
+  final warmOnly = <String>[];
   for (final entity in root.listSync(recursive: true, followLinks: false)) {
     if (entity is! File || !entity.path.endsWith('.dart')) {
       continue;
@@ -65,6 +90,7 @@ List<String> discoverDartFiles(FinderOptions options) {
       continue;
     }
     if (!options.includeGenerated && _isGenerated(entity, relative)) {
+      warmOnly.add(absolute);
       continue;
     }
     if (includeGlobs.isNotEmpty &&
@@ -75,11 +101,12 @@ List<String> discoverDartFiles(FinderOptions options) {
       continue;
     }
 
-    files.add(absolute);
+    candidates.add(absolute);
   }
 
-  files.sort();
-  return files;
+  candidates.sort();
+  warmOnly.sort();
+  return (candidates: candidates, warmOnly: warmOnly);
 }
 
 bool _isInSkippedDir(String relativePath) =>

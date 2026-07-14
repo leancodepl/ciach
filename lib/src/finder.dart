@@ -117,7 +117,8 @@ class Ciach {
     final stopwatch = Stopwatch()..start();
     final rootPath = p.normalize(p.absolute(options.rootPath));
 
-    final files = discoverDartFiles(options);
+    final discovered = discoverDartFilesSplit(options);
+    final files = discovered.candidates;
     _report('Discovered ${files.length} Dart file(s) to scan.');
 
     if (files.isEmpty) {
@@ -143,6 +144,21 @@ class Ciach {
       await client.initialize(Directory(rootPath).uri);
       _report('Waiting for initial analysis to complete…');
       await client.waitForAnalysisComplete();
+
+      // Phase 0: warm the generated files that are excluded from the scan.
+      // Opening them keeps their resolved units in the server's cache, so a
+      // reference query for a declaration used *only* from generated code
+      // (e.g. a `toJson` called from a `.g.dart` part) resolves instead of
+      // coming back empty. Their own declarations are never collected as
+      // candidates.
+      if (discovered.warmOnly.isNotEmpty) {
+        _report('Warming ${discovered.warmOnly.length} generated file(s)…');
+        await _mapPooled<String, bool>(
+          discovered.warmOnly,
+          options.concurrency,
+          (path) => _warmFile(client, path),
+        );
+      }
 
       // Phase 1: open every file and collect its candidate declarations,
       // concurrently. Opening keeps each file's resolved unit warm in the
@@ -223,6 +239,20 @@ class Ciach {
       declarationsChecked: declarationsChecked,
       elapsed: stopwatch.elapsed,
     );
+  }
+
+  /// Opens [path] in the analysis server without collecting candidates from
+  /// it, so references *into* still-scanned code from this file resolve.
+  /// Returns whether the file could be read and opened.
+  Future<bool> _warmFile(LspClient client, String path) async {
+    final content = _readFile(path);
+    if (content == null) {
+      return false;
+    }
+    final uri = File(path).uri;
+    client.didOpen(uri, content);
+    _fileLines[path] = content.split('\n');
+    return true;
   }
 
   /// Fetches the symbols for [path] and returns the declarations worth checking.
