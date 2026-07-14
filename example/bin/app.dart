@@ -1,7 +1,9 @@
 import 'package:sample_pkg/extensions.dart';
 import 'package:sample_pkg/greeting.dart';
+import 'package:sample_pkg/orphans.dart';
 import 'package:sample_pkg/shapes.dart';
 import 'package:sample_pkg/user.dart';
+import 'package:sample_pkg/widgets.dart';
 
 void main() {
   final user = UsedClass('root');
@@ -23,4 +25,12 @@ void main() {
 
   final sum = const Vector2(1, 2) + const Vector2(3, 4);
   print(sum.x + sum.y);
+
+  // Constructs LiveWidget -> a real, external use, so it is never flagged.
+  print(const LiveWidget());
+
+  // References ReferencedAsTypeOnly as a *type* only (never constructs it), so
+  // the class stays USED while its constructor is reported unused.
+  final ReferencedAsTypeOnly? typed = null;
+  print(typed);
 }

@@ -8,6 +8,21 @@
   when removing one or more values.
 - Fix `--remove` deleting the leading doc/annotation comment and header when
   removing a value from a compact single-line enum.
+- Detect a whole dead class instead of only its constructor. A class whose only
+  references are self-references — its own explicit unnamed constructor's
+  declaration (whose name range coincides with the class name), a `State<Self>`
+  return type on its own `createState`, or the `State<Self>` pairing of its
+  paired `State` subclass (the `StatefulWidget` pattern) — is now reported as an
+  unused `class`, not as a stray unused constructor. Previously such a class
+  looked "used" (the reference search was satisfied by the constructor's own
+  declaration), so `--remove` deleted just the constructor and left the class
+  behind, stranding `final` fields or breaking `super()` calls. The detection is
+  deliberately conservative: any reference from outside the class keeps it alive,
+  so it prefers missing a dead class to ever flagging a live one. The class's own
+  constructor is no longer double-reported, and for a dead `StatefulWidget` the
+  paired private `State` subclass is removed together with it (so
+  `State<DeletedWidget>` never dangles) without being reported as a separate
+  finding.
 
 ## 0.2.0+2
 

@@ -140,6 +140,7 @@ class UnusedDeclaration {
     required this.range,
     this.container,
     this.isEnumValue = false,
+    this.coupledRemovals = const [],
   });
 
   /// Simple (unqualified) name of the declaration.
@@ -172,6 +173,18 @@ class UnusedDeclaration {
   /// Removing one requires also tidying up a neighboring comma, unlike other
   /// declaration kinds.
   final bool isEnumValue;
+
+  /// Extra whole-node spans in the *same file* that must be removed together
+  /// with this declaration to keep the source compiling, but that are not
+  /// themselves reported as findings.
+  ///
+  /// The only current use is a dead `StatefulWidget`: its paired private
+  /// `State<Widget>` subclass is not independently "unused" (the widget's own
+  /// `createState` references it), yet it becomes uncompilable the moment the
+  /// widget is deleted (`State<DeletedWidget>` no longer resolves). Coupling
+  /// its removal to the widget's keeps `--remove` from breaking the build,
+  /// without surfacing the private helper as a separate report entry.
+  final List<DeclarationRange> coupledRemovals;
 
   /// Fully qualified display name, e.g. `MyClass.myMethod`.
   String get qualifiedName => container == null ? name : '$container.$name';

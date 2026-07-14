@@ -44,7 +44,9 @@ void main() {
     bool skipOverrides = true,
     bool skipOperators = true,
     Set<SymbolKind>? kinds,
-    List<String> exclude = const [],
+    // The widget fixture is scanned only by the dedicated dead-widget tests;
+    // exclude it from the default-run assertions.
+    List<String> exclude = const ['lib/widgets.dart'],
     List<String> include = const [],
   }) => Ciach(
     .new(
@@ -63,7 +65,7 @@ void main() {
     bool skipOverrides = true,
     bool skipOperators = true,
     Set<SymbolKind>? kinds,
-    List<String> exclude = const [],
+    List<String> exclude = const ['lib/widgets.dart'],
     List<String> include = const [],
   }) async {
     final result = await runFinder(
@@ -95,7 +97,12 @@ void main() {
       'UsedClass._unusedField',
       'UnusedClass',
       'UnusedClass.orphanMethod',
-      'Unconstructed.new',
+      // A fully dead class is reported as the whole CLASS, not just its
+      // constructor (which is removed with it).
+      'FullyDeadClass',
+      // Referenced only as a type: the class is used, only its constructor is
+      // reported.
+      'ReferencedAsTypeOnly.new',
       'Animal.sound',
       'Direction.south',
       'Direction.west',
@@ -133,9 +140,22 @@ void main() {
     // Named constructor: `Class.ctor`, not `Class.Class.ctor`.
     expect(unused, contains('UsedClass.named'));
     expect(unused, isNot(contains('UsedClass.UsedClass.named')));
-    // Unnamed constructor: `Class.new`.
-    expect(unused, contains('Unconstructed.new'));
+    // Unnamed constructor of a still-live class: `Class.new`.
+    expect(unused, contains('ReferencedAsTypeOnly.new'));
   });
+
+  test(
+    'a fully dead class is reported as the class, not its constructor',
+    () async {
+      final unused = await findUnused();
+      // The whole class is dead: report it once, as the class.
+      expect(unused, contains('FullyDeadClass'));
+      // Its unnamed constructor is not reported separately — the class removal
+      // takes the constructor with it, so a stray `FullyDeadClass.new` finding
+      // would be a redundant (and, on removal, build-breaking) double report.
+      expect(unused, isNot(contains('FullyDeadClass.new')));
+    },
+  );
 
   test('does not flag used, entry-point, or override declarations', () async {
     final unused = await findUnused();
@@ -181,12 +201,75 @@ void main() {
   });
 
   test('kind filter narrows results to the requested kinds', () async {
-    expect(await findUnused(kinds: {.class$}), {'UnusedClass'});
+    expect(await findUnused(kinds: {.class$}), {
+      'UnusedClass',
+      'FullyDeadClass',
+    });
   });
 
   test('exclude globs remove files from the scan', () async {
     // Excluding lib leaves only bin/app.dart, whose only declaration is the
     // skipped `main`, so nothing is reported.
     expect(await findUnused(exclude: ['lib/**']), isEmpty);
+  });
+
+  group('dead widget classes', () {
+    // Scan only the widget fixture; cross-package references (e.g. the live
+    // widget constructed in bin/app.dart) still resolve, since the analysis
+    // server analyses the whole package regardless of the candidate filter.
+    Future<FinderResult> runWidgets() =>
+        runFinder(include: ['lib/widgets.dart'], exclude: const []);
+
+    test(
+      'reports a fully dead StatelessWidget-style class as a class',
+      () async {
+        final result = await runWidgets();
+        final names = result.unused.map((d) => d.qualifiedName).toSet();
+        // The whole class is dead — reported once, as the class, not just its
+        // constructor.
+        expect(names, contains('DeadLeafWidget'));
+        expect(names, isNot(contains('DeadLeafWidget.new')));
+        final leaf = result.unused.firstWhere(
+          (d) => d.name == 'DeadLeafWidget',
+        );
+        expect(leaf.kind, SymbolKind.class$);
+      },
+    );
+
+    test(
+      'reports a fully dead StatefulWidget as a class and couples its State',
+      () async {
+        final result = await runWidgets();
+        final names = result.unused.map((d) => d.qualifiedName).toSet();
+        // The widget class itself is reported (its only references are its own
+        // constructor and the `State<DeadStatefulWidget>` pairing)...
+        expect(names, contains('DeadStatefulWidget'));
+        // ...but not its constructor, and not the paired private State subclass,
+        // which is not independently "unused" (createState references it).
+        expect(names, isNot(contains('DeadStatefulWidget.new')));
+        expect(names, isNot(contains('_DeadStatefulWidgetState')));
+        // The State subclass is instead coupled to the widget's removal, so
+        // `--remove` deletes both and never leaves `State<DeadStatefulWidget>`
+        // referring to a deleted type.
+        final widget = result.unused.firstWhere(
+          (d) => d.name == 'DeadStatefulWidget',
+        );
+        expect(widget.kind, SymbolKind.class$);
+        expect(widget.coupledRemovals, isNotEmpty);
+      },
+    );
+
+    test(
+      'never flags a live widget-style class or the State stand-in',
+      () async {
+        final names = (await runWidgets()).unused
+            .map((d) => d.qualifiedName)
+            .toSet();
+        // Constructed from bin/app.dart -> a real external use.
+        expect(names, isNot(contains('LiveWidget')));
+        // Used as the supertype of the paired State subclasses.
+        expect(names, isNot(contains('State')));
+      },
+    );
   });
 }
