@@ -81,6 +81,34 @@ void main() {
     expect(result.warmOnly, isEmpty);
   });
 
+  test('a file with a custom suffix is treated as generated only when '
+      'additionalGeneratedSuffixes lists it', () {
+    write('lib/model.dart', 'class Model {}');
+    write('lib/embed.gc.dart', 'class Embed {}');
+
+    // Without the option, the custom-suffix file is an ordinary candidate: it
+    // has neither a built-in suffix nor a generated-code banner.
+    final withoutOption = discoverDartFilesSplit(
+      FinderOptions(rootPath: tempDir.path),
+    );
+    expect(rel(withoutOption.candidates), {
+      'lib/model.dart',
+      'lib/embed.gc.dart',
+    });
+    expect(withoutOption.warmOnly, isEmpty);
+
+    // With the suffix configured, the file is excluded from candidates but
+    // still warmed so references from it resolve.
+    final withOption = discoverDartFilesSplit(
+      FinderOptions(
+        rootPath: tempDir.path,
+        additionalGeneratedSuffixes: const ['.gc.dart'],
+      ),
+    );
+    expect(rel(withOption.candidates), {'lib/model.dart'});
+    expect(rel(withOption.warmOnly), {'lib/embed.gc.dart'});
+  });
+
   test('generated files inside skipped dirs are excluded from both sets', () {
     write('lib/model.dart', 'class Model {}');
     write('build/gen.g.dart', '// generated\nclass Gen {}');

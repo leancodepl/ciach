@@ -115,6 +115,7 @@ Future<int> _run(List<String> arguments) async {
     kinds: kinds,
     includePublic: args.flag('public'),
     includeGenerated: args.flag('generated'),
+    additionalGeneratedSuffixes: args.multiOption('generated-suffix'),
     skipOverrides: !args.flag('overrides'),
     skipOperators: !args.flag('operators'),
     concurrency: concurrency,
@@ -296,6 +297,16 @@ ArgParser _buildParser() {
       abbr: 'i',
       help: 'If given, only scan files matching these glob(s). Repeatable.',
       valueHelp: 'glob',
+    )
+    ..addMultiOption(
+      'generated-suffix',
+      help:
+          'Additional filename suffix(es) to treat as generated (and so\n'
+          'exclude from the scan), on top of the built-in set (*.g.dart,\n'
+          '*.freezed.dart, …). Use for custom code generators, e.g.\n'
+          '--generated-suffix .gc.dart. Include the leading dot. Repeatable.\n'
+          'Ignored when --generated is set.',
+      valueHelp: 'suffix',
     )
     ..addMultiOption(
       'kinds',

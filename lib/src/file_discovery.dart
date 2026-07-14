@@ -89,7 +89,8 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
     if (_isInSkippedDir(relative)) {
       continue;
     }
-    if (!options.includeGenerated && _isGenerated(entity, relative)) {
+    if (!options.includeGenerated &&
+        _isGenerated(entity, relative, options.additionalGeneratedSuffixes)) {
       warmOnly.add(absolute);
       continue;
     }
@@ -112,9 +113,14 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
 bool _isInSkippedDir(String relativePath) =>
     p.split(relativePath).any(_skippedDirs.contains);
 
-bool _isGenerated(File file, String relativePath) {
+bool _isGenerated(
+  File file,
+  String relativePath,
+  List<String> additionalSuffixes,
+) {
   final name = p.basename(relativePath);
-  if (_generatedSuffixes.any(name.endsWith)) {
+  if (_generatedSuffixes.any(name.endsWith) ||
+      additionalSuffixes.any(name.endsWith)) {
     return true;
   }
   // Fall back to the conventional generated-code banner near the top of the

@@ -1,5 +1,12 @@
 ## Unreleased
 
+- Add `--generated-suffix` (repeatable) to configure extra filename suffixes
+  treated as generated, on top of the built-in set (`*.g.dart`,
+  `*.freezed.dart`, …). Some code generators emit files with a custom suffix
+  (e.g. `.gc.dart`) and without the conventional `GENERATED CODE` banner, so
+  their declarations were scanned and misreported as unused. Configured
+  suffixes are excluded from the scan but still opened for reference
+  resolution, exactly like the built-in generated files.
 - Skip `call` methods by default. A `call` method makes its object callable
   via implicit-call syntax (`obj(...)`), which the analysis server's reference
   search doesn't resolve back to the declaration — the same limitation as for

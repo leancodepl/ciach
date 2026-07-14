@@ -32,6 +32,7 @@ class FinderOptions {
     this.kinds = defaultKinds,
     this.includePublic = true,
     this.includeGenerated = false,
+    this.additionalGeneratedSuffixes = const [],
     this.skipOverrides = true,
     this.skipOperators = true,
     this.concurrency = 16,
@@ -58,6 +59,17 @@ class FinderOptions {
 
   /// Whether to scan generated files (`*.g.dart`, `*.freezed.dart`, …).
   final bool includeGenerated;
+
+  /// Extra filename suffixes to treat as generated, in addition to the
+  /// built-in set (`.g.dart`, `.freezed.dart`, …). Lets projects whose code
+  /// generators emit a custom suffix (e.g. `.gc.dart`) exclude those files
+  /// from the scan without also opting every generated file back in.
+  ///
+  /// Each entry is matched with a plain `endsWith` against the file's name, so
+  /// values should include the leading dot and the `.dart` extension (e.g.
+  /// `.gc.dart`). Ignored when [includeGenerated] is set (everything is
+  /// scanned then).
+  final List<String> additionalGeneratedSuffixes;
 
   /// Whether to skip declarations annotated with `@override` (they are usually
   /// reached polymorphically, which a plain reference search can miss).
