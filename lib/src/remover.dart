@@ -98,9 +98,23 @@ _Span? _spanFor(
   var end = baseEnd;
 
   if (decl.isEnumValue) {
+    // The value's own start: reach up to column 0 to take its leading
+    // doc-comment/annotation lines and indentation when it sits on its own
+    // line(s), but never past other tokens sharing its line — the `enum E {`
+    // and earlier values of a compact single-line `enum E { a, b, c }`, where
+    // starting at column 0 would eat the declaration itself.
+    var valueStart = topLine < range.startLine
+        ? offsetOf(topLine, 0)
+        : baseStart;
+    if (valueStart == baseStart) {
+      final prefix = lines[range.startLine].substring(0, range.startColumn);
+      if (prefix.trim().isEmpty) {
+        valueStart = offsetOf(range.startLine, 0);
+      }
+    }
     (start, end) = _extendEnumValue(
       content,
-      commentStart: offsetOf(topLine, 0),
+      valueStart: valueStart,
       baseStart: baseStart,
       baseEnd: baseEnd,
     );
@@ -292,19 +306,19 @@ bool _looksLikeMetadata(String trimmedLine) =>
 /// in a list without one.
 (int, int) _extendEnumValue(
   String content, {
-  required int commentStart,
+  required int valueStart,
   required int baseStart,
   required int baseEnd,
 }) {
   final forward = _nextNonWhitespace(content, baseEnd);
   if (forward != null && content[forward] == ',') {
-    return (commentStart, forward + 1);
+    return (valueStart, forward + 1);
   }
-  final backward = _previousNonWhitespace(content, commentStart);
+  final backward = _previousNonWhitespace(content, valueStart);
   if (backward != null && content[backward] == ',') {
     return (backward, baseEnd);
   }
-  return (commentStart, baseEnd);
+  return (valueStart, baseEnd);
 }
 
 /// Walks forward from [from] through zero or more top-level `,` separators,

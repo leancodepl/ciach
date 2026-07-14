@@ -221,6 +221,42 @@ enum Direction {
       expect(result, isNot(contains('north,,')));
       _expectBalanced(result);
     });
+
+    group('compact single-line `enum Size { small, medium, large }`', () {
+      const source = 'enum Size { small, medium, large }\n';
+
+      UnusedDeclaration valueNamed(String name) {
+        final start = source.indexOf(name);
+        return decl(
+          startLine: 0,
+          startColumn: start,
+          endLine: 0,
+          endColumn: start + name.length,
+          isEnumValue: true,
+        );
+      }
+
+      test('removes a middle value without corrupting the declaration', () {
+        final result = applyRemoval(source, [valueNamed('medium')]);
+        expect(result, isNot(contains('medium')));
+        // The declaration prefix and the surviving values must all survive.
+        expect(result, contains('enum Size {'));
+        expect(result, contains('small'));
+        expect(result, contains('large'));
+        expect(result, isNot(contains(',,')));
+        _expectBalanced(result);
+      });
+
+      test('removes the last value without corrupting the declaration', () {
+        final result = applyRemoval(source, [valueNamed('large')]);
+        expect(result, isNot(contains('large')));
+        expect(result, contains('enum Size {'));
+        expect(result, contains('small'));
+        expect(result, contains('medium'));
+        expect(result, isNot(contains(',,')));
+        _expectBalanced(result);
+      });
+    });
   });
 
   test('collapses a fully-unused class into a single removal', () {
