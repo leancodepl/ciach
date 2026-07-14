@@ -31,6 +31,6 @@ void main() {
 
   // References ReferencedAsTypeOnly as a *type* only (never constructs it), so
   // the class stays USED while its constructor is reported unused.
-  final ReferencedAsTypeOnly? typed = null;
+  const ReferencedAsTypeOnly? typed = null;
   print(typed);
 }
