@@ -13,6 +13,7 @@ demonstration of the tool.
 | `lib/shapes.dart` | an enum, a mixin, and an abstract class with an `@override` |
 | `lib/extensions.dart` | an extension method and operator overloading |
 | `lib/orphans.dart` | a class that is never referenced at all |
+| `lib/callables.dart` | a callable class (`call` method) and a utility class with a private constructor |
 
 Run the finder against it from the repository root:
 

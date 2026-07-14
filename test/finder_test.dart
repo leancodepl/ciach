@@ -109,6 +109,24 @@ void main() {
     expect(unused, containsAll(['Vector2.+', 'Vector2.-']));
   });
 
+  test('skips call methods and private constructors by default', () async {
+    final unused = await findUnused();
+    // `Multiplier.call` is invoked via implicit-call syntax (`multiplier(21)`
+    // in bin/app.dart), which a reference search can't resolve back to the
+    // declaration — skipped like an operator, so never reported as unused.
+    expect(unused, isNot(contains('Multiplier.call')));
+    // A private constructor prevents instantiation and is intentionally never
+    // referenced — skipped rather than reported as unused.
+    expect(unused, isNot(contains('MathConstants._')));
+    // The rest of the callable/utility fixture is genuinely used, so nothing
+    // else from it should show up either.
+    expect(unused, isNot(contains('Multiplier')));
+    expect(unused, isNot(contains('Multiplier.new')));
+    expect(unused, isNot(contains('Multiplier.factor')));
+    expect(unused, isNot(contains('MathConstants')));
+    expect(unused, isNot(contains('MathConstants.pi')));
+  });
+
   test('reports a declaration only mentioned in a doc comment link as '
       'doc-only, not unused', () async {
     final docOnly = await findDocOnly();

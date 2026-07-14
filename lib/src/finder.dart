@@ -91,6 +91,29 @@ class Ciach {
   bool _isOperator(DocumentSymbol symbol) =>
       symbol.kind == .method && _operatorNames.contains(symbol.name);
 
+  /// Whether [symbol] is a `call` method, which makes its object callable via
+  /// implicit-call syntax `obj(...)`. The analysis server's reference search
+  /// does not resolve that syntax back to the `call` declaration — exactly as
+  /// it fails to resolve infix operator syntax (see [_isOperator]) — so a used
+  /// `call` method is reported as unused every time.
+  bool _isCallMethod(DocumentSymbol symbol) =>
+      symbol.kind == .method && symbol.name == 'call';
+
+  /// Whether [symbol] is a private constructor (`Foo._`, `Foo._named`). The
+  /// analysis server names a constructor with its class included (`Foo` for
+  /// the unnamed constructor, `Foo.named` for a named one), so the private
+  /// marker is a name segment after the last `.` that starts with `_`. The
+  /// unnamed constructor (no `.`) is never treated as private here, even for a
+  /// private class.
+  bool _isPrivateConstructor(DocumentSymbol symbol) {
+    if (symbol.kind != .constructor) {
+      return false;
+    }
+    final name = symbol.name;
+    final dot = name.lastIndexOf('.');
+    return dot >= 0 && dot + 1 < name.length && name[dot + 1] == '_';
+  }
+
   /// Lines of every scanned file, keyed by absolute path, populated as each
   /// file is opened in [_collectCandidatesFor]. Reused to classify reference
   /// locations as doc comments without re-reading files from disk.
@@ -327,6 +350,19 @@ class Ciach {
       return false;
     }
     if (options.skipOperators && _isOperator(symbol)) {
+      return false;
+    }
+    // A used `call` method is unresolvable through implicit-call syntax, the
+    // same way a used operator is unresolvable through infix syntax. Always
+    // skipped; there's no flag for this one.
+    if (_isCallMethod(symbol)) {
+      return false;
+    }
+    // A private constructor is deliberately never referenced — the standard
+    // pattern for preventing instantiation of a utility/constants class. It is
+    // not dead code, and removing it would re-add the implicit default
+    // constructor and silently make the class publicly instantiable.
+    if (_isPrivateConstructor(symbol)) {
       return false;
     }
 

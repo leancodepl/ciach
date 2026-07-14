@@ -1,3 +1,4 @@
+import 'package:sample_pkg/callables.dart';
 import 'package:sample_pkg/extensions.dart';
 import 'package:sample_pkg/greeting.dart';
 import 'package:sample_pkg/shapes.dart';
@@ -23,4 +24,10 @@ void main() {
 
   final sum = const Vector2(1, 2) + const Vector2(3, 4);
   print(sum.x + sum.y);
+
+  // `Multiplier` is callable: this invokes its `call` method via implicit-call
+  // syntax, which a reference search can't trace back to `call`.
+  const multiplier = Multiplier(2);
+  print(multiplier(21));
+  print(MathConstants.pi);
 }
