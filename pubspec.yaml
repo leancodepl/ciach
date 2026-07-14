@@ -14,7 +14,7 @@ topics:
   - developer-tools
 
 environment:
-  sdk: ^3.12.2
+  sdk: ^3.10.0
 
 dependencies:
   args: ^2.7.0
