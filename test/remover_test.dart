@@ -325,6 +325,91 @@ enum Direction {
         _expectBalanced(result);
       });
     });
+
+    group('compact single-line enum with a leading `///` doc comment', () {
+      // The value's own line carries the whole declaration, and the line
+      // above it is the enum *type's* doc comment — which must never be
+      // swept into a value's removal span.
+      const source =
+          '/// Doc comment on the enum type.\n'
+          'enum Accuracy { best, high, medium }\n';
+
+      UnusedDeclaration valueNamed(String name) {
+        final start = source.indexOf(name);
+        final line = '\n'.allMatches(source.substring(0, start)).length;
+        final column = start - (source.lastIndexOf('\n', start - 1) + 1);
+        return decl(
+          startLine: line,
+          startColumn: column,
+          endLine: line,
+          endColumn: column + name.length,
+          isEnumValue: true,
+        );
+      }
+
+      test(
+        'removing one value keeps the doc comment, header and kept values',
+        () {
+          final result = applyRemoval(source, [valueNamed('high')]);
+          expect(result, contains('/// Doc comment on the enum type.'));
+          expect(result, contains('enum Accuracy {'));
+          expect(result, contains('best'));
+          expect(result, contains('medium'));
+          expect(result, isNot(contains('high')));
+          expect(result, isNot(contains(',,')));
+          _expectBalanced(result);
+        },
+      );
+
+      test('removing multiple values keeps the doc comment and header', () {
+        final result = applyRemoval(source, [
+          valueNamed('high'),
+          valueNamed('medium'),
+        ]);
+        expect(result, contains('/// Doc comment on the enum type.'));
+        expect(result, contains('enum Accuracy { best }'));
+        expect(result, isNot(contains('high')));
+        expect(result, isNot(contains('medium')));
+        expect(result, isNot(contains(',,')));
+        _expectBalanced(result);
+      });
+    });
+
+    group('compact single-line enum with a `//` line and annotation above', () {
+      // A line comment plus an annotation on the enum type: both are the
+      // type's metadata, not a value's, and must survive value removal.
+      const source =
+          '// Ordered from least to most precise.\n'
+          '@immutable\n'
+          'enum Level { low, mid, top }\n';
+
+      UnusedDeclaration valueNamed(String name) {
+        final start = source.indexOf(' $name') + 1;
+        final line = '\n'.allMatches(source.substring(0, start)).length;
+        final column = start - (source.lastIndexOf('\n', start - 1) + 1);
+        return decl(
+          startLine: line,
+          startColumn: column,
+          endLine: line,
+          endColumn: column + name.length,
+          isEnumValue: true,
+        );
+      }
+
+      test('removing values keeps the comment, annotation and header', () {
+        final result = applyRemoval(source, [
+          valueNamed('mid'),
+          valueNamed('top'),
+        ]);
+        expect(result, contains('// Ordered from least to most precise.'));
+        expect(result, contains('@immutable'));
+        expect(result, contains('enum Level { low }'));
+        expect(result, isNot(contains('mid')));
+        expect(result, isNot(contains('top')));
+        expect(result, isNot(contains(',,')));
+        _expectBalanced(result);
+      });
+    });
   });
 
   test('collapses a fully-unused class into a single removal', () {

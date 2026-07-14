@@ -24,6 +24,13 @@
   subset (adjacent or not, including the first or last value) leaves the header
   and every surviving value intact, with no doubled spaces or dangling
   separator comma. Multi-line (formatted) enums are unaffected.
+- Fix `--remove` corrupting a compact, single-line enum that has a leading doc
+  or annotation comment (`/// …` / `//` / `@…` above `enum E { a, b, c }`).
+  Removing a value used to walk upward into the enum type's own leading
+  comment and collapse the whole declaration to ` }`, deleting the comment,
+  the `enum E {` header, and any surviving values. A value's removal span now
+  never crosses above its own line when the value shares that line with the
+  header, so the leading comment, the header, and the kept values all survive.
 - Open generated files (`*.g.dart`, …) while analyzing, even when they are
   excluded from the scan, so a declaration referenced *only* from generated
   code (e.g. a `toJson` called from a `.g.dart` part) is no longer misreported

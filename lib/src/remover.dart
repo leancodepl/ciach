@@ -107,19 +107,20 @@ _Span? _spanFor(
 
   if (decl.isEnumValue) {
     // The value's own start: reach up to column 0 to take its leading
-    // doc-comment/annotation lines and indentation when it sits on its own
-    // line(s), but never past other tokens sharing its line — the `enum E {`
-    // and earlier values of a compact single-line `enum E { a, b, c }`, where
-    // starting at column 0 would eat the declaration itself.
-    var valueStart = topLine < range.startLine
-        ? offsetOf(topLine, 0)
-        : baseStart;
-    if (valueStart == baseStart) {
-      final prefix = lines[range.startLine].substring(0, range.startColumn);
-      if (prefix.trim().isEmpty) {
-        valueStart = offsetOf(range.startLine, 0);
-      }
-    }
+    // doc-comment/annotation lines and indentation, but only when the value
+    // actually starts its own line. On a compact single-line
+    // `enum E { a, b, c }` the value shares its line with the `enum E {`
+    // header and earlier values, and the line above is the enum *type's* own
+    // leading comment — walking upward there would eat the declaration and
+    // its doc comment, collapsing the whole construct. So a value that has
+    // other tokens before it on its line keeps its span at the value token.
+    final prefix = lines[range.startLine].substring(0, range.startColumn);
+    final startsOwnLine = prefix.trim().isEmpty;
+    final valueStart = !startsOwnLine
+        ? baseStart
+        : (topLine < range.startLine
+              ? offsetOf(topLine, 0)
+              : offsetOf(range.startLine, 0));
     (start, end) = _extendEnumValue(
       content,
       valueStart: valueStart,
