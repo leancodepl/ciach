@@ -20,7 +20,10 @@
 - Fix `--remove` corrupting compact, single-line enums (`enum E { a, b, c }`):
   removing a value now starts the deletion at the value's own token instead of
   column 0 of its line, so the `enum E {` prefix and sibling values survive.
-  Multi-line (formatted) enums are unaffected.
+  Removing several values from the same line in one pass is now safe too — any
+  subset (adjacent or not, including the first or last value) leaves the header
+  and every surviving value intact, with no doubled spaces or dangling
+  separator comma. Multi-line (formatted) enums are unaffected.
 - Open generated files (`*.g.dart`, …) while analyzing, even when they are
   excluded from the scan, so a declaration referenced *only* from generated
   code (e.g. a `toJson` called from a `.g.dart` part) is no longer misreported

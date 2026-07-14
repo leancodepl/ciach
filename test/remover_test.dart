@@ -257,6 +257,74 @@ enum Direction {
         _expectBalanced(result);
       });
     });
+
+    group('compact single-line, removing multiple values in one pass', () {
+      const source = 'enum E { a, b, c, d }\n';
+
+      UnusedDeclaration valueNamed(String name) {
+        final start = source.indexOf(name);
+        return decl(
+          startLine: 0,
+          startColumn: start,
+          endLine: 0,
+          endColumn: start + name.length,
+          isEnumValue: true,
+        );
+      }
+
+      test('removes two non-adjacent middle values', () {
+        final result = applyRemoval(source, [valueNamed('b'), valueNamed('d')]);
+        // The header and the still-used values must all survive; only the
+        // two flagged values are gone, and the result stays valid.
+        expect(result, contains('enum E {'));
+        expect(result, contains('a'));
+        expect(result, contains('c'));
+        expect(result, isNot(contains('b')));
+        expect(result, isNot(contains('d')));
+        expect(result, isNot(contains(',,')));
+        expect(result.trim(), 'enum E { a, c }');
+        _expectBalanced(result);
+      });
+
+      test('removes two adjacent middle values', () {
+        final result = applyRemoval(source, [valueNamed('b'), valueNamed('c')]);
+        expect(result, contains('enum E {'));
+        expect(result, contains('a'));
+        expect(result, contains('d'));
+        expect(result, isNot(contains('b')));
+        expect(result, isNot(contains('c')));
+        expect(result, isNot(contains(',,')));
+        expect(result.trim(), 'enum E { a, d }');
+        _expectBalanced(result);
+      });
+
+      test('removes a trailing run, leaving no dangling separator comma', () {
+        // The regressed case: removing the last values used to leave the
+        // separator that preceded them (`enum E { a, b, }`) — or, before the
+        // single-value fix, eat the header entirely.
+        final result = applyRemoval(source, [valueNamed('c'), valueNamed('d')]);
+        expect(result, contains('enum E {'));
+        expect(result, contains('a'));
+        expect(result, contains('b'));
+        expect(result, isNot(contains('c')));
+        expect(result, isNot(contains('d')));
+        expect(result, isNot(contains(',,')));
+        expect(result.trim(), 'enum E { a, b }');
+        _expectBalanced(result);
+      });
+
+      test('removes a leading run, keeping the surviving values', () {
+        final result = applyRemoval(source, [valueNamed('a'), valueNamed('b')]);
+        expect(result, contains('enum E {'));
+        expect(result, contains('c'));
+        expect(result, contains('d'));
+        expect(result, isNot(contains('a')));
+        expect(result, isNot(contains('b')));
+        expect(result, isNot(contains(',,')));
+        expect(result.trim(), 'enum E { c, d }');
+        _expectBalanced(result);
+      });
+    });
   });
 
   test('collapses a fully-unused class into a single removal', () {
