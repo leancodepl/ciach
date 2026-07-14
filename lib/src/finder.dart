@@ -526,9 +526,8 @@ class Ciach {
   /// Recursively walks the symbol tree, keeping only symbols worth checking,
   /// and records the enclosing type name as their container.
   ///
-  /// [parentIsEnum] marks children of an enum declaration: the analysis
-  /// server reports enum values with the same [SymbolKind.enum$] kind as the
-  /// enum type itself, so this is the only way to tell them apart.
+  /// [parentIsEnum] marks children of an enum declaration so [_reportedKind]
+  /// can remap its enum values to the `enum-value` kind.
   void _collectCandidates(
     Uri uri,
     String path,
@@ -539,7 +538,7 @@ class Ciach {
     List<_Candidate> out,
   ) {
     for (final symbol in symbols) {
-      if (_shouldConsider(symbol, lines)) {
+      if (_shouldConsider(symbol, parentIsEnum, lines)) {
         out.add((
           uri: uri,
           path: path,
@@ -570,8 +569,12 @@ class Ciach {
     }
   }
 
-  bool _shouldConsider(DocumentSymbol symbol, List<String> lines) {
-    if (!options.kinds.contains(symbol.kind)) {
+  bool _shouldConsider(
+    DocumentSymbol symbol,
+    bool parentIsEnum,
+    List<String> lines,
+  ) {
+    if (!options.kinds.contains(_reportedKind(symbol, parentIsEnum))) {
       return false;
     }
     // The program entry point is never "unused".
@@ -602,6 +605,12 @@ class Ciach {
     return true;
   }
 
+  /// The kind ciach reports for [symbol]. The analysis server tags enum values
+  /// with [SymbolKind.enum$] (same as the enum type), so remap them to
+  /// [SymbolKind.enumMember] under an enum to match the `enum-value` CLI kind.
+  static SymbolKind _reportedKind(DocumentSymbol symbol, bool parentIsEnum) =>
+      parentIsEnum && symbol.kind == .enum$ ? .enumMember : symbol.kind;
+
   UnusedDeclaration _toUnused(
     _Candidate candidate,
     String rootPath, {
@@ -614,7 +623,7 @@ class Ciach {
     final name = _declarationName(symbol, candidate.container);
     return .new(
       name: name,
-      kind: symbol.kind,
+      kind: _reportedKind(symbol, candidate.isEnumValue),
       filePath: _relPath(candidate.path, rootPath),
       // LSP positions are zero-based; report them one-based for humans.
       line: start.line + 1,
