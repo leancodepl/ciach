@@ -15,7 +15,8 @@ import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/models.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location, SymbolKind;
+import 'package:pro_lsp/pro_lsp.dart'
+    show DocumentSymbol, Location, Position, SymbolKind;
 
 /// A declaration to check: the symbol plus enough context to query references
 /// for it and to report it later.
@@ -101,14 +102,20 @@ class Ciach {
   /// `///`. Block (`/** */`) doc comments aren't recognized; `///` is the
   /// standard and lint-enforced style.
   bool _isDocReference(Location location) {
-    final path = Uri.parse(location.uri).toFilePath();
-    final lines = _fileLines[path] ??= _readFile(path)?.split('\n') ?? const [];
+    final lines = _linesFor(_pathOf(location.uri));
     final line = location.range.start.line;
     if (line < 0 || line >= lines.length) {
       return false;
     }
     return lines[line].trim().startsWith('///');
   }
+
+  /// The absolute file path a reference [uri] points at.
+  String _pathOf(String uri) => Uri.parse(uri).toFilePath();
+
+  /// The lines of the file at [path], read (and cached) on demand.
+  List<String> _linesFor(String path) =>
+      _fileLines[path] ??= _readFile(path)?.split('\n') ?? const [];
 
   void _report(String message) => options.onProgress?.call(message);
 
@@ -174,7 +181,7 @@ class Ciach {
       final totalFiles = files.length;
       var filesDone = totalFiles - remainingPerFile.length;
 
-      final statuses = await _mapPooled<_Candidate, _RefStatus>(
+      final refsByCandidate = await _mapPooled<_Candidate, List<Location>>(
         candidates,
         options.concurrency,
         (candidate) async {
@@ -191,20 +198,52 @@ class Ciach {
               '${p.relative(candidate.path, from: rootPath)}',
             );
           }
-          if (refs.isEmpty) {
-            return _RefStatus.unused;
-          }
-          final hasRealRef = refs.any((loc) => !_isDocReference(loc));
-          return hasRealRef ? _RefStatus.used : _RefStatus.docOnly;
+          return refs;
         },
       );
 
+      final statuses = [
+        for (var i = 0; i < candidates.length; i++)
+          _classify(candidates[i], refsByCandidate[i]),
+      ];
+
+      // Names of classes flagged unused, per file. A whole dead class is
+      // removed as one node, taking its own constructor(s) with it, so those
+      // constructors must not also be reported (or removed) on their own.
+      final deadClassNames = <String, Set<String>>{};
       for (var i = 0; i < candidates.length; i++) {
+        final candidate = candidates[i];
+        if (statuses[i] == _RefStatus.unused &&
+            candidate.symbol.kind == .class$) {
+          deadClassNames
+              .putIfAbsent(candidate.path, () => <String>{})
+              .add(candidate.symbol.name);
+        }
+      }
+
+      for (var i = 0; i < candidates.length; i++) {
+        final candidate = candidates[i];
         switch (statuses[i]) {
           case _RefStatus.unused:
-            unused.add(_toUnused(candidates[i], rootPath));
+            if (_isConstructorOfDeadClass(candidate, deadClassNames)) {
+              break;
+            }
+            unused.add(
+              _toUnused(
+                candidate,
+                rootPath,
+                coupledRemovals: candidate.symbol.kind == .class$
+                    ? _pairedStateRemovals(
+                        candidate,
+                        refsByCandidate[i],
+                        candidates,
+                        refsByCandidate,
+                      )
+                    : const [],
+              ),
+            );
           case _RefStatus.docOnly:
-            docOnly.add(_toUnused(candidates[i], rootPath));
+            docOnly.add(_toUnused(candidate, rootPath));
           case _RefStatus.used:
             break;
         }
@@ -311,7 +350,11 @@ class Ciach {
     return true;
   }
 
-  UnusedDeclaration _toUnused(_Candidate candidate, String rootPath) {
+  UnusedDeclaration _toUnused(
+    _Candidate candidate,
+    String rootPath, {
+    List<DeclarationRange> coupledRemovals = const [],
+  }) {
     final symbol = candidate.symbol;
     final start = symbol.selectionRange.start;
     final name = _declarationName(symbol, candidate.container);
@@ -325,13 +368,239 @@ class Ciach {
       isPrivate: _isPrivateName(name),
       container: candidate.container,
       isEnumValue: candidate.isEnumValue,
-      range: (
-        startLine: symbol.range.start.line,
-        startColumn: symbol.range.start.character,
-        endLine: symbol.range.end.line,
-        endColumn: symbol.range.end.character,
-      ),
+      range: _rangeOf(symbol),
+      coupledRemovals: coupledRemovals,
     );
+  }
+
+  /// Classifies a candidate from the references reported for it.
+  ///
+  /// Non-class candidates keep the simple rule: any real (non-doc) reference
+  /// means used, only doc-comment links means doc-only, none means unused.
+  ///
+  /// Classes get [_classifyClass], which discounts *self-references* — the
+  /// class's own body, and the `State<Self>` StatefulWidget pairing — so a
+  /// class kept alive only by its own unnamed constructor's declaration (whose
+  /// name coincides with the class) is correctly seen as dead.
+  _RefStatus _classify(_Candidate candidate, List<Location> refs) {
+    if (candidate.symbol.kind == .class$) {
+      return _classifyClass(candidate, refs);
+    }
+    if (refs.isEmpty) {
+      return _RefStatus.unused;
+    }
+    final hasRealRef = refs.any((loc) => !_isDocReference(loc));
+    return hasRealRef ? _RefStatus.used : _RefStatus.docOnly;
+  }
+
+  /// Classifies a class by its references, ignoring self-references.
+  ///
+  /// A class is used only if some reference is a real (non-doc) reference from
+  /// *outside* the class itself; if the only outside references are doc-comment
+  /// links it is doc-only, and otherwise (only self-references, or none at all)
+  /// it is unused. This is deliberately conservative: any single unexplained
+  /// outside reference keeps the class alive, so the failure mode is missing a
+  /// dead class, never deleting a live one.
+  _RefStatus _classifyClass(_Candidate candidate, List<Location> refs) {
+    var hasExternalCode = false;
+    var hasExternalDoc = false;
+    for (final loc in refs) {
+      if (_isSelfClassReference(candidate, loc)) {
+        continue;
+      }
+      if (_isDocReference(loc)) {
+        hasExternalDoc = true;
+      } else {
+        hasExternalCode = true;
+      }
+    }
+    if (hasExternalCode) {
+      return _RefStatus.used;
+    }
+    return hasExternalDoc ? _RefStatus.docOnly : _RefStatus.unused;
+  }
+
+  /// Whether [loc] is a reference to [candidate] that does not count as a use.
+  ///
+  /// Two shapes qualify:
+  ///
+  /// 1. A reference inside the class's own source span — its body, signature,
+  ///    or leading doc/annotation lines. This covers the unnamed constructor's
+  ///    declaration (`Foo` in `Foo();`, reported by the server as a reference
+  ///    to the class), a `State<Foo>` return type on the widget's own
+  ///    `createState`, and any purely-internal self-use.
+  /// 2. A `State<Foo>` type-argument reference anywhere — the StatefulWidget
+  ///    pairing. `State<Foo>` can only ever denote the state object of the
+  ///    `Foo` widget, so it never means `Foo` itself is used elsewhere.
+  bool _isSelfClassReference(_Candidate candidate, Location loc) {
+    if (_pathOf(loc.uri) == candidate.path) {
+      final lines = _linesFor(candidate.path);
+      final top = _metadataTopLine(candidate.symbol, lines);
+      final pos = loc.range.start;
+      final afterTop = pos.line >= top;
+      if (afterTop && _atOrBeforeEnd(pos, candidate.symbol.range.end)) {
+        return true;
+      }
+    }
+    return _isStatePairingReference(candidate.symbol.name, loc);
+  }
+
+  /// Whether [loc] is the class name [className] appearing as the sole type
+  /// argument of `State<…>`, e.g. `class _FooState extends State<Foo>`.
+  bool _isStatePairingReference(String className, Location loc) {
+    final start = loc.range.start;
+    final end = loc.range.end;
+    if (start.line != end.line) {
+      return false;
+    }
+    final lines = _linesFor(_pathOf(loc.uri));
+    if (start.line < 0 || start.line >= lines.length) {
+      return false;
+    }
+    final line = lines[start.line];
+    if (start.character < 0 ||
+        end.character > line.length ||
+        start.character > end.character) {
+      return false;
+    }
+    if (line.substring(start.character, end.character) != className) {
+      return false;
+    }
+    return _statePrefix.hasMatch(line.substring(0, start.character)) &&
+        _stateSuffix.hasMatch(line.substring(end.character));
+  }
+
+  /// The `State<` immediately preceding a type argument, with a token boundary
+  /// before `State` so `MyState<…>`/`FooState<…>` don't match.
+  static final _statePrefix = RegExp(r'(?:^|[^A-Za-z0-9_$])State<\s*$');
+
+  /// The `>` that closes a single `State<…>` type argument.
+  static final _stateSuffix = RegExp(r'^\s*>');
+
+  bool _isConstructorOfDeadClass(
+    _Candidate candidate,
+    Map<String, Set<String>> deadClassNames,
+  ) =>
+      candidate.symbol.kind == .constructor &&
+      candidate.container != null &&
+      (deadClassNames[candidate.path]?.contains(candidate.container) ?? false);
+
+  /// The extra spans to remove alongside a dead [widget] class: the paired
+  /// private `State<Widget>` subclass, when there is exactly one and it is used
+  /// only from within the widget (via `createState`). Returns an empty list for
+  /// a plain class, or a StatefulWidget whose State is referenced elsewhere.
+  ///
+  /// Removing the widget on its own would leave
+  /// `class _S extends State<Widget>` referring to a now-deleted type — a build
+  /// break — so the State is coupled to the widget's removal, but it is not
+  /// itself reported.
+  List<DeclarationRange> _pairedStateRemovals(
+    _Candidate widget,
+    List<Location> widgetRefs,
+    List<_Candidate> candidates,
+    List<List<Location>> refsByCandidate,
+  ) {
+    final out = <DeclarationRange>[];
+    for (final loc in widgetRefs) {
+      if (!_isStatePairingReference(widget.symbol.name, loc)) {
+        continue;
+      }
+      if (_pathOf(loc.uri) != widget.path) {
+        continue;
+      }
+      // The widget's own `createState` return type is inside the widget and
+      // removed with it; only a pairing reference outside the widget points at
+      // the separate State subclass.
+      if (_withinSymbol(loc.range.start, widget.symbol)) {
+        continue;
+      }
+      for (var j = 0; j < candidates.length; j++) {
+        final state = candidates[j];
+        if (state.symbol.kind != .class$ ||
+            state.path != widget.path ||
+            identical(state, widget) ||
+            !_withinSymbol(loc.range.start, state.symbol)) {
+          continue;
+        }
+        if (_referencedOnlyWithin(
+          refsByCandidate[j],
+          widget.symbol,
+          widget.path,
+        )) {
+          out.add(_rangeOf(state.symbol));
+        }
+        break;
+      }
+    }
+    return out;
+  }
+
+  /// Whether every *code* reference in [refs] lies within [enclosing] in
+  /// [path] — used to confirm a paired State subclass is reachable only from
+  /// its widget. Doc-comment links (e.g. a `[_FooState]` mention) are ignored:
+  /// documentation never keeps code alive, so it must not block coupling.
+  bool _referencedOnlyWithin(
+    List<Location> refs,
+    DocumentSymbol enclosing,
+    String path,
+  ) {
+    for (final loc in refs) {
+      if (_isDocReference(loc)) {
+        continue;
+      }
+      if (_pathOf(loc.uri) != path ||
+          !_withinSymbol(loc.range.start, enclosing)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Whether [pos] falls within [symbol]'s full source range.
+  bool _withinSymbol(Position pos, DocumentSymbol symbol) {
+    final start = symbol.range.start;
+    final afterStart =
+        pos.line > start.line ||
+        (pos.line == start.line && pos.character >= start.character);
+    return afterStart && _atOrBeforeEnd(pos, symbol.range.end);
+  }
+
+  bool _atOrBeforeEnd(Position pos, Position end) =>
+      pos.line < end.line ||
+      (pos.line == end.line && pos.character <= end.character);
+
+  DeclarationRange _rangeOf(DocumentSymbol symbol) => (
+    startLine: symbol.range.start.line,
+    startColumn: symbol.range.start.character,
+    endLine: symbol.range.end.line,
+    endColumn: symbol.range.end.character,
+  );
+
+  /// The first line of [symbol] including its contiguous leading
+  /// doc-comment/annotation block (mirrors the removal-side extension), so a
+  /// self-referencing dartdoc link in the class's own doc counts as a
+  /// self-reference.
+  int _metadataTopLine(DocumentSymbol symbol, List<String> lines) {
+    final nameLine = symbol.selectionRange.start.line;
+    var top = symbol.range.start.line <= nameLine
+        ? symbol.range.start.line
+        : nameLine;
+    while (top - 1 >= 0) {
+      final trimmed = lines[top - 1].trim();
+      final isMetaLine =
+          trimmed.isEmpty ||
+          trimmed.startsWith('@') ||
+          trimmed.startsWith('//') ||
+          trimmed.startsWith('/*') ||
+          trimmed.startsWith('*') ||
+          trimmed.endsWith('*/');
+      if (isMetaLine) {
+        top--;
+      } else {
+        break;
+      }
+    }
+    return top;
   }
 
   /// The name to report for [symbol].
@@ -361,28 +630,7 @@ class Ciach {
   /// [symbol], as a single string, for cheap annotation detection.
   String _leadingMetadata(DocumentSymbol symbol, List<String> lines) {
     final nameLine = symbol.selectionRange.start.line;
-    var top = symbol.range.start.line <= nameLine
-        ? symbol.range.start.line
-        : nameLine;
-
-    // Extend upward across contiguous annotation / comment / blank lines so we
-    // catch annotations placed above the modifier line.
-    while (top - 1 >= 0) {
-      final trimmed = lines[top - 1].trim();
-      final isMetaLine =
-          trimmed.isEmpty ||
-          trimmed.startsWith('@') ||
-          trimmed.startsWith('//') ||
-          trimmed.startsWith('/*') ||
-          trimmed.startsWith('*') ||
-          trimmed.endsWith('*/');
-      if (isMetaLine) {
-        top--;
-      } else {
-        break;
-      }
-    }
-
+    final top = _metadataTopLine(symbol, lines);
     final end = nameLine < lines.length ? nameLine : lines.length - 1;
     return lines.sublist(top, end + 1).join('\n');
   }

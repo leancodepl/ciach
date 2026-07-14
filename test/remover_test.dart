@@ -268,6 +268,45 @@ enum Direction {
     const source = 'void kept() {}\n';
     expect(applyRemoval(source, const []), source);
   });
+
+  test(
+    'a coupled removal deletes a second whole-node span in the same file',
+    () {
+      // A dead StatefulWidget and its paired State subclass: removing only the
+      // widget would leave `State<DeadWidget>` dangling, so the State's span is
+      // coupled to the widget's removal.
+      const source = '''
+class DeadWidget {
+  const DeadWidget();
+
+  State<DeadWidget> createState() => _DeadWidgetState();
+}
+
+class _DeadWidgetState extends State<DeadWidget> {}
+
+class Kept {}
+''';
+      // `class DeadWidget { ... }` spans line 0 col 0 .. line 4 col 1.
+      // `class _DeadWidgetState ... {}` is line 6, cols 0..51.
+      const widget = UnusedDeclaration(
+        name: 'DeadWidget',
+        kind: SymbolKind.class$,
+        filePath: 'lib.dart',
+        line: 1,
+        column: 7,
+        isPrivate: false,
+        range: (startLine: 0, startColumn: 0, endLine: 4, endColumn: 1),
+        coupledRemovals: [
+          (startLine: 6, startColumn: 0, endLine: 6, endColumn: 51),
+        ],
+      );
+      final result = applyRemoval(source, [widget]);
+      expect(result, isNot(contains('DeadWidget')));
+      expect(result, isNot(contains('_DeadWidgetState')));
+      expect(result, contains('class Kept {}'));
+      _expectBalanced(result);
+    },
+  );
 }
 
 /// A cheap brace-balance check so a regression that mangles a removal shows

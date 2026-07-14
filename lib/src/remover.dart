@@ -29,6 +29,27 @@ int removeDeclarations(List<UnusedDeclaration> declarations, String rootPath) {
   final byFile = <String, List<UnusedDeclaration>>{};
   for (final decl in declarations) {
     byFile.putIfAbsent(decl.filePath, () => []).add(decl);
+    // Coupled removals are extra whole-node spans in the same file that must
+    // be deleted together with the declaration to keep the source compiling
+    // (a dead StatefulWidget's paired `State` subclass), but that are not
+    // findings in their own right. Turn each into a synthetic whole-node
+    // declaration so it flows through the normal removal pass and its span
+    // merges with the rest.
+    for (final range in decl.coupledRemovals) {
+      byFile
+          .putIfAbsent(decl.filePath, () => [])
+          .add(
+            UnusedDeclaration(
+              name: '',
+              kind: SymbolKind.class$,
+              filePath: decl.filePath,
+              line: range.startLine + 1,
+              column: range.startColumn + 1,
+              isPrivate: true,
+              range: range,
+            ),
+          );
+    }
   }
 
   var filesChanged = 0;
