@@ -1,5 +1,11 @@
 ## Unreleased
 
+- Fix unused enum values being reported under the `enum` kind instead of
+  `enum-value`. The analysis server tags enum values with the same symbol kind
+  as the enum type itself, so a detected unused value was labelled `enum` and
+  `--kinds enum-value` never listed it (it showed up under `--kinds enum`).
+  Enum values are now remapped to the `enum-value` kind for both reporting and
+  kind filtering, while unused enum types keep the `enum` kind.
 - Add `--generated-suffix` (repeatable) to configure extra filename suffixes
   treated as generated, on top of the built-in set (`*.g.dart`,
   `*.freezed.dart`, …). Some code generators emit files with a custom suffix

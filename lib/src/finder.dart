@@ -313,7 +313,7 @@ class Ciach {
     List<_Candidate> out,
   ) {
     for (final symbol in symbols) {
-      if (_shouldConsider(symbol, lines)) {
+      if (_shouldConsider(symbol, parentIsEnum, lines)) {
         out.add((
           uri: uri,
           path: path,
@@ -337,8 +337,12 @@ class Ciach {
     }
   }
 
-  bool _shouldConsider(DocumentSymbol symbol, List<String> lines) {
-    if (!options.kinds.contains(symbol.kind)) {
+  bool _shouldConsider(
+    DocumentSymbol symbol,
+    bool parentIsEnum,
+    List<String> lines,
+  ) {
+    if (!options.kinds.contains(_reportedKind(symbol, parentIsEnum))) {
       return false;
     }
     // The program entry point is never "unused".
@@ -377,13 +381,20 @@ class Ciach {
     return true;
   }
 
+  /// The kind ciach reports for [symbol]. The analysis server tags enum
+  /// values with [SymbolKind.enum$] — the same kind as the enum type itself —
+  /// so remap them to [SymbolKind.enumMember] when they appear directly under
+  /// an enum, matching the `enum-value` kind exposed on the command line.
+  static SymbolKind _reportedKind(DocumentSymbol symbol, bool parentIsEnum) =>
+      parentIsEnum && symbol.kind == .enum$ ? .enumMember : symbol.kind;
+
   UnusedDeclaration _toUnused(_Candidate candidate, String rootPath) {
     final symbol = candidate.symbol;
     final start = symbol.selectionRange.start;
     final name = _declarationName(symbol, candidate.container);
     return .new(
       name: name,
-      kind: symbol.kind,
+      kind: _reportedKind(symbol, candidate.isEnumValue),
       filePath: p.split(p.relative(candidate.path, from: rootPath)).join('/'),
       // LSP positions are zero-based; report them one-based for humans.
       line: start.line + 1,
