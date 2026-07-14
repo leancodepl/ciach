@@ -54,15 +54,23 @@ String _removeFromContent(String content, List<UnusedDeclaration> decls) {
 
   final declarators = <UnusedDeclaration>[];
   final spans = <_Span>[];
+  final enumSpans = <_Span>[];
   for (final decl in decls) {
     if (_declaratorKinds.contains(decl.kind)) {
       declarators.add(decl);
     } else {
       final span = _spanFor(decl, content, lines, offsetOf);
       if (span != null) {
-        spans.add(span);
+        (decl.isEnumValue ? enumSpans : spans).add(span);
       }
     }
+  }
+  // Merge the per-value spans of each enum first, then drop any separator
+  // comma left orphaned when a trailing run of values is removed from a
+  // compact single-line enum (e.g. `enum E { a, b, c }` losing `b` and `c`
+  // must become `enum E { a }`, not `enum E { a, }`).
+  for (final span in _mergeSpans(enumSpans)) {
+    spans.add(_absorbOrphanEnumComma(content, span));
   }
   spans.addAll(_declaratorSpans(declarators, content, lines, offsetOf));
 
@@ -312,13 +320,55 @@ bool _looksLikeMetadata(String trimmedLine) =>
 }) {
   final forward = _nextNonWhitespace(content, baseEnd);
   if (forward != null && content[forward] == ',') {
-    return (valueStart, forward + 1);
+    // Also swallow the blank left between this comma and the next value on
+    // the same line, so a compact `enum E { a, b, c }` losing `b` reads
+    // `enum E { a, c }` rather than `enum E { a,  c }`. Stop at a line break
+    // to leave a multi-line enum's indentation intact.
+    return (valueStart, _skipSameLineBlank(content, forward + 1));
   }
   final backward = _previousNonWhitespace(content, valueStart);
   if (backward != null && content[backward] == ',') {
     return (backward, baseEnd);
   }
   return (valueStart, baseEnd);
+}
+
+/// Extends past spaces and tabs starting at [from], but never across a line
+/// break — used to consume the gap after a removed enum value's comma without
+/// touching the next line's indentation.
+int _skipSameLineBlank(String content, int from) {
+  var i = from;
+  while (i < content.length && (content[i] == ' ' || content[i] == '\t')) {
+    i++;
+  }
+  return i;
+}
+
+/// Drops the separator comma left dangling when a compact single-line enum
+/// loses a trailing run of values. Fires only when the merged removal [span]
+/// is bracketed, on its own line, by a leading `,` and a trailing `}` with
+/// nothing but spaces/tabs between — i.e. the removed values were the last in
+/// the enum and a value still precedes them. In every other shape the comma
+/// is a real separator that must stay, so the span is returned unchanged. The
+/// same-line guards keep multi-line enums (whose preceding comma sits on an
+/// earlier line) untouched.
+_Span _absorbOrphanEnumComma(String content, _Span span) {
+  var after = span.end;
+  while (after < content.length &&
+      (content[after] == ' ' || content[after] == '\t')) {
+    after++;
+  }
+  if (after >= content.length || content[after] != '}') {
+    return span;
+  }
+  var before = span.start - 1;
+  while (before >= 0 && (content[before] == ' ' || content[before] == '\t')) {
+    before--;
+  }
+  if (before < 0 || content[before] != ',') {
+    return span;
+  }
+  return (start: before, end: span.end);
 }
 
 /// Walks forward from [from] through zero or more top-level `,` separators,
