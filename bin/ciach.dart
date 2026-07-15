@@ -274,14 +274,13 @@ ArgParser _buildParser() {
     ..addFlag(
       'unused-union-members',
       help:
-          'Also flag a class whose only references are `case` patterns in\n'
-          'switch statements over its (sealed) supertype — matched but never\n'
-          'constructed. Off by default: a `case Foo():` arm otherwise counts\n'
-          'as a use. With --remove, the now-dead `case` arm(s) are removed\n'
-          'alongside the class so the switch stays valid and exhaustive.\n'
-          'Conservative: only the `case <Type>` statement form is detected;\n'
-          'any reference that is not clearly a `case` pattern keeps the class\n'
-          'alive.',
+          'Also flag a class whose only references are type patterns over its\n'
+          '(sealed) supertype — matched but never constructed. Off by default:\n'
+          'a `case Foo():` arm otherwise counts as a use. Report-only: these\n'
+          'findings are surfaced but --remove never deletes them or their\n'
+          'pattern arms (removing a sealed member and rewriting its switches\n'
+          'is left to a human). Conservative: any reference that is not clearly\n'
+          'a type pattern keeps the class alive.',
     )
     ..addFlag(
       'set-exit-if-changed',

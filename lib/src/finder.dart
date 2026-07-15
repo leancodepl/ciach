@@ -47,27 +47,6 @@ enum _RefStatus {
 /// only appears inside a comment or string.
 typedef _Token = ({int start, int end, bool isWord, String value});
 
-/// How a single reference relates to the opt-in dead-union-member detection.
-enum _PatternRefKind {
-  /// Not a recognized type pattern — a real use that keeps the class alive.
-  notPattern,
-
-  /// A type pattern whose surrounding construct can be deleted as a clean
-  /// whole-node span, carried in the `range` field.
-  removable,
-
-  /// A type pattern the class is genuinely dead by, but whose construct can't
-  /// be deleted safely (e.g. an `if`/`while` case branch) — reported, not
-  /// auto-removed.
-  blocked,
-}
-
-/// The outcome of classifying one reference for [_PatternRefKind].
-typedef _PatternRef = ({_PatternRefKind kind, DeclarationRange? range});
-
-/// Which pattern-matching construct a `case` keyword introduces.
-enum _CaseContext { switchStatement, ifCase, whileCase, unknown }
-
 /// Finds declarations that are never referenced by driving the Dart analysis
 /// server over LSP.
 ///
@@ -279,19 +258,23 @@ class Ciach {
                     rootPath,
                   )
                 : const <CoupledRemoval>[];
-            // Under --unused-union-members, a class kept dead only by pattern
-            // matches gets its matched arm(s) removed with it — unless one of
-            // those matches sits in a construct we can't delete safely, in
-            // which case the class is still reported but its removal is blocked.
-            final pattern = isClass && options.unusedUnionMembers
-                ? _patternRemovals(candidate, refsByCandidate[i], rootPath)
-                : (removals: const <CoupledRemoval>[], blocked: false);
+            // Under --unused-union-members, a class kept dead only by type
+            // patterns (never constructed, only matched) is still *reported*,
+            // but --remove must not touch it or its pattern arms: deleting a
+            // member of a sealed union and its scattered `case`s is a source
+            // rewrite this tool won't attempt. Such findings are report-only —
+            // removal is blocked, so the remover leaves them and anything
+            // coupled to them entirely alone.
+            final patternMatched =
+                isClass &&
+                options.unusedUnionMembers &&
+                _isPatternMatchedClass(candidate, refsByCandidate[i]);
             unused.add(
               _toUnused(
                 candidate,
                 rootPath,
-                coupledRemovals: [...paired, ...pattern.removals],
-                removalBlocked: pattern.blocked,
+                coupledRemovals: paired,
+                removalBlocked: patternMatched,
               ),
             );
           case _RefStatus.docOnly:
@@ -489,8 +472,7 @@ class Ciach {
       // falls through to `hasExternalCode` and keeps the class alive — the
       // conservative choice (nested sub-patterns and pattern-variable
       // declarations are intentionally not recognized, so they keep it alive).
-      if (options.unusedUnionMembers &&
-          _patternRef(loc).kind != _PatternRefKind.notPattern) {
+      if (options.unusedUnionMembers && _isPatternRef(loc)) {
         hasPatternMatch = true;
         continue;
       }
@@ -672,98 +654,60 @@ class Ciach {
   String _relPath(String absPath, String rootPath) =>
       p.split(p.relative(absPath, from: rootPath)).join('/');
 
-  /// The coupled arm/branch removals for a class kept dead only by pattern
-  /// matches, plus whether the removal is `blocked`.
+  /// Whether [candidate] — already classified as unused under
+  /// `--unused-union-members` — is kept dead by *type patterns*: at least one
+  /// of its non-self, non-doc references is a `case`/switch-expression pattern
+  /// match rather than a construction.
   ///
-  /// One removal is produced per non-self, non-doc reference. If *every* such
-  /// reference is [_PatternRefKind.removable], those spans are returned. If
-  /// *any* is [_PatternRefKind.blocked] (a pattern in a construct that can't be
-  /// deleted safely), no spans are returned and `blocked` is `true` — removing
-  /// only some matches would strand the rest, so the class is reported but left
-  /// in place for a human to handle.
-  ({List<CoupledRemoval> removals, bool blocked}) _patternRemovals(
-    _Candidate candidate,
-    List<Location> refs,
-    String rootPath,
-  ) {
-    final removals = <CoupledRemoval>[];
+  /// Such a class is reported (a human should know the type is never
+  /// constructed, only matched) but its removal is *blocked*: deleting a member
+  /// of a sealed union and its scattered pattern arms is a source rewrite this
+  /// tool won't attempt, so `--remove` leaves it — and its arms — in place.
+  bool _isPatternMatchedClass(_Candidate candidate, List<Location> refs) {
     for (final loc in refs) {
       if (_isSelfClassReference(candidate, loc) || _isDocReference(loc)) {
         continue;
       }
-      final pattern = _patternRef(loc);
-      switch (pattern.kind) {
-        case _PatternRefKind.notPattern:
-          // A class reaches here only when all its outside refs are patterns,
-          // so this is unreachable; ignore defensively.
-          break;
-        case _PatternRefKind.blocked:
-          return (removals: const [], blocked: true);
-        case _PatternRefKind.removable:
-          removals.add((
-            filePath: _relPath(_pathOf(loc.uri), rootPath),
-            range: pattern.range!,
-          ));
+      if (_isPatternRef(loc)) {
+        return true;
       }
     }
-    return (removals: removals, blocked: false);
+    return false;
   }
 
-  /// Classifies a reference [loc] to a class for the opt-in dead-union-member
-  /// detection: whether it is a *type pattern* (a match, not a construction)
-  /// and, if so, whether its enclosing construct can be removed cleanly.
+  /// Whether reference [loc] to a class is a *type pattern* — a match, not a
+  /// construction — for the opt-in dead-union-member detection.
   ///
   /// Recognized as patterns:
   ///
-  /// * A `case <Type>` pattern in a `switch` statement — removable (the whole
-  ///   arm), when its boundaries fall on clean lines.
-  /// * A switch-*expression* arm `<Type>… => …,` — removable (the whole arm),
-  ///   when it is a whole-line arm terminated by a trailing comma.
-  /// * A `case <Type>` in an `if (x case …)` / `while (x case …)` header —
-  ///   [_PatternRefKind.blocked]: the class is dead, but deleting the branch
-  ///   would mean rewriting control flow, so it is reported, not removed.
+  /// * A `case <Type>` pattern — in a `switch` statement, or in an
+  ///   `if (x case …)` / `while (x case …)` header.
+  /// * A switch-*expression* arm `<Type>… => …,`.
   ///
   /// Everything else (construction, type annotations, `extends`/`implements`,
-  /// static access, nested sub-patterns, pattern-variable declarations) is
-  /// [_PatternRefKind.notPattern] — a real use that keeps the class alive.
-  _PatternRef _patternRef(Location loc) {
-    const notPattern = (kind: _PatternRefKind.notPattern, range: null);
+  /// static access, nested sub-patterns, pattern-variable declarations) is not
+  /// a pattern — a real use that keeps the class alive.
+  bool _isPatternRef(Location loc) {
     final located = _locateTypeToken(loc);
     if (located == null) {
-      return notPattern;
+      return false;
     }
-    final (:tokens, :ti, :content, :lineStarts) = located;
+    final (:tokens, :ti) = located;
 
     final prev = ti > 0 ? tokens[ti - 1] : null;
     if (prev != null && prev.isWord && prev.value == 'case') {
-      switch (_caseContext(tokens, ti - 1)) {
-        case _CaseContext.switchStatement:
-          final range = _switchStatementArmRange(
-            tokens,
-            ti,
-            content,
-            lineStarts,
-          );
-          return range == null
-              ? (kind: _PatternRefKind.blocked, range: null)
-              : (kind: _PatternRefKind.removable, range: range);
-        case _CaseContext.ifCase:
-        case _CaseContext.whileCase:
-        case _CaseContext.unknown:
-          // A real match, so the class is dead — but removing an if/while
-          // branch safely needs a control-flow rewrite we won't attempt.
-          return (kind: _PatternRefKind.blocked, range: null);
-      }
+      // Any `case <Type>` — switch statement, if-case, or while-case — matches
+      // the type without constructing it.
+      return true;
     }
 
-    return _switchExprArmRef(tokens, ti, content, lineStarts);
+    return _isSwitchExprArm(tokens, ti);
   }
 
   /// Resolves [loc] to the lexer token index of the referenced type name,
-  /// returning it with the file's cached tokens/content, or `null` if the
-  /// reference doesn't line up with a word token.
-  ({List<_Token> tokens, int ti, String content, List<int> lineStarts})?
-  _locateTypeToken(Location loc) {
+  /// returning it with the file's cached tokens, or `null` if the reference
+  /// doesn't line up with a word token.
+  ({List<_Token> tokens, int ti})? _locateTypeToken(Location loc) {
     final path = _pathOf(loc.uri);
     final content = _contentFor(path);
     if (content.isEmpty) {
@@ -779,117 +723,7 @@ class Ciach {
     if (ti == null || !tokens[ti].isWord) {
       return null;
     }
-    return (tokens: tokens, ti: ti, content: content, lineStarts: lineStarts);
-  }
-
-  /// The whole-arm span of a `switch`-statement `case` whose head type is the
-  /// token at [ti], or `null` if its boundaries can't be delimited on clean
-  /// lines. The arm runs from the `case` keyword to the next sibling
-  /// `case`/`default` or the `switch`'s closing `}`.
-  DeclarationRange? _switchStatementArmRange(
-    List<_Token> tokens,
-    int ti,
-    String content,
-    List<int> lineStarts,
-  ) {
-    final boundary = _armBoundaryToken(tokens, ti);
-    if (boundary == null) {
-      return null;
-    }
-    // Only delete whole lines: bail unless the boundary token starts its line.
-    final boundaryPos = _positionOf(lineStarts, boundary.start);
-    final boundaryLineStart = lineStarts[boundaryPos.line];
-    if (content
-        .substring(boundaryLineStart, boundary.start)
-        .trim()
-        .isNotEmpty) {
-      return null;
-    }
-    final casePos = _positionOf(lineStarts, tokens[ti - 1].start);
-    return (
-      startLine: casePos.line,
-      startColumn: casePos.column,
-      endLine: boundaryPos.line,
-      endColumn: 0,
-    );
-  }
-
-  /// Classifies the type token at [ti] as a switch-*expression* arm pattern
-  /// (`<Type>… => value,`) and, if so, whether the whole arm can be removed
-  /// cleanly. Returns [_PatternRefKind.notPattern] when [ti] is not the head of
-  /// such an arm.
-  ///
-  /// An arm is recognized only when: the token before it is the `{`/`,` of a
-  /// `switch (…) { … }` expression body, and a top-level `=>` follows the
-  /// pattern. It is [_PatternRefKind.removable] only when it is a whole-line arm
-  /// terminated by a trailing comma (the shape `dart format` always produces
-  /// for a multi-line switch expression); otherwise it is
-  /// [_PatternRefKind.blocked].
-  _PatternRef _switchExprArmRef(
-    List<_Token> tokens,
-    int ti,
-    String content,
-    List<int> lineStarts,
-  ) {
-    const notPattern = (kind: _PatternRefKind.notPattern, range: null);
-    if (!_isSwitchExprArm(tokens, ti)) {
-      return notPattern;
-    }
-    // Find the arm terminator: the top-level `,` (or the body's `}`) after the
-    // `=>`. A trailing comma on its own line is the removable shape.
-    var depth = 0;
-    for (var k = ti + 1; k < tokens.length; k++) {
-      final t = tokens[k];
-      if (t.isWord) {
-        continue;
-      }
-      switch (t.value) {
-        case '(' || '[' || '{':
-          depth++;
-        case ')' || ']':
-          if (depth == 0) {
-            return (kind: _PatternRefKind.blocked, range: null);
-          }
-          depth--;
-        case '}':
-          if (depth == 0) {
-            // Last arm with no trailing comma: safe removal would need to eat
-            // the previous arm's comma — leave it to a human.
-            return (kind: _PatternRefKind.blocked, range: null);
-          }
-          depth--;
-        case ',':
-          if (depth == 0) {
-            final typePos = _positionOf(lineStarts, tokens[ti].start);
-            final commaPos = _positionOf(lineStarts, t.start);
-            final beforeType = content.substring(
-              lineStarts[typePos.line],
-              tokens[ti].start,
-            );
-            final afterComma = content.substring(
-              t.start + 1,
-              t.start + 1 >= content.length
-                  ? t.start + 1
-                  : (lineStarts.length > commaPos.line + 1
-                        ? lineStarts[commaPos.line + 1] - 1
-                        : content.length),
-            );
-            if (beforeType.trim().isNotEmpty || afterComma.trim().isNotEmpty) {
-              return (kind: _PatternRefKind.blocked, range: null);
-            }
-            return (
-              kind: _PatternRefKind.removable,
-              range: (
-                startLine: typePos.line,
-                startColumn: typePos.column,
-                endLine: commaPos.line,
-                endColumn: commaPos.column + 1,
-              ),
-            );
-          }
-      }
-    }
-    return (kind: _PatternRefKind.blocked, range: null);
+    return (tokens: tokens, ti: ti);
   }
 
   /// Whether the type token at [ti] begins a switch-*expression* arm: preceded
@@ -998,58 +832,6 @@ class Ciach {
     return null;
   }
 
-  /// Which construct the `case` keyword at [caseIndex] belongs to, by finding
-  /// its nearest enclosing bracket: a `{` means a `switch` statement arm; a `(`
-  /// preceded by `if`/`while` means an `if`/`while` case header.
-  _CaseContext _caseContext(List<_Token> tokens, int caseIndex) {
-    final opener = _enclosingOpener(tokens, caseIndex - 1);
-    if (opener == null) {
-      return _CaseContext.unknown;
-    }
-    final token = tokens[opener];
-    if (token.value == '{') {
-      return _CaseContext.switchStatement;
-    }
-    if (token.value == '(' && opener > 0 && tokens[opener - 1].isWord) {
-      switch (tokens[opener - 1].value) {
-        case 'if':
-          return _CaseContext.ifCase;
-        case 'while':
-          return _CaseContext.whileCase;
-      }
-    }
-    return _CaseContext.unknown;
-  }
-
-  /// Scans forward from the type token at [ti] for the token that ends its
-  /// `case` arm — the next `case`/`default` keyword, or the `switch`'s closing
-  /// `}`, at brace/paren/bracket depth 0. Returns `null` if the scan runs off
-  /// the end or hits an unbalanced closer first.
-  _Token? _armBoundaryToken(List<_Token> tokens, int ti) {
-    var depth = 0;
-    for (var k = ti + 1; k < tokens.length; k++) {
-      final t = tokens[k];
-      if (t.isWord) {
-        if (depth == 0 && (t.value == 'case' || t.value == 'default')) {
-          return t;
-        }
-        continue;
-      }
-      switch (t.value) {
-        case '(' || '[' || '{':
-          depth++;
-        case ')' || ']' || '}':
-          if (depth == 0) {
-            // The `}` that closes the enclosing switch body ends the last arm;
-            // an unbalanced `)`/`]` means we've lost the shape — give up.
-            return t.value == '}' ? t : null;
-          }
-          depth--;
-      }
-    }
-    return null;
-  }
-
   /// Absolute offset of an LSP [position] in [content], or `null` if out of
   /// range. LSP columns are UTF-16 code units, which is exactly how Dart
   /// indexes a `String`, so the arithmetic needs no conversion.
@@ -1066,22 +848,6 @@ class Ciach {
       return null;
     }
     return offset;
-  }
-
-  /// The `(line, column)` of an absolute [offset], via binary search over the
-  /// cached line-start offsets.
-  ({int line, int column}) _positionOf(List<int> lineStarts, int offset) {
-    var lo = 0;
-    var hi = lineStarts.length - 1;
-    while (lo < hi) {
-      final mid = (lo + hi + 1) >> 1;
-      if (lineStarts[mid] <= offset) {
-        lo = mid;
-      } else {
-        hi = mid - 1;
-      }
-    }
-    return (line: lo, column: offset - lineStarts[lo]);
   }
 
   /// The index of the token whose span starts exactly at [offset], or `null`

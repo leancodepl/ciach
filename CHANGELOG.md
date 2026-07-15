@@ -16,16 +16,13 @@
   Detection is deliberately conservative: any reference that is not clearly a
   type pattern (a construction, type annotation, `extends`/`implements`, static
   access, a nested sub-pattern, or a pattern-variable declaration) keeps the
-  class alive, so the failure mode is missing a dead member, never removing a
-  live one. With `--remove`, the now-dead arm(s) are deleted alongside the class
-  (a `switch` case arm, or a whole switch-expression arm) so the `switch` stays
-  valid and exhaustive over the remaining members. A match in a construct that
-  can't be deleted safely — an `if`/`while` case branch, or a switch-expression
-  arm not in the clean trailing-comma shape — is still reported, but flagged as
-  needing manual handling and skipped by `--remove` rather than risking a broken
-  build. Without the flag, behavior is unchanged: a pattern match counts as a
-  use. Coupled removals may now span files, so a dead member's arm is removed
-  from the file that switches over its supertype.
+  class alive, so the failure mode is missing a dead member, never a false
+  positive. This flag is **report-only**: findings are surfaced (so a human can
+  see the type is never constructed, only pattern-matched) but `--remove` never
+  deletes them or touches their pattern arms — removing a member of a sealed
+  union and rewriting every now-non-exhaustive `switch`/`if`-`case` over its
+  supertype is a source rewrite this tool won't attempt. Without the flag,
+  behavior is unchanged: a pattern match counts as a use.
 - Detect a whole dead class instead of only its constructor. A class whose only
   references are self-references — its own explicit unnamed constructor's
   declaration (whose name range coincides with the class name), a `State<Self>`

@@ -26,8 +26,7 @@ typedef DeclarationRange = ({
 /// declaration. Unlike a bare [DeclarationRange], it names its own
 /// `filePath` (relative to the analyzed root, `/`-separated), so a coupled
 /// removal can live in a *different* file from the declaration it is coupled
-/// to — e.g. a dead sealed member's `case` arm in the file that switches over
-/// its supertype.
+/// to — e.g. a dead `StatefulWidget`'s paired `State` subclass.
 typedef CoupledRemoval = ({String filePath, DeclarationRange range});
 
 /// Configuration for a single run of the finder.
@@ -87,19 +86,23 @@ class FinderOptions {
   final bool skipOperators;
 
   /// Whether to also flag a class as dead when its only non-self references
-  /// are `case` patterns in `switch` statements over its (sealed) supertype —
-  /// i.e. the type is *matched* but never *constructed* anywhere.
+  /// are *type patterns* over its (sealed) supertype — `case` patterns in
+  /// `switch` statements / `if`-`case` / `while`-`case` headers, or
+  /// switch-*expression* arms — i.e. the type is *matched* but never
+  /// *constructed* anywhere.
   ///
   /// Off by default, and deliberately so: a `case Foo():` arm normally counts
   /// as a real use of `Foo`, keeping it alive. When enabled, such a member is
-  /// reported as an unused `class`, and `--remove` deletes the now-dead `case`
-  /// arm(s) alongside it (via [UnusedDeclaration.coupledRemovals]) so the
-  /// `switch` stays valid and exhaustive over the remaining members.
+  /// **reported** as an unused `class` so a human can see it is never
+  /// constructed — but this is *report-only*: `--remove` deliberately leaves it
+  /// (and its pattern arms) in place, because removing a member of a sealed
+  /// union and rewriting the now-non-exhaustive `switch`es over it is a source
+  /// rewrite this tool won't attempt. Every finding surfaced by this flag is
+  /// marked [UnusedDeclaration.removalBlocked].
   ///
-  /// Detection is conservative: only the `case <Type>` (switch-*statement*)
-  /// form is recognized, and any non-self reference that is not confidently a
-  /// `case` pattern keeps the class alive. Switch-*expression* arms (the
-  /// keyword-less `Type() => …` form) are treated as real uses.
+  /// Detection is conservative: only a reference that is confidently a type
+  /// pattern is discounted; anything else (construction, type annotations,
+  /// nested sub-patterns, pattern-variable declarations) keeps the class alive.
   final bool unusedUnionMembers;
 
   /// How many `textDocument/references` requests to keep in flight at once.
@@ -204,17 +207,11 @@ class UnusedDeclaration {
   /// together with this declaration to keep the source compiling, but that are
   /// not themselves reported as findings.
   ///
-  /// Two uses today:
-  ///
-  /// * A dead `StatefulWidget`'s paired private `State<Widget>` subclass, which
-  ///   is not independently "unused" (the widget's own `createState`
-  ///   references it) yet becomes uncompilable the moment the widget is deleted
-  ///   (`State<DeletedWidget>` no longer resolves). It lives in the same file.
-  /// * A dead sealed-union member's `case` arm(s) in `switch` statements over
-  ///   its supertype (opt-in `--unused-union-members`): the arm must go with
-  ///   the class so the deleted type is not left dangling in a `case` pattern.
-  ///   These arms typically live in *other* files, which is why a coupled
-  ///   removal carries its own `filePath`.
+  /// One use today: a dead `StatefulWidget`'s paired private `State<Widget>`
+  /// subclass, which is not independently "unused" (the widget's own
+  /// `createState` references it) yet becomes uncompilable the moment the
+  /// widget is deleted (`State<DeletedWidget>` no longer resolves). It lives in
+  /// the same file.
   ///
   /// Coupling a removal keeps `--remove` from breaking the build without
   /// surfacing the coupled span as a separate report entry.
@@ -224,11 +221,12 @@ class UnusedDeclaration {
   /// must *not* delete it automatically, because doing so safely would require
   /// a source rewrite this tool won't attempt.
   ///
-  /// Set only under `--unused-union-members`, for a dead sealed member that is
-  /// matched by a pattern whose surrounding construct can't be deleted as a
-  /// clean whole-node span — e.g. an `if (x case DeadType())` / `while (…)`
-  /// branch (removing it would mean rewriting control flow). The class is still
-  /// reported so a human can act on it; it is simply skipped by the remover.
+  /// Set for every dead sealed member surfaced by `--unused-union-members` (a
+  /// class that is only ever *matched* by a type pattern, never constructed):
+  /// deleting it would mean removing the member and rewriting every now-non-
+  /// exhaustive `switch`/`if`-`case` over its supertype. The class is still
+  /// reported so a human can act on it; it — and anything coupled to it — is
+  /// simply skipped by the remover.
   final bool removalBlocked;
 
   /// Fully qualified display name, e.g. `MyClass.myMethod`.

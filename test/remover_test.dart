@@ -646,11 +646,11 @@ class Kept {}
     },
   );
 
-  test('a coupled switch-case arm is removed with the dead member, leaving a '
-      'valid switch over the remaining members', () {
-    // A dead sealed member and the `case` arm that matches it: removing the
-    // class alone would strand `case Dead():`, so the arm's whole-line span
-    // is coupled to the class removal.
+  test('a report-only (removalBlocked) finding is left in place, and nothing '
+      'coupled to it is removed either', () {
+    // A `--unused-union-members` finding is reported but never auto-removed:
+    // the remover must skip the declaration entirely — including any span that
+    // was coupled to it — so the source is left untouched.
     const source = '''
 sealed class S {}
 
@@ -658,58 +658,34 @@ class Kept extends S {}
 
 class Dead extends S {}
 
-String describe(S s) {
-  switch (s) {
-    case Kept():
-      return 'kept';
-    case Dead():
-      return 'dead';
-    default:
-      return 'other';
-  }
-}
+String describe(S s) => switch (s) {
+  Kept() => 'kept',
+  Dead() => 'dead',
+};
 ''';
-    final lines = source.split('\n');
-    // `class Dead extends S {}` is its own line.
-    final deadLine = lines.indexWhere((l) => l.startsWith('class Dead'));
-    // The `case Dead():` arm spans from its `case` line up to the `default:`.
-    final armLine = lines.indexWhere((l) => l.contains('case Dead()'));
-    final boundaryLine = lines.indexWhere((l) => l.contains('default:'));
-
-    final dead = UnusedDeclaration(
+    const dead = UnusedDeclaration(
       name: 'Dead',
       kind: SymbolKind.class$,
       filePath: 'lib.dart',
-      line: deadLine + 1,
+      line: 5,
       column: 7,
       isPrivate: false,
-      range: (
-        startLine: deadLine,
-        startColumn: 0,
-        endLine: deadLine,
-        endColumn: lines[deadLine].length,
-      ),
+      range: (startLine: 4, startColumn: 0, endLine: 4, endColumn: 23),
+      removalBlocked: true,
+      // Even if a coupled span were attached, a blocked finding is skipped
+      // whole — so the arm must survive too.
       coupledRemovals: [
         (
           filePath: 'lib.dart',
-          range: (
-            startLine: armLine,
-            startColumn: 4,
-            endLine: boundaryLine,
-            endColumn: 0,
-          ),
+          range: (startLine: 8, startColumn: 2, endLine: 9, endColumn: 0),
         ),
       ],
     );
 
     final result = applyRemoval(source, [dead]);
-    expect(result, isNot(contains('class Dead')));
-    expect(result, isNot(contains('case Dead()')));
-    expect(result, isNot(contains("return 'dead';")));
-    // The surviving arm and the rest of the switch are intact.
-    expect(result, contains('case Kept():'));
-    expect(result, contains('default:'));
-    _expectBalanced(result);
+    expect(result, equals(source), reason: 'report-only: nothing removed');
+    expect(result, contains('class Dead extends S {}'));
+    expect(result, contains("Dead() => 'dead'"));
   });
 }
 

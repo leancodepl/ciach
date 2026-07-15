@@ -294,37 +294,40 @@ void main() {
       return null;
     }
 
-    test('flag ON: a member matched only by a switch-statement case is '
-        'flagged and its arm is coupled for removal', () async {
-      final result = await runUnions(flag: true);
-      final decl = findByName(result, 'StatementOnlySignal');
-      expect(decl, isNotNull, reason: 'should be flagged dead');
-      expect(decl!.kind, SymbolKind.class$);
-      expect(decl.removalBlocked, isFalse);
-      // The dead `case StatementOnlySignal(): …` arm is removed with the class.
-      expect(decl.coupledRemovals, isNotEmpty);
-      expect(
-        decl.coupledRemovals.map((c) => c.filePath),
-        everyElement('lib/unions.dart'),
-      );
-    });
+    test(
+      'flag ON: a member matched only by a switch-statement case is '
+      'reported but report-only (removal blocked, no coupled arms)',
+      () async {
+        final result = await runUnions(flag: true);
+        final decl = findByName(result, 'StatementOnlySignal');
+        expect(decl, isNotNull, reason: 'should be flagged dead');
+        expect(decl!.kind, SymbolKind.class$);
+        // Report-only: the class is surfaced so a human sees it is never
+        // constructed, but `--remove` must not delete it or touch its arm.
+        expect(decl.removalBlocked, isTrue);
+        expect(decl.coupledRemovals, isEmpty);
+      },
+    );
 
-    test('flag ON: a member matched only by a switch-expression arm is '
-        'flagged and its arm is coupled for removal', () async {
-      final result = await runUnions(flag: true);
-      final decl = findByName(result, 'ExpressionOnlySignal');
-      expect(decl, isNotNull);
-      expect(decl!.removalBlocked, isFalse);
-      expect(decl.coupledRemovals, isNotEmpty);
-    });
+    test(
+      'flag ON: a member matched only by a switch-expression arm is '
+      'reported but report-only (removal blocked, no coupled arms)',
+      () async {
+        final result = await runUnions(flag: true);
+        final decl = findByName(result, 'ExpressionOnlySignal');
+        expect(decl, isNotNull);
+        expect(decl!.removalBlocked, isTrue);
+        expect(decl.coupledRemovals, isEmpty);
+      },
+    );
 
-    test('flag ON: a member matched only by an if-case is flagged but its '
-        'removal is blocked (reported, not auto-removed)', () async {
+    test('flag ON: a member matched only by an if-case is reported but '
+        'report-only (removal blocked, no coupled arms)', () async {
       final result = await runUnions(flag: true);
       final decl = findByName(result, 'IfCaseOnlySignal');
       expect(decl, isNotNull, reason: 'still reported as dead');
       expect(decl!.removalBlocked, isTrue);
-      // Nothing is coupled: we never partially delete an if/while branch.
+      // Nothing is coupled: `--unused-union-members` never removes arms.
       expect(decl.coupledRemovals, isEmpty);
     });
 
