@@ -8,6 +8,35 @@
   when removing one or more values.
 - Fix `--remove` deleting the leading doc/annotation comment and header when
   removing a value from a compact single-line enum.
+- Treat an enum value reached only through `EnumType.values` iteration as used.
+  Previously a value was flagged unused unless it had a direct
+  `EnumType.value` reference, so an enum consumed only by iterating its
+  `.values` (e.g. a lookup over `EnumType.values`) had every value reported —
+  and `--remove` then emptied the enum, breaking the build. Now, when an enum
+  type's static `.values` getter is referenced anywhere, all of that enum's
+  values are considered used and none is flagged. Both the qualified
+  `<EnumName>.values` form and the implicit bare `values` form (used from inside
+  the enum's own body, e.g. a `values.any(…)` helper) are recognized. The check
+  is precise: only that specific enum's `.values` counts, not a `.value` access
+  to an individual value or a `.values` on some other symbol.
+- Add remove-safety guards so `--remove` never produces code that fails to
+  compile. Each affected finding is still **reported** (with the blocked
+  annotation) so a human can act on it, but it is skipped by `--remove` —
+  reusing the report-only mechanism already used for pattern-matched sealed
+  members. The guards are deliberately conservative: when it is unclear whether
+  a removal is safe, the finding is blocked rather than removed.
+  - *Emptying an enum.* If every value of an enum is dead but the enum *type* is
+    still referenced, removing them all would leave `enum E {}` (a compile
+    error), so those value removals are blocked.
+  - *Sole constructor with final fields.* If a class's only constructor is dead
+    but the class itself is alive, removing it synthesizes an implicit default
+    constructor; when the class has `final` instance fields, that would strand
+    them (`final_not_initialized`), so the constructor removal is blocked.
+  - *Super-forwarding constructor.* If removing a class's only constructor would
+    leave an implicit default constructor whose superclass has no accessible
+    zero-arg unnamed constructor — detected via `super.<field>` parameters or a
+    non-empty `super(...)` call — the removal is blocked
+    (`no_default_super_constructor`).
 - Add an opt-in `--unused-union-members` flag (off by default). When enabled, a
   class also counts as dead when its only non-self references are *type
   patterns* — it is matched but never constructed, so no match can ever fire.

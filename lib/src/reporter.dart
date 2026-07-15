@@ -63,7 +63,7 @@ abstract final class Reporter {
         final kind = decl.kind.label.padRight(kindWidth);
         final visibility = decl.isPrivate ? 'private' : 'public';
         final blocked = decl.removalBlocked
-            ? '  ${_style('(matched by a pattern — remove manually)', _dim, useColor)}'
+            ? '  ${_style('(unsafe to auto-remove — remove manually)', _dim, useColor)}'
             : '';
         buffer.writeln(
           '  ${_style(loc, _dim, useColor)}  '

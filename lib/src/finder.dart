@@ -47,6 +47,10 @@ enum _RefStatus {
 /// only appears inside a comment or string.
 typedef _Token = ({int start, int end, bool isWord, String value});
 
+/// A file path paired with a declaration name, used as a map key to look up
+/// per-declaration facts gathered by the remove-safety pre-pass.
+typedef _DeclKey = ({String path, String name});
+
 /// Finds declarations that are never referenced by driving the Dart analysis
 /// server over LSP.
 ///
@@ -241,11 +245,132 @@ class Ciach {
         }
       }
 
+      // ---- Remove-safety pre-pass ----
+      //
+      // Some findings are genuinely dead but cannot be auto-removed without
+      // breaking the build, so they are reported with `removalBlocked` set and
+      // left for a human — reusing the same mechanism as pattern-matched sealed
+      // members. A separate *detection* fix keeps enum values reached only via
+      // `EnumType.values` iteration from being flagged at all. Everything the
+      // reporting loop below needs to decide is gathered here, up front, so
+      // that loop stays a set of cheap lookups.
+      //
+      // * `enumValuesIterated`  — enums whose static `.values` getter is
+      //   referenced anywhere: every value is reachable through iteration, so
+      //   none is unused (the detection fix).
+      // * `emptiedEnums`        — enums every one of whose values would be
+      //   removed while the enum TYPE is still referenced, leaving `enum E {}`
+      //   (a compile error). Those value removals are blocked (guard 2).
+      // * `blockedCtorClasses`  — live classes all of whose constructors are
+      //   dead: removing them synthesizes an implicit default constructor that
+      //   strands `final` fields (guard 3) or breaks super-constructor
+      //   forwarding (guard 4). Those constructor removals are blocked.
+      final enumValuesIterated = <_DeclKey>{};
+      final enumTypeHasRef = <_DeclKey, bool>{};
+      final enumValueTotal = <_DeclKey, int>{};
+      final ctorTotal = <_DeclKey, int>{};
+      final ctorDead = <_DeclKey, int>{};
+      final ctorForwardsSuper = <_DeclKey, bool>{};
+      final classByKey = <_DeclKey, _Candidate>{};
+
+      for (var i = 0; i < candidates.length; i++) {
+        final candidate = candidates[i];
+        final symbol = candidate.symbol;
+        final refs = refsByCandidate[i];
+        if (symbol.kind == .enum$ && !candidate.isEnumValue) {
+          final key = _key(candidate.path, symbol.name);
+          enumTypeHasRef[key] = refs.isNotEmpty;
+          if (refs.any(_isDotValuesRef) || _enumIteratesOwnValues(candidate)) {
+            enumValuesIterated.add(key);
+          }
+        } else if (candidate.isEnumValue && candidate.container != null) {
+          enumValueTotal.update(
+            _key(candidate.path, candidate.container!),
+            (n) => n + 1,
+            ifAbsent: () => 1,
+          );
+        } else if (symbol.kind == .class$) {
+          classByKey[_key(candidate.path, symbol.name)] = candidate;
+        } else if (symbol.kind == .constructor && candidate.container != null) {
+          final key = _key(candidate.path, candidate.container!);
+          ctorTotal.update(key, (n) => n + 1, ifAbsent: () => 1);
+          if (statuses[i] == _RefStatus.unused) {
+            ctorDead.update(key, (n) => n + 1, ifAbsent: () => 1);
+            if (_ctorForwardsSuper(candidate)) {
+              ctorForwardsSuper[key] = true;
+            }
+          }
+        }
+      }
+
+      // Enum values that are dead once `.values` iteration is discounted, keyed
+      // by enum, so guard 2 can tell when *every* value of an enum would go.
+      final enumValueDead = <_DeclKey, int>{};
+      for (var i = 0; i < candidates.length; i++) {
+        final candidate = candidates[i];
+        if (!candidate.isEnumValue ||
+            candidate.container == null ||
+            statuses[i] != _RefStatus.unused) {
+          continue;
+        }
+        final key = _key(candidate.path, candidate.container!);
+        if (enumValuesIterated.contains(key)) {
+          continue;
+        }
+        enumValueDead.update(key, (n) => n + 1, ifAbsent: () => 1);
+      }
+
+      final emptiedEnums = <_DeclKey>{};
+      for (final entry in enumValueTotal.entries) {
+        final key = entry.key;
+        final dead = enumValueDead[key] ?? 0;
+        if (dead == 0 || dead != entry.value) {
+          continue;
+        }
+        // Conservative: if the enum-type candidate is missing we cannot prove
+        // the enum is itself being removed, so assume it stays and block.
+        if (enumTypeHasRef[key] ?? true) {
+          emptiedEnums.add(key);
+        }
+      }
+
+      final blockedCtorClasses = <_DeclKey>{};
+      for (final entry in ctorTotal.entries) {
+        final key = entry.key;
+        final dead = ctorDead[key] ?? 0;
+        if (dead == 0 || dead != entry.value) {
+          continue;
+        }
+        // A dead class is removed whole (its constructors go with it), so its
+        // constructors are never reported on their own — nothing to guard.
+        if (deadClassNames[key.path]?.contains(key.name) ?? false) {
+          continue;
+        }
+        final classCandidate = classByKey[key];
+        final hasFinalField =
+            classCandidate != null &&
+            _classHasFinalInstanceField(classCandidate);
+        final forwardsSuper = ctorForwardsSuper[key] ?? false;
+        if (hasFinalField || forwardsSuper) {
+          blockedCtorClasses.add(key);
+        }
+      }
+
       for (var i = 0; i < candidates.length; i++) {
         final candidate = candidates[i];
         switch (statuses[i]) {
           case _RefStatus.unused:
             if (_isConstructorOfDeadClass(candidate, deadClassNames)) {
+              break;
+            }
+            // Detection fix: an enum value reached only through
+            // `EnumType.values` iteration (never a direct `EnumType.value`
+            // reference) is used, not dead — do not report it at all.
+            if (candidate.isEnumValue &&
+                candidate.container != null &&
+                enumValuesIterated.contains(
+                  _key(candidate.path, candidate.container!),
+                )) {
               break;
             }
             final isClass = candidate.symbol.kind == .class$;
@@ -258,23 +383,40 @@ class Ciach {
                     rootPath,
                   )
                 : const <CoupledRemoval>[];
-            // Under --unused-union-members, a class kept dead only by type
-            // patterns (never constructed, only matched) is still *reported*,
-            // but --remove must not touch it or its pattern arms: deleting a
-            // member of a sealed union and its scattered `case`s is a source
-            // rewrite this tool won't attempt. Such findings are report-only —
-            // removal is blocked, so the remover leaves them and anything
-            // coupled to them entirely alone.
-            final patternMatched =
-                isClass &&
-                options.unusedUnionMembers &&
-                _isPatternMatchedClass(candidate, refsByCandidate[i]);
+            // A finding is report-only (removalBlocked) when auto-removing it
+            // would break the build:
+            //
+            // * a class kept dead only by type patterns under
+            //   --unused-union-members (never constructed, only matched):
+            //   deleting a sealed member and its scattered `case`s is a source
+            //   rewrite this tool won't attempt;
+            // * an enum value whose removal would empty a still-referenced enum
+            //   (guard 2);
+            // * the last constructor of a live class with `final` fields
+            //   (guard 3) or super-constructor forwarding (guard 4).
+            //
+            // Each is surfaced so a human can act on it, but the remover leaves
+            // it — and anything coupled to it — entirely alone.
+            final removalBlocked =
+                (isClass &&
+                    options.unusedUnionMembers &&
+                    _isPatternMatchedClass(candidate, refsByCandidate[i])) ||
+                (candidate.isEnumValue &&
+                    candidate.container != null &&
+                    emptiedEnums.contains(
+                      _key(candidate.path, candidate.container!),
+                    )) ||
+                (candidate.symbol.kind == .constructor &&
+                    candidate.container != null &&
+                    blockedCtorClasses.contains(
+                      _key(candidate.path, candidate.container!),
+                    ));
             unused.add(
               _toUnused(
                 candidate,
                 rootPath,
                 coupledRemovals: paired,
-                removalBlocked: patternMatched,
+                removalBlocked: removalBlocked,
               ),
             );
           case _RefStatus.docOnly:
@@ -553,6 +695,221 @@ class Ciach {
       candidate.symbol.kind == .constructor &&
       candidate.container != null &&
       (deadClassNames[candidate.path]?.contains(candidate.container) ?? false);
+
+  /// Builds the map key pairing a file [path] with a declaration [name].
+  static _DeclKey _key(String path, String name) => (path: path, name: name);
+
+  /// Whether reference [loc] is the enum type's static `.values` getter — i.e.
+  /// the referenced type name is immediately followed by `.values`. When an
+  /// enum's `.values` is referenced anywhere, every value is reachable through
+  /// iteration, so none of them is unused (the enum-`.values` detection fix).
+  ///
+  /// This covers the *qualified* form `<EnumName>.values`; the *implicit* form
+  /// (a bare `values` inside the enum's own body, e.g. a `values.any(…)` helper)
+  /// is caught by [_enumIteratesOwnValues] instead. Precise on purpose: only
+  /// `<EnumName>.values` counts, not a `.value` access to some individual value,
+  /// nor a `.values` on a different symbol.
+  bool _isDotValuesRef(Location loc) {
+    final located = _locateTypeToken(loc);
+    if (located == null) {
+      return false;
+    }
+    final (:tokens, :ti) = located;
+    if (ti + 2 >= tokens.length) {
+      return false;
+    }
+    final dot = tokens[ti + 1];
+    final values = tokens[ti + 2];
+    return !dot.isWord &&
+        dot.value == '.' &&
+        values.isWord &&
+        values.value == 'values';
+  }
+
+  /// Whether the enum type [enumCandidate] iterates its own values through the
+  /// implicit static `values` getter from *inside its own body* — a bare
+  /// `values` identifier (not `x.values` member access on some receiver), as in
+  /// a static/instance helper like `values.any((v) => …)`. Such a reference
+  /// keeps every value alive but, having no `<EnumName>.` prefix, is invisible
+  /// to a `textDocument/references` query on the enum *type* (see
+  /// [_isDotValuesRef]), so it is detected here by a source scan.
+  ///
+  /// Conservative by construction: a local/parameter coincidentally named
+  /// `values` would also match, keeping the enum's values — which only ever
+  /// *retains* code, never removes something live.
+  bool _enumIteratesOwnValues(_Candidate enumCandidate) {
+    final content = _contentFor(enumCandidate.path);
+    if (content.isEmpty) {
+      return false;
+    }
+    final lineStarts = _lineStartsFor(enumCandidate.path);
+    final startOff = _offsetOfPosition(
+      lineStarts,
+      content,
+      enumCandidate.symbol.range.start,
+    );
+    final endOff = _offsetOfPosition(
+      lineStarts,
+      content,
+      enumCandidate.symbol.range.end,
+    );
+    if (startOff == null || endOff == null) {
+      return false;
+    }
+    final tokens = _tokensFor(enumCandidate.path);
+    for (var i = 0; i < tokens.length; i++) {
+      final t = tokens[i];
+      if (t.start < startOff) {
+        continue;
+      }
+      if (t.start >= endOff) {
+        break;
+      }
+      if (!t.isWord || t.value != 'values') {
+        continue;
+      }
+      // A `.values` here is a member access on some other receiver, not the
+      // enum's own implicit static getter; the qualified `<EnumName>.values`
+      // form is handled by [_isDotValuesRef].
+      final prev = i > 0 ? tokens[i - 1] : null;
+      if (prev != null && !prev.isWord && prev.value == '.') {
+        continue;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  /// Whether [ctor] forwards to a super constructor *with arguments* — a
+  /// `super.<field>` parameter or a non-empty `super(...)` call. Such a
+  /// constructor exists to satisfy a superclass whose unnamed constructor is
+  /// not zero-arg; removing it (leaving an implicit default constructor that
+  /// calls `super()`) would fail to compile (`no_default_super_constructor`).
+  /// A bare `super()` is not forwarding.
+  ///
+  /// Deliberately conservative: a `super.method()` call in the body is also
+  /// treated as forwarding, which can over-block a safe removal — the tool
+  /// reports the finding rather than risk a build break.
+  bool _ctorForwardsSuper(_Candidate ctor) {
+    final content = _contentFor(ctor.path);
+    if (content.isEmpty) {
+      return false;
+    }
+    final lineStarts = _lineStartsFor(ctor.path);
+    final startOff = _offsetOfPosition(
+      lineStarts,
+      content,
+      ctor.symbol.range.start,
+    );
+    final endOff = _offsetOfPosition(
+      lineStarts,
+      content,
+      ctor.symbol.range.end,
+    );
+    if (startOff == null || endOff == null) {
+      return false;
+    }
+    final tokens = _tokensFor(ctor.path);
+    for (var i = 0; i < tokens.length; i++) {
+      final t = tokens[i];
+      if (t.start < startOff) {
+        continue;
+      }
+      if (t.start >= endOff) {
+        break;
+      }
+      if (!t.isWord || t.value != 'super' || i + 1 >= tokens.length) {
+        continue;
+      }
+      final next = tokens[i + 1];
+      if (next.isWord) {
+        continue;
+      }
+      if (next.value == '.') {
+        return true;
+      }
+      if (next.value == '(') {
+        final after = i + 2 < tokens.length ? tokens[i + 2] : null;
+        final emptyCall = after != null && !after.isWord && after.value == ')';
+        if (!emptyCall) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /// Whether [classCandidate] declares at least one `final` *instance* field
+  /// (not `static`/`const`). Such a field relies on a constructor to be
+  /// initialized, so removing the class's sole constructor would strand it
+  /// (`final_not_initialized`).
+  bool _classHasFinalInstanceField(_Candidate classCandidate) {
+    final children = classCandidate.symbol.children ?? const [];
+    for (final child in children) {
+      if (child.kind == .field &&
+          _isFinalInstanceField(classCandidate.path, child)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Whether [field] in [path] is declared `final` and is an *instance* field,
+  /// determined by scanning the declaration's modifier/type prefix — the
+  /// tokens between the field name and the enclosing class body `{` or the
+  /// previous member's terminating `;`. A `static` or `const` modifier
+  /// disqualifies it (those don't depend on a constructor).
+  bool _isFinalInstanceField(String path, DocumentSymbol field) {
+    final content = _contentFor(path);
+    if (content.isEmpty) {
+      return false;
+    }
+    final lineStarts = _lineStartsFor(path);
+    final off = _offsetOfPosition(
+      lineStarts,
+      content,
+      field.selectionRange.start,
+    );
+    if (off == null) {
+      return false;
+    }
+    final tokens = _tokensFor(path);
+    final ti = _tokenIndexAt(tokens, off);
+    if (ti == null) {
+      return false;
+    }
+    var isFinal = false;
+    var depth = 0;
+    for (var i = ti - 1; i >= 0; i--) {
+      final t = tokens[i];
+      if (t.isWord) {
+        if (t.value == 'static' || t.value == 'const') {
+          return false;
+        }
+        if (t.value == 'final') {
+          isFinal = true;
+        }
+        continue;
+      }
+      switch (t.value) {
+        case ')' || ']' || '}':
+          depth++;
+        case '(' || '[' || '{':
+          // A `{` at depth 0 is the class body's opening brace, and an
+          // unmatched `(`/`[` there means the prefix's start — either way, the
+          // field declaration begins here.
+          if (depth == 0) {
+            return isFinal;
+          }
+          depth--;
+        case ';':
+          if (depth == 0) {
+            return isFinal; // previous member/statement boundary
+          }
+      }
+    }
+    return isFinal;
+  }
 
   /// The extra spans to remove alongside a dead [widget] class: the paired
   /// private `State<Widget>` subclass, when there is exactly one and it is used

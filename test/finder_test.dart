@@ -44,9 +44,13 @@ void main() {
     bool skipOverrides = true,
     bool skipOperators = true,
     Set<SymbolKind>? kinds,
-    // The widget fixture is scanned only by the dedicated dead-widget tests;
-    // exclude it from the default-run assertions.
-    List<String> exclude = const ['lib/widgets.dart', 'lib/unions.dart'],
+    // The widget/union/guard fixtures are scanned only by their dedicated
+    // tests; exclude them from the default-run assertions.
+    List<String> exclude = const [
+      'lib/widgets.dart',
+      'lib/unions.dart',
+      'lib/guards.dart',
+    ],
     List<String> include = const [],
   }) => Ciach(
     .new(
@@ -65,7 +69,11 @@ void main() {
     bool skipOverrides = true,
     bool skipOperators = true,
     Set<SymbolKind>? kinds,
-    List<String> exclude = const ['lib/widgets.dart', 'lib/unions.dart'],
+    List<String> exclude = const [
+      'lib/widgets.dart',
+      'lib/unions.dart',
+      'lib/guards.dart',
+    ],
     List<String> include = const [],
   }) async {
     final result = await runFinder(
@@ -353,5 +361,117 @@ void main() {
       expect(names, isNot(contains('LiveSignal')));
       expect(names, isNot(contains('Signal')));
     });
+  });
+
+  group('remove-safety guards', () {
+    // Scan only the guard fixture; its declarations are self-contained (kept
+    // alive by in-file type references), so no cross-file setup is needed.
+    Future<FinderResult> runGuards() =>
+        runFinder(include: ['lib/guards.dart'], exclude: const []);
+
+    UnusedDeclaration? findByQualified(FinderResult result, String qualified) {
+      for (final decl in result.unused) {
+        if (decl.qualifiedName == qualified) {
+          return decl;
+        }
+      }
+      return null;
+    }
+
+    test(
+      'enum values reached only via `.values` iteration are never flagged',
+      () async {
+        final names = (await runGuards()).unused
+            .map((d) => d.qualifiedName)
+            .toSet();
+        // All three values are reachable through `IterableColor.values`, so
+        // none is dead — the detection fix keeps them off the report.
+        expect(names, isNot(contains('IterableColor.red')));
+        expect(names, isNot(contains('IterableColor.green')));
+        expect(names, isNot(contains('IterableColor.blue')));
+        // The enum type itself is used (via `.values`) and never flagged.
+        expect(names, isNot(contains('IterableColor')));
+      },
+    );
+
+    test(
+      'enum values reached via the implicit (bare) `values` getter inside the '
+      'enum body are never flagged',
+      () async {
+        final result = await runGuards();
+        final names = result.unused.map((d) => d.qualifiedName).toSet();
+        expect(names, isNot(contains('SelfIteratingUnit.first')));
+        expect(names, isNot(contains('SelfIteratingUnit.second')));
+        // Not merely blocked (which the empty-enum guard would otherwise do) —
+        // the values are genuinely absent from the report.
+        final ofEnum = result.unused
+            .where((d) => d.container == 'SelfIteratingUnit' && d.isEnumValue)
+            .toList();
+        expect(ofEnum, isEmpty);
+      },
+    );
+
+    test(
+      'emptying a still-referenced enum is reported but removal-blocked',
+      () async {
+        final result = await runGuards();
+        for (final qualified in const [
+          'EmptyableStatus.pending',
+          'EmptyableStatus.settled',
+        ]) {
+          final decl = findByQualified(result, qualified);
+          expect(decl, isNotNull, reason: '$qualified should be flagged dead');
+          // Removing every value would leave `enum EmptyableStatus {}`, so the
+          // finding is surfaced but --remove must leave it in place.
+          expect(
+            decl!.removalBlocked,
+            isTrue,
+            reason: '$qualified would empty a still-referenced enum',
+          );
+        }
+      },
+    );
+
+    test(
+      'the sole constructor of a live class with final fields is reported but '
+      'removal-blocked',
+      () async {
+        final result = await runGuards();
+        final decl = findByQualified(result, 'LabeledBox.new');
+        expect(decl, isNotNull, reason: 'the dead constructor is still a find');
+        expect(decl!.kind, SymbolKind.constructor);
+        // Removing it would strand the `final label` field, so block removal.
+        expect(decl.removalBlocked, isTrue);
+      },
+    );
+
+    test(
+      'a super-forwarding sole constructor is reported but removal-blocked',
+      () async {
+        final result = await runGuards();
+        final decl = findByQualified(result, 'ForwardingChild.new');
+        expect(decl, isNotNull);
+        expect(decl!.kind, SymbolKind.constructor);
+        // Removing it would leave an implicit default constructor calling a
+        // non-existent zero-arg `super()`, so block removal.
+        expect(decl.removalBlocked, isTrue);
+      },
+    );
+
+    test(
+      'a safe sole-constructor removal (no final fields, no super forwarding) '
+      'is reported and NOT blocked',
+      () async {
+        final result = await runGuards();
+        final decl = findByQualified(result, 'MutableBag.new');
+        expect(decl, isNotNull, reason: 'still a real unused finding');
+        // Nothing to strand and no super to break: safe to auto-remove.
+        expect(
+          decl!.removalBlocked,
+          isFalse,
+          reason: 'no final fields and no super forwarding',
+        );
+      },
+    );
   });
 }

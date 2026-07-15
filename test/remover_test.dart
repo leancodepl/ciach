@@ -687,6 +687,72 @@ String describe(S s) => switch (s) {
     expect(result, contains('class Dead extends S {}'));
     expect(result, contains("Dead() => 'dead'"));
   });
+
+  test(
+    'a removalBlocked enum value is reported but left in place by --remove',
+    () {
+      // The remove-safety guard for an about-to-be-emptied enum marks the value
+      // finding `removalBlocked`; the remover must leave the enum untouched so it
+      // keeps a value (an empty `enum {}` would not compile).
+      const source = '''
+enum Status {
+  only,
+}
+
+Status? statusHolder;
+''';
+      // `only` is line index 1, columns 2..6.
+      const blockedValue = UnusedDeclaration(
+        name: 'only',
+        kind: SymbolKind.enum$,
+        filePath: 'lib.dart',
+        line: 2,
+        column: 3,
+        isPrivate: false,
+        isEnumValue: true,
+        range: (startLine: 1, startColumn: 2, endLine: 1, endColumn: 6),
+        removalBlocked: true,
+      );
+
+      final result = applyRemoval(source, [blockedValue]);
+      expect(result, equals(source), reason: 'report-only: nothing removed');
+      expect(result, contains('only,'));
+    },
+  );
+
+  test(
+    'a removalBlocked constructor is reported but left in place by --remove',
+    () {
+      // The sole-constructor guards (final fields / super forwarding) mark the
+      // constructor finding `removalBlocked`; removing it would leave an implicit
+      // default constructor that strands final fields or breaks `super()`.
+      const source = '''
+class Holder {
+  const Holder(this.label);
+
+  final String label;
+}
+
+Holder? holderRef;
+''';
+      // `const Holder(this.label);` is line index 1, columns 2..27.
+      const blockedCtor = UnusedDeclaration(
+        name: 'new',
+        kind: SymbolKind.constructor,
+        filePath: 'lib.dart',
+        line: 2,
+        column: 3,
+        isPrivate: false,
+        container: 'Holder',
+        range: (startLine: 1, startColumn: 2, endLine: 1, endColumn: 27),
+        removalBlocked: true,
+      );
+
+      final result = applyRemoval(source, [blockedCtor]);
+      expect(result, equals(source), reason: 'report-only: nothing removed');
+      expect(result, contains('const Holder(this.label);'));
+    },
+  );
 }
 
 /// A cheap brace-balance check so a regression that mangles a removal shows
