@@ -1,5 +1,12 @@
 ## Unreleased
 
+- Fix enum values reached only through `.values` iteration being reported as
+  unused. When an enum's static `.values` getter is iterated — either the
+  qualified `EnumType.values` form or the implicit bare `values` getter used
+  inside the enum's own body — every value is reachable through that iteration
+  even though no value is named individually, so a reference search finds none
+  and reported them all as dead. Such values are now treated as used and left
+  off the report.
 - Fix unused enum values being reported under the `enum` kind instead of
   `enum-value`. The analysis server tags enum values with the same symbol kind
   as the enum type itself, so a detected unused value was labelled `enum` and

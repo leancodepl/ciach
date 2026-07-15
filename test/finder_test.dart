@@ -44,7 +44,9 @@ void main() {
     bool skipOverrides = true,
     bool skipOperators = true,
     Set<SymbolKind>? kinds,
-    List<String> exclude = const [],
+    // The enum-`.values` fixture is scanned only by its dedicated test;
+    // exclude it from the default-run assertions.
+    List<String> exclude = const ['lib/enum_values.dart'],
     List<String> include = const [],
   }) => Ciach(
     .new(
@@ -63,7 +65,7 @@ void main() {
     bool skipOverrides = true,
     bool skipOperators = true,
     Set<SymbolKind>? kinds,
-    List<String> exclude = const [],
+    List<String> exclude = const ['lib/enum_values.dart'],
     List<String> include = const [],
   }) async {
     final result = await runFinder(
@@ -239,5 +241,45 @@ void main() {
     // Excluding lib leaves only bin/app.dart, whose only declaration is the
     // skipped `main`, so nothing is reported.
     expect(await findUnused(exclude: ['lib/**']), isEmpty);
+  });
+
+  group('enum `.values` detection fix', () {
+    // Scan only the enum-`.values` fixture; its enums are kept alive by in-file
+    // type references, so no cross-file setup is needed.
+    Future<FinderResult> runEnumValues() =>
+        runFinder(include: ['lib/enum_values.dart'], exclude: const []);
+
+    test(
+      'enum values reached only via qualified `EnumName.values` iteration are '
+      'never flagged',
+      () async {
+        final names = (await runEnumValues()).unused
+            .map((d) => d.qualifiedName)
+            .toSet();
+        // All three values are reachable through `IterableColor.values`, so
+        // none is dead — the detection fix keeps them off the report.
+        expect(names, isNot(contains('IterableColor.red')));
+        expect(names, isNot(contains('IterableColor.green')));
+        expect(names, isNot(contains('IterableColor.blue')));
+        // The enum type itself is used (via `.values`) and never flagged.
+        expect(names, isNot(contains('IterableColor')));
+      },
+    );
+
+    test(
+      'enum values reached via the implicit (bare) `values` getter inside the '
+      'enum body are never flagged',
+      () async {
+        final result = await runEnumValues();
+        final names = result.unused.map((d) => d.qualifiedName).toSet();
+        expect(names, isNot(contains('SelfIteratingUnit.first')));
+        expect(names, isNot(contains('SelfIteratingUnit.second')));
+        // The values are genuinely absent from the report, not merely present.
+        final ofEnum = result.unused
+            .where((d) => d.container == 'SelfIteratingUnit' && d.isEnumValue)
+            .toList();
+        expect(ofEnum, isEmpty);
+      },
+    );
   });
 }

@@ -15,7 +15,8 @@ import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/models.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location, SymbolKind;
+import 'package:pro_lsp/pro_lsp.dart'
+    show DocumentSymbol, Location, Position, SymbolKind;
 
 /// A declaration to check: the symbol plus enough context to query references
 /// for it and to report it later.
@@ -38,6 +39,17 @@ enum _RefStatus {
   /// No references of any kind.
   unused,
 }
+
+/// A minimal lexical token: a source span plus whether it is an identifier /
+/// keyword (`isWord`) or a single punctuation character. Whitespace, comments,
+/// and string literals are dropped during tokenization, so `values`/`.` can be
+/// matched without tripping over a `values` that only appears inside a comment
+/// or string.
+typedef _Token = ({int start, int end, bool isWord, String value});
+
+/// A file path paired with a declaration name, used as a map key to look up
+/// per-declaration facts (here: enums whose `.values` is iterated).
+typedef _DeclKey = ({String path, String name});
 
 /// Finds declarations that are never referenced by driving the Dart analysis
 /// server over LSP.
@@ -124,14 +136,20 @@ class Ciach {
   /// `///`. Block (`/** */`) doc comments aren't recognized; `///` is the
   /// standard and lint-enforced style.
   bool _isDocReference(Location location) {
-    final path = Uri.parse(location.uri).toFilePath();
-    final lines = _fileLines[path] ??= _readFile(path)?.split('\n') ?? const [];
+    final lines = _linesFor(_pathOf(location.uri));
     final line = location.range.start.line;
     if (line < 0 || line >= lines.length) {
       return false;
     }
     return lines[line].trim().startsWith('///');
   }
+
+  /// The absolute file path a reference [uri] points at.
+  String _pathOf(String uri) => Uri.parse(uri).toFilePath();
+
+  /// The lines of the file at [path], read (and cached) on demand.
+  List<String> _linesFor(String path) =>
+      _fileLines[path] ??= _readFile(path)?.split('\n') ?? const [];
 
   void _report(String message) => options.onProgress?.call(message);
 
@@ -213,7 +231,7 @@ class Ciach {
       final totalFiles = files.length;
       var filesDone = totalFiles - remainingPerFile.length;
 
-      final statuses = await _mapPooled<_Candidate, _RefStatus>(
+      final refsByCandidate = await _mapPooled<_Candidate, List<Location>>(
         candidates,
         options.concurrency,
         (candidate) async {
@@ -230,20 +248,50 @@ class Ciach {
               '${p.relative(candidate.path, from: rootPath)}',
             );
           }
-          if (refs.isEmpty) {
-            return _RefStatus.unused;
-          }
-          final hasRealRef = refs.any((loc) => !_isDocReference(loc));
-          return hasRealRef ? _RefStatus.used : _RefStatus.docOnly;
+          return refs;
         },
       );
 
+      final statuses = [for (final refs in refsByCandidate) _classify(refs)];
+
+      // ---- Enum `.values` detection fix ----
+      //
+      // An enum value reached only through `.values` iteration is not dead: the
+      // iteration reaches every value without naming any individually. Two
+      // forms count — the qualified `EnumType.values` (found among the enum
+      // type's references, via [_isDotValuesRef]) and the implicit bare `values`
+      // getter inside the enum's own body (invisible to a references query, so
+      // detected by a source scan in [_enumIteratesOwnValues]). Collect the
+      // enums whose `.values` is iterated so none of their values is flagged.
+      final enumValuesIterated = <_DeclKey>{};
       for (var i = 0; i < candidates.length; i++) {
+        final candidate = candidates[i];
+        final symbol = candidate.symbol;
+        if (symbol.kind == .enum$ && !candidate.isEnumValue) {
+          if (refsByCandidate[i].any(_isDotValuesRef) ||
+              _enumIteratesOwnValues(candidate)) {
+            enumValuesIterated.add(_key(candidate.path, symbol.name));
+          }
+        }
+      }
+
+      for (var i = 0; i < candidates.length; i++) {
+        final candidate = candidates[i];
         switch (statuses[i]) {
           case _RefStatus.unused:
-            unused.add(_toUnused(candidates[i], rootPath));
+            // Detection fix: an enum value reached only through `.values`
+            // iteration (never a direct `EnumType.value` reference) is used,
+            // not dead — do not report it at all.
+            if (candidate.isEnumValue &&
+                candidate.container != null &&
+                enumValuesIterated.contains(
+                  _key(candidate.path, candidate.container!),
+                )) {
+              break;
+            }
+            unused.add(_toUnused(candidate, rootPath));
           case _RefStatus.docOnly:
-            docOnly.add(_toUnused(candidates[i], rootPath));
+            docOnly.add(_toUnused(candidate, rootPath));
           case _RefStatus.used:
             break;
         }
@@ -471,6 +519,339 @@ class Ciach {
     }
     final byLine = a.line.compareTo(b.line);
     return byLine != 0 ? byLine : a.column.compareTo(b.column);
+  }
+
+  /// Classifies a candidate from the references reported for it: any real
+  /// (non-doc) reference means used, only doc-comment links means doc-only,
+  /// none means unused.
+  _RefStatus _classify(List<Location> refs) {
+    if (refs.isEmpty) {
+      return _RefStatus.unused;
+    }
+    final hasRealRef = refs.any((loc) => !_isDocReference(loc));
+    return hasRealRef ? _RefStatus.used : _RefStatus.docOnly;
+  }
+
+  /// Builds the map key pairing a file [path] with a declaration [name].
+  static _DeclKey _key(String path, String name) => (path: path, name: name);
+
+  /// Whether reference [loc] is the enum type's static `.values` getter — i.e.
+  /// the referenced type name is immediately followed by `.values`. When an
+  /// enum's `.values` is referenced anywhere, every value is reachable through
+  /// iteration, so none of them is unused (the enum-`.values` detection fix).
+  ///
+  /// This covers the *qualified* form `<EnumName>.values`; the *implicit* form
+  /// (a bare `values` inside the enum's own body, e.g. a `values.any(…)` helper)
+  /// is caught by [_enumIteratesOwnValues] instead. Precise on purpose: only
+  /// `<EnumName>.values` counts, not a `.value` access to some individual value,
+  /// nor a `.values` on a different symbol.
+  bool _isDotValuesRef(Location loc) {
+    final located = _locateTypeToken(loc);
+    if (located == null) {
+      return false;
+    }
+    final (:tokens, :ti) = located;
+    if (ti + 2 >= tokens.length) {
+      return false;
+    }
+    final dot = tokens[ti + 1];
+    final values = tokens[ti + 2];
+    return !dot.isWord &&
+        dot.value == '.' &&
+        values.isWord &&
+        values.value == 'values';
+  }
+
+  /// Whether the enum type [enumCandidate] iterates its own values through the
+  /// implicit static `values` getter from *inside its own body* — a bare
+  /// `values` identifier (not `x.values` member access on some receiver), as in
+  /// a static/instance helper like `values.any((v) => …)`. Such a reference
+  /// keeps every value alive but, having no `<EnumName>.` prefix, is invisible
+  /// to a `textDocument/references` query on the enum *type* (see
+  /// [_isDotValuesRef]), so it is detected here by a source scan.
+  ///
+  /// Conservative by construction: a local/parameter coincidentally named
+  /// `values` would also match, keeping the enum's values — which only ever
+  /// *retains* code, never removes something live.
+  bool _enumIteratesOwnValues(_Candidate enumCandidate) {
+    final content = _contentFor(enumCandidate.path);
+    if (content.isEmpty) {
+      return false;
+    }
+    final lineStarts = _lineStartsFor(enumCandidate.path);
+    final startOff = _offsetOfPosition(
+      lineStarts,
+      content,
+      enumCandidate.symbol.range.start,
+    );
+    final endOff = _offsetOfPosition(
+      lineStarts,
+      content,
+      enumCandidate.symbol.range.end,
+    );
+    if (startOff == null || endOff == null) {
+      return false;
+    }
+    final tokens = _tokensFor(enumCandidate.path);
+    for (var i = 0; i < tokens.length; i++) {
+      final t = tokens[i];
+      if (t.start < startOff) {
+        continue;
+      }
+      if (t.start >= endOff) {
+        break;
+      }
+      if (!t.isWord || t.value != 'values') {
+        continue;
+      }
+      // A `.values` here is a member access on some other receiver, not the
+      // enum's own implicit static getter; the qualified `<EnumName>.values`
+      // form is handled by [_isDotValuesRef].
+      final prev = i > 0 ? tokens[i - 1] : null;
+      if (prev != null && !prev.isWord && prev.value == '.') {
+        continue;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  /// Resolves [loc] to the lexer token index of the referenced type name,
+  /// returning it with the file's cached tokens, or `null` if the reference
+  /// doesn't line up with a word token.
+  ({List<_Token> tokens, int ti})? _locateTypeToken(Location loc) {
+    final path = _pathOf(loc.uri);
+    final content = _contentFor(path);
+    if (content.isEmpty) {
+      return null;
+    }
+    final lineStarts = _lineStartsFor(path);
+    final startOff = _offsetOfPosition(lineStarts, content, loc.range.start);
+    if (startOff == null) {
+      return null;
+    }
+    final tokens = _tokensFor(path);
+    final ti = _tokenIndexAt(tokens, startOff);
+    if (ti == null || !tokens[ti].isWord) {
+      return null;
+    }
+    return (tokens: tokens, ti: ti);
+  }
+
+  /// Absolute offset of an LSP [position] in [content], or `null` if out of
+  /// range. LSP columns are UTF-16 code units, which is exactly how Dart
+  /// indexes a `String`, so the arithmetic needs no conversion.
+  int? _offsetOfPosition(
+    List<int> lineStarts,
+    String content,
+    Position position,
+  ) {
+    if (position.line < 0 || position.line >= lineStarts.length) {
+      return null;
+    }
+    final offset = lineStarts[position.line] + position.character;
+    if (offset < 0 || offset > content.length) {
+      return null;
+    }
+    return offset;
+  }
+
+  /// The index of the token whose span starts exactly at [offset], or `null`
+  /// if none does. Tokens are ordered by start, so this is a binary search.
+  int? _tokenIndexAt(List<_Token> tokens, int offset) {
+    var lo = 0;
+    var hi = tokens.length - 1;
+    while (lo <= hi) {
+      final mid = (lo + hi) >> 1;
+      final start = tokens[mid].start;
+      if (start == offset) {
+        return mid;
+      }
+      if (start < offset) {
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return null;
+  }
+
+  final _contentCache = <String, String>{};
+  final _lineStartsCache = <String, List<int>>{};
+  final _tokensCache = <String, List<_Token>>{};
+
+  /// The full text of [path], reconstructed from the cached lines so it matches
+  /// the document content the analysis server resolved positions against.
+  String _contentFor(String path) =>
+      _contentCache[path] ??= _linesFor(path).join('\n');
+
+  List<int> _lineStartsFor(String path) =>
+      _lineStartsCache[path] ??= _computeLineStarts(_contentFor(path));
+
+  List<_Token> _tokensFor(String path) =>
+      _tokensCache[path] ??= _tokenize(_contentFor(path));
+
+  static List<int> _computeLineStarts(String content) {
+    final starts = <int>[0];
+    for (var i = 0; i < content.length; i++) {
+      if (content[i] == '\n') {
+        starts.add(i + 1);
+      }
+    }
+    return starts;
+  }
+
+  static bool _isIdentStart(String ch) =>
+      (ch.compareTo('a') >= 0 && ch.compareTo('z') <= 0) ||
+      (ch.compareTo('A') >= 0 && ch.compareTo('Z') <= 0) ||
+      ch == '_' ||
+      ch == r'$';
+
+  static bool _isIdentPart(String ch) =>
+      _isIdentStart(ch) || (ch.compareTo('0') >= 0 && ch.compareTo('9') <= 0);
+
+  /// Splits [content] into [_Token]s, skipping whitespace, `//` and (nesting)
+  /// `/* */` comments, and every string-literal form (single/double,
+  /// triple-quoted, raw, and `${…}`/`$id` interpolation). Everything else is
+  /// emitted as either a word token or a single-character punctuation token.
+  static List<_Token> _tokenize(String content) {
+    final tokens = <_Token>[];
+    final n = content.length;
+    var i = 0;
+    while (i < n) {
+      final ch = content[i];
+      if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r') {
+        i++;
+        continue;
+      }
+      if (ch == '/' && i + 1 < n && content[i + 1] == '/') {
+        i += 2;
+        while (i < n && content[i] != '\n') {
+          i++;
+        }
+        continue;
+      }
+      if (ch == '/' && i + 1 < n && content[i + 1] == '*') {
+        i = _skipBlockComment(content, i);
+        continue;
+      }
+      if ((ch == 'r' || ch == 'R') &&
+          i + 1 < n &&
+          (content[i + 1] == "'" || content[i + 1] == '"')) {
+        i = _skipString(content, i + 1, raw: true);
+        continue;
+      }
+      if (ch == "'" || ch == '"') {
+        i = _skipString(content, i, raw: false);
+        continue;
+      }
+      if (_isIdentStart(ch)) {
+        final start = i;
+        i++;
+        while (i < n && _isIdentPart(content[i])) {
+          i++;
+        }
+        tokens.add((
+          start: start,
+          end: i,
+          isWord: true,
+          value: content.substring(start, i),
+        ));
+        continue;
+      }
+      tokens.add((start: i, end: i + 1, isWord: false, value: ch));
+      i++;
+    }
+    return tokens;
+  }
+
+  /// Skips a (possibly nested) `/* … */` block comment starting at [from],
+  /// returning the index just past it.
+  static int _skipBlockComment(String content, int from) {
+    final n = content.length;
+    var i = from + 2;
+    var depth = 1;
+    while (i < n && depth > 0) {
+      if (content[i] == '/' && i + 1 < n && content[i + 1] == '*') {
+        depth++;
+        i += 2;
+      } else if (content[i] == '*' && i + 1 < n && content[i + 1] == '/') {
+        depth--;
+        i += 2;
+      } else {
+        i++;
+      }
+    }
+    return i;
+  }
+
+  /// Skips a string literal whose opening quote is at [from], returning the
+  /// index just past the closing quote. Handles triple quotes, escapes, and —
+  /// unless [raw] — `${…}`/`$id` interpolation (whose braces and nested
+  /// strings are matched so a `}` or quote inside them doesn't end the string).
+  static int _skipString(String content, int from, {required bool raw}) {
+    final n = content.length;
+    final quote = content[from];
+    final triple =
+        from + 2 < n &&
+        content[from + 1] == quote &&
+        content[from + 2] == quote;
+    var i = from + (triple ? 3 : 1);
+    while (i < n) {
+      final c = content[i];
+      if (!raw && c == r'\') {
+        i += 2;
+        continue;
+      }
+      if (!raw && c == r'$') {
+        i = _skipInterpolation(content, i);
+        continue;
+      }
+      if (c == quote) {
+        if (!triple) {
+          return i + 1;
+        }
+        if (i + 2 < n && content[i + 1] == quote && content[i + 2] == quote) {
+          return i + 3;
+        }
+      }
+      if (!triple && c == '\n') {
+        // Unterminated single-line string; stop at the newline rather than run on.
+        return i;
+      }
+      i++;
+    }
+    return n;
+  }
+
+  /// Skips a `$`-interpolation starting at [from] (the `$`), returning the
+  /// index just past it. Handles both `$identifier` and brace-matched `${…}`.
+  static int _skipInterpolation(String content, int from) {
+    final n = content.length;
+    if (from + 1 < n && content[from + 1] == '{') {
+      var i = from + 2;
+      var depth = 1;
+      while (i < n && depth > 0) {
+        final c = content[i];
+        if (c == '{') {
+          depth++;
+          i++;
+        } else if (c == '}') {
+          depth--;
+          i++;
+        } else if (c == "'" || c == '"') {
+          i = _skipString(content, i, raw: false);
+        } else {
+          i++;
+        }
+      }
+      return i;
+    }
+    var i = from + 1;
+    while (i < n && _isIdentPart(content[i])) {
+      i++;
+    }
+    return i;
   }
 
   String? _readFile(String path) {
