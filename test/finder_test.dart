@@ -103,6 +103,12 @@ void main() {
       'Direction.west',
       'Loud.whisper',
       'tripled',
+      // A private constructor that is one of several in its class, never
+      // referenced -> genuinely dead, reported.
+      'MultiCtor._unused',
+      // A private constructor that takes parameters, never referenced ->
+      // reported even though it is the sole constructor.
+      'ParamCtor._',
     });
   });
 
@@ -111,14 +117,15 @@ void main() {
     expect(unused, containsAll(['Vector2.+', 'Vector2.-']));
   });
 
-  test('skips call methods and private constructors by default', () async {
+  test('skips call methods and prevent-instantiation constructors by '
+      'default', () async {
     final unused = await findUnused();
     // `Multiplier.call` is invoked via implicit-call syntax (`multiplier(21)`
     // in bin/app.dart), which a reference search can't resolve back to the
     // declaration — skipped like an operator, so never reported as unused.
     expect(unused, isNot(contains('Multiplier.call')));
-    // A private constructor prevents instantiation and is intentionally never
-    // referenced — skipped rather than reported as unused.
+    // A sole, zero-parameter private constructor is the prevent-instantiation
+    // marker — intentionally never referenced, so skipped rather than reported.
     expect(unused, isNot(contains('MathConstants._')));
     // The rest of the callable/utility fixture is genuinely used, so nothing
     // else from it should show up either.
@@ -127,6 +134,24 @@ void main() {
     expect(unused, isNot(contains('Multiplier.factor')));
     expect(unused, isNot(contains('MathConstants')));
     expect(unused, isNot(contains('MathConstants.pi')));
+  });
+
+  test('narrows the private-constructor skip to the sole, zero-parameter '
+      'prevent-instantiation marker', () async {
+    final unused = await findUnused();
+    // Sole, zero-parameter private constructor -> the classic marker, skipped.
+    expect(unused, isNot(contains('SoleMarker._')));
+    // One of two private constructors, never referenced -> genuinely dead,
+    // reported (the sibling `_used` is referenced by `build`, so not reported).
+    expect(unused, contains('MultiCtor._unused'));
+    expect(unused, isNot(contains('MultiCtor._used')));
+    // Sole private constructor but takes parameters -> not the bare marker, so
+    // reported when never referenced.
+    expect(unused, contains('ParamCtor._'));
+    // The classes themselves are kept alive by their static references.
+    expect(unused, isNot(contains('SoleMarker')));
+    expect(unused, isNot(contains('MultiCtor')));
+    expect(unused, isNot(contains('ParamCtor')));
   });
 
   test('reports a declaration only mentioned in a doc comment link as '
@@ -143,6 +168,7 @@ void main() {
       'lib/extensions.dart',
       'lib/greeting.dart',
       'lib/orphans.dart',
+      'lib/private_ctors.dart',
       'lib/shapes.dart',
       'lib/user.dart',
     });
@@ -191,6 +217,9 @@ void main() {
       '_danglingPrivate',
       '_referencesOnlyInDocs',
       'UsedClass._unusedField',
+      // Private constructors that aren't the prevent-instantiation marker.
+      'MultiCtor._unused',
+      'ParamCtor._',
     });
   });
 

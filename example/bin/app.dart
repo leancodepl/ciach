@@ -1,6 +1,7 @@
 import 'package:sample_pkg/callables.dart';
 import 'package:sample_pkg/extensions.dart';
 import 'package:sample_pkg/greeting.dart';
+import 'package:sample_pkg/private_ctors.dart';
 import 'package:sample_pkg/shapes.dart';
 import 'package:sample_pkg/user.dart';
 
@@ -30,4 +31,12 @@ void main() {
   const multiplier = Multiplier(2);
   print(multiplier(21));
   print(MathConstants.pi);
+
+  // Private-constructor fixtures: reference each class's static member so the
+  // class stays alive, and exercise `MultiCtor._used` via `build()`. Only the
+  // never-referenced private constructors (`MultiCtor._unused`, `ParamCtor._`)
+  // are expected in the unused report.
+  print(SoleMarker.tag);
+  print(MultiCtor.describe());
+  print(ParamCtor.tag);
 }

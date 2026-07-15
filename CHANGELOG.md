@@ -25,11 +25,15 @@
   search doesn't resolve back to the declaration — the same limitation as for
   infix operators — so a used `call` method was reported as unused every time.
   Always skipped; there's no flag for this one.
-- Skip private constructors (`ClassName._`, `ClassName._named`) by default.
-  They are the standard pattern for preventing instantiation of a
-  utility/constants class, so they are deliberately never referenced; reporting
-  them was a false positive, and `--remove` deleting one would re-add the
-  implicit default constructor and silently make the class instantiable.
+- Skip only the prevent-instantiation constructor marker — a class's sole,
+  zero-parameter private constructor (`ClassName._();`) — by default. That is
+  the standard pattern for blocking instantiation of a utility/constants class,
+  so it is deliberately never referenced; reporting it was a false positive,
+  and `--remove` deleting it would re-add the implicit default constructor and
+  silently make the class instantiable. Other private constructors are no
+  longer blanket-skipped: a named private constructor that is one of several in
+  its class, or a private constructor that takes parameters, can be genuinely
+  dead, so it is now reported when never referenced.
 - Fix `--remove` corrupting compact, single-line enums (`enum E { a, b, c }`):
   removing a value now starts the deletion at the value's own token instead of
   column 0 of its line, so the `enum E {` prefix and sibling values survive.

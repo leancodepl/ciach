@@ -126,6 +126,55 @@ class Ciach {
     return dot >= 0 && dot + 1 < name.length && name[dot + 1] == '_';
   }
 
+  /// Whether [symbol] is the classic *prevent-instantiation marker*: a private
+  /// constructor that is the **sole** constructor of its class **and** takes
+  /// **no parameters** (`Foo._();`). Such a constructor is intentionally never
+  /// referenced, and removing it would re-add the implicit default constructor
+  /// and make the class publicly instantiable — so it is skipped rather than
+  /// reported.
+  ///
+  /// [siblings] are the class members the constructor lives among (its parent's
+  /// `children` in the document-symbol tree), used to count how many
+  /// constructors the class declares. A private constructor that is *named
+  /// alongside other constructors* (the class declares more than one) or that
+  /// *takes parameters* is not this marker: it can be genuinely dead, so it is
+  /// reported normally.
+  bool _isPreventInstantiationMarker(
+    DocumentSymbol symbol,
+    List<DocumentSymbol> siblings,
+  ) {
+    if (!_isPrivateConstructor(symbol)) {
+      return false;
+    }
+    // Sole constructor: exactly one constructor among the class's members.
+    final constructorCount = siblings
+        .where((s) => s.kind == .constructor)
+        .length;
+    if (constructorCount != 1) {
+      return false;
+    }
+    return _hasNoParameters(symbol);
+  }
+
+  /// Whether [symbol]'s parameter list is empty.
+  ///
+  /// The analysis server reports a constructor's (or function's) signature in
+  /// [DocumentSymbol.detail] as the parenthesized parameter list — `()` when
+  /// there are no parameters, `(int a)` / `(int a, {String b})` when there are.
+  /// If the server omits the detail we cannot tell the arity, so we
+  /// conservatively treat it as empty (skip) to avoid regressing on the classic
+  /// zero-parameter marker.
+  bool _hasNoParameters(DocumentSymbol symbol) {
+    final detail = symbol.detail?.trim();
+    if (detail == null || detail.isEmpty) {
+      return true;
+    }
+    final inner = detail.startsWith('(') && detail.endsWith(')')
+        ? detail.substring(1, detail.length - 1).trim()
+        : detail;
+    return inner.isEmpty;
+  }
+
   /// Lines of every scanned file, keyed by absolute path, populated as each
   /// file is opened in [_collectCandidatesFor]. Reused to classify reference
   /// locations as doc comments without re-reading files from disk.
@@ -361,7 +410,7 @@ class Ciach {
     List<_Candidate> out,
   ) {
     for (final symbol in symbols) {
-      if (_shouldConsider(symbol, parentIsEnum, lines)) {
+      if (_shouldConsider(symbol, parentIsEnum, lines, symbols)) {
         out.add((
           uri: uri,
           path: path,
@@ -389,6 +438,7 @@ class Ciach {
     DocumentSymbol symbol,
     bool parentIsEnum,
     List<String> lines,
+    List<DocumentSymbol> siblings,
   ) {
     if (!options.kinds.contains(_reportedKind(symbol, parentIsEnum))) {
       return false;
@@ -410,11 +460,14 @@ class Ciach {
     if (_isCallMethod(symbol)) {
       return false;
     }
-    // A private constructor is deliberately never referenced — the standard
-    // pattern for preventing instantiation of a utility/constants class. It is
-    // not dead code, and removing it would re-add the implicit default
-    // constructor and silently make the class publicly instantiable.
-    if (_isPrivateConstructor(symbol)) {
+    // The classic prevent-instantiation marker — a class's *sole*,
+    // *zero-parameter* private constructor (`Foo._();`) — is deliberately
+    // never referenced. It is not dead code, and removing it would re-add the
+    // implicit default constructor and silently make the class publicly
+    // instantiable, so it is skipped. Other private constructors (named
+    // alongside siblings, or taking parameters) can be genuinely dead and are
+    // reported normally.
+    if (_isPreventInstantiationMarker(symbol, siblings)) {
       return false;
     }
 
