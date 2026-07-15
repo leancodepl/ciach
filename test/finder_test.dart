@@ -379,35 +379,31 @@ void main() {
     }
 
     test(
-      'enum values reached only via `.values` iteration are never flagged',
-      () async {
-        final names = (await runGuards()).unused
-            .map((d) => d.qualifiedName)
-            .toSet();
-        // All three values are reachable through `IterableColor.values`, so
-        // none is dead — the detection fix keeps them off the report.
-        expect(names, isNot(contains('IterableColor.red')));
-        expect(names, isNot(contains('IterableColor.green')));
-        expect(names, isNot(contains('IterableColor.blue')));
-        // The enum type itself is used (via `.values`) and never flagged.
-        expect(names, isNot(contains('IterableColor')));
-      },
-    );
-
-    test(
-      'enum values reached via the implicit (bare) `values` getter inside the '
-      'enum body are never flagged',
+      'an enum consumed only by iterating its `.values` has every value flagged '
+      'but removal-blocked (empty-enum guard keeps --remove safe)',
       () async {
         final result = await runGuards();
-        final names = result.unused.map((d) => d.qualifiedName).toSet();
-        expect(names, isNot(contains('SelfIteratingUnit.first')));
-        expect(names, isNot(contains('SelfIteratingUnit.second')));
-        // Not merely blocked (which the empty-enum guard would otherwise do) —
-        // the values are genuinely absent from the report.
-        final ofEnum = result.unused
-            .where((d) => d.container == 'SelfIteratingUnit' && d.isEnumValue)
-            .toList();
-        expect(ofEnum, isEmpty);
+        // No value is named individually, so with no `.values`-detection every
+        // value is flagged dead — but the enum TYPE stays referenced (through
+        // that same `.values`), so the empty-enum guard blocks removal instead
+        // of emptying the enum. Covers both the qualified `EnumName.values`
+        // form (IterableColor) and the implicit bare `values` form
+        // (SelfIteratingUnit).
+        for (final qualified in const [
+          'IterableColor.red',
+          'IterableColor.green',
+          'IterableColor.blue',
+          'SelfIteratingUnit.first',
+          'SelfIteratingUnit.second',
+        ]) {
+          final decl = findByQualified(result, qualified);
+          expect(decl, isNotNull, reason: '$qualified should be flagged dead');
+          expect(
+            decl!.removalBlocked,
+            isTrue,
+            reason: '$qualified would empty a still-referenced enum',
+          );
+        }
       },
     );
 

@@ -1,27 +1,29 @@
-// Fixtures for the remove-safety guards and the enum `.values` detection fix.
-// Flutter-free and self-contained: each class/enum is kept *alive* only by a
-// type reference (never constructed), so its constructor / values are dead
-// while the type itself stays. Scanned only by the dedicated guard tests
-// (excluded from the default-run assertions); see test/finder_test.dart.
+// Fixtures for the remove-safety guards. Flutter-free and self-contained: each
+// class/enum is kept *alive* only by a type reference (never constructed), so
+// its constructor / values are dead while the type itself stays. Scanned only
+// by the dedicated guard tests (excluded from the default-run assertions); see
+// test/finder_test.dart.
 
-// --- Detection fix: enum values reached via `EnumType.values` ---
+// --- Guard 2 (via `.values`-only): an enum consumed only by iterating `.values`
+//
+// No value is named individually — the enum is consumed only by iterating
+// `.values` — so every value is flagged dead, while the enum TYPE stays
+// referenced (through that same `.values`). Removing all the values would leave
+// `enum IterableColor {}` (a compile error), so the empty-enum guard reports
+// every value as removal-blocked, keeping `--remove` safe.
 
-/// Every value is reached only through `.values` iteration below, never by a
-/// direct `IterableColor.<name>` reference. All values must be treated as USED,
-/// so none is flagged.
+/// Every value is dead: none is named directly; the enum is consumed only by
+/// iterating `.values` below.
 enum IterableColor { red, green, blue }
 
-/// Iterates `IterableColor.values`, which keeps every value alive without
-/// naming any of them individually. Uses the *qualified* `<EnumName>.values`
-/// form, from outside the enum.
+/// Iterates `IterableColor.values`, keeping the enum TYPE referenced without
+/// naming any value. Uses the qualified `<EnumName>.values` form.
 bool isKnownColor(String name) =>
     IterableColor.values.any((c) => c.name == name);
 
-/// Reached through the *implicit* static `values` getter from inside the enum's
-/// own body (a bare `values`, not `SelfIteratingUnit.values`) — the form a
-/// `textDocument/references` query on the enum type never surfaces. The enum
-/// type is kept alive by the parameter reference below; every value must still
-/// be treated as USED, so none is flagged.
+/// Same shape, reached through the *implicit* bare `values` getter inside the
+/// enum's own body. The enum type is kept alive by the parameter reference
+/// below; every value is dead but becomes removal-blocked (guard 2).
 enum SelfIteratingUnit {
   first,
   second;

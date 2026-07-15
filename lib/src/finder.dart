@@ -250,14 +250,9 @@ class Ciach {
       // Some findings are genuinely dead but cannot be auto-removed without
       // breaking the build, so they are reported with `removalBlocked` set and
       // left for a human — reusing the same mechanism as pattern-matched sealed
-      // members. A separate *detection* fix keeps enum values reached only via
-      // `EnumType.values` iteration from being flagged at all. Everything the
-      // reporting loop below needs to decide is gathered here, up front, so
-      // that loop stays a set of cheap lookups.
+      // members. Everything the reporting loop below needs to decide is
+      // gathered here, up front, so that loop stays a set of cheap lookups.
       //
-      // * `enumValuesIterated`  — enums whose static `.values` getter is
-      //   referenced anywhere: every value is reachable through iteration, so
-      //   none is unused (the detection fix).
       // * `emptiedEnums`        — enums every one of whose values would be
       //   removed while the enum TYPE is still referenced, leaving `enum E {}`
       //   (a compile error). Those value removals are blocked (guard 2).
@@ -265,7 +260,6 @@ class Ciach {
       //   dead: removing them synthesizes an implicit default constructor that
       //   strands `final` fields (guard 3) or breaks super-constructor
       //   forwarding (guard 4). Those constructor removals are blocked.
-      final enumValuesIterated = <_DeclKey>{};
       final enumTypeHasRef = <_DeclKey, bool>{};
       final enumValueTotal = <_DeclKey, int>{};
       final ctorTotal = <_DeclKey, int>{};
@@ -278,11 +272,7 @@ class Ciach {
         final symbol = candidate.symbol;
         final refs = refsByCandidate[i];
         if (symbol.kind == .enum$ && !candidate.isEnumValue) {
-          final key = _key(candidate.path, symbol.name);
-          enumTypeHasRef[key] = refs.isNotEmpty;
-          if (refs.any(_isDotValuesRef) || _enumIteratesOwnValues(candidate)) {
-            enumValuesIterated.add(key);
-          }
+          enumTypeHasRef[_key(candidate.path, symbol.name)] = refs.isNotEmpty;
         } else if (candidate.isEnumValue && candidate.container != null) {
           enumValueTotal.update(
             _key(candidate.path, candidate.container!),
@@ -303,8 +293,8 @@ class Ciach {
         }
       }
 
-      // Enum values that are dead once `.values` iteration is discounted, keyed
-      // by enum, so guard 2 can tell when *every* value of an enum would go.
+      // Enum values that are dead, keyed by enum, so guard 2 can tell when
+      // *every* value of an enum would go.
       final enumValueDead = <_DeclKey, int>{};
       for (var i = 0; i < candidates.length; i++) {
         final candidate = candidates[i];
@@ -314,9 +304,6 @@ class Ciach {
           continue;
         }
         final key = _key(candidate.path, candidate.container!);
-        if (enumValuesIterated.contains(key)) {
-          continue;
-        }
         enumValueDead.update(key, (n) => n + 1, ifAbsent: () => 1);
       }
 
@@ -361,16 +348,6 @@ class Ciach {
         switch (statuses[i]) {
           case _RefStatus.unused:
             if (_isConstructorOfDeadClass(candidate, deadClassNames)) {
-              break;
-            }
-            // Detection fix: an enum value reached only through
-            // `EnumType.values` iteration (never a direct `EnumType.value`
-            // reference) is used, not dead — do not report it at all.
-            if (candidate.isEnumValue &&
-                candidate.container != null &&
-                enumValuesIterated.contains(
-                  _key(candidate.path, candidate.container!),
-                )) {
               break;
             }
             final isClass = candidate.symbol.kind == .class$;
@@ -698,87 +675,6 @@ class Ciach {
 
   /// Builds the map key pairing a file [path] with a declaration [name].
   static _DeclKey _key(String path, String name) => (path: path, name: name);
-
-  /// Whether reference [loc] is the enum type's static `.values` getter — i.e.
-  /// the referenced type name is immediately followed by `.values`. When an
-  /// enum's `.values` is referenced anywhere, every value is reachable through
-  /// iteration, so none of them is unused (the enum-`.values` detection fix).
-  ///
-  /// This covers the *qualified* form `<EnumName>.values`; the *implicit* form
-  /// (a bare `values` inside the enum's own body, e.g. a `values.any(…)` helper)
-  /// is caught by [_enumIteratesOwnValues] instead. Precise on purpose: only
-  /// `<EnumName>.values` counts, not a `.value` access to some individual value,
-  /// nor a `.values` on a different symbol.
-  bool _isDotValuesRef(Location loc) {
-    final located = _locateTypeToken(loc);
-    if (located == null) {
-      return false;
-    }
-    final (:tokens, :ti) = located;
-    if (ti + 2 >= tokens.length) {
-      return false;
-    }
-    final dot = tokens[ti + 1];
-    final values = tokens[ti + 2];
-    return !dot.isWord &&
-        dot.value == '.' &&
-        values.isWord &&
-        values.value == 'values';
-  }
-
-  /// Whether the enum type [enumCandidate] iterates its own values through the
-  /// implicit static `values` getter from *inside its own body* — a bare
-  /// `values` identifier (not `x.values` member access on some receiver), as in
-  /// a static/instance helper like `values.any((v) => …)`. Such a reference
-  /// keeps every value alive but, having no `<EnumName>.` prefix, is invisible
-  /// to a `textDocument/references` query on the enum *type* (see
-  /// [_isDotValuesRef]), so it is detected here by a source scan.
-  ///
-  /// Conservative by construction: a local/parameter coincidentally named
-  /// `values` would also match, keeping the enum's values — which only ever
-  /// *retains* code, never removes something live.
-  bool _enumIteratesOwnValues(_Candidate enumCandidate) {
-    final content = _contentFor(enumCandidate.path);
-    if (content.isEmpty) {
-      return false;
-    }
-    final lineStarts = _lineStartsFor(enumCandidate.path);
-    final startOff = _offsetOfPosition(
-      lineStarts,
-      content,
-      enumCandidate.symbol.range.start,
-    );
-    final endOff = _offsetOfPosition(
-      lineStarts,
-      content,
-      enumCandidate.symbol.range.end,
-    );
-    if (startOff == null || endOff == null) {
-      return false;
-    }
-    final tokens = _tokensFor(enumCandidate.path);
-    for (var i = 0; i < tokens.length; i++) {
-      final t = tokens[i];
-      if (t.start < startOff) {
-        continue;
-      }
-      if (t.start >= endOff) {
-        break;
-      }
-      if (!t.isWord || t.value != 'values') {
-        continue;
-      }
-      // A `.values` here is a member access on some other receiver, not the
-      // enum's own implicit static getter; the qualified `<EnumName>.values`
-      // form is handled by [_isDotValuesRef].
-      final prev = i > 0 ? tokens[i - 1] : null;
-      if (prev != null && !prev.isWord && prev.value == '.') {
-        continue;
-      }
-      return true;
-    }
-    return false;
-  }
 
   /// Whether [ctor] forwards to a super constructor *with arguments* — a
   /// `super.<field>` parameter or a non-empty `super(...)` call. Such a
