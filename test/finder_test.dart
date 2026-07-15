@@ -44,12 +44,13 @@ void main() {
     bool skipOverrides = true,
     bool skipOperators = true,
     Set<SymbolKind>? kinds,
-    // The widget/union/guard fixtures are scanned only by their dedicated
-    // tests; exclude them from the default-run assertions.
+    // The widget/union/guard/enum-values fixtures are scanned only by their
+    // dedicated tests; exclude them from the default-run assertions.
     List<String> exclude = const [
       'lib/widgets.dart',
       'lib/unions.dart',
       'lib/guards.dart',
+      'lib/enum_values.dart',
     ],
     List<String> include = const [],
   }) => Ciach(
@@ -73,6 +74,7 @@ void main() {
       'lib/widgets.dart',
       'lib/unions.dart',
       'lib/guards.dart',
+      'lib/enum_values.dart',
     ],
     List<String> include = const [],
   }) async {
@@ -468,22 +470,19 @@ void main() {
     }
 
     test(
-      'an enum consumed only by iterating its `.values` has every value flagged '
-      'but removal-blocked (empty-enum guard keeps --remove safe)',
+      'an all-dead enum kept alive only by a type reference (no `.values`) has '
+      'every value flagged but removal-blocked (empty-enum guard keeps --remove '
+      'safe)',
       () async {
         final result = await runGuards();
-        // No value is named individually, so with no `.values`-detection every
-        // value is flagged dead — but the enum TYPE stays referenced (through
-        // that same `.values`), so the empty-enum guard blocks removal instead
-        // of emptying the enum. Covers both the qualified `EnumName.values`
-        // form (IterableColor) and the implicit bare `values` form
-        // (SelfIteratingUnit).
+        // No value is named individually and `.values` is never iterated, but
+        // the enum TYPE stays referenced (as a return type), so the empty-enum
+        // guard blocks removal instead of emptying the enum. (Enums reached via
+        // `.values` are instead treated as used and never reported — see the
+        // `enum `.values` detection fix` group.)
         for (final qualified in const [
-          'IterableColor.red',
-          'IterableColor.green',
-          'IterableColor.blue',
-          'SelfIteratingUnit.first',
-          'SelfIteratingUnit.second',
+          'SilentSignal.ping',
+          'SilentSignal.pong',
         ]) {
           final decl = findByQualified(result, qualified);
           expect(decl, isNotNull, reason: '$qualified should be flagged dead');
@@ -556,6 +555,44 @@ void main() {
           isFalse,
           reason: 'no final fields and no super forwarding',
         );
+      },
+    );
+  });
+
+  group('enum `.values` detection fix', () {
+    // Scan only the enum-`.values` fixture (enums kept alive by in-file refs).
+    Future<FinderResult> runEnumValues() =>
+        runFinder(include: ['lib/enum_values.dart'], exclude: const []);
+
+    test(
+      'enum values reached only via qualified `EnumName.values` iteration are '
+      'never flagged',
+      () async {
+        final names = (await runEnumValues()).unused
+            .map((d) => d.qualifiedName)
+            .toSet();
+        // All three values are reachable through `IterableColor.values`.
+        expect(names, isNot(contains('IterableColor.red')));
+        expect(names, isNot(contains('IterableColor.green')));
+        expect(names, isNot(contains('IterableColor.blue')));
+        // The enum type itself is used (via `.values`) and never flagged.
+        expect(names, isNot(contains('IterableColor')));
+      },
+    );
+
+    test(
+      'enum values reached via the implicit (bare) `values` getter inside the '
+      'enum body are never flagged',
+      () async {
+        final result = await runEnumValues();
+        final names = result.unused.map((d) => d.qualifiedName).toSet();
+        expect(names, isNot(contains('SelfIteratingUnit.first')));
+        expect(names, isNot(contains('SelfIteratingUnit.second')));
+        // The values are genuinely absent from the report, not merely present.
+        final ofEnum = result.unused
+            .where((d) => d.container == 'SelfIteratingUnit' && d.isEnumValue)
+            .toList();
+        expect(ofEnum, isEmpty);
       },
     );
   });
