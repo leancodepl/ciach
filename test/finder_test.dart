@@ -46,7 +46,7 @@ void main() {
     Set<SymbolKind>? kinds,
     // The widget fixture is scanned only by the dedicated dead-widget tests;
     // exclude it from the default-run assertions.
-    List<String> exclude = const ['lib/widgets.dart'],
+    List<String> exclude = const ['lib/widgets.dart', 'lib/unions.dart'],
     List<String> include = const [],
   }) => Ciach(
     .new(
@@ -65,7 +65,7 @@ void main() {
     bool skipOverrides = true,
     bool skipOperators = true,
     Set<SymbolKind>? kinds,
-    List<String> exclude = const ['lib/widgets.dart'],
+    List<String> exclude = const ['lib/widgets.dart', 'lib/unions.dart'],
     List<String> include = const [],
   }) async {
     final result = await runFinder(
@@ -271,5 +271,84 @@ void main() {
         expect(names, isNot(contains('State')));
       },
     );
+  });
+
+  group('unused union members (opt-in --unused-union-members)', () {
+    // Scan only the union fixture; cross-file references (the live member
+    // constructed in bin/app.dart) still resolve, since the analysis server
+    // analyses the whole package regardless of the candidate filter.
+    Future<FinderResult> runUnions({required bool flag}) => Ciach(
+      .new(
+        rootPath: fixturePath,
+        unusedUnionMembers: flag,
+        includeGlobs: const ['lib/unions.dart'],
+      ),
+    ).run();
+
+    UnusedDeclaration? findByName(FinderResult result, String name) {
+      for (final decl in result.unused) {
+        if (decl.name == name) {
+          return decl;
+        }
+      }
+      return null;
+    }
+
+    test('flag ON: a member matched only by a switch-statement case is '
+        'flagged and its arm is coupled for removal', () async {
+      final result = await runUnions(flag: true);
+      final decl = findByName(result, 'StatementOnlySignal');
+      expect(decl, isNotNull, reason: 'should be flagged dead');
+      expect(decl!.kind, SymbolKind.class$);
+      expect(decl.removalBlocked, isFalse);
+      // The dead `case StatementOnlySignal(): …` arm is removed with the class.
+      expect(decl.coupledRemovals, isNotEmpty);
+      expect(
+        decl.coupledRemovals.map((c) => c.filePath),
+        everyElement('lib/unions.dart'),
+      );
+    });
+
+    test('flag ON: a member matched only by a switch-expression arm is '
+        'flagged and its arm is coupled for removal', () async {
+      final result = await runUnions(flag: true);
+      final decl = findByName(result, 'ExpressionOnlySignal');
+      expect(decl, isNotNull);
+      expect(decl!.removalBlocked, isFalse);
+      expect(decl.coupledRemovals, isNotEmpty);
+    });
+
+    test('flag ON: a member matched only by an if-case is flagged but its '
+        'removal is blocked (reported, not auto-removed)', () async {
+      final result = await runUnions(flag: true);
+      final decl = findByName(result, 'IfCaseOnlySignal');
+      expect(decl, isNotNull, reason: 'still reported as dead');
+      expect(decl!.removalBlocked, isTrue);
+      // Nothing is coupled: we never partially delete an if/while branch.
+      expect(decl.coupledRemovals, isEmpty);
+    });
+
+    test('flag ON: a member that is also constructed is never flagged, nor is '
+        'the sealed supertype', () async {
+      final names = (await runUnions(
+        flag: true,
+      )).unused.map((d) => d.qualifiedName).toSet();
+      // LiveSignal has a real, non-pattern reference (construction) -> alive.
+      expect(names, isNot(contains('LiveSignal')));
+      // Signal appears as a parameter/scrutinee type -> a real use.
+      expect(names, isNot(contains('Signal')));
+    });
+
+    test('flag OFF: every pattern-matched member counts as used (Phase 1 '
+        'behaviour is unchanged)', () async {
+      final names = (await runUnions(
+        flag: false,
+      )).unused.map((d) => d.qualifiedName).toSet();
+      expect(names, isNot(contains('StatementOnlySignal')));
+      expect(names, isNot(contains('ExpressionOnlySignal')));
+      expect(names, isNot(contains('IfCaseOnlySignal')));
+      expect(names, isNot(contains('LiveSignal')));
+      expect(names, isNot(contains('Signal')));
+    });
   });
 }

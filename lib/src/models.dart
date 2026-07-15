@@ -22,6 +22,14 @@ typedef DeclarationRange = ({
   int endColumn,
 });
 
+/// A whole-node span in a specific file to remove together with a reported
+/// declaration. Unlike a bare [DeclarationRange], it names its own
+/// `filePath` (relative to the analyzed root, `/`-separated), so a coupled
+/// removal can live in a *different* file from the declaration it is coupled
+/// to — e.g. a dead sealed member's `case` arm in the file that switches over
+/// its supertype.
+typedef CoupledRemoval = ({String filePath, DeclarationRange range});
+
 /// Configuration for a single run of the finder.
 class FinderOptions {
   /// Creates options for analyzing the package rooted at [rootPath].
@@ -34,6 +42,7 @@ class FinderOptions {
     this.includeGenerated = false,
     this.skipOverrides = true,
     this.skipOperators = true,
+    this.unusedUnionMembers = false,
     this.concurrency = 16,
     this.dartExecutable,
     this.onProgress,
@@ -69,6 +78,22 @@ class FinderOptions {
   /// overload is reported as unused every time — on by default to avoid that
   /// false positive.
   final bool skipOperators;
+
+  /// Whether to also flag a class as dead when its only non-self references
+  /// are `case` patterns in `switch` statements over its (sealed) supertype —
+  /// i.e. the type is *matched* but never *constructed* anywhere.
+  ///
+  /// Off by default, and deliberately so: a `case Foo():` arm normally counts
+  /// as a real use of `Foo`, keeping it alive. When enabled, such a member is
+  /// reported as an unused `class`, and `--remove` deletes the now-dead `case`
+  /// arm(s) alongside it (via [UnusedDeclaration.coupledRemovals]) so the
+  /// `switch` stays valid and exhaustive over the remaining members.
+  ///
+  /// Detection is conservative: only the `case <Type>` (switch-*statement*)
+  /// form is recognized, and any non-self reference that is not confidently a
+  /// `case` pattern keeps the class alive. Switch-*expression* arms (the
+  /// keyword-less `Type() => …` form) are treated as real uses.
+  final bool unusedUnionMembers;
 
   /// How many `textDocument/references` requests to keep in flight at once.
   /// Higher values keep the analysis server busier; there are diminishing
@@ -134,6 +159,7 @@ class UnusedDeclaration {
     this.container,
     this.isEnumValue = false,
     this.coupledRemovals = const [],
+    this.removalBlocked = false,
   });
 
   /// Simple (unqualified) name of the declaration.
@@ -167,17 +193,36 @@ class UnusedDeclaration {
   /// declaration kinds.
   final bool isEnumValue;
 
-  /// Extra whole-node spans in the *same file* that must be removed together
-  /// with this declaration to keep the source compiling, but that are not
-  /// themselves reported as findings.
+  /// Extra whole-node spans — each in a named file — that must be removed
+  /// together with this declaration to keep the source compiling, but that are
+  /// not themselves reported as findings.
   ///
-  /// The only current use is a dead `StatefulWidget`: its paired private
-  /// `State<Widget>` subclass is not independently "unused" (the widget's own
-  /// `createState` references it), yet it becomes uncompilable the moment the
-  /// widget is deleted (`State<DeletedWidget>` no longer resolves). Coupling
-  /// its removal to the widget's keeps `--remove` from breaking the build,
-  /// without surfacing the private helper as a separate report entry.
-  final List<DeclarationRange> coupledRemovals;
+  /// Two uses today:
+  ///
+  /// * A dead `StatefulWidget`'s paired private `State<Widget>` subclass, which
+  ///   is not independently "unused" (the widget's own `createState`
+  ///   references it) yet becomes uncompilable the moment the widget is deleted
+  ///   (`State<DeletedWidget>` no longer resolves). It lives in the same file.
+  /// * A dead sealed-union member's `case` arm(s) in `switch` statements over
+  ///   its supertype (opt-in `--unused-union-members`): the arm must go with
+  ///   the class so the deleted type is not left dangling in a `case` pattern.
+  ///   These arms typically live in *other* files, which is why a coupled
+  ///   removal carries its own `filePath`.
+  ///
+  /// Coupling a removal keeps `--remove` from breaking the build without
+  /// surfacing the coupled span as a separate report entry.
+  final List<CoupledRemoval> coupledRemovals;
+
+  /// Whether this finding is real (the declaration is dead) but `--remove`
+  /// must *not* delete it automatically, because doing so safely would require
+  /// a source rewrite this tool won't attempt.
+  ///
+  /// Set only under `--unused-union-members`, for a dead sealed member that is
+  /// matched by a pattern whose surrounding construct can't be deleted as a
+  /// clean whole-node span — e.g. an `if (x case DeadType())` / `while (…)`
+  /// branch (removing it would mean rewriting control flow). The class is still
+  /// reported so a human can act on it; it is simply skipped by the remover.
+  final bool removalBlocked;
 
   /// Fully qualified display name, e.g. `MyClass.myMethod`.
   String get qualifiedName => container == null ? name : '$container.$name';
