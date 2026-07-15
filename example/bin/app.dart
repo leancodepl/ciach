@@ -2,6 +2,7 @@ import 'package:sample_pkg/extensions.dart';
 import 'package:sample_pkg/greeting.dart';
 import 'package:sample_pkg/orphans.dart';
 import 'package:sample_pkg/shapes.dart';
+import 'package:sample_pkg/unions.dart';
 import 'package:sample_pkg/user.dart';
 import 'package:sample_pkg/widgets.dart';
 
@@ -33,4 +34,12 @@ void main() {
   // the class stays USED while its constructor is reported unused.
   const ReferencedAsTypeOnly? typed = null;
   print(typed);
+
+  // Constructs LiveSignal -> a real, non-pattern use, so it is never flagged as
+  // a dead union member even under --unused-union-members. Also exercises the
+  // three pattern-matching sites over Signal.
+  final Signal signal = LiveSignal();
+  print(describeStatement(signal));
+  print(describeExpression(signal));
+  print(isIfCaseSignal(signal));
 }

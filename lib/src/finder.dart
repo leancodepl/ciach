@@ -40,6 +40,34 @@ enum _RefStatus {
   unused,
 }
 
+/// A minimal lexical token: a source span plus whether it is an identifier /
+/// keyword (`isWord`) or a single punctuation character. Whitespace, comments,
+/// and string literals are dropped during tokenization, so `case`/`default`
+/// keywords and brackets can be matched without tripping over a `case` that
+/// only appears inside a comment or string.
+typedef _Token = ({int start, int end, bool isWord, String value});
+
+/// How a single reference relates to the opt-in dead-union-member detection.
+enum _PatternRefKind {
+  /// Not a recognized type pattern — a real use that keeps the class alive.
+  notPattern,
+
+  /// A type pattern whose surrounding construct can be deleted as a clean
+  /// whole-node span, carried in the `range` field.
+  removable,
+
+  /// A type pattern the class is genuinely dead by, but whose construct can't
+  /// be deleted safely (e.g. an `if`/`while` case branch) — reported, not
+  /// auto-removed.
+  blocked,
+}
+
+/// The outcome of classifying one reference for [_PatternRefKind].
+typedef _PatternRef = ({_PatternRefKind kind, DeclarationRange? range});
+
+/// Which pattern-matching construct a `case` keyword introduces.
+enum _CaseContext { switchStatement, ifCase, whileCase, unknown }
+
 /// Finds declarations that are never referenced by driving the Dart analysis
 /// server over LSP.
 ///
@@ -241,18 +269,29 @@ class Ciach {
             if (_isConstructorOfDeadClass(candidate, deadClassNames)) {
               break;
             }
+            final isClass = candidate.symbol.kind == .class$;
+            final paired = isClass
+                ? _pairedStateRemovals(
+                    candidate,
+                    refsByCandidate[i],
+                    candidates,
+                    refsByCandidate,
+                    rootPath,
+                  )
+                : const <CoupledRemoval>[];
+            // Under --unused-union-members, a class kept dead only by pattern
+            // matches gets its matched arm(s) removed with it — unless one of
+            // those matches sits in a construct we can't delete safely, in
+            // which case the class is still reported but its removal is blocked.
+            final pattern = isClass && options.unusedUnionMembers
+                ? _patternRemovals(candidate, refsByCandidate[i], rootPath)
+                : (removals: const <CoupledRemoval>[], blocked: false);
             unused.add(
               _toUnused(
                 candidate,
                 rootPath,
-                coupledRemovals: candidate.symbol.kind == .class$
-                    ? _pairedStateRemovals(
-                        candidate,
-                        refsByCandidate[i],
-                        candidates,
-                        refsByCandidate,
-                      )
-                    : const [],
+                coupledRemovals: [...paired, ...pattern.removals],
+                removalBlocked: pattern.blocked,
               ),
             );
           case _RefStatus.docOnly:
@@ -380,7 +419,8 @@ class Ciach {
   UnusedDeclaration _toUnused(
     _Candidate candidate,
     String rootPath, {
-    List<DeclarationRange> coupledRemovals = const [],
+    List<CoupledRemoval> coupledRemovals = const [],
+    bool removalBlocked = false,
   }) {
     final symbol = candidate.symbol;
     final start = symbol.selectionRange.start;
@@ -388,7 +428,7 @@ class Ciach {
     return .new(
       name: name,
       kind: symbol.kind,
-      filePath: p.split(p.relative(candidate.path, from: rootPath)).join('/'),
+      filePath: _relPath(candidate.path, rootPath),
       // LSP positions are zero-based; report them one-based for humans.
       line: start.line + 1,
       column: start.character + 1,
@@ -397,6 +437,7 @@ class Ciach {
       isEnumValue: candidate.isEnumValue,
       range: _rangeOf(symbol),
       coupledRemovals: coupledRemovals,
+      removalBlocked: removalBlocked,
     );
   }
 
@@ -431,18 +472,37 @@ class Ciach {
   _RefStatus _classifyClass(_Candidate candidate, List<Location> refs) {
     var hasExternalCode = false;
     var hasExternalDoc = false;
+    var hasPatternMatch = false;
     for (final loc in refs) {
       if (_isSelfClassReference(candidate, loc)) {
         continue;
       }
       if (_isDocReference(loc)) {
         hasExternalDoc = true;
-      } else {
-        hasExternalCode = true;
+        continue;
       }
+      // With --unused-union-members, a reference that is confidently a *type
+      // pattern* (a `case`/if-case/while-case pattern, or a switch-expression
+      // arm) is a *match*, not a construction: if the type is never
+      // constructed, no such match can ever fire, so it is discounted like a
+      // self-reference. Any reference that is not confidently a type pattern
+      // falls through to `hasExternalCode` and keeps the class alive — the
+      // conservative choice (nested sub-patterns and pattern-variable
+      // declarations are intentionally not recognized, so they keep it alive).
+      if (options.unusedUnionMembers &&
+          _patternRef(loc).kind != _PatternRefKind.notPattern) {
+        hasPatternMatch = true;
+        continue;
+      }
+      hasExternalCode = true;
     }
     if (hasExternalCode) {
       return _RefStatus.used;
+    }
+    // Matched-only-by-a-pattern (never constructed) is dead code, not a softer
+    // doc-only report.
+    if (hasPatternMatch) {
+      return _RefStatus.unused;
     }
     return hasExternalDoc ? _RefStatus.docOnly : _RefStatus.unused;
   }
@@ -521,13 +581,14 @@ class Ciach {
   /// `class _S extends State<Widget>` referring to a now-deleted type — a build
   /// break — so the State is coupled to the widget's removal, but it is not
   /// itself reported.
-  List<DeclarationRange> _pairedStateRemovals(
+  List<CoupledRemoval> _pairedStateRemovals(
     _Candidate widget,
     List<Location> widgetRefs,
     List<_Candidate> candidates,
     List<List<Location>> refsByCandidate,
+    String rootPath,
   ) {
-    final out = <DeclarationRange>[];
+    final out = <CoupledRemoval>[];
     for (final loc in widgetRefs) {
       if (!_isStatePairingReference(widget.symbol.name, loc)) {
         continue;
@@ -554,7 +615,10 @@ class Ciach {
           widget.symbol,
           widget.path,
         )) {
-          out.add(_rangeOf(state.symbol));
+          out.add((
+            filePath: _relPath(state.path, rootPath),
+            range: _rangeOf(state.symbol),
+          ));
         }
         break;
       }
@@ -602,6 +666,621 @@ class Ciach {
     endLine: symbol.range.end.line,
     endColumn: symbol.range.end.character,
   );
+
+  /// [absPath] expressed relative to [rootPath], with `/` separators, matching
+  /// [UnusedDeclaration.filePath].
+  String _relPath(String absPath, String rootPath) =>
+      p.split(p.relative(absPath, from: rootPath)).join('/');
+
+  /// The coupled arm/branch removals for a class kept dead only by pattern
+  /// matches, plus whether the removal is `blocked`.
+  ///
+  /// One removal is produced per non-self, non-doc reference. If *every* such
+  /// reference is [_PatternRefKind.removable], those spans are returned. If
+  /// *any* is [_PatternRefKind.blocked] (a pattern in a construct that can't be
+  /// deleted safely), no spans are returned and `blocked` is `true` — removing
+  /// only some matches would strand the rest, so the class is reported but left
+  /// in place for a human to handle.
+  ({List<CoupledRemoval> removals, bool blocked}) _patternRemovals(
+    _Candidate candidate,
+    List<Location> refs,
+    String rootPath,
+  ) {
+    final removals = <CoupledRemoval>[];
+    for (final loc in refs) {
+      if (_isSelfClassReference(candidate, loc) || _isDocReference(loc)) {
+        continue;
+      }
+      final pattern = _patternRef(loc);
+      switch (pattern.kind) {
+        case _PatternRefKind.notPattern:
+          // A class reaches here only when all its outside refs are patterns,
+          // so this is unreachable; ignore defensively.
+          break;
+        case _PatternRefKind.blocked:
+          return (removals: const [], blocked: true);
+        case _PatternRefKind.removable:
+          removals.add((
+            filePath: _relPath(_pathOf(loc.uri), rootPath),
+            range: pattern.range!,
+          ));
+      }
+    }
+    return (removals: removals, blocked: false);
+  }
+
+  /// Classifies a reference [loc] to a class for the opt-in dead-union-member
+  /// detection: whether it is a *type pattern* (a match, not a construction)
+  /// and, if so, whether its enclosing construct can be removed cleanly.
+  ///
+  /// Recognized as patterns:
+  ///
+  /// * A `case <Type>` pattern in a `switch` statement — removable (the whole
+  ///   arm), when its boundaries fall on clean lines.
+  /// * A switch-*expression* arm `<Type>… => …,` — removable (the whole arm),
+  ///   when it is a whole-line arm terminated by a trailing comma.
+  /// * A `case <Type>` in an `if (x case …)` / `while (x case …)` header —
+  ///   [_PatternRefKind.blocked]: the class is dead, but deleting the branch
+  ///   would mean rewriting control flow, so it is reported, not removed.
+  ///
+  /// Everything else (construction, type annotations, `extends`/`implements`,
+  /// static access, nested sub-patterns, pattern-variable declarations) is
+  /// [_PatternRefKind.notPattern] — a real use that keeps the class alive.
+  _PatternRef _patternRef(Location loc) {
+    const notPattern = (kind: _PatternRefKind.notPattern, range: null);
+    final located = _locateTypeToken(loc);
+    if (located == null) {
+      return notPattern;
+    }
+    final (:tokens, :ti, :content, :lineStarts) = located;
+
+    final prev = ti > 0 ? tokens[ti - 1] : null;
+    if (prev != null && prev.isWord && prev.value == 'case') {
+      switch (_caseContext(tokens, ti - 1)) {
+        case _CaseContext.switchStatement:
+          final range = _switchStatementArmRange(
+            tokens,
+            ti,
+            content,
+            lineStarts,
+          );
+          return range == null
+              ? (kind: _PatternRefKind.blocked, range: null)
+              : (kind: _PatternRefKind.removable, range: range);
+        case _CaseContext.ifCase:
+        case _CaseContext.whileCase:
+        case _CaseContext.unknown:
+          // A real match, so the class is dead — but removing an if/while
+          // branch safely needs a control-flow rewrite we won't attempt.
+          return (kind: _PatternRefKind.blocked, range: null);
+      }
+    }
+
+    return _switchExprArmRef(tokens, ti, content, lineStarts);
+  }
+
+  /// Resolves [loc] to the lexer token index of the referenced type name,
+  /// returning it with the file's cached tokens/content, or `null` if the
+  /// reference doesn't line up with a word token.
+  ({List<_Token> tokens, int ti, String content, List<int> lineStarts})?
+  _locateTypeToken(Location loc) {
+    final path = _pathOf(loc.uri);
+    final content = _contentFor(path);
+    if (content.isEmpty) {
+      return null;
+    }
+    final lineStarts = _lineStartsFor(path);
+    final startOff = _offsetOfPosition(lineStarts, content, loc.range.start);
+    if (startOff == null) {
+      return null;
+    }
+    final tokens = _tokensFor(path);
+    final ti = _tokenIndexAt(tokens, startOff);
+    if (ti == null || !tokens[ti].isWord) {
+      return null;
+    }
+    return (tokens: tokens, ti: ti, content: content, lineStarts: lineStarts);
+  }
+
+  /// The whole-arm span of a `switch`-statement `case` whose head type is the
+  /// token at [ti], or `null` if its boundaries can't be delimited on clean
+  /// lines. The arm runs from the `case` keyword to the next sibling
+  /// `case`/`default` or the `switch`'s closing `}`.
+  DeclarationRange? _switchStatementArmRange(
+    List<_Token> tokens,
+    int ti,
+    String content,
+    List<int> lineStarts,
+  ) {
+    final boundary = _armBoundaryToken(tokens, ti);
+    if (boundary == null) {
+      return null;
+    }
+    // Only delete whole lines: bail unless the boundary token starts its line.
+    final boundaryPos = _positionOf(lineStarts, boundary.start);
+    final boundaryLineStart = lineStarts[boundaryPos.line];
+    if (content
+        .substring(boundaryLineStart, boundary.start)
+        .trim()
+        .isNotEmpty) {
+      return null;
+    }
+    final casePos = _positionOf(lineStarts, tokens[ti - 1].start);
+    return (
+      startLine: casePos.line,
+      startColumn: casePos.column,
+      endLine: boundaryPos.line,
+      endColumn: 0,
+    );
+  }
+
+  /// Classifies the type token at [ti] as a switch-*expression* arm pattern
+  /// (`<Type>… => value,`) and, if so, whether the whole arm can be removed
+  /// cleanly. Returns [_PatternRefKind.notPattern] when [ti] is not the head of
+  /// such an arm.
+  ///
+  /// An arm is recognized only when: the token before it is the `{`/`,` of a
+  /// `switch (…) { … }` expression body, and a top-level `=>` follows the
+  /// pattern. It is [_PatternRefKind.removable] only when it is a whole-line arm
+  /// terminated by a trailing comma (the shape `dart format` always produces
+  /// for a multi-line switch expression); otherwise it is
+  /// [_PatternRefKind.blocked].
+  _PatternRef _switchExprArmRef(
+    List<_Token> tokens,
+    int ti,
+    String content,
+    List<int> lineStarts,
+  ) {
+    const notPattern = (kind: _PatternRefKind.notPattern, range: null);
+    if (!_isSwitchExprArm(tokens, ti)) {
+      return notPattern;
+    }
+    // Find the arm terminator: the top-level `,` (or the body's `}`) after the
+    // `=>`. A trailing comma on its own line is the removable shape.
+    var depth = 0;
+    for (var k = ti + 1; k < tokens.length; k++) {
+      final t = tokens[k];
+      if (t.isWord) {
+        continue;
+      }
+      switch (t.value) {
+        case '(' || '[' || '{':
+          depth++;
+        case ')' || ']':
+          if (depth == 0) {
+            return (kind: _PatternRefKind.blocked, range: null);
+          }
+          depth--;
+        case '}':
+          if (depth == 0) {
+            // Last arm with no trailing comma: safe removal would need to eat
+            // the previous arm's comma — leave it to a human.
+            return (kind: _PatternRefKind.blocked, range: null);
+          }
+          depth--;
+        case ',':
+          if (depth == 0) {
+            final typePos = _positionOf(lineStarts, tokens[ti].start);
+            final commaPos = _positionOf(lineStarts, t.start);
+            final beforeType = content.substring(
+              lineStarts[typePos.line],
+              tokens[ti].start,
+            );
+            final afterComma = content.substring(
+              t.start + 1,
+              t.start + 1 >= content.length
+                  ? t.start + 1
+                  : (lineStarts.length > commaPos.line + 1
+                        ? lineStarts[commaPos.line + 1] - 1
+                        : content.length),
+            );
+            if (beforeType.trim().isNotEmpty || afterComma.trim().isNotEmpty) {
+              return (kind: _PatternRefKind.blocked, range: null);
+            }
+            return (
+              kind: _PatternRefKind.removable,
+              range: (
+                startLine: typePos.line,
+                startColumn: typePos.column,
+                endLine: commaPos.line,
+                endColumn: commaPos.column + 1,
+              ),
+            );
+          }
+      }
+    }
+    return (kind: _PatternRefKind.blocked, range: null);
+  }
+
+  /// Whether the type token at [ti] begins a switch-*expression* arm: preceded
+  /// by the `{`/`,` of a `switch (…) {` body and followed by a top-level `=>`.
+  bool _isSwitchExprArm(List<_Token> tokens, int ti) {
+    if (ti == 0) {
+      return false;
+    }
+    final prev = tokens[ti - 1];
+    if (prev.isWord || (prev.value != '{' && prev.value != ',')) {
+      return false;
+    }
+    // Find the enclosing `{` (walking back over a preceding arm if prev is `,`).
+    final braceIndex = _enclosingOpener(tokens, ti - 1);
+    if (braceIndex == null || tokens[braceIndex].value != '{') {
+      return false;
+    }
+    // `{` must close a `switch (…)` header: the token before it is `)` whose
+    // matching `(` is immediately preceded by `switch`.
+    final closeParen = braceIndex - 1;
+    if (closeParen < 0 ||
+        tokens[closeParen].isWord ||
+        tokens[closeParen].value != ')') {
+      return false;
+    }
+    final openParen = _matchingOpenParen(tokens, closeParen);
+    if (openParen == null || openParen == 0) {
+      return false;
+    }
+    final kw = tokens[openParen - 1];
+    if (!kw.isWord || kw.value != 'switch') {
+      return false;
+    }
+    // A top-level `=>` must follow the pattern (so this is an arm, not e.g. a
+    // set/map entry inside a collection literal).
+    var depth = 0;
+    for (var k = ti + 1; k < tokens.length; k++) {
+      final t = tokens[k];
+      if (t.isWord) {
+        continue;
+      }
+      switch (t.value) {
+        case '(' || '[' || '{':
+          depth++;
+        case ')' || ']' || '}':
+          if (depth == 0) {
+            return false;
+          }
+          depth--;
+        case ',' || ';':
+          if (depth == 0) {
+            return false;
+          }
+        case '=':
+          if (depth == 0 &&
+              k + 1 < tokens.length &&
+              !tokens[k + 1].isWord &&
+              tokens[k + 1].value == '>') {
+            return true;
+          }
+      }
+    }
+    return false;
+  }
+
+  /// Walking backward from [from], the index of the nearest enclosing (not yet
+  /// closed) opening bracket, or `null` if the scan runs off the start.
+  int? _enclosingOpener(List<_Token> tokens, int from) {
+    var depth = 0;
+    for (var k = from; k >= 0; k--) {
+      final t = tokens[k];
+      if (t.isWord) {
+        continue;
+      }
+      switch (t.value) {
+        case ')' || ']' || '}':
+          depth++;
+        case '(' || '[' || '{':
+          if (depth == 0) {
+            return k;
+          }
+          depth--;
+      }
+    }
+    return null;
+  }
+
+  /// The index of the `(` matching the `)` at [closeIndex], or `null`.
+  int? _matchingOpenParen(List<_Token> tokens, int closeIndex) {
+    var depth = 0;
+    for (var k = closeIndex; k >= 0; k--) {
+      final t = tokens[k];
+      if (t.isWord) {
+        continue;
+      }
+      switch (t.value) {
+        case ')' || ']' || '}':
+          depth++;
+        case '(' || '[' || '{':
+          depth--;
+          if (depth == 0) {
+            return t.value == '(' ? k : null;
+          }
+      }
+    }
+    return null;
+  }
+
+  /// Which construct the `case` keyword at [caseIndex] belongs to, by finding
+  /// its nearest enclosing bracket: a `{` means a `switch` statement arm; a `(`
+  /// preceded by `if`/`while` means an `if`/`while` case header.
+  _CaseContext _caseContext(List<_Token> tokens, int caseIndex) {
+    final opener = _enclosingOpener(tokens, caseIndex - 1);
+    if (opener == null) {
+      return _CaseContext.unknown;
+    }
+    final token = tokens[opener];
+    if (token.value == '{') {
+      return _CaseContext.switchStatement;
+    }
+    if (token.value == '(' && opener > 0 && tokens[opener - 1].isWord) {
+      switch (tokens[opener - 1].value) {
+        case 'if':
+          return _CaseContext.ifCase;
+        case 'while':
+          return _CaseContext.whileCase;
+      }
+    }
+    return _CaseContext.unknown;
+  }
+
+  /// Scans forward from the type token at [ti] for the token that ends its
+  /// `case` arm — the next `case`/`default` keyword, or the `switch`'s closing
+  /// `}`, at brace/paren/bracket depth 0. Returns `null` if the scan runs off
+  /// the end or hits an unbalanced closer first.
+  _Token? _armBoundaryToken(List<_Token> tokens, int ti) {
+    var depth = 0;
+    for (var k = ti + 1; k < tokens.length; k++) {
+      final t = tokens[k];
+      if (t.isWord) {
+        if (depth == 0 && (t.value == 'case' || t.value == 'default')) {
+          return t;
+        }
+        continue;
+      }
+      switch (t.value) {
+        case '(' || '[' || '{':
+          depth++;
+        case ')' || ']' || '}':
+          if (depth == 0) {
+            // The `}` that closes the enclosing switch body ends the last arm;
+            // an unbalanced `)`/`]` means we've lost the shape — give up.
+            return t.value == '}' ? t : null;
+          }
+          depth--;
+      }
+    }
+    return null;
+  }
+
+  /// Absolute offset of an LSP [position] in [content], or `null` if out of
+  /// range. LSP columns are UTF-16 code units, which is exactly how Dart
+  /// indexes a `String`, so the arithmetic needs no conversion.
+  int? _offsetOfPosition(
+    List<int> lineStarts,
+    String content,
+    Position position,
+  ) {
+    if (position.line < 0 || position.line >= lineStarts.length) {
+      return null;
+    }
+    final offset = lineStarts[position.line] + position.character;
+    if (offset < 0 || offset > content.length) {
+      return null;
+    }
+    return offset;
+  }
+
+  /// The `(line, column)` of an absolute [offset], via binary search over the
+  /// cached line-start offsets.
+  ({int line, int column}) _positionOf(List<int> lineStarts, int offset) {
+    var lo = 0;
+    var hi = lineStarts.length - 1;
+    while (lo < hi) {
+      final mid = (lo + hi + 1) >> 1;
+      if (lineStarts[mid] <= offset) {
+        lo = mid;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return (line: lo, column: offset - lineStarts[lo]);
+  }
+
+  /// The index of the token whose span starts exactly at [offset], or `null`
+  /// if none does. Tokens are ordered by start, so this is a binary search.
+  int? _tokenIndexAt(List<_Token> tokens, int offset) {
+    var lo = 0;
+    var hi = tokens.length - 1;
+    while (lo <= hi) {
+      final mid = (lo + hi) >> 1;
+      final start = tokens[mid].start;
+      if (start == offset) {
+        return mid;
+      }
+      if (start < offset) {
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return null;
+  }
+
+  final _contentCache = <String, String>{};
+  final _lineStartsCache = <String, List<int>>{};
+  final _tokensCache = <String, List<_Token>>{};
+
+  /// The full text of [path], reconstructed from the cached lines so it matches
+  /// the document content the analysis server resolved positions against.
+  String _contentFor(String path) =>
+      _contentCache[path] ??= _linesFor(path).join('\n');
+
+  List<int> _lineStartsFor(String path) =>
+      _lineStartsCache[path] ??= _computeLineStarts(_contentFor(path));
+
+  List<_Token> _tokensFor(String path) =>
+      _tokensCache[path] ??= _tokenize(_contentFor(path));
+
+  static List<int> _computeLineStarts(String content) {
+    final starts = <int>[0];
+    for (var i = 0; i < content.length; i++) {
+      if (content[i] == '\n') {
+        starts.add(i + 1);
+      }
+    }
+    return starts;
+  }
+
+  static bool _isIdentStart(String ch) =>
+      (ch.compareTo('a') >= 0 && ch.compareTo('z') <= 0) ||
+      (ch.compareTo('A') >= 0 && ch.compareTo('Z') <= 0) ||
+      ch == '_' ||
+      ch == r'$';
+
+  static bool _isIdentPart(String ch) =>
+      _isIdentStart(ch) || (ch.compareTo('0') >= 0 && ch.compareTo('9') <= 0);
+
+  /// Splits [content] into [_Token]s, skipping whitespace, `//` and (nesting)
+  /// `/* */` comments, and every string-literal form (single/double,
+  /// triple-quoted, raw, and `${…}`/`$id` interpolation). Everything else is
+  /// emitted as either a word token or a single-character punctuation token.
+  static List<_Token> _tokenize(String content) {
+    final tokens = <_Token>[];
+    final n = content.length;
+    var i = 0;
+    while (i < n) {
+      final ch = content[i];
+      if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r') {
+        i++;
+        continue;
+      }
+      if (ch == '/' && i + 1 < n && content[i + 1] == '/') {
+        i += 2;
+        while (i < n && content[i] != '\n') {
+          i++;
+        }
+        continue;
+      }
+      if (ch == '/' && i + 1 < n && content[i + 1] == '*') {
+        i = _skipBlockComment(content, i);
+        continue;
+      }
+      if ((ch == 'r' || ch == 'R') &&
+          i + 1 < n &&
+          (content[i + 1] == "'" || content[i + 1] == '"')) {
+        i = _skipString(content, i + 1, raw: true);
+        continue;
+      }
+      if (ch == "'" || ch == '"') {
+        i = _skipString(content, i, raw: false);
+        continue;
+      }
+      if (_isIdentStart(ch)) {
+        final start = i;
+        i++;
+        while (i < n && _isIdentPart(content[i])) {
+          i++;
+        }
+        tokens.add((
+          start: start,
+          end: i,
+          isWord: true,
+          value: content.substring(start, i),
+        ));
+        continue;
+      }
+      tokens.add((start: i, end: i + 1, isWord: false, value: ch));
+      i++;
+    }
+    return tokens;
+  }
+
+  /// Skips a (possibly nested) `/* … */` block comment starting at [from],
+  /// returning the index just past it.
+  static int _skipBlockComment(String content, int from) {
+    final n = content.length;
+    var i = from + 2;
+    var depth = 1;
+    while (i < n && depth > 0) {
+      if (content[i] == '/' && i + 1 < n && content[i + 1] == '*') {
+        depth++;
+        i += 2;
+      } else if (content[i] == '*' && i + 1 < n && content[i + 1] == '/') {
+        depth--;
+        i += 2;
+      } else {
+        i++;
+      }
+    }
+    return i;
+  }
+
+  /// Skips a string literal whose opening quote is at [from], returning the
+  /// index just past the closing quote. Handles triple quotes, escapes, and —
+  /// unless [raw] — `${…}`/`$id` interpolation (whose braces and nested
+  /// strings are matched so a `}` or quote inside them doesn't end the string).
+  static int _skipString(String content, int from, {required bool raw}) {
+    final n = content.length;
+    final quote = content[from];
+    final triple =
+        from + 2 < n &&
+        content[from + 1] == quote &&
+        content[from + 2] == quote;
+    var i = from + (triple ? 3 : 1);
+    while (i < n) {
+      final c = content[i];
+      if (!raw && c == r'\') {
+        i += 2;
+        continue;
+      }
+      if (!raw && c == r'$') {
+        i = _skipInterpolation(content, i);
+        continue;
+      }
+      if (c == quote) {
+        if (!triple) {
+          return i + 1;
+        }
+        if (i + 2 < n && content[i + 1] == quote && content[i + 2] == quote) {
+          return i + 3;
+        }
+      }
+      if (!triple && c == '\n') {
+        // Unterminated single-line string; stop at the newline rather than run on.
+        return i;
+      }
+      i++;
+    }
+    return n;
+  }
+
+  /// Skips a `$`-interpolation starting at [from] (the `$`), returning the
+  /// index just past it. Handles both `$identifier` and brace-matched `${…}`.
+  static int _skipInterpolation(String content, int from) {
+    final n = content.length;
+    if (from + 1 < n && content[from + 1] == '{') {
+      var i = from + 2;
+      var depth = 1;
+      while (i < n && depth > 0) {
+        final c = content[i];
+        if (c == '{') {
+          depth++;
+          i++;
+        } else if (c == '}') {
+          depth--;
+          i++;
+        } else if (c == "'" || c == '"') {
+          i = _skipString(content, i, raw: false);
+        } else {
+          i++;
+        }
+      }
+      return i;
+    }
+    var i = from + 1;
+    while (i < n && _isIdentPart(content[i])) {
+      i++;
+    }
+    return i;
+  }
 
   /// The first line of [symbol] including its contiguous leading
   /// doc-comment/annotation block (mirrors the removal-side extension), so a

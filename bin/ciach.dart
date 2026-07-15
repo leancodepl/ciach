@@ -118,6 +118,7 @@ Future<int> _run(List<String> arguments) async {
     additionalGeneratedSuffixes: args.multiOption('generated-suffix'),
     skipOverrides: !args.flag('overrides'),
     skipOperators: !args.flag('operators'),
+    unusedUnionMembers: args.flag('unused-union-members'),
     concurrency: concurrency,
     dartExecutable: args.option('dart'),
     onProgress: showProgress ? _ProgressPrinter().update : null,
@@ -269,6 +270,18 @@ ArgParser _buildParser() {
           'by default: the analysis server never resolves infix operator\n'
           "syntax (a + b) back to the operator's declaration, so a used\n"
           'operator is reported as unused every time.',
+    )
+    ..addFlag(
+      'unused-union-members',
+      help:
+          'Also flag a class whose only references are `case` patterns in\n'
+          'switch statements over its (sealed) supertype — matched but never\n'
+          'constructed. Off by default: a `case Foo():` arm otherwise counts\n'
+          'as a use. With --remove, the now-dead `case` arm(s) are removed\n'
+          'alongside the class so the switch stays valid and exhaustive.\n'
+          'Conservative: only the `case <Type>` statement form is detected;\n'
+          'any reference that is not clearly a `case` pattern keeps the class\n'
+          'alive.',
     )
     ..addFlag(
       'set-exit-if-changed',
