@@ -1,3 +1,10 @@
+## Unreleased
+
+- Add `--generated-suffix` (repeatable) to treat extra filename suffixes as
+  generated, on top of the built-in set (`*.g.dart`, `*.freezed.dart`, …).
+- Open generated files during analysis so a declaration referenced only from
+  generated code is no longer misreported as unused.
+
 ## 0.2.0+2
 
 - Update the README.
