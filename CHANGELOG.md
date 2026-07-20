@@ -4,6 +4,10 @@
   generated, on top of the built-in set (`*.g.dart`, `*.freezed.dart`, …).
 - Open generated files during analysis so a declaration referenced only from
   generated code is no longer misreported as unused.
+- Fix `--remove` corrupting compact single-line enums (`enum E { a, b, c }`)
+  when removing one or more values.
+- Fix `--remove` deleting the leading doc/annotation comment and header when
+  removing a value from a compact single-line enum.
 
 ## 0.2.0+2
 
