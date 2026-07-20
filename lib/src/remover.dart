@@ -65,10 +65,8 @@ String _removeFromContent(String content, List<UnusedDeclaration> decls) {
       }
     }
   }
-  // Merge the per-value spans of each enum first, then drop any separator
-  // comma left orphaned when a trailing run of values is removed from a
-  // compact single-line enum (e.g. `enum E { a, b, c }` losing `b` and `c`
-  // must become `enum E { a }`, not `enum E { a, }`).
+  // Merge each enum's value spans, then drop a separator comma left orphaned
+  // when a trailing run of values is removed from a compact single-line enum.
   for (final span in _mergeSpans(enumSpans)) {
     spans.add(_absorbOrphanEnumComma(content, span));
   }
@@ -106,14 +104,9 @@ _Span? _spanFor(
   var end = baseEnd;
 
   if (decl.isEnumValue) {
-    // The value's own start: reach up to column 0 to take its leading
-    // doc-comment/annotation lines and indentation, but only when the value
-    // actually starts its own line. On a compact single-line
-    // `enum E { a, b, c }` the value shares its line with the `enum E {`
-    // header and earlier values, and the line above is the enum *type's* own
-    // leading comment — walking upward there would eat the declaration and
-    // its doc comment, collapsing the whole construct. So a value that has
-    // other tokens before it on its line keeps its span at the value token.
+    // Reach up to column 0 to grab the value's own leading doc/annotation
+    // lines, but only when it starts its own line: on a compact single-line
+    // enum the line above is the enum type's comment, not the value's.
     final prefix = lines[range.startLine].substring(0, range.startColumn);
     final startsOwnLine = prefix.trim().isEmpty;
     final valueStart = !startsOwnLine
@@ -321,10 +314,8 @@ bool _looksLikeMetadata(String trimmedLine) =>
 }) {
   final forward = _nextNonWhitespace(content, baseEnd);
   if (forward != null && content[forward] == ',') {
-    // Also swallow the blank left between this comma and the next value on
-    // the same line, so a compact `enum E { a, b, c }` losing `b` reads
-    // `enum E { a, c }` rather than `enum E { a,  c }`. Stop at a line break
-    // to leave a multi-line enum's indentation intact.
+    // Swallow the blank after the comma too, but stop at a line break so a
+    // multi-line enum's indentation stays intact.
     return (valueStart, _skipSameLineBlank(content, forward + 1));
   }
   final backward = _previousNonWhitespace(content, valueStart);
@@ -334,9 +325,8 @@ bool _looksLikeMetadata(String trimmedLine) =>
   return (valueStart, baseEnd);
 }
 
-/// Extends past spaces and tabs starting at [from], but never across a line
-/// break — used to consume the gap after a removed enum value's comma without
-/// touching the next line's indentation.
+/// Skips spaces and tabs from [from], but never across a line break — used to
+/// consume the gap after a removed enum value's comma.
 int _skipSameLineBlank(String content, int from) {
   var i = from;
   while (i < content.length && (content[i] == ' ' || content[i] == '\t')) {
@@ -346,13 +336,10 @@ int _skipSameLineBlank(String content, int from) {
 }
 
 /// Drops the separator comma left dangling when a compact single-line enum
-/// loses a trailing run of values. Fires only when the merged removal [span]
-/// is bracketed, on its own line, by a leading `,` and a trailing `}` with
-/// nothing but spaces/tabs between — i.e. the removed values were the last in
-/// the enum and a value still precedes them. In every other shape the comma
-/// is a real separator that must stay, so the span is returned unchanged. The
-/// same-line guards keep multi-line enums (whose preceding comma sits on an
-/// earlier line) untouched.
+/// loses a trailing run of values — when the merged [span] is bracketed on its
+/// own line by a leading `,` and a trailing `}`. Otherwise the comma is a real
+/// separator and the span is returned unchanged; the same-line guards leave
+/// multi-line enums untouched.
 _Span _absorbOrphanEnumComma(String content, _Span span) {
   var after = span.end;
   while (after < content.length &&

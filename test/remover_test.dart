@@ -239,7 +239,6 @@ enum Direction {
       test('removes a middle value without corrupting the declaration', () {
         final result = applyRemoval(source, [valueNamed('medium')]);
         expect(result, isNot(contains('medium')));
-        // The declaration prefix and the surviving values must all survive.
         expect(result, contains('enum Size {'));
         expect(result, contains('small'));
         expect(result, contains('large'));
@@ -274,8 +273,6 @@ enum Direction {
 
       test('removes two non-adjacent middle values', () {
         final result = applyRemoval(source, [valueNamed('b'), valueNamed('d')]);
-        // The header and the still-used values must all survive; only the
-        // two flagged values are gone, and the result stays valid.
         expect(result, contains('enum E {'));
         expect(result, contains('a'));
         expect(result, contains('c'));
@@ -299,9 +296,7 @@ enum Direction {
       });
 
       test('removes a trailing run, leaving no dangling separator comma', () {
-        // The regressed case: removing the last values used to leave the
-        // separator that preceded them (`enum E { a, b, }`) — or, before the
-        // single-value fix, eat the header entirely.
+        // Regression: removing the last values used to leave a dangling `,`.
         final result = applyRemoval(source, [valueNamed('c'), valueNamed('d')]);
         expect(result, contains('enum E {'));
         expect(result, contains('a'));
@@ -327,9 +322,8 @@ enum Direction {
     });
 
     group('compact single-line enum with a leading `///` doc comment', () {
-      // The value's own line carries the whole declaration, and the line
-      // above it is the enum *type's* doc comment — which must never be
-      // swept into a value's removal span.
+      // The line above the values is the enum type's doc comment — it must
+      // never be swept into a value's removal span.
       const source =
           '/// Doc comment on the enum type.\n'
           'enum Accuracy { best, high, medium }\n';
@@ -376,8 +370,8 @@ enum Direction {
     });
 
     group('compact single-line enum with a `//` line and annotation above', () {
-      // A line comment plus an annotation on the enum type: both are the
-      // type's metadata, not a value's, and must survive value removal.
+      // The comment and annotation belong to the enum type, not a value, and
+      // must survive value removal.
       const source =
           '// Ordered from least to most precise.\n'
           '@immutable\n'
