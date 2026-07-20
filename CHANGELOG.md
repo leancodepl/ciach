@@ -25,6 +25,8 @@
   remove it with `--remove`); a sole zero-parameter `ClassName._()` also gets a
   hint suggesting `abstract final class` to keep a static-only class
   non-instantiable.
+- Fix unused enum values being reported under the `enum` kind instead of
+  `enum-value`.
 
 ## 0.2.0+2
 
