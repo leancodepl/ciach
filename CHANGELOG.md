@@ -8,65 +8,17 @@
   when removing one or more values.
 - Fix `--remove` deleting the leading doc/annotation comment and header when
   removing a value from a compact single-line enum.
-- Treat an enum value reached only through `EnumType.values` iteration as used.
-  Previously a value was flagged unused unless it had a direct
-  `EnumType.value` reference, so an enum consumed only by iterating its
-  `.values` (e.g. a lookup over `EnumType.values`) had every value reported —
-  and `--remove` then emptied the enum, breaking the build. Now, when an enum
-  type's static `.values` getter is referenced anywhere, all of that enum's
-  values are considered used and none is flagged. Both the qualified
-  `<EnumName>.values` form and the implicit bare `values` form (used from inside
-  the enum's own body, e.g. a `values.any(…)` helper) are recognized. The check
-  is precise: only that specific enum's `.values` counts, not a `.value` access
-  to an individual value or a `.values` on some other symbol.
-- Add remove-safety guards so `--remove` never produces code that fails to
-  compile. Each affected finding is still **reported** (with the blocked
-  annotation) so a human can act on it, but it is skipped by `--remove` —
-  reusing the report-only mechanism already used for pattern-matched sealed
-  members. The guards are deliberately conservative: when it is unclear whether
-  a removal is safe, the finding is blocked rather than removed.
-  - *Emptying an enum.* If every value of an enum is dead but the enum *type* is
-    still referenced, removing them all would leave `enum E {}` (a compile
-    error), so those value removals are blocked.
-  - *Sole constructor with final fields.* If a class's only constructor is dead
-    but the class itself is alive, removing it synthesizes an implicit default
-    constructor; when the class has `final` instance fields, that would strand
-    them (`final_not_initialized`), so the constructor removal is blocked.
-  - *Super-forwarding constructor.* If removing a class's only constructor would
-    leave an implicit default constructor whose superclass has no accessible
-    zero-arg unnamed constructor — detected via `super.<field>` parameters or a
-    non-empty `super(...)` call — the removal is blocked
-    (`no_default_super_constructor`).
-- Add an opt-in `--unused-union-members` flag (off by default). When enabled, a
-  class also counts as dead when its only non-self references are *type
-  patterns* — it is matched but never constructed, so no match can ever fire.
-  Recognized pattern contexts are `case <Type>` in a `switch` statement, a
-  switch-*expression* arm (`<Type>… => …`), and an `if`/`while` case header.
-  Detection is deliberately conservative: any reference that is not clearly a
-  type pattern (a construction, type annotation, `extends`/`implements`, static
-  access, a nested sub-pattern, or a pattern-variable declaration) keeps the
-  class alive, so the failure mode is missing a dead member, never a false
-  positive. This flag is **report-only**: findings are surfaced (so a human can
-  see the type is never constructed, only pattern-matched) but `--remove` never
-  deletes them or touches their pattern arms — removing a member of a sealed
-  union and rewriting every now-non-exhaustive `switch`/`if`-`case` over its
-  supertype is a source rewrite this tool won't attempt. Without the flag,
-  behavior is unchanged: a pattern match counts as a use.
-- Detect a whole dead class instead of only its constructor. A class whose only
-  references are self-references — its own explicit unnamed constructor's
-  declaration (whose name range coincides with the class name), a `State<Self>`
-  return type on its own `createState`, or the `State<Self>` pairing of its
-  paired `State` subclass (the `StatefulWidget` pattern) — is now reported as an
-  unused `class`, not as a stray unused constructor. Previously such a class
-  looked "used" (the reference search was satisfied by the constructor's own
-  declaration), so `--remove` deleted just the constructor and left the class
-  behind, stranding `final` fields or breaking `super()` calls. The detection is
-  deliberately conservative: any reference from outside the class keeps it alive,
-  so it prefers missing a dead class to ever flagging a live one. The class's own
-  constructor is no longer double-reported, and for a dead `StatefulWidget` the
-  paired private `State` subclass is removed together with it (so
-  `State<DeletedWidget>` never dangles) without being reported as a separate
-  finding.
+- Report a whole dead class as unused, not just its constructor, so `--remove`
+  deletes the class instead of stranding it. Detection is conservative: any
+  reference from outside the class keeps it alive.
+- Remove a dead `StatefulWidget` together with its paired private `State`
+  subclass, so `State<DeletedWidget>` never dangles.
+- Add remove-safety guards: `--remove` skips (but still reports) any removal
+  that wouldn't compile — emptying a still-referenced enum, dropping a sole
+  constructor with `final` fields, or dropping a super-forwarding constructor.
+- Add opt-in `--unused-union-members` to report sealed types that are only
+  pattern-matched and never constructed. Report-only: `--remove` never deletes
+  them.
 
 ## 0.2.0+2
 
