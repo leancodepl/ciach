@@ -404,6 +404,158 @@ enum Direction {
         _expectBalanced(result);
       });
     });
+
+    group('removing every value', () {
+      // NOTE: an enum with no values is invalid Dart, so removing *all* of an
+      // enum's values would leave `enum Foo {}`, which won't compile. The
+      // safety net that refuses this whole-enum removal lives elsewhere (the
+      // `removalBlocked` guard on the empty-enum branch, PR #10), not in the
+      // remover's span logic. These tests only pin down that this branch's
+      // span math stays clean when it is handed every value: the values and
+      // their separators come out with no leftover names, no dangling/`,,`
+      // comma, and balanced braces — it just collapses to an empty body.
+
+      test('multi-line enum collapses to an empty body', () {
+        const source = '''
+enum Direction {
+  north,
+  south,
+  east,
+}
+''';
+        UnusedDeclaration valueNamed(String name) {
+          final start = source.indexOf('  $name') + 2;
+          final line = '\n'.allMatches(source.substring(0, start)).length;
+          final column = start - (source.lastIndexOf('\n', start - 1) + 1);
+          return decl(
+            startLine: line,
+            startColumn: column,
+            endLine: line,
+            endColumn: column + name.length,
+            isEnumValue: true,
+          );
+        }
+
+        final result = applyRemoval(source, [
+          valueNamed('north'),
+          valueNamed('south'),
+          valueNamed('east'),
+        ]);
+        expect(result, isNot(contains('north')));
+        expect(result, isNot(contains('south')));
+        expect(result, isNot(contains('east')));
+        expect(result, isNot(contains(',')));
+        expect(result.trim(), 'enum Direction {\n}');
+        _expectBalanced(result);
+      });
+
+      test('compact single-line enum collapses to an empty body', () {
+        const source = 'enum Empty { a, b, c }\n';
+        UnusedDeclaration valueNamed(String name) {
+          final start = source.indexOf(' $name') + 1;
+          return decl(
+            startLine: 0,
+            startColumn: start,
+            endLine: 0,
+            endColumn: start + name.length,
+            isEnumValue: true,
+          );
+        }
+
+        final result = applyRemoval(source, [
+          valueNamed('a'),
+          valueNamed('b'),
+          valueNamed('c'),
+        ]);
+        expect(result, isNot(contains(',')));
+        expect(result, isNot(contains(',,')));
+        // Clean span math: header and braces survive, body is emptied.
+        expect(result.trim(), 'enum Empty {  }');
+        _expectBalanced(result);
+      });
+    });
+
+    group('enhanced enum (values, then `;` and other members)', () {
+      // Removing the last *value* must drop the value and its separator comma
+      // but leave the `;` that terminates the value list and every trailing
+      // member (constructors/fields/methods) untouched.
+
+      test('multi-line: removing the last value keeps the `;` and members', () {
+        const source = '''
+enum E {
+  a,
+  b;
+
+  const E();
+  int get v => 0;
+}
+''';
+        // `b` is the last value, on line index 2, columns 2..3.
+        final result = applyRemoval(source, [
+          decl(
+            startLine: 2,
+            startColumn: 2,
+            endLine: 2,
+            endColumn: 3,
+            isEnumValue: true,
+          ),
+        ]);
+        expect(result, isNot(contains('  b')));
+        // The surviving last value now carries the list-terminating `;`.
+        expect(result, contains('  a;'));
+        expect(result, contains('const E();'));
+        expect(result, contains('int get v => 0;'));
+        expect(result, isNot(contains(',,')));
+        expect(result, isNot(contains(', ;')));
+        _expectBalanced(result);
+      });
+
+      test('compact: removing the last value keeps the `;` and members', () {
+        const source = 'enum E { a, b; final int x = 0; }\n';
+        final start = source.indexOf(' b') + 1;
+        final result = applyRemoval(source, [
+          decl(
+            startLine: 0,
+            startColumn: start,
+            endLine: 0,
+            endColumn: start + 1,
+            isEnumValue: true,
+          ),
+        ]);
+        expect(result.trim(), 'enum E { a; final int x = 0; }');
+        expect(result, isNot(contains(',,')));
+        _expectBalanced(result);
+      });
+
+      test('multi-line: removing a middle value keeps the `;` and members', () {
+        const source = '''
+enum E {
+  a,
+  b,
+  c;
+
+  int get v => 0;
+}
+''';
+        // `b` is a middle value, on line index 2, columns 2..3.
+        final result = applyRemoval(source, [
+          decl(
+            startLine: 2,
+            startColumn: 2,
+            endLine: 2,
+            endColumn: 3,
+            isEnumValue: true,
+          ),
+        ]);
+        expect(result, isNot(contains('  b')));
+        expect(result, contains('  a,'));
+        // `c` remains the last value and keeps terminating the list with `;`.
+        expect(result, contains('  c;'));
+        expect(result, contains('int get v => 0;'));
+        expect(result, isNot(contains(',,')));
+        _expectBalanced(result);
+      });
+    });
   });
 
   test('collapses a fully-unused class into a single removal', () {
