@@ -4,35 +4,23 @@
 // by the dedicated guard tests (excluded from the default-run assertions); see
 // test/finder_test.dart.
 
-// --- Guard 2 (via `.values`-only): an enum consumed only by iterating `.values`
+// --- Guard 2 (no `.values`): an all-dead enum kept alive only by a type ref ---
 //
-// No value is named individually — the enum is consumed only by iterating
-// `.values` — so every value is flagged dead, while the enum TYPE stays
-// referenced (through that same `.values`). Removing all the values would leave
-// `enum IterableColor {}` (a compile error), so the empty-enum guard reports
-// every value as removal-blocked, keeping `--remove` safe.
+// No value is named individually and `.values` is never iterated, but the enum
+// TYPE stays referenced (as a return type below). Removing all the values would
+// leave `enum SilentSignal {}` (a compile error), so the empty-enum guard
+// reports every value as removal-blocked, keeping `--remove` safe. This is the
+// non-`.values` path: `.values`-iterated enums are instead treated as used and
+// never reported (see example/lib/enum_values.dart).
 
-/// Every value is dead: none is named directly; the enum is consumed only by
-/// iterating `.values` below.
-enum IterableColor { red, green, blue }
+/// Every value is dead: none is named directly, and `.values` is never
+/// iterated. The enum TYPE is kept alive by the return-type reference below.
+enum SilentSignal { ping, pong }
 
-/// Iterates `IterableColor.values`, keeping the enum TYPE referenced without
-/// naming any value. Uses the qualified `<EnumName>.values` form.
-bool isKnownColor(String name) =>
-    IterableColor.values.any((c) => c.name == name);
-
-/// Same shape, reached through the *implicit* bare `values` getter inside the
-/// enum's own body. The enum type is kept alive by the parameter reference
-/// below; every value is dead but becomes removal-blocked (guard 2).
-enum SelfIteratingUnit {
-  first,
-  second;
-
-  static bool has(String name) => values.any((u) => u.name == name);
-}
-
-/// Uses the enum TYPE (keeping it alive) without naming either value.
-String describeUnit(SelfIteratingUnit unit) => unit.name;
+/// Uses the enum TYPE as a return type (keeping it alive) without naming either
+/// value or iterating `.values`.
+SilentSignal? firstSignal(List<SilentSignal> signals) =>
+    signals.isEmpty ? null : signals.first;
 
 // --- Guard 2: emptying a still-referenced enum ---
 
