@@ -62,11 +62,15 @@ abstract final class Reporter {
         final loc = '${decl.line}:${decl.column}'.padRight(locWidth);
         final kind = decl.kind.label.padRight(kindWidth);
         final visibility = decl.isPrivate ? 'private' : 'public';
+        final blocked = decl.removalBlocked
+            ? '  ${_style('(unsafe to auto-remove — remove manually)', _dim, useColor)}'
+            : '';
         buffer.writeln(
           '  ${_style(loc, _dim, useColor)}  '
           '${_style(kind, _cyan, useColor)}  '
           '${decl.qualifiedName}  '
-          '${_style('($visibility)', _dim, useColor)}',
+          '${_style('($visibility)', _dim, useColor)}'
+          '$blocked',
         );
       }
       buffer.writeln();

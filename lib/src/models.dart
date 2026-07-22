@@ -22,6 +22,13 @@ typedef DeclarationRange = ({
   int endColumn,
 });
 
+/// A whole-node span in a specific file to remove together with a reported
+/// declaration. Unlike a bare [DeclarationRange], it names its own
+/// `filePath` (relative to the analyzed root, `/`-separated), so a coupled
+/// removal can live in a *different* file from the declaration it is coupled
+/// to — e.g. a dead `StatefulWidget`'s paired `State` subclass.
+typedef CoupledRemoval = ({String filePath, DeclarationRange range});
+
 /// Configuration for a single run of the finder.
 class FinderOptions {
   /// Creates options for analyzing the package rooted at [rootPath].
@@ -35,6 +42,7 @@ class FinderOptions {
     this.additionalGeneratedSuffixes = const [],
     this.skipOverrides = true,
     this.skipOperators = true,
+    this.unusedUnionMembers = false,
     this.concurrency = 16,
     this.dartExecutable,
     this.onProgress,
@@ -76,6 +84,26 @@ class FinderOptions {
   /// overload is reported as unused every time — on by default to avoid that
   /// false positive.
   final bool skipOperators;
+
+  /// Whether to also flag a class as dead when its only non-self references
+  /// are *type patterns* over its (sealed) supertype — `case` patterns in
+  /// `switch` statements / `if`-`case` / `while`-`case` headers, or
+  /// switch-*expression* arms — i.e. the type is *matched* but never
+  /// *constructed* anywhere.
+  ///
+  /// Off by default, and deliberately so: a `case Foo():` arm normally counts
+  /// as a real use of `Foo`, keeping it alive. When enabled, such a member is
+  /// **reported** as an unused `class` so a human can see it is never
+  /// constructed — but this is *report-only*: `--remove` deliberately leaves it
+  /// (and its pattern arms) in place, because removing a member of a sealed
+  /// union and rewriting the now-non-exhaustive `switch`es over it is a source
+  /// rewrite this tool won't attempt. Every finding surfaced by this flag is
+  /// marked [UnusedDeclaration.removalBlocked].
+  ///
+  /// Detection is conservative: only a reference that is confidently a type
+  /// pattern is discounted; anything else (construction, type annotations,
+  /// nested sub-patterns, pattern-variable declarations) keeps the class alive.
+  final bool unusedUnionMembers;
 
   /// How many `textDocument/references` requests to keep in flight at once.
   /// Higher values keep the analysis server busier; there are diminishing
@@ -140,6 +168,8 @@ class UnusedDeclaration {
     required this.range,
     this.container,
     this.isEnumValue = false,
+    this.coupledRemovals = const [],
+    this.removalBlocked = false,
   });
 
   /// Simple (unqualified) name of the declaration.
@@ -172,6 +202,32 @@ class UnusedDeclaration {
   /// Removing one requires also tidying up a neighboring comma, unlike other
   /// declaration kinds.
   final bool isEnumValue;
+
+  /// Extra whole-node spans — each in a named file — that must be removed
+  /// together with this declaration to keep the source compiling, but that are
+  /// not themselves reported as findings.
+  ///
+  /// One use today: a dead `StatefulWidget`'s paired private `State<Widget>`
+  /// subclass, which is not independently "unused" (the widget's own
+  /// `createState` references it) yet becomes uncompilable the moment the
+  /// widget is deleted (`State<DeletedWidget>` no longer resolves). It lives in
+  /// the same file.
+  ///
+  /// Coupling a removal keeps `--remove` from breaking the build without
+  /// surfacing the coupled span as a separate report entry.
+  final List<CoupledRemoval> coupledRemovals;
+
+  /// Whether this finding is real (the declaration is dead) but `--remove`
+  /// must *not* delete it automatically, because doing so safely would require
+  /// a source rewrite this tool won't attempt.
+  ///
+  /// Set for every dead sealed member surfaced by `--unused-union-members` (a
+  /// class that is only ever *matched* by a type pattern, never constructed):
+  /// deleting it would mean removing the member and rewriting every now-non-
+  /// exhaustive `switch`/`if`-`case` over its supertype. The class is still
+  /// reported so a human can act on it; it — and anything coupled to it — is
+  /// simply skipped by the remover.
+  final bool removalBlocked;
 
   /// Fully qualified display name, e.g. `MyClass.myMethod`.
   String get qualifiedName => container == null ? name : '$container.$name';

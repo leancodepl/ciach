@@ -30,6 +30,7 @@ export 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 export 'src/finder.dart' show Ciach;
 export 'src/models.dart'
     show
+        CoupledRemoval,
         DeclarationRange,
         FinderOptions,
         FinderResult,

@@ -28,7 +28,36 @@ typedef _Span = ({int start, int end});
 int removeDeclarations(List<UnusedDeclaration> declarations, String rootPath) {
   final byFile = <String, List<UnusedDeclaration>>{};
   for (final decl in declarations) {
+    // A blocked finding is reported but never auto-removed: deleting it safely
+    // would need a source rewrite (e.g. an `if (x case DeadType())` branch), so
+    // leave it — and anything coupled to it — entirely alone.
+    if (decl.removalBlocked) {
+      continue;
+    }
     byFile.putIfAbsent(decl.filePath, () => []).add(decl);
+    // Coupled removals are extra whole-node spans that must be deleted together
+    // with the declaration to keep the source compiling (a dead StatefulWidget's
+    // paired `State` subclass, or a dead sealed member's `case` arm), but that
+    // are not findings in their own right. Each names its own file — usually the
+    // declaration's, but a `case` arm can live elsewhere — so group it under
+    // that file. Turn each into a synthetic whole-node declaration so it flows
+    // through the normal removal pass and its span merges with the rest.
+    for (final coupled in decl.coupledRemovals) {
+      final range = coupled.range;
+      byFile
+          .putIfAbsent(coupled.filePath, () => [])
+          .add(
+            UnusedDeclaration(
+              name: '',
+              kind: SymbolKind.class$,
+              filePath: coupled.filePath,
+              line: range.startLine + 1,
+              column: range.startColumn + 1,
+              isPrivate: true,
+              range: range,
+            ),
+          );
+    }
   }
 
   var filesChanged = 0;

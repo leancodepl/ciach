@@ -8,6 +8,17 @@
   when removing one or more values.
 - Fix `--remove` deleting the leading doc/annotation comment and header when
   removing a value from a compact single-line enum.
+- Report a whole dead class as unused, not just its constructor, so `--remove`
+  deletes the class instead of stranding it. Detection is conservative: any
+  reference from outside the class keeps it alive.
+- Remove a dead `StatefulWidget` together with its paired private `State`
+  subclass, so `State<DeletedWidget>` never dangles.
+- Add remove-safety guards: `--remove` skips (but still reports) any removal
+  that wouldn't compile — emptying a still-referenced enum, dropping a sole
+  constructor with `final` fields, or dropping a super-forwarding constructor.
+- Add opt-in `--unused-union-members` to report sealed types that are only
+  pattern-matched and never constructed. Report-only: `--remove` never deletes
+  them.
 
 ## 0.2.0+2
 

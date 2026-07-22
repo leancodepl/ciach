@@ -603,6 +603,156 @@ enum E {
     const source = 'void kept() {}\n';
     expect(applyRemoval(source, const []), source);
   });
+
+  test(
+    'a coupled removal deletes a second whole-node span in the same file',
+    () {
+      // A dead StatefulWidget and its paired State subclass: removing only the
+      // widget would leave `State<DeadWidget>` dangling, so the State's span is
+      // coupled to the widget's removal.
+      const source = '''
+class DeadWidget {
+  const DeadWidget();
+
+  State<DeadWidget> createState() => _DeadWidgetState();
+}
+
+class _DeadWidgetState extends State<DeadWidget> {}
+
+class Kept {}
+''';
+      // `class DeadWidget { ... }` spans line 0 col 0 .. line 4 col 1.
+      // `class _DeadWidgetState ... {}` is line 6, cols 0..51.
+      const widget = UnusedDeclaration(
+        name: 'DeadWidget',
+        kind: SymbolKind.class$,
+        filePath: 'lib.dart',
+        line: 1,
+        column: 7,
+        isPrivate: false,
+        range: (startLine: 0, startColumn: 0, endLine: 4, endColumn: 1),
+        coupledRemovals: [
+          (
+            filePath: 'lib.dart',
+            range: (startLine: 6, startColumn: 0, endLine: 6, endColumn: 51),
+          ),
+        ],
+      );
+      final result = applyRemoval(source, [widget]);
+      expect(result, isNot(contains('DeadWidget')));
+      expect(result, isNot(contains('_DeadWidgetState')));
+      expect(result, contains('class Kept {}'));
+      _expectBalanced(result);
+    },
+  );
+
+  test('a report-only (removalBlocked) finding is left in place, and nothing '
+      'coupled to it is removed either', () {
+    // A `--unused-union-members` finding is reported but never auto-removed:
+    // the remover must skip the declaration entirely — including any span that
+    // was coupled to it — so the source is left untouched.
+    const source = '''
+sealed class S {}
+
+class Kept extends S {}
+
+class Dead extends S {}
+
+String describe(S s) => switch (s) {
+  Kept() => 'kept',
+  Dead() => 'dead',
+};
+''';
+    const dead = UnusedDeclaration(
+      name: 'Dead',
+      kind: SymbolKind.class$,
+      filePath: 'lib.dart',
+      line: 5,
+      column: 7,
+      isPrivate: false,
+      range: (startLine: 4, startColumn: 0, endLine: 4, endColumn: 23),
+      removalBlocked: true,
+      // Even if a coupled span were attached, a blocked finding is skipped
+      // whole — so the arm must survive too.
+      coupledRemovals: [
+        (
+          filePath: 'lib.dart',
+          range: (startLine: 8, startColumn: 2, endLine: 9, endColumn: 0),
+        ),
+      ],
+    );
+
+    final result = applyRemoval(source, [dead]);
+    expect(result, equals(source), reason: 'report-only: nothing removed');
+    expect(result, contains('class Dead extends S {}'));
+    expect(result, contains("Dead() => 'dead'"));
+  });
+
+  test(
+    'a removalBlocked enum value is reported but left in place by --remove',
+    () {
+      // The remove-safety guard for an about-to-be-emptied enum marks the value
+      // finding `removalBlocked`; the remover must leave the enum untouched so it
+      // keeps a value (an empty `enum {}` would not compile).
+      const source = '''
+enum Status {
+  only,
+}
+
+Status? statusHolder;
+''';
+      // `only` is line index 1, columns 2..6.
+      const blockedValue = UnusedDeclaration(
+        name: 'only',
+        kind: SymbolKind.enum$,
+        filePath: 'lib.dart',
+        line: 2,
+        column: 3,
+        isPrivate: false,
+        isEnumValue: true,
+        range: (startLine: 1, startColumn: 2, endLine: 1, endColumn: 6),
+        removalBlocked: true,
+      );
+
+      final result = applyRemoval(source, [blockedValue]);
+      expect(result, equals(source), reason: 'report-only: nothing removed');
+      expect(result, contains('only,'));
+    },
+  );
+
+  test(
+    'a removalBlocked constructor is reported but left in place by --remove',
+    () {
+      // The sole-constructor guards (final fields / super forwarding) mark the
+      // constructor finding `removalBlocked`; removing it would leave an implicit
+      // default constructor that strands final fields or breaks `super()`.
+      const source = '''
+class Holder {
+  const Holder(this.label);
+
+  final String label;
+}
+
+Holder? holderRef;
+''';
+      // `const Holder(this.label);` is line index 1, columns 2..27.
+      const blockedCtor = UnusedDeclaration(
+        name: 'new',
+        kind: SymbolKind.constructor,
+        filePath: 'lib.dart',
+        line: 2,
+        column: 3,
+        isPrivate: false,
+        container: 'Holder',
+        range: (startLine: 1, startColumn: 2, endLine: 1, endColumn: 27),
+        removalBlocked: true,
+      );
+
+      final result = applyRemoval(source, [blockedCtor]);
+      expect(result, equals(source), reason: 'report-only: nothing removed');
+      expect(result, contains('const Holder(this.label);'));
+    },
+  );
 }
 
 /// A cheap brace-balance check so a regression that mangles a removal shows
