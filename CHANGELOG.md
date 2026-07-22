@@ -19,6 +19,12 @@
 - Add opt-in `--unused-union-members` to report sealed types that are only
   pattern-matched and never constructed. Report-only: `--remove` never deletes
   them.
+- Skip `call` methods by default; implicit-call references (`obj(...)`) aren't
+  resolvable, so they were always misreported as unused.
+- Report an unused private constructor like any other dead declaration (and
+  remove it with `--remove`); a sole zero-parameter `ClassName._()` also gets a
+  hint suggesting `abstract final class` to keep a static-only class
+  non-instantiable.
 
 ## 0.2.0+2
 

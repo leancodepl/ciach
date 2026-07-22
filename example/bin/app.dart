@@ -1,6 +1,8 @@
+import 'package:sample_pkg/callables.dart';
 import 'package:sample_pkg/extensions.dart';
 import 'package:sample_pkg/greeting.dart';
 import 'package:sample_pkg/orphans.dart';
+import 'package:sample_pkg/private_ctors.dart';
 import 'package:sample_pkg/shapes.dart';
 import 'package:sample_pkg/unions.dart';
 import 'package:sample_pkg/user.dart';
@@ -42,4 +44,18 @@ void main() {
   print(describeStatement(signal));
   print(describeExpression(signal));
   print(isIfCaseSignal(signal));
+
+  // Invokes `Multiplier.call` via implicit-call syntax, which a reference
+  // search can't resolve back to the declaration (like an operator), so a used
+  // `call` is skipped rather than misreported.
+  const multiplier = Multiplier(2);
+  print(multiplier(21));
+
+  // Private-constructor fixtures: each class is kept alive by a static
+  // reference, but its private constructor is dead code and reported normally.
+  // The sole zero-parameter `SoleMarker._()` additionally carries a
+  // prevent-instantiation hint.
+  print(SoleMarker.tag);
+  print(MultiCtor.describe());
+  print(ParamCtor.tag);
 }
