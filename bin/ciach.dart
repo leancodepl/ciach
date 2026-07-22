@@ -209,6 +209,16 @@ Future<void> _removeUnused(
     'file${filesChanged == 1 ? '' : 's'}. '
     "Run 'dart format' to tidy up spacing.",
   );
+  // Surface any advisory hints (e.g. a removed prevent-instantiation
+  // constructor) once more, since removing the declaration also removes the
+  // reported line that carried the hint.
+  final removedHints = result.unused
+      .where((d) => !d.removalBlocked && d.hint != null)
+      .map((d) => '${d.qualifiedName}: ${d.hint}')
+      .toSet();
+  for (final note in removedHints) {
+    stdout.writeln('Note: $note');
+  }
 }
 
 Set<SymbolKind> _parseKinds(List<String> raw) {

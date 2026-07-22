@@ -170,6 +170,7 @@ class UnusedDeclaration {
     this.isEnumValue = false,
     this.coupledRemovals = const [],
     this.removalBlocked = false,
+    this.hint,
   });
 
   /// Simple (unqualified) name of the declaration.
@@ -229,6 +230,13 @@ class UnusedDeclaration {
   /// simply skipped by the remover.
   final bool removalBlocked;
 
+  /// An optional advisory note shown alongside the finding — extra context that
+  /// doesn't change whether or how it is removed. Set for a sole, zero-parameter
+  /// private constructor (`Foo._();`): it is reported and removable like any
+  /// other dead code, but the note nudges toward `abstract final class` as the
+  /// idiomatic way to make a static-only class non-instantiable.
+  final String? hint;
+
   /// Fully qualified display name, e.g. `MyClass.myMethod`.
   String get qualifiedName => container == null ? name : '$container.$name';
 
@@ -242,6 +250,7 @@ class UnusedDeclaration {
     'column': column,
     'isPrivate': isPrivate,
     'container': ?container,
+    'hint': ?hint,
   };
 }
 

@@ -116,12 +116,65 @@ void main() {
       'Direction.west',
       'Loud.whisper',
       'tripled',
+      // Private constructors are reported like any other dead code. The sole,
+      // zero-parameter `SoleMarker._()` also carries a prevent-instantiation
+      // hint (asserted separately below).
+      'SoleMarker._',
+      'MultiCtor._unused',
+      'ParamCtor._',
     });
   });
 
   test('including operators also reports operator overloads', () async {
     final unused = await findUnused(skipOperators: false);
     expect(unused, containsAll(['Vector2.+', 'Vector2.-']));
+  });
+
+  test('skips call methods by default', () async {
+    final unused = await findUnused();
+    // `Multiplier.call` is used via implicit-call syntax, unresolvable like an
+    // operator, so skipped.
+    expect(unused, isNot(contains('Multiplier.call')));
+    // The rest of the fixture is genuinely used.
+    expect(unused, isNot(contains('Multiplier')));
+    expect(unused, isNot(contains('Multiplier.new')));
+    expect(unused, isNot(contains('Multiplier.factor')));
+  });
+
+  test('reports unused private constructors like any other dead code', () async {
+    final unused = await findUnused();
+    // A sole, zero-parameter `Foo._()` is no longer special-cased away -> it is
+    // reported as unused.
+    expect(unused, contains('SoleMarker._'));
+    // One of two private constructors -> genuinely dead, reported (`_used` is
+    // referenced by `describe`).
+    expect(unused, contains('MultiCtor._unused'));
+    expect(unused, isNot(contains('MultiCtor._used')));
+    // Sole private constructor that takes parameters -> also reported.
+    expect(unused, contains('ParamCtor._'));
+    // The classes themselves are kept alive by their static references.
+    expect(unused, isNot(contains('SoleMarker')));
+    expect(unused, isNot(contains('MultiCtor')));
+    expect(unused, isNot(contains('ParamCtor')));
+  });
+
+  test('hints at `abstract final class` only for the sole zero-parameter '
+      'prevent-instantiation constructor', () async {
+    final result = await runFinder();
+    UnusedDeclaration byQualified(String qualified) =>
+        result.unused.firstWhere((d) => d.qualifiedName == qualified);
+    // The prevent-instantiation shape (sole, zero-parameter `Foo._()`) carries
+    // the hint.
+    final marker = byQualified('SoleMarker._');
+    expect(marker.hint, isNotNull);
+    expect(marker.hint, contains('abstract final class'));
+    // Removal is not blocked (no final instance fields), so it stays a normal,
+    // removable finding.
+    expect(marker.removalBlocked, isFalse);
+    // A private constructor that is not the sole zero-parameter shape carries
+    // no hint.
+    expect(byQualified('MultiCtor._unused').hint, isNull);
+    expect(byQualified('ParamCtor._').hint, isNull);
   });
 
   test('reports a declaration only mentioned in a doc comment link as '
@@ -138,6 +191,7 @@ void main() {
       'lib/extensions.dart',
       'lib/greeting.dart',
       'lib/orphans.dart',
+      'lib/private_ctors.dart',
       'lib/shapes.dart',
       'lib/user.dart',
     });
@@ -199,6 +253,11 @@ void main() {
       '_danglingPrivate',
       '_referencesOnlyInDocs',
       'UsedClass._unusedField',
+      // Private constructors are private declarations, reported like any other
+      // dead code.
+      'SoleMarker._',
+      'MultiCtor._unused',
+      'ParamCtor._',
     });
   });
 

@@ -65,12 +65,15 @@ abstract final class Reporter {
         final blocked = decl.removalBlocked
             ? '  ${_style('(unsafe to auto-remove — remove manually)', _dim, useColor)}'
             : '';
+        final hint = decl.hint != null
+            ? '  ${_style('(${decl.hint})', _dim, useColor)}'
+            : '';
         buffer.writeln(
           '  ${_style(loc, _dim, useColor)}  '
           '${_style(kind, _cyan, useColor)}  '
           '${decl.qualifiedName}  '
           '${_style('($visibility)', _dim, useColor)}'
-          '$blocked',
+          '$blocked$hint',
         );
       }
       buffer.writeln();
@@ -114,7 +117,8 @@ abstract final class Reporter {
         title: 'Unused declaration',
         message:
             "Unused ${decl.isPrivate ? 'private ' : ''}${decl.kind.label} "
-            "'${decl.qualifiedName}'",
+            "'${decl.qualifiedName}'"
+            "${decl.hint != null ? ' — ${decl.hint}' : ''}",
       );
     }
     for (final decl in result.docOnly) {

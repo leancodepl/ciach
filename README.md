@@ -196,10 +196,24 @@ back in, at the cost of reintroducing that risk:
   back to the operator's declaration, so a used operator is reported as
   unused every time. See `example/lib/extensions.dart`. Use `--operators` to
   include them.
+- **`call` methods** — a `call` method makes its object callable via
+  implicit-call syntax (`obj(...)`), which the reference search can't resolve
+  back to the declaration, the same way it can't resolve infix operators. A
+  used `call` method would be reported as unused every time. Always skipped;
+  there's no flag for this one. See `example/lib/callables.dart`.
 - **`@pragma('vm:entry-point')`** — reachable from native code / reflection.
 - **Generated files** — by filename convention and the
   `GENERATED CODE - DO NOT MODIFY BY HAND` banner. Use `--generated` to include.
+  Even when excluded from the scan, they are still opened while analyzing, so a
+  declaration referenced *only* from generated code (e.g. a `toJson` called
+  from a `.g.dart` part) is not misreported as unused.
 - **`type parameters`** and non-declaration symbols.
+
+**Private constructors are *not* skipped.** An unused `ClassName._` is dead code
+like any other and is reported (and removed by `--remove`). When it's the sole,
+zero-parameter `ClassName._()` — the classic prevent-instantiation marker — the
+finding carries a hint suggesting `abstract final class`, the idiomatic way to
+make a static-only class non-instantiable. See `example/lib/private_ctors.dart`.
 
 **dartdoc `[Xxx]` reference links** are a related wrinkle, handled a bit
 differently: a link resolves to a real declaration, so the analysis server

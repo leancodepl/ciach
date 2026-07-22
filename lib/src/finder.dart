@@ -26,6 +26,7 @@ typedef _Candidate = ({
   DocumentSymbol symbol,
   String? container,
   bool isEnumValue,
+  bool isPreventInstantiationCtor,
 });
 
 /// How a candidate's references classify it.
@@ -102,6 +103,72 @@ class Ciach {
 
   bool _isOperator(DocumentSymbol symbol) =>
       symbol.kind == .method && _operatorNames.contains(symbol.name);
+
+  /// Whether [symbol] is a `call` method (callable via implicit-call syntax
+  /// `obj(...)`). The reference search can't resolve that syntax back to the
+  /// declaration — like infix operators (see [_isOperator]) — so a used `call`
+  /// is always reported as unused.
+  bool _isCallMethod(DocumentSymbol symbol) =>
+      symbol.kind == .method && symbol.name == 'call';
+
+  /// Advisory note attached to a sole, zero-parameter private constructor
+  /// (`Foo._();`) — the classic prevent-instantiation marker. Such a
+  /// constructor is still reported (and removable) like any other dead code,
+  /// but the note points at the idiomatic alternative.
+  static const _preventInstantiationHint =
+      'looks like a prevent-instantiation constructor — for a '
+      'non-instantiable static-only class, prefer `abstract final class`';
+
+  /// Whether [symbol] is a private constructor (`Foo._`, `Foo._named`). The
+  /// server names constructors with the class included (`Foo`, `Foo.named`),
+  /// so the private marker is a segment after the last `.` starting with `_`;
+  /// the unnamed constructor (no `.`) is never private here.
+  bool _isPrivateConstructor(DocumentSymbol symbol) {
+    if (symbol.kind != .constructor) {
+      return false;
+    }
+    final name = symbol.name;
+    final dot = name.lastIndexOf('.');
+    return dot >= 0 && dot + 1 < name.length && name[dot + 1] == '_';
+  }
+
+  /// Whether [symbol]'s parameter list is empty. The server reports the
+  /// signature in [DocumentSymbol.detail] as the parenthesized parameter list
+  /// (`()`, `(int a)`, …); if the detail is missing we can't tell the arity, so
+  /// treat it as empty to avoid missing the zero-parameter marker.
+  bool _hasNoParameters(DocumentSymbol symbol) {
+    final detail = symbol.detail?.trim();
+    if (detail == null || detail.isEmpty) {
+      return true;
+    }
+    final inner = detail.startsWith('(') && detail.endsWith(')')
+        ? detail.substring(1, detail.length - 1).trim()
+        : detail;
+    return inner.isEmpty;
+  }
+
+  /// Whether [symbol] is the classic prevent-instantiation marker: a class's
+  /// sole, zero-parameter private constructor (`Foo._();`). It is no longer
+  /// special-cased away — it's reported (and removable) like any other dead
+  /// declaration — but findings that match this shape carry
+  /// [_preventInstantiationHint] so the report can nudge toward
+  /// `abstract final class`. [siblings] are the constructor's fellow class
+  /// members, used to confirm it is the class's only constructor.
+  bool _isPreventInstantiationMarker(
+    DocumentSymbol symbol,
+    List<DocumentSymbol> siblings,
+  ) {
+    if (!_isPrivateConstructor(symbol)) {
+      return false;
+    }
+    final constructorCount = siblings
+        .where((s) => s.kind == .constructor)
+        .length;
+    if (constructorCount != 1) {
+      return false;
+    }
+    return _hasNoParameters(symbol);
+  }
 
   /// Lines of every scanned file, keyed by absolute path, populated as each
   /// file is opened in [_collectCandidatesFor]. Reused to classify reference
@@ -394,6 +461,11 @@ class Ciach {
                 rootPath,
                 coupledRemovals: paired,
                 removalBlocked: removalBlocked,
+                // A sole, zero-parameter private constructor is dead code like
+                // any other, but nudge toward `abstract final class`.
+                hint: candidate.isPreventInstantiationCtor
+                    ? _preventInstantiationHint
+                    : null,
               ),
             );
           case _RefStatus.docOnly:
@@ -474,6 +546,13 @@ class Ciach {
           symbol: symbol,
           container: container,
           isEnumValue: parentIsEnum && symbol.kind == .enum$,
+          // `symbols` are this symbol's siblings (its class's members when
+          // `symbol` is a constructor), so this confirms the sole-constructor
+          // shape without threading the list any further.
+          isPreventInstantiationCtor: _isPreventInstantiationMarker(
+            symbol,
+            symbols,
+          ),
         ));
       }
       final childContainer = _typeLikeKinds.contains(symbol.kind)
@@ -506,6 +585,11 @@ class Ciach {
     if (options.skipOperators && _isOperator(symbol)) {
       return false;
     }
+    // Always skipped (no flag): implicit-call syntax is unresolvable, like
+    // operators. See [_isCallMethod].
+    if (_isCallMethod(symbol)) {
+      return false;
+    }
 
     final leading = _leadingMetadata(symbol, lines);
     if (options.skipOverrides && leading.contains('@override')) {
@@ -523,6 +607,7 @@ class Ciach {
     String rootPath, {
     List<CoupledRemoval> coupledRemovals = const [],
     bool removalBlocked = false,
+    String? hint,
   }) {
     final symbol = candidate.symbol;
     final start = symbol.selectionRange.start;
@@ -540,6 +625,7 @@ class Ciach {
       range: _rangeOf(symbol),
       coupledRemovals: coupledRemovals,
       removalBlocked: removalBlocked,
+      hint: hint,
     );
   }
 
