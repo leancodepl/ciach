@@ -1,5 +1,6 @@
 import 'package:sample_pkg/callables.dart';
 import 'package:sample_pkg/extensions.dart';
+import 'package:sample_pkg/freezed_unions.dart';
 import 'package:sample_pkg/greeting.dart';
 import 'package:sample_pkg/orphans.dart';
 import 'package:sample_pkg/private_ctors.dart';
@@ -58,4 +59,8 @@ void main() {
   print(SoleMarker.tag);
   print(MultiCtor.describe());
   print(ParamCtor.tag);
+
+  // Uses `Base.fromJson` and keeps `Plain` alive, without calling any arm.
+  print(decodeBase(const {'type': 'contestEvent', 'score': 1}));
+  print(keepPlainAlive());
 }

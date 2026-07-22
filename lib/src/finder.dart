@@ -175,6 +175,11 @@ class Ciach {
   /// locations as doc comments without re-reading files from disk.
   final _fileLines = <String, List<String>>{};
 
+  /// Keys `(path, class name)` of classes annotated `@freezed`/`@Freezed`.
+  final _freezedAnnotatedClasses = <_DeclKey>{};
+
+  static final _freezedAnnotation = RegExp(r'@(?:freezed|Freezed)\b');
+
   /// Whether [location] points at a dartdoc `[Xxx]`-style reference rather
   /// than real code — i.e. its line, in the file it points into, starts with
   /// `///`. Block (`/** */`) doc comments aren't recognized; `///` is the
@@ -297,6 +302,12 @@ class Ciach {
         for (var i = 0; i < candidates.length; i++)
           _classify(candidates[i], refsByCandidate[i]),
       ];
+
+      // A deser-only union arm reads zero references but is a live serialization member.
+      final freezedUnionArms = _freezedDeserializedUnionArms(
+        candidates,
+        statuses,
+      );
 
       // Names of classes flagged unused, per file. A whole dead class is
       // removed as one node, taking its own constructor(s) with it, so those
@@ -425,6 +436,9 @@ class Ciach {
         final candidate = candidates[i];
         switch (statuses[i]) {
           case _RefStatus.unused:
+            if (freezedUnionArms.contains(i)) {
+              break;
+            }
             if (_isConstructorOfDeadClass(candidate, deadClassNames)) {
               break;
             }
@@ -559,6 +573,10 @@ class Ciach {
     List<_Candidate> out,
   ) {
     for (final symbol in symbols) {
+      if (_typeLikeKinds.contains(symbol.kind) &&
+          _freezedAnnotation.hasMatch(_leadingMetadata(symbol, lines))) {
+        _freezedAnnotatedClasses.add(_key(path, symbol.name));
+      }
       if (_shouldConsider(symbol, parentIsEnum, lines)) {
         out.add((
           uri: uri,
@@ -791,6 +809,95 @@ class Ciach {
 
   /// Builds the map key pairing a file [path] with a declaration [name].
   static _DeclKey _key(String path, String name) => (path: path, name: name);
+
+  /// Redirecting-factory arms of a `@freezed`/`@Freezed` union with a referenced `fromJson`; conservative — never-dispatched arms are kept too, being statically indistinguishable.
+  Set<int> _freezedDeserializedUnionArms(
+    List<_Candidate> candidates,
+    List<_RefStatus> statuses,
+  ) {
+    final unionsWithUsedFromJson = <_DeclKey>{};
+    for (var i = 0; i < candidates.length; i++) {
+      final c = candidates[i];
+      if (c.symbol.kind == .constructor &&
+          c.container != null &&
+          statuses[i] == _RefStatus.used &&
+          _declarationName(c.symbol, c.container) == 'fromJson') {
+        unionsWithUsedFromJson.add(_key(c.path, c.container!));
+      }
+    }
+
+    final arms = <int>{};
+    for (var i = 0; i < candidates.length; i++) {
+      if (statuses[i] != _RefStatus.unused) {
+        continue;
+      }
+      final c = candidates[i];
+      if (c.symbol.kind != .constructor || c.container == null) {
+        continue;
+      }
+      final key = _key(c.path, c.container!);
+      if (_freezedAnnotatedClasses.contains(key) &&
+          unionsWithUsedFromJson.contains(key) &&
+          _isRedirectingFactory(c)) {
+        arms.add(i);
+      }
+    }
+    return arms;
+  }
+
+  /// Whether [ctor] is a redirecting factory (`factory X(..) = Target;`) — a `=` at depth 0 after `factory` whose next token is a word (not a `=>` body).
+  bool _isRedirectingFactory(_Candidate ctor) {
+    final content = _contentFor(ctor.path);
+    if (content.isEmpty) {
+      return false;
+    }
+    final lineStarts = _lineStartsFor(ctor.path);
+    final startOff = _offsetOfPosition(
+      lineStarts,
+      content,
+      ctor.symbol.range.start,
+    );
+    final endOff = _offsetOfPosition(
+      lineStarts,
+      content,
+      ctor.symbol.range.end,
+    );
+    if (startOff == null || endOff == null) {
+      return false;
+    }
+    final tokens = _tokensFor(ctor.path);
+    var sawFactory = false;
+    var depth = 0;
+    for (var i = 0; i < tokens.length; i++) {
+      final t = tokens[i];
+      if (t.start < startOff) {
+        continue;
+      }
+      if (t.start >= endOff) {
+        break;
+      }
+      if (t.isWord) {
+        if (t.value == 'factory') {
+          sawFactory = true;
+        }
+        continue;
+      }
+      switch (t.value) {
+        case '(' || '[' || '{':
+          depth++;
+        case ')' || ']' || '}':
+          depth--;
+        case '=':
+          if (depth == 0 &&
+              sawFactory &&
+              i + 1 < tokens.length &&
+              tokens[i + 1].isWord) {
+            return true;
+          }
+      }
+    }
+    return false;
+  }
 
   /// Whether [ctor] forwards to a super constructor *with arguments* — a
   /// `super.<field>` parameter or a non-empty `super(...)` call. Such a
