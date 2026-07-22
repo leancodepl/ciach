@@ -119,6 +119,7 @@ Future<int> _run(List<String> arguments) async {
     skipOverrides: !args.flag('overrides'),
     skipOperators: !args.flag('operators'),
     unusedUnionMembers: args.flag('unused-union-members'),
+    reportToJson: args.flag('report-tojson'),
     concurrency: concurrency,
     dartExecutable: args.option('dart'),
     onProgress: showProgress ? _ProgressPrinter().update : null,
@@ -291,6 +292,14 @@ ArgParser _buildParser() {
           'pattern arms (removing a sealed member and rewriting its switches\n'
           'is left to a human). Conservative: any reference that is not clearly\n'
           'a type pattern keeps the class alive.',
+    )
+    ..addFlag(
+      'report-tojson',
+      help:
+          'Report a `toJson()` serialization hook as unused too. Off by\n'
+          'default: `jsonEncode(obj)` calls `obj.toJson()` by dynamic dispatch\n'
+          'with no source-level `.toJson()` reference for the search to see, so\n'
+          'a live serializer would be flagged. Enable to audit dead `toJson`s.',
     )
     ..addFlag(
       'set-exit-if-changed',

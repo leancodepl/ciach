@@ -4,6 +4,7 @@ import 'package:sample_pkg/freezed_unions.dart';
 import 'package:sample_pkg/greeting.dart';
 import 'package:sample_pkg/orphans.dart';
 import 'package:sample_pkg/private_ctors.dart';
+import 'package:sample_pkg/serialization.dart';
 import 'package:sample_pkg/shapes.dart';
 import 'package:sample_pkg/unions.dart';
 import 'package:sample_pkg/user.dart';
@@ -63,4 +64,7 @@ void main() {
   // Uses `Base.fromJson` and keeps `Plain` alive, without calling any arm.
   print(decodeBase(const {'type': 'contestEvent', 'score': 1}));
   print(keepPlainAlive());
+
+  // Keeps the serialization types alive without calling their fromJson/toJson.
+  print(buildSerializable());
 }

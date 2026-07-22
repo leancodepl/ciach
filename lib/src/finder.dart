@@ -180,6 +180,9 @@ class Ciach {
 
   static final _freezedAnnotation = RegExp(r'@(?:freezed|Freezed)\b');
 
+  /// A `Map`-typed return on a `toJson`'s declaration line, before the name.
+  static final _toJsonMapReturn = RegExp(r'\bMap\b');
+
   /// Whether [location] points at a dartdoc `[Xxx]`-style reference rather
   /// than real code — i.e. its line, in the file it points into, starts with
   /// `///`. Block (`/** */`) doc comments aren't recognized; `///` is the
@@ -437,6 +440,9 @@ class Ciach {
         switch (statuses[i]) {
           case _RefStatus.unused:
             if (freezedUnionArms.contains(i)) {
+              break;
+            }
+            if (!options.reportToJson && _isToJsonHook(candidate)) {
               break;
             }
             if (_isConstructorOfDeadClass(candidate, deadClassNames)) {
@@ -806,6 +812,28 @@ class Ciach {
       candidate.symbol.kind == .constructor &&
       candidate.container != null &&
       (deadClassNames[candidate.path]?.contains(candidate.container) ?? false);
+
+  /// Whether [candidate] is a `toJson()` serialization hook — a zero-required-arg
+  /// method named `toJson` returning a `Map`. `jsonEncode(obj)` dispatches to it
+  /// dynamically with no source-level `.toJson()` token, so the reference search
+  /// can't see that use; exempt it for any class, annotated or not.
+  bool _isToJsonHook(_Candidate candidate) {
+    final symbol = candidate.symbol;
+    if (symbol.kind != .method ||
+        symbol.name != 'toJson' ||
+        !_hasNoParameters(symbol)) {
+      return false;
+    }
+    final lines = _linesFor(candidate.path);
+    final line = symbol.selectionRange.start.line;
+    if (line < 0 || line >= lines.length) {
+      return false;
+    }
+    final col = symbol.selectionRange.start.character;
+    final text = lines[line];
+    final beforeName = col <= text.length ? text.substring(0, col) : text;
+    return _toJsonMapReturn.hasMatch(beforeName);
+  }
 
   /// Builds the map key pairing a file [path] with a declaration [name].
   static _DeclKey _key(String path, String name) => (path: path, name: name);

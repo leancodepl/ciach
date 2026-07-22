@@ -52,6 +52,7 @@ void main() {
       'lib/guards.dart',
       'lib/enum_values.dart',
       'lib/freezed_unions.dart',
+      'lib/serialization.dart',
     ],
     List<String> include = const [],
   }) => Ciach(
@@ -77,6 +78,7 @@ void main() {
       'lib/guards.dart',
       'lib/enum_values.dart',
       'lib/freezed_unions.dart',
+      'lib/serialization.dart',
     ],
     List<String> include = const [],
   }) async {
@@ -642,5 +644,55 @@ void main() {
         expect(names, isNot(contains('Base.deadArm')));
       },
     );
+  });
+
+  group('toJson/fromJson serialization hooks', () {
+    // Whole-package analysis still resolves the cross-file uses from bin/app.dart.
+    Future<Set<String>> runSerialization({bool reportToJson = false}) async {
+      final result = await Ciach(
+        .new(
+          rootPath: fixturePath,
+          includeGlobs: const ['lib/serialization.dart'],
+          reportToJson: reportToJson,
+        ),
+      ).run();
+      return result.unused.map((d) => d.qualifiedName).toSet();
+    }
+
+    test('a toJson() is exempt by convention, for any class, annotated or '
+        'not — jsonEncode can call it invisibly', () async {
+      final names = await runSerialization();
+      expect(names, isNot(contains('Plain.toJson')));
+      expect(names, isNot(contains('Profile.toJson')));
+    });
+
+    test(
+      'an unused fromJson is still reported, even on an annotated type',
+      () async {
+        final names = await runSerialization();
+        expect(names, contains('Plain.fromJson'));
+        expect(names, contains('Profile.fromJson'));
+        expect(names, contains('Point.fromJson'));
+      },
+    );
+
+    test(
+      'a toJson with a visible `.toJson()` caller is never flagged',
+      () async {
+        expect(await runSerialization(), isNot(contains('Visible.toJson')));
+        expect(
+          await runSerialization(reportToJson: true),
+          isNot(contains('Visible.toJson')),
+        );
+      },
+    );
+
+    test('--report-tojson re-enables reporting a dead toJson', () async {
+      final names = await runSerialization(reportToJson: true);
+      expect(names, contains('Plain.toJson'));
+      expect(names, contains('Profile.toJson'));
+      // fromJson reporting is independent of the toJson flag.
+      expect(names, contains('Plain.fromJson'));
+    });
   });
 }

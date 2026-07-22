@@ -43,6 +43,7 @@ class FinderOptions {
     this.skipOverrides = true,
     this.skipOperators = true,
     this.unusedUnionMembers = false,
+    this.reportToJson = false,
     this.concurrency = 16,
     this.dartExecutable,
     this.onProgress,
@@ -104,6 +105,12 @@ class FinderOptions {
   /// pattern is discounted; anything else (construction, type annotations,
   /// nested sub-patterns, pattern-variable declarations) keeps the class alive.
   final bool unusedUnionMembers;
+
+  /// Whether to report a `toJson()` serialization hook as unused. Off by
+  /// default: `jsonEncode(obj)` calls `obj.toJson()` by dynamic dispatch with no
+  /// source-level `.toJson()` token, so the reference search can't see that use
+  /// and would flag a live serializer. Enable to audit genuinely-dead `toJson`s.
+  final bool reportToJson;
 
   /// How many `textDocument/references` requests to keep in flight at once.
   /// Higher values keep the analysis server busier; there are diminishing
