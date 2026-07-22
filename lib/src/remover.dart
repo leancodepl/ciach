@@ -54,15 +54,21 @@ String _removeFromContent(String content, List<UnusedDeclaration> decls) {
 
   final declarators = <UnusedDeclaration>[];
   final spans = <_Span>[];
+  final enumSpans = <_Span>[];
   for (final decl in decls) {
     if (_declaratorKinds.contains(decl.kind)) {
       declarators.add(decl);
     } else {
       final span = _spanFor(decl, content, lines, offsetOf);
       if (span != null) {
-        spans.add(span);
+        (decl.isEnumValue ? enumSpans : spans).add(span);
       }
     }
+  }
+  // Merge each enum's value spans, then drop a separator comma left orphaned
+  // when a trailing run of values is removed from a compact single-line enum.
+  for (final span in _mergeSpans(enumSpans)) {
+    spans.add(_absorbOrphanEnumComma(content, span));
   }
   spans.addAll(_declaratorSpans(declarators, content, lines, offsetOf));
 
@@ -98,9 +104,19 @@ _Span? _spanFor(
   var end = baseEnd;
 
   if (decl.isEnumValue) {
+    // Reach up to column 0 to grab the value's own leading doc/annotation
+    // lines, but only when it starts its own line: on a compact single-line
+    // enum the line above is the enum type's comment, not the value's.
+    final prefix = lines[range.startLine].substring(0, range.startColumn);
+    final startsOwnLine = prefix.trim().isEmpty;
+    final valueStart = !startsOwnLine
+        ? baseStart
+        : (topLine < range.startLine
+              ? offsetOf(topLine, 0)
+              : offsetOf(range.startLine, 0));
     (start, end) = _extendEnumValue(
       content,
-      commentStart: offsetOf(topLine, 0),
+      valueStart: valueStart,
       baseStart: baseStart,
       baseEnd: baseEnd,
     );
@@ -292,19 +308,55 @@ bool _looksLikeMetadata(String trimmedLine) =>
 /// in a list without one.
 (int, int) _extendEnumValue(
   String content, {
-  required int commentStart,
+  required int valueStart,
   required int baseStart,
   required int baseEnd,
 }) {
   final forward = _nextNonWhitespace(content, baseEnd);
   if (forward != null && content[forward] == ',') {
-    return (commentStart, forward + 1);
+    // Swallow the blank after the comma too, but stop at a line break so a
+    // multi-line enum's indentation stays intact.
+    return (valueStart, _skipSameLineBlank(content, forward + 1));
   }
-  final backward = _previousNonWhitespace(content, commentStart);
+  final backward = _previousNonWhitespace(content, valueStart);
   if (backward != null && content[backward] == ',') {
     return (backward, baseEnd);
   }
-  return (commentStart, baseEnd);
+  return (valueStart, baseEnd);
+}
+
+/// Skips spaces and tabs from [from], but never across a line break — used to
+/// consume the gap after a removed enum value's comma.
+int _skipSameLineBlank(String content, int from) {
+  var i = from;
+  while (i < content.length && (content[i] == ' ' || content[i] == '\t')) {
+    i++;
+  }
+  return i;
+}
+
+/// Drops the separator comma left dangling when a compact single-line enum
+/// loses a trailing run of values — when the merged [span] is bracketed on its
+/// own line by a leading `,` and a trailing `}`. Otherwise the comma is a real
+/// separator and the span is returned unchanged; the same-line guards leave
+/// multi-line enums untouched.
+_Span _absorbOrphanEnumComma(String content, _Span span) {
+  var after = span.end;
+  while (after < content.length &&
+      (content[after] == ' ' || content[after] == '\t')) {
+    after++;
+  }
+  if (after >= content.length || content[after] != '}') {
+    return span;
+  }
+  var before = span.start - 1;
+  while (before >= 0 && (content[before] == ' ' || content[before] == '\t')) {
+    before--;
+  }
+  if (before < 0 || content[before] != ',') {
+    return span;
+  }
+  return (start: before, end: span.end);
 }
 
 /// Walks forward from [from] through zero or more top-level `,` separators,
