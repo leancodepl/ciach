@@ -274,6 +274,36 @@ void main() {
     });
   });
 
+  test(
+    'reports unused enum values under the enum-value kind, not enum',
+    () async {
+      final result = await runFinder();
+      final enumValues = {
+        for (final d in result.unused)
+          if (d.kind == SymbolKind.enumMember) d.qualifiedName,
+      };
+      expect(enumValues, {'Direction.south', 'Direction.west'});
+      final enumTypes = {
+        for (final d in result.unused)
+          if (d.kind == SymbolKind.enum$) d.qualifiedName,
+      };
+      expect(enumTypes, isNot(contains('Direction.south')));
+      expect(enumTypes, isNot(contains('Direction.west')));
+    },
+  );
+
+  test(
+    'enum-value kind filter selects unused enum values, enum does not',
+    () async {
+      expect(await findUnused(kinds: {.enumMember}), {
+        'Direction.south',
+        'Direction.west',
+      });
+      // `-k enum` no longer picks them up; the fixture has no unused enum type.
+      expect(await findUnused(kinds: {.enum$}), isEmpty);
+    },
+  );
+
   test('exclude globs remove files from the scan', () async {
     // Excluding lib leaves only bin/app.dart, whose only declaration is the
     // skipped `main`, so nothing is reported.
