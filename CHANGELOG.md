@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Lower the minimum Dart SDK constraint from `^3.12.2` to `^3.10.0`.
+  ([#20](https://github.com/leancodepl/ciach/pull/20))
 - Never report a `toJson()` as unused; `jsonEncode(obj)` calls it by dynamic
   dispatch, with no source-level reference for the search to see. Opt back in
   with `--report-tojson`. ([#17](https://github.com/leancodepl/ciach/pull/17))

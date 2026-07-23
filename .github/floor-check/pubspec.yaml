@@ -1,0 +1,12 @@
+name: ciach_floor_check
+publish_to: none
+
+# Minimal consumer used only by CI to confirm ciach installs and runs on the
+# lower SDK bound. A path dependency pulls ciach's runtime deps but not its
+# dev_dependencies, which is exactly what a downstream user resolves.
+environment:
+  sdk: ^3.10.0
+
+dependencies:
+  ciach:
+    path: ../..
