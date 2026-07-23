@@ -51,6 +51,7 @@ void main() {
       'lib/unions.dart',
       'lib/guards.dart',
       'lib/enum_values.dart',
+      'lib/freezed_unions.dart',
     ],
     List<String> include = const [],
   }) => Ciach(
@@ -75,6 +76,7 @@ void main() {
       'lib/unions.dart',
       'lib/guards.dart',
       'lib/enum_values.dart',
+      'lib/freezed_unions.dart',
     ],
     List<String> include = const [],
   }) async {
@@ -593,6 +595,51 @@ void main() {
             .where((d) => d.container == 'SelfIteratingUnit' && d.isEnumValue)
             .toList();
         expect(ofEnum, isEmpty);
+      },
+    );
+  });
+
+  group('freezed union deserialization-only arms', () {
+    // Whole-package analysis still resolves the cross-file `Base.fromJson` use.
+    Future<Set<String>> runFreezedUnions() async {
+      final result = await runFinder(
+        include: const ['lib/freezed_unions.dart'],
+        exclude: const [],
+      );
+      return result.unused.map((d) => d.qualifiedName).toSet();
+    }
+
+    test('a redirecting-factory arm of a @Freezed union with a referenced '
+        'fromJson is treated as used (was a false positive)', () async {
+      final names = await runFreezedUnions();
+      // Built only by the generated fromJson, never hand-called.
+      expect(names, isNot(contains('Base.contestEvent')));
+      expect(names, isNot(contains('Base.matchEvent')));
+    });
+
+    test('arms of a @freezed union with NO fromJson stay flagged', () async {
+      final names = await runFreezedUnions();
+      // `Standalone` is never deserialized, so its arms are genuinely dead.
+      expect(names, contains('Standalone.left'));
+      expect(names, contains('Standalone.right'));
+    });
+
+    test(
+      'a redirecting factory on a NON-annotated class stays flagged',
+      () async {
+        final names = await runFreezedUnions();
+        // The fix only exempts `@freezed`/`@Freezed` unions.
+        expect(names, contains('Plain.make'));
+      },
+    );
+
+    test(
+      'a never-dispatched arm of a deserialized union is also suppressed '
+      '(documented over-suppression: indistinguishable from a live arm)',
+      () async {
+        final names = await runFreezedUnions();
+        // Genuinely dead, but statically indistinguishable from a live deser-only arm.
+        expect(names, isNot(contains('Base.deadArm')));
       },
     );
   });
