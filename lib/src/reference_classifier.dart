@@ -47,7 +47,7 @@ class ReferenceClassifier {
     if (refs.isEmpty) {
       return .unused;
     }
-    return refs.any((loc) => !_sources.isDocReference(loc)) ? .used : .docOnly;
+    return refs.every(_sources.isDocReference) ? .docOnly : .used;
   }
 
   /// Classifies a class by its references, ignoring self-references.
