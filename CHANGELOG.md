@@ -1,5 +1,8 @@
 ## Unreleased
 
+- Never report a `toJson()` as unused; `jsonEncode(obj)` calls it by dynamic
+  dispatch, with no source-level reference for the search to see. Opt back in
+  with `--report-tojson`. ([#17](https://github.com/leancodepl/ciach/pull/17))
 - Add `--generated-suffix` (repeatable) to treat extra filename suffixes as
   generated, on top of the built-in set (`*.g.dart`, `*.freezed.dart`, …).
   ([#13](https://github.com/leancodepl/ciach/pull/13))
