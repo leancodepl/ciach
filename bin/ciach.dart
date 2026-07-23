@@ -177,8 +177,10 @@ Future<void> _removeUnused(
       return;
     }
     stdout.write('Remove $count unused declaration$plural? [y/N] ');
-    final answer = stdin.readLineSync()?.trim().toLowerCase();
-    proceed = answer == 'y' || answer == 'yes';
+    proceed = switch (stdin.readLineSync()?.trim().toLowerCase()) {
+      'y' || 'yes' => true,
+      _ => false,
+    };
   }
 
   if (!proceed) {

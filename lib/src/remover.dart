@@ -50,7 +50,7 @@ int removeDeclarations(List<UnusedDeclaration> declarations, String rootPath) {
           .add(
             UnusedDeclaration(
               name: '',
-              kind: SymbolKind.class$,
+              kind: .class$,
               filePath: coupled.filePath,
               line: range.startLine + 1,
               column: range.startColumn + 1,
@@ -354,11 +354,17 @@ bool _looksLikeMetadata(String trimmedLine) =>
 /// consume the gap after a removed enum value's comma.
 int _skipSameLineBlank(String content, int from) {
   var i = from;
-  while (i < content.length && (content[i] == ' ' || content[i] == '\t')) {
+  while (i < content.length && _isSpaceOrTab(content[i])) {
     i++;
   }
   return i;
 }
+
+/// Whether [ch] is a space or tab — a blank that stays on the same line.
+bool _isSpaceOrTab(String ch) => switch (ch) {
+  ' ' || '\t' => true,
+  _ => false,
+};
 
 /// Drops the separator comma left dangling when a compact single-line enum
 /// loses a trailing run of values — when the merged [span] is bracketed on its
@@ -367,15 +373,14 @@ int _skipSameLineBlank(String content, int from) {
 /// multi-line enums untouched.
 _Span _absorbOrphanEnumComma(String content, _Span span) {
   var after = span.end;
-  while (after < content.length &&
-      (content[after] == ' ' || content[after] == '\t')) {
+  while (after < content.length && _isSpaceOrTab(content[after])) {
     after++;
   }
   if (after >= content.length || content[after] != '}') {
     return span;
   }
   var before = span.start - 1;
-  while (before >= 0 && (content[before] == ' ' || content[before] == '\t')) {
+  while (before >= 0 && _isSpaceOrTab(content[before])) {
     before--;
   }
   if (before < 0 || content[before] != ',') {
@@ -407,15 +412,15 @@ int? _lastTopLevelComma(String text) {
   var depth = 0;
   int? last;
   for (var i = 0; i < text.length; i++) {
-    final ch = text[i];
-    if (ch == '(' || ch == '[' || ch == '{' || ch == '<') {
-      depth++;
-    } else if (ch == ')' || ch == ']' || ch == '}' || ch == '>') {
-      if (depth > 0) {
-        depth--;
-      }
-    } else if (depth == 0 && ch == ',') {
-      last = i;
+    switch (text[i]) {
+      case '(' || '[' || '{' || '<':
+        depth++;
+      case ')' || ']' || '}' || '>':
+        if (depth > 0) {
+          depth--;
+        }
+      case ',' when depth == 0:
+        last = i;
     }
   }
   return last;
@@ -429,15 +434,16 @@ int? _lastTopLevelComma(String text) {
   var depth = 0;
   for (var i = from; i < content.length; i++) {
     final ch = content[i];
-    if (ch == '(' || ch == '[' || ch == '{') {
-      depth++;
-    } else if (ch == ')' || ch == ']' || ch == '}') {
-      if (depth == 0) {
-        return null;
-      }
-      depth--;
-    } else if (depth == 0 && (ch == ',' || ch == ';')) {
-      return (i, ch);
+    switch (ch) {
+      case '(' || '[' || '{':
+        depth++;
+      case ')' || ']' || '}':
+        if (depth == 0) {
+          return null;
+        }
+        depth--;
+      case ',' || ';' when depth == 0:
+        return (i, ch);
     }
   }
   return null;
@@ -475,8 +481,10 @@ int? _previousNonWhitespace(String content, int before) {
   return null;
 }
 
-bool _isWhitespace(String ch) =>
-    ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r';
+bool _isWhitespace(String ch) => switch (ch) {
+  ' ' || '\t' || '\n' || '\r' => true,
+  _ => false,
+};
 
 List<_Span> _mergeSpans(List<_Span> spans) {
   final merged = <_Span>[];

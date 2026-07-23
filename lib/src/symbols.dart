@@ -161,10 +161,8 @@ extension PositionGeometry on Position {
 
 /// Whether [name] (possibly qualified, e.g. `Foo._bar`) is library-private —
 /// its simple segment starts with `_`.
-bool isPrivateName(String name) {
-  final simple = name.contains('.') ? name.split('.').last : name;
-  return simple.startsWith('_');
-}
+bool isPrivateName(String name) =>
+    (name.contains('.') ? name.split('.').last : name).startsWith('_');
 
 bool _looksLikeMetadata(String trimmedLine) =>
     trimmedLine.isEmpty ||

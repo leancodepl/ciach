@@ -15,18 +15,28 @@
 /// string — but it is deliberately *not* a full parser.
 library;
 
-/// A single lexical token: a source span plus whether it is an identifier /
-/// keyword (`isWord`) or a single punctuation character. Whitespace, comments,
-/// and string literals are dropped during tokenization.
-typedef Token = ({int start, int end, bool isWord, String value});
-
 /// Opening bracket punctuation.
 const _openers = {'(', '[', '{'};
 
 /// Closing bracket punctuation, paired positionally with [_openers].
 const _closers = {')', ']', '}'};
 
-extension TokenBrackets on Token {
+/// A single lexical token: a source span plus whether it is an identifier /
+/// keyword (`isWord`) or a single punctuation character. Whitespace, comments,
+/// and string literals are dropped during tokenization.
+final class Token {
+  const Token({
+    required this.start,
+    required this.end,
+    required this.isWord,
+    required this.value,
+  });
+
+  final int start;
+  final int end;
+  final bool isWord;
+  final String value;
+
   /// Whether this token is an opening bracket (`(`, `[`, `{`).
   bool get isOpener => !isWord && _openers.contains(value);
 
@@ -56,7 +66,7 @@ List<Token> tokenize(String content) {
   var i = 0;
   while (i < n) {
     final ch = content[i];
-    if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r') {
+    if (ch case ' ' || '\t' || '\n' || '\r') {
       i++;
       continue;
     }
@@ -87,15 +97,17 @@ List<Token> tokenize(String content) {
       while (i < n && _isIdentPart(content[i])) {
         i++;
       }
-      tokens.add((
-        start: start,
-        end: i,
-        isWord: true,
-        value: content.substring(start, i),
-      ));
+      tokens.add(
+        Token(
+          start: start,
+          end: i,
+          isWord: true,
+          value: content.substring(start, i),
+        ),
+      );
       continue;
     }
-    tokens.add((start: i, end: i + 1, isWord: false, value: ch));
+    tokens.add(Token(start: i, end: i + 1, isWord: false, value: ch));
     i++;
   }
   return tokens;

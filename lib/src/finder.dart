@@ -175,8 +175,7 @@ class Ciach {
       final deadClassNames = <String, Set<String>>{};
       for (var i = 0; i < candidates.length; i++) {
         final candidate = candidates[i];
-        if (statuses[i] == RefStatus.unused &&
-            candidate.symbol.kind == .class$) {
+        if (statuses[i] == .unused && candidate.symbol.kind == .class$) {
           deadClassNames
               .putIfAbsent(candidate.path, () => <String>{})
               .add(candidate.symbol.name);
@@ -195,7 +194,7 @@ class Ciach {
         final candidate = candidates[i];
         final refs = refsByCandidate[i];
         switch (statuses[i]) {
-          case RefStatus.unused:
+          case .unused:
             if (freezedUnionArms.contains(i)) {
               break;
             }
@@ -260,9 +259,9 @@ class Ciach {
                     : null,
               ),
             );
-          case RefStatus.docOnly:
+          case .docOnly:
             docOnly.add(_toUnused(candidate, rootPath));
-          case RefStatus.used:
+          case .used:
             break;
         }
       }
@@ -338,22 +337,24 @@ class Ciach {
     for (final symbol in symbols) {
       if (typeLikeKinds.contains(symbol.kind) &&
           _freezedAnnotation.hasMatch(symbol.leadingMetadata(lines))) {
-        _freezedAnnotatedClasses.add(declKey(path, symbol.name));
+        _freezedAnnotatedClasses.add(DeclKey(path, symbol.name));
       }
       if (_shouldConsider(symbol, parentIsEnum, lines)) {
-        out.add((
-          uri: uri,
-          path: path,
-          symbol: symbol,
-          container: container,
-          isEnumValue: parentIsEnum && symbol.kind == .enum$,
-          // `symbols` are this symbol's siblings (its class's members when
-          // `symbol` is a constructor), so this confirms the sole-constructor
-          // shape without threading the list any further.
-          isPreventInstantiationCtor: symbol.isPreventInstantiationMarker(
-            symbols,
+        out.add(
+          Candidate(
+            uri: uri,
+            path: path,
+            symbol: symbol,
+            container: container,
+            isEnumValue: parentIsEnum && symbol.kind == .enum$,
+            // `symbols` are this symbol's siblings (its class's members when
+            // `symbol` is a constructor), so this confirms the sole-constructor
+            // shape without threading the list any further.
+            isPreventInstantiationCtor: symbol.isPreventInstantiationMarker(
+              symbols,
+            ),
           ),
-        ));
+        );
       }
       final childContainer = typeLikeKinds.contains(symbol.kind)
           ? symbol.name
@@ -448,11 +449,9 @@ class Ciach {
       return _classifyClass(candidate, refs);
     }
     if (refs.isEmpty) {
-      return RefStatus.unused;
+      return .unused;
     }
-    return refs.any((loc) => !_isDocReference(loc))
-        ? RefStatus.used
-        : RefStatus.docOnly;
+    return refs.any((loc) => !_isDocReference(loc)) ? .used : .docOnly;
   }
 
   /// Classifies a class by its references, ignoring self-references.
@@ -486,14 +485,14 @@ class Ciach {
         continue;
       }
       // A real, non-pattern reference from outside: the class is used.
-      return RefStatus.used;
+      return .used;
     }
     // Matched-only-by-a-pattern (never constructed) is dead code, not a softer
     // doc-only report.
     if (hasPatternMatch) {
-      return RefStatus.unused;
+      return .unused;
     }
-    return hasExternalDoc ? RefStatus.docOnly : RefStatus.unused;
+    return hasExternalDoc ? .docOnly : .unused;
   }
 
   /// Whether [location] points at a dartdoc `[Xxx]`-style reference rather than
@@ -599,7 +598,7 @@ class Ciach {
     for (var i = 0; i < candidates.length; i++) {
       final c = candidates[i];
       if (c.symbol.kind == .constructor &&
-          statuses[i] == RefStatus.used &&
+          statuses[i] == .used &&
           c.symbol.declarationName(c.container) == 'fromJson') {
         if (c.containerKey case final key?) {
           unionsWithUsedFromJson.add(key);
@@ -609,7 +608,7 @@ class Ciach {
 
     final arms = <int>{};
     for (var i = 0; i < candidates.length; i++) {
-      if (statuses[i] != RefStatus.unused) {
+      if (statuses[i] != .unused) {
         continue;
       }
       final c = candidates[i];
@@ -757,7 +756,7 @@ class _RemoveSafety {
     for (var i = 0; i < candidates.length; i++) {
       final candidate = candidates[i];
       final symbol = candidate.symbol;
-      final unused = statuses[i] == RefStatus.unused;
+      final unused = statuses[i] == .unused;
       if (symbol.kind == .enum$ && !candidate.isEnumValue) {
         enumTypeHasRef[candidate.key] = refsByCandidate[i].isNotEmpty;
         if (refsByCandidate[i].any(sources.isDotValuesRef) ||

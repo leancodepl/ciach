@@ -100,11 +100,12 @@ extension StructuralChecks on SourceIndex {
   /// initialized, so removing the class's sole constructor would strand it
   /// (`final_not_initialized`).
   bool classHasFinalInstanceField(Candidate classCandidate) =>
-      (classCandidate.symbol.children ?? const []).any(
+      classCandidate.symbol.children?.any(
         (child) =>
             child.kind == .field &&
             _isFinalInstanceField(classCandidate.path, child),
-      );
+      ) ??
+      false;
 
   /// Whether [field] in [path] is declared `final` and is an *instance* field,
   /// determined by scanning the declaration's modifier/type prefix — the tokens
@@ -122,7 +123,7 @@ extension StructuralChecks on SourceIndex {
     for (var i = ti - 1; i >= 0; i--) {
       final t = toks[i];
       if (t.isWord) {
-        if (t.value == 'static' || t.value == 'const') {
+        if (t.value case 'static' || 'const') {
           return false;
         }
         if (t.value == 'final') {
@@ -282,7 +283,7 @@ extension StructuralChecks on SourceIndex {
         }
         depth--;
       } else if (depth == 0) {
-        if (t.value == ',' || t.value == ';') {
+        if (t.value case ',' || ';') {
           return false;
         }
         if (t.value == '=' &&

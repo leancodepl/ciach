@@ -10,20 +10,21 @@
 
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
-/// A declaration to check: the symbol plus enough context to query references
-/// for it and to report it later.
-typedef Candidate = ({
-  Uri uri,
-  String path,
-  DocumentSymbol symbol,
-  String? container,
-  bool isEnumValue,
-  bool isPreventInstantiationCtor,
-});
-
 /// A file path paired with a declaration name, used as a map key to look up
 /// per-declaration facts gathered by the remove-safety pre-pass.
-typedef DeclKey = ({String path, String name});
+final class DeclKey {
+  const DeclKey(this.path, this.name);
+
+  final String path;
+  final String name;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DeclKey && other.path == path && other.name == name;
+
+  @override
+  int get hashCode => Object.hash(path, name);
+}
 
 /// How a candidate's references classify it.
 enum RefStatus {
@@ -37,17 +38,32 @@ enum RefStatus {
   unused,
 }
 
-/// The map key pairing a file [path] with a declaration [name].
-DeclKey declKey(String path, String name) => (path: path, name: name);
+/// A declaration to check: the symbol plus enough context to query references
+/// for it and to report it later.
+final class Candidate {
+  const Candidate({
+    required this.uri,
+    required this.path,
+    required this.symbol,
+    required this.container,
+    required this.isEnumValue,
+    required this.isPreventInstantiationCtor,
+  });
 
-extension CandidateKeys on Candidate {
+  final Uri uri;
+  final String path;
+  final DocumentSymbol symbol;
+  final String? container;
+  final bool isEnumValue;
+  final bool isPreventInstantiationCtor;
+
   /// This candidate's own `(path, name)` key.
-  DeclKey get key => (path: path, name: symbol.name);
+  DeclKey get key => DeclKey(path, symbol.name);
 
   /// The `(path, container)` key of this candidate's enclosing declaration,
   /// or `null` when it has no container.
   DeclKey? get containerKey => switch (container) {
-    final c? => (path: path, name: c),
+    final c? => DeclKey(path, c),
     null => null,
   };
 }

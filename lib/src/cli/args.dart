@@ -10,6 +10,7 @@
 
 import 'package:args/args.dart';
 import 'package:ciach/ciach.dart';
+import 'package:collection/collection.dart';
 
 /// Friendly `--kinds` names mapped to LSP symbol kinds.
 const kindAliases = <String, SymbolKind>{
@@ -31,7 +32,7 @@ const kindAliases = <String, SymbolKind>{
 };
 
 /// The `--kinds` alias names, sorted, for help text and error messages.
-String get kindNames => (kindAliases.keys.toList()..sort()).join(', ');
+String get kindNames => kindAliases.keys.sorted().join(', ');
 
 /// Parses the `--kinds` values (comma-separated, repeatable) into symbol kinds,
 /// falling back to [FinderOptions.defaultKinds] when none are given.

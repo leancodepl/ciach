@@ -31,6 +31,6 @@ Future<List<R>> mapPooled<T, R>(
   }
 
   final workerCount = concurrency < items.length ? concurrency : items.length;
-  await Future.wait([for (var i = 0; i < workerCount; i++) worker()]);
+  await List.generate(workerCount, (_) => worker()).wait;
   return results.cast<R>();
 }
