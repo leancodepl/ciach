@@ -40,6 +40,35 @@ class Visible {
   Map<String, dynamic> toJson() => <String, dynamic>{'v': v};
 }
 
+/// `toJson` returning a `List` — lists are valid JSON values, so it is exempt by
+/// convention just like the `Map` case; its dead hook only shows with the flag.
+class Listy {
+  Listy(this.v);
+
+  final int v;
+
+  List<dynamic> toJson() => <dynamic>[v];
+}
+
+/// `toJson` returning a primitive `String` — also a valid JSON value, so exempt.
+class Stringy {
+  Stringy(this.v);
+
+  final int v;
+
+  String toJson() => v.toString();
+}
+
+/// Control: a `toJson` returning an unrelated domain type is not a JSON hook, so
+/// an unused one stays flagged even without `--report-tojson`.
+class Domainy {
+  Domainy(this.v);
+
+  final int v;
+
+  Domainy toJson() => Domainy(v);
+}
+
 /// @JsonSerializable, to show the annotation no longer changes anything: its
 /// generated `toJson` is exempt, its `fromJson` is still reported when unused.
 @JsonSerializable()
@@ -72,4 +101,7 @@ String buildSerializable() => jsonEncode(<Object>[
   Visible(2).toJson(),
   Profile(3),
   const Point(2, 3),
+  Listy(4),
+  Stringy(5),
+  Domainy(6),
 ]);

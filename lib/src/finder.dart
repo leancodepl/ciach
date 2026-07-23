@@ -180,8 +180,10 @@ class Ciach {
 
   static final _freezedAnnotation = RegExp(r'@(?:freezed|Freezed)\b');
 
-  /// A `Map`-typed return on a `toJson`'s declaration line, before the name.
-  static final _toJsonMapReturn = RegExp(r'\bMap\b');
+  /// A JSON-value return type on a `toJson`'s declaration line, before the name.
+  static final _toJsonJsonReturn = RegExp(
+    r'\b(?:Map|List|String|int|double|num|bool|Object|dynamic)\b\s*(?:<[^;{]*>)?\s*\??\s*$',
+  );
 
   /// Whether [location] points at a dartdoc `[Xxx]`-style reference rather
   /// than real code — i.e. its line, in the file it points into, starts with
@@ -814,8 +816,9 @@ class Ciach {
       (deadClassNames[candidate.path]?.contains(candidate.container) ?? false);
 
   /// Whether [candidate] is a `toJson()` serialization hook — a zero-required-arg
-  /// method named `toJson` returning a `Map`. `jsonEncode(obj)` dispatches to it
-  /// dynamically with no source-level `.toJson()` token, so the reference search
+  /// method named `toJson` returning any JSON value (`Map`/`List`/`String`/`num`/
+  /// `int`/`double`/`bool`, or `Object`/`dynamic`). `jsonEncode(obj)` dispatches to
+  /// it dynamically with no source-level `.toJson()` token, so the reference search
   /// can't see that use; exempt it for any class, annotated or not.
   bool _isToJsonHook(_Candidate candidate) {
     final symbol = candidate.symbol;
@@ -832,7 +835,7 @@ class Ciach {
     final col = symbol.selectionRange.start.character;
     final text = lines[line];
     final beforeName = col <= text.length ? text.substring(0, col) : text;
-    return _toJsonMapReturn.hasMatch(beforeName);
+    return _toJsonJsonReturn.hasMatch(beforeName);
   }
 
   /// Builds the map key pairing a file [path] with a declaration [name].

@@ -666,6 +666,18 @@ void main() {
       expect(names, isNot(contains('Profile.toJson')));
     });
 
+    test('a toJson() returning a non-Map JSON value — a List or a primitive — '
+        'is exempt too, since those are valid json values', () async {
+      final names = await runSerialization();
+      expect(names, isNot(contains('Listy.toJson')));
+      expect(names, isNot(contains('Stringy.toJson')));
+    });
+
+    test('a toJson() returning an unrelated domain type is not a JSON hook, so '
+        'an unused one stays flagged even without the flag', () async {
+      expect(await runSerialization(), contains('Domainy.toJson'));
+    });
+
     test(
       'an unused fromJson is still reported, even on an annotated type',
       () async {
@@ -691,6 +703,9 @@ void main() {
       final names = await runSerialization(reportToJson: true);
       expect(names, contains('Plain.toJson'));
       expect(names, contains('Profile.toJson'));
+      // The non-Map JSON-value hooks re-appear under the flag as well.
+      expect(names, contains('Listy.toJson'));
+      expect(names, contains('Stringy.toJson'));
       // fromJson reporting is independent of the toJson flag.
       expect(names, contains('Plain.fromJson'));
     });
