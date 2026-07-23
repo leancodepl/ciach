@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/src/models.dart';
+import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
@@ -199,21 +200,20 @@ List<_Span> _declaratorSpans(
       offsetOf(d.range.startLine, d.range.startColumn);
 
   final spans = <_Span>[];
-  for (final entry in groups.entries) {
-    final members = entry.value
-      ..sort((a, b) => startOf(a).compareTo(startOf(b)));
+  for (final MapEntry(key: statementEnd, value: members) in groups.entries) {
+    final sorted = members.sortedBy<num>(startOf);
     final whole = _wholeStatementSpan(
       content,
       lines,
-      members,
-      entry.key,
+      sorted,
+      statementEnd,
       offsetOf,
     );
     if (whole != null) {
       spans.add(whole);
       continue;
     }
-    for (final decl in members) {
+    for (final decl in sorted) {
       final span = _partialDeclaratorSpan(decl, content, offsetOf);
       if (span != null) {
         spans.add(span);
@@ -287,25 +287,21 @@ _Span? _partialDeclaratorSpan(
 
   final beforeText = content.substring(lineStart, baseStart);
   final leadingComma = _lastTopLevelComma(beforeText);
-  final separator = _nextTopLevelSeparator(content, baseEnd);
-  if (separator == null) {
-    return null;
-  }
-
-  if (separator.$2 == ',') {
-    final start = leadingComma == null
-        ? baseStart
-        : lineStart + leadingComma + 1;
-    return (start: start, end: separator.$1 + 1);
-  }
-  if (leadingComma == null) {
-    // Unreachable in practice: a sole declarator is always caught by
-    // `_wholeStatementSpan` first. Handled anyway for robustness.
-    return (start: lineStart, end: separator.$1 + 1);
-  }
-  // The last of several declarators: drop the now-orphaned leading comma,
-  // but leave the `;` in place — it still terminates the statement.
-  return (start: lineStart + leadingComma, end: baseEnd);
+  return switch (_nextTopLevelSeparator(content, baseEnd)) {
+    null => null,
+    (final commaEnd, ',') => (
+      start: leadingComma == null ? baseStart : lineStart + leadingComma + 1,
+      end: commaEnd + 1,
+    ),
+    // Separator is the statement's `;`: drop the now-orphaned leading comma if
+    // there is one, leaving the `;` in place; otherwise (a sole declarator,
+    // unreachable in practice since `_wholeStatementSpan` catches it first)
+    // fall back to the line start.
+    (final semicolonEnd, _) => switch (leadingComma) {
+      final comma? => (start: lineStart + comma, end: baseEnd),
+      null => (start: lineStart, end: semicolonEnd + 1),
+    },
+  };
 }
 
 /// Extends [startLine] upward over contiguous doc-comment/annotation lines
@@ -394,14 +390,14 @@ _Span _absorbOrphanEnumComma(String content, _Span span) {
 int? _finalStatementEnd(String content, int from) {
   var pos = from;
   while (true) {
-    final separator = _nextTopLevelSeparator(content, pos);
-    if (separator == null) {
-      return null;
+    switch (_nextTopLevelSeparator(content, pos)) {
+      case null:
+        return null;
+      case (final index, ';'):
+        return index;
+      case (final index, _):
+        pos = index + 1;
     }
-    if (separator.$2 == ';') {
-      return separator.$1;
-    }
-    pos = separator.$1 + 1;
   }
 }
 
@@ -483,9 +479,8 @@ bool _isWhitespace(String ch) =>
     ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r';
 
 List<_Span> _mergeSpans(List<_Span> spans) {
-  final sorted = [...spans]..sort((a, b) => a.start.compareTo(b.start));
   final merged = <_Span>[];
-  for (final span in sorted) {
+  for (final span in spans.sortedBy<num>((s) => s.start)) {
     if (merged.isNotEmpty && span.start <= merged.last.end) {
       final last = merged.removeLast();
       merged.add((
