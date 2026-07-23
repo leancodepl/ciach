@@ -1,3 +1,10 @@
+## Unreleased
+
+- Document the `--unused-union-members`, `--report-tojson`,
+  `--generated-suffix`, and `--help` options in the README, which existed in
+  the CLI but were missing from the options table.
+  ([#22](https://github.com/leancodepl/ciach/pull/22))
+
 ## 0.3.0
 
 - Lower the minimum Dart SDK constraint from `^3.12.2` to `^3.10.0`.
