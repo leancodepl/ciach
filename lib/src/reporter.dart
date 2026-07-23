@@ -11,6 +11,7 @@
 import 'dart:convert';
 
 import 'package:ciach/src/models.dart';
+import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
 /// Renders a [FinderResult] for humans or machines.
@@ -42,23 +43,15 @@ abstract final class Reporter {
     List<UnusedDeclaration> decls,
     bool useColor,
   ) {
-    final byFile = <String, List<UnusedDeclaration>>{};
-    for (final decl in decls) {
-      byFile.putIfAbsent(decl.filePath, () => []).add(decl);
-    }
+    for (final MapEntry(key: file, value: fileDecls)
+        in decls.groupListsBy((d) => d.filePath).entries) {
+      buffer.writeln(_style(file, _bold, useColor));
 
-    for (final entry in byFile.entries) {
-      buffer.writeln(_style(entry.key, _bold, useColor));
+      // Column widths for tidy alignment (each group is non-empty).
+      final locWidth = fileDecls.map((d) => '${d.line}:${d.column}'.length).max;
+      final kindWidth = fileDecls.map((d) => d.kind.label.length).max;
 
-      // Column widths for tidy alignment.
-      final locWidth = entry.value
-          .map((d) => '${d.line}:${d.column}'.length)
-          .fold(0, (a, b) => a > b ? a : b);
-      final kindWidth = entry.value
-          .map((d) => d.kind.label.length)
-          .fold(0, (a, b) => a > b ? a : b);
-
-      for (final decl in entry.value) {
+      for (final decl in fileDecls) {
         final loc = '${decl.line}:${decl.column}'.padRight(locWidth);
         final kind = decl.kind.label.padRight(kindWidth);
         final visibility = decl.isPrivate ? 'private' : 'public';
