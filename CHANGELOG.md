@@ -37,6 +37,9 @@
   unused. ([#15](https://github.com/leancodepl/ciach/pull/15))
 - Fix unused enum values being reported under the `enum` kind instead of
   `enum-value`. ([#12](https://github.com/leancodepl/ciach/pull/12))
+- Don't report deserialized freezed union variants as unused; the generated
+  `fromJson` builds the concrete subclass directly, bypassing the redirecting
+  factory. ([#16](https://github.com/leancodepl/ciach/pull/16))
 
 ## 0.2.0+2
 
