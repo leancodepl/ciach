@@ -1,4 +1,4 @@
-## Unreleased
+## 0.3.0
 
 - Lower the minimum Dart SDK constraint from `^3.12.2` to `^3.10.0`.
   ([#20](https://github.com/leancodepl/ciach/pull/20))
