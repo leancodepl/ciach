@@ -144,8 +144,15 @@ Future<int> _run(List<String> arguments) async {
     await _removeUnused(result, rootDir.absolute.path, args, format, useColor);
   }
 
-  if (result.unused.isNotEmpty && args.flag('set-exit-if-changed')) {
-    return 1;
+  if (args.flag('set-exit-if-changed')) {
+    // Public findings are still reported above; --no-fail-public only keeps
+    // them out of the exit code, so the build fails on private findings alone.
+    final failing = args.flag('fail-public')
+        ? result.unused
+        : result.unused.where((d) => d.isPrivate);
+    if (failing.isNotEmpty) {
+      return 1;
+    }
   }
   return 0;
 }

@@ -72,6 +72,14 @@ ArgParser buildParser() => .new()
         'highest-confidence dead code.',
   )
   ..addFlag(
+    'fail-public',
+    defaultsTo: true,
+    help:
+        'Count unused public declarations toward the exit code (with\n'
+        '--set-exit-if-changed). Use --no-fail-public to report them\n'
+        'without failing the build.',
+  )
+  ..addFlag(
     'generated',
     help: 'Scan generated files (*.g.dart, *.freezed.dart, …). Off by default.',
   )

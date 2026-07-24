@@ -73,6 +73,9 @@ ciach --no-public -f json
 # GitHub Actions annotations; fail the job if anything is found
 ciach -f github --set-exit-if-changed
 
+# Fail CI only on unused private declarations; still report public ones
+ciach . --set-exit-if-changed --no-fail-public
+
 # Remove what's found, after confirming
 ciach --remove
 
@@ -93,6 +96,7 @@ ciach --remove --force
 | `--[no-]unused-union-members` | off | Also flag a (sealed) supertype member matched only by type patterns, never constructed. Report-only — never touched by `--remove`. |
 | `--[no-]report-tojson` | off | Report an otherwise-unused `toJson()` serialization hook too. Off by default — `jsonEncode` dispatches to it dynamically. |
 | `--set-exit-if-changed` | off | Exit with status `1` when anything is found (for CI). Named after `dart format`. |
+| `--[no-]fail-public` | on | Count unused public declarations toward the exit code (with `--set-exit-if-changed`). `--no-fail-public` reports them but fails only on private findings. |
 | `--remove` | off | Remove unused declarations after reporting them. Prompts for confirmation first. |
 | `--force` | off | Skip the confirmation prompt for `--remove`. Requires `--remove`. |
 | `-e, --exclude <glob>` | — | Skip files matching the glob (repeatable). |
@@ -148,6 +152,14 @@ Each finding becomes a `::warning` annotation shown inline on the PR diff. Run
 it from the repository root so annotation paths resolve; when scanning a
 sub-package (e.g. `ciach -f github app`), the scan path is
 prepended automatically so annotations still point at the right files.
+
+For a library or workspace package whose public API is legitimately "unused"
+from its own perspective, add `--no-fail-public` to still surface those
+findings while gating the job on unused *private* declarations only:
+
+```yaml
+- run: dart run ciach -f github --set-exit-if-changed --no-fail-public
+```
 
 ### Removing declarations
 
