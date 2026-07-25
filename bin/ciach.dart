@@ -15,6 +15,7 @@ import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/args.dart';
 import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/options.dart';
+import 'package:ciach/src/cli/verbose.dart';
 import 'package:ciach/src/reporter.dart';
 import 'package:path/path.dart' as p;
 
@@ -57,12 +58,15 @@ Future<int> _run(List<String> arguments) async {
     return 2;
   }
 
+  // Discovery looks in the package root named on the command line — a config
+  // file's own `path` cannot decide where that config file is read from.
+  final projectDir = rest.isEmpty ? '.' : rest.first;
+
   final ResolvedOptions resolved;
+  final LoadedConfig loaded;
   try {
-    // Discovery looks in the package root named on the command line — a config
-    // file's own `path` cannot decide where that config file is read from.
-    final loaded = loadConfig(
-      projectDir: rest.isEmpty ? '.' : rest.first,
+    loaded = loadConfig(
+      projectDir: projectDir,
       explicitPath: explicitConfig,
       ignore: ignoreConfig,
     );
@@ -77,6 +81,9 @@ Future<int> _run(List<String> arguments) async {
     stderr.writeln(e.message);
     return 2;
   }
+
+  final log = resolved.verbose ? _VerboseLog() : null;
+  log?.lines(describeConfigSource(loaded, projectDir: projectDir));
 
   final rootDir = Directory(resolved.rootPath);
   if (!rootDir.existsSync()) {
@@ -95,9 +102,20 @@ Future<int> _run(List<String> arguments) async {
   final format = resolved.format;
   final useColor = resolved.useColor;
   final showProgress = resolved.showProgress;
+  final rootPath = p.normalize(rootDir.absolute.path);
+
+  log?.lines(
+    describeSettings(
+      resolved,
+      rootPath: rootPath,
+      dartExecutable: resolved.dartExecutable == null
+          ? '${Platform.resolvedExecutable} (the SDK running ciach)'
+          : '${resolved.dartExecutable} (--dart)',
+    ),
+  );
 
   final options = FinderOptions(
-    rootPath: rootDir.absolute.path,
+    rootPath: rootPath,
     includeGlobs: resolved.includeGlobs,
     excludeGlobs: resolved.excludeGlobs,
     kinds: resolved.kinds,
@@ -110,7 +128,9 @@ Future<int> _run(List<String> arguments) async {
     reportToJson: resolved.reportToJson,
     concurrency: resolved.concurrency,
     dartExecutable: resolved.dartExecutable,
-    onProgress: showProgress ? _ProgressPrinter().update : null,
+    // The finder narrates its phases through one callback; verbose keeps every
+    // line, plain progress overwrites a single one in place.
+    onProgress: log?.call ?? (showProgress ? _ProgressPrinter().update : null),
   );
 
   final FinderResult result;
@@ -130,6 +150,13 @@ Future<int> _run(List<String> arguments) async {
     stderr.writeln();
   }
 
+  log?.call(
+    'Scanned ${result.filesScanned} file(s) and checked '
+    '${result.declarationsChecked} declaration(s) in '
+    '${result.elapsed.inMilliseconds}ms: ${result.unused.length} unused, '
+    '${result.docOnly.length} referenced only from doc comments.',
+  );
+
   switch (format) {
     case 'json':
       stdout.writeln(Reporter.json(result));
@@ -137,23 +164,18 @@ Future<int> _run(List<String> arguments) async {
       // GitHub resolves annotation paths from the repo root; make the finding
       // paths root-relative by prepending the scan root's path from here.
       final prefix = p
-          .split(
-            p.relative(rootDir.absolute.path, from: Directory.current.path),
-          )
+          .split(p.relative(rootPath, from: Directory.current.path))
           .join('/');
+      log?.call("Prefixing annotation paths with '$prefix/'.");
       stdout.write(Reporter.github(result, pathPrefix: prefix));
     case _:
       stdout.writeln(Reporter.text(result, useColor: useColor));
   }
 
   if (result.unused.isNotEmpty && resolved.remove) {
-    await _removeUnused(
-      result,
-      rootDir.absolute.path,
-      resolved,
-      format,
-      useColor,
-    );
+    await _removeUnused(result, rootPath, resolved, format, useColor, log);
+  } else if (result.unused.isNotEmpty) {
+    log?.call('Leaving the findings in place; --remove was not given.');
   }
 
   if (result.unused.isNotEmpty && resolved.setExitIfChanged) {
@@ -170,12 +192,22 @@ Future<void> _removeUnused(
   ResolvedOptions resolved,
   String format,
   bool useColor,
+  _VerboseLog? log,
 ) async {
   final count = result.unused.length;
   final plural = count == 1 ? '' : 's';
 
+  final blocked = result.unused.where((d) => d.removalBlocked).length;
+  if (blocked > 0) {
+    log?.call(
+      'Skipping $blocked of $count finding$plural: removing them safely would '
+      'need a source rewrite (see --unused-union-members and remove safety).',
+    );
+  }
+
   var proceed = resolved.force;
   if (!proceed) {
+    log?.call('Asking for confirmation; pass --force to skip the prompt.');
     // The chosen --format may not be human-readable; show the findings
     // again so the confirmation prompt is never a shot in the dark.
     if (format != 'text') {
@@ -200,6 +232,16 @@ Future<void> _removeUnused(
     return;
   }
 
+  if (log != null) {
+    final perFile = <String, int>{};
+    for (final declaration in result.unused.where((d) => !d.removalBlocked)) {
+      perFile.update(declaration.filePath, (n) => n + 1, ifAbsent: () => 1);
+    }
+    for (final entry in perFile.entries) {
+      log.call('Rewriting ${entry.key} (${entry.value} declaration(s)).');
+    }
+  }
+
   final filesChanged = removeDeclarations(result.unused, rootPath);
   stdout.writeln(
     'Removed $count unused declaration$plural from $filesChanged '
@@ -215,6 +257,21 @@ Future<void> _removeUnused(
   for (final note in removedHints) {
     stdout.writeln('Note: $note');
   }
+}
+
+/// Prints `--verbose` narration to stderr, one durable line per message,
+/// stamped with the elapsed time so slow phases stand out.
+///
+/// stderr, not stdout, so `-f json` output stays machine-readable.
+class _VerboseLog {
+  final _stopwatch = Stopwatch()..start();
+
+  void call(String message) {
+    final seconds = (_stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(1);
+    stderr.writeln('[${seconds.padLeft(5)}s] $message');
+  }
+
+  void lines(Iterable<String> messages) => messages.forEach(call);
 }
 
 /// Prints single-line, overwriting progress to stderr.

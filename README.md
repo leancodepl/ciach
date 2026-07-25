@@ -81,6 +81,9 @@ ciach --remove --force
 
 # Ignore the package's ciach.yaml for one run
 ciach --no-config
+
+# Explain what's happening (config used, settings, scan phases)
+ciach --verbose
 ```
 
 ### Options
@@ -108,6 +111,7 @@ ciach --no-config
 | `-j, --concurrency <n>` | `16` | Reference queries kept in flight against the analysis server. |
 | `--[no-]color` | auto | Colorize text output. |
 | `--[no-]progress` | auto | Show scan progress on stderr. |
+| `-v, --verbose` | off | Explain what's happening on stderr. See [Verbose mode](#verbose-mode). |
 | `--dart <path>` | current SDK | Path to the `dart` executable to launch the server with. |
 
 Exit codes: `0` success, `1` unused found with `--set-exit-if-changed`, `2`
@@ -115,9 +119,9 @@ usage or analysis error.
 
 ### Configuration file
 
-Every option above can also live in a `ciach.yaml` (or `ciach.yml`) file in the
-package root, so a project's settings are checked in once instead of being
-retyped on every invocation:
+Every option above can also live in a `ciach.yaml` file in the package root, so
+a project's settings are checked in once instead of being retyped on every
+invocation:
 
 ```yaml
 # ciach.yaml
@@ -148,11 +152,12 @@ ciach --no-public -e 'test/**' -e 'tool/**' --generated-suffix .gc.dart \
 Unknown keys and values of the wrong type are usage errors (exit `2`) naming
 the offending key, rather than being silently ignored.
 
-**Discovery.** `ciach` looks for `ciach.yaml`, then `ciach.yml`, in the package
-root being analyzed — the `[path]` argument, or the current directory when
-there isn't one. Only that directory: no walking up to parent directories, so
-in a monorepo each package's config is its own. `--config <path>` reads a file
-from anywhere else instead, and errors out if it doesn't exist.
+**Discovery.** `ciach` looks for exactly one file name, `ciach.yaml`, in the
+package root being analyzed — the `[path]` argument, or the current directory
+when there isn't one. Only that directory: no walking up to parent directories,
+so in a monorepo each package's config is its own. `--config <path>` reads a
+file from anywhere else instead (under any name), and errors out if it doesn't
+exist. Run with `--verbose` to see which file was read and what it set.
 
 **Precedence.** Command line beats config file beats built-in default. Passing
 an option explicitly always wins, even when the value matches the default
@@ -170,6 +175,43 @@ ciach --config tool/ciach-strict.yaml
 ```
 
 `--config` and `--no-config` cannot be combined.
+
+### Verbose mode
+
+`-v` / `--verbose` narrates the run on stderr, stamped with the elapsed time:
+which config file was read (and every option it set), the settings the run
+ended up with after merging command line, config and defaults, each scan phase
+as it starts, and what `--remove` touches.
+
+```console
+$ ciach -v example
+[  0.0s] Read config from example/ciach.yaml.
+[  0.0s]   It sets 2 options:
+[  0.0s]     public: false
+[  0.0s]     exclude: test/**
+[  0.0s] Settings for this run:
+[  0.0s]   path: /home/me/pkg/example
+[  0.0s]   public: false
+…
+[  0.0s]   concurrency: 16
+[  0.0s]   dart: /usr/lib/dart/bin/dart (the SDK running ciach)
+[  0.0s] Discovered 13 Dart file(s) to scan.
+[  0.1s] Starting Dart analysis server…
+[  0.3s] Waiting for initial analysis to complete…
+[  0.3s] Warming 4 generated file(s)…
+[  0.3s] Collecting declarations from 13 file(s)…
+[  0.4s] Checking references for 44 declaration(s)…
+[  0.4s] [13/13] lib/greeting.dart
+[  0.5s] Scanned 13 file(s) and checked 44 declaration(s) in 478ms: 4 unused, 1 referenced only from doc comments.
+```
+
+Everything above goes to stderr, so findings on stdout stay pipeable — `ciach
+-v -f json | jq` works. The first thing to reach for when a config file seems
+not to apply, or when a scan is slower than expected and you want to know which
+phase is eating the time.
+
+`--verbose` supersedes `--progress`: the phase lines cover the same ground, and
+progress's single self-overwriting line would fight with them.
 
 ### Doc-only findings
 

@@ -1,13 +1,12 @@
 import 'dart:io';
 
 import 'package:ciach/src/cli/args.dart';
-import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
-/// File names looked for, in order, when discovering a config file in the
-/// project directory.
-const configFileNames = ['ciach.yaml', 'ciach.yml'];
+/// The file name looked for when discovering a config in the project
+/// directory.
+const configFileName = 'ciach.yaml';
 
 /// Every key a config file may contain. Each one mirrors the command-line
 /// flag of the same name (`path` mirrors the positional path argument), so
@@ -30,6 +29,7 @@ const configKeys = <String>{
   'format',
   'color',
   'progress',
+  'verbose',
   'concurrency',
   'dart',
 };
@@ -58,6 +58,7 @@ class CiachConfig {
     this.format,
     this.color,
     this.progress,
+    this.verbose,
     this.concurrency,
     this.dart,
   });
@@ -114,6 +115,7 @@ class CiachConfig {
       format: reader.oneOf('format', formatNames),
       color: reader.boolean('color'),
       progress: reader.boolean('progress'),
+      verbose: reader.boolean('verbose'),
       concurrency: reader.positiveInt('concurrency'),
       dart: reader.string('dart'),
     );
@@ -171,21 +173,70 @@ class CiachConfig {
   /// Mirrors `--[no-]progress`.
   final bool? progress;
 
+  /// Mirrors `--[no-]verbose`.
+  final bool? verbose;
+
   /// Mirrors `--concurrency`.
   final int? concurrency;
 
   /// Mirrors `--dart`.
   final String? dart;
+
+  /// The settings this config actually specifies, keyed by config key and
+  /// ordered like [configKeys] — the basis of the `--verbose` rundown of what a
+  /// file contributed.
+  Map<String, Object?> get settings => {
+    'path': ?path,
+    'public': ?public,
+    'generated': ?generated,
+    'overrides': ?overrides,
+    'operators': ?operators,
+    'unused-union-members': ?unusedUnionMembers,
+    'report-tojson': ?reportToJson,
+    'set-exit-if-changed': ?setExitIfChanged,
+    'remove': ?remove,
+    'force': ?force,
+    'exclude': ?exclude,
+    'include': ?include,
+    'generated-suffix': ?generatedSuffix,
+    'kinds': ?kinds,
+    'format': ?format,
+    'color': ?color,
+    'progress': ?progress,
+    'verbose': ?verbose,
+    'concurrency': ?concurrency,
+    'dart': ?dart,
+  };
 }
 
-/// A config file that was loaded, together with where it came from.
-typedef LoadedConfig = ({CiachConfig config, String? path});
+/// The outcome of looking for a config file.
+class LoadedConfig {
+  /// Records a config-file lookup and what it produced.
+  const LoadedConfig({
+    required this.config,
+    required this.path,
+    this.ignored = false,
+  });
+
+  /// The settings read from [path], or an empty config when there was nothing
+  /// to read (or when it was [ignored]).
+  final CiachConfig config;
+
+  /// The config file this came from, or — when [ignored] — the file that was
+  /// skipped. `null` when no config file was found at all.
+  final String? path;
+
+  /// Whether a config file was deliberately skipped (`--no-config`). Nothing
+  /// was read or parsed in that case, so even an invalid file is no error.
+  final bool ignored;
+}
 
 /// Resolves and loads the config file for a run.
 ///
-/// Returns an empty config (and a `null` path) when [ignore] is set or when no
-/// config file is found. [explicitPath] — from `--config` — is loaded as-is;
-/// otherwise [configFileNames] are looked for in [projectDir].
+/// [explicitPath] — from `--config` — is loaded as-is; otherwise
+/// [configFileName] is looked for in [projectDir]. With [ignore] set the file
+/// is located (so `--verbose` can name what it skipped) but never read, and the
+/// returned config is empty.
 ///
 /// Throws a [FormatException] when [explicitPath] does not exist or when the
 /// file cannot be parsed.
@@ -194,8 +245,13 @@ LoadedConfig loadConfig({
   String? explicitPath,
   bool ignore = false,
 }) {
+  final discovered = File(p.join(projectDir, configFileName));
   if (ignore) {
-    return (config: const CiachConfig(), path: null);
+    return LoadedConfig(
+      config: const CiachConfig(),
+      path: discovered.existsSync() ? discovered.path : null,
+      ignored: true,
+    );
   }
 
   final File file;
@@ -205,14 +261,10 @@ LoadedConfig loadConfig({
       throw FormatException('Config file does not exist: $explicitPath');
     }
   } else {
-    final found = configFileNames
-        .map((name) => File(p.join(projectDir, name)))
-        .where((f) => f.existsSync())
-        .firstOrNull;
-    if (found == null) {
-      return (config: const CiachConfig(), path: null);
+    if (!discovered.existsSync()) {
+      return const LoadedConfig(config: CiachConfig(), path: null);
     }
-    file = found;
+    file = discovered;
   }
 
   final String source;
@@ -222,7 +274,7 @@ LoadedConfig loadConfig({
     throw FormatException('Cannot read config file ${file.path}: ${e.message}');
   }
 
-  return (
+  return LoadedConfig(
     config: CiachConfig.parse(source, origin: file.path),
     path: file.path,
   );

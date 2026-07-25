@@ -44,6 +44,7 @@ kinds: [class, function]
 format: github
 color: false
 progress: false
+verbose: true
 concurrency: 4
 dart: /sdk/bin/dart
 ''', origin: 'ciach.yaml');
@@ -65,8 +66,25 @@ dart: /sdk/bin/dart
       expect(config.format, 'github');
       expect(config.color, isFalse);
       expect(config.progress, isFalse);
+      expect(config.verbose, isTrue);
       expect(config.concurrency, 4);
       expect(config.dart, '/sdk/bin/dart');
+      // Every key that was in the file, and nothing else.
+      expect(config.settings.keys, configKeys);
+    });
+
+    test('settings lists only what the file sets', () {
+      final config = CiachConfig.parse('''
+public: false
+exclude: ['test/**']
+concurrency: 4
+''', origin: 'ciach.yaml');
+
+      expect(config.settings, {
+        'public': false,
+        'exclude': ['test/**'],
+        'concurrency': 4,
+      });
     });
 
     test('covers every command-line option', () {
@@ -209,10 +227,11 @@ dart: /sdk/bin/dart
       expect(loaded.config.public, isFalse);
     });
 
-    test('discovers ciach.yml too, preferring ciach.yaml', () {
+    test('discovers ciach.yaml only, not other spellings', () {
       write('ciach.yml', 'format: json');
+      write('.ciach.yaml', 'format: json');
 
-      expect(loadConfig(projectDir: tempDir.path).config.format, 'json');
+      expect(loadConfig(projectDir: tempDir.path).path, isNull);
 
       write('ciach.yaml', 'format: github');
 
@@ -273,13 +292,23 @@ dart: /sdk/bin/dart
       );
     });
 
-    test('ignore skips discovery entirely', () {
-      write('ciach.yaml', 'public: false');
+    test('ignore reads nothing, but still names the file it skipped', () {
+      // Invalid on purpose: with --no-config it is never parsed, so a broken
+      // config file can't fail a run that asked to ignore it.
+      write('ciach.yaml', 'publik: [unclosed');
 
       final loaded = loadConfig(projectDir: tempDir.path, ignore: true);
 
+      expect(loaded.ignored, isTrue);
+      expect(loaded.path, p.join(tempDir.path, 'ciach.yaml'));
+      expect(loaded.config.settings, isEmpty);
+    });
+
+    test('ignore reports no path when there was no config anyway', () {
+      final loaded = loadConfig(projectDir: tempDir.path, ignore: true);
+
+      expect(loaded.ignored, isTrue);
       expect(loaded.path, isNull);
-      expect(loaded.config.public, isNull);
     });
 
     test('ignore skips an explicit path, and its would-be errors', () {
@@ -312,6 +341,7 @@ dart: /sdk/bin/dart
       expect(resolved.additionalGeneratedSuffixes, isEmpty);
       expect(resolved.kinds, FinderOptions.defaultKinds);
       expect(resolved.format, 'text');
+      expect(resolved.verbose, isFalse);
       expect(resolved.concurrency, 16);
       expect(resolved.dartExecutable, isNull);
     });
@@ -461,6 +491,53 @@ dart: /sdk/bin/dart
       );
       expect(fromArgs.useColor, isFalse);
       expect(fromArgs.showProgress, isFalse);
+    });
+
+    test('verbose comes from the command line or the config', () {
+      expect(resolve(const ['--verbose']).verbose, isTrue);
+      expect(resolve(const ['-v']).verbose, isTrue);
+      expect(resolve(const [], const CiachConfig(verbose: true)).verbose, true);
+      expect(
+        resolve(const [
+          '--no-verbose',
+        ], const CiachConfig(verbose: true)).verbose,
+        isFalse,
+      );
+    });
+
+    test('verbose supersedes the progress line', () {
+      // Both would write to stderr, the progress line overwriting itself in
+      // place — so verbose wins and progress is switched off, however it was
+      // asked for.
+      expect(
+        resolveOptions(
+          parser.parse(const ['--verbose', '--progress']),
+          const CiachConfig(),
+          colorDefault: false,
+          progressDefault: true,
+        ).showProgress,
+        isFalse,
+      );
+      expect(
+        resolveOptions(
+          parser.parse(const []),
+          const CiachConfig(verbose: true, progress: true),
+          colorDefault: false,
+          progressDefault: true,
+        ).showProgress,
+        isFalse,
+      );
+      // …but plain progress still works when verbose is off.
+      expect(
+        resolveOptions(
+          parser.parse(const ['--progress']),
+          const CiachConfig(verbose: true),
+          colorDefault: false,
+          progressDefault: false,
+        ).showProgress,
+        isFalse,
+      );
+      expect(resolve(const ['--progress']).showProgress, isTrue);
     });
 
     test('rejects a non-positive --concurrency', () {

@@ -26,6 +26,7 @@ class ResolvedOptions {
     required this.format,
     required this.useColor,
     required this.showProgress,
+    required this.verbose,
     required this.concurrency,
     required this.dartExecutable,
   });
@@ -80,8 +81,13 @@ class ResolvedOptions {
   /// Whether to colorize text output.
   final bool useColor;
 
-  /// Whether to show scan progress on stderr.
+  /// Whether to show scan progress on stderr. Always `false` when [verbose] is
+  /// set: the durable verbose log covers the same phases, and a single
+  /// overwriting progress line would fight with it.
   final bool showProgress;
+
+  /// Whether to explain what is happening on stderr.
+  final bool verbose;
 
   /// See [FinderOptions.concurrency].
   final int concurrency;
@@ -116,6 +122,7 @@ ResolvedOptions resolveOptions(
   }
 
   final rest = args.rest;
+  final verbose = flag('verbose', config.verbose, defaultsTo: false);
 
   final int concurrency;
   final rawConcurrency = args.wasParsed('concurrency')
@@ -161,11 +168,10 @@ ResolvedOptions resolveOptions(
         ? args.option('format')!
         : config.format ?? formatNames.first,
     useColor: flag('color', config.color, defaultsTo: colorDefault),
-    showProgress: flag(
-      'progress',
-      config.progress,
-      defaultsTo: progressDefault,
-    ),
+    showProgress:
+        !verbose &&
+        flag('progress', config.progress, defaultsTo: progressDefault),
+    verbose: verbose,
     concurrency: concurrency,
     dartExecutable: args.option('dart') ?? config.dart,
   );
