@@ -79,7 +79,8 @@ List<String> describeSettings(
 /// A value as it reads in the verbose log: an empty list is `(none)`, a
 /// non-empty one is comma-separated, everything else is itself.
 String _value(Object? value) => switch (value) {
-  final List<Object?> list => list.isEmpty ? '(none)' : list.join(', '),
+  [] => '(none)',
+  final List<Object?> list => list.join(', '),
   _ => '$value',
 };
 

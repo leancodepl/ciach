@@ -17,6 +17,7 @@ import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/options.dart';
 import 'package:ciach/src/cli/verbose.dart';
 import 'package:ciach/src/reporter.dart';
+import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
 Future<void> main(List<String> arguments) async {
@@ -83,7 +84,7 @@ Future<int> _run(List<String> arguments) async {
   }
 
   final log = resolved.verbose ? _VerboseLog() : null;
-  log?.lines(describeConfigSource(config, projectDir: projectDir));
+  log?.writeAll(describeConfigSource(config, projectDir: projectDir));
 
   final rootDir = Directory(resolved.rootPath);
   if (!rootDir.existsSync()) {
@@ -103,7 +104,7 @@ Future<int> _run(List<String> arguments) async {
   final showProgress = resolved.showProgress;
   final rootPath = resolved.absoluteRootPath;
 
-  log?.lines(
+  log?.writeAll(
     describeSettings(
       resolved,
       dartExecutable: resolved.dartExecutable == null
@@ -119,7 +120,7 @@ Future<int> _run(List<String> arguments) async {
         // The finder narrates its phases through one callback; verbose keeps
         // every line, plain progress overwrites a single one in place.
         onProgress:
-            log?.call ?? (showProgress ? _ProgressPrinter().update : null),
+            log?.write ?? (showProgress ? _ProgressPrinter().update : null),
       ),
     ).run();
   } on Object catch (e, st) {
@@ -136,7 +137,7 @@ Future<int> _run(List<String> arguments) async {
     stderr.writeln();
   }
 
-  log?.call(
+  log?.write(
     'Scanned ${result.filesScanned} file(s) and checked ${result.declarationsChecked} declaration(s) in ${result.elapsed.inMilliseconds}ms: ${result.unused.length} unused, ${result.docOnly.length} referenced only from doc comments.',
   );
 
@@ -149,7 +150,7 @@ Future<int> _run(List<String> arguments) async {
       final prefix = p
           .split(p.relative(rootPath, from: Directory.current.path))
           .join('/');
-      log?.call("Prefixing annotation paths with '$prefix/'.");
+      log?.write("Prefixing annotation paths with '$prefix/'.");
       stdout.write(Reporter.github(result, pathPrefix: prefix));
     case _:
       stdout.writeln(Reporter.text(result, useColor: useColor));
@@ -158,7 +159,7 @@ Future<int> _run(List<String> arguments) async {
   if (result.unused.isNotEmpty && resolved.remove) {
     await _removeUnused(result, rootPath, resolved, format, useColor, log);
   } else if (result.unused.isNotEmpty) {
-    log?.call('Leaving the findings in place; --remove was not given.');
+    log?.write('Leaving the findings in place; --remove was not given.');
   }
 
   if (result.unused.isNotEmpty && resolved.setExitIfChanged) {
@@ -182,14 +183,14 @@ Future<void> _removeUnused(
 
   final blocked = result.unused.where((d) => d.removalBlocked).length;
   if (blocked > 0) {
-    log?.call(
+    log?.write(
       'Skipping $blocked of $count finding$plural: removing them safely would need a source rewrite (see --unused-union-members and remove safety).',
     );
   }
 
   var proceed = resolved.force;
   if (!proceed) {
-    log?.call('Asking for confirmation; pass --force to skip the prompt.');
+    log?.write('Asking for confirmation; pass --force to skip the prompt.');
     // The chosen --format may not be human-readable; show the findings
     // again so the confirmation prompt is never a shot in the dark.
     if (format != 'text') {
@@ -214,12 +215,11 @@ Future<void> _removeUnused(
   }
 
   if (log != null) {
-    final perFile = <String, int>{};
-    for (final declaration in result.unused.where((d) => !d.removalBlocked)) {
-      perFile.update(declaration.filePath, (n) => n + 1, ifAbsent: () => 1);
-    }
-    for (final entry in perFile.entries) {
-      log.call('Rewriting ${entry.key} (${entry.value} declaration(s)).');
+    final byFile = result.unused
+        .whereNot((d) => d.removalBlocked)
+        .groupFoldBy<String, int>((d) => d.filePath, (n, _) => (n ?? 0) + 1);
+    for (final entry in byFile.entries) {
+      log.write('Rewriting ${entry.key} (${entry.value} declaration(s)).');
     }
   }
 
@@ -246,12 +246,14 @@ Future<void> _removeUnused(
 class _VerboseLog {
   final _stopwatch = Stopwatch()..start();
 
-  void call(String message) {
+  /// Writes one line, prefixed with the elapsed time.
+  void write(String message) {
     final seconds = (_stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(1);
     stderr.writeln('[${seconds.padLeft(5)}s] $message');
   }
 
-  void lines(Iterable<String> messages) => messages.forEach(call);
+  /// Writes a line per message in [messages].
+  void writeAll(Iterable<String> messages) => messages.forEach(write);
 }
 
 /// Prints single-line, overwriting progress to stderr.

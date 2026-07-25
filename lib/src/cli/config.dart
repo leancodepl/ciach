@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/src/cli/args.dart';
+import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
@@ -78,7 +79,7 @@ class ConfigFile {
 
     final unknown = document.keys
         .map((key) => '$key')
-        .where((key) => !configKeys.contains(key))
+        .whereNot(configKeys.contains)
         .toList();
     if (unknown.isNotEmpty) {
       final valid = (configKeys.toList()..sort()).join(', ');
