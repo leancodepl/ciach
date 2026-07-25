@@ -192,6 +192,28 @@ class LspClient {
     return result ?? const [];
   }
 
+  /// Resolves the declaration(s) the symbol at [position] in [uri] points to,
+  /// via `textDocument/definition`.
+  ///
+  /// Unlike `textDocument/references` (a global search-index query), this is the
+  /// analyzer's *forward* resolution — the same one that makes `dart analyze`
+  /// see a use — so it resolves reference shapes the reverse index misses
+  /// (cross-library object-pattern fields and dot-shorthands). Returns the
+  /// resolved [lsp.Location]s, or an empty list when nothing resolves.
+  Future<List<lsp.Location>> definition(Uri uri, lsp.Position position) async {
+    final result = await _client.server.textDocument.definition(
+      .new(
+        textDocument: .new(uri: uri.toString()),
+        position: position,
+      ),
+    );
+    final definition = result.asDefinition;
+    if (definition == null) {
+      return const [];
+    }
+    return definition.asLocationList ?? [?definition.asLocation];
+  }
+
   /// Gracefully shuts the server down and terminates the process.
   Future<void> dispose() async {
     _shuttingDown = true;

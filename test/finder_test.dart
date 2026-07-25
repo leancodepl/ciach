@@ -44,8 +44,9 @@ void main() {
     bool skipOverrides = true,
     bool skipOperators = true,
     Set<SymbolKind>? kinds,
-    // The widget/union/guard/enum-values fixtures are scanned only by their
-    // dedicated tests; exclude them from the default-run assertions.
+    // The widget/union/guard/enum-values/cross-library fixtures are scanned
+    // only by their dedicated tests; exclude them from the default-run
+    // assertions.
     List<String> exclude = const [
       'lib/widgets.dart',
       'lib/unions.dart',
@@ -53,6 +54,10 @@ void main() {
       'lib/enum_values.dart',
       'lib/freezed_unions.dart',
       'lib/serialization.dart',
+      'lib/xref_shapes.dart',
+      'lib/xref_event.dart',
+      'lib/xref_analytics.dart',
+      'lib/xref_uses.dart',
     ],
     List<String> include = const [],
   }) => Ciach(
@@ -79,6 +84,10 @@ void main() {
       'lib/enum_values.dart',
       'lib/freezed_unions.dart',
       'lib/serialization.dart',
+      'lib/xref_shapes.dart',
+      'lib/xref_event.dart',
+      'lib/xref_analytics.dart',
+      'lib/xref_uses.dart',
     ],
     List<String> include = const [],
   }) async {
@@ -709,5 +718,59 @@ void main() {
       // fromJson reporting is independent of the toJson flag.
       expect(names, contains('Plain.fromJson'));
     });
+  });
+
+  group('cross-library reference recovery (issues #24, #25)', () {
+    // Scan only the cross-library fixture files (declarations + their consumer).
+    // The consumer must be scanned too, so the recovery can locate the usage
+    // sites the analysis server's reference index does not report.
+    Future<Set<String>> runXref() async {
+      final result = await runFinder(
+        include: const [
+          'lib/xref_shapes.dart',
+          'lib/xref_event.dart',
+          'lib/xref_analytics.dart',
+          'lib/xref_uses.dart',
+        ],
+        exclude: const [],
+      );
+      return result.unused.map((d) => d.qualifiedName).toSet();
+    }
+
+    test('#24: a getter/field used only by a cross-file object pattern is not '
+        'flagged', () async {
+      final names = await runXref();
+      expect(names, isNot(contains('XrefLoadedState.hasActive')));
+      expect(names, isNot(contains('XrefLoadedState.ready')));
+    });
+
+    test(
+      '#24: a same-file object-pattern reference still keeps a getter alive',
+      () async {
+        expect(await runXref(), isNot(contains('XrefLoadedState.localFlag')));
+      },
+    );
+
+    test(
+      '#25: an enum value used only via a cross-library dot-shorthand is not '
+      'flagged',
+      () async {
+        expect(await runXref(), isNot(contains('XrefEvent.signOut')));
+      },
+    );
+
+    test('a normally-referenced enum value is not flagged', () async {
+      expect(await runXref(), isNot(contains('XrefEvent.signIn')));
+    });
+
+    test(
+      'genuinely-dead members are still flagged — the recovery did not blind '
+      'the detector',
+      () async {
+        final names = await runXref();
+        expect(names, contains('XrefLoadedState.deadShapeGetter'));
+        expect(names, contains('XrefEvent.deadEvent'));
+      },
+    );
   });
 }

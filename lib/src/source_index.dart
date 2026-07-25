@@ -28,9 +28,15 @@ class SourceIndex {
   final _content = <String, String>{};
   final _lineStarts = <String, List<int>>{};
   final _tokens = <String, List<Token>>{};
+  final _scanned = <String>{};
 
   /// The absolute file path a reference [uri] points at.
   static String pathOf(String uri) => Uri.parse(uri).toFilePath();
+
+  /// The files opened for this run — every path passed to [cacheLines]. This is
+  /// the set of sources the finder scanned, used by the cross-library reference
+  /// recovery to locate usage sites the analysis server's index misses.
+  Iterable<String> get scannedPaths => _scanned;
 
   /// Reads [path] from disk, returning `null` if it can't be read.
   static String? readFile(String path) {
@@ -46,8 +52,11 @@ class SourceIndex {
       _lines[path] ??= readFile(path)?.split('\n') ?? const [];
 
   /// Records the [lines] of a file already opened in the analysis server, so
-  /// its content isn't re-read from disk.
-  void cacheLines(String path, List<String> lines) => _lines[path] = lines;
+  /// its content isn't re-read from disk, and marks the file as scanned.
+  void cacheLines(String path, List<String> lines) {
+    _lines[path] = lines;
+    _scanned.add(path);
+  }
 
   /// The full text of [path], reconstructed from the cached lines so it matches
   /// the document content the analysis server resolved positions against.
@@ -71,6 +80,25 @@ class SourceIndex {
       return null;
     }
     return offset;
+  }
+
+  /// The LSP [Position] of absolute [offset] in [path] — the inverse of
+  /// [offsetOf]. Used to turn a scanned token's byte offset back into the
+  /// line/character position an LSP request expects.
+  Position positionAt(String path, int offset) {
+    final starts = lineStarts(path);
+    // The line is the last line-start that is `<= offset` (binary search).
+    var lo = 0;
+    var hi = starts.length - 1;
+    while (lo < hi) {
+      final mid = (lo + hi + 1) >> 1;
+      if (starts[mid] <= offset) {
+        lo = mid;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return Position(line: lo, character: offset - starts[lo]);
   }
 
   /// The token index whose span starts exactly at [position] in [path], or

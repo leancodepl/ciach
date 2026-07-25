@@ -10,6 +10,7 @@
 
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/conventions/flutter_widgets.dart';
+import 'package:ciach/src/cross_library_refs.dart';
 import 'package:ciach/src/reference_kinds.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
@@ -31,21 +32,29 @@ class ReferenceClassifier {
   /// as dead — the opt-in `--unused-union-members` behaviour.
   final bool unusedUnionMembers;
 
-  /// Classifies [candidate] from the [refs] reported for it.
+  /// Classifies [candidate] from the [refs] reported for it, consulting
+  /// [crossLib] to recover references the analysis server's index misses.
   ///
   /// Non-class candidates keep the simple rule: any real (non-doc) reference
-  /// means used, only doc-comment links means doc-only, none means unused.
+  /// means used, only doc-comment links means doc-only, none means unused —
+  /// except that a member with no reported references is only unused if
+  /// [crossLib] has not recovered a cross-library object-pattern or
+  /// dot-shorthand use of it (leancodepl/ciach#24, #25).
   ///
   /// Classes get [_classifyClass], which discounts *self-references* — the
   /// class's own body, and the `State<Self>` StatefulWidget pairing — so a
   /// class kept alive only by its own unnamed constructor's declaration (whose
   /// name coincides with the class) is correctly seen as dead.
-  RefStatus classify(Candidate candidate, List<Location> refs) {
+  RefStatus classify(
+    Candidate candidate,
+    List<Location> refs,
+    CrossLibraryReferences crossLib,
+  ) {
     if (candidate.symbol.kind == .class$) {
       return _classifyClass(candidate, refs);
     }
     if (refs.isEmpty) {
-      return .unused;
+      return crossLib.isRecovered(candidate) ? .used : .unused;
     }
     return refs.every(_sources.isDocReference) ? .docOnly : .used;
   }
