@@ -82,25 +82,6 @@ class SourceIndex {
     return offset;
   }
 
-  /// The LSP [Position] of absolute [offset] in [path] — the inverse of
-  /// [offsetOf]. Used to turn a scanned token's byte offset back into the
-  /// line/character position an LSP request expects.
-  Position positionAt(String path, int offset) {
-    final starts = lineStarts(path);
-    // The line is the last line-start that is `<= offset` (binary search).
-    var lo = 0;
-    var hi = starts.length - 1;
-    while (lo < hi) {
-      final mid = (lo + hi + 1) >> 1;
-      if (starts[mid] <= offset) {
-        lo = mid;
-      } else {
-        hi = mid - 1;
-      }
-    }
-    return Position(line: lo, character: offset - starts[lo]);
-  }
-
   /// The token index whose span starts exactly at [position] in [path], or
   /// `null` if the position doesn't line up with a token start.
   int? tokenIndexAtPosition(String path, Position position) {

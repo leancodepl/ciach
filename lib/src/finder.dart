@@ -291,6 +291,7 @@ class Ciach {
     return CrossLibraryReferences.resolve(
       client: client,
       sources: _sources,
+      candidates: candidates,
       emptyRefNames: emptyRefNames,
       concurrency: options.concurrency,
     );

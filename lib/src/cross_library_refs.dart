@@ -12,17 +12,15 @@ import 'dart:io';
 
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/concurrency.dart';
-import 'package:ciach/src/lexing.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
-/// A textual usage site to confirm: the identifier's position in a file, plus
-/// the name it spells.
-typedef _Site = ({Uri uri, Position position, String name});
+/// A usage site to confirm: the identifier's position in a file.
+typedef _Site = ({Uri uri, Position position});
 
-/// A declaration's identity as a position: its file path and the
-/// zero-based line/character where its name starts. This is exactly what
+/// A declaration's identity as a position: its file path and the zero-based
+/// line/character where its name starts. This is exactly what
 /// `textDocument/definition` reports as the resolved location, so it is the key
 /// that matches a recovered usage back to a candidate declaration.
 typedef _DeclPosition = (String path, int line, int character);
@@ -30,10 +28,10 @@ typedef _DeclPosition = (String path, int line, int character);
 /// Recovers references the Dart analysis server's `textDocument/references`
 /// does not report across library boundaries.
 ///
-/// The server's reverse reference index omits two reference *shapes* when the
+/// The server's reverse reference index omits some reference *shapes* when the
 /// use is in a different library from the declaration, so a declaration used
 /// only through one of them reads as having zero references and is falsely
-/// reported unused:
+/// reported unused. Two confirmed cases:
 ///
 ///  * **Object-pattern fields** — `Type(field: subpattern)` and the `:field`
 ///    shorthand. The instance getter/field named by the pattern field is
@@ -46,12 +44,14 @@ typedef _DeclPosition = (String path, int line, int character);
 ///
 /// For both shapes the analyzer's *forward* resolution still works — that is
 /// why `dart analyze` sees the use — so this recovers them without a fragile
-/// name match. A lexer scan locates candidate usage sites textually, then each
-/// site is confirmed with `textDocument/definition` and kept only if it
-/// resolves back to a declaration under analysis. A site that resolves
-/// elsewhere (a named argument, a map key, an unrelated member) simply never
-/// matches a candidate, so the recovery is precise rather than heuristic: it
-/// can only ever keep a declaration alive that the analyzer agrees is used.
+/// name match. Candidate usage sites are found from the analysis server's own
+/// **semantic tokens** (every member/type reference is tagged with its name
+/// position and a token type), and each one is confirmed with
+/// `textDocument/definition`, kept only if it resolves back to a declaration
+/// under analysis. A site that resolves elsewhere (a named argument, a same-
+/// named local, an unrelated member) simply never matches a candidate, so the
+/// recovery is precise rather than heuristic: it can only ever keep a
+/// declaration alive that the analyzer agrees is used.
 class CrossLibraryReferences {
   const CrossLibraryReferences._(this._recovered);
 
@@ -62,30 +62,61 @@ class CrossLibraryReferences {
   /// An empty recovery: nothing to add back.
   static const empty = CrossLibraryReferences._(<_DeclPosition>{});
 
-  /// Words after which a leading-dot `.name` is an expression (a dot-shorthand)
-  /// rather than a member access on a receiver.
-  static const _shorthandKeywords = {'return', 'yield', 'await', 'case'};
+  /// Semantic-token type names that denote a reference to a member or type
+  /// declaration — as opposed to a keyword, literal, comment, parameter or
+  /// local. Deliberately over-inclusive: correctness comes from the
+  /// `definition` confirmation, so this only needs to bound which sites are
+  /// probed, not to precisely classify them.
+  static const _memberTokenTypes = {
+    'class',
+    'method',
+    'enum',
+    'enumMember',
+    'property',
+    'function',
+    'type',
+  };
 
-  /// Builds the recovery for the declarations whose reference query came back
+  /// Builds the recovery for the [candidates] whose reference query came back
   /// empty (their simple names are [emptyRefNames]).
   ///
-  /// Scans every file [sources] has loaded for object-pattern-field and
-  /// dot-shorthand sites that spell one of those names, confirms each with
+  /// Requests semantic tokens for every file [sources] has loaded, keeps the
+  /// tokens that name one of those declarations (skipping the declarations
+  /// themselves and dartdoc mentions), confirms each with
   /// [LspClient.definition] (pooled at [concurrency]), and records every
   /// declaration a site resolves to. Only empty-ref names are probed, so a
   /// package with no false-positive candidates issues no extra requests.
   static Future<CrossLibraryReferences> resolve({
     required LspClient client,
     required SourceIndex sources,
+    required List<Candidate> candidates,
     required Set<String> emptyRefNames,
     required int concurrency,
   }) async {
     if (emptyRefNames.isEmpty) {
       return empty;
     }
+    final tokenTypes = client.semanticTokenTypes;
+    if (tokenTypes.isEmpty) {
+      // The server advertised no semantic-tokens legend; nothing to recover.
+      return empty;
+    }
+
+    final declarations = <_DeclPosition>{
+      for (final candidate in candidates) _positionOf(candidate),
+    };
     final sites = <_Site>[];
     for (final path in sources.scannedPaths) {
-      _collectSites(sources, path, emptyRefNames, sites);
+      final data = await client.semanticTokensFull(File(path).uri);
+      _collectSites(
+        sources: sources,
+        path: path,
+        data: data,
+        tokenTypes: tokenTypes,
+        names: emptyRefNames,
+        declarations: declarations,
+        out: sites,
+      );
     }
     if (sites.isEmpty) {
       return empty;
@@ -115,105 +146,78 @@ class CrossLibraryReferences {
   }
 
   /// Whether [candidate] — already found to have no references — is in fact
-  /// used through a recovered object-pattern or dot-shorthand site.
-  bool isRecovered(Candidate candidate) {
+  /// used through a recovered site.
+  bool isRecovered(Candidate candidate) =>
+      _recovered.contains(_positionOf(candidate));
+
+  static _DeclPosition _positionOf(Candidate candidate) {
     final start = candidate.symbol.selectionRange.start;
-    return _recovered.contains((candidate.path, start.line, start.character));
+    return (candidate.path, start.line, start.character);
   }
 
-  /// Appends every recoverable usage site in [path] that spells a name in
-  /// [names] to [out].
-  static void _collectSites(
-    SourceIndex sources,
-    String path,
-    Set<String> names,
-    List<_Site> out,
-  ) {
-    final tokens = sources.tokens(path);
+  /// Decodes the delta-encoded semantic-token [data] for [path] and appends the
+  /// member-reference tokens that spell a name in [names] to [out], skipping
+  /// declaration sites (which resolve to themselves) and dartdoc mentions.
+  static void _collectSites({
+    required SourceIndex sources,
+    required String path,
+    required List<int> data,
+    required List<String> tokenTypes,
+    required Set<String> names,
+    required Set<_DeclPosition> declarations,
+    required List<_Site> out,
+  }) {
+    final lines = sources.lines(path);
     final uri = File(path).uri;
-    for (var i = 0; i < tokens.length; i++) {
-      final token = tokens[i];
+    var line = 0;
+    var char = 0;
+    // Each token is five ints: deltaLine, deltaStartChar, length, tokenType,
+    // tokenModifiers. deltaStartChar is relative to the previous token's start
+    // only when on the same line, otherwise to the line start.
+    for (var i = 0; i + 4 < data.length; i += 5) {
+      final deltaLine = data[i];
+      if (deltaLine > 0) {
+        line += deltaLine;
+        char = data[i + 1];
+      } else {
+        char += data[i + 1];
+      }
+      final length = data[i + 2];
+      final typeIndex = data[i + 3];
 
-      // Dot-shorthand: a leading-dot `.name` in an expression position. The
-      // context filter only bounds how many sites are probed; a member access
-      // that slips through resolves to its own receiver's member, never a
-      // candidate, so it is discarded by the definition confirmation.
-      if (!token.isWord &&
-          token.value == '.' &&
-          i + 1 < tokens.length &&
-          tokens[i + 1].isWord &&
-          names.contains(tokens[i + 1].value) &&
-          _isDotShorthandContext(tokens, i)) {
-        out.add(_siteAt(sources, path, uri, tokens[i + 1]));
+      if (typeIndex < 0 || typeIndex >= tokenTypes.length) {
         continue;
       }
-
-      // Object-pattern field `Type(name: …)` / `Type(…, name: …)` — the field
-      // name directly follows the `(` or a `,`. This also matches a named
-      // argument of the same shape; the definition confirmation resolves that
-      // to a parameter, not a candidate, and drops it.
-      if (token.isWord &&
-          names.contains(token.value) &&
-          _followedByColon(tokens, i) &&
-          _afterOpenParenOrComma(tokens, i)) {
-        out.add(_siteAt(sources, path, uri, token));
+      if (!_memberTokenTypes.contains(tokenTypes[typeIndex])) {
         continue;
       }
-
-      // Object-pattern shorthand `Type(:name)` / `Type(…, :name)` — a `:`
-      // right after `(`/`,`, immediately followed by the bound getter name.
-      if (!token.isWord &&
-          token.value == ':' &&
-          _afterOpenParenOrComma(tokens, i) &&
-          i + 1 < tokens.length &&
-          tokens[i + 1].isWord &&
-          names.contains(tokens[i + 1].value)) {
-        out.add(_siteAt(sources, path, uri, tokens[i + 1]));
+      if (line < 0 || line >= lines.length) {
+        continue;
       }
+      final text = _slice(lines[line], char, length);
+      if (text == null || !names.contains(text)) {
+        continue;
+      }
+      // A declaration's own name token resolves to itself; never treat it as a
+      // use, or every unreferenced member would recover itself.
+      if (declarations.contains((path, line, char))) {
+        continue;
+      }
+      // A dartdoc `[Name]` mention is a doc-only reference, handled by the
+      // classifier; it must not count as a real use here.
+      if (lines[line].trimLeft().startsWith('///')) {
+        continue;
+      }
+      out.add((uri: uri, position: Position(line: line, character: char)));
     }
   }
 
-  static _Site _siteAt(
-    SourceIndex sources,
-    String path,
-    Uri uri,
-    Token token,
-  ) => (
-    uri: uri,
-    position: sources.positionAt(path, token.start),
-    name: token.value,
-  );
-
-  static bool _followedByColon(List<Token> tokens, int i) =>
-      i + 1 < tokens.length &&
-      !tokens[i + 1].isWord &&
-      tokens[i + 1].value == ':';
-
-  static bool _afterOpenParenOrComma(List<Token> tokens, int i) =>
-      i > 0 &&
-      !tokens[i - 1].isWord &&
-      (tokens[i - 1].value == '(' || tokens[i - 1].value == ',');
-
-  /// Whether the `.` at [i] begins a dot-shorthand: the preceding token puts it
-  /// in an expression position, not after a receiver (which would make it a
-  /// member access like `foo.bar` or a cascade `..bar`).
-  static bool _isDotShorthandContext(List<Token> tokens, int i) {
-    if (i == 0) {
-      return false;
+  /// The `[char, char + length)` slice of [lineText], or `null` if it runs past
+  /// the line (a multi-line or malformed token).
+  static String? _slice(String lineText, int char, int length) {
+    if (char < 0 || char + length > lineText.length) {
+      return null;
     }
-    final prev = tokens[i - 1];
-    if (prev.isWord) {
-      return _shorthandKeywords.contains(prev.value);
-    }
-    switch (prev.value) {
-      case '(' || ',' || '[' || '{' || '=' || ':':
-        return true;
-      case '>':
-        // The `>` of an arrow `=>` body, not the `>` that closes a type
-        // argument list (as in `List<int>.filled`).
-        return i >= 2 && !tokens[i - 2].isWord && tokens[i - 2].value == '=';
-      default:
-        return false;
-    }
+    return lineText.substring(char, char + length);
   }
 }
