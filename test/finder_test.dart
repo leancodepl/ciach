@@ -723,18 +723,18 @@ void main() {
   group('cross-library reference recovery', () {
     // The consumer file must be scanned too, or the recovery can't see the
     // usage sites the reference index misses.
-    Future<Set<String>> runXref() async {
-      final result = await runFinder(
-        include: const [
-          'lib/xref_shapes.dart',
-          'lib/xref_event.dart',
-          'lib/xref_analytics.dart',
-          'lib/xref_uses.dart',
-        ],
-        exclude: const [],
-      );
-      return result.unused.map((d) => d.qualifiedName).toSet();
-    }
+    Future<FinderResult> runXrefResult() => runFinder(
+      include: const [
+        'lib/xref_shapes.dart',
+        'lib/xref_event.dart',
+        'lib/xref_analytics.dart',
+        'lib/xref_uses.dart',
+      ],
+      exclude: const [],
+    );
+
+    Future<Set<String>> runXref() async =>
+        (await runXrefResult()).unused.map((d) => d.qualifiedName).toSet();
 
     test('a getter/field used only by a cross-file object pattern is not '
         'flagged', () async {
@@ -770,5 +770,32 @@ void main() {
         expect(names, contains('XrefEvent.deadEvent'));
       },
     );
+
+    test('each recovered reference is surfaced as a warning; normal and '
+        'genuinely-dead declarations are not', () async {
+      final result = await runXrefResult();
+      final warned = result.recoveredReferences.map((w) => w.name).toSet();
+      // Recovered (cross-library reference the index missed).
+      expect(
+        warned,
+        containsAll([
+          'XrefLoadedState.hasActive',
+          'XrefLoadedState.ready',
+          'XrefEvent.signOut',
+        ]),
+      );
+      // Normally referenced -> not recovered, no warning.
+      expect(warned, isNot(contains('XrefEvent.signIn')));
+      expect(warned, isNot(contains('XrefLoadedState.localFlag')));
+      // Genuinely dead -> stays a finding, not a warning.
+      expect(warned, isNot(contains('XrefLoadedState.deadShapeGetter')));
+      expect(warned, isNot(contains('XrefEvent.deadEvent')));
+      // The warning carries the confirmed usage location and the hedge.
+      final signOut = result.recoveredReferences.firstWhere(
+        (w) => w.name == 'XrefEvent.signOut',
+      );
+      expect(signOut.usageFilePath, endsWith('xref_uses.dart'));
+      expect(signOut.message, contains('likely a Dart SDK find-references'));
+    });
   });
 }

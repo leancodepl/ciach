@@ -20,22 +20,24 @@ typedef _Site = ({Uri uri, Position position});
 
 typedef _DeclPosition = (String path, int line, int character);
 
-/// Recovers references the Dart analyzer's `textDocument/references` fails to
-/// report for valid cross-library uses: (a) object-pattern fields
-/// (`Type(field: …)`), and (b) dot-shorthands (`.member`) when the referencing
-/// file also declares the target's simple name. Such a use reads as zero
-/// references and is falsely reported unused, so ciach confirms suspected-dead
-/// members with `textDocument/definition` (forward resolution, which does see
-/// them): candidate sites come from semantic tokens and are kept only when they
-/// resolve back to a declaration under analysis, so live code is never dropped.
-// TODO: remove this recovery once the Dart analyzer's find-references reports
-// these references.
+/// A generic backstop for valid cross-library references the Dart analyzer's
+/// `textDocument/references` fails to report — today object-pattern fields
+/// (`Type(field: …)`) and dot-shorthands (`.member`) whose referencing file
+/// also declares the target's simple name, but the mechanism is cause-agnostic.
+/// Such a use reads as zero references and would be falsely reported unused, so
+/// ciach confirms each suspected-dead member with `textDocument/definition`
+/// (forward resolution, which does see the use): candidate sites come from
+/// semantic tokens and are kept only when they resolve back to a declaration
+/// under analysis, so live code is never dropped. It self-deactivates — when
+/// find-references is accurate, a zero-reference member is genuinely dead,
+/// nothing resolves to it, and the recovery is a no-op.
 class CrossLibraryReferences {
-  const CrossLibraryReferences._(this._recovered);
+  const CrossLibraryReferences._(this._usageByDecl);
 
-  final Set<_DeclPosition> _recovered;
+  /// Recovered declaration position -> the usage site that confirmed it.
+  final Map<_DeclPosition, _Site> _usageByDecl;
 
-  static const empty = CrossLibraryReferences._(<_DeclPosition>{});
+  static const empty = CrossLibraryReferences._(<_DeclPosition, _Site>{});
 
   /// Over-inclusive on purpose: the `definition` confirmation, not this set, is
   /// what makes the recovery correct.
@@ -94,22 +96,36 @@ class CrossLibraryReferences {
       }
     });
 
-    final recovered = <_DeclPosition>{};
-    for (final locations in perSite) {
-      for (final loc in locations) {
+    final usageByDecl = <_DeclPosition, _Site>{};
+    for (var i = 0; i < sites.length; i++) {
+      for (final loc in perSite[i]) {
         final start = loc.range.start;
-        recovered.add((
-          SourceIndex.pathOf(loc.uri),
-          start.line,
-          start.character,
-        ));
+        final pos = (SourceIndex.pathOf(loc.uri), start.line, start.character);
+        if (declarations.contains(pos)) {
+          usageByDecl.putIfAbsent(pos, () => sites[i]);
+        }
       }
     }
-    return CrossLibraryReferences._(recovered);
+    return CrossLibraryReferences._(usageByDecl);
   }
 
   bool isRecovered(Candidate candidate) =>
-      _recovered.contains(_positionOf(candidate));
+      _usageByDecl.containsKey(_positionOf(candidate));
+
+  /// The usage site that recovered [candidate], or `null` if not recovered.
+  ({String path, int line, int character})? recoveredUsage(
+    Candidate candidate,
+  ) {
+    final site = _usageByDecl[_positionOf(candidate)];
+    if (site == null) {
+      return null;
+    }
+    return (
+      path: site.uri.toFilePath(),
+      line: site.position.line,
+      character: site.position.character,
+    );
+  }
 
   static _DeclPosition _positionOf(Candidate candidate) {
     final start = candidate.symbol.selectionRange.start;

@@ -9,4 +9,11 @@ String describeShape(XrefState state) => switch (state) {
   _ => 'other',
 };
 
-void emitSignOut(XrefAnalytics analytics) => analytics.logEvent(.signOut);
+class Emitter {
+  Emitter(this._analytics);
+  final XrefAnalytics _analytics;
+
+  // The enclosing method's name collides with the enum value it references via
+  // a dot-shorthand, which is when find-references drops the cross-library use.
+  void signOut() => _analytics.logEvent(.signOut);
+}

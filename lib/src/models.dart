@@ -261,6 +261,52 @@ class UnusedDeclaration {
   };
 }
 
+/// A live declaration whose only reference the analyzer's find-references did
+/// not report, recovered via `textDocument/definition`. Surfaced as a warning
+/// because it points at a likely Dart SDK find-references bug.
+class RecoveredReference {
+  const RecoveredReference({
+    required this.name,
+    required this.filePath,
+    required this.line,
+    required this.column,
+    required this.usageFilePath,
+    required this.usageLine,
+    required this.usageColumn,
+  });
+
+  /// Qualified display name of the recovered declaration.
+  final String name;
+
+  /// Declaration location (root-relative `/`-path, one-based line/column).
+  final String filePath;
+  final int line;
+  final int column;
+
+  /// The confirmed usage location the analyzer failed to report.
+  final String usageFilePath;
+  final int usageLine;
+  final int usageColumn;
+
+  /// Channel-neutral explanation; callers prepend the name and declaration
+  /// location as their output format needs.
+  String get message =>
+      'used at $usageFilePath:$usageLine:$usageColumn, but the Dart analyzer '
+      'did not report this reference (find-references returned none); recovered '
+      'via definition — likely a Dart SDK find-references bug';
+
+  Map<String, Object?> toJson() => {
+    'name': name,
+    'file': filePath,
+    'line': line,
+    'column': column,
+    'usageFile': usageFilePath,
+    'usageLine': usageLine,
+    'usageColumn': usageColumn,
+    'message': message,
+  };
+}
+
 /// The outcome of a finder run.
 class FinderResult {
   /// Creates a result describing a completed finder run.
@@ -270,6 +316,7 @@ class FinderResult {
     required this.filesScanned,
     required this.declarationsChecked,
     required this.elapsed,
+    this.recoveredReferences = const [],
   });
 
   /// Declarations with zero references of any kind — the tool's actual
@@ -293,4 +340,8 @@ class FinderResult {
 
   /// Wall-clock time the run took.
   final Duration elapsed;
+
+  /// Live declarations whose only reference the analyzer's find-references
+  /// missed, recovered via definition — surfaced as warnings, not findings.
+  final List<RecoveredReference> recoveredReferences;
 }

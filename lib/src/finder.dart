@@ -95,6 +95,7 @@ class Ciach {
 
     final unused = <UnusedDeclaration>[];
     final docOnly = <UnusedDeclaration>[];
+    var recoveredReferences = const <RecoveredReference>[];
     var declarationsChecked = 0;
 
     try {
@@ -152,6 +153,13 @@ class Ciach {
         for (var i = 0; i < candidates.length; i++)
           _classifier.classify(candidates[i], refsByCandidate[i], crossLib),
       ];
+
+      recoveredReferences = _recoveredWarnings(
+        candidates,
+        refsByCandidate,
+        crossLib,
+        rootPath,
+      );
 
       // A deser-only union arm reads zero references but is a live serialization
       // member.
@@ -237,7 +245,54 @@ class Ciach {
       filesScanned: files.length,
       declarationsChecked: declarationsChecked,
       elapsed: stopwatch.elapsed,
+      recoveredReferences: recoveredReferences,
     );
+  }
+
+  /// One warning per declaration the cross-library recovery kept alive: it had
+  /// no reported references, yet a usage site resolved back to it — a reference
+  /// the analyzer's find-references missed.
+  List<RecoveredReference> _recoveredWarnings(
+    List<Candidate> candidates,
+    List<List<Location>> refsByCandidate,
+    CrossLibraryReferences crossLib,
+    String rootPath,
+  ) {
+    final warnings = <RecoveredReference>[];
+    for (var i = 0; i < candidates.length; i++) {
+      final candidate = candidates[i];
+      if (refsByCandidate[i].isNotEmpty || candidate.symbol.kind == .class$) {
+        continue;
+      }
+      final usage = crossLib.recoveredUsage(candidate);
+      if (usage == null) {
+        continue;
+      }
+      final name = candidate.symbol.declarationName(candidate.container);
+      final start = candidate.symbol.selectionRange.start;
+      warnings.add(
+        RecoveredReference(
+          name: candidate.container == null
+              ? name
+              : '${candidate.container}.$name',
+          filePath: relativePosix(candidate.path, rootPath),
+          line: start.line + 1,
+          column: start.character + 1,
+          usageFilePath: relativePosix(usage.path, rootPath),
+          usageLine: usage.line + 1,
+          usageColumn: usage.character + 1,
+        ),
+      );
+    }
+    warnings.sort((a, b) {
+      final byFile = a.filePath.compareTo(b.filePath);
+      if (byFile != 0) {
+        return byFile;
+      }
+      final byLine = a.line.compareTo(b.line);
+      return byLine != 0 ? byLine : a.column.compareTo(b.column);
+    });
+    return warnings;
   }
 
   /// Queries `textDocument/references` for every candidate through one global

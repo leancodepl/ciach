@@ -138,6 +138,9 @@ Future<int> _run(List<String> arguments) async {
       stdout.write(Reporter.github(result, pathPrefix: prefix));
     case _:
       stdout.writeln(Reporter.text(result, useColor: useColor));
+      // Recovery warnings go to stderr so they never corrupt text stdout; the
+      // json and github formats carry them in-band instead.
+      stderr.write(Reporter.warningsText(result));
   }
 
   if (result.unused.isNotEmpty && args.flag('remove')) {
