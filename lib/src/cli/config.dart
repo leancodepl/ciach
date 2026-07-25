@@ -34,41 +34,33 @@ const configKeys = <String>{
   'dart',
 };
 
-/// A config file's contents, with one nullable field per setting.
+/// A config file: the settings it holds, where it came from, and typed readers
+/// for pulling values out of it.
 ///
-/// `null` means "not set here", which is what lets the command line and the
-/// built-in defaults show through — see `resolveOptions`.
-class CiachConfig {
-  /// Creates a config with only the given settings present.
-  const CiachConfig({
-    this.path,
-    this.public,
-    this.generated,
-    this.overrides,
-    this.operators,
-    this.unusedUnionMembers,
-    this.reportToJson,
-    this.setExitIfChanged,
-    this.remove,
-    this.force,
-    this.exclude,
-    this.include,
-    this.generatedSuffix,
-    this.kinds,
-    this.format,
-    this.color,
-    this.progress,
-    this.verbose,
-    this.concurrency,
-    this.dart,
+/// Deliberately *not* a field per option. The options are already declared once
+/// in `buildParser`, and `resolveOptions` is the one place that reads them all;
+/// a second hand-written list of the same twenty names would only be something
+/// to forget to update. What the file sets lives in [settings] — validated on
+/// the way in for shape and unknown keys, and on the way out for type — while
+/// `ResolvedOptions` is where a run's settings become properly typed and
+/// non-nullable.
+class ConfigFile {
+  const ConfigFile._({
+    required this.settings,
+    required this.path,
+    required this.ignored,
   });
 
-  /// Parses [source] as a ciach config file.
+  /// A config that sets nothing, from nowhere.
+  const ConfigFile.empty() : settings = const {}, path = null, ignored = false;
+
+  /// Parses [source] as a config file whose settings came from [origin]
+  /// (a file path, which becomes [path] and names the file in errors).
   ///
-  /// [origin] names the source in error messages (typically the file path).
-  /// Throws a [FormatException] describing the offending key on a malformed
-  /// document, an unknown key, or a value of the wrong type.
-  factory CiachConfig.parse(String source, {required String origin}) {
+  /// Throws a [FormatException] on a document that isn't a map of options, or
+  /// one carrying a key that is not in [configKeys]. Individual values are
+  /// checked as they are read, by the readers below.
+  factory ConfigFile.parse(String source, {required String origin}) {
     final Object? document;
     try {
       document = loadYaml(source, sourceUrl: Uri.file(origin));
@@ -78,219 +70,157 @@ class CiachConfig {
 
     // An empty file parses to null; treat it as "no settings", not an error.
     if (document == null) {
-      return const CiachConfig();
+      return ConfigFile._(settings: const {}, path: origin, ignored: false);
     }
     if (document is! Map) {
       throw FormatException('$origin: the top level must be a map of options.');
     }
 
     final unknown = document.keys
-        .map((k) => '$k')
-        .where((k) => !configKeys.contains(k))
+        .map((key) => '$key')
+        .where((key) => !configKeys.contains(key))
         .toList();
     if (unknown.isNotEmpty) {
       final valid = (configKeys.toList()..sort()).join(', ');
       throw FormatException(
         '$origin: unknown option${unknown.length == 1 ? '' : 's'} '
-        "${unknown.map((k) => "'$k'").join(', ')}. Valid options: $valid.",
+        "${unknown.map((key) => "'$key'").join(', ')}. Valid options: $valid.",
       );
     }
 
-    final reader = _ConfigReader(document, origin);
-    return CiachConfig(
-      path: reader.string('path'),
-      public: reader.boolean('public'),
-      generated: reader.boolean('generated'),
-      overrides: reader.boolean('overrides'),
-      operators: reader.boolean('operators'),
-      unusedUnionMembers: reader.boolean('unused-union-members'),
-      reportToJson: reader.boolean('report-tojson'),
-      setExitIfChanged: reader.boolean('set-exit-if-changed'),
-      remove: reader.boolean('remove'),
-      force: reader.boolean('force'),
-      exclude: reader.strings('exclude'),
-      include: reader.strings('include'),
-      generatedSuffix: reader.strings('generated-suffix'),
-      kinds: reader.kinds('kinds'),
-      format: reader.oneOf('format', formatNames),
-      color: reader.boolean('color'),
-      progress: reader.boolean('progress'),
-      verbose: reader.boolean('verbose'),
-      concurrency: reader.positiveInt('concurrency'),
-      dart: reader.string('dart'),
+    return ConfigFile._(
+      settings: {
+        for (final entry in document.entries)
+          // A key with no value (`public:`) counts as unset, so commenting a
+          // value out behaves like deleting the line. YAML collections are
+          // unwrapped so settings holds plain Dart values.
+          if (entry.value case final value?)
+            '${entry.key}': value is Iterable ? value.toList() : value,
+      },
+      path: origin,
+      ignored: false,
     );
   }
 
-  /// Package root to analyze, mirroring the positional `path` argument.
-  final String? path;
+  /// Finds and reads the config file for a run.
+  ///
+  /// [explicitPath] — from `--config` — is read as-is; otherwise
+  /// [configFileName] is looked for in [projectDir]. With [ignore] set the file
+  /// is located (so `--verbose` can name what it skipped) but never read, which
+  /// is what makes `--no-config` survive an unparseable config file.
+  ///
+  /// Throws a [FormatException] when [explicitPath] does not exist, or when the
+  /// file cannot be read or parsed.
+  static ConfigFile load({
+    required String projectDir,
+    String? explicitPath,
+    bool ignore = false,
+  }) {
+    final discovered = File(p.join(projectDir, configFileName));
+    if (ignore) {
+      return ConfigFile._(
+        settings: const {},
+        path: discovered.existsSync() ? discovered.path : null,
+        ignored: true,
+      );
+    }
 
-  /// Mirrors `--[no-]public`.
-  final bool? public;
+    final File file;
+    if (explicitPath != null) {
+      file = File(explicitPath);
+      if (!file.existsSync()) {
+        throw FormatException('Config file does not exist: $explicitPath');
+      }
+    } else {
+      if (!discovered.existsSync()) {
+        return const ConfigFile.empty();
+      }
+      file = discovered;
+    }
 
-  /// Mirrors `--[no-]generated`.
-  final bool? generated;
+    try {
+      return ConfigFile.parse(file.readAsStringSync(), origin: file.path);
+    } on FileSystemException catch (e) {
+      throw FormatException(
+        'Cannot read config file ${file.path}: ${e.message}',
+      );
+    }
+  }
 
-  /// Mirrors `--[no-]overrides`.
-  final bool? overrides;
+  /// What the file sets, keyed by config key, in the order it set them. Only
+  /// keys the file actually carries a value for appear.
+  final Map<String, Object?> settings;
 
-  /// Mirrors `--[no-]operators`.
-  final bool? operators;
-
-  /// Mirrors `--[no-]unused-union-members`.
-  final bool? unusedUnionMembers;
-
-  /// Mirrors `--[no-]report-tojson`.
-  final bool? reportToJson;
-
-  /// Mirrors `--set-exit-if-changed`.
-  final bool? setExitIfChanged;
-
-  /// Mirrors `--remove`.
-  final bool? remove;
-
-  /// Mirrors `--force`.
-  final bool? force;
-
-  /// Mirrors `--exclude`; a single string is accepted as a one-element list.
-  final List<String>? exclude;
-
-  /// Mirrors `--include`; a single string is accepted as a one-element list.
-  final List<String>? include;
-
-  /// Mirrors `--generated-suffix`.
-  final List<String>? generatedSuffix;
-
-  /// Mirrors `--kinds`, unparsed. Either a list of kind names or a single
-  /// comma-separated string; `parseKinds` accepts both shapes.
-  final List<String>? kinds;
-
-  /// Mirrors `--format`.
-  final String? format;
-
-  /// Mirrors `--[no-]color`.
-  final bool? color;
-
-  /// Mirrors `--[no-]progress`.
-  final bool? progress;
-
-  /// Mirrors `--[no-]verbose`.
-  final bool? verbose;
-
-  /// Mirrors `--concurrency`.
-  final int? concurrency;
-
-  /// Mirrors `--dart`.
-  final String? dart;
-
-  /// The settings this config actually specifies, keyed by config key and
-  /// ordered like [configKeys] — the basis of the `--verbose` rundown of what a
-  /// file contributed.
-  Map<String, Object?> get settings => {
-    'path': ?path,
-    'public': ?public,
-    'generated': ?generated,
-    'overrides': ?overrides,
-    'operators': ?operators,
-    'unused-union-members': ?unusedUnionMembers,
-    'report-tojson': ?reportToJson,
-    'set-exit-if-changed': ?setExitIfChanged,
-    'remove': ?remove,
-    'force': ?force,
-    'exclude': ?exclude,
-    'include': ?include,
-    'generated-suffix': ?generatedSuffix,
-    'kinds': ?kinds,
-    'format': ?format,
-    'color': ?color,
-    'progress': ?progress,
-    'verbose': ?verbose,
-    'concurrency': ?concurrency,
-    'dart': ?dart,
-  };
-}
-
-/// The outcome of looking for a config file.
-class LoadedConfig {
-  /// Records a config-file lookup and what it produced.
-  const LoadedConfig({
-    required this.config,
-    required this.path,
-    this.ignored = false,
-  });
-
-  /// The settings read from [path], or an empty config when there was nothing
-  /// to read (or when it was [ignored]).
-  final CiachConfig config;
-
-  /// The config file this came from, or — when [ignored] — the file that was
-  /// skipped. `null` when no config file was found at all.
+  /// The file these settings came from, or — when [ignored] — the file that was
+  /// skipped. `null` when there was no config file at all.
   final String? path;
 
   /// Whether a config file was deliberately skipped (`--no-config`). Nothing
   /// was read or parsed in that case, so even an invalid file is no error.
   final bool ignored;
-}
 
-/// Resolves and loads the config file for a run.
-///
-/// [explicitPath] — from `--config` — is loaded as-is; otherwise
-/// [configFileName] is looked for in [projectDir]. With [ignore] set the file
-/// is located (so `--verbose` can name what it skipped) but never read, and the
-/// returned config is empty.
-///
-/// Throws a [FormatException] when [explicitPath] does not exist or when the
-/// file cannot be parsed.
-LoadedConfig loadConfig({
-  required String projectDir,
-  String? explicitPath,
-  bool ignore = false,
-}) {
-  final discovered = File(p.join(projectDir, configFileName));
-  if (ignore) {
-    return LoadedConfig(
-      config: const CiachConfig(),
-      path: discovered.existsSync() ? discovered.path : null,
-      ignored: true,
-    );
-  }
+  /// A boolean setting, or `null` when the file doesn't set it.
+  bool? boolean(String key) => switch (settings[key]) {
+    null => null,
+    final bool value => value,
+    final other => _wrong(key, 'true or false', other),
+  };
 
-  final File file;
-  if (explicitPath != null) {
-    file = File(explicitPath);
-    if (!file.existsSync()) {
-      throw FormatException('Config file does not exist: $explicitPath');
+  /// A string setting, or `null` when the file doesn't set it.
+  String? string(String key) => switch (settings[key]) {
+    null => null,
+    final String value => value,
+    final other => _wrong(key, 'a string', other),
+  };
+
+  /// A string setting restricted to [allowed] values.
+  String? oneOf(String key, List<String> allowed) {
+    final value = string(key);
+    if (value != null && !allowed.contains(value)) {
+      throw FormatException(
+        "$path: '$key' must be one of ${allowed.join(', ')}, got '$value'.",
+      );
     }
-  } else {
-    if (!discovered.existsSync()) {
-      return const LoadedConfig(config: CiachConfig(), path: null);
+    return value;
+  }
+
+  /// A list-of-strings setting, also accepting a bare string as a one-element
+  /// list (`exclude: test/**`).
+  List<String>? strings(String key) => switch (settings[key]) {
+    null => null,
+    final String value => [value],
+    final Iterable<Object?> values => [
+      for (final value in values)
+        if (value is String) value else _wrong(key, 'a list of strings', value),
+    ],
+    final other => _wrong(key, 'a list of strings', other),
+  };
+
+  /// Declaration kind names, left for `parseKinds` to turn into symbol kinds
+  /// but validated here, so an unknown kind names the file it came from.
+  List<String>? kinds(String key) {
+    final values = strings(key);
+    if (values != null) {
+      try {
+        parseKinds(values);
+      } on FormatException catch (e) {
+        throw FormatException("$path: '$key': ${e.message}");
+      }
     }
-    file = discovered;
+    return values;
   }
 
-  final String source;
-  try {
-    source = file.readAsStringSync();
-  } on FileSystemException catch (e) {
-    throw FormatException('Cannot read config file ${file.path}: ${e.message}');
-  }
+  /// A positive-integer setting, or `null` when the file doesn't set it.
+  int? positiveInt(String key) => switch (settings[key]) {
+    null => null,
+    final int value when value > 0 => value,
+    final other => _wrong(key, 'a positive integer', other),
+  };
 
-  return LoadedConfig(
-    config: CiachConfig.parse(source, origin: file.path),
-    path: file.path,
-  );
-}
-
-/// Reads typed values out of a parsed YAML map, naming the config file and the
-/// offending key on every type mismatch.
-class _ConfigReader {
-  _ConfigReader(this._map, this._origin);
-
-  final Map<Object?, Object?> _map;
-  final String _origin;
-
+  /// Reports a value of the wrong type, naming the file and the key.
   Never _wrong(String key, String expected, Object? value) =>
       throw FormatException(
-        "$_origin: '$key' must be $expected, got ${_describe(value)}.",
+        "$path: '$key' must be $expected, got ${_describe(value)}.",
       );
 
   static String _describe(Object? value) => switch (value) {
@@ -301,65 +231,5 @@ class _ConfigReader {
     Iterable() => 'a list',
     Map() => 'a map',
     _ => '$value',
-  };
-
-  /// The raw value for [key], or `null` when the key is absent. A key present
-  /// with an empty value (`public:`) counts as absent, so commenting a value
-  /// out behaves like deleting the line.
-  Object? _raw(String key) => _map[key];
-
-  bool? boolean(String key) => switch (_raw(key)) {
-    null => null,
-    final bool value => value,
-    final other => _wrong(key, 'true or false', other),
-  };
-
-  String? string(String key) => switch (_raw(key)) {
-    null => null,
-    final String value => value,
-    final other => _wrong(key, 'a string', other),
-  };
-
-  String? oneOf(String key, List<String> allowed) {
-    final value = string(key);
-    if (value != null && !allowed.contains(value)) {
-      throw FormatException(
-        "$_origin: '$key' must be one of ${allowed.join(', ')}, got '$value'.",
-      );
-    }
-    return value;
-  }
-
-  /// A list of strings, also accepting a single string as a one-element list
-  /// (`exclude: test/**`).
-  List<String>? strings(String key) => switch (_raw(key)) {
-    null => null,
-    final String value => [value],
-    final Iterable<Object?> values => [
-      for (final value in values)
-        if (value is String) value else _wrong(key, 'a list of strings', value),
-    ],
-    final other => _wrong(key, 'a list of strings', other),
-  };
-
-  /// Declaration kind names, left unparsed for `parseKinds` to turn into
-  /// symbol kinds, but validated here so an unknown kind names the file it
-  /// came from.
-  List<String>? kinds(String key) {
-    final values = strings(key);
-    if (values != null) {
-      try {
-        parseKinds(values);
-      } on FormatException catch (e) {
-        throw FormatException("$_origin: '$key': ${e.message}");
-      }
-    }
-    return values;
-  }
-
-  int? positiveInt(String key) => switch (_raw(key)) {
-    null => null,
-    final int value when value > 0 => value,
-    final other => _wrong(key, 'a positive integer', other),
   };
 }

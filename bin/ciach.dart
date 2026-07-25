@@ -63,16 +63,16 @@ Future<int> _run(List<String> arguments) async {
   final projectDir = rest.isEmpty ? '.' : rest.first;
 
   final ResolvedOptions resolved;
-  final LoadedConfig loaded;
+  final ConfigFile config;
   try {
-    loaded = loadConfig(
+    config = ConfigFile.load(
       projectDir: projectDir,
       explicitPath: explicitConfig,
       ignore: ignoreConfig,
     );
     resolved = resolveOptions(
       args,
-      loaded.config,
+      config,
       colorDefault: stdout.supportsAnsiEscapes,
       // Progress goes to stderr; default on only when it won't clutter a pipe.
       progressDefault: stderr.hasTerminal,
@@ -83,7 +83,7 @@ Future<int> _run(List<String> arguments) async {
   }
 
   final log = resolved.verbose ? _VerboseLog() : null;
-  log?.lines(describeConfigSource(loaded, projectDir: projectDir));
+  log?.lines(describeConfigSource(config, projectDir: projectDir));
 
   final rootDir = Directory(resolved.rootPath);
   if (!rootDir.existsSync()) {
@@ -102,40 +102,27 @@ Future<int> _run(List<String> arguments) async {
   final format = resolved.format;
   final useColor = resolved.useColor;
   final showProgress = resolved.showProgress;
-  final rootPath = p.normalize(rootDir.absolute.path);
+  final rootPath = resolved.absoluteRootPath;
 
   log?.lines(
     describeSettings(
       resolved,
-      rootPath: rootPath,
       dartExecutable: resolved.dartExecutable == null
           ? '${Platform.resolvedExecutable} (the SDK running ciach)'
           : '${resolved.dartExecutable} (--dart)',
     ),
   );
 
-  final options = FinderOptions(
-    rootPath: rootPath,
-    includeGlobs: resolved.includeGlobs,
-    excludeGlobs: resolved.excludeGlobs,
-    kinds: resolved.kinds,
-    includePublic: resolved.includePublic,
-    includeGenerated: resolved.includeGenerated,
-    additionalGeneratedSuffixes: resolved.additionalGeneratedSuffixes,
-    skipOverrides: !resolved.overrides,
-    skipOperators: !resolved.operators,
-    unusedUnionMembers: resolved.unusedUnionMembers,
-    reportToJson: resolved.reportToJson,
-    concurrency: resolved.concurrency,
-    dartExecutable: resolved.dartExecutable,
-    // The finder narrates its phases through one callback; verbose keeps every
-    // line, plain progress overwrites a single one in place.
-    onProgress: log?.call ?? (showProgress ? _ProgressPrinter().update : null),
-  );
-
   final FinderResult result;
   try {
-    result = await Ciach(options).run();
+    result = await Ciach(
+      resolved.finderOptions(
+        // The finder narrates its phases through one callback; verbose keeps
+        // every line, plain progress overwrites a single one in place.
+        onProgress:
+            log?.call ?? (showProgress ? _ProgressPrinter().update : null),
+      ),
+    ).run();
   } on Object catch (e, st) {
     if (showProgress) {
       stderr.writeln();

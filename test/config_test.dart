@@ -12,17 +12,24 @@ void main() {
 
   /// Resolves [arguments] against [config] with both auto-detected settings
   /// off, so only explicit values can turn them on.
-  ResolvedOptions resolve(List<String> arguments, [CiachConfig? config]) =>
+  ResolvedOptions resolve(List<String> arguments, [ConfigFile? config]) =>
       resolveOptions(
         parser.parse(arguments),
-        config ?? const CiachConfig(),
+        config ?? const ConfigFile.empty(),
         colorDefault: false,
         progressDefault: false,
       );
 
-  group('CiachConfig.parse', () {
+  /// The settings a config [source] alone produces, with an empty command line.
+  ResolvedOptions resolveFile(String source) =>
+      resolve(const [], ConfigFile.parse(source, origin: 'ciach.yaml'));
+
+  group('ConfigFile.parse', () {
     test('reads every option', () {
-      final config = CiachConfig.parse('''
+      // One file setting all twenty keys, checked through the merge — which is
+      // both what the CLI does with them and where each value's type is
+      // enforced.
+      final resolved = resolveFile('''
 path: packages/app
 public: false
 generated: true
@@ -42,49 +49,33 @@ generated-suffix:
   - .gc.dart
 kinds: [class, function]
 format: github
-color: false
-progress: false
-verbose: true
+color: true
+progress: true
 concurrency: 4
 dart: /sdk/bin/dart
-''', origin: 'ciach.yaml');
+''');
 
-      expect(config.path, 'packages/app');
-      expect(config.public, isFalse);
-      expect(config.generated, isTrue);
-      expect(config.overrides, isTrue);
-      expect(config.operators, isTrue);
-      expect(config.unusedUnionMembers, isTrue);
-      expect(config.reportToJson, isTrue);
-      expect(config.setExitIfChanged, isTrue);
-      expect(config.remove, isTrue);
-      expect(config.force, isTrue);
-      expect(config.exclude, ['test/**', 'tool/**']);
-      expect(config.include, ['lib/**']);
-      expect(config.generatedSuffix, ['.gc.dart']);
-      expect(config.kinds, ['class', 'function']);
-      expect(config.format, 'github');
-      expect(config.color, isFalse);
-      expect(config.progress, isFalse);
-      expect(config.verbose, isTrue);
-      expect(config.concurrency, 4);
-      expect(config.dart, '/sdk/bin/dart');
-      // Every key that was in the file, and nothing else.
-      expect(config.settings.keys, configKeys);
-    });
-
-    test('settings lists only what the file sets', () {
-      final config = CiachConfig.parse('''
-public: false
-exclude: ['test/**']
-concurrency: 4
-''', origin: 'ciach.yaml');
-
-      expect(config.settings, {
-        'public': false,
-        'exclude': ['test/**'],
-        'concurrency': 4,
-      });
+      expect(resolved.rootPath, 'packages/app');
+      expect(resolved.includePublic, isFalse);
+      expect(resolved.includeGenerated, isTrue);
+      expect(resolved.overrides, isTrue);
+      expect(resolved.operators, isTrue);
+      expect(resolved.unusedUnionMembers, isTrue);
+      expect(resolved.reportToJson, isTrue);
+      expect(resolved.setExitIfChanged, isTrue);
+      expect(resolved.remove, isTrue);
+      expect(resolved.force, isTrue);
+      expect(resolved.excludeGlobs, ['test/**', 'tool/**']);
+      expect(resolved.includeGlobs, ['lib/**']);
+      expect(resolved.additionalGeneratedSuffixes, ['.gc.dart']);
+      expect(resolved.kinds, <SymbolKind>{.class$, .function});
+      expect(resolved.format, 'github');
+      expect(resolved.useColor, isTrue);
+      expect(resolved.showProgress, isTrue);
+      expect(resolved.concurrency, 4);
+      expect(resolved.dartExecutable, '/sdk/bin/dart');
+      // `verbose` is exercised on its own: it forces `progress` off.
+      expect(resolveFile('verbose: true').verbose, isTrue);
     });
 
     test('covers every command-line option', () {
@@ -97,43 +88,53 @@ concurrency: 4
       expect(configKeys.difference({'path'}), optionNames);
     });
 
-    test('leaves unset options null', () {
-      final config = CiachConfig.parse('public: false', origin: 'ciach.yaml');
+    test('settings lists what the file sets, and only that', () {
+      final config = ConfigFile.parse('''
+public: false
+exclude: ['test/**']
+concurrency: 4
+''', origin: 'ciach.yaml');
 
-      expect(config.public, isFalse);
-      expect(config.format, isNull);
-      expect(config.exclude, isNull);
-      expect(config.concurrency, isNull);
+      expect(config.settings, {
+        'public': false,
+        'exclude': ['test/**'],
+        'concurrency': 4,
+      });
+      expect(config.path, 'ciach.yaml');
+      expect(config.ignored, isFalse);
     });
 
     test('treats an empty or comment-only file as no settings', () {
       for (final source in ['', '\n', '# nothing here\n']) {
-        final config = CiachConfig.parse(source, origin: 'ciach.yaml');
-        expect(config.public, isNull, reason: 'for ${source.trim()}');
+        expect(
+          ConfigFile.parse(source, origin: 'ciach.yaml').settings,
+          isEmpty,
+          reason: 'for ${source.trim()}',
+        );
       }
     });
 
     test('treats a valueless key as unset', () {
-      final config = CiachConfig.parse('public:\n', origin: 'ciach.yaml');
+      final config = ConfigFile.parse('public:\n', origin: 'ciach.yaml');
 
-      expect(config.public, isNull);
+      expect(config.settings, isEmpty);
+      expect(config.boolean('public'), isNull);
     });
 
     test('accepts a bare string where a list is expected', () {
-      final config = CiachConfig.parse("exclude: 'test/**'", origin: 'c.yaml');
-
-      expect(config.exclude, ['test/**']);
+      expect(resolveFile("exclude: 'test/**'").excludeGlobs, ['test/**']);
     });
 
     test('accepts comma-separated kinds in one string', () {
-      final config = CiachConfig.parse('kinds: class,method', origin: 'c.yaml');
-
-      expect(resolve(const [], config).kinds, <SymbolKind>{.class$, .method});
+      expect(resolveFile('kinds: class,method').kinds, <SymbolKind>{
+        .class$,
+        .method,
+      });
     });
 
     test('rejects an unknown option, naming the file and valid keys', () {
       expect(
-        () => CiachConfig.parse('publik: false', origin: 'ciach.yaml'),
+        () => ConfigFile.parse('publik: false', origin: 'ciach.yaml'),
         throwsA(
           isFormatException('ciach.yaml', contains("unknown option 'publik'")),
         ),
@@ -142,7 +143,7 @@ concurrency: 4
 
     test('rejects a top-level document that is not a map', () {
       expect(
-        () => CiachConfig.parse('- public', origin: 'ciach.yaml'),
+        () => ConfigFile.parse('- public', origin: 'ciach.yaml'),
         throwsA(
           isFormatException('ciach.yaml', contains('must be a map of options')),
         ),
@@ -151,14 +152,14 @@ concurrency: 4
 
     test('rejects malformed YAML', () {
       expect(
-        () => CiachConfig.parse('public: [unclosed', origin: 'ciach.yaml'),
+        () => ConfigFile.parse('public: [unclosed', origin: 'ciach.yaml'),
         throwsA(isFormatException('ciach.yaml', contains('not valid YAML'))),
       );
     });
 
     test('rejects a non-boolean flag', () {
       expect(
-        () => CiachConfig.parse('public: sometimes', origin: 'ciach.yaml'),
+        () => resolveFile('public: sometimes'),
         throwsA(
           isFormatException(
             'ciach.yaml',
@@ -170,14 +171,14 @@ concurrency: 4
 
     test('rejects a non-string in a list', () {
       expect(
-        () => CiachConfig.parse('exclude: [1]', origin: 'ciach.yaml'),
+        () => resolveFile('exclude: [1]'),
         throwsA(isFormatException('ciach.yaml', contains('a list of strings'))),
       );
     });
 
     test('rejects an unknown format', () {
       expect(
-        () => CiachConfig.parse('format: xml', origin: 'ciach.yaml'),
+        () => resolveFile('format: xml'),
         throwsA(
           isFormatException('ciach.yaml', contains('text, json, github')),
         ),
@@ -186,7 +187,7 @@ concurrency: 4
 
     test('rejects an unknown kind', () {
       expect(
-        () => CiachConfig.parse('kinds: [klass]', origin: 'ciach.yaml'),
+        () => resolveFile('kinds: [klass]'),
         throwsA(
           isFormatException('ciach.yaml', contains("Unknown kind 'klass'")),
         ),
@@ -196,15 +197,66 @@ concurrency: 4
     test('rejects a non-positive concurrency', () {
       for (final value in ['0', '-2', 'many', '1.5']) {
         expect(
-          () => CiachConfig.parse('concurrency: $value', origin: 'c.yaml'),
-          throwsA(isFormatException('c.yaml', contains('positive integer'))),
+          () => resolveFile('concurrency: $value'),
+          throwsA(
+            isFormatException('ciach.yaml', contains('positive integer')),
+          ),
           reason: 'for concurrency: $value',
+        );
+      }
+    });
+
+    test('checks the type of every key, even one the argv overrides', () {
+      // Resolution is where a config value's type is enforced, so every key
+      // has to be read there whether the command line supersedes it or not —
+      // otherwise a typo would sit in the file unreported. Every option is
+      // given on the command line below, so only an eager read can still catch
+      // the bad value; a map fits no setting, so it is the one wrong value that
+      // works for every key.
+      const everyOption = [
+        '--public',
+        '--generated',
+        '--overrides',
+        '--operators',
+        '--unused-union-members',
+        '--report-tojson',
+        '--set-exit-if-changed',
+        '--remove',
+        '--force',
+        '-e',
+        'test/**',
+        '-i',
+        'lib/**',
+        '--generated-suffix',
+        '.gc.dart',
+        '-k',
+        'class',
+        '-f',
+        'json',
+        '--color',
+        '--progress',
+        '--verbose',
+        '-j',
+        '2',
+        '--dart',
+        '/sdk/bin/dart',
+        'lib',
+      ];
+
+      for (final key in configKeys) {
+        expect(
+          () => resolve(
+            everyOption,
+            ConfigFile.parse('$key: {a: b}', origin: 'ciach.yaml'),
+          ),
+          throwsA(isFormatException('ciach.yaml', contains("'$key'"))),
+          reason: 'for a map under $key',
         );
       }
     });
   });
 
-  group('loadConfig', () {
+  group('ConfigFile.load', () {
     late Directory tempDir;
 
     setUp(() {
@@ -221,64 +273,67 @@ concurrency: 4
     test('discovers ciach.yaml in the project directory', () {
       write('ciach.yaml', 'public: false');
 
-      final loaded = loadConfig(projectDir: tempDir.path);
+      final config = ConfigFile.load(projectDir: tempDir.path);
 
-      expect(loaded.path, p.join(tempDir.path, 'ciach.yaml'));
-      expect(loaded.config.public, isFalse);
+      expect(config.path, p.join(tempDir.path, 'ciach.yaml'));
+      expect(config.boolean('public'), isFalse);
     });
 
     test('discovers ciach.yaml only, not other spellings', () {
       write('ciach.yml', 'format: json');
       write('.ciach.yaml', 'format: json');
 
-      expect(loadConfig(projectDir: tempDir.path).path, isNull);
+      expect(ConfigFile.load(projectDir: tempDir.path).path, isNull);
 
       write('ciach.yaml', 'format: github');
 
-      expect(loadConfig(projectDir: tempDir.path).config.format, 'github');
+      expect(
+        ConfigFile.load(projectDir: tempDir.path).string('format'),
+        'github',
+      );
     });
 
     test('returns an empty config when the directory has none', () {
-      final loaded = loadConfig(projectDir: tempDir.path);
+      final config = ConfigFile.load(projectDir: tempDir.path);
 
-      expect(loaded.path, isNull);
-      expect(loaded.config.public, isNull);
+      expect(config.path, isNull);
+      expect(config.settings, isEmpty);
     });
 
     test('does not look outside the project directory', () {
       write('ciach.yaml', 'public: false');
       final nested = Directory(p.join(tempDir.path, 'nested'))..createSync();
 
-      expect(loadConfig(projectDir: nested.path).path, isNull);
+      expect(ConfigFile.load(projectDir: nested.path).path, isNull);
     });
 
     test('loads an explicit path from outside the project directory', () {
       write('elsewhere.yaml', 'format: json');
       final nested = Directory(p.join(tempDir.path, 'nested'))..createSync();
 
-      final loaded = loadConfig(
+      final config = ConfigFile.load(
         projectDir: nested.path,
         explicitPath: p.join(tempDir.path, 'elsewhere.yaml'),
       );
 
-      expect(loaded.config.format, 'json');
+      expect(config.string('format'), 'json');
     });
 
     test('an explicit path wins over a discoverable file', () {
       write('ciach.yaml', 'format: github');
       write('other.yaml', 'format: json');
 
-      final loaded = loadConfig(
+      final config = ConfigFile.load(
         projectDir: tempDir.path,
         explicitPath: p.join(tempDir.path, 'other.yaml'),
       );
 
-      expect(loaded.config.format, 'json');
+      expect(config.string('format'), 'json');
     });
 
     test('reports a missing explicit path', () {
       expect(
-        () => loadConfig(
+        () => ConfigFile.load(
           projectDir: tempDir.path,
           explicitPath: p.join(tempDir.path, 'nope.yaml'),
         ),
@@ -297,28 +352,28 @@ concurrency: 4
       // config file can't fail a run that asked to ignore it.
       write('ciach.yaml', 'publik: [unclosed');
 
-      final loaded = loadConfig(projectDir: tempDir.path, ignore: true);
+      final config = ConfigFile.load(projectDir: tempDir.path, ignore: true);
 
-      expect(loaded.ignored, isTrue);
-      expect(loaded.path, p.join(tempDir.path, 'ciach.yaml'));
-      expect(loaded.config.settings, isEmpty);
+      expect(config.ignored, isTrue);
+      expect(config.path, p.join(tempDir.path, 'ciach.yaml'));
+      expect(config.settings, isEmpty);
     });
 
     test('ignore reports no path when there was no config anyway', () {
-      final loaded = loadConfig(projectDir: tempDir.path, ignore: true);
+      final config = ConfigFile.load(projectDir: tempDir.path, ignore: true);
 
-      expect(loaded.ignored, isTrue);
-      expect(loaded.path, isNull);
+      expect(config.ignored, isTrue);
+      expect(config.path, isNull);
     });
 
     test('ignore skips an explicit path, and its would-be errors', () {
-      final loaded = loadConfig(
+      final config = ConfigFile.load(
         projectDir: tempDir.path,
         explicitPath: p.join(tempDir.path, 'nope.yaml'),
         ignore: true,
       );
 
-      expect(loaded.path, isNull);
+      expect(config.path, isNull);
     });
   });
 
@@ -346,64 +401,17 @@ concurrency: 4
       expect(resolved.dartExecutable, isNull);
     });
 
-    test('takes config values when the command line is silent', () {
-      final resolved = resolve(
-        const [],
-        const CiachConfig(
-          path: 'packages/app',
-          public: false,
-          generated: true,
-          overrides: true,
-          operators: true,
-          unusedUnionMembers: true,
-          reportToJson: true,
-          setExitIfChanged: true,
-          remove: true,
-          force: true,
-          exclude: ['test/**'],
-          include: ['lib/**'],
-          generatedSuffix: ['.gc.dart'],
-          kinds: ['class'],
-          format: 'json',
-          color: true,
-          progress: true,
-          concurrency: 4,
-          dart: '/sdk/bin/dart',
-        ),
-      );
-
-      expect(resolved.rootPath, 'packages/app');
-      expect(resolved.includePublic, isFalse);
-      expect(resolved.includeGenerated, isTrue);
-      expect(resolved.overrides, isTrue);
-      expect(resolved.operators, isTrue);
-      expect(resolved.unusedUnionMembers, isTrue);
-      expect(resolved.reportToJson, isTrue);
-      expect(resolved.setExitIfChanged, isTrue);
-      expect(resolved.remove, isTrue);
-      expect(resolved.force, isTrue);
-      expect(resolved.excludeGlobs, ['test/**']);
-      expect(resolved.includeGlobs, ['lib/**']);
-      expect(resolved.additionalGeneratedSuffixes, ['.gc.dart']);
-      expect(resolved.kinds, {SymbolKind.class$});
-      expect(resolved.format, 'json');
-      expect(resolved.useColor, isTrue);
-      expect(resolved.showProgress, isTrue);
-      expect(resolved.concurrency, 4);
-      expect(resolved.dartExecutable, '/sdk/bin/dart');
-    });
-
     test('command-line flags override the config', () {
-      const config = CiachConfig(
-        path: 'packages/app',
-        public: false,
-        generated: true,
-        format: 'json',
-        color: false,
-        progress: false,
-        concurrency: 4,
-        dart: '/sdk/bin/dart',
-      );
+      final config = ConfigFile.parse('''
+path: packages/app
+public: false
+generated: true
+format: json
+color: false
+progress: false
+concurrency: 4
+dart: /sdk/bin/dart
+''', origin: 'ciach.yaml');
 
       final resolved = resolve(const [
         '--public',
@@ -430,12 +438,15 @@ concurrency: 4
     });
 
     test('a command-line list replaces the config list, not appends', () {
-      const config = CiachConfig(exclude: ['test/**'], kinds: ['class']);
+      final config = ConfigFile.parse(
+        "exclude: ['test/**']\nkinds: [class]",
+        origin: 'ciach.yaml',
+      );
 
       final resolved = resolve(const ['-e', 'tool/**', '-k', 'method'], config);
 
       expect(resolved.excludeGlobs, ['tool/**']);
-      expect(resolved.kinds, {SymbolKind.method});
+      expect(resolved.kinds, <SymbolKind>{.method});
     });
 
     test('repeated command-line values all survive', () {
@@ -459,7 +470,7 @@ concurrency: 4
       // apart from an absent flag — and it has to, to beat `public: false`.
       final resolved = resolve(const [
         '--public',
-      ], const CiachConfig(public: false));
+      ], ConfigFile.parse('public: false', origin: 'ciach.yaml'));
 
       expect(resolved.includePublic, isTrue);
     });
@@ -467,7 +478,7 @@ concurrency: 4
     test('auto-detected color and progress are the last resort', () {
       final auto = resolveOptions(
         parser.parse(const []),
-        const CiachConfig(),
+        const ConfigFile.empty(),
         colorDefault: true,
         progressDefault: true,
       );
@@ -476,7 +487,7 @@ concurrency: 4
 
       final fromConfig = resolveOptions(
         parser.parse(const []),
-        const CiachConfig(color: false, progress: false),
+        ConfigFile.parse('color: false\nprogress: false', origin: 'c.yaml'),
         colorDefault: true,
         progressDefault: true,
       );
@@ -485,7 +496,7 @@ concurrency: 4
 
       final fromArgs = resolveOptions(
         parser.parse(const ['--no-color', '--no-progress']),
-        const CiachConfig(color: true, progress: true),
+        ConfigFile.parse('color: true\nprogress: true', origin: 'c.yaml'),
         colorDefault: true,
         progressDefault: true,
       );
@@ -496,11 +507,11 @@ concurrency: 4
     test('verbose comes from the command line or the config', () {
       expect(resolve(const ['--verbose']).verbose, isTrue);
       expect(resolve(const ['-v']).verbose, isTrue);
-      expect(resolve(const [], const CiachConfig(verbose: true)).verbose, true);
+      expect(resolveFile('verbose: true').verbose, isTrue);
       expect(
         resolve(const [
           '--no-verbose',
-        ], const CiachConfig(verbose: true)).verbose,
+        ], ConfigFile.parse('verbose: true', origin: 'c.yaml')).verbose,
         isFalse,
       );
     });
@@ -512,7 +523,7 @@ concurrency: 4
       expect(
         resolveOptions(
           parser.parse(const ['--verbose', '--progress']),
-          const CiachConfig(),
+          const ConfigFile.empty(),
           colorDefault: false,
           progressDefault: true,
         ).showProgress,
@@ -521,22 +532,22 @@ concurrency: 4
       expect(
         resolveOptions(
           parser.parse(const []),
-          const CiachConfig(verbose: true, progress: true),
+          ConfigFile.parse('verbose: true\nprogress: true', origin: 'c.yaml'),
           colorDefault: false,
           progressDefault: true,
         ).showProgress,
         isFalse,
       );
-      // …but plain progress still works when verbose is off.
       expect(
         resolveOptions(
           parser.parse(const ['--progress']),
-          const CiachConfig(verbose: true),
+          ConfigFile.parse('verbose: true', origin: 'c.yaml'),
           colorDefault: false,
           progressDefault: false,
         ).showProgress,
         isFalse,
       );
+      // …but plain progress still works when verbose is off.
       expect(resolve(const ['--progress']).showProgress, isTrue);
     });
 
@@ -567,6 +578,27 @@ concurrency: 4
           ),
         ),
       );
+    });
+
+    test('hands the finder its share of the settings', () {
+      final resolved = resolve(const [
+        '--no-public',
+        '--overrides',
+        '-e',
+        'test/**',
+        '-j',
+        '4',
+      ]);
+      final options = resolved.finderOptions();
+
+      expect(options.rootPath, p.normalize(p.absolute('.')));
+      expect(options.includePublic, isFalse);
+      // The finder's flag is the inverse of the CLI's.
+      expect(options.skipOverrides, isFalse);
+      expect(options.skipOperators, isTrue);
+      expect(options.excludeGlobs, ['test/**']);
+      expect(options.concurrency, 4);
+      expect(options.onProgress, isNull);
     });
   });
 }

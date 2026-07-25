@@ -10,12 +10,12 @@ import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 /// [projectDir] is the directory discovery looked in, named so a config that
 /// silently didn't apply — because it sits somewhere else — is obvious.
 List<String> describeConfigSource(
-  LoadedConfig loaded, {
+  ConfigFile config, {
   required String projectDir,
 }) {
-  final path = loaded.path;
+  final path = config.path;
 
-  if (loaded.ignored) {
+  if (config.ignored) {
     final message = path != null
         ? 'Ignoring the config file $path (--no-config).'
         : 'Ignoring any config file (--no-config); there is no '
@@ -30,7 +30,7 @@ List<String> describeConfigSource(
     return [message];
   }
 
-  final settings = loaded.config.settings;
+  final settings = config.settings;
   return [
     'Read config from $path.',
     if (settings.isEmpty)
@@ -47,16 +47,14 @@ List<String> describeConfigSource(
 /// command line, the config file and the defaults have been merged — the answer
 /// to "why did it behave like that?".
 ///
-/// [rootPath] is the resolved absolute package root and [dartExecutable] the
-/// `dart` the analysis server will be launched with, both of which the caller
-/// resolves.
+/// [dartExecutable] is the `dart` the analysis server will be launched with,
+/// which only the caller can resolve — it falls back to the SDK running ciach.
 List<String> describeSettings(
   ResolvedOptions resolved, {
-  required String rootPath,
   required String dartExecutable,
 }) => [
   'Settings for this run:',
-  '  path: $rootPath',
+  '  path: ${resolved.absoluteRootPath}',
   '  public: ${resolved.includePublic}',
   '  generated: ${resolved.includeGenerated}',
   '  overrides: ${resolved.overrides}',
