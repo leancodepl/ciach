@@ -69,13 +69,31 @@ class CrossLibraryReferences {
     final declarations = <_DeclPosition>{
       for (final candidate in candidates) _positionOf(candidate),
     };
+
+    // A matched slice is always a substring of the file, so a file mentioning
+    // none of the names cannot contribute a site — skip its request entirely.
+    final paths = [
+      for (final path in sources.scannedPaths)
+        if (_mentionsAny(sources.content(path), emptyRefNames)) path,
+    ];
+    if (paths.isEmpty) {
+      return empty;
+    }
+
+    final perFile = await mapPooled(paths, concurrency, (path) async {
+      try {
+        return await client.semanticTokensFull(File(path).uri);
+      } on Object {
+        return const <int>[];
+      }
+    });
+
     final sites = <_Site>[];
-    for (final path in sources.scannedPaths) {
-      final data = await client.semanticTokensFull(File(path).uri);
+    for (var i = 0; i < paths.length; i++) {
       _collectSites(
         sources: sources,
-        path: path,
-        data: data,
+        path: paths[i],
+        data: perFile[i],
         tokenTypes: tokenTypes,
         names: emptyRefNames,
         declarations: declarations,
@@ -129,6 +147,9 @@ class CrossLibraryReferences {
     final start = candidate.symbol.selectionRange.start;
     return (candidate.path, start.line, start.character);
   }
+
+  static bool _mentionsAny(String content, Set<String> names) =>
+      names.any(content.contains);
 
   static void _collectSites({
     required SourceIndex sources,

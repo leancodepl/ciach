@@ -18,12 +18,34 @@ void main() {
   FinderResult resultWith(
     List<UnusedDeclaration> unused, {
     List<UnusedDeclaration> docOnly = const [],
+    List<RecoveredReference> recoveredReferences = const [],
   }) => .new(
     unused: unused,
     docOnly: docOnly,
     filesScanned: 3,
     declarationsChecked: 10,
     elapsed: const .new(seconds: 1),
+    recoveredReferences: recoveredReferences,
+  );
+
+  RecoveredReference warning({
+    String name = 'baz',
+    String? container = 'A',
+    String filePath = 'lib/a.dart',
+    int line = 4,
+    int column = 7,
+    String usageFilePath = 'lib/b.dart',
+    int usageLine = 9,
+    int usageColumn = 2,
+  }) => .new(
+    name: name,
+    container: container,
+    filePath: filePath,
+    line: line,
+    column: column,
+    usageFilePath: usageFilePath,
+    usageLine: usageLine,
+    usageColumn: usageColumn,
   );
 
   UnusedDeclaration decl({
@@ -98,6 +120,19 @@ void main() {
       expect(out, startsWith('::notice '));
       expect(out, contains("docOnlyThing' has no code references"));
     });
+
+    test('emits a ::warning annotation for each recovered reference', () {
+      final out = Reporter.github(
+        resultWith(const [], recoveredReferences: [warning()]),
+      );
+      final lines = out.trimRight().split('\n');
+      expect(lines, hasLength(1));
+      expect(
+        lines.single,
+        startsWith('::warning file=lib/a.dart,line=4,col=7,'),
+      );
+      expect(lines.single, contains("::'A.baz' used at lib/b.dart:9:2"));
+    });
   });
 
   group('Reporter.text', () {
@@ -128,6 +163,22 @@ void main() {
     );
   });
 
+  group('Reporter.warningsText', () {
+    test('emits one warning line per recovered reference', () {
+      final out = Reporter.warningsText(
+        resultWith(const [], recoveredReferences: [warning()]),
+      );
+      final lines = out.trimRight().split('\n');
+      expect(lines, hasLength(1));
+      expect(lines.single, startsWith("warning: 'A.baz' (lib/a.dart:4:7) "));
+      expect(lines.single, contains('used at lib/b.dart:9:2'));
+    });
+
+    test('is empty when there are no recovered references', () {
+      expect(Reporter.warningsText(resultWith([decl()])), isEmpty);
+    });
+  });
+
   group('Reporter.json', () {
     test('reports unused and docOnly as separate arrays', () {
       final json =
@@ -150,6 +201,35 @@ void main() {
         (docOnly.single! as Map<String, Object?>)['name'],
         'onlyLinkedFromDocs',
       );
+    });
+
+    test('includes recovered references as a warnings array', () {
+      final json =
+          jsonDecode(
+                Reporter.json(
+                  resultWith(const [], recoveredReferences: [warning()]),
+                ),
+              )
+              as Map<String, Object?>;
+      final warnings = json['warnings']! as List<Object?>;
+      final entry = warnings.single! as Map<String, Object?>;
+      // `name`/`qualifiedName` mean the same as in `unused[]`.
+      expect(entry['name'], 'baz');
+      expect(entry['qualifiedName'], 'A.baz');
+      expect(entry['file'], 'lib/a.dart');
+      expect(entry['line'], 4);
+      expect(entry['column'], 7);
+      expect(entry['usageFile'], 'lib/b.dart');
+      expect(entry['usageLine'], 9);
+      expect(entry['usageColumn'], 2);
+      expect(entry['message'], contains('used at lib/b.dart:9:2'));
+    });
+
+    test('warnings array is empty when there are no recovered references', () {
+      final json =
+          jsonDecode(Reporter.json(resultWith([decl()])))
+              as Map<String, Object?>;
+      expect(json['warnings'], isEmpty);
     });
   });
 }

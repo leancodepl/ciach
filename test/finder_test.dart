@@ -57,6 +57,8 @@ void main() {
       'lib/xref_event.dart',
       'lib/xref_analytics.dart',
       'lib/xref_uses.dart',
+      'lib/xref_collision.dart',
+      'lib/xref_collision_uses.dart',
     ],
     List<String> include = const [],
   }) => Ciach(
@@ -87,6 +89,8 @@ void main() {
       'lib/xref_event.dart',
       'lib/xref_analytics.dart',
       'lib/xref_uses.dart',
+      'lib/xref_collision.dart',
+      'lib/xref_collision_uses.dart',
     ],
     List<String> include = const [],
   }) async {
@@ -773,7 +777,9 @@ void main() {
     test('each recovered reference is surfaced as a warning; normal and '
         'genuinely-dead declarations are not', () async {
       final result = await runXrefResult();
-      final warned = result.recoveredReferences.map((w) => w.name).toSet();
+      final warned = result.recoveredReferences
+          .map((w) => w.qualifiedName)
+          .toSet();
       // Confirmed used by the secondary check.
       expect(
         warned,
@@ -791,10 +797,40 @@ void main() {
       expect(warned, isNot(contains('XrefEvent.deadEvent')));
       // The warning carries the confirmed usage location and the hedge.
       final signOut = result.recoveredReferences.firstWhere(
-        (w) => w.name == 'XrefEvent.signOut',
+        (w) => w.qualifiedName == 'XrefEvent.signOut',
       );
       expect(signOut.usageFilePath, endsWith('xref_uses.dart'));
       expect(signOut.message, contains('likely a Dart SDK find-references'));
     });
+  });
+
+  group('same-simple-name collision recovery', () {
+    // Two members share the simple name `status`: one used only from another
+    // file (must be recovered) and one never used (must stay flagged). Guards
+    // the definition position-matching that tells them apart.
+    Future<FinderResult> runCollision() => runFinder(
+      include: const [
+        'lib/xref_collision.dart',
+        'lib/xref_collision_uses.dart',
+      ],
+      exclude: const [],
+    );
+
+    test(
+      'recovers the used member and still flags the dead namesake',
+      () async {
+        final result = await runCollision();
+        final unused = result.unused.map((d) => d.qualifiedName).toSet();
+        final warned = result.recoveredReferences
+            .map((w) => w.qualifiedName)
+            .toSet();
+        // The genuinely-dead namesake is still reported.
+        expect(unused, contains('DeadState.status'));
+        // The used-only-cross-file namesake is recovered, not reported.
+        expect(unused, isNot(contains('LiveState.status')));
+        expect(warned, contains('LiveState.status'));
+        expect(warned, isNot(contains('DeadState.status')));
+      },
+    );
   });
 }

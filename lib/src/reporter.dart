@@ -95,7 +95,7 @@ abstract final class Reporter {
     final buffer = StringBuffer();
     for (final w in result.recoveredReferences) {
       buffer.writeln(
-        "warning: '${w.name}' (${w.filePath}:${w.line}:${w.column}) "
+        "warning: '${w.qualifiedName}' (${w.filePath}:${w.line}:${w.column}) "
         '${w.message}',
       );
     }
@@ -147,7 +147,7 @@ abstract final class Reporter {
         w.column,
         level: 'warning',
         title: 'Recovered reference (possible analyzer bug)',
-        message: "'${w.name}' ${w.message}",
+        message: "'${w.qualifiedName}' ${w.message}",
       );
     }
     return buffer.toString();

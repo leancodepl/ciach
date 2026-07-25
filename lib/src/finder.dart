@@ -267,13 +267,11 @@ class Ciach {
       if (usage == null) {
         continue;
       }
-      final name = candidate.symbol.declarationName(candidate.container);
       final start = candidate.symbol.selectionRange.start;
       warnings.add(
         RecoveredReference(
-          name: candidate.container == null
-              ? name
-              : '${candidate.container}.$name',
+          name: candidate.symbol.declarationName(candidate.container),
+          container: candidate.container,
           filePath: relativePosix(candidate.path, rootPath),
           line: start.line + 1,
           column: start.character + 1,

@@ -273,10 +273,14 @@ class RecoveredReference {
     required this.usageFilePath,
     required this.usageLine,
     required this.usageColumn,
+    this.container,
   });
 
-  /// Qualified display name of the recovered declaration.
+  /// Simple (unqualified) name of the recovered declaration.
   final String name;
+
+  /// Enclosing declaration name (e.g. the class for a method), if any.
+  final String? container;
 
   /// Declaration location (root-relative `/`-path, one-based line/column).
   final String filePath;
@@ -288,6 +292,9 @@ class RecoveredReference {
   final int usageLine;
   final int usageColumn;
 
+  /// Fully qualified display name, e.g. `MyClass.myMethod`.
+  String get qualifiedName => container == null ? name : '$container.$name';
+
   /// Channel-neutral explanation; callers prepend the name and declaration
   /// location as their output format needs.
   String get message =>
@@ -297,6 +304,8 @@ class RecoveredReference {
 
   Map<String, Object?> toJson() => {
     'name': name,
+    'qualifiedName': qualifiedName,
+    'container': ?container,
     'file': filePath,
     'line': line,
     'column': column,

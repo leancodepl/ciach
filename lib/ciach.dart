@@ -34,6 +34,7 @@ export 'src/models.dart'
         DeclarationRange,
         FinderOptions,
         FinderResult,
+        RecoveredReference,
         SymbolKindLabel,
         UnusedDeclaration;
 export 'src/remover.dart' show removeDeclarations;
