@@ -1,13 +1,13 @@
-// Cross-library reference-recovery fixture (dot-shorthands). Expected findings
-// are asserted by test/finder_test.dart; keep in sync.
+// Recovery fixture. Expected findings are asserted by test/finder_test.dart;
+// keep in sync.
 
 enum XrefEvent {
-  // Referenced normally (imported) -> NOT flagged.
+  // Used normally -> NOT flagged.
   signIn,
 
-  // Used only via a cross-library dot-shorthand -> recovered, NOT flagged.
+  // Used only from another file -> confirmed used, NOT flagged.
   signOut,
 
-  // Never referenced -> still flagged.
+  // Never used -> flagged.
   deadEvent,
 }

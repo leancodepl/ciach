@@ -141,8 +141,8 @@ class Ciach {
         rootPath,
       );
 
-      // Phase 3: recover cross-library references the reference query misses,
-      // so those live members are not misreported as unused.
+      // Phase 3: a secondary check that confirms apparently-unreferenced
+      // members are actually unused before they are reported.
       final crossLib = await _recoverCrossLibraryRefs(
         client,
         candidates,
@@ -249,9 +249,8 @@ class Ciach {
     );
   }
 
-  /// One warning per declaration the cross-library recovery kept alive: it had
-  /// no reported references, yet a usage site resolved back to it — a reference
-  /// the analyzer's find-references missed.
+  /// One warning per declaration the secondary check kept alive: it had no
+  /// reported references, yet a use resolved back to it.
   List<RecoveredReference> _recoveredWarnings(
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
@@ -325,8 +324,8 @@ class Ciach {
     });
   }
 
-  /// Recovers cross-library references the reference query misses, probing only
-  /// the candidates that came back empty — the potential false positives.
+  /// Runs the secondary definition check for the candidates whose reference
+  /// query came back empty — the potential false positives.
   Future<CrossLibraryReferences> _recoverCrossLibraryRefs(
     LspClient client,
     List<Candidate> candidates,

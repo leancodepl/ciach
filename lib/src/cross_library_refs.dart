@@ -20,17 +20,15 @@ typedef _Site = ({Uri uri, Position position});
 
 typedef _DeclPosition = (String path, int line, int character);
 
-/// A generic backstop for valid cross-library references the Dart analyzer's
-/// `textDocument/references` fails to report — today object-pattern fields
-/// (`Type(field: …)`) and dot-shorthands (`.member`) whose referencing file
-/// also declares the target's simple name, but the mechanism is cause-agnostic.
-/// Such a use reads as zero references and would be falsely reported unused, so
-/// ciach confirms each suspected-dead member with `textDocument/definition`
-/// (forward resolution, which does see the use): candidate sites come from
-/// semantic tokens and are kept only when they resolve back to a declaration
-/// under analysis, so live code is never dropped. It self-deactivates — when
-/// find-references is accurate, a zero-reference member is genuinely dead,
-/// nothing resolves to it, and the recovery is a no-op.
+/// A secondary check for declarations that appear to have zero references.
+/// Before one is reported unused, a `textDocument/definition` lookup confirms
+/// whether any use actually resolves back to it; candidate use-sites come from
+/// semantic tokens, and a site counts only when definition resolves it to a
+/// declaration under analysis, so correctness comes from that confirmation
+/// (candidate-finding only needs to be over-inclusive) and live code is never
+/// dropped. It self-deactivates: when references are already complete, a
+/// zero-reference declaration is genuinely dead, nothing resolves to it, and
+/// this is a no-op.
 class CrossLibraryReferences {
   const CrossLibraryReferences._(this._usageByDecl);
 

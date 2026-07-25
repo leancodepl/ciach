@@ -33,7 +33,7 @@ class ReferenceClassifier {
   final bool unusedUnionMembers;
 
   /// Classifies [candidate] from the [refs] reported for it, consulting
-  /// [crossLib] for references the analysis server's index misses.
+  /// [crossLib] as a secondary check on members that appear unreferenced.
   ///
   /// Non-class candidates keep the simple rule: any real (non-doc) reference
   /// means used, only doc-comment links means doc-only, none means unused.

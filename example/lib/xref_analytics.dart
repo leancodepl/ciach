@@ -1,5 +1,5 @@
-// Provides the context-typed API a dot-shorthand resolves against, plus one
-// normal reference that keeps XrefEvent.signIn used.
+// Provides the API the consumer uses, plus one normal reference that keeps
+// XrefEvent.signIn used.
 
 import 'package:sample_pkg/xref_event.dart';
 

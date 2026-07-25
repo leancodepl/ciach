@@ -1,5 +1,5 @@
-// Cross-library reference-recovery fixture (object patterns). Expected findings
-// are asserted by test/finder_test.dart; keep in sync.
+// Recovery fixture. Expected findings are asserted by test/finder_test.dart;
+// keep in sync.
 
 sealed class XrefState {}
 
@@ -8,16 +8,16 @@ final class XrefLoadedState extends XrefState {
 
   final bool active;
 
-  // Used only by a cross-file object pattern -> recovered, NOT flagged.
+  // Used only from another file -> confirmed used, NOT flagged.
   bool get hasActive => active;
 
-  // Stored field with no constructor formal, used only by that pattern.
+  // Used only from another file -> confirmed used, NOT flagged.
   final bool ready = true;
 
-  // Used only by a same-file object pattern (indexed normally).
+  // Used only within this file -> NOT flagged.
   bool get localFlag => active;
 
-  // Never referenced -> still flagged.
+  // Never used -> flagged.
   bool get deadShapeGetter => active;
 }
 

@@ -224,8 +224,7 @@ class LspClient {
   }
 
   /// Resolves the declaration(s) the symbol at [position] in [uri] points to,
-  /// via `textDocument/definition` — the analyzer's forward resolution, which
-  /// sees reference shapes the reverse [references] index misses.
+  /// via `textDocument/definition` (forward resolution).
   Future<List<lsp.Location>> definition(Uri uri, lsp.Position position) async {
     final result = await _client.server.textDocument.definition(
       .new(

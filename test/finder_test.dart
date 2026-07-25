@@ -44,9 +44,8 @@ void main() {
     bool skipOverrides = true,
     bool skipOperators = true,
     Set<SymbolKind>? kinds,
-    // The widget/union/guard/enum-values/cross-library fixtures are scanned
-    // only by their dedicated tests; exclude them from the default-run
-    // assertions.
+    // The widget/union/guard/enum-values/recovery fixtures are scanned only by
+    // their dedicated tests; exclude them from the default-run assertions.
     List<String> exclude = const [
       'lib/widgets.dart',
       'lib/unions.dart',
@@ -775,7 +774,7 @@ void main() {
         'genuinely-dead declarations are not', () async {
       final result = await runXrefResult();
       final warned = result.recoveredReferences.map((w) => w.name).toSet();
-      // Recovered (cross-library reference the index missed).
+      // Confirmed used by the secondary check.
       expect(
         warned,
         containsAll([

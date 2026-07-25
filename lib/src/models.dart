@@ -261,9 +261,9 @@ class UnusedDeclaration {
   };
 }
 
-/// A live declaration whose only reference the analyzer's find-references did
-/// not report, recovered via `textDocument/definition`. Surfaced as a warning
-/// because it points at a likely Dart SDK find-references bug.
+/// A declaration that had no reported references but was confirmed used by the
+/// secondary definition check. Surfaced as a warning so the missed reference
+/// can be looked into.
 class RecoveredReference {
   const RecoveredReference({
     required this.name,
@@ -283,7 +283,7 @@ class RecoveredReference {
   final int line;
   final int column;
 
-  /// The confirmed usage location the analyzer failed to report.
+  /// The confirmed usage location.
   final String usageFilePath;
   final int usageLine;
   final int usageColumn;
@@ -341,7 +341,7 @@ class FinderResult {
   /// Wall-clock time the run took.
   final Duration elapsed;
 
-  /// Live declarations whose only reference the analyzer's find-references
-  /// missed, recovered via definition — surfaced as warnings, not findings.
+  /// Declarations confirmed used by the secondary definition check despite
+  /// having no reported references — surfaced as warnings, not findings.
   final List<RecoveredReference> recoveredReferences;
 }
