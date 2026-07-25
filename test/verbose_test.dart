@@ -62,10 +62,9 @@ void main() {
         projectDir: dir.path,
       );
 
-      final expected =
-          'Ignoring the config file ${p.join(dir.path, 'ciach.yaml')} '
-          '(--no-config).';
-      expect(lines, [expected]);
+      expect(lines, [
+        'Ignoring the config file ${p.join(dir.path, 'ciach.yaml')} (--no-config).',
+      ]);
     });
 
     test('says --no-config changed nothing when there was no file', () {

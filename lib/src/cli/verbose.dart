@@ -16,18 +16,18 @@ List<String> describeConfigSource(
   final path = config.path;
 
   if (config.ignored) {
-    final message = path != null
-        ? 'Ignoring the config file $path (--no-config).'
-        : 'Ignoring any config file (--no-config); there is no '
-              '$configFileName in $projectDir anyway.';
-    return [message];
+    return [
+      if (path != null)
+        'Ignoring the config file $path (--no-config).'
+      else
+        'Ignoring any config file (--no-config); there is no $configFileName in $projectDir anyway.',
+    ];
   }
 
   if (path == null) {
-    final message =
-        'No $configFileName in $projectDir; using command-line arguments '
-        'and built-in defaults.';
-    return [message];
+    return [
+      'No $configFileName in $projectDir; using command-line arguments and built-in defaults.',
+    ];
   }
 
   final settings = config.settings;

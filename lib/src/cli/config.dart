@@ -83,8 +83,7 @@ class ConfigFile {
     if (unknown.isNotEmpty) {
       final valid = (configKeys.toList()..sort()).join(', ');
       throw FormatException(
-        '$origin: unknown option${unknown.length == 1 ? '' : 's'} '
-        "${unknown.map((key) => "'$key'").join(', ')}. Valid options: $valid.",
+        '$origin: unknown option${unknown.length == 1 ? '' : 's'} ${unknown.map((key) => "'$key'").join(', ')}. Valid options: $valid.',
       );
     }
 

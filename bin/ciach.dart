@@ -93,8 +93,7 @@ Future<int> _run(List<String> arguments) async {
 
   if (resolved.force && !resolved.remove) {
     stderr.writeln(
-      'Skipping the removal prompt only makes sense when removing: --force '
-      '(or `force: true`) requires --remove (or `remove: true`).',
+      'Skipping the removal prompt only makes sense when removing: --force (or `force: true`) requires --remove (or `remove: true`).',
     );
     return 2;
   }
@@ -138,10 +137,7 @@ Future<int> _run(List<String> arguments) async {
   }
 
   log?.call(
-    'Scanned ${result.filesScanned} file(s) and checked '
-    '${result.declarationsChecked} declaration(s) in '
-    '${result.elapsed.inMilliseconds}ms: ${result.unused.length} unused, '
-    '${result.docOnly.length} referenced only from doc comments.',
+    'Scanned ${result.filesScanned} file(s) and checked ${result.declarationsChecked} declaration(s) in ${result.elapsed.inMilliseconds}ms: ${result.unused.length} unused, ${result.docOnly.length} referenced only from doc comments.',
   );
 
   switch (format) {
@@ -187,8 +183,7 @@ Future<void> _removeUnused(
   final blocked = result.unused.where((d) => d.removalBlocked).length;
   if (blocked > 0) {
     log?.call(
-      'Skipping $blocked of $count finding$plural: removing them safely would '
-      'need a source rewrite (see --unused-union-members and remove safety).',
+      'Skipping $blocked of $count finding$plural: removing them safely would need a source rewrite (see --unused-union-members and remove safety).',
     );
   }
 
@@ -202,8 +197,7 @@ Future<void> _removeUnused(
     }
     if (!stdin.hasTerminal) {
       stdout.writeln(
-        'Refusing to remove declarations without a terminal to confirm on; '
-        'pass --force to remove without asking.',
+        'Refusing to remove declarations without a terminal to confirm on; pass --force to remove without asking.',
       );
       return;
     }
@@ -231,8 +225,7 @@ Future<void> _removeUnused(
 
   final filesChanged = removeDeclarations(result.unused, rootPath);
   stdout.writeln(
-    'Removed $count unused declaration$plural from $filesChanged '
-    "file${filesChanged == 1 ? '' : 's'}. Run 'dart format' to tidy up spacing.",
+    "Removed $count unused declaration$plural from $filesChanged file${filesChanged == 1 ? '' : 's'}. Run 'dart format' to tidy up spacing.",
   );
   // Surface any advisory hints (e.g. a removed prevent-instantiation
   // constructor) once more, since removing the declaration also removes the
