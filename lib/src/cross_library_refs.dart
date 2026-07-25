@@ -20,13 +20,16 @@ typedef _Site = ({Uri uri, Position position});
 
 typedef _DeclPosition = (String path, int line, int character);
 
-/// Recovers references the analysis server's `textDocument/references` does not
-/// report across library boundaries — object-pattern fields (`Type(field: …)`)
-/// and dot-shorthands (`.member`) — which otherwise read as zero references and
-/// are falsely reported unused. Candidate usage sites are found from the
-/// server's semantic tokens and confirmed with `textDocument/definition`, whose
-/// forward resolution does see them; a site is kept only if it resolves back to
-/// a declaration under analysis, so live code is never dropped.
+/// Recovers references the Dart analyzer's `textDocument/references` fails to
+/// report for valid cross-library uses: (a) object-pattern fields
+/// (`Type(field: …)`), and (b) dot-shorthands (`.member`) when the referencing
+/// file also declares the target's simple name. Such a use reads as zero
+/// references and is falsely reported unused, so ciach confirms suspected-dead
+/// members with `textDocument/definition` (forward resolution, which does see
+/// them): candidate sites come from semantic tokens and are kept only when they
+/// resolve back to a declaration under analysis, so live code is never dropped.
+// TODO: remove this recovery once the Dart analyzer's find-references reports
+// these references.
 class CrossLibraryReferences {
   const CrossLibraryReferences._(this._recovered);
 
