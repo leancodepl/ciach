@@ -13,6 +13,8 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/args.dart';
+import 'package:ciach/src/cli/config.dart';
+import 'package:ciach/src/cli/options.dart';
 import 'package:ciach/src/reporter.dart';
 import 'package:path/path.dart' as p;
 
@@ -48,62 +50,66 @@ Future<int> _run(List<String> arguments) async {
     );
     return 2;
   }
-  final rootPath = rest.isEmpty ? '.' : rest.first;
-  final rootDir = Directory(rootPath);
-  if (!rootDir.existsSync()) {
-    stderr.writeln('Path does not exist: $rootPath');
+  final ignoreConfig = args.flag('no-config');
+  final explicitConfig = args.option('config');
+  if (ignoreConfig && explicitConfig != null) {
+    stderr.writeln('--config cannot be combined with --no-config.');
     return 2;
   }
 
-  if (args.flag('force') && !args.flag('remove')) {
-    stderr.writeln('--force requires --remove.');
-    return 2;
-  }
-
-  final Set<SymbolKind> kinds;
+  final ResolvedOptions resolved;
   try {
-    kinds = parseKinds(args.multiOption('kinds'));
+    // Discovery looks in the package root named on the command line — a config
+    // file's own `path` cannot decide where that config file is read from.
+    final loaded = loadConfig(
+      projectDir: rest.isEmpty ? '.' : rest.first,
+      explicitPath: explicitConfig,
+      ignore: ignoreConfig,
+    );
+    resolved = resolveOptions(
+      args,
+      loaded.config,
+      colorDefault: stdout.supportsAnsiEscapes,
+      // Progress goes to stderr; default on only when it won't clutter a pipe.
+      progressDefault: stderr.hasTerminal,
+    );
   } on FormatException catch (e) {
     stderr.writeln(e.message);
     return 2;
   }
 
-  // `allowed` on the option already rejects unknown values during parsing.
-  final format = args.option('format')!;
-
-  final useColor = args.wasParsed('color')
-      ? args.flag('color')
-      : stdout.supportsAnsiEscapes;
-  // Progress goes to stderr; default on only when it won't clutter a pipe.
-  final showProgress = args.wasParsed('progress')
-      ? args.flag('progress')
-      : stderr.hasTerminal;
-
-  final int concurrency;
-  try {
-    concurrency = int.parse(args.option('concurrency')!);
-    if (concurrency < 1) {
-      throw const FormatException();
-    }
-  } on FormatException {
-    stderr.writeln('--concurrency must be a positive integer.');
+  final rootDir = Directory(resolved.rootPath);
+  if (!rootDir.existsSync()) {
+    stderr.writeln('Path does not exist: ${resolved.rootPath}');
     return 2;
   }
 
+  if (resolved.force && !resolved.remove) {
+    stderr.writeln(
+      'Skipping the removal prompt only makes sense when removing: --force '
+      '(or `force: true`) requires --remove (or `remove: true`).',
+    );
+    return 2;
+  }
+
+  final format = resolved.format;
+  final useColor = resolved.useColor;
+  final showProgress = resolved.showProgress;
+
   final options = FinderOptions(
     rootPath: rootDir.absolute.path,
-    includeGlobs: args.multiOption('include'),
-    excludeGlobs: args.multiOption('exclude'),
-    kinds: kinds,
-    includePublic: args.flag('public'),
-    includeGenerated: args.flag('generated'),
-    additionalGeneratedSuffixes: args.multiOption('generated-suffix'),
-    skipOverrides: !args.flag('overrides'),
-    skipOperators: !args.flag('operators'),
-    unusedUnionMembers: args.flag('unused-union-members'),
-    reportToJson: args.flag('report-tojson'),
-    concurrency: concurrency,
-    dartExecutable: args.option('dart'),
+    includeGlobs: resolved.includeGlobs,
+    excludeGlobs: resolved.excludeGlobs,
+    kinds: resolved.kinds,
+    includePublic: resolved.includePublic,
+    includeGenerated: resolved.includeGenerated,
+    additionalGeneratedSuffixes: resolved.additionalGeneratedSuffixes,
+    skipOverrides: !resolved.overrides,
+    skipOperators: !resolved.operators,
+    unusedUnionMembers: resolved.unusedUnionMembers,
+    reportToJson: resolved.reportToJson,
+    concurrency: resolved.concurrency,
+    dartExecutable: resolved.dartExecutable,
     onProgress: showProgress ? _ProgressPrinter().update : null,
   );
 
@@ -140,29 +146,35 @@ Future<int> _run(List<String> arguments) async {
       stdout.writeln(Reporter.text(result, useColor: useColor));
   }
 
-  if (result.unused.isNotEmpty && args.flag('remove')) {
-    await _removeUnused(result, rootDir.absolute.path, args, format, useColor);
+  if (result.unused.isNotEmpty && resolved.remove) {
+    await _removeUnused(
+      result,
+      rootDir.absolute.path,
+      resolved,
+      format,
+      useColor,
+    );
   }
 
-  if (result.unused.isNotEmpty && args.flag('set-exit-if-changed')) {
+  if (result.unused.isNotEmpty && resolved.setExitIfChanged) {
     return 1;
   }
   return 0;
 }
 
-/// Reports what would be removed, confirms unless [ArgResults.flag]
-/// `'force'` is set, and deletes the unused declarations from disk.
+/// Reports what would be removed, confirms unless [ResolvedOptions.force] is
+/// set, and deletes the unused declarations from disk.
 Future<void> _removeUnused(
   FinderResult result,
   String rootPath,
-  ArgResults args,
+  ResolvedOptions resolved,
   String format,
   bool useColor,
 ) async {
   final count = result.unused.length;
   final plural = count == 1 ? '' : 's';
 
-  var proceed = args.flag('force');
+  var proceed = resolved.force;
   if (!proceed) {
     // The chosen --format may not be human-readable; show the findings
     // again so the confirmation prompt is never a shot in the dark.

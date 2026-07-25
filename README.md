@@ -78,6 +78,9 @@ ciach --remove
 
 # Remove without asking (e.g. from a script)
 ciach --remove --force
+
+# Ignore the package's ciach.yaml for one run
+ciach --no-config
 ```
 
 ### Options
@@ -86,6 +89,8 @@ ciach --remove --force
 | --- | --- | --- |
 | `[path]` | `.` | Package root to analyze. |
 | `-h, --help` | — | Print usage information. |
+| `--config <path>` | auto | Read settings from this YAML file instead of the auto-discovered one. See [Configuration file](#configuration-file). |
+| `--no-config` | off | Ignore the config file, even if one is found. |
 | `--[no-]public` | on | Report unused public declarations too. Disable to report only private (`_`-prefixed) ones. |
 | `--[no-]generated` | off | Scan generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, …). |
 | `--[no-]overrides` | off | Report `@override` members too. Off by default — see limitations. |
@@ -107,6 +112,64 @@ ciach --remove --force
 
 Exit codes: `0` success, `1` unused found with `--set-exit-if-changed`, `2`
 usage or analysis error.
+
+### Configuration file
+
+Every option above can also live in a `ciach.yaml` (or `ciach.yml`) file in the
+package root, so a project's settings are checked in once instead of being
+retyped on every invocation:
+
+```yaml
+# ciach.yaml
+public: false
+exclude:
+  - 'test/**'
+  - 'tool/**'
+generated-suffix:
+  - .gc.dart
+kinds: [class, function, method]
+format: github
+set-exit-if-changed: true
+concurrency: 8
+```
+
+The key is the long option name, minus the `--` — `public: false` is
+`--no-public`, `unused-union-members: true` is `--unused-union-members` — plus
+`path` for the positional path argument. Repeatable options (`exclude`,
+`include`, `generated-suffix`, `kinds`) take a YAML list, or a bare string when
+there is only one (`exclude: 'test/**'`). With the file above, a plain `ciach`
+behaves like:
+
+```bash
+ciach --no-public -e 'test/**' -e 'tool/**' --generated-suffix .gc.dart \
+  -k class,function,method -f github --set-exit-if-changed -j 8
+```
+
+Unknown keys and values of the wrong type are usage errors (exit `2`) naming
+the offending key, rather than being silently ignored.
+
+**Discovery.** `ciach` looks for `ciach.yaml`, then `ciach.yml`, in the package
+root being analyzed — the `[path]` argument, or the current directory when
+there isn't one. Only that directory: no walking up to parent directories, so
+in a monorepo each package's config is its own. `--config <path>` reads a file
+from anywhere else instead, and errors out if it doesn't exist.
+
+**Precedence.** Command line beats config file beats built-in default. Passing
+an option explicitly always wins, even when the value matches the default
+(`ciach --public` overrides `public: false`), and a repeatable option given on
+the command line replaces the config's list rather than adding to it. To skip a
+checked-in config for one run — say, to see everything a CI-tuned config
+filters out — pass `--no-config`:
+
+```bash
+# Full report, ignoring the project's ciach.yaml
+ciach --no-config
+
+# Settings from somewhere else entirely
+ciach --config tool/ciach-strict.yaml
+```
+
+`--config` and `--no-config` cannot be combined.
 
 ### Doc-only findings
 

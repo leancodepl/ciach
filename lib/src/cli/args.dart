@@ -10,6 +10,7 @@
 
 import 'package:args/args.dart';
 import 'package:ciach/ciach.dart';
+import 'package:ciach/src/cli/config.dart';
 import 'package:collection/collection.dart';
 
 /// Friendly `--kinds` names mapped to LSP symbol kinds.
@@ -33,6 +34,13 @@ const kindAliases = <String, SymbolKind>{
 
 /// The `--kinds` alias names, sorted, for help text and error messages.
 String get kindNames => kindAliases.keys.sorted().join(', ');
+
+/// The accepted `--format` values; the first one is the default.
+const formatNames = ['text', 'json', 'github'];
+
+/// The `--concurrency` default, as a string so the parser can show it in
+/// `--help` and the resolver can parse it back the same way.
+const defaultConcurrency = '16';
 
 /// Parses the `--kinds` values (comma-separated, repeatable) into symbol kinds,
 /// falling back to [FinderOptions.defaultKinds] when none are given.
@@ -62,6 +70,22 @@ ArgParser buildParser() => .new()
     abbr: 'h',
     negatable: false,
     help: 'Print this usage information.',
+  )
+  ..addOption(
+    'config',
+    help:
+        'Path to a YAML config file. Defaults to ${configFileNames.first} (or\n'
+        '${configFileNames.last}) in the analyzed package root, when present.',
+    valueHelp: 'path',
+  )
+  // Not a negatable `config` flag — `config` is the option above — but a flag
+  // in its own right, so `--no-config` reads the way you'd expect it to.
+  ..addFlag(
+    'no-config',
+    negatable: false,
+    help:
+        'Ignore any config file, including one that would be discovered\n'
+        'automatically. Cannot be combined with --config.',
   )
   ..addFlag(
     'public',
@@ -158,8 +182,8 @@ ArgParser buildParser() => .new()
   ..addOption(
     'format',
     abbr: 'f',
-    allowed: ['text', 'json', 'github'],
-    defaultsTo: 'text',
+    allowed: formatNames,
+    defaultsTo: formatNames.first,
     help: 'Output format.',
     allowedHelp: {
       'text': 'Human-readable, grouped by file.',
@@ -178,7 +202,7 @@ ArgParser buildParser() => .new()
   ..addOption(
     'concurrency',
     abbr: 'j',
-    defaultsTo: '16',
+    defaultsTo: defaultConcurrency,
     help:
         'How many reference queries to run against the analysis server at\n'
         'once. Higher can be faster on large projects, up to the limit of\n'
@@ -204,12 +228,32 @@ Usage: ciach [options] [path]
 
 ${parser.usage}
 
+Config file:
+  Every option above can also be set in a YAML file — ${configFileNames.first}
+  (or ${configFileNames.last}) in the package root, picked up automatically —
+  using the long option name as the key, plus `path` for the positional
+  argument. Anything passed on the command line wins over the file, and
+  --no-config ignores it entirely.
+
+    # ${configFileNames.first}
+    public: false
+    exclude:
+      - 'test/**'
+    kinds: [class, function]
+    format: json
+
 Examples:
   # Scan the current package
   ciach
 
   # Only private declarations, excluding tests, as JSON
   ciach --no-public -e 'test/**' -f json lib/
+
+  # Read settings from a config file elsewhere
+  ciach --config tool/ciach.yaml
+
+  # Ignore the package's config file for one run
+  ciach --no-config
 
   # GitHub Actions annotations, fail the job if anything is found
   ciach -f github --set-exit-if-changed

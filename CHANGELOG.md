@@ -1,5 +1,10 @@
 ## Unreleased
 
+- Add YAML config file support: every command-line option can also be set in a
+  `ciach.yaml` (or `ciach.yml`) in the analyzed package root, discovered
+  automatically. Use `--config <path>` to read one from elsewhere, or
+  `--no-config` to ignore a discovered file. Command-line arguments override
+  the config, which overrides the built-in defaults.
 - Document the `--unused-union-members`, `--report-tojson`,
   `--generated-suffix`, and `--help` options in the README, which existed in
   the CLI but were missing from the options table.
