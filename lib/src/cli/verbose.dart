@@ -80,7 +80,7 @@ List<String> describeSettings(
 /// non-empty one is comma-separated, everything else is itself.
 String _value(Object? value) => switch (value) {
   [] => '(none)',
-  final List<Object?> list => list.join(', '),
+  List() => value.join(', '),
   _ => '$value',
 };
 
