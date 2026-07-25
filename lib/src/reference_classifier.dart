@@ -33,13 +33,10 @@ class ReferenceClassifier {
   final bool unusedUnionMembers;
 
   /// Classifies [candidate] from the [refs] reported for it, consulting
-  /// [crossLib] to recover references the analysis server's index misses.
+  /// [crossLib] for references the analysis server's index misses.
   ///
   /// Non-class candidates keep the simple rule: any real (non-doc) reference
-  /// means used, only doc-comment links means doc-only, none means unused —
-  /// except that a member with no reported references is only unused if
-  /// [crossLib] has not recovered a cross-library object-pattern or
-  /// dot-shorthand use of it (leancodepl/ciach#24, #25).
+  /// means used, only doc-comment links means doc-only, none means unused.
   ///
   /// Classes get [_classifyClass], which discounts *self-references* — the
   /// class's own body, and the `State<Self>` StatefulWidget pairing — so a

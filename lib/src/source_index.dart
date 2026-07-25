@@ -33,9 +33,7 @@ class SourceIndex {
   /// The absolute file path a reference [uri] points at.
   static String pathOf(String uri) => Uri.parse(uri).toFilePath();
 
-  /// The files opened for this run — every path passed to [cacheLines]. This is
-  /// the set of sources the finder scanned, used by the cross-library reference
-  /// recovery to locate usage sites the analysis server's index misses.
+  /// The files opened for this run — every path passed to [cacheLines].
   Iterable<String> get scannedPaths => _scanned;
 
   /// Reads [path] from disk, returning `null` if it can't be read.

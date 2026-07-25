@@ -720,10 +720,9 @@ void main() {
     });
   });
 
-  group('cross-library reference recovery (issues #24, #25)', () {
-    // Scan only the cross-library fixture files (declarations + their consumer).
-    // The consumer must be scanned too, so the recovery can locate the usage
-    // sites the analysis server's reference index does not report.
+  group('cross-library reference recovery', () {
+    // The consumer file must be scanned too, or the recovery can't see the
+    // usage sites the reference index misses.
     Future<Set<String>> runXref() async {
       final result = await runFinder(
         include: const [
@@ -737,7 +736,7 @@ void main() {
       return result.unused.map((d) => d.qualifiedName).toSet();
     }
 
-    test('#24: a getter/field used only by a cross-file object pattern is not '
+    test('a getter/field used only by a cross-file object pattern is not '
         'flagged', () async {
       final names = await runXref();
       expect(names, isNot(contains('XrefLoadedState.hasActive')));
@@ -745,15 +744,14 @@ void main() {
     });
 
     test(
-      '#24: a same-file object-pattern reference still keeps a getter alive',
+      'a same-file object-pattern reference still keeps a getter alive',
       () async {
         expect(await runXref(), isNot(contains('XrefLoadedState.localFlag')));
       },
     );
 
     test(
-      '#25: an enum value used only via a cross-library dot-shorthand is not '
-      'flagged',
+      'an enum value used only via a cross-library dot-shorthand is not flagged',
       () async {
         expect(await runXref(), isNot(contains('XrefEvent.signOut')));
       },

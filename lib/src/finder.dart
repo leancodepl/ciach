@@ -140,10 +140,8 @@ class Ciach {
         rootPath,
       );
 
-      // Phase 3: recover references the analysis server's index does not report
-      // across libraries — cross-file object-pattern fields and dot-shorthands
-      // (leancodepl/ciach#24, #25) — for the candidates that came back with no
-      // references, so those live members are not misreported as unused.
+      // Phase 3: recover cross-library references the reference query misses,
+      // so those live members are not misreported as unused.
       final crossLib = await _recoverCrossLibraryRefs(
         client,
         candidates,
@@ -272,9 +270,8 @@ class Ciach {
     });
   }
 
-  /// Recovers cross-library references the analysis server's reference index
-  /// misses (object-pattern fields and dot-shorthands), for just the candidates
-  /// whose reference query came back empty — the potential false positives.
+  /// Recovers cross-library references the reference query misses, probing only
+  /// the candidates that came back empty — the potential false positives.
   Future<CrossLibraryReferences> _recoverCrossLibraryRefs(
     LspClient client,
     List<Candidate> candidates,
@@ -297,9 +294,8 @@ class Ciach {
     );
   }
 
-  /// The simple (last-segment) name of a possibly-qualified declaration name —
-  /// `bar` for a named constructor reported as `Foo.bar`, the name itself
-  /// otherwise. This is the identifier a dot-shorthand or pattern field spells.
+  /// The last-segment name — `bar` for a constructor reported as `Foo.bar` —
+  /// which is the identifier a usage site spells.
   static String _simpleName(String name) =>
       name.contains('.') ? name.split('.').last : name;
 

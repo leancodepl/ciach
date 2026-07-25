@@ -16,57 +16,26 @@ import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
-/// A usage site to confirm: the identifier's position in a file.
 typedef _Site = ({Uri uri, Position position});
 
-/// A declaration's identity as a position: its file path and the zero-based
-/// line/character where its name starts. This is exactly what
-/// `textDocument/definition` reports as the resolved location, so it is the key
-/// that matches a recovered usage back to a candidate declaration.
 typedef _DeclPosition = (String path, int line, int character);
 
-/// Recovers references the Dart analysis server's `textDocument/references`
-/// does not report across library boundaries.
-///
-/// The server's reverse reference index omits some reference *shapes* when the
-/// use is in a different library from the declaration, so a declaration used
-/// only through one of them reads as having zero references and is falsely
-/// reported unused. Two confirmed cases:
-///
-///  * **Object-pattern fields** — `Type(field: subpattern)` and the `:field`
-///    shorthand. The instance getter/field named by the pattern field is
-///    resolved by the analyzer but not indexed as a reference
-///    (leancodepl/ciach#24).
-///  * **Dot-shorthands** — a leading-dot `.member` access (Dart 3.10) that
-///    resolves against a context type without importing the declaring library,
-///    so an enum value, static member or named constructor used only through
-///    one reads as unused (leancodepl/ciach#25).
-///
-/// For both shapes the analyzer's *forward* resolution still works — that is
-/// why `dart analyze` sees the use — so this recovers them without a fragile
-/// name match. Candidate usage sites are found from the analysis server's own
-/// **semantic tokens** (every member/type reference is tagged with its name
-/// position and a token type), and each one is confirmed with
-/// `textDocument/definition`, kept only if it resolves back to a declaration
-/// under analysis. A site that resolves elsewhere (a named argument, a same-
-/// named local, an unrelated member) simply never matches a candidate, so the
-/// recovery is precise rather than heuristic: it can only ever keep a
-/// declaration alive that the analyzer agrees is used.
+/// Recovers references the analysis server's `textDocument/references` does not
+/// report across library boundaries — object-pattern fields (`Type(field: …)`)
+/// and dot-shorthands (`.member`) — which otherwise read as zero references and
+/// are falsely reported unused. Candidate usage sites are found from the
+/// server's semantic tokens and confirmed with `textDocument/definition`, whose
+/// forward resolution does see them; a site is kept only if it resolves back to
+/// a declaration under analysis, so live code is never dropped.
 class CrossLibraryReferences {
   const CrossLibraryReferences._(this._recovered);
 
-  /// The declaration positions confirmed to be referenced via a recovered
-  /// shape. A candidate whose name position is in here was a false positive.
   final Set<_DeclPosition> _recovered;
 
-  /// An empty recovery: nothing to add back.
   static const empty = CrossLibraryReferences._(<_DeclPosition>{});
 
-  /// Semantic-token type names that denote a reference to a member or type
-  /// declaration — as opposed to a keyword, literal, comment, parameter or
-  /// local. Deliberately over-inclusive: correctness comes from the
-  /// `definition` confirmation, so this only needs to bound which sites are
-  /// probed, not to precisely classify them.
+  /// Over-inclusive on purpose: the `definition` confirmation, not this set, is
+  /// what makes the recovery correct.
   static const _memberTokenTypes = {
     'class',
     'method',
@@ -77,15 +46,8 @@ class CrossLibraryReferences {
     'type',
   };
 
-  /// Builds the recovery for the [candidates] whose reference query came back
-  /// empty (their simple names are [emptyRefNames]).
-  ///
-  /// Requests semantic tokens for every file [sources] has loaded, keeps the
-  /// tokens that name one of those declarations (skipping the declarations
-  /// themselves and dartdoc mentions), confirms each with
-  /// [LspClient.definition] (pooled at [concurrency]), and records every
-  /// declaration a site resolves to. Only empty-ref names are probed, so a
-  /// package with no false-positive candidates issues no extra requests.
+  /// Only the [emptyRefNames] (simple names of the zero-reference [candidates])
+  /// are probed, so a package with no false positives issues no extra requests.
   static Future<CrossLibraryReferences> resolve({
     required LspClient client,
     required SourceIndex sources,
@@ -98,7 +60,6 @@ class CrossLibraryReferences {
     }
     final tokenTypes = client.semanticTokenTypes;
     if (tokenTypes.isEmpty) {
-      // The server advertised no semantic-tokens legend; nothing to recover.
       return empty;
     }
 
@@ -126,7 +87,6 @@ class CrossLibraryReferences {
       try {
         return await client.definition(site.uri, site.position);
       } on Object {
-        // A position the server can't resolve is simply not a recovered use.
         return const <Location>[];
       }
     });
@@ -145,8 +105,6 @@ class CrossLibraryReferences {
     return CrossLibraryReferences._(recovered);
   }
 
-  /// Whether [candidate] — already found to have no references — is in fact
-  /// used through a recovered site.
   bool isRecovered(Candidate candidate) =>
       _recovered.contains(_positionOf(candidate));
 
@@ -155,9 +113,6 @@ class CrossLibraryReferences {
     return (candidate.path, start.line, start.character);
   }
 
-  /// Decodes the delta-encoded semantic-token [data] for [path] and appends the
-  /// member-reference tokens that spell a name in [names] to [out], skipping
-  /// declaration sites (which resolve to themselves) and dartdoc mentions.
   static void _collectSites({
     required SourceIndex sources,
     required String path,
@@ -171,9 +126,8 @@ class CrossLibraryReferences {
     final uri = File(path).uri;
     var line = 0;
     var char = 0;
-    // Each token is five ints: deltaLine, deltaStartChar, length, tokenType,
-    // tokenModifiers. deltaStartChar is relative to the previous token's start
-    // only when on the same line, otherwise to the line start.
+    // LSP semantic tokens: five ints each — deltaLine, deltaStartChar (relative
+    // to the previous token only on the same line), length, tokenType, mods.
     for (var i = 0; i + 4 < data.length; i += 5) {
       final deltaLine = data[i];
       if (deltaLine > 0) {
@@ -198,13 +152,12 @@ class CrossLibraryReferences {
       if (text == null || !names.contains(text)) {
         continue;
       }
-      // A declaration's own name token resolves to itself; never treat it as a
-      // use, or every unreferenced member would recover itself.
+      // A declaration's own token resolves to itself, so skip it — otherwise
+      // every unreferenced member would recover itself.
       if (declarations.contains((path, line, char))) {
         continue;
       }
-      // A dartdoc `[Name]` mention is a doc-only reference, handled by the
-      // classifier; it must not count as a real use here.
+      // A dartdoc mention is a doc-only reference, not a real use.
       if (lines[line].trimLeft().startsWith('///')) {
         continue;
       }
@@ -212,8 +165,6 @@ class CrossLibraryReferences {
     }
   }
 
-  /// The `[char, char + length)` slice of [lineText], or `null` if it runs past
-  /// the line (a multi-line or malformed token).
   static String? _slice(String lineText, int char, int length) {
     if (char < 0 || char + length > lineText.length) {
       return null;
