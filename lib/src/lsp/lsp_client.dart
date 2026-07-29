@@ -119,21 +119,13 @@ class LspClient {
 
   /// Reads the legend from raw capabilities JSON to avoid depending on the
   /// `semanticTokensProvider` union's typed shape. Empty if absent.
-  static List<String> _legendTokenTypes(lsp.ServerCapabilities capabilities) {
-    final provider = capabilities.toJson()['semanticTokensProvider'];
-    if (provider is! Map<String, Object?>) {
-      return const [];
-    }
-    final legend = provider['legend'];
-    if (legend is! Map<String, Object?>) {
-      return const [];
-    }
-    final types = legend['tokenTypes'];
-    if (types is! List) {
-      return const [];
-    }
-    return [for (final t in types) '$t'];
-  }
+  static List<String> _legendTokenTypes(lsp.ServerCapabilities capabilities) =>
+      switch (capabilities.toJson()['semanticTokensProvider']) {
+        {'legend': {'tokenTypes': final List<Object?> types}} => [
+          for (final t in types) '$t',
+        ],
+        _ => const [],
+      };
 
   void _onAnalyzerStatus(Object? params) {
     final analyzing = params is Map && params['isAnalyzing'] == true;
@@ -233,10 +225,7 @@ class LspClient {
       ),
     );
     final definition = result.asDefinition;
-    if (definition == null) {
-      return const [];
-    }
-    return definition.asLocationList ?? [?definition.asLocation];
+    return definition?.asLocationList ?? [?definition?.asLocation];
   }
 
   /// The raw, delta-encoded `textDocument/semanticTokens/full` data for [uri],

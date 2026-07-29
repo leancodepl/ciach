@@ -88,18 +88,17 @@ class CrossLibraryReferences {
       }
     });
 
-    final sites = <_Site>[];
-    for (var i = 0; i < paths.length; i++) {
-      _collectSites(
-        sources: sources,
-        path: paths[i],
-        data: perFile[i],
-        tokenTypes: tokenTypes,
-        names: emptyRefNames,
-        declarations: declarations,
-        out: sites,
-      );
-    }
+    final sites = [
+      for (var i = 0; i < paths.length; i++)
+        ..._collectSites(
+          sources: sources,
+          path: paths[i],
+          data: perFile[i],
+          tokenTypes: tokenTypes,
+          names: emptyRefNames,
+          declarations: declarations,
+        ),
+    ];
     if (sites.isEmpty) {
       return empty;
     }
@@ -151,17 +150,17 @@ class CrossLibraryReferences {
   static bool _mentionsAny(String content, Set<String> names) =>
       names.any(content.contains);
 
-  static void _collectSites({
+  static List<_Site> _collectSites({
     required SourceIndex sources,
     required String path,
     required List<int> data,
     required List<String> tokenTypes,
     required Set<String> names,
     required Set<_DeclPosition> declarations,
-    required List<_Site> out,
   }) {
     final lines = sources.lines(path);
     final uri = File(path).uri;
+    final sites = <_Site>[];
     var line = 0;
     var char = 0;
     // LSP semantic tokens: five ints each — deltaLine, deltaStartChar (relative
@@ -199,8 +198,9 @@ class CrossLibraryReferences {
       if (lines[line].trimLeft().startsWith('///')) {
         continue;
       }
-      out.add((uri: uri, position: Position(line: line, character: char)));
+      sites.add((uri: uri, position: Position(line: line, character: char)));
     }
+    return sites;
   }
 
   static String? _slice(String lineText, int char, int length) {
