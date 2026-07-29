@@ -1,11 +1,8 @@
 ## Unreleased
 
-- Fix false positives for cross-library references: a live getter used only in
-  a cross-file object pattern and a live enum value used only via cross-library
-  dot-shorthand were incorrectly reported as unused (and removed by `--remove`).
-  Now confirmed with a secondary `textDocument/definition` check before
-  flagging. ([#24](https://github.com/leancodepl/ciach/issues/24),
-  [#25](https://github.com/leancodepl/ciach/issues/25))
+- Add a secondary `textDocument/definition` check for zero-reference
+  declarations, so valid uses the reference search misses no longer produce
+  false 'unused' reports. ([#26](https://github.com/leancodepl/ciach/pull/26))
 - Document the `--unused-union-members`, `--report-tojson`,
   `--generated-suffix`, and `--help` options in the README, which existed in
   the CLI but were missing from the options table.
