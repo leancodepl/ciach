@@ -150,17 +150,16 @@ class CrossLibraryReferences {
   static bool _mentionsAny(String content, Set<String> names) =>
       names.any(content.contains);
 
-  static List<_Site> _collectSites({
+  static Iterable<_Site> _collectSites({
     required SourceIndex sources,
     required String path,
     required List<int> data,
     required List<String> tokenTypes,
     required Set<String> names,
     required Set<_DeclPosition> declarations,
-  }) {
+  }) sync* {
     final lines = sources.lines(path);
     final uri = File(path).uri;
-    final sites = <_Site>[];
     var line = 0;
     var char = 0;
     // LSP semantic tokens: five ints each — deltaLine, deltaStartChar (relative
@@ -198,9 +197,8 @@ class CrossLibraryReferences {
       if (lines[line].trimLeft().startsWith('///')) {
         continue;
       }
-      sites.add((uri: uri, position: Position(line: line, character: char)));
+      yield (uri: uri, position: Position(line: line, character: char));
     }
-    return sites;
   }
 
   static String? _slice(String lineText, int char, int length) {

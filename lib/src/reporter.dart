@@ -94,8 +94,9 @@ abstract final class Reporter {
   static String warningsText(FinderResult result) {
     final buffer = StringBuffer();
     for (final w in result.recoveredReferences) {
-      final at = '${w.filePath}:${w.line}:${w.column}';
-      buffer.writeln("warning: '${w.qualifiedName}' ($at) ${w.message}");
+      buffer.writeln(
+        "warning: '${w.qualifiedName}' (${w.filePath}:${w.line}:${w.column}) ${w.message}",
+      );
     }
     return buffer.toString();
   }
