@@ -16,6 +16,7 @@ import 'package:ciach/src/concurrency.dart';
 import 'package:ciach/src/conventions/flutter_widgets.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/conventions/serialization.dart';
+import 'package:ciach/src/cross_library_refs.dart';
 import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/models.dart';
@@ -94,6 +95,7 @@ class Ciach {
 
     final unused = <UnusedDeclaration>[];
     final docOnly = <UnusedDeclaration>[];
+    var recoveredReferences = const <RecoveredReference>[];
     var declarationsChecked = 0;
 
     try {
@@ -139,10 +141,25 @@ class Ciach {
         rootPath,
       );
 
+      // Phase 3: a secondary check that confirms apparently-unreferenced
+      // members are actually unused before they are reported.
+      final crossLib = await _recoverCrossLibraryRefs(
+        client,
+        candidates,
+        refsByCandidate,
+      );
+
       final statuses = [
         for (var i = 0; i < candidates.length; i++)
-          _classifier.classify(candidates[i], refsByCandidate[i]),
+          _classifier.classify(candidates[i], refsByCandidate[i], crossLib),
       ];
+
+      recoveredReferences = _recoveredWarnings(
+        candidates,
+        refsByCandidate,
+        crossLib,
+        rootPath,
+      );
 
       // A deser-only union arm reads zero references but is a live serialization
       // member.
@@ -228,7 +245,51 @@ class Ciach {
       filesScanned: files.length,
       declarationsChecked: declarationsChecked,
       elapsed: stopwatch.elapsed,
+      recoveredReferences: recoveredReferences,
     );
+  }
+
+  /// One warning per declaration the secondary check kept alive: it had no
+  /// reported references, yet a use resolved back to it.
+  List<RecoveredReference> _recoveredWarnings(
+    List<Candidate> candidates,
+    List<List<Location>> refsByCandidate,
+    CrossLibraryReferences crossLib,
+    String rootPath,
+  ) {
+    final warnings = <RecoveredReference>[];
+    for (var i = 0; i < candidates.length; i++) {
+      final candidate = candidates[i];
+      if (refsByCandidate[i].isNotEmpty || candidate.symbol.kind == .class$) {
+        continue;
+      }
+      final usage = crossLib.recoveredUsage(candidate);
+      if (usage == null) {
+        continue;
+      }
+      final start = candidate.symbol.selectionRange.start;
+      warnings.add(
+        RecoveredReference(
+          name: candidate.symbol.declarationName(candidate.container),
+          container: candidate.container,
+          filePath: relativePosix(candidate.path, rootPath),
+          line: start.line + 1,
+          column: start.character + 1,
+          usageFilePath: relativePosix(usage.path, rootPath),
+          usageLine: usage.line + 1,
+          usageColumn: usage.character + 1,
+        ),
+      );
+    }
+    warnings.sort((a, b) {
+      final byFile = a.filePath.compareTo(b.filePath);
+      if (byFile != 0) {
+        return byFile;
+      }
+      final byLine = a.line.compareTo(b.line);
+      return byLine != 0 ? byLine : a.column.compareTo(b.column);
+    });
+    return warnings;
   }
 
   /// Queries `textDocument/references` for every candidate through one global
@@ -260,6 +321,35 @@ class Ciach {
       return refs;
     });
   }
+
+  /// Runs the secondary definition check for the candidates whose reference
+  /// query came back empty — the potential false positives.
+  Future<CrossLibraryReferences> _recoverCrossLibraryRefs(
+    LspClient client,
+    List<Candidate> candidates,
+    List<List<Location>> refsByCandidate,
+  ) {
+    final emptyRefNames = <String>{
+      for (var i = 0; i < candidates.length; i++)
+        if (refsByCandidate[i].isEmpty && candidates[i].symbol.kind != .class$)
+          _simpleName(candidates[i].symbol.name),
+    };
+    if (emptyRefNames.isNotEmpty) {
+      _report('Recovering cross-library references…');
+    }
+    return CrossLibraryReferences.resolve(
+      client: client,
+      sources: _sources,
+      candidates: candidates,
+      emptyRefNames: emptyRefNames,
+      concurrency: options.concurrency,
+    );
+  }
+
+  /// The last-segment name — `bar` for a constructor reported as `Foo.bar` —
+  /// which is the identifier a usage site spells.
+  static String _simpleName(String name) =>
+      name.contains('.') ? name.split('.').last : name;
 
   /// Whether an unused [candidate] should be silently suppressed (never
   /// reported): a live freezed-union arm, an exempt `toJson` hook, a

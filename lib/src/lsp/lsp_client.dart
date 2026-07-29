@@ -38,8 +38,14 @@ class LspClient {
   final _stderrBuffer = StringBuffer();
   bool _shuttingDown = false;
 
+  List<String> _semanticTokenTypes = const [];
+
   /// Everything the server wrote to stderr (useful when things go wrong).
   String get stderr => _stderrBuffer.toString();
+
+  /// The ordered token-type names a `textDocument/semanticTokens` response
+  /// indexes into. Empty until [initialize], or if the server sends no legend.
+  List<String> get semanticTokenTypes => _semanticTokenTypes;
 
   /// Spawns `<dart> language-server --protocol=lsp` and wires up the client.
   ///
@@ -88,21 +94,38 @@ class LspClient {
   /// Performs the `initialize` / `initialized` handshake for [rootUri].
   Future<void> initialize(Uri rootUri) async {
     final uri = rootUri.toString();
-    await _client.start(
+    final result = await _client.start(
       clientInfo: const .new(name: 'ciach', version: '1.0.0'),
       rootUri: uri,
       workspaceFolders: [.new(uri: uri, name: 'root')],
-      // Advertise hierarchical document symbols so the server returns
-      // `DocumentSymbol[]` (with children) rather than flat `SymbolInformation`.
-      // `window.workDoneProgress` is deliberately left unset so the server
-      // reports analysis progress via `$/analyzerStatus`.
+      // Hierarchical document symbols yield nested `DocumentSymbol[]` rather
+      // than flat `SymbolInformation`; semantic tokens make the server send its
+      // legend. `workDoneProgress` is left unset so progress arrives via
+      // `$/analyzerStatus`.
       capabilities: const .new(
         textDocument: .new(
           documentSymbol: .new(hierarchicalDocumentSymbolSupport: true),
+          semanticTokens: .new(
+            requests: .new(full: .bool(true)),
+            tokenTypes: [],
+            tokenModifiers: [],
+            formats: [.relative],
+          ),
         ),
       ),
     );
+    _semanticTokenTypes = _legendTokenTypes(result.capabilities);
   }
+
+  /// Reads the legend from raw capabilities JSON to avoid depending on the
+  /// `semanticTokensProvider` union's typed shape. Empty if absent.
+  static List<String> _legendTokenTypes(lsp.ServerCapabilities capabilities) =>
+      switch (capabilities.toJson()['semanticTokensProvider']) {
+        {'legend': {'tokenTypes': final List<Object?> types}} => [
+          for (final t in types) '$t',
+        ],
+        _ => const [],
+      };
 
   void _onAnalyzerStatus(Object? params) {
     final analyzing = params is Map && params['isAnalyzing'] == true;
@@ -190,6 +213,28 @@ class LspClient {
       ),
     );
     return result ?? const [];
+  }
+
+  /// Resolves the declaration(s) the symbol at [position] in [uri] points to,
+  /// via `textDocument/definition` (forward resolution).
+  Future<List<lsp.Location>> definition(Uri uri, lsp.Position position) async {
+    final result = await _client.server.textDocument.definition(
+      .new(
+        textDocument: .new(uri: uri.toString()),
+        position: position,
+      ),
+    );
+    final definition = result.asDefinition;
+    return definition?.asLocationList ?? [?definition?.asLocation];
+  }
+
+  /// The raw, delta-encoded `textDocument/semanticTokens/full` data for [uri],
+  /// or empty when the server produces no tokens.
+  Future<List<int>> semanticTokensFull(Uri uri) async {
+    final result = await _client.server.textDocument.semanticTokensFull(
+      .new(textDocument: .new(uri: uri.toString())),
+    );
+    return result?.data ?? const [];
   }
 
   /// Gracefully shuts the server down and terminates the process.

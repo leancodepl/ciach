@@ -1,5 +1,8 @@
 ## Unreleased
 
+- Add a secondary `textDocument/definition` check for zero-reference
+  declarations, so valid uses the reference search misses no longer produce
+  false 'unused' reports. ([#26](https://github.com/leancodepl/ciach/pull/26))
 - Document the `--unused-union-members`, `--report-tojson`,
   `--generated-suffix`, and `--help` options in the README, which existed in
   the CLI but were missing from the options table.

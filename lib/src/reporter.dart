@@ -86,7 +86,19 @@ abstract final class Reporter {
       },
       'unused': [for (final decl in result.unused) decl.toJson()],
       'docOnly': [for (final decl in result.docOnly) decl.toJson()],
+      'warnings': [for (final w in result.recoveredReferences) w.toJson()],
     });
+  }
+
+  /// Recovery warnings for stderr (text format), one per line, or empty.
+  static String warningsText(FinderResult result) {
+    final buffer = StringBuffer();
+    for (final w in result.recoveredReferences) {
+      buffer.writeln(
+        "warning: '${w.qualifiedName}' (${w.filePath}:${w.line}:${w.column}) ${w.message}",
+      );
+    }
+    return buffer.toString();
   }
 
   /// [GitHub Actions workflow commands][] — one `::warning` annotation per
@@ -126,8 +138,24 @@ abstract final class Reporter {
             'references, only a dartdoc link',
       );
     }
+    for (final w in result.recoveredReferences) {
+      _writeAnnotationRaw(
+        buffer,
+        _annotationFile(w.filePath, pathPrefix),
+        w.line,
+        w.column,
+        level: 'warning',
+        title: 'Recovered reference (possible analyzer bug)',
+        message: "'${w.qualifiedName}' ${w.message}",
+      );
+    }
     return buffer.toString();
   }
+
+  static String _annotationFile(String filePath, String pathPrefix) =>
+      pathPrefix == '.' || pathPrefix.isEmpty
+      ? filePath
+      : p.posix.normalize('$pathPrefix/$filePath');
 
   static void _writeAnnotation(
     StringBuffer buffer,
@@ -136,15 +164,30 @@ abstract final class Reporter {
     required String level,
     required String title,
     required String message,
+  }) => _writeAnnotationRaw(
+    buffer,
+    _annotationFile(decl.filePath, pathPrefix),
+    decl.line,
+    decl.column,
+    level: level,
+    title: title,
+    message: message,
+  );
+
+  static void _writeAnnotationRaw(
+    StringBuffer buffer,
+    String file,
+    int line,
+    int col, {
+    required String level,
+    required String title,
+    required String message,
   }) {
-    final file = pathPrefix == '.' || pathPrefix.isEmpty
-        ? decl.filePath
-        : p.posix.normalize('$pathPrefix/${decl.filePath}');
     buffer.writeln(
       '::$level '
       'file=${_escapeProperty(file)},'
-      'line=${decl.line},'
-      'col=${decl.column},'
+      'line=$line,'
+      'col=$col,'
       'title=${_escapeProperty(title)}'
       '::${_escapeData(message)}',
     );
