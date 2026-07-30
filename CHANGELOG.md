@@ -3,8 +3,13 @@
 - Add config file support: any option can be set in a `ciach.yaml` in the
   package root, and the command line overrides it. `--config <path>` reads one
   from elsewhere, `--no-config` ignores it.
-- Add `-v`, `--verbose` to narrate a run on stderr: config used, settings
-  resolved, scan phases, what `--remove` touches. Supersedes `--progress`.
+- Add `-v`, `--verbose` to narrate a run on stderr: config used, every setting
+  and the layer it came from, scan phases, what `--remove` touches. Supersedes
+  `--progress`.
+- Resolve options with `package:config`, so each one is declared once for the
+  command line, the config file and its default. Invalid values are now all
+  reported at once, and `--concurrency 0` and a stray second path argument word
+  their errors slightly differently.
 - Document the `--unused-union-members`, `--report-tojson`,
   `--generated-suffix`, and `--help` options in the README, which existed in
   the CLI but were missing from the options table.

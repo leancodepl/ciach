@@ -2,50 +2,24 @@ import 'dart:io';
 
 import 'package:ciach/src/cli/args.dart';
 import 'package:collection/collection.dart';
+import 'package:config/config.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
-/// The file name looked for when discovering a config in the project
-/// directory.
-const configFileName = 'ciach.yaml';
+/// Every key a config file may contain: the config key of each option that
+/// declares one, so the accepted set follows [CiachOption] rather than being
+/// maintained alongside it.
+final configKeys = {for (final option in CiachOption.values) ?option.configKey};
 
-/// Every key a config file may contain. Each one mirrors the command-line
-/// flag of the same name (`path` mirrors the positional path argument), so
-/// there is exactly one name to learn per setting.
-const configKeys = <String>{
-  'path',
-  'public',
-  'generated',
-  'overrides',
-  'operators',
-  'unused-union-members',
-  'report-tojson',
-  'set-exit-if-changed',
-  'remove',
-  'force',
-  'exclude',
-  'include',
-  'generated-suffix',
-  'kinds',
-  'format',
-  'color',
-  'progress',
-  'verbose',
-  'concurrency',
-  'dart',
-};
-
-/// A config file: the settings it holds, where it came from, and typed readers
-/// for pulling values out of it.
+/// A config file: the settings it holds, where it came from, and the typed
+/// lookups that hand them to `package:config`.
 ///
-/// Deliberately *not* a field per option. The options are already declared once
-/// in `buildParser`, and `resolveOptions` is the one place that reads them all;
-/// a second hand-written list of the same twenty names would only be something
-/// to forget to update. What the file sets lives in [settings] — validated on
-/// the way in for shape and unknown keys, and on the way out for type — while
-/// `ResolvedOptions` is where a run's settings become properly typed and
-/// non-nullable.
-class ConfigFile {
+/// As a [ConfigurationBroker] this is the config-file layer of option
+/// resolution — the command line still wins, and the option's own default is
+/// still the fallback. What stays ciach's own business is everything about the
+/// file itself: where to look for it, whether to read it at all, and reporting
+/// a malformed one against the path it came from.
+class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
   const ConfigFile._({
     required this.settings,
     required this.path,
@@ -58,9 +32,9 @@ class ConfigFile {
   /// Parses [source] as a config file whose settings came from [origin]
   /// (a file path, which becomes [path] and names the file in errors).
   ///
-  /// Throws a [FormatException] on a document that isn't a map of options, or
-  /// one carrying a key that is not in [configKeys]. Individual values are
-  /// checked as they are read, by the readers below.
+  /// Throws a [FormatException] on a document that isn't a map of options, one
+  /// carrying a key that is not in [configKeys], or a value whose type doesn't
+  /// suit its option.
   factory ConfigFile.parse(String source, {required String origin}) {
     final Object? document;
     try {
@@ -88,7 +62,7 @@ class ConfigFile {
       );
     }
 
-    return ConfigFile._(
+    final file = ConfigFile._(
       settings: {
         for (final entry in document.entries)
           // A key with no value (`public:`) counts as unset, so commenting a
@@ -100,6 +74,12 @@ class ConfigFile {
       path: origin,
       ignored: false,
     );
+
+    // Type-check the whole file up front. Resolution only asks for the keys it
+    // ends up needing, so without this a bad value under an option the command
+    // line overrides would sit in the file unreported.
+    file.settings.keys.forEach(file._typedValue);
+    return file;
   }
 
   /// Finds and reads the config file for a run.
@@ -159,34 +139,54 @@ class ConfigFile {
   /// was read or parsed in that case, so even an invalid file is no error.
   final bool ignored;
 
-  /// A boolean setting, or `null` when the file doesn't set it.
-  bool? boolean(String key) => switch (settings[key]) {
+  /// The config-file value for [key] — a JSON pointer such as `/public` —
+  /// typed to suit its option, or `null` when the file doesn't set it.
+  @override
+  Object? valueOrNull(String key, CiachConfiguration cfg) =>
+      _typedValue(key.startsWith('/') ? key.substring(1) : key);
+
+  /// The value under [key], as the type its option takes.
+  ///
+  /// The type has to come from the option rather than from the value, so that
+  /// `exclude: ['a']` arrives as a `List<String>` (a bare `List<dynamic>` would
+  /// not satisfy the option) and so that a mismatch is reported against the
+  /// file, naming the key and what was expected.
+  ///
+  /// Three settings accept less than their type allows. Their rules live with
+  /// the option — as `allowedValues`, a `customValidator`, a `min` — and are
+  /// applied to whatever the command line provides; these readers hold the file
+  /// to the same rules, from the same [formatNames] and [parseKinds], so that a
+  /// bad value is reported against the file it is written in either way.
+  Object? _typedValue(String key) => switch (_optionFor(key)) {
+    CiachOption.format => _oneOf(key, formatNames),
+    CiachOption.kinds => _kinds(key),
+    CiachOption.concurrency => _positiveInt(key),
+    final option => switch (option.option) {
+      FlagOption() => _boolean(key),
+      IntOption() => _positiveInt(key),
+      MultiOption() => _strings(key),
+      _ => _string(key),
+    },
+  };
+
+  CiachOption<dynamic> _optionFor(String key) =>
+      CiachOption.values.firstWhere((option) => option.configKey == key);
+
+  bool? _boolean(String key) => switch (settings[key]) {
     null => null,
     final bool value => value,
     final other => _wrong(key, 'true or false', other),
   };
 
-  /// A string setting, or `null` when the file doesn't set it.
-  String? string(String key) => switch (settings[key]) {
+  String? _string(String key) => switch (settings[key]) {
     null => null,
     final String value => value,
     final other => _wrong(key, 'a string', other),
   };
 
-  /// A string setting restricted to [allowed] values.
-  String? oneOf(String key, List<String> allowed) {
-    final value = string(key);
-    if (value != null && !allowed.contains(value)) {
-      throw FormatException(
-        "$path: '$key' must be one of ${allowed.join(', ')}, got '$value'.",
-      );
-    }
-    return value;
-  }
-
-  /// A list-of-strings setting, also accepting a bare string as a one-element
-  /// list (`exclude: test/**`).
-  List<String>? strings(String key) => switch (settings[key]) {
+  /// A list of strings, also accepting a bare string as a one-element list
+  /// (`exclude: test/**`).
+  List<String>? _strings(String key) => switch (settings[key]) {
     null => null,
     final String value => [value],
     final Iterable<Object?> values => [
@@ -196,10 +196,21 @@ class ConfigFile {
     final other => _wrong(key, 'a list of strings', other),
   };
 
+  /// A string setting restricted to [allowed] values.
+  String? _oneOf(String key, List<String> allowed) {
+    final value = _string(key);
+    if (value != null && !allowed.contains(value)) {
+      throw FormatException(
+        "$path: '$key' must be one of ${allowed.join(', ')}, got '$value'.",
+      );
+    }
+    return value;
+  }
+
   /// Declaration kind names, left for `parseKinds` to turn into symbol kinds
   /// but validated here, so an unknown kind names the file it came from.
-  List<String>? kinds(String key) {
-    final values = strings(key);
+  List<String>? _kinds(String key) {
+    final values = _strings(key);
     if (values != null) {
       try {
         parseKinds(values);
@@ -210,8 +221,7 @@ class ConfigFile {
     return values;
   }
 
-  /// A positive-integer setting, or `null` when the file doesn't set it.
-  int? positiveInt(String key) => switch (settings[key]) {
+  int? _positiveInt(String key) => switch (settings[key]) {
     null => null,
     final int value when value > 0 => value,
     final other => _wrong(key, 'a positive integer', other),

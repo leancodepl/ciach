@@ -4,17 +4,31 @@ import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/args.dart';
 import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/options.dart';
+import 'package:config/config.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 void main() {
   final parser = buildParser();
 
+  /// Resolves [arguments] against [config], with the terminal-probed defaults
+  /// supplied explicitly so a test never depends on the terminal it runs in.
+  ResolvedOptions resolveWith(
+    List<String> arguments,
+    ConfigFile config, {
+    required bool colorDefault,
+    required bool progressDefault,
+  }) => resolveOptions(
+    resolveConfiguration(parser.parse(arguments), config),
+    colorDefault: colorDefault,
+    progressDefault: progressDefault,
+  );
+
   /// Resolves [arguments] against [config] with both auto-detected settings
   /// off, so only explicit values can turn them on.
   ResolvedOptions resolve(List<String> arguments, [ConfigFile? config]) =>
-      resolveOptions(
-        parser.parse(arguments),
+      resolveWith(
+        arguments,
         config ?? const ConfigFile.empty(),
         colorDefault: false,
         progressDefault: false,
@@ -118,7 +132,7 @@ concurrency: 4
       final config = ConfigFile.parse('public:\n', origin: 'ciach.yaml');
 
       expect(config.settings, isEmpty);
-      expect(config.boolean('public'), isNull);
+      expect(resolve(const [], config).includePublic, isTrue);
     });
 
     test('accepts a bare string where a list is expected', () {
@@ -276,7 +290,7 @@ concurrency: 4
       final config = ConfigFile.load(projectDir: tempDir.path);
 
       expect(config.path, p.join(tempDir.path, 'ciach.yaml'));
-      expect(config.boolean('public'), isFalse);
+      expect(config.settings['public'], isFalse);
     });
 
     test('discovers ciach.yaml only, not other spellings', () {
@@ -288,7 +302,7 @@ concurrency: 4
       write('ciach.yaml', 'format: github');
 
       expect(
-        ConfigFile.load(projectDir: tempDir.path).string('format'),
+        ConfigFile.load(projectDir: tempDir.path).settings['format'],
         'github',
       );
     });
@@ -316,7 +330,7 @@ concurrency: 4
         explicitPath: p.join(tempDir.path, 'elsewhere.yaml'),
       );
 
-      expect(config.string('format'), 'json');
+      expect(config.settings['format'], 'json');
     });
 
     test('an explicit path wins over a discoverable file', () {
@@ -328,7 +342,7 @@ concurrency: 4
         explicitPath: p.join(tempDir.path, 'other.yaml'),
       );
 
-      expect(config.string('format'), 'json');
+      expect(config.settings['format'], 'json');
     });
 
     test('reports a missing explicit path', () {
@@ -476,8 +490,8 @@ dart: /sdk/bin/dart
     });
 
     test('auto-detected color and progress are the last resort', () {
-      final auto = resolveOptions(
-        parser.parse(const []),
+      final auto = resolveWith(
+        const [],
         const ConfigFile.empty(),
         colorDefault: true,
         progressDefault: true,
@@ -485,8 +499,8 @@ dart: /sdk/bin/dart
       expect(auto.useColor, isTrue);
       expect(auto.showProgress, isTrue);
 
-      final fromConfig = resolveOptions(
-        parser.parse(const []),
+      final fromConfig = resolveWith(
+        const [],
         ConfigFile.parse('color: false\nprogress: false', origin: 'c.yaml'),
         colorDefault: true,
         progressDefault: true,
@@ -494,8 +508,8 @@ dart: /sdk/bin/dart
       expect(fromConfig.useColor, isFalse);
       expect(fromConfig.showProgress, isFalse);
 
-      final fromArgs = resolveOptions(
-        parser.parse(const ['--no-color', '--no-progress']),
+      final fromArgs = resolveWith(
+        const ['--no-color', '--no-progress'],
         ConfigFile.parse('color: true\nprogress: true', origin: 'c.yaml'),
         colorDefault: true,
         progressDefault: true,
@@ -521,8 +535,8 @@ dart: /sdk/bin/dart
       // place — so verbose wins and progress is switched off, however it was
       // asked for.
       expect(
-        resolveOptions(
-          parser.parse(const ['--verbose', '--progress']),
+        resolveWith(
+          const ['--verbose', '--progress'],
           const ConfigFile.empty(),
           colorDefault: false,
           progressDefault: true,
@@ -530,8 +544,8 @@ dart: /sdk/bin/dart
         isFalse,
       );
       expect(
-        resolveOptions(
-          parser.parse(const []),
+        resolveWith(
+          const [],
           ConfigFile.parse('verbose: true\nprogress: true', origin: 'c.yaml'),
           colorDefault: false,
           progressDefault: true,
@@ -539,8 +553,8 @@ dart: /sdk/bin/dart
         isFalse,
       );
       expect(
-        resolveOptions(
-          parser.parse(const ['--progress']),
+        resolveWith(
+          const ['--progress'],
           ConfigFile.parse('verbose: true', origin: 'c.yaml'),
           colorDefault: false,
           progressDefault: false,
@@ -552,29 +566,39 @@ dart: /sdk/bin/dart
     });
 
     test('rejects a non-positive --concurrency', () {
-      for (final value in ['0', '-1', 'lots']) {
+      for (final value in ['0', '-1']) {
         expect(
           () => resolve(['--concurrency', value]),
-          throwsA(
-            isA<FormatException>().having(
-              (e) => e.message,
-              'message',
-              contains('--concurrency must be a positive integer'),
-            ),
-          ),
+          throwsA(isUsageException(contains('below the minimum (1)'))),
           reason: 'for --concurrency $value',
         );
       }
+      expect(
+        () => resolve(const ['--concurrency', 'lots']),
+        throwsA(isUsageException(contains('lots'))),
+      );
     });
 
     test('rejects an unknown --kinds value', () {
       expect(
         () => resolve(const ['-k', 'klass']),
+        throwsA(isUsageException(contains("Unknown kind 'klass'"))),
+      );
+    });
+
+    test('reports every problem at once, not just the first', () {
+      // One of the reasons for leaning on package:config: a run with two bad
+      // values is told about both, instead of one error per attempt. (An
+      // out-of-range `--format` is not among them — an option's `allowed` list
+      // is the arg parser's business, so that one fails before resolution.)
+      expect(
+        () => resolve(const ['-k', 'klass', '-j', '0']),
         throwsA(
-          isA<FormatException>().having(
-            (e) => e.message,
-            'message',
-            contains("Unknown kind 'klass'"),
+          isUsageException(
+            allOf(
+              contains("Unknown kind 'klass'"),
+              contains('below the minimum (1)'),
+            ),
           ),
         ),
       );
@@ -602,6 +626,10 @@ dart: /sdk/bin/dart
     });
   });
 }
+
+/// A [UsageException] whose message matches [message].
+Matcher isUsageException(Matcher message) =>
+    isA<UsageException>().having((e) => e.message, 'message', message);
 
 /// A [FormatException] whose message names [origin] and matches [message].
 Matcher isFormatException(String origin, Matcher message) =>

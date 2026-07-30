@@ -86,16 +86,21 @@ void main() {
   });
 
   group('describeSettings', () {
-    List<String> describe([List<String> arguments = const []]) =>
-        describeSettings(
-          resolveOptions(
-            parser.parse(arguments),
-            const ConfigFile.empty(),
-            colorDefault: false,
-            progressDefault: false,
-          ),
-          dartExecutable: '/sdk/bin/dart',
-        );
+    List<String> describe([List<String> arguments = const []]) {
+      final configuration = resolveConfiguration(
+        parser.parse(arguments),
+        const ConfigFile.empty(),
+      );
+      return describeSettings(
+        configuration,
+        resolveOptions(
+          configuration,
+          colorDefault: false,
+          progressDefault: false,
+        ),
+        dartExecutable: '/sdk/bin/dart',
+      );
+    }
 
     test('lists every setting the run uses, under one key per option', () {
       final lines = describe();
@@ -116,41 +121,57 @@ void main() {
         '/pkg',
       ]);
 
-      expect(lines, containsAll(<String>['  path: /pkg', '  public: false']));
-      expect(lines, contains('  exclude: test/**'));
-      expect(lines, contains('  concurrency: 4'));
-      expect(lines, contains('  dart: /sdk/bin/dart'));
+      expect(lines, containsAll(<String>['  path: /pkg (command line)']));
+      expect(lines, contains('  public: false (command line)'));
+      expect(lines, contains('  exclude: test/** (command line)'));
+      expect(lines, contains('  concurrency: 4 (command line)'));
+      expect(lines, contains('  dart: /sdk/bin/dart (auto-detected)'));
+    });
+
+    test('names the layer each value came from', () {
+      final configuration = resolveConfiguration(
+        parser.parse(const ['--no-public']),
+        ConfigFile.parse('format: json\nremove: true', origin: 'c.yaml'),
+      );
+      final lines = describeSettings(
+        configuration,
+        resolveOptions(
+          configuration,
+          colorDefault: false,
+          progressDefault: false,
+        ),
+        dartExecutable: '/sdk/bin/dart',
+      );
+
+      expect(lines, contains('  public: false (command line)'));
+      expect(lines, contains('  format: json (config file)'));
+      expect(lines, contains('  remove: true (config file)'));
+      expect(lines, contains('  concurrency: 16 (default)'));
+      expect(lines, contains('  color: false (auto-detected)'));
     });
 
     test('marks an empty list rather than printing nothing', () {
-      expect(describe(), contains('  exclude: (none)'));
-      expect(describe(), contains('  include: (none)'));
-      expect(describe(), contains('  generated-suffix: (none)'));
+      expect(describe(), contains('  exclude: (none) (default)'));
+      expect(describe(), contains('  include: (none) (default)'));
+      expect(describe(), contains('  generated-suffix: (none) (default)'));
     });
 
-    test('flags the full kind set as such, and lists a restricted one', () {
-      expect(
-        describe().singleWhere((l) => l.startsWith('  kinds:')),
-        allOf(contains('class'), endsWith('(all)')),
-      );
+    test('lists the kinds, all of them by default', () {
+      final kinds = describe()
+          .singleWhere((l) => l.startsWith('  kinds:'))
+          .replaceFirst('  kinds: ', '')
+          .replaceFirst(' (default)', '')
+          .split(', ');
+
+      // Two aliases can map to one symbol kind, so labels can be fewer.
+      expect(kinds, hasLength(FinderOptions.defaultKinds.length));
       expect(
         describe(const [
           '-k',
           'class,method',
         ]).singleWhere((l) => l.startsWith('  kinds:')),
-        '  kinds: class, method',
+        '  kinds: class, method (command line)',
       );
-    });
-
-    test('lists as many kinds as the finder defaults to', () {
-      final kinds = describe()
-          .singleWhere((l) => l.startsWith('  kinds:'))
-          .replaceFirst('  kinds: ', '')
-          .replaceFirst(' (all)', '')
-          .split(', ');
-
-      // Two aliases can map to one symbol kind, so labels can be fewer.
-      expect(kinds, hasLength(FinderOptions.defaultKinds.length));
     });
   });
 }

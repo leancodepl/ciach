@@ -10,8 +10,8 @@
 
 import 'package:args/args.dart';
 import 'package:ciach/ciach.dart';
-import 'package:ciach/src/cli/config.dart';
 import 'package:collection/collection.dart';
+import 'package:config/config.dart';
 
 /// Friendly `--kinds` names mapped to LSP symbol kinds.
 const kindAliases = <String, SymbolKind>{
@@ -38,10 +38,6 @@ String get kindNames => kindAliases.keys.sorted().join(', ');
 /// The accepted `--format` values; the first one is the default.
 const formatNames = ['text', 'json', 'github'];
 
-/// The `--concurrency` default, as a string so the parser can show it in
-/// `--help` and the resolver can parse it back the same way.
-const defaultConcurrency = '16';
-
 /// Parses the `--kinds` values (comma-separated, repeatable) into symbol kinds,
 /// falling back to [FinderOptions.defaultKinds] when none are given.
 ///
@@ -62,169 +58,301 @@ Set<SymbolKind> parseKinds(List<String> raw) {
   };
 }
 
-/// Builds the CLI argument parser. Every flag and option ciach accepts is
-/// declared here, so adding one is a single-file change.
-ArgParser buildParser() => .new()
-  ..addFlag(
-    'help',
-    abbr: 'h',
-    negatable: false,
-    help: 'Print this usage information.',
-  )
-  ..addOption(
-    'config',
-    help:
-        'Path to a YAML config file. Defaults to $configFileName in the\n'
-        'analyzed package root, when present.',
-    valueHelp: 'path',
-  )
+/// Every setting ciach accepts, declared once.
+///
+/// Each option carries its command-line spelling, its help text, its default,
+/// and — for everything settable in a config file — the `configKey` a
+/// `ciach.yaml` entry is read from. `package:config` resolves a value for each
+/// from the command line first, then the config file, then the default, so
+/// there is one place to add a setting and no second list to keep in step.
+///
+/// The two config-file options themselves ([config] and [noConfig]) and
+/// [help] have no `configKey`: a config file can't decide whether it is read.
+enum CiachOption<V> implements OptionDefinition<V> {
+  help(
+    FlagOption(
+      argName: 'help',
+      argAbbrev: 'h',
+      negatable: false,
+      defaultsTo: false,
+      helpText: 'Print this usage information.',
+    ),
+  ),
+  config(
+    StringOption(
+      argName: 'config',
+      valueHelp: 'path',
+      helpText:
+          'Path to a YAML config file. Defaults to $configFileName in the\n'
+          'analyzed package root, when present.',
+    ),
+  ),
   // Not a negatable `config` flag — `config` is the option above — but a flag
   // in its own right, so `--no-config` reads the way you'd expect it to.
-  ..addFlag(
-    'no-config',
-    negatable: false,
-    help:
-        'Ignore any config file, including one that would be discovered\n'
-        'automatically. Cannot be combined with --config.',
-  )
-  ..addFlag(
-    'public',
-    defaultsTo: true,
-    help:
-        'Report unused public declarations too. Disable to report only\n'
-        'private (underscore-prefixed) declarations, which are the\n'
-        'highest-confidence dead code.',
-  )
-  ..addFlag(
-    'generated',
-    help: 'Scan generated files (*.g.dart, *.freezed.dart, …). Off by default.',
-  )
-  ..addFlag(
-    'overrides',
-    help:
-        'Report members annotated with @override too. Off by default,\n'
-        'since overrides are often reached polymorphically and a plain\n'
-        'reference search can miss those uses.',
-  )
-  ..addFlag(
-    'operators',
-    help:
-        'Report operator overloads (operator +, operator ==, …) too. Off\n'
-        'by default: the analysis server never resolves infix operator\n'
-        "syntax (a + b) back to the operator's declaration, so a used\n"
-        'operator is reported as unused every time.',
-  )
-  ..addFlag(
-    'unused-union-members',
-    help:
-        'Also flag a class whose only references are type patterns over its\n'
-        '(sealed) supertype — matched but never constructed. Off by default:\n'
-        'a `case Foo():` arm otherwise counts as a use. Report-only: these\n'
-        'findings are surfaced but --remove never deletes them or their\n'
-        'pattern arms (removing a sealed member and rewriting its switches\n'
-        'is left to a human). Conservative: any reference that is not clearly\n'
-        'a type pattern keeps the class alive.',
-  )
-  ..addFlag(
-    'report-tojson',
-    help:
-        'Report a `toJson()` serialization hook as unused too. Off by\n'
-        'default: `jsonEncode(obj)` calls `obj.toJson()` by dynamic dispatch\n'
-        'with no source-level `.toJson()` reference for the search to see, so\n'
-        'a live serializer would be flagged. Enable to audit dead `toJson`s.',
-  )
-  ..addFlag(
-    'set-exit-if-changed',
-    help:
-        'Exit with a non-zero status when any unused declaration is found\n'
-        '(useful in CI).',
-  )
-  ..addFlag(
-    'remove',
-    help:
-        'Remove unused declarations from source after reporting them.\n'
-        'Prompts for confirmation first, unless --force is also given.',
-  )
-  ..addFlag(
-    'force',
-    help: 'Skip the confirmation prompt for --remove. Requires --remove.',
-  )
-  ..addMultiOption(
-    'exclude',
-    abbr: 'e',
-    help: 'Glob(s), relative to the root, of files to skip. Repeatable.',
-    valueHelp: 'glob',
-  )
-  ..addMultiOption(
-    'include',
-    abbr: 'i',
-    help: 'If given, only scan files matching these glob(s). Repeatable.',
-    valueHelp: 'glob',
-  )
-  ..addMultiOption(
-    'generated-suffix',
-    help:
-        'Additional filename suffix to treat as generated (and so\n'
-        'exclude from the scan), on top of the built-in set (*.g.dart,\n'
-        '*.freezed.dart, …). Use for custom code generators, e.g.\n'
-        '--generated-suffix .gc.dart. Include the leading dot. Repeatable.\n'
-        'Ignored when --generated is set.',
-    valueHelp: 'suffix',
-  )
-  ..addMultiOption(
-    'kinds',
-    abbr: 'k',
-    help:
-        'Restrict to these declaration kinds (comma-separated).\n'
-        'Valid: $kindNames.',
-    valueHelp: 'kind,kind',
-  )
-  ..addOption(
-    'format',
-    abbr: 'f',
-    allowed: formatNames,
-    defaultsTo: formatNames.first,
-    help: 'Output format.',
-    allowedHelp: {
-      'text': 'Human-readable, grouped by file.',
-      'json': 'Machine-readable JSON.',
-      'github': 'GitHub Actions `::warning` annotations.',
-    },
-  )
-  ..addFlag(
-    'color',
-    help: 'Colorize text output. Defaults to auto-detecting the terminal.',
-  )
-  ..addFlag(
-    'progress',
-    help: 'Show scan progress on stderr. Defaults to on for a terminal.',
-  )
-  ..addFlag(
-    'verbose',
-    abbr: 'v',
-    help:
-        'Explain what is happening on stderr: which config file was used and\n'
-        'what it set, the settings the run ended up with, each scan phase as\n'
-        'it starts, and what --remove touches. Supersedes --progress, whose\n'
-        'single overwriting line would fight with it.',
-  )
-  ..addOption(
-    'concurrency',
-    abbr: 'j',
-    defaultsTo: defaultConcurrency,
-    help:
-        'How many reference queries to run against the analysis server at\n'
-        'once. Higher can be faster on large projects, up to the limit of\n'
-        'the analysis server parallelism.',
-    valueHelp: 'n',
-  )
-  ..addOption(
-    'dart',
-    help:
-        'Path to the dart executable used to launch the analysis server.\n'
-        'Defaults to the SDK running this tool.',
-    valueHelp: 'path',
+  noConfig(
+    FlagOption(
+      argName: 'no-config',
+      negatable: false,
+      defaultsTo: false,
+      helpText:
+          'Ignore any config file, including one that would be discovered\n'
+          'automatically. Cannot be combined with --config.',
+    ),
+  ),
+  path(
+    StringOption(
+      argPos: 0,
+      configKey: '/path',
+      defaultsTo: '.',
+      helpText: 'Package root to analyze.',
+    ),
+  ),
+  public(
+    FlagOption(
+      argName: 'public',
+      configKey: '/public',
+      defaultsTo: true,
+      helpText:
+          'Report unused public declarations too. Disable to report only\n'
+          'private (underscore-prefixed) declarations, which are the\n'
+          'highest-confidence dead code.',
+    ),
+  ),
+  generated(
+    FlagOption(
+      argName: 'generated',
+      configKey: '/generated',
+      defaultsTo: false,
+      helpText:
+          'Scan generated files (*.g.dart, *.freezed.dart, …). Off by default.',
+    ),
+  ),
+  overrides(
+    FlagOption(
+      argName: 'overrides',
+      configKey: '/overrides',
+      defaultsTo: false,
+      helpText:
+          'Report members annotated with @override too. Off by default,\n'
+          'since overrides are often reached polymorphically and a plain\n'
+          'reference search can miss those uses.',
+    ),
+  ),
+  operators(
+    FlagOption(
+      argName: 'operators',
+      configKey: '/operators',
+      defaultsTo: false,
+      helpText:
+          'Report operator overloads (operator +, operator ==, …) too. Off\n'
+          'by default: the analysis server never resolves infix operator\n'
+          "syntax (a + b) back to the operator's declaration, so a used\n"
+          'operator is reported as unused every time.',
+    ),
+  ),
+  unusedUnionMembers(
+    FlagOption(
+      argName: 'unused-union-members',
+      configKey: '/unused-union-members',
+      defaultsTo: false,
+      helpText:
+          'Also flag a class whose only references are type patterns over its\n'
+          '(sealed) supertype — matched but never constructed. Off by default:\n'
+          'a `case Foo():` arm otherwise counts as a use. Report-only: these\n'
+          'findings are surfaced but --remove never deletes them or their\n'
+          'pattern arms (removing a sealed member and rewriting its switches\n'
+          'is left to a human). Conservative: any reference that is not clearly\n'
+          'a type pattern keeps the class alive.',
+    ),
+  ),
+  reportToJson(
+    FlagOption(
+      argName: 'report-tojson',
+      configKey: '/report-tojson',
+      defaultsTo: false,
+      helpText:
+          'Report a `toJson()` serialization hook as unused too. Off by\n'
+          'default: `jsonEncode(obj)` calls `obj.toJson()` by dynamic dispatch\n'
+          'with no source-level `.toJson()` reference for the search to see, so\n'
+          'a live serializer would be flagged. Enable to audit dead `toJson`s.',
+    ),
+  ),
+  setExitIfChanged(
+    FlagOption(
+      argName: 'set-exit-if-changed',
+      configKey: '/set-exit-if-changed',
+      negatable: false,
+      defaultsTo: false,
+      helpText:
+          'Exit with a non-zero status when any unused declaration is found\n'
+          '(useful in CI).',
+    ),
+  ),
+  remove(
+    FlagOption(
+      argName: 'remove',
+      configKey: '/remove',
+      negatable: false,
+      defaultsTo: false,
+      helpText:
+          'Remove unused declarations from source after reporting them.\n'
+          'Prompts for confirmation first, unless --force is also given.',
+    ),
+  ),
+  force(
+    FlagOption(
+      argName: 'force',
+      configKey: '/force',
+      negatable: false,
+      defaultsTo: false,
+      helpText: 'Skip the confirmation prompt for --remove. Requires --remove.',
+    ),
+  ),
+  exclude(
+    MultiStringOption.noSplit(
+      argName: 'exclude',
+      argAbbrev: 'e',
+      configKey: '/exclude',
+      defaultsTo: [],
+      valueHelp: 'glob',
+      helpText: 'Glob(s), relative to the root, of files to skip. Repeatable.',
+    ),
+  ),
+  include(
+    MultiStringOption.noSplit(
+      argName: 'include',
+      argAbbrev: 'i',
+      configKey: '/include',
+      defaultsTo: [],
+      valueHelp: 'glob',
+      helpText: 'If given, only scan files matching these glob(s). Repeatable.',
+    ),
+  ),
+  generatedSuffix(
+    MultiStringOption.noSplit(
+      argName: 'generated-suffix',
+      configKey: '/generated-suffix',
+      defaultsTo: [],
+      valueHelp: 'suffix',
+      helpText:
+          'Additional filename suffix to treat as generated (and so\n'
+          'exclude from the scan), on top of the built-in set (*.g.dart,\n'
+          '*.freezed.dart, …). Use for custom code generators, e.g.\n'
+          '--generated-suffix .gc.dart. Include the leading dot. Repeatable.\n'
+          'Ignored when --generated is set.',
+    ),
+  ),
+  kinds(
+    MultiStringOption(
+      argName: 'kinds',
+      argAbbrev: 'k',
+      configKey: '/kinds',
+      defaultsTo: [],
+      valueHelp: 'kind,kind',
+      // Validated here so an unknown kind is rejected wherever it came from,
+      // with the same message; parseKinds does the conversion later.
+      customValidator: parseKinds,
+      // The valid kinds come from kindAliases, so they are listed in `usage`
+      // rather than duplicated in this const help text.
+      helpText:
+          'Restrict to these declaration kinds (comma-separated).\n'
+          'The kinds are listed at the end of this help.',
+    ),
+  ),
+  format(
+    StringOption(
+      argName: 'format',
+      argAbbrev: 'f',
+      configKey: '/format',
+      allowedValues: formatNames,
+      defaultsTo: 'text',
+      helpText: 'Output format.',
+      allowedHelp: {
+        'text': 'Human-readable, grouped by file.',
+        'json': 'Machine-readable JSON.',
+        'github': 'GitHub Actions `::warning` annotations.',
+      },
+    ),
+  ),
+  color(
+    FlagOption(
+      argName: 'color',
+      configKey: '/color',
+      helpText:
+          'Colorize text output. Defaults to auto-detecting the terminal.',
+    ),
+  ),
+  progress(
+    FlagOption(
+      argName: 'progress',
+      configKey: '/progress',
+      helpText: 'Show scan progress on stderr. Defaults to on for a terminal.',
+    ),
+  ),
+  verbose(
+    FlagOption(
+      argName: 'verbose',
+      argAbbrev: 'v',
+      configKey: '/verbose',
+      defaultsTo: false,
+      helpText:
+          'Explain what is happening on stderr: which config file was used and\n'
+          'what it set, the settings the run ended up with, each scan phase as\n'
+          'it starts, and what --remove touches. Supersedes --progress, whose\n'
+          'single overwriting line would fight with it.',
+    ),
+  ),
+  concurrency(
+    IntOption(
+      argName: 'concurrency',
+      argAbbrev: 'j',
+      configKey: '/concurrency',
+      valueHelp: 'n',
+      defaultsTo: 16,
+      min: 1,
+      helpText:
+          'How many reference queries to run against the analysis server at\n'
+          'once. Higher can be faster on large projects, up to the limit of\n'
+          'the analysis server parallelism.',
+    ),
+  ),
+  dart(
+    StringOption(
+      argName: 'dart',
+      configKey: '/dart',
+      valueHelp: 'path',
+      helpText:
+          'Path to the dart executable used to launch the analysis server.\n'
+          'Defaults to the SDK running this tool.',
+    ),
   );
+
+  const CiachOption(this.option);
+
+  @override
+  final ConfigOptionBase<V> option;
+
+  /// The `ciach.yaml` key this option is read from, without the leading `/` of
+  /// its JSON pointer — `null` for an option a config file can't set.
+  String? get configKey => option.configKey?.substring(1);
+}
+
+/// A [Configuration] over ciach's own options, named so the `dynamic` type
+/// argument the option enum needs is written just the once.
+typedef CiachConfiguration = Configuration<CiachOption<dynamic>>;
+
+/// The file name looked for when discovering a config in the project
+/// directory.
+const configFileName = 'ciach.yaml';
+
+/// Builds the argument parser for [CiachOption.values], so the command line is
+/// parsed (and `--help` rendered) from the same declarations the config file
+/// and the defaults are read from.
+ArgParser buildParser() {
+  final parser = ArgParser();
+  prepareOptionsForParsing(CiachOption.values, parser);
+  return parser;
+}
 
 /// The full `--help` text, wrapping [parser]'s generated option list.
 String usage(ArgParser parser) =>
@@ -236,6 +364,9 @@ Usage: ciach [options] [path]
   path   Package root to analyze (defaults to the current directory).
 
 ${parser.usage}
+
+Declaration kinds (-k, --kinds):
+${_wrapped(kindNames, indent: '  ')}
 
 Config file:
   Every option above can also be set in a YAML file — $configFileName in the
@@ -272,3 +403,17 @@ Examples:
 
   # Remove without asking (e.g. in a script)
   ciach --remove --force''';
+
+/// [text] broken into [indent]-prefixed lines of at most [width] characters,
+/// splitting on the spaces after its commas.
+String _wrapped(String text, {String indent = '', int width = 76}) {
+  final lines = <String>[];
+  for (final word in text.split(' ')) {
+    if (lines.isEmpty || '${lines.last} $word'.length > width) {
+      lines.add('$indent$word');
+    } else {
+      lines[lines.length - 1] = '${lines.last} $word';
+    }
+  }
+  return lines.join('\n');
+}

@@ -2,16 +2,16 @@ import 'package:args/args.dart';
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/args.dart';
 import 'package:ciach/src/cli/config.dart';
+import 'package:config/config.dart';
 import 'package:path/path.dart' as p;
 
-/// Everything a run needs, after merging the three layers that can supply a
-/// setting: the command line wins over the config file, which wins over the
-/// built-in defaults.
+/// Everything a run needs, in the types the rest of the tool works in.
 ///
-/// Nothing downstream asks where a setting came from, so this is the last type
-/// in the CLI that knows: past here the settings are plain, non-nullable
-/// values. [finderOptions] hands the finder's share of them over to the
-/// library's own [FinderOptions].
+/// Which layer each value came from is `package:config`'s business — by the
+/// time a [ResolvedOptions] exists, a setting is just a value. What this adds
+/// on top of the resolved [Configuration] is the conversions the finder wants
+/// (`--kinds` names to [SymbolKind]s, the two inverted flags), the terminal
+/// fallbacks for the settings that auto-detect, and [finderOptions].
 class ResolvedOptions {
   /// Creates a fully resolved set of options.
   const ResolvedOptions({
@@ -126,89 +126,55 @@ class ResolvedOptions {
       );
 }
 
-/// Merges [args] over [config] over the built-in defaults.
+/// Resolves every [CiachOption] from [args] and [config], the command line
+/// winning over the file and the file over the option's default.
 ///
-/// A command-line flag counts as given only when it was actually parsed, so an
-/// option left off the command line falls through to the config file. The two
-/// auto-detected settings take their last resort from [colorDefault] and
-/// [progressDefault], which the caller probes off the terminal.
+/// Throws a [UsageException] listing every problem when a value is missing or
+/// malformed, whichever layer it came from.
+CiachConfiguration resolveConfiguration(ArgResults args, ConfigFile config) =>
+    Configuration.resolve(
+      options: CiachOption.values,
+      argResults: args,
+      configBroker: config,
+    );
+
+/// The settings of [configuration] in the types the rest of the tool wants.
 ///
-/// This is the only place that reads every config key, which is what keeps the
-/// config file honest: a value of the wrong type — or an unknown `--kinds` or
-/// non-positive `--concurrency` from either layer — throws a [FormatException]
-/// with a user-facing message naming what was wrong.
+/// [colorDefault] and [progressDefault] stand in for the two settings that
+/// auto-detect when nothing asked for them either way; the caller probes those
+/// off the terminal.
 ResolvedOptions resolveOptions(
-  ArgResults args,
-  ConfigFile config, {
+  CiachConfiguration configuration, {
   required bool colorDefault,
   required bool progressDefault,
 }) {
-  // Each helper reads the config value *before* deciding whether to use it, so
-  // a malformed setting is still reported when the command line happens to
-  // override that same option — the file is wrong either way.
-
-  /// A flag: the config value only shows through when the argv omits it.
-  bool flag(String name, {required bool defaultsTo}) {
-    final fromConfig = config.boolean(name);
-    return args.wasParsed(name) ? args.flag(name) : fromConfig ?? defaultsTo;
-  }
-
-  /// A repeatable option; an empty argv list means "not given". The command
-  /// line replaces the config's list rather than adding to it.
-  List<String> multi(String name, [List<String>? fromConfig]) {
-    final values = args.multiOption(name);
-    return values.isNotEmpty ? values : fromConfig ?? const [];
-  }
-
-  final rest = args.rest;
-  final verbose = flag('verbose', defaultsTo: false);
-  // Read on its own rather than behind `!verbose &&`, which would short-circuit
-  // past the config read — and so past its type check — on a verbose run.
-  final progress = flag('progress', defaultsTo: progressDefault);
-  final configPath = config.string('path');
-  final configDart = config.string('dart');
-  final configFormat = config.oneOf('format', formatNames);
-
-  final int concurrency;
-  final configConcurrency = config.positiveInt('concurrency');
-  final rawConcurrency = args.wasParsed('concurrency')
-      ? args.option('concurrency')!
-      : configConcurrency?.toString() ?? defaultConcurrency;
-  try {
-    concurrency = int.parse(rawConcurrency);
-    if (concurrency < 1) {
-      throw const FormatException();
-    }
-  } on FormatException {
-    throw const FormatException('--concurrency must be a positive integer.');
-  }
+  final verbose = configuration.value(CiachOption.verbose);
+  final progress =
+      configuration.optionalValue(CiachOption.progress) ?? progressDefault;
 
   return ResolvedOptions(
-    rootPath: rest.isNotEmpty ? rest.first : configPath ?? '.',
-    includeGlobs: multi('include', config.strings('include')),
-    excludeGlobs: multi('exclude', config.strings('exclude')),
-    additionalGeneratedSuffixes: multi(
-      'generated-suffix',
-      config.strings('generated-suffix'),
+    rootPath: configuration.value(CiachOption.path),
+    includeGlobs: configuration.value(CiachOption.include),
+    excludeGlobs: configuration.value(CiachOption.exclude),
+    additionalGeneratedSuffixes: configuration.value(
+      CiachOption.generatedSuffix,
     ),
-    // Throws a FormatException naming the offending kind, as documented.
-    kinds: parseKinds(multi('kinds', config.kinds('kinds'))),
-    includePublic: flag('public', defaultsTo: true),
-    includeGenerated: flag('generated', defaultsTo: false),
-    overrides: flag('overrides', defaultsTo: false),
-    operators: flag('operators', defaultsTo: false),
-    unusedUnionMembers: flag('unused-union-members', defaultsTo: false),
-    reportToJson: flag('report-tojson', defaultsTo: false),
-    setExitIfChanged: flag('set-exit-if-changed', defaultsTo: false),
-    remove: flag('remove', defaultsTo: false),
-    force: flag('force', defaultsTo: false),
-    format: args.wasParsed('format')
-        ? args.option('format')!
-        : configFormat ?? formatNames.first,
-    useColor: flag('color', defaultsTo: colorDefault),
+    // Already validated by the option; this only converts the names.
+    kinds: parseKinds(configuration.value(CiachOption.kinds)),
+    includePublic: configuration.value(CiachOption.public),
+    includeGenerated: configuration.value(CiachOption.generated),
+    overrides: configuration.value(CiachOption.overrides),
+    operators: configuration.value(CiachOption.operators),
+    unusedUnionMembers: configuration.value(CiachOption.unusedUnionMembers),
+    reportToJson: configuration.value(CiachOption.reportToJson),
+    setExitIfChanged: configuration.value(CiachOption.setExitIfChanged),
+    remove: configuration.value(CiachOption.remove),
+    force: configuration.value(CiachOption.force),
+    format: configuration.value(CiachOption.format),
+    useColor: configuration.optionalValue(CiachOption.color) ?? colorDefault,
     showProgress: progress && !verbose,
     verbose: verbose,
-    concurrency: concurrency,
-    dartExecutable: args.option('dart') ?? configDart,
+    concurrency: configuration.value(CiachOption.concurrency),
+    dartExecutable: configuration.optionalValue(CiachOption.dart),
   );
 }

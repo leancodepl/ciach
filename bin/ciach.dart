@@ -18,6 +18,7 @@ import 'package:ciach/src/cli/options.dart';
 import 'package:ciach/src/cli/verbose.dart';
 import 'package:ciach/src/reporter.dart';
 import 'package:collection/collection.dart';
+import 'package:config/config.dart';
 import 'package:path/path.dart' as p;
 
 Future<void> main(List<String> arguments) async {
@@ -45,13 +46,6 @@ Future<int> _run(List<String> arguments) async {
     return 0;
   }
 
-  final rest = args.rest;
-  if (rest.length > 1) {
-    stderr.writeln(
-      'Expected at most one path argument, got: ${rest.join(', ')}',
-    );
-    return 2;
-  }
   final ignoreConfig = args.flag('no-config');
   final explicitConfig = args.option('config');
   if (ignoreConfig && explicitConfig != null) {
@@ -61,23 +55,27 @@ Future<int> _run(List<String> arguments) async {
 
   // Discovery looks in the package root named on the command line — a config
   // file's own `path` cannot decide where that config file is read from.
-  final projectDir = rest.isEmpty ? '.' : rest.first;
+  final projectDir = args.rest.isEmpty ? '.' : args.rest.first;
 
   final ResolvedOptions resolved;
   final ConfigFile config;
+  final CiachConfiguration configuration;
   try {
     config = ConfigFile.load(
       projectDir: projectDir,
       explicitPath: explicitConfig,
       ignore: ignoreConfig,
     );
+    configuration = resolveConfiguration(args, config);
     resolved = resolveOptions(
-      args,
-      config,
+      configuration,
       colorDefault: stdout.supportsAnsiEscapes,
       // Progress goes to stderr; default on only when it won't clutter a pipe.
       progressDefault: stderr.hasTerminal,
     );
+  } on UsageException catch (e) {
+    stderr.writeln(e.message);
+    return 2;
   } on FormatException catch (e) {
     stderr.writeln(e.message);
     return 2;
@@ -106,10 +104,9 @@ Future<int> _run(List<String> arguments) async {
 
   log?.writeAll(
     describeSettings(
+      configuration,
       resolved,
-      dartExecutable: resolved.dartExecutable == null
-          ? '${Platform.resolvedExecutable} (the SDK running ciach)'
-          : '${resolved.dartExecutable} (--dart)',
+      dartExecutable: resolved.dartExecutable ?? Platform.resolvedExecutable,
     ),
   );
 

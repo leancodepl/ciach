@@ -103,7 +103,8 @@ set-exit-if-changed: true
 Command line beats config file beats default — including when the flag matches
 the default (`ciach --public` overrides `public: false`) — and a repeatable
 option given on the command line replaces the config's list rather than adding
-to it. Unknown keys and wrong-typed values are usage errors naming the key.
+to it. Unknown keys and wrong-typed values are usage errors naming the file and
+the key, whether or not the command line overrides that option.
 
 That one file name is looked for in the analyzed package root only, never in
 parent directories, so each package in a monorepo owns its config. `--config
@@ -113,8 +114,8 @@ one. The two can't be combined.
 ### Verbose mode
 
 `-v` narrates the run on stderr, with elapsed times: the config file read and
-what it set, the settings the run resolved to, each scan phase, and what
-`--remove` touches.
+what it set, every setting the run resolved to and which layer it came from,
+each scan phase, and what `--remove` touches.
 
 ```console
 $ ciach -v
@@ -123,7 +124,11 @@ $ ciach -v
 [  0.0s]     public: false
 [  0.0s]     exclude: test/**
 [  0.0s] Settings for this run:
-[  0.0s]   path: /home/me/pkg
+[  0.0s]   path: /home/me/pkg (command line)
+[  0.0s]   public: false (config file)
+[  0.0s]   exclude: test/** (config file)
+[  0.0s]   concurrency: 16 (default)
+[  0.0s]   color: true (auto-detected)
 …
 [  0.1s] Starting Dart analysis server…
 [  0.3s] Collecting declarations from 13 file(s)…
