@@ -44,8 +44,8 @@ final class Token {
   bool get isCloser => !isWord && _closers.contains(value);
 }
 
-/// [content] with `//` and `/* */` comments blanked to spaces (strings and
-/// offsets preserved, so `@pragma('vm:entry-point')` still matches).
+/// [content] with `//` and `/* */` comments blanked to spaces; string literals
+/// and offsets/newlines are left intact.
 String stripComments(String content) {
   final n = content.length;
   final out = StringBuffer();

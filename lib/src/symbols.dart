@@ -141,9 +141,7 @@ extension SymbolChecks on DocumentSymbol {
   String leadingMetadata(List<String> strippedLines) {
     final nameLine = selectionRange.start.line;
     final top = metadataTopLine(strippedLines);
-    final end = nameLine < strippedLines.length
-        ? nameLine
-        : strippedLines.length - 1;
+    final end = nameLine.clamp(0, strippedLines.length - 1);
     return strippedLines.sublist(top, end + 1).join('\n');
   }
 }
