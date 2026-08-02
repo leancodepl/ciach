@@ -15,13 +15,7 @@
 /// string — but it is deliberately *not* a full parser.
 library;
 
-extension on String {
-  int? indexOfOrNull(Pattern pattern, [int start = 0]) =>
-      switch (indexOf(pattern, start)) {
-        -1 => null,
-        final index => index,
-      };
-}
+import 'package:ciach/src/extensions.dart';
 
 /// Opening bracket punctuation.
 const _openers = {'(', '[', '{'};
