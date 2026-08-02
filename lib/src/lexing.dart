@@ -64,6 +64,11 @@ String stripComments(String content) {
   var i = 0;
   while (i < n) {
     final start = i;
+    if (_stringLiteralEnd(content, i) case final end?) {
+      out.write(content.substring(start, end));
+      i = end;
+      continue;
+    }
     switch (content[i]) {
       case '/' when i + 1 < n && content[i + 1] == '/':
         i = content.indexOfOrNull('\n', i) ?? n;
@@ -71,13 +76,6 @@ String stripComments(String content) {
       case '/' when i + 1 < n && content[i + 1] == '*':
         i = _skipBlockComment(content, i);
         out.write(content.substring(start, i).replaceAll(_nonNewline, ' '));
-      case 'r'
-          when i + 1 < n && (content[i + 1] == "'" || content[i + 1] == '"'):
-        i = _skipString(content, i + 1, raw: true);
-        out.write(content.substring(start, i));
-      case "'" || '"':
-        i = _skipString(content, i, raw: false);
-        out.write(content.substring(start, i));
       default:
         out.write(content[i]);
         i++;
@@ -108,6 +106,10 @@ List<Token> tokenize(String content) {
   var i = 0;
   while (i < n) {
     final ch = content[i];
+    if (_stringLiteralEnd(content, i) case final end?) {
+      i = end;
+      continue;
+    }
     switch (ch) {
       case ' ' || '\t' || '\n' || '\r':
         i++;
@@ -115,11 +117,6 @@ List<Token> tokenize(String content) {
         i = content.indexOfOrNull('\n', i) ?? n;
       case '/' when i + 1 < n && content[i + 1] == '*':
         i = _skipBlockComment(content, i);
-      case 'r'
-          when i + 1 < n && (content[i + 1] == "'" || content[i + 1] == '"'):
-        i = _skipString(content, i + 1, raw: true);
-      case "'" || '"':
-        i = _skipString(content, i, raw: false);
       case final c when _isIdentStart(c):
         final start = i;
         i++;
@@ -224,6 +221,21 @@ int _skipBlockComment(String content, int from) {
     }
   }
   return i;
+}
+
+bool _isQuote(String c) => c == "'" || c == '"';
+
+/// The index just past the string literal starting at [i] (a `'`/`"` quote, or
+/// a raw `r` prefix before one), or `null` if [i] is not a string start.
+int? _stringLiteralEnd(String content, int i) {
+  final ch = content[i];
+  if (_isQuote(ch)) {
+    return _skipString(content, i, raw: false);
+  }
+  if (ch == 'r' && i + 1 < content.length && _isQuote(content[i + 1])) {
+    return _skipString(content, i + 1, raw: true);
+  }
+  return null;
 }
 
 /// Skips a string literal whose opening quote is at [from], returning the
