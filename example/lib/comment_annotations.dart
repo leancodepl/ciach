@@ -1,37 +1,34 @@
-// File header mentioning an @override hook and a vm:entry-point pragma, so it
-// must not skip the first declaration below. Asserted by test/finder_test.dart.
+// @override vm:entry-point
 
-/// First declaration; only the header block above mentions the annotations.
 void deadAfterHeaderBlock() {}
 
-/// Mentions @override.
+/// @override
 void deadOverrideInDoc() {}
 
-/// Mentions a vm:entry-point pragma.
+/// vm:entry-point
 void deadEntryPointInDoc() {}
 
 void deadOverrideTrailing() {} // @override
 
 void deadEntryPointTrailing() {} // vm:entry-point
 
-// Mentions @override, a blank line above the declaration.
+// @override
 
 void deadOverrideBlankSeparated() {}
 
-// Mentions vm:entry-point, a blank line above the declaration.
+// vm:entry-point
 
 void deadEntryPointBlankSeparated() {}
 
 /*
-@override on an unprefixed block-comment line
+@override
 */
 void deadOverrideBareBlock() {}
 
 /*
-vm:entry-point on an unprefixed block-comment line
+vm:entry-point
 */
 void deadEntryPointBareBlock() {}
 
-// Real pragma inside a string literal -> survives stripping, stays skipped.
 @pragma('vm:entry-point')
 void liveByRealPragma() {}

@@ -137,9 +137,6 @@ extension SymbolChecks on DocumentSymbol {
 
   /// The annotations, modifiers and doc comments immediately preceding this
   /// symbol, as a single string, for cheap annotation detection.
-  ///
-  /// From [strippedLines] (comments blanked) so a comment mentioning `@override`
-  /// or `vm:entry-point` isn't read as an annotation.
   String leadingMetadata(List<String> strippedLines) {
     final nameLine = selectionRange.start.line;
     final top = metadataTopLine(strippedLines);

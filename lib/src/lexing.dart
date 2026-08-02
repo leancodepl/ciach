@@ -46,13 +46,10 @@ final class Token {
   bool get isCloser => !isWord && _closers.contains(value);
 }
 
-/// Every character except a newline; used to blank a comment span to spaces
-/// while keeping its line breaks.
 final _nonNewline = RegExp(r'[^\n]');
 
-/// [content] with `//` and `/* */` comments blanked to spaces; string literals
-/// and offsets/newlines are left intact. Reuses the same comment/string
-/// scanners as [tokenize], so it handles nesting and every string form.
+/// [content] with `//` and `/* */` comments blanked to spaces; strings and
+/// offsets preserved.
 String stripComments(String content) {
   final n = content.length;
   final out = StringBuffer();
@@ -220,8 +217,6 @@ int _skipBlockComment(String content, int from) {
 
 bool _isQuote(String c) => c == "'" || c == '"';
 
-/// The index just past the string literal starting at [i] (a `'`/`"` quote, or
-/// a raw `r` prefix before one), or `null` if [i] is not a string start.
 int? _stringLiteralEnd(String content, int i) => switch (content[i]) {
   final c when _isQuote(c) => _skipString(content, i, raw: false),
   'r' when i + 1 < content.length && _isQuote(content[i + 1]) => _skipString(
