@@ -836,9 +836,7 @@ void main() {
     );
   });
 
-  group('annotation detection ignores comments (issue #28)', () {
-    // Scan only the comment-annotation fixture. Every declaration in it is dead;
-    // a comment mentioning `@override`/`vm:entry-point` must not skip it.
+  group('annotation detection ignores comments', () {
     Future<Set<String>> runCommentAnnotations() async {
       final result = await runFinder(
         include: const ['lib/comment_annotations.dart'],

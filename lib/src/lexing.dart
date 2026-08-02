@@ -44,10 +44,8 @@ final class Token {
   bool get isCloser => !isWord && _closers.contains(value);
 }
 
-/// [content] with every `//` and (nesting) `/* */` comment blanked to spaces —
-/// newlines kept, string literals (incl. raw and interpolation) left intact —
-/// so length and every line/column position are preserved. Lets a substring
-/// search ignore comment prose while still seeing `@pragma('vm:entry-point')`.
+/// [content] with `//` and `/* */` comments blanked to spaces (strings and
+/// offsets preserved, so `@pragma('vm:entry-point')` still matches).
 String stripComments(String content) {
   final n = content.length;
   final out = StringBuffer();
@@ -89,8 +87,7 @@ String stripComments(String content) {
   return out.toString();
 }
 
-/// Writes `content[start, end)` to [out] with every non-newline replaced by a
-/// space, so the blanked span keeps its length and line breaks.
+/// Blanks `content[start, end)` to [out] as spaces, keeping newlines.
 void _writeBlanked(StringBuffer out, String content, int start, int end) {
   for (var i = start; i < end; i++) {
     out.write(content[i] == '\n' ? '\n' : ' ');

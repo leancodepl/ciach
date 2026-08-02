@@ -29,8 +29,8 @@ class FreezedUnions {
 
   /// Records [symbol] as freezed-annotated when it is a type whose leading
   /// metadata carries `@freezed`/`@Freezed`. Called for every symbol during
-  /// candidate collection. [strippedLines] are the file's lines with comments
-  /// blanked, so a comment mentioning `@freezed` doesn't count as the annotation.
+  /// candidate collection. [strippedLines] has comments blanked so a `@freezed`
+  /// in a comment isn't counted.
   void noteIfAnnotated(
     String path,
     DocumentSymbol symbol,

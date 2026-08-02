@@ -50,8 +50,7 @@ class SourceIndex {
   List<String> lines(String path) =>
       _lines[path] ??= readFile(path)?.split('\n') ?? const [];
 
-  /// The lines of [path] with comments blanked out (see [stripComments]),
-  /// aligned 1:1 with [lines], so annotation detection ignores comment prose.
+  /// The lines of [path] with comments blanked, aligned 1:1 with [lines].
   List<String> strippedLines(String path) =>
       _strippedLines[path] ??= stripComments(content(path)).split('\n');
 

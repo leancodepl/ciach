@@ -1,43 +1,37 @@
-// Copyright (c) 2026 Example. A file header / license block for the whole file.
-// Historically this file wired up an @override hook and a vm:entry-point pragma,
-// so the header itself mentions both -- yet it must not skip any declaration.
-//
-// The expected results are asserted by test/finder_test.dart. Keep in sync.
+// File header mentioning an @override hook and a vm:entry-point pragma, so it
+// must not skip the first declaration below. Asserted by test/finder_test.dart.
 
-/// First declaration in the file: the header block above mentions @override and
-/// vm:entry-point, but neither may skip it -> reported UNUSED.
+/// First declaration; only the header block above mentions the annotations.
 void deadAfterHeaderBlock() {}
 
-/// Dead, and this doc comment merely mentions @override -> reported UNUSED.
+/// Mentions @override.
 void deadOverrideInDoc() {}
 
-/// Dead, and this doc comment merely mentions a vm:entry-point pragma ->
-/// reported UNUSED.
+/// Mentions a vm:entry-point pragma.
 void deadEntryPointInDoc() {}
 
-void deadOverrideTrailing() {} // formerly an @override hook
+void deadOverrideTrailing() {} // @override
 
-void deadEntryPointTrailing() {} // formerly a vm:entry-point pragma
+void deadEntryPointTrailing() {} // vm:entry-point
 
-// A stray note mentioning @override, separated from the declaration by a blank.
+// Mentions @override, a blank line above the declaration.
 
 void deadOverrideBlankSeparated() {}
 
-// A stray note mentioning vm:entry-point, separated from it by a blank line.
+// Mentions vm:entry-point, a blank line above the declaration.
 
 void deadEntryPointBlankSeparated() {}
 
 /*
-mentions @override here on an unprefixed block-comment continuation line
+@override on an unprefixed block-comment line
 */
 void deadOverrideBareBlock() {}
 
 /*
-mentions vm:entry-point here on an unprefixed block-comment continuation line
+vm:entry-point on an unprefixed block-comment line
 */
 void deadEntryPointBareBlock() {}
 
-/// A real pragma: the annotation lives inside a string literal, which survives
-/// comment-stripping, so this stays skipped (never reported).
+// Real pragma inside a string literal -> survives stripping, stays skipped.
 @pragma('vm:entry-point')
 void liveByRealPragma() {}

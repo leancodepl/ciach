@@ -19,7 +19,6 @@ void main() {
       expect(out, isNot(contains('@override')));
       expect(out, contains('void f() {}'));
       expect(out, contains('void g() {}'));
-      // Offsets are preserved: same length, same line breaks.
       expect(out.length, src.length);
       expect('\n'.allMatches(out).length, '\n'.allMatches(src).length);
     });
