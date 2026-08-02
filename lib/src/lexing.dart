@@ -102,47 +102,37 @@ List<Token> tokenize(String content) {
   var i = 0;
   while (i < n) {
     final ch = content[i];
-    if (ch case ' ' || '\t' || '\n' || '\r') {
-      i++;
-      continue;
-    }
-    if (ch == '/' && i + 1 < n && content[i + 1] == '/') {
-      final nl = content.indexOf('\n', i);
-      i = nl == -1 ? n : nl;
-      continue;
-    }
-    if (ch == '/' && i + 1 < n && content[i + 1] == '*') {
-      i = _skipBlockComment(content, i);
-      continue;
-    }
-    if (ch == 'r' &&
-        i + 1 < n &&
-        (content[i + 1] == "'" || content[i + 1] == '"')) {
-      i = _skipString(content, i + 1, raw: true);
-      continue;
-    }
-    if (ch == "'" || ch == '"') {
-      i = _skipString(content, i, raw: false);
-      continue;
-    }
-    if (_isIdentStart(ch)) {
-      final start = i;
-      i++;
-      while (i < n && _isIdentPart(content[i])) {
+    switch (ch) {
+      case ' ' || '\t' || '\n' || '\r':
         i++;
-      }
-      tokens.add(
-        Token(
-          start: start,
-          end: i,
-          isWord: true,
-          value: content.substring(start, i),
-        ),
-      );
-      continue;
+      case '/' when i + 1 < n && content[i + 1] == '/':
+        final nl = content.indexOf('\n', i);
+        i = nl == -1 ? n : nl;
+      case '/' when i + 1 < n && content[i + 1] == '*':
+        i = _skipBlockComment(content, i);
+      case 'r'
+          when i + 1 < n && (content[i + 1] == "'" || content[i + 1] == '"'):
+        i = _skipString(content, i + 1, raw: true);
+      case "'" || '"':
+        i = _skipString(content, i, raw: false);
+      case final c when _isIdentStart(c):
+        final start = i;
+        i++;
+        while (i < n && _isIdentPart(content[i])) {
+          i++;
+        }
+        tokens.add(
+          Token(
+            start: start,
+            end: i,
+            isWord: true,
+            value: content.substring(start, i),
+          ),
+        );
+      default:
+        tokens.add(Token(start: i, end: i + 1, isWord: false, value: ch));
+        i++;
     }
-    tokens.add(Token(start: i, end: i + 1, isWord: false, value: ch));
-    i++;
   }
   return tokens;
 }
