@@ -15,6 +15,13 @@
 /// string — but it is deliberately *not* a full parser.
 library;
 
+extension on String {
+  int? indexOfOrNull(Pattern pattern, [int start = 0]) {
+    final index = indexOf(pattern, start);
+    return index == -1 ? null : index;
+  }
+}
+
 /// Opening bracket punctuation.
 const _openers = {'(', '[', '{'};
 
@@ -59,8 +66,7 @@ String stripComments(String content) {
     final start = i;
     switch (content[i]) {
       case '/' when i + 1 < n && content[i + 1] == '/':
-        final nl = content.indexOf('\n', i);
-        i = nl == -1 ? n : nl;
+        i = content.indexOfOrNull('\n', i) ?? n;
         out.write(content.substring(start, i).replaceAll(_nonNewline, ' '));
       case '/' when i + 1 < n && content[i + 1] == '*':
         i = _skipBlockComment(content, i);
@@ -106,8 +112,7 @@ List<Token> tokenize(String content) {
       case ' ' || '\t' || '\n' || '\r':
         i++;
       case '/' when i + 1 < n && content[i + 1] == '/':
-        final nl = content.indexOf('\n', i);
-        i = nl == -1 ? n : nl;
+        i = content.indexOfOrNull('\n', i) ?? n;
       case '/' when i + 1 < n && content[i + 1] == '*':
         i = _skipBlockComment(content, i);
       case 'r'
