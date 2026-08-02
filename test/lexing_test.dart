@@ -23,6 +23,14 @@ void main() {
       expect('\n'.allMatches(out).length, '\n'.allMatches(src).length);
     });
 
+    test('blanks a // comment that runs to EOF with no trailing newline', () {
+      const src = 'void f() {}\n// tail @override';
+      final out = stripComments(src);
+      expect(out, isNot(contains('@override')));
+      expect(out, contains('void f() {}'));
+      expect(out.length, src.length);
+    });
+
     test('blanks a /// doc comment', () {
       const src = '/// This used to be an @override hook.\nvoid f() {}';
       final out = stripComments(src);
