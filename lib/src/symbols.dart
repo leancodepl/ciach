@@ -135,11 +135,18 @@ extension SymbolChecks on DocumentSymbol {
 
   /// The annotations, modifiers and doc comments immediately preceding this
   /// symbol, as a single string, for cheap annotation detection.
-  String leadingMetadata(List<String> lines) {
+  ///
+  /// The block's extent is found from the raw [lines] ([metadataTopLine] treats
+  /// comment lines as metadata), but the text is taken from [strippedLines]
+  /// (comments blanked) so a comment merely mentioning `@override` or
+  /// `vm:entry-point` doesn't read as an annotation.
+  String leadingMetadata(List<String> lines, List<String> strippedLines) {
     final nameLine = selectionRange.start.line;
     final top = metadataTopLine(lines);
-    final end = nameLine < lines.length ? nameLine : lines.length - 1;
-    return lines.sublist(top, end + 1).join('\n');
+    final end = nameLine < strippedLines.length
+        ? nameLine
+        : strippedLines.length - 1;
+    return strippedLines.sublist(top, end + 1).join('\n');
   }
 }
 

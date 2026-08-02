@@ -25,6 +25,7 @@ typedef TokenWindow = ({List<Token> tokens, int start, int end});
 /// offset or a token, without re-reading or re-lexing a file, lives here.
 class SourceIndex {
   final _lines = <String, List<String>>{};
+  final _strippedLines = <String, List<String>>{};
   final _content = <String, String>{};
   final _lineStarts = <String, List<int>>{};
   final _tokens = <String, List<Token>>{};
@@ -48,6 +49,11 @@ class SourceIndex {
   /// The lines of the file at [path], read (and cached) on demand.
   List<String> lines(String path) =>
       _lines[path] ??= readFile(path)?.split('\n') ?? const [];
+
+  /// The lines of [path] with comments blanked out (see [stripComments]),
+  /// aligned 1:1 with [lines], so annotation detection ignores comment prose.
+  List<String> strippedLines(String path) =>
+      _strippedLines[path] ??= stripComments(content(path)).split('\n');
 
   /// Records the [lines] of a file already opened in the analysis server, so
   /// its content isn't re-read from disk, and marks the file as scanned.

@@ -29,10 +29,16 @@ class FreezedUnions {
 
   /// Records [symbol] as freezed-annotated when it is a type whose leading
   /// metadata carries `@freezed`/`@Freezed`. Called for every symbol during
-  /// candidate collection.
-  void noteIfAnnotated(String path, DocumentSymbol symbol, List<String> lines) {
+  /// candidate collection. [strippedLines] are [lines] with comments blanked,
+  /// so a comment mentioning `@freezed` doesn't count as the annotation.
+  void noteIfAnnotated(
+    String path,
+    DocumentSymbol symbol,
+    List<String> lines,
+    List<String> strippedLines,
+  ) {
     if (typeLikeKinds.contains(symbol.kind) &&
-        _annotation.hasMatch(symbol.leadingMetadata(lines))) {
+        _annotation.hasMatch(symbol.leadingMetadata(lines, strippedLines))) {
       _annotatedClasses.add(DeclKey(path, symbol.name));
     }
   }

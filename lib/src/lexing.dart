@@ -44,6 +44,59 @@ final class Token {
   bool get isCloser => !isWord && _closers.contains(value);
 }
 
+/// [content] with every `//` and (nesting) `/* */` comment blanked to spaces —
+/// newlines kept, string literals (incl. raw and interpolation) left intact —
+/// so length and every line/column position are preserved. Lets a substring
+/// search ignore comment prose while still seeing `@pragma('vm:entry-point')`.
+String stripComments(String content) {
+  final n = content.length;
+  final out = StringBuffer();
+  var i = 0;
+  while (i < n) {
+    final ch = content[i];
+    if (ch == '/' && i + 1 < n && content[i + 1] == '/') {
+      final start = i;
+      i += 2;
+      while (i < n && content[i] != '\n') {
+        i++;
+      }
+      _writeBlanked(out, content, start, i);
+      continue;
+    }
+    if (ch == '/' && i + 1 < n && content[i + 1] == '*') {
+      final start = i;
+      i = _skipBlockComment(content, i);
+      _writeBlanked(out, content, start, i);
+      continue;
+    }
+    if ((ch == 'r' || ch == 'R') &&
+        i + 1 < n &&
+        (content[i + 1] == "'" || content[i + 1] == '"')) {
+      final start = i;
+      i = _skipString(content, i + 1, raw: true);
+      out.write(content.substring(start, i));
+      continue;
+    }
+    if (ch == "'" || ch == '"') {
+      final start = i;
+      i = _skipString(content, i, raw: false);
+      out.write(content.substring(start, i));
+      continue;
+    }
+    out.write(ch);
+    i++;
+  }
+  return out.toString();
+}
+
+/// Writes `content[start, end)` to [out] with every non-newline replaced by a
+/// space, so the blanked span keeps its length and line breaks.
+void _writeBlanked(StringBuffer out, String content, int start, int end) {
+  for (var i = start; i < end; i++) {
+    out.write(content[i] == '\n' ? '\n' : ' ');
+  }
+}
+
 /// The byte offset of the start of each line in [content] (index 0 is offset
 /// 0). Used to translate LSP line/character positions into absolute offsets.
 List<int> computeLineStarts(String content) {
