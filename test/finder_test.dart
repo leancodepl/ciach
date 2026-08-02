@@ -901,6 +901,22 @@ void main() {
       );
     });
 
+    test('an unprefixed block-comment line mentioning @override does not skip '
+        'it', () {
+      return expectLater(
+        runCommentAnnotations(),
+        completion(contains('deadOverrideBareBlock')),
+      );
+    });
+
+    test('an unprefixed block-comment line mentioning vm:entry-point does not '
+        'skip it', () {
+      return expectLater(
+        runCommentAnnotations(),
+        completion(contains('deadEntryPointBareBlock')),
+      );
+    });
+
     test('a real @pragma(vm:entry-point) is still skipped — the string literal '
         'survives comment-stripping', () async {
       final names = await runCommentAnnotations();

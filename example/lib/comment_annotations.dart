@@ -27,6 +27,16 @@ void deadOverrideBlankSeparated() {}
 
 void deadEntryPointBlankSeparated() {}
 
+/*
+mentions @override here on an unprefixed block-comment continuation line
+*/
+void deadOverrideBareBlock() {}
+
+/*
+mentions vm:entry-point here on an unprefixed block-comment continuation line
+*/
+void deadEntryPointBareBlock() {}
+
 /// A real pragma: the annotation lives inside a string literal, which survives
 /// comment-stripping, so this stays skipped (never reported).
 @pragma('vm:entry-point')
