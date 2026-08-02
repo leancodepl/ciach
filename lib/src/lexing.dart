@@ -67,7 +67,7 @@ String stripComments(String content) {
       case '/' when i + 1 < n && content[i + 1] == '*':
         i = _skipBlockComment(content, i);
         out.write(content.substring(start, i).replaceAll(_nonNewline, ' '));
-      case 'r' || 'R'
+      case 'r'
           when i + 1 < n && (content[i + 1] == "'" || content[i + 1] == '"'):
         i = _skipString(content, i + 1, raw: true);
         out.write(content.substring(start, i));
@@ -119,7 +119,7 @@ List<Token> tokenize(String content) {
       i = _skipBlockComment(content, i);
       continue;
     }
-    if ((ch == 'r' || ch == 'R') &&
+    if (ch == 'r' &&
         i + 1 < n &&
         (content[i + 1] == "'" || content[i + 1] == '"')) {
       i = _skipString(content, i + 1, raw: true);
