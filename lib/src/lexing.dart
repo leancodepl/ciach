@@ -227,16 +227,15 @@ bool _isQuote(String c) => c == "'" || c == '"';
 
 /// The index just past the string literal starting at [i] (a `'`/`"` quote, or
 /// a raw `r` prefix before one), or `null` if [i] is not a string start.
-int? _stringLiteralEnd(String content, int i) {
-  final ch = content[i];
-  if (_isQuote(ch)) {
-    return _skipString(content, i, raw: false);
-  }
-  if (ch == 'r' && i + 1 < content.length && _isQuote(content[i + 1])) {
-    return _skipString(content, i + 1, raw: true);
-  }
-  return null;
-}
+int? _stringLiteralEnd(String content, int i) => switch (content[i]) {
+  final c when _isQuote(c) => _skipString(content, i, raw: false),
+  'r' when i + 1 < content.length && _isQuote(content[i + 1]) => _skipString(
+    content,
+    i + 1,
+    raw: true,
+  ),
+  _ => null,
+};
 
 /// Skips a string literal whose opening quote is at [from], returning the
 /// index just past the closing quote. Handles triple quotes, escapes, and —
