@@ -1,9 +1,6 @@
 ## Unreleased
 
-- Fix a comment merely mentioning `@override` or `vm:entry-point` (including a
-  file header) making ciach skip — and never report — the declaration below it.
-  Annotation detection now ignores comments.
-  ([#29](https://github.com/leancodepl/ciach/pull/29))
+- Don't skip a declaration when a comment merely mentions `@override` or `vm:entry-point`. ([#29](https://github.com/leancodepl/ciach/pull/29))
 - Add a secondary `textDocument/definition` check for zero-reference
   declarations, so valid uses the reference search misses no longer produce
   false 'unused' reports. ([#26](https://github.com/leancodepl/ciach/pull/26))
