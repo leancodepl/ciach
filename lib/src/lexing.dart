@@ -16,10 +16,11 @@
 library;
 
 extension on String {
-  int? indexOfOrNull(Pattern pattern, [int start = 0]) {
-    final index = indexOf(pattern, start);
-    return index == -1 ? null : index;
-  }
+  int? indexOfOrNull(Pattern pattern, [int start = 0]) =>
+      switch (indexOf(pattern, start)) {
+        -1 => null,
+        final index => index,
+      };
 }
 
 /// Opening bracket punctuation.
