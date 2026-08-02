@@ -44,54 +44,42 @@ final class Token {
   bool get isCloser => !isWord && _closers.contains(value);
 }
 
+/// Every character except a newline; used to blank a comment span to spaces
+/// while keeping its line breaks.
+final _nonNewline = RegExp(r'[^\n]');
+
 /// [content] with `//` and `/* */` comments blanked to spaces; string literals
-/// and offsets/newlines are left intact.
+/// and offsets/newlines are left intact. Reuses the same comment/string
+/// scanners as [tokenize], so it handles nesting and every string form.
 String stripComments(String content) {
   final n = content.length;
   final out = StringBuffer();
   var i = 0;
   while (i < n) {
-    final ch = content[i];
-    if (ch == '/' && i + 1 < n && content[i + 1] == '/') {
-      final start = i;
-      i += 2;
-      while (i < n && content[i] != '\n') {
+    final start = i;
+    switch (content[i]) {
+      case '/' when i + 1 < n && content[i + 1] == '/':
+        i += 2;
+        while (i < n && content[i] != '\n') {
+          i++;
+        }
+        out.write(content.substring(start, i).replaceAll(_nonNewline, ' '));
+      case '/' when i + 1 < n && content[i + 1] == '*':
+        i = _skipBlockComment(content, i);
+        out.write(content.substring(start, i).replaceAll(_nonNewline, ' '));
+      case 'r' || 'R'
+          when i + 1 < n && (content[i + 1] == "'" || content[i + 1] == '"'):
+        i = _skipString(content, i + 1, raw: true);
+        out.write(content.substring(start, i));
+      case "'" || '"':
+        i = _skipString(content, i, raw: false);
+        out.write(content.substring(start, i));
+      default:
+        out.write(content[i]);
         i++;
-      }
-      _writeBlanked(out, content, start, i);
-      continue;
     }
-    if (ch == '/' && i + 1 < n && content[i + 1] == '*') {
-      final start = i;
-      i = _skipBlockComment(content, i);
-      _writeBlanked(out, content, start, i);
-      continue;
-    }
-    if ((ch == 'r' || ch == 'R') &&
-        i + 1 < n &&
-        (content[i + 1] == "'" || content[i + 1] == '"')) {
-      final start = i;
-      i = _skipString(content, i + 1, raw: true);
-      out.write(content.substring(start, i));
-      continue;
-    }
-    if (ch == "'" || ch == '"') {
-      final start = i;
-      i = _skipString(content, i, raw: false);
-      out.write(content.substring(start, i));
-      continue;
-    }
-    out.write(ch);
-    i++;
   }
   return out.toString();
-}
-
-/// Blanks `content[start, end)` to [out] as spaces, keeping newlines.
-void _writeBlanked(StringBuffer out, String content, int start, int end) {
-  for (var i = start; i < end; i++) {
-    out.write(content[i] == '\n' ? '\n' : ' ');
-  }
 }
 
 /// The byte offset of the start of each line in [content] (index 0 is offset
