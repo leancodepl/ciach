@@ -44,79 +44,9 @@ jobs:
         with:
           dry-run: true
 
-      # Informational: keep the `pana` status out of the required checks. It
-      # carries the verdict, so nothing below fails this job.
-      - name: Set up the latest stable Dart for pana
-        uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
-        with:
-          sdk: stable # the score has to be the one pub.dev will give
-
-      - name: Install pana
-        run: dart pub global activate pana
-
-      - name: Score the package
-        id: score
+      - name: Score package with pana
+        uses: leancodepl/mobile-tools/.github/actions/pana-score@19fb8a79aea0c68e21acf2cb69c209a5818d449b # pana-score-v1
         continue-on-error: true
-        run: |
-          set -euo pipefail # so tee doesn't mask a pana that fell over
-          pana --json . | tee "$RUNNER_TEMP/pana.json" || true
-
-          granted=$(jq '.scores.grantedPoints' "$RUNNER_TEMP/pana.json")
-          max=$(jq '.scores.maxPoints' "$RUNNER_TEMP/pana.json")
-
-          # Two nulls would compare equal and read as a full score.
-          case "$granted$max" in
-            '' | *[!0-9]*)
-              echo "::error title=pana score::no score in pana's JSON report"
-              exit 1
-              ;;
-          esac
-
-          echo "score=$granted/$max" >> "$GITHUB_OUTPUT"
-          if [ "$granted" = "$max" ]; then
-            echo 'state=success' >> "$GITHUB_OUTPUT"
-          else
-            echo 'state=failure' >> "$GITHUB_OUTPUT"
-          fi
-
-          {
-            echo "## pana score: $granted/$max"
-            echo
-            jq -r '.report.sections[]
-              | "- \(if .grantedPoints == .maxPoints then ":white_check_mark:" else ":x:" end) \(.title): \(.grantedPoints)/\(.maxPoints)"' \
-              "$RUNNER_TEMP/pana.json"
-
-            if [ "$granted" != "$max" ]; then
-              echo
-              echo '<details><summary>Deductions</summary>'
-              echo
-              jq -r '.report.sections[]
-                | select(.grantedPoints < .maxPoints)
-                | .summary' "$RUNNER_TEMP/pana.json"
-              echo
-              echo '</details>'
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Report the score
-        continue-on-error: true
-        # A fork's token can't write statuses.
-        if: |
-          always() && (github.event_name != 'pull_request' ||
-            github.event.pull_request.head.repo.full_name == github.repository)
-        env:
-          GH_TOKEN: ${{ github.token }}
-          # The pull request head, not the merge commit `github.sha` names.
-          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          STATE: ${{ steps.score.outputs.state || 'error' }}
-          SCORE: ${{ steps.score.outputs.score || 'pana produced no score' }}
-        run: |
-          gh api "repos/$GITHUB_REPOSITORY/statuses/$SHA" \
-            --silent \
-            -f state="$STATE" \
-            -f context='pana' \
-            -f description="$SCORE" \
-            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
   verify-sdk-floor:
     name: Verify Dart 3.10 floor
