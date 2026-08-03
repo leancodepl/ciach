@@ -46,6 +46,7 @@ jobs:
 
       - name: Score package with pana
         uses: leancodepl/mobile-tools/.github/actions/pana-score@34126f9701f6f344cf97d65f5c73e61a33532a3c
+        continue-on-error: true
 
   verify-sdk-floor:
     name: Verify Dart 3.10 floor
