@@ -58,7 +58,7 @@ jobs:
         id: score
         continue-on-error: true
         run: |
-          set -o pipefail # so tee doesn't mask a pana that fell over
+          set -eo pipefail # -e is the runner's default; pipefail so tee can't mask pana
           pana --json . | tee "$RUNNER_TEMP/pana.json"
 
           granted=$(jq '.scores.grantedPoints' "$RUNNER_TEMP/pana.json")
