@@ -138,7 +138,7 @@ Future<int> _run(List<String> arguments) async {
   );
   if (result.recoveredReferences.isNotEmpty) {
     log?.write(
-      'Kept ${result.recoveredReferences.length} declaration(s) the reference search called unused: the definition check found a use for each. Reported as warnings.',
+      'Kept ${result.recoveredReferences.length} declaration(s) the reference search called unused: the definition check found a use for each.',
     );
   }
 

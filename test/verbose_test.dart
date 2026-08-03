@@ -148,9 +148,11 @@ void main() {
     });
 
     test('marks an empty list rather than printing nothing', () {
-      expect(describe(), contains('  exclude: (none) (default)'));
-      expect(describe(), contains('  include: (none) (default)'));
-      expect(describe(), contains('  generated-suffix: (none) (default)'));
+      final lines = describe();
+
+      expect(lines, contains('  exclude: (none) (default)'));
+      expect(lines, contains('  include: (none) (default)'));
+      expect(lines, contains('  generated-suffix: (none) (default)'));
     });
 
     test('lists the kinds, all of them by default', () {
