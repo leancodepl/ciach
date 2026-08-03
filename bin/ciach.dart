@@ -15,7 +15,9 @@ import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/args.dart';
 import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/options.dart';
+import 'package:ciach/src/cli/verbose.dart';
 import 'package:ciach/src/reporter.dart';
+import 'package:collection/collection.dart';
 import 'package:config/config.dart';
 import 'package:path/path.dart' as p;
 
@@ -56,13 +58,15 @@ Future<int> _run(List<String> arguments) async {
   final projectDir = args.rest.isEmpty ? '.' : args.rest.first;
 
   final ResolvedOptions resolved;
+  final ConfigFile config;
+  final CiachConfiguration configuration;
   try {
-    final config = ConfigFile.load(
+    config = .load(
       projectDir: projectDir,
       explicitPath: explicitConfig,
       ignore: ignoreConfig,
     );
-    final configuration = resolveConfiguration(args, config);
+    configuration = resolveConfiguration(args, config);
     resolved = resolveOptions(
       configuration,
       colorDefault: stdout.supportsAnsiEscapes,
@@ -76,6 +80,9 @@ Future<int> _run(List<String> arguments) async {
     stderr.writeln(e.message);
     return 2;
   }
+
+  final log = resolved.verbose ? _VerboseLog() : null;
+  log?.writeAll(describeConfigSource(config, projectDir: projectDir));
 
   final rootDir = Directory(resolved.rootPath);
   if (!rootDir.existsSync()) {
@@ -95,11 +102,21 @@ Future<int> _run(List<String> arguments) async {
   final showProgress = resolved.showProgress;
   final rootPath = resolved.absoluteRootPath;
 
+  log?.writeAll(
+    describeSettings(
+      configuration,
+      resolved,
+      dartExecutable: resolved.dartExecutable ?? Platform.resolvedExecutable,
+    ),
+  );
+
   final FinderResult result;
   try {
     result = await Ciach(
       resolved.finderOptions(
-        onProgress: showProgress ? _ProgressPrinter().update : null,
+        // Verbose keeps every phase line; progress overwrites one in place.
+        onProgress:
+            log?.write ?? (showProgress ? _ProgressPrinter().update : null),
       ),
     ).run();
   } on Object catch (e, st) {
@@ -116,6 +133,15 @@ Future<int> _run(List<String> arguments) async {
     stderr.writeln();
   }
 
+  log?.write(
+    'Scanned ${result.filesScanned} file(s) and checked ${result.declarationsChecked} declaration(s) in ${result.elapsed.inMilliseconds}ms: ${result.unused.length} unused, ${result.docOnly.length} referenced only from doc comments.',
+  );
+  if (result.recoveredReferences.isNotEmpty) {
+    log?.write(
+      'Kept ${result.recoveredReferences.length} declaration(s) the reference search called unused: the definition check found a use for each. Reported as warnings.',
+    );
+  }
+
   switch (format) {
     case 'json':
       stdout.writeln(Reporter.json(result));
@@ -125,6 +151,7 @@ Future<int> _run(List<String> arguments) async {
       final prefix = p
           .split(p.relative(rootPath, from: Directory.current.path))
           .join('/');
+      log?.write("Prefixing annotation paths with '$prefix/'.");
       stdout.write(Reporter.github(result, pathPrefix: prefix));
     case _:
       stdout.writeln(Reporter.text(result, useColor: useColor));
@@ -134,7 +161,9 @@ Future<int> _run(List<String> arguments) async {
   }
 
   if (result.unused.isNotEmpty && resolved.remove) {
-    await _removeUnused(result, rootPath, resolved, format, useColor);
+    await _removeUnused(result, rootPath, resolved, format, useColor, log);
+  } else if (result.unused.isNotEmpty) {
+    log?.write('Leaving the findings in place; --remove was not given.');
   }
 
   if (result.unused.isNotEmpty && resolved.setExitIfChanged) {
@@ -151,12 +180,21 @@ Future<void> _removeUnused(
   ResolvedOptions resolved,
   String format,
   bool useColor,
+  _VerboseLog? log,
 ) async {
   final count = result.unused.length;
   final plural = count == 1 ? '' : 's';
 
+  final blocked = result.unused.where((d) => d.removalBlocked).length;
+  if (blocked > 0) {
+    log?.write(
+      'Skipping $blocked of $count finding$plural: removing them safely would need a source rewrite (see --unused-union-members and remove safety).',
+    );
+  }
+
   var proceed = resolved.force;
   if (!proceed) {
+    log?.write('Asking for confirmation; pass --force to skip the prompt.');
     // The chosen --format may not be human-readable; show the findings
     // again so the confirmation prompt is never a shot in the dark.
     if (format != 'text') {
@@ -180,6 +218,15 @@ Future<void> _removeUnused(
     return;
   }
 
+  if (log != null) {
+    final byFile = result.unused
+        .whereNot((d) => d.removalBlocked)
+        .groupFoldBy<String, int>((d) => d.filePath, (n, _) => (n ?? 0) + 1);
+    for (final entry in byFile.entries) {
+      log.write('Rewriting ${entry.key} (${entry.value} declaration(s)).');
+    }
+  }
+
   final filesChanged = removeDeclarations(result.unused, rootPath);
   stdout.writeln(
     "Removed $count unused declaration$plural from $filesChanged file${filesChanged == 1 ? '' : 's'}. Run 'dart format' to tidy up spacing.",
@@ -193,6 +240,21 @@ Future<void> _removeUnused(
   for (final note in removedHints) {
     stdout.writeln('Note: $note');
   }
+}
+
+/// Prints `--verbose` narration to stderr — not stdout, so `-f json` stays
+/// machine-readable — one line per message, stamped with the elapsed time.
+class _VerboseLog {
+  final _stopwatch = Stopwatch()..start();
+
+  /// Writes one stamped line.
+  void write(String message) {
+    final seconds = (_stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(1);
+    stderr.writeln('[${seconds.padLeft(5)}s] $message');
+  }
+
+  /// Writes a line per message.
+  void writeAll(Iterable<String> messages) => messages.forEach(write);
 }
 
 /// Prints single-line, overwriting progress to stderr.

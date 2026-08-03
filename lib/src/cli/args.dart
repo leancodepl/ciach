@@ -282,6 +282,19 @@ enum CiachOption<V> implements OptionDefinition<V> {
       helpText: 'Show scan progress on stderr. Defaults to on for a terminal.',
     ),
   ),
+  verbose(
+    FlagOption(
+      argName: 'verbose',
+      argAbbrev: 'v',
+      configKey: '/verbose',
+      defaultsTo: false,
+      helpText:
+          'Explain what is happening on stderr: which config file was used and\n'
+          'what it set, the settings the run ended up with, each scan phase as\n'
+          'it starts, and what --remove touches. Supersedes --progress, whose\n'
+          'single overwriting line would fight with it.',
+    ),
+  ),
   concurrency(
     IntOption(
       argName: 'concurrency',
@@ -347,7 +360,8 @@ ${_wrapped(kindNames, indent: '  ')}
 Config file:
   Every option above can also be set in $configFileName in the package root,
   keyed by its long name, plus `path` for the positional argument. The command
-  line wins over the file; --no-config ignores the file.
+  line wins over the file; --no-config ignores the file; --verbose says which
+  file was read and what it set.
 
     # $configFileName
     public: false

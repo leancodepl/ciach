@@ -77,8 +77,8 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
   /// Finds and reads the config file for a run: [explicitPath] from `--config`
   /// if given, else [configFileName] in [projectDir].
   ///
-  /// With [ignore] the file is located but never read, so a caller can still
-  /// name what `--no-config` skipped, and an unparseable file is no error.
+  /// With [ignore] the file is located but never read, so `--verbose` can name
+  /// what `--no-config` skipped and an unparseable file is no error.
   ///
   /// Throws a [FormatException] if [explicitPath] is missing or the file cannot
   /// be read or parsed.

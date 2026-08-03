@@ -53,6 +53,7 @@ ciach --no-public -f json              # private-only (highest confidence), as J
 ciach -f github --set-exit-if-changed  # CI: annotations, non-zero if anything is found
 ciach --remove                         # delete the findings, after confirming
 ciach --remove --force                 # …without asking
+ciach --verbose                        # explain what's happening
 ```
 
 ### Options
@@ -80,6 +81,7 @@ ciach --remove --force                 # …without asking
 | `-j, --concurrency <n>` | `16` | Reference queries kept in flight against the analysis server. |
 | `--[no-]color` | auto | Colorize text output. |
 | `--[no-]progress` | auto | Show scan progress on stderr. |
+| `-v, --verbose` | off | Explain what's happening on stderr. See [Verbose mode](#verbose-mode). |
 | `--dart <path>` | current SDK | Path to the `dart` executable to launch the server with. |
 
 Exit codes: `0` success, `1` unused found with `--set-exit-if-changed`, `2`
@@ -107,6 +109,34 @@ Discovery looks for that one file name in the analyzed package root, never in a
 parent, so each package in a monorepo owns its config. `--config <path>` reads
 one from elsewhere; `--no-config` ignores a discovered one; the two can't be
 combined.
+
+### Verbose mode
+
+`-v` narrates the run on stderr, with elapsed times: the config file read and
+what it set, every setting and the layer it came from, each scan phase, anything
+the definition check rescued, and what `--remove` touches.
+
+```console
+$ ciach -v
+[  0.0s] Read config from ciach.yaml.
+[  0.0s]   It sets 2 options:
+[  0.0s]     public: false
+[  0.0s]     exclude: test/**
+[  0.0s] Settings for this run:
+[  0.0s]   path: /home/me/pkg (command line)
+[  0.0s]   public: false (config file)
+[  0.0s]   exclude: test/** (config file)
+[  0.0s]   concurrency: 16 (default)
+[  0.0s]   color: true (auto-detected)
+…
+[  0.1s] Starting Dart analysis server…
+[  0.3s] Collecting declarations from 13 file(s)…
+[  0.5s] Scanned 13 file(s) and checked 44 declaration(s) in 478ms: 4 unused, 1 referenced only from doc comments.
+```
+
+It all goes to stderr, so `ciach -v -f json | jq` still works. Reach for it when
+a config file seems not to apply, or to find the phase eating the time. It
+supersedes `--progress`, whose self-overwriting line would fight with it.
 
 ### Doc-only findings
 

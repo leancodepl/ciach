@@ -26,6 +26,7 @@ class ResolvedOptions {
     required this.format,
     required this.useColor,
     required this.showProgress,
+    required this.verbose,
     required this.concurrency,
     required this.dartExecutable,
   });
@@ -52,8 +53,10 @@ class ResolvedOptions {
   final String format;
   final bool useColor;
 
-  /// Whether to show scan progress.
+  /// Whether to show scan progress. Always `false` when [verbose] is set, whose
+  /// durable lines the overwriting progress line would fight with.
   final bool showProgress;
+  final bool verbose;
   final int concurrency;
   final String? dartExecutable;
 
@@ -97,26 +100,35 @@ ResolvedOptions resolveOptions(
   CiachConfiguration configuration, {
   required bool colorDefault,
   required bool progressDefault,
-}) => .new(
-  rootPath: configuration.value(CiachOption.path),
-  includeGlobs: configuration.value(CiachOption.include),
-  excludeGlobs: configuration.value(CiachOption.exclude),
-  additionalGeneratedSuffixes: configuration.value(CiachOption.generatedSuffix),
-  // Already validated by the option; this only converts the names.
-  kinds: parseKinds(configuration.value(CiachOption.kinds)),
-  includePublic: configuration.value(CiachOption.public),
-  includeGenerated: configuration.value(CiachOption.generated),
-  overrides: configuration.value(CiachOption.overrides),
-  operators: configuration.value(CiachOption.operators),
-  unusedUnionMembers: configuration.value(CiachOption.unusedUnionMembers),
-  reportToJson: configuration.value(CiachOption.reportToJson),
-  setExitIfChanged: configuration.value(CiachOption.setExitIfChanged),
-  remove: configuration.value(CiachOption.remove),
-  force: configuration.value(CiachOption.force),
-  format: configuration.value(CiachOption.format),
-  useColor: configuration.optionalValue(CiachOption.color) ?? colorDefault,
-  showProgress:
-      configuration.optionalValue(CiachOption.progress) ?? progressDefault,
-  concurrency: configuration.value(CiachOption.concurrency),
-  dartExecutable: configuration.optionalValue(CiachOption.dart),
-);
+}) {
+  final verbose = configuration.value(CiachOption.verbose);
+
+  return .new(
+    rootPath: configuration.value(CiachOption.path),
+    includeGlobs: configuration.value(CiachOption.include),
+    excludeGlobs: configuration.value(CiachOption.exclude),
+    additionalGeneratedSuffixes: configuration.value(
+      CiachOption.generatedSuffix,
+    ),
+    // Already validated by the option; this only converts the names.
+    kinds: parseKinds(configuration.value(CiachOption.kinds)),
+    includePublic: configuration.value(CiachOption.public),
+    includeGenerated: configuration.value(CiachOption.generated),
+    overrides: configuration.value(CiachOption.overrides),
+    operators: configuration.value(CiachOption.operators),
+    unusedUnionMembers: configuration.value(CiachOption.unusedUnionMembers),
+    reportToJson: configuration.value(CiachOption.reportToJson),
+    setExitIfChanged: configuration.value(CiachOption.setExitIfChanged),
+    remove: configuration.value(CiachOption.remove),
+    force: configuration.value(CiachOption.force),
+    format: configuration.value(CiachOption.format),
+    useColor: configuration.optionalValue(CiachOption.color) ?? colorDefault,
+    showProgress:
+        (configuration.optionalValue(CiachOption.progress) ??
+            progressDefault) &&
+        !verbose,
+    verbose: verbose,
+    concurrency: configuration.value(CiachOption.concurrency),
+    dartExecutable: configuration.optionalValue(CiachOption.dart),
+  );
+}

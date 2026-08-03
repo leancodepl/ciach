@@ -85,6 +85,8 @@ dart: /sdk/bin/dart
       expect(resolved.showProgress, isTrue);
       expect(resolved.concurrency, 4);
       expect(resolved.dartExecutable, '/sdk/bin/dart');
+      // On its own, since it forces `progress` off.
+      expect(resolveFile('verbose: true').verbose, isTrue);
     });
 
     test('covers every command-line option', () {
@@ -239,6 +241,7 @@ concurrency: 4
         'json',
         '--color',
         '--progress',
+        '--verbose',
         '-j',
         '2',
         '--dart',
@@ -398,6 +401,7 @@ concurrency: 4
       expect(resolved.additionalGeneratedSuffixes, isEmpty);
       expect(resolved.kinds, FinderOptions.defaultKinds);
       expect(resolved.format, 'text');
+      expect(resolved.verbose, isFalse);
       expect(resolved.concurrency, 16);
       expect(resolved.dartExecutable, isNull);
     });
@@ -503,6 +507,51 @@ dart: /sdk/bin/dart
       );
       expect(fromArgs.useColor, isFalse);
       expect(fromArgs.showProgress, isFalse);
+    });
+
+    test('verbose comes from the command line or the config', () {
+      expect(resolve(const ['--verbose']).verbose, isTrue);
+      expect(resolve(const ['-v']).verbose, isTrue);
+      expect(resolveFile('verbose: true').verbose, isTrue);
+      expect(
+        resolve(const [
+          '--no-verbose',
+        ], .parse('verbose: true', origin: 'c.yaml')).verbose,
+        isFalse,
+      );
+    });
+
+    test('verbose supersedes the progress line', () {
+      // Both write to stderr, so verbose wins however progress was asked for.
+      expect(
+        resolveWith(
+          const ['--verbose', '--progress'],
+          const .empty(),
+          colorDefault: false,
+          progressDefault: true,
+        ).showProgress,
+        isFalse,
+      );
+      expect(
+        resolveWith(
+          const [],
+          .parse('verbose: true\nprogress: true', origin: 'c.yaml'),
+          colorDefault: false,
+          progressDefault: true,
+        ).showProgress,
+        isFalse,
+      );
+      expect(
+        resolveWith(
+          const ['--progress'],
+          .parse('verbose: true', origin: 'c.yaml'),
+          colorDefault: false,
+          progressDefault: false,
+        ).showProgress,
+        isFalse,
+      );
+      // …but progress still works when verbose is off.
+      expect(resolve(const ['--progress']).showProgress, isTrue);
     });
 
     test('rejects a non-positive --concurrency', () {
