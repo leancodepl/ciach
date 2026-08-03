@@ -1,5 +1,8 @@
 ## Unreleased
 
+- Add config file support: any option can be set in a `ciach.yaml` in the
+  package root, and the command line overrides it. `--config <path>` reads one
+  from elsewhere, `--no-config` ignores it.
 - Fix a comment mentioning `@override` or `vm:entry-point` skipping the declaration below it. ([#29](https://github.com/leancodepl/ciach/pull/29))
 - Add a secondary `textDocument/definition` check for zero-reference
   declarations, so valid uses the reference search misses no longer produce
