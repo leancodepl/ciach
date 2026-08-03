@@ -439,7 +439,7 @@ class Ciach {
       symbols,
       null,
       false,
-      _sources.lines(path),
+      _sources.strippedLines(path),
       out,
     );
     return out;
@@ -456,12 +456,12 @@ class Ciach {
     List<DocumentSymbol> symbols,
     String? container,
     bool parentIsEnum,
-    List<String> lines,
+    List<String> strippedLines,
     List<Candidate> out,
   ) {
     for (final symbol in symbols) {
-      _freezed.noteIfAnnotated(path, symbol, lines);
-      if (_shouldConsider(symbol, parentIsEnum, lines)) {
+      _freezed.noteIfAnnotated(path, symbol, strippedLines);
+      if (_shouldConsider(symbol, parentIsEnum, strippedLines)) {
         out.add(
           Candidate(
             uri: uri,
@@ -487,7 +487,7 @@ class Ciach {
         symbol.children ?? const [],
         childContainer,
         symbol.kind == .enum$,
-        lines,
+        strippedLines,
         out,
       );
     }
@@ -496,7 +496,7 @@ class Ciach {
   bool _shouldConsider(
     DocumentSymbol symbol,
     bool parentIsEnum,
-    List<String> lines,
+    List<String> strippedLines,
   ) {
     if (!options.kinds.contains(
       symbol.reportedKind(parentIsEnum: parentIsEnum),
@@ -519,7 +519,7 @@ class Ciach {
       return false;
     }
 
-    final leading = symbol.leadingMetadata(lines);
+    final leading = symbol.leadingMetadata(strippedLines);
     if (options.skipOverrides && leading.contains('@override')) {
       return false;
     }

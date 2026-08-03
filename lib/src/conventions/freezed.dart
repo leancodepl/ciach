@@ -30,9 +30,13 @@ class FreezedUnions {
   /// Records [symbol] as freezed-annotated when it is a type whose leading
   /// metadata carries `@freezed`/`@Freezed`. Called for every symbol during
   /// candidate collection.
-  void noteIfAnnotated(String path, DocumentSymbol symbol, List<String> lines) {
+  void noteIfAnnotated(
+    String path,
+    DocumentSymbol symbol,
+    List<String> strippedLines,
+  ) {
     if (typeLikeKinds.contains(symbol.kind) &&
-        _annotation.hasMatch(symbol.leadingMetadata(lines))) {
+        _annotation.hasMatch(symbol.leadingMetadata(strippedLines))) {
       _annotatedClasses.add(DeclKey(path, symbol.name));
     }
   }
