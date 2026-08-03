@@ -45,7 +45,7 @@ jobs:
           dry-run: true
 
       - name: Score package with pana
-        uses: leancodepl/mobile-tools/.github/actions/pana-score@34126f9701f6f344cf97d65f5c73e61a33532a3c
+        uses: leancodepl/mobile-tools/.github/actions/pana-score@19fb8a79aea0c68e21acf2cb69c209a5818d449b # pana-score-v1
         continue-on-error: true
 
   verify-sdk-floor:
