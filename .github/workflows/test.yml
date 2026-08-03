@@ -58,7 +58,8 @@ jobs:
         id: score
         continue-on-error: true
         run: |
-          pana --json . > "$RUNNER_TEMP/pana.json"
+          set -o pipefail # so tee doesn't mask a pana that fell over
+          pana --json . | tee "$RUNNER_TEMP/pana.json"
 
           granted=$(jq '.scores.grantedPoints' "$RUNNER_TEMP/pana.json")
           max=$(jq '.scores.maxPoints' "$RUNNER_TEMP/pana.json")
