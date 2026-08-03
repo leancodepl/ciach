@@ -87,6 +87,14 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     String? explicitPath,
     bool ignore = false,
   }) {
+    if (explicitPath != null && !ignore) {
+      final file = File(explicitPath);
+      if (!file.existsSync()) {
+        throw FormatException('Config file does not exist: $explicitPath');
+      }
+      return _read(file);
+    }
+
     final discovered = File(p.join(projectDir, configFileName));
     if (ignore) {
       return ._(
@@ -96,19 +104,11 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
       );
     }
 
-    final File file;
-    if (explicitPath != null) {
-      file = File(explicitPath);
-      if (!file.existsSync()) {
-        throw FormatException('Config file does not exist: $explicitPath');
-      }
-    } else {
-      if (!discovered.existsSync()) {
-        return const .empty();
-      }
-      file = discovered;
-    }
+    return discovered.existsSync() ? _read(discovered) : const .empty();
+  }
 
+  /// Parses [file], naming it in a read or parse failure.
+  static ConfigFile _read(File file) {
     try {
       return .parse(file.readAsStringSync(), origin: file.path);
     } on FileSystemException catch (e) {
