@@ -223,7 +223,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
 
   int? _positiveInt(String key) => switch (settings[key]) {
     null => null,
-    final int value when value > 0 => value,
+    final int value && > 0 => value,
     final other => _wrong(key, 'a positive integer', other),
   };
 
