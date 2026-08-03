@@ -124,9 +124,8 @@ ResolvedOptions resolveOptions(
     format: configuration.value(CiachOption.format),
     useColor: configuration.optionalValue(CiachOption.color) ?? colorDefault,
     showProgress:
-        (configuration.optionalValue(CiachOption.progress) ??
-            progressDefault) &&
-        !verbose,
+        !verbose &&
+        (configuration.optionalValue(CiachOption.progress) ?? progressDefault),
     verbose: verbose,
     concurrency: configuration.value(CiachOption.concurrency),
     dartExecutable: configuration.optionalValue(CiachOption.dart),
