@@ -6,11 +6,9 @@ import 'package:collection/collection.dart';
 import 'package:config/config.dart';
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
-/// The `--verbose` account of where the run's settings came from: the config
-/// file that was read (and what it set), skipped, or looked for in vain.
-///
-/// [projectDir] is the directory discovery looked in, named so a config that
-/// silently didn't apply — because it sits somewhere else — is obvious.
+/// The `--verbose` account of the config file: read (and what it set), skipped,
+/// or missing from [projectDir], which is named so a file that sits elsewhere
+/// and silently didn't apply is obvious.
 List<String> describeConfigSource(
   ConfigFile config, {
   required String projectDir,
@@ -45,13 +43,11 @@ List<String> describeConfigSource(
   ];
 }
 
-/// The `--verbose` rundown of the settings the run actually uses — one line per
-/// config key, each naming the layer its value came from, so "why did it behave
-/// like that?" is answered without guessing.
+/// The `--verbose` rundown of the run's settings: one line per config key, each
+/// naming the layer its value came from.
 ///
-/// [resolved] supplies the values as the tool ended up using them, and
-/// [configuration] the layer each came from. [dartExecutable] is the `dart` the
-/// analysis server will be launched with, which only the caller can resolve.
+/// [resolved] supplies the values, [configuration] their layers, and
+/// [dartExecutable] the `dart` only the caller can resolve.
 List<String> describeSettings(
   CiachConfiguration configuration,
   ResolvedOptions resolved, {
@@ -63,41 +59,38 @@ List<String> describeSettings(
       '  $key: ${_setting(option, resolved, dartExecutable)} (${_source(configuration.valueSourceType(option))})',
 ];
 
-/// The value of [option] as the run uses it, which for a few settings is not
-/// quite the raw resolved value: the root is made absolute, the kinds become
-/// labels, and the two auto-detected flags report what they settled on.
+/// The value of [option] as the run uses it: root made absolute, kinds as
+/// labels, auto-detected flags as they settled.
 String _setting(
   CiachOption<dynamic> option,
   ResolvedOptions resolved,
   String dartExecutable,
 ) => switch (option) {
-  CiachOption.path => resolved.absoluteRootPath,
-  CiachOption.public => '${resolved.includePublic}',
-  CiachOption.generated => '${resolved.includeGenerated}',
-  CiachOption.overrides => '${resolved.overrides}',
-  CiachOption.operators => '${resolved.operators}',
-  CiachOption.unusedUnionMembers => '${resolved.unusedUnionMembers}',
-  CiachOption.reportToJson => '${resolved.reportToJson}',
-  CiachOption.setExitIfChanged => '${resolved.setExitIfChanged}',
-  CiachOption.remove => '${resolved.remove}',
-  CiachOption.force => '${resolved.force}',
-  CiachOption.exclude => _value(resolved.excludeGlobs),
-  CiachOption.include => _value(resolved.includeGlobs),
-  CiachOption.generatedSuffix => _value(resolved.additionalGeneratedSuffixes),
-  CiachOption.kinds => _kinds(resolved.kinds),
-  CiachOption.format => resolved.format,
-  CiachOption.color => '${resolved.useColor}',
-  CiachOption.progress => '${resolved.showProgress}',
-  CiachOption.verbose => '${resolved.verbose}',
-  CiachOption.concurrency => '${resolved.concurrency}',
-  CiachOption.dart => dartExecutable,
-  // Listed by config key, and these three have none — they decide whether a
-  // config file is read at all. Spelled out rather than left to a wildcard so
-  // that a new option has to be given a value here.
-  CiachOption.help || CiachOption.config || CiachOption.noConfig => '',
+  .path => resolved.absoluteRootPath,
+  .public => '${resolved.includePublic}',
+  .generated => '${resolved.includeGenerated}',
+  .overrides => '${resolved.overrides}',
+  .operators => '${resolved.operators}',
+  .unusedUnionMembers => '${resolved.unusedUnionMembers}',
+  .reportToJson => '${resolved.reportToJson}',
+  .setExitIfChanged => '${resolved.setExitIfChanged}',
+  .remove => '${resolved.remove}',
+  .force => '${resolved.force}',
+  .exclude => _value(resolved.excludeGlobs),
+  .include => _value(resolved.includeGlobs),
+  .generatedSuffix => _value(resolved.additionalGeneratedSuffixes),
+  .kinds => _kinds(resolved.kinds),
+  .format => resolved.format,
+  .color => '${resolved.useColor}',
+  .progress => '${resolved.showProgress}',
+  .verbose => '${resolved.verbose}',
+  .concurrency => '${resolved.concurrency}',
+  .dart => dartExecutable,
+  // No config key, so never listed; spelled out so a new option must be too.
+  .help || .config || .noConfig => '',
 };
 
-/// Where a value came from, in the words the user would use for it.
+/// Where a value came from, in the user's words.
 String _source(ValueSourceType source) => switch (source) {
   .arg => 'command line',
   .config => 'config file',
@@ -107,15 +100,14 @@ String _source(ValueSourceType source) => switch (source) {
   .noValue => 'auto-detected',
 };
 
-/// A value as it reads in the verbose log: an empty list is `(none)`, a
-/// non-empty one is comma-separated, everything else is itself.
+/// A value as the log reads it: an empty list is `(none)`, a full one is
+/// comma-separated.
 String _value(Object? value) => switch (value) {
   [] => '(none)',
   List() => value.join(', '),
   _ => '$value',
 };
 
-/// The kind labels, sorted. Whether they are all of them is already clear from
-/// the source: nothing restricted them if the value came from the default.
+/// The kind labels, sorted. That they are all of them shows in the source.
 String _kinds(Set<SymbolKind> kinds) =>
     kinds.map((kind) => kind.label).sorted().join(', ');

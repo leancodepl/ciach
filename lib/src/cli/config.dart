@@ -6,19 +6,15 @@ import 'package:config/config.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
-/// Every key a config file may contain: the config key of each option that
-/// declares one, so the accepted set follows [CiachOption] rather than being
-/// maintained alongside it.
+/// Every key a config file may contain, following [CiachOption].
 final configKeys = {for (final option in CiachOption.values) ?option.configKey};
 
-/// A config file: the settings it holds, where it came from, and the typed
-/// lookups that hand them to `package:config`.
+/// The config-file layer of option resolution: a [ConfigurationBroker] over the
+/// settings of a `ciach.yaml`.
 ///
-/// As a [ConfigurationBroker] this is the config-file layer of option
-/// resolution — the command line still wins, and the option's own default is
-/// still the fallback. What stays ciach's own business is everything about the
-/// file itself: where to look for it, whether to read it at all, and reporting
-/// a malformed one against the path it came from.
+/// Where to look for that file, whether to read it at all, and reporting a
+/// malformed one against its path stay ciach's own business; the command line
+/// beating it, and its defaults, are `package:config`'s.
 class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
   const ConfigFile._({
     required this.settings,
@@ -29,12 +25,10 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
   /// A config that sets nothing, from nowhere.
   const ConfigFile.empty() : settings = const {}, path = null, ignored = false;
 
-  /// Parses [source] as a config file whose settings came from [origin]
-  /// (a file path, which becomes [path] and names the file in errors).
+  /// Parses [source], read from the file [origin], which names it in errors.
   ///
-  /// Throws a [FormatException] on a document that isn't a map of options, one
-  /// carrying a key that is not in [configKeys], or a value whose type doesn't
-  /// suit its option.
+  /// Throws a [FormatException] on anything but a map of known keys with values
+  /// their options accept.
   factory ConfigFile.parse(String source, {required String origin}) {
     final Object? document;
     try {
@@ -43,9 +37,9 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
       throw FormatException('$origin: not valid YAML: ${e.message}');
     }
 
-    // An empty file parses to null; treat it as "no settings", not an error.
+    // An empty file parses to null; that is no settings, not an error.
     if (document == null) {
-      return ConfigFile._(settings: const {}, path: origin, ignored: false);
+      return ._(settings: const {}, path: origin, ignored: false);
     }
     if (document is! Map) {
       throw FormatException('$origin: the top level must be a map of options.');
@@ -65,9 +59,8 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     final file = ConfigFile._(
       settings: {
         for (final entry in document.entries)
-          // A key with no value (`public:`) counts as unset, so commenting a
-          // value out behaves like deleting the line. YAML collections are
-          // unwrapped so settings holds plain Dart values.
+          // A valueless key (`public:`) counts as unset, and YAML collections
+          // are unwrapped to plain Dart ones.
           if (entry.value case final value?)
             '${entry.key}': value is Iterable ? value.toList() : value,
       },
@@ -75,22 +68,20 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
       ignored: false,
     );
 
-    // Type-check the whole file up front. Resolution only asks for the keys it
-    // ends up needing, so without this a bad value under an option the command
-    // line overrides would sit in the file unreported.
+    // Resolution only asks for the keys it needs, so without checking the whole
+    // file here, a bad value under an overridden option would go unreported.
     file.settings.keys.forEach(file._typedValue);
     return file;
   }
 
-  /// Finds and reads the config file for a run.
+  /// Finds and reads the config file for a run: [explicitPath] from `--config`
+  /// if given, else [configFileName] in [projectDir].
   ///
-  /// [explicitPath] — from `--config` — is read as-is; otherwise
-  /// [configFileName] is looked for in [projectDir]. With [ignore] set the file
-  /// is located (so `--verbose` can name what it skipped) but never read, which
-  /// is what makes `--no-config` survive an unparseable config file.
+  /// With [ignore] the file is located but never read, so `--verbose` can name
+  /// what `--no-config` skipped and an unparseable file is no error.
   ///
-  /// Throws a [FormatException] when [explicitPath] does not exist, or when the
-  /// file cannot be read or parsed.
+  /// Throws a [FormatException] if [explicitPath] is missing or the file cannot
+  /// be read or parsed.
   static ConfigFile load({
     required String projectDir,
     String? explicitPath,
@@ -98,7 +89,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
   }) {
     final discovered = File(p.join(projectDir, configFileName));
     if (ignore) {
-      return ConfigFile._(
+      return ._(
         settings: const {},
         path: discovered.existsSync() ? discovered.path : null,
         ignored: true,
@@ -113,13 +104,13 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
       }
     } else {
       if (!discovered.existsSync()) {
-        return const ConfigFile.empty();
+        return const .empty();
       }
       file = discovered;
     }
 
     try {
-      return ConfigFile.parse(file.readAsStringSync(), origin: file.path);
+      return .parse(file.readAsStringSync(), origin: file.path);
     } on FileSystemException catch (e) {
       throw FormatException(
         'Cannot read config file ${file.path}: ${e.message}',
@@ -127,40 +118,33 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     }
   }
 
-  /// What the file sets, keyed by config key, in the order it set them. Only
-  /// keys the file actually carries a value for appear.
+  /// What the file sets, keyed by config key, in the order it set them.
   final Map<String, Object?> settings;
 
-  /// The file these settings came from, or — when [ignored] — the file that was
-  /// skipped. `null` when there was no config file at all.
+  /// The file the [settings] came from, or that [ignored] skipped; `null` when
+  /// there was no config file at all.
   final String? path;
 
-  /// Whether a config file was deliberately skipped (`--no-config`). Nothing
-  /// was read or parsed in that case, so even an invalid file is no error.
+  /// Whether `--no-config` skipped a file, leaving it unread.
   final bool ignored;
 
-  /// The config-file value for [key] — a JSON pointer such as `/public` —
-  /// typed to suit its option, or `null` when the file doesn't set it.
+  /// The value for [key], a JSON pointer such as `/public`.
   @override
   Object? valueOrNull(String key, CiachConfiguration cfg) =>
       _typedValue(key.startsWith('/') ? key.substring(1) : key);
 
   /// The value under [key], as the type its option takes.
   ///
-  /// The type has to come from the option rather than from the value, so that
-  /// `exclude: ['a']` arrives as a `List<String>` (a bare `List<dynamic>` would
-  /// not satisfy the option) and so that a mismatch is reported against the
-  /// file, naming the key and what was expected.
+  /// The type comes from the option, not the value, so that `exclude: ['a']`
+  /// arrives as the `List<String>` the option needs rather than a
+  /// `List<dynamic>`, and a mismatch names the file and the key.
   ///
-  /// Three settings accept less than their type allows. Their rules live with
-  /// the option — as `allowedValues`, a `customValidator`, a `min` — and are
-  /// applied to whatever the command line provides; these readers hold the file
-  /// to the same rules, from the same [formatNames] and [parseKinds], so that a
-  /// bad value is reported against the file it is written in either way.
+  /// The first three accept less than their type allows, and `package:config`
+  /// keeps its own validators internal, so they reuse what the options declare.
   Object? _typedValue(String key) => switch (_optionFor(key)) {
-    CiachOption.format => _oneOf(key, formatNames),
-    CiachOption.kinds => _kinds(key),
-    CiachOption.concurrency => _positiveInt(key),
+    .format => _oneOf(key, formatNames),
+    .kinds => _kinds(key),
+    .concurrency => _positiveInt(key),
     final option => switch (option.option) {
       FlagOption() => _boolean(key),
       IntOption() => _positiveInt(key),
@@ -184,8 +168,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     final other => _wrong(key, 'a string', other),
   };
 
-  /// A list of strings, also accepting a bare string as a one-element list
-  /// (`exclude: test/**`).
+  /// A list of strings, or a bare string as a one-element list.
   List<String>? _strings(String key) => switch (settings[key]) {
     null => null,
     final String value => [value],
@@ -207,8 +190,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     return value;
   }
 
-  /// Declaration kind names, left for `parseKinds` to turn into symbol kinds
-  /// but validated here, so an unknown kind names the file it came from.
+  /// Kind names, validated but left unconverted.
   List<String>? _kinds(String key) {
     final values = _strings(key);
     if (values != null) {
@@ -227,7 +209,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     final other => _wrong(key, 'a positive integer', other),
   };
 
-  /// Reports a value of the wrong type, naming the file and the key.
+  /// Reports the wrong type, naming the file and the key.
   Never _wrong(String key, String expected, Object? value) =>
       throw FormatException(
         "$path: '$key' must be $expected, got ${_describe(value)}.",

@@ -100,22 +100,20 @@ format: github
 set-exit-if-changed: true
 ```
 
-Command line beats config file beats default — including when the flag matches
-the default (`ciach --public` overrides `public: false`) — and a repeatable
-option given on the command line replaces the config's list rather than adding
-to it. Unknown keys and wrong-typed values are usage errors naming the file and
-the key, whether or not the command line overrides that option.
+Command line beats config file beats default, even when the flag matches the
+default (`ciach --public` overrides `public: false`), and a repeatable option on
+the command line replaces the config's list rather than adding to it. Unknown
+keys and wrong-typed values are usage errors naming the file and the key.
 
-That one file name is looked for in the analyzed package root only, never in
-parent directories, so each package in a monorepo owns its config. `--config
-<path>` reads a file from elsewhere instead; `--no-config` ignores a discovered
-one. The two can't be combined.
+Only that one file name, in the analyzed package root — never a parent — so each
+package in a monorepo owns its config. `--config <path>` reads one from
+elsewhere; `--no-config` ignores a discovered one; the two can't be combined.
 
 ### Verbose mode
 
 `-v` narrates the run on stderr, with elapsed times: the config file read and
-what it set, every setting the run resolved to and which layer it came from,
-each scan phase, and what `--remove` touches.
+what it set, every setting and the layer it came from, each scan phase, and what
+`--remove` touches.
 
 ```console
 $ ciach -v
@@ -135,9 +133,9 @@ $ ciach -v
 [  0.5s] Scanned 13 file(s) and checked 44 declaration(s) in 478ms: 4 unused, 1 referenced only from doc comments.
 ```
 
-All of it goes to stderr, so `ciach -v -f json | jq` still works. Reach for it
-when a config file seems not to apply, or to see which phase is eating the time.
-It supersedes `--progress`, whose self-overwriting line would fight with it.
+It all goes to stderr, so `ciach -v -f json | jq` still works. Reach for it when
+a config file seems not to apply, or to find the phase eating the time. It
+supersedes `--progress`, whose self-overwriting line would fight with it.
 
 ### Doc-only findings
 

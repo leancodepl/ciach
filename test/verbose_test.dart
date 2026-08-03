@@ -14,10 +14,7 @@ void main() {
   group('describeConfigSource', () {
     test('names the file it read and every option it set', () {
       final lines = describeConfigSource(
-        ConfigFile.parse(
-          "public: false\nexclude: ['test/**']",
-          origin: '/c.yaml',
-        ),
+        .parse("public: false\nexclude: ['test/**']", origin: '/c.yaml'),
         projectDir: '/pkg',
       );
 
@@ -31,7 +28,7 @@ void main() {
 
     test('says so when the file it read is empty', () {
       final lines = describeConfigSource(
-        ConfigFile.parse('# nothing\n', origin: '/pkg/ciach.yaml'),
+        .parse('# nothing\n', origin: '/pkg/ciach.yaml'),
         projectDir: '/pkg',
       );
 
@@ -43,7 +40,7 @@ void main() {
 
     test('names the directory it searched when nothing was found', () {
       final lines = describeConfigSource(
-        const ConfigFile.empty(),
+        const .empty(),
         projectDir: 'packages/app',
       );
 
@@ -58,7 +55,7 @@ void main() {
       File(p.join(dir.path, configFileName)).writeAsStringSync('public: false');
 
       final lines = describeConfigSource(
-        ConfigFile.load(projectDir: dir.path, ignore: true),
+        .load(projectDir: dir.path, ignore: true),
         projectDir: dir.path,
       );
 
@@ -72,7 +69,7 @@ void main() {
       addTearDown(() => dir.deleteSync(recursive: true));
 
       final lines = describeConfigSource(
-        ConfigFile.load(projectDir: dir.path, ignore: true),
+        .load(projectDir: dir.path, ignore: true),
         projectDir: dir.path,
       );
 
@@ -89,7 +86,7 @@ void main() {
     List<String> describe([List<String> arguments = const []]) {
       final configuration = resolveConfiguration(
         parser.parse(arguments),
-        const ConfigFile.empty(),
+        const .empty(),
       );
       return describeSettings(
         configuration,
@@ -131,7 +128,7 @@ void main() {
     test('names the layer each value came from', () {
       final configuration = resolveConfiguration(
         parser.parse(const ['--no-public']),
-        ConfigFile.parse('format: json\nremove: true', origin: 'c.yaml'),
+        .parse('format: json\nremove: true', origin: 'c.yaml'),
       );
       final lines = describeSettings(
         configuration,
@@ -163,7 +160,7 @@ void main() {
           .replaceFirst(' (default)', '')
           .split(', ');
 
-      // Two aliases can map to one symbol kind, so labels can be fewer.
+      // Two aliases can map to one kind, so labels can be fewer.
       expect(kinds, hasLength(FinderOptions.defaultKinds.length));
       expect(
         describe(const [

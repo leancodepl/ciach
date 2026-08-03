@@ -11,8 +11,8 @@ import 'package:test/test.dart';
 void main() {
   final parser = buildParser();
 
-  /// Resolves [arguments] against [config], with the terminal-probed defaults
-  /// supplied explicitly so a test never depends on the terminal it runs in.
+  /// Resolves [arguments] against [config], the terminal-probed defaults given
+  /// explicitly so no test depends on the terminal it runs in.
   ResolvedOptions resolveWith(
     List<String> arguments,
     ConfigFile config, {
@@ -24,25 +24,22 @@ void main() {
     progressDefault: progressDefault,
   );
 
-  /// Resolves [arguments] against [config] with both auto-detected settings
-  /// off, so only explicit values can turn them on.
+  /// As above, with both auto-detected settings off.
   ResolvedOptions resolve(List<String> arguments, [ConfigFile? config]) =>
       resolveWith(
         arguments,
-        config ?? const ConfigFile.empty(),
+        config ?? const .empty(),
         colorDefault: false,
         progressDefault: false,
       );
 
-  /// The settings a config [source] alone produces, with an empty command line.
+  /// What a config [source] alone resolves to.
   ResolvedOptions resolveFile(String source) =>
-      resolve(const [], ConfigFile.parse(source, origin: 'ciach.yaml'));
+      resolve(const [], .parse(source, origin: 'ciach.yaml'));
 
   group('ConfigFile.parse', () {
     test('reads every option', () {
-      // One file setting all twenty keys, checked through the merge — which is
-      // both what the CLI does with them and where each value's type is
-      // enforced.
+      // Checked through the merge, which is what the CLI does with them.
       final resolved = resolveFile('''
 path: packages/app
 public: false
@@ -88,14 +85,12 @@ dart: /sdk/bin/dart
       expect(resolved.showProgress, isTrue);
       expect(resolved.concurrency, 4);
       expect(resolved.dartExecutable, '/sdk/bin/dart');
-      // `verbose` is exercised on its own: it forces `progress` off.
+      // On its own, since it forces `progress` off.
       expect(resolveFile('verbose: true').verbose, isTrue);
     });
 
     test('covers every command-line option', () {
-      // Guards the promise that anything settable on the command line is
-      // settable in the file: every long option name (bar the config-file
-      // plumbing and --help) must be a config key.
+      // Anything settable on the command line is settable in the file.
       final cliOnly = {'help', 'config', 'no-config'};
       final optionNames = parser.options.keys.toSet().difference(cliOnly);
 
@@ -221,12 +216,9 @@ concurrency: 4
     });
 
     test('checks the type of every key, even one the argv overrides', () {
-      // Resolution is where a config value's type is enforced, so every key
-      // has to be read there whether the command line supersedes it or not —
-      // otherwise a typo would sit in the file unreported. Every option is
-      // given on the command line below, so only an eager read can still catch
-      // the bad value; a map fits no setting, so it is the one wrong value that
-      // works for every key.
+      // Every option is given on the command line below, so only the eager
+      // check when the file is parsed can still catch the bad value. A map fits
+      // no setting, so it is the one wrong value that works for every key.
       const everyOption = [
         '--public',
         '--generated',
@@ -261,7 +253,7 @@ concurrency: 4
         expect(
           () => resolve(
             everyOption,
-            ConfigFile.parse('$key: {a: b}', origin: 'ciach.yaml'),
+            .parse('$key: {a: b}', origin: 'ciach.yaml'),
           ),
           throwsA(isFormatException('ciach.yaml', contains("'$key'"))),
           reason: 'for a map under $key',
@@ -362,8 +354,7 @@ concurrency: 4
     });
 
     test('ignore reads nothing, but still names the file it skipped', () {
-      // Invalid on purpose: with --no-config it is never parsed, so a broken
-      // config file can't fail a run that asked to ignore it.
+      // Invalid on purpose: --no-config never parses it, so it can't fail.
       write('ciach.yaml', 'publik: [unclosed');
 
       final config = ConfigFile.load(projectDir: tempDir.path, ignore: true);
@@ -480,11 +471,11 @@ dart: /sdk/bin/dart
     });
 
     test('explicitly passing a flag at its default value still wins', () {
-      // --public matches the built-in default, so only `wasParsed` can tell it
+      // --public matches the default, so only the layer it came from tells it
       // apart from an absent flag — and it has to, to beat `public: false`.
       final resolved = resolve(const [
         '--public',
-      ], ConfigFile.parse('public: false', origin: 'ciach.yaml'));
+      ], .parse('public: false', origin: 'ciach.yaml'));
 
       expect(resolved.includePublic, isTrue);
     });
@@ -492,7 +483,7 @@ dart: /sdk/bin/dart
     test('auto-detected color and progress are the last resort', () {
       final auto = resolveWith(
         const [],
-        const ConfigFile.empty(),
+        const .empty(),
         colorDefault: true,
         progressDefault: true,
       );
@@ -501,7 +492,7 @@ dart: /sdk/bin/dart
 
       final fromConfig = resolveWith(
         const [],
-        ConfigFile.parse('color: false\nprogress: false', origin: 'c.yaml'),
+        .parse('color: false\nprogress: false', origin: 'c.yaml'),
         colorDefault: true,
         progressDefault: true,
       );
@@ -510,7 +501,7 @@ dart: /sdk/bin/dart
 
       final fromArgs = resolveWith(
         const ['--no-color', '--no-progress'],
-        ConfigFile.parse('color: true\nprogress: true', origin: 'c.yaml'),
+        .parse('color: true\nprogress: true', origin: 'c.yaml'),
         colorDefault: true,
         progressDefault: true,
       );
@@ -525,19 +516,17 @@ dart: /sdk/bin/dart
       expect(
         resolve(const [
           '--no-verbose',
-        ], ConfigFile.parse('verbose: true', origin: 'c.yaml')).verbose,
+        ], .parse('verbose: true', origin: 'c.yaml')).verbose,
         isFalse,
       );
     });
 
     test('verbose supersedes the progress line', () {
-      // Both would write to stderr, the progress line overwriting itself in
-      // place — so verbose wins and progress is switched off, however it was
-      // asked for.
+      // Both write to stderr, so verbose wins however progress was asked for.
       expect(
         resolveWith(
           const ['--verbose', '--progress'],
-          const ConfigFile.empty(),
+          const .empty(),
           colorDefault: false,
           progressDefault: true,
         ).showProgress,
@@ -546,7 +535,7 @@ dart: /sdk/bin/dart
       expect(
         resolveWith(
           const [],
-          ConfigFile.parse('verbose: true\nprogress: true', origin: 'c.yaml'),
+          .parse('verbose: true\nprogress: true', origin: 'c.yaml'),
           colorDefault: false,
           progressDefault: true,
         ).showProgress,
@@ -555,13 +544,13 @@ dart: /sdk/bin/dart
       expect(
         resolveWith(
           const ['--progress'],
-          ConfigFile.parse('verbose: true', origin: 'c.yaml'),
+          .parse('verbose: true', origin: 'c.yaml'),
           colorDefault: false,
           progressDefault: false,
         ).showProgress,
         isFalse,
       );
-      // …but plain progress still works when verbose is off.
+      // …but progress still works when verbose is off.
       expect(resolve(const ['--progress']).showProgress, isTrue);
     });
 
@@ -587,10 +576,8 @@ dart: /sdk/bin/dart
     });
 
     test('reports every problem at once, not just the first', () {
-      // One of the reasons for leaning on package:config: a run with two bad
-      // values is told about both, instead of one error per attempt. (An
-      // out-of-range `--format` is not among them — an option's `allowed` list
-      // is the arg parser's business, so that one fails before resolution.)
+      // An out-of-range `--format` is not among them: an option's `allowed`
+      // list is the arg parser's business, so that fails before resolution.
       expect(
         () => resolve(const ['-k', 'klass', '-j', '0']),
         throwsA(
@@ -617,7 +604,7 @@ dart: /sdk/bin/dart
 
       expect(options.rootPath, p.normalize(p.absolute('.')));
       expect(options.includePublic, isFalse);
-      // The finder's flag is the inverse of the CLI's.
+      // Inverted for the finder.
       expect(options.skipOverrides, isFalse);
       expect(options.skipOperators, isTrue);
       expect(options.excludeGlobs, ['test/**']);

@@ -58,16 +58,11 @@ Set<SymbolKind> parseKinds(List<String> raw) {
   };
 }
 
-/// Every setting ciach accepts, declared once.
+/// Every setting ciach accepts, declared once for the command line, the config
+/// file (`configKey`) and its default.
 ///
-/// Each option carries its command-line spelling, its help text, its default,
-/// and — for everything settable in a config file — the `configKey` a
-/// `ciach.yaml` entry is read from. `package:config` resolves a value for each
-/// from the command line first, then the config file, then the default, so
-/// there is one place to add a setting and no second list to keep in step.
-///
-/// The two config-file options themselves ([config] and [noConfig]) and
-/// [help] have no `configKey`: a config file can't decide whether it is read.
+/// [help], [config] and [noConfig] have no `configKey`: a config file doesn't
+/// get to decide whether it is read.
 enum CiachOption<V> implements OptionDefinition<V> {
   help(
     FlagOption(
@@ -87,8 +82,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'analyzed package root, when present.',
     ),
   ),
-  // Not a negatable `config` flag — `config` is the option above — but a flag
-  // in its own right, so `--no-config` reads the way you'd expect it to.
+  // A flag of its own, not a negated `config` — that name is the option above.
   noConfig(
     FlagOption(
       argName: 'no-config',
@@ -249,11 +243,10 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/kinds',
       defaultsTo: [],
       valueHelp: 'kind,kind',
-      // Validated here so an unknown kind is rejected wherever it came from,
-      // with the same message; parseKinds does the conversion later.
+      // Rejects an unknown kind wherever it came from; the conversion to
+      // symbol kinds happens later.
       customValidator: parseKinds,
-      // The valid kinds come from kindAliases, so they are listed in `usage`
-      // rather than duplicated in this const help text.
+      // Listed in `usage`, which can read them off kindAliases.
       helpText:
           'Restrict to these declaration kinds (comma-separated).\n'
           'The kinds are listed at the end of this help.',
@@ -332,22 +325,18 @@ enum CiachOption<V> implements OptionDefinition<V> {
   @override
   final ConfigOptionBase<V> option;
 
-  /// The `ciach.yaml` key this option is read from, without the leading `/` of
-  /// its JSON pointer — `null` for an option a config file can't set.
+  /// The `ciach.yaml` key for this option, its JSON pointer without the `/`.
   String? get configKey => option.configKey?.substring(1);
 }
 
-/// A [Configuration] over ciach's own options, named so the `dynamic` type
-/// argument the option enum needs is written just the once.
+/// Ciach's resolved options, named so the enum's `dynamic` argument is written
+/// once.
 typedef CiachConfiguration = Configuration<CiachOption<dynamic>>;
 
-/// The file name looked for when discovering a config in the project
-/// directory.
+/// The file name config discovery looks for in the project directory.
 const configFileName = 'ciach.yaml';
 
-/// Builds the argument parser for [CiachOption.values], so the command line is
-/// parsed (and `--help` rendered) from the same declarations the config file
-/// and the defaults are read from.
+/// The argument parser for [CiachOption.values].
 ArgParser buildParser() {
   final parser = ArgParser();
   prepareOptionsForParsing(CiachOption.values, parser);
@@ -369,11 +358,10 @@ Declaration kinds (-k, --kinds):
 ${_wrapped(kindNames, indent: '  ')}
 
 Config file:
-  Every option above can also be set in a YAML file — $configFileName in the
-  package root, picked up automatically — using the long option name as the
-  key, plus `path` for the positional argument. Anything passed on the command
-  line wins over the file, and --no-config ignores it entirely. Run with
-  --verbose to see which file was read and what it set.
+  Every option above can also be set in $configFileName in the package root,
+  keyed by its long name, plus `path` for the positional argument. The command
+  line wins over the file; --no-config ignores the file; --verbose says which
+  file was read and what it set.
 
     # $configFileName
     public: false
@@ -404,8 +392,7 @@ Examples:
   # Remove without asking (e.g. in a script)
   ciach --remove --force''';
 
-/// [text] broken into [indent]-prefixed lines of at most [width] characters,
-/// splitting on the spaces after its commas.
+/// [text] as [indent]-prefixed lines of at most [width] characters.
 String _wrapped(String text, {String indent = '', int width = 76}) {
   final lines = <String>[];
   for (final word in text.split(' ')) {

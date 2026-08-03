@@ -5,15 +5,9 @@ import 'package:ciach/src/cli/config.dart';
 import 'package:config/config.dart';
 import 'package:path/path.dart' as p;
 
-/// Everything a run needs, in the types the rest of the tool works in.
-///
-/// Which layer each value came from is `package:config`'s business — by the
-/// time a [ResolvedOptions] exists, a setting is just a value. What this adds
-/// on top of the resolved [Configuration] is the conversions the finder wants
-/// (`--kinds` names to [SymbolKind]s, the two inverted flags), the terminal
-/// fallbacks for the settings that auto-detect, and [finderOptions].
+/// A resolved [Configuration] in the types the rest of the tool works in: kind
+/// names converted, the inverted flags flipped, the auto-detected ones settled.
 class ResolvedOptions {
-  /// Creates a fully resolved set of options.
   const ResolvedOptions({
     required this.rootPath,
     required this.includeGlobs,
@@ -37,78 +31,42 @@ class ResolvedOptions {
     required this.dartExecutable,
   });
 
-  /// Package root to analyze, as written — still relative to the cwd. Use
-  /// [absoluteRootPath] for the resolved location.
+  /// Package root to analyze, as written; see [absoluteRootPath].
   final String rootPath;
-
-  /// See [FinderOptions.includeGlobs].
   final List<String> includeGlobs;
-
-  /// See [FinderOptions.excludeGlobs].
   final List<String> excludeGlobs;
-
-  /// See [FinderOptions.additionalGeneratedSuffixes].
   final List<String> additionalGeneratedSuffixes;
-
-  /// See [FinderOptions.kinds].
   final Set<SymbolKind> kinds;
-
-  /// See [FinderOptions.includePublic].
   final bool includePublic;
-
-  /// See [FinderOptions.includeGenerated].
   final bool includeGenerated;
 
-  /// Whether to report `@override` members; the inverse of
-  /// [FinderOptions.skipOverrides].
+  /// Whether to report `@override` members — inverted for the finder.
   final bool overrides;
 
-  /// Whether to report operator overloads; the inverse of
-  /// [FinderOptions.skipOperators].
+  /// Whether to report operator overloads — inverted for the finder.
   final bool operators;
-
-  /// See [FinderOptions.unusedUnionMembers].
   final bool unusedUnionMembers;
-
-  /// See [FinderOptions.reportToJson].
   final bool reportToJson;
-
-  /// Whether to exit non-zero when anything is found.
   final bool setExitIfChanged;
-
-  /// Whether to remove what is reported.
   final bool remove;
-
-  /// Whether to skip the removal confirmation prompt.
   final bool force;
-
-  /// Output format: one of [formatNames].
   final String format;
-
-  /// Whether to colorize text output.
   final bool useColor;
 
-  /// Whether to show scan progress on stderr. Always `false` when [verbose] is
-  /// set: the durable verbose log covers the same phases, and a single
-  /// overwriting progress line would fight with it.
+  /// Always `false` when [verbose] is set, whose durable lines the overwriting
+  /// progress line would fight with.
   final bool showProgress;
-
-  /// Whether to explain what is happening on stderr.
   final bool verbose;
-
-  /// See [FinderOptions.concurrency].
   final int concurrency;
-
-  /// See [FinderOptions.dartExecutable].
   final String? dartExecutable;
 
-  /// [rootPath] resolved against the current directory, which is what the
-  /// finder, the remover and the reporters all work in terms of.
+  /// [rootPath] against the current directory, as everything downstream wants
+  /// it.
   String get absoluteRootPath => p.normalize(p.absolute(rootPath));
 
   /// The finder's share of these settings, reporting progress to [onProgress].
   FinderOptions finderOptions({void Function(String message)? onProgress}) =>
-      FinderOptions(
+      .new(
         rootPath: absoluteRootPath,
         includeGlobs: includeGlobs,
         excludeGlobs: excludeGlobs,
@@ -127,22 +85,18 @@ class ResolvedOptions {
 }
 
 /// Resolves every [CiachOption] from [args] and [config], the command line
-/// winning over the file and the file over the option's default.
+/// winning over the file and the file over the default.
 ///
-/// Throws a [UsageException] listing every problem when a value is missing or
-/// malformed, whichever layer it came from.
+/// Throws a [UsageException] listing every malformed value, from either layer.
 CiachConfiguration resolveConfiguration(ArgResults args, ConfigFile config) =>
-    Configuration.resolve(
+    .resolve(
       options: CiachOption.values,
       argResults: args,
       configBroker: config,
     );
 
-/// The settings of [configuration] in the types the rest of the tool wants.
-///
-/// [colorDefault] and [progressDefault] stand in for the two settings that
-/// auto-detect when nothing asked for them either way; the caller probes those
-/// off the terminal.
+/// The settings of [configuration], with [colorDefault] and [progressDefault]
+/// standing in for the two nobody asked for either way.
 ResolvedOptions resolveOptions(
   CiachConfiguration configuration, {
   required bool colorDefault,
@@ -152,7 +106,7 @@ ResolvedOptions resolveOptions(
   final progress =
       configuration.optionalValue(CiachOption.progress) ?? progressDefault;
 
-  return ResolvedOptions(
+  return .new(
     rootPath: configuration.value(CiachOption.path),
     includeGlobs: configuration.value(CiachOption.include),
     excludeGlobs: configuration.value(CiachOption.exclude),

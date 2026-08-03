@@ -53,15 +53,15 @@ Future<int> _run(List<String> arguments) async {
     return 2;
   }
 
-  // Discovery looks in the package root named on the command line — a config
-  // file's own `path` cannot decide where that config file is read from.
+  // The root named on the command line: a config file's own `path` can't decide
+  // where that file is read from.
   final projectDir = args.rest.isEmpty ? '.' : args.rest.first;
 
   final ResolvedOptions resolved;
   final ConfigFile config;
   final CiachConfiguration configuration;
   try {
-    config = ConfigFile.load(
+    config = .load(
       projectDir: projectDir,
       explicitPath: explicitConfig,
       ignore: ignoreConfig,
@@ -70,7 +70,7 @@ Future<int> _run(List<String> arguments) async {
     resolved = resolveOptions(
       configuration,
       colorDefault: stdout.supportsAnsiEscapes,
-      // Progress goes to stderr; default on only when it won't clutter a pipe.
+      // Progress goes to stderr, so default it on only for a terminal.
       progressDefault: stderr.hasTerminal,
     );
   } on UsageException catch (e) {
@@ -114,8 +114,7 @@ Future<int> _run(List<String> arguments) async {
   try {
     result = await Ciach(
       resolved.finderOptions(
-        // The finder narrates its phases through one callback; verbose keeps
-        // every line, plain progress overwrites a single one in place.
+        // Verbose keeps every phase line; progress overwrites one in place.
         onProgress:
             log?.write ?? (showProgress ? _ProgressPrinter().update : null),
       ),
@@ -142,8 +141,8 @@ Future<int> _run(List<String> arguments) async {
     case 'json':
       stdout.writeln(Reporter.json(result));
     case 'github':
-      // GitHub resolves annotation paths from the repo root; make the finding
-      // paths root-relative by prepending the scan root's path from here.
+      // GitHub resolves annotation paths from the repo root, so prepend the
+      // scan root's path from here.
       final prefix = p
           .split(p.relative(rootPath, from: Directory.current.path))
           .join('/');
@@ -165,8 +164,8 @@ Future<int> _run(List<String> arguments) async {
   return 0;
 }
 
-/// Reports what would be removed, confirms unless [ResolvedOptions.force] is
-/// set, and deletes the unused declarations from disk.
+/// Reports what would be removed, confirms unless [ResolvedOptions.force], and
+/// deletes the declarations from disk.
 Future<void> _removeUnused(
   FinderResult result,
   String rootPath,
@@ -224,9 +223,8 @@ Future<void> _removeUnused(
   stdout.writeln(
     "Removed $count unused declaration$plural from $filesChanged file${filesChanged == 1 ? '' : 's'}. Run 'dart format' to tidy up spacing.",
   );
-  // Surface any advisory hints (e.g. a removed prevent-instantiation
-  // constructor) once more, since removing the declaration also removes the
-  // reported line that carried the hint.
+  // Repeat any advisory hints: removing a declaration takes the reported line
+  // that carried its hint with it.
   final removedHints = result.unused
       .where((d) => !d.removalBlocked && d.hint != null)
       .map((d) => '${d.qualifiedName}: ${d.hint}')
@@ -236,20 +234,18 @@ Future<void> _removeUnused(
   }
 }
 
-/// Prints `--verbose` narration to stderr, one durable line per message,
-/// stamped with the elapsed time so slow phases stand out.
-///
-/// stderr, not stdout, so `-f json` output stays machine-readable.
+/// Prints `--verbose` narration to stderr — not stdout, so `-f json` stays
+/// machine-readable — one line per message, stamped with the elapsed time.
 class _VerboseLog {
   final _stopwatch = Stopwatch()..start();
 
-  /// Writes one line, prefixed with the elapsed time.
+  /// Writes one stamped line.
   void write(String message) {
     final seconds = (_stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(1);
     stderr.writeln('[${seconds.padLeft(5)}s] $message');
   }
 
-  /// Writes a line per message in [messages].
+  /// Writes a line per message.
   void writeAll(Iterable<String> messages) => messages.forEach(write);
 }
 
