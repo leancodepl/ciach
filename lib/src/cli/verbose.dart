@@ -59,8 +59,8 @@ List<String> describeSettings(
       '  $key: ${_setting(option, resolved, dartExecutable)} (${_source(configuration.valueSourceType(option))})',
 ];
 
-/// The value of [option] as the run uses it: root made absolute, kinds as
-/// labels, auto-detected flags as they settled.
+/// The value of [option] as the run uses it, with the root made absolute, the
+/// kinds as labels, and the auto-detected flags as they settled.
 String _setting(
   CiachOption<dynamic> option,
   ResolvedOptions resolved,
@@ -108,6 +108,6 @@ String _value(Object? value) => switch (value) {
   _ => '$value',
 };
 
-/// The kind labels, sorted. That they are all of them shows in the source.
+/// The kind labels, sorted.
 String _kinds(Set<SymbolKind> kinds) =>
     kinds.map((kind) => kind.label).sorted().join(', ');

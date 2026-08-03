@@ -29,13 +29,13 @@ the noise a knife makes right before something falls off.
 
 ## Installation
 
-Globally, for a `ciach` command everywhere (installed to `~/.pub-cache/bin`):
+Install it globally for a `ciach` command everywhere, in `~/.pub-cache/bin`:
 
 ```bash
 dart pub global activate ciach
 ```
 
-Or as a dev dependency, pinning the version for the team and CI:
+Or add it as a dev dependency, which pins the version for the team and CI:
 
 ```bash
 dart pub add --dev ciach
@@ -105,9 +105,10 @@ default (`ciach --public` overrides `public: false`), and a repeatable option on
 the command line replaces the config's list rather than adding to it. Unknown
 keys and wrong-typed values are usage errors naming the file and the key.
 
-Only that one file name, in the analyzed package root — never a parent — so each
-package in a monorepo owns its config. `--config <path>` reads one from
-elsewhere; `--no-config` ignores a discovered one; the two can't be combined.
+Discovery looks for that one file name in the analyzed package root, never in a
+parent, so each package in a monorepo owns its config. `--config <path>` reads
+one from elsewhere; `--no-config` ignores a discovered one; the two can't be
+combined.
 
 ### Verbose mode
 
@@ -213,8 +214,8 @@ class` instead. See [example/](example) for a runnable demonstration of each cas
 
 ## Limitations
 
-A static, reference-based heuristic. Review its output rather than deleting
-blindly:
+This is a static, reference-based heuristic, so review its output rather than
+deleting blindly:
 
 - **A library package's public API** is legitimately unused from inside the
   package. Prefer `--no-public` there, or treat public findings as advisory.

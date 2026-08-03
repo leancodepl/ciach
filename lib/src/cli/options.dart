@@ -53,15 +53,14 @@ class ResolvedOptions {
   final String format;
   final bool useColor;
 
-  /// Always `false` when [verbose] is set, whose durable lines the overwriting
-  /// progress line would fight with.
+  /// Whether to show scan progress. Always `false` when [verbose] is set, whose
+  /// durable lines the overwriting progress line would fight with.
   final bool showProgress;
   final bool verbose;
   final int concurrency;
   final String? dartExecutable;
 
-  /// [rootPath] against the current directory, as everything downstream wants
-  /// it.
+  /// [rootPath] resolved against the current directory.
   String get absoluteRootPath => p.normalize(p.absolute(rootPath));
 
   /// The finder's share of these settings, reporting progress to [onProgress].

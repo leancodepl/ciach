@@ -22,7 +22,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     required this.ignored,
   });
 
-  /// A config that sets nothing, from nowhere.
+  /// Creates a config that sets nothing, from nowhere.
   const ConfigFile.empty() : settings = const {}, path = null, ignored = false;
 
   /// Parses [source], read from the file [origin], which names it in errors.
@@ -154,7 +154,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
   };
 
   CiachOption<dynamic> _optionFor(String key) =>
-      CiachOption.values.firstWhere((option) => option.configKey == key);
+      .values.firstWhere((option) => option.configKey == key);
 
   bool? _boolean(String key) => switch (settings[key]) {
     null => null,
@@ -168,7 +168,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     final other => _wrong(key, 'a string', other),
   };
 
-  /// A list of strings, or a bare string as a one-element list.
+  /// The strings under [key], accepting a bare string as a one-element list.
   List<String>? _strings(String key) => switch (settings[key]) {
     null => null,
     final String value => [value],
@@ -179,7 +179,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     final other => _wrong(key, 'a list of strings', other),
   };
 
-  /// A string setting restricted to [allowed] values.
+  /// The string under [key], which has to be one of [allowed].
   String? _oneOf(String key, List<String> allowed) {
     final value = _string(key);
     if (value != null && !allowed.contains(value)) {
@@ -190,7 +190,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     return value;
   }
 
-  /// Kind names, validated but left unconverted.
+  /// The kind names under [key], validated but not yet converted.
   List<String>? _kinds(String key) {
     final values = _strings(key);
     if (values != null) {
