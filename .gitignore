@@ -3,3 +3,8 @@
 .dart_tool/
 .idea/
 pubspec.lock
+
+# FVM Version Cache
+.fvm/
+
+.DS_Store
