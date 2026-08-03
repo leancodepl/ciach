@@ -20,64 +20,40 @@ AI-Provenance:
 [![Test status][test-badge]][test-badge-link]
 [![License: Apache 2.0][license-badge]][license-badge-link]
 
-**Dead code detector and unused code finder for Dart and Flutter.** Finds
-**unused (never-referenced) declarations** — classes, functions, methods,
-fields, constants, enum values, and so on — in a Dart or Flutter package, and
+**Dead code detector for Dart and Flutter.** Finds declarations that are never
+referenced — classes, functions, methods, fields, constants, enum values — and
 can remove them for you.
 
-### About the name
-
 *"Ciach!"* — pronounced **/t͡ɕax/** — is Polish for the sound of a clean chop,
-the noise a knife makes right before something falls off. Fitting, since
-that's exactly what this tool finds for you: dead code, waiting to be cut.
+the noise a knife makes right before something falls off.
 
 ## Installation
 
-There are two ways to get the `ciach` command, depending on how you want to
-run it:
+Install it globally for a `ciach` command everywhere, in `~/.pub-cache/bin`:
 
-- **Global activation** — a single `ciach` command available everywhere,
-  independent of any particular project:
+```bash
+dart pub global activate ciach
+```
 
-  ```bash
-  dart pub global activate ciach
-  ciach
-  ```
+Or add it as a dev dependency, which pins the version for the team and CI:
 
-  This puts `ciach` in `~/.pub-cache/bin`; add that to your `PATH` if
-  `dart pub global activate` warns that it isn't there already.
+```bash
+dart pub add --dev ciach
+dart run ciach
+```
 
-- **As a dev dependency** — pinned per-project, so everyone on the team (and
-  CI) uses the same version:
-
-  ```bash
-  dart pub add --dev ciach
-  dart run ciach
-  ```
-
-The rest of this README shows bare `ciach …` commands; prefix them with
-`dart run` if you installed it as a dev dependency instead of globally.
+Examples below show bare `ciach …`; prefix them with `dart run` for the second.
 
 ## Usage
 
 ```bash
-# Scan the current package
-ciach
-
-# Scan a specific package
-ciach path/to/package
-
-# Only the highest-confidence dead code (private, never-referenced), as JSON
-ciach --no-public -f json
-
-# GitHub Actions annotations; fail the job if anything is found
-ciach -f github --set-exit-if-changed
-
-# Remove what's found, after confirming
-ciach --remove
-
-# Remove without asking (e.g. from a script)
-ciach --remove --force
+ciach                                  # scan the current package
+ciach path/to/package                  # scan another package
+ciach --no-public -f json              # private-only (highest confidence), as JSON
+ciach -f github --set-exit-if-changed  # CI: annotations, non-zero if anything is found
+ciach --remove                         # delete the findings, after confirming
+ciach --remove --force                 # …without asking
+ciach --verbose                        # explain what's happening
 ```
 
 ### Options
@@ -86,6 +62,8 @@ ciach --remove --force
 | --- | --- | --- |
 | `[path]` | `.` | Package root to analyze. |
 | `-h, --help` | — | Print usage information. |
+| `--config <path>` | auto | Read settings from this YAML file instead of the auto-discovered one. See [Configuration file](#configuration-file). |
+| `--no-config` | off | Ignore the config file, even if one is found. |
 | `--[no-]public` | on | Report unused public declarations too. Disable to report only private (`_`-prefixed) ones. |
 | `--[no-]generated` | off | Scan generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, …). |
 | `--[no-]overrides` | off | Report `@override` members too. Off by default — see limitations. |
@@ -103,175 +81,169 @@ ciach --remove --force
 | `-j, --concurrency <n>` | `16` | Reference queries kept in flight against the analysis server. |
 | `--[no-]color` | auto | Colorize text output. |
 | `--[no-]progress` | auto | Show scan progress on stderr. |
+| `-v, --verbose` | off | Explain what's happening on stderr. See [Verbose mode](#verbose-mode). |
 | `--dart <path>` | current SDK | Path to the `dart` executable to launch the server with. |
 
 Exit codes: `0` success, `1` unused found with `--set-exit-if-changed`, `2`
 usage or analysis error.
 
+### Configuration file
+
+Every option above can live in a `ciach.yaml` in the package root, keyed by its
+long name minus the `--`, plus `path` for the positional argument:
+
+```yaml
+public: false                     # --no-public
+exclude: ['test/**', 'tool/**']   # repeatable options take a list, or a bare string
+kinds: [class, function, method]
+format: github
+set-exit-if-changed: true
+```
+
+Command line beats config file beats default, even when the flag matches the
+default (`ciach --public` overrides `public: false`), and a repeatable option on
+the command line replaces the config's list rather than adding to it. Unknown
+keys and wrong-typed values are usage errors naming the file and the key.
+
+Discovery looks for that one file name in the analyzed package root, never in a
+parent, so each package in a monorepo owns its config. `--config <path>` reads
+one from elsewhere; `--no-config` ignores a discovered one; the two can't be
+combined.
+
+### Verbose mode
+
+`-v` narrates the run on stderr, with elapsed times: the config file read and
+what it set, every setting and the layer it came from, each scan phase, anything
+the definition check rescued, and what `--remove` touches.
+
+```console
+$ ciach -v
+[  0.0s] Read config from ciach.yaml.
+[  0.0s]   It sets 2 options:
+[  0.0s]     public: false
+[  0.0s]     exclude: test/**
+[  0.0s] Settings for this run:
+[  0.0s]   path: /home/me/pkg (command line)
+[  0.0s]   public: false (config file)
+[  0.0s]   exclude: test/** (config file)
+[  0.0s]   concurrency: 16 (default)
+[  0.0s]   color: true (auto-detected)
+…
+[  0.1s] Starting Dart analysis server…
+[  0.3s] Collecting declarations from 13 file(s)…
+[  0.5s] Scanned 13 file(s) and checked 44 declaration(s) in 478ms: 4 unused, 1 referenced only from doc comments.
+```
+
+It all goes to stderr, so `ciach -v -f json | jq` still works. Reach for it when
+a config file seems not to apply, or to find the phase eating the time. It
+supersedes `--progress`, whose self-overwriting line would fight with it.
+
 ### Doc-only findings
 
-A dartdoc `[Xxx]` comment link resolves to a real declaration, so the
-analysis server counts it as a reference — but "someone linked to this in a
-comment" isn't the same confidence level as "something actually calls this".
-Declarations with no *code* references, only a comment link, are reported
-separately as **doc-only**, in every format:
+A dartdoc `[Xxx]` link resolves to a real declaration, so the analysis server
+counts it as a reference — but a comment mentioning something isn't the same as
+code calling it. Declarations with no *code* references are reported separately,
+in every format:
 
 ```
-$ ciach
 lib/greeting.dart
   15:6  function  danglingFunction  (public)
 
 Referenced only from doc comments — not counted as unused, never removed:
 lib/greeting.dart
   40:6  function  docOnlyMentioned  (public)
-
-Found 1 unused declaration in 1 file (scanned 6 files, 44 declarations, 0.5s). 1 more referenced only from doc comments.
 ```
 
-Doc-only findings are informational: they never count toward
-`--set-exit-if-changed`, are never touched by `--remove`, and get a `::notice`
-(not `::warning`) in `-f github` output. If one really is dead code, remove
-its doc comment link (or the comment itself) and re-run to have it reported
-as properly unused.
+These never count toward `--set-exit-if-changed`, are never touched by
+`--remove`, and get a `::notice` rather than a `::warning` in `-f github`. Drop
+the doc link to have one reported as properly unused.
 
 ### GitHub Actions
-
-Add `ciach` as a dev dependency (see [Installation](#installation)) so the
-version is pinned and `dart pub get` is all the setup CI needs:
 
 ```yaml
 - run: dart pub get
 - run: dart run ciach -f github --set-exit-if-changed
 ```
 
-Each finding becomes a `::warning` annotation shown inline on the PR diff. Run
-it from the repository root so annotation paths resolve; when scanning a
-sub-package (e.g. `ciach -f github app`), the scan path is
-prepended automatically so annotations still point at the right files.
+Each finding becomes a `::warning` annotation inline on the PR diff. Run it from
+the repository root so paths resolve; when scanning a sub-package (`ciach -f
+github app`), the scan path is prepended automatically.
 
 ### Removing declarations
 
-`--remove` deletes every reported declaration from source — its doc comment
-and annotations included — after showing what it's about to remove and asking
-for confirmation:
+`--remove` deletes every reported declaration — doc comment and annotations
+included — after showing what it is about to remove and asking:
 
 ```
-$ ciach --remove
-lib/greeting.dart
-  15:6  function  danglingFunction  (public)
-...
 Found 4 unused declarations in 2 files (scanned 6 files, 44 declarations, 0.5s).
 Remove 4 unused declarations? [y/N] y
 Removed 4 unused declarations from 2 files.
 ```
 
-`--remove --force` skips the prompt; use it in a script once you're confident
-in the results (`--force` on its own, without `--remove`, is a usage error).
-Without a terminal to confirm on (e.g. piped into another program) and
-without `--force`, nothing is removed.
+`--force` skips the prompt (and is a usage error on its own); with no terminal to
+confirm on and no `--force`, nothing is removed. Run `dart format` afterward:
+removal is conservative about *what* it deletes — an ambiguous `int a = 1, b = 2;`
+is left alone unless every declarator is unused — but not about spacing.
 
-Run `dart format` afterward — removal is conservative about *what* to delete
-(it leaves ambiguous multi-variable statements like `int a = 1, b = 2;`
-alone unless every declarator in them is unused) but not about spacing, so
-expect the odd extra blank line.
-
-Because removal acts on whatever the finder reports, it inherits the same
-false-positive risk as the report itself (see [What it skips by
-default](#what-it-skips-by-default) and [Limitations](#limitations) below) —
-enabling `--overrides` or `--operators` widens that risk considerably.
-[Doc-only findings](#doc-only-findings) are never included, regardless of
-those flags. Review the diff (or your test suite) after removing, the same as
+Removal acts on whatever the finder reports, so it inherits the same
+false-positive risk, which `--overrides` and `--operators` widen considerably.
+[Doc-only findings](#doc-only-findings) are never included. Review the diff, as
 you would after any automated refactor.
 
 ## What it skips by default
 
-These are all off by default because they're known sources of false
-positives — a used declaration reported as unused. Each has a flag to opt
-back in, at the cost of reintroducing that risk:
+Each of these is a known source of false positives; the flag opts back in at
+that cost.
 
-- **`main`** — the program entry point. Always skipped; there's no flag for
-  this one.
-- **`@override` members** — they are frequently reached polymorphically or by a
-  framework (Flutter's `build`, `initState`, `dispose`, `toString`, `==`, …),
-  which a name-based reference search can miss. Use `--overrides` to include
-  them.
-- **Operator overloads** (`operator +`, `operator ==`, …) — the analysis
-  server's reference search does not resolve infix operator syntax (`a + b`)
-  back to the operator's declaration, so a used operator is reported as
-  unused every time. See `example/lib/extensions.dart`. Use `--operators` to
-  include them.
-- **`call` methods** — a `call` method makes its object callable via
-  implicit-call syntax (`obj(...)`), which the reference search can't resolve
-  back to the declaration, the same way it can't resolve infix operators. A
-  used `call` method would be reported as unused every time. Always skipped;
-  there's no flag for this one. See `example/lib/callables.dart`.
-- **`@pragma('vm:entry-point')`** — reachable from native code / reflection.
-- **Generated files** — by filename convention and the
-  `GENERATED CODE - DO NOT MODIFY BY HAND` banner. Use `--generated` to include.
-  Even when excluded from the scan, they are still opened while analyzing, so a
-  declaration referenced *only* from generated code (e.g. a `toJson` called
-  from a `.g.dart` part) is not misreported as unused.
-- **`type parameters`** and non-declaration symbols.
+| Skipped | Why | Flag |
+| --- | --- | --- |
+| `main` | the entry point is never unused | — |
+| `@override` members | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses | `--overrides` |
+| Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--operators` |
+| `call` methods | implicit-call syntax (`obj(…)`) is unresolvable the same way | — |
+| `@pragma('vm:entry-point')` | reachable from native code or reflection | — |
+| Generated files | by filename convention and the `GENERATED CODE - DO NOT MODIFY BY HAND` banner. Still opened during analysis, so a declaration used only from a `.g.dart` isn't misreported | `--generated` |
+| `toJson()` | `jsonEncode(obj)` calls it by dynamic dispatch, leaving no source-level reference | `--report-tojson` |
+| Type parameters | always "used" within their scope | — |
+| dartdoc `[Xxx]` links | not a code reference; reported as [doc-only](#doc-only-findings) instead of hidden | — |
 
-**Private constructors are *not* skipped.** An unused `ClassName._` is dead code
-like any other and is reported (and removed by `--remove`). When it's the sole,
-zero-parameter `ClassName._()` — the classic prevent-instantiation marker — the
-finding carries a hint suggesting `abstract final class`, the idiomatic way to
-make a static-only class non-instantiable. See `example/lib/private_ctors.dart`.
-
-**dartdoc `[Xxx]` reference links** are a related wrinkle, handled a bit
-differently: a link resolves to a real declaration, so the analysis server
-counts it as a reference, which would otherwise hide genuinely dead code
-(e.g. `/// See [Dog.sound]` would keep `Dog.sound` looking used). Rather than
-a flag, these get their own always-on category — see [Doc-only
-findings](#doc-only-findings).
+Private constructors are **not** skipped: an unused `ClassName._` is dead code
+like any other. A sole zero-parameter `ClassName._()` — the classic
+prevent-instantiation marker — is reported with a hint suggesting `abstract final
+class` instead. See [example/](example) for a runnable demonstration of each case.
 
 ## Limitations
 
-This is a static, reference-based heuristic. Expect to review its output rather
-than delete blindly:
+This is a static, reference-based heuristic, so review its output rather than
+deleting blindly:
 
-- **Public API of a library package** is legitimately "unused" from the
-  package's own perspective. Prefer `--no-public` for library packages, or treat
-  public findings as advisory.
-- **Reflection / dynamic invocation / serialization** (e.g. `dart:mirrors`,
-  code that is only referenced by name in generated code you excluded) is not
-  visible to a reference search.
-- **Entry points beyond `main`** (isolate entry points, plugin registrants) may
-  need excluding or annotating with `@pragma('vm:entry-point')`.
-- Results are only as good as the analysis: a package that does not analyze
-  cleanly (missing `pub get`, errors) may yield incomplete references.
+- **A library package's public API** is legitimately unused from inside the
+  package. Prefer `--no-public` there, or treat public findings as advisory.
+- **Reflection, dynamic invocation, and names referenced only from generated
+  code you excluded** are invisible to a reference search.
+- **Entry points other than `main`** (isolate entry points, plugin registrants)
+  need excluding or `@pragma('vm:entry-point')`.
+- A package that doesn't analyze cleanly (missing `pub get`, errors) yields
+  incomplete references.
 
 ## Performance
 
-Runtime is dominated by the analysis server, not the tool. Two phases matter:
+Runtime is the analysis server's, not the tool's. It analyzes the whole package
+once per run — tens of seconds for a large Flutter app, and unskippable, since
+incomplete analysis means wrong reference counts — then answers one
+`textDocument/references` per declaration through a pool of `-j` (default 16),
+with scanned files kept open so its resolved-unit cache stays warm.
 
-1. **Initial analysis** — the server analyzes the whole package (and, for a
-   Flutter app, the SDK/dependencies) once before any query. This is a fixed
-   per-run cost (tens of seconds for a large app) and cannot be skipped:
-   incomplete analysis would produce wrong reference counts.
-2. **Reference queries** — one `textDocument/references` per declaration.
-   Requests run through a global pool (`-j/--concurrency`, default 16) and the
-   scanned files are kept open so the server's resolved-unit cache stays warm.
-
-The biggest lever is **how much you ask**:
-
-- **`--no-public`** is by far the cheapest mode. Private declarations are
-  library-scoped, so the server only searches one library per query instead of
-  the whole workspace — often several times faster, and it surfaces the
-  highest-confidence dead code.
-- **`--include` / `--exclude`** to scan only the part of the tree you care
-  about — references are still counted from everywhere, so results stay correct.
-- **`-j`** to tune concurrency; the default (16) is near the point of
-  diminishing returns for the analysis server's internal parallelism.
-
-For repeated runs, compile once to skip the JIT warmup:
-`dart compile exe bin/ciach.dart -o ciach` — `dart pub global activate` already
-does this for you.
+The lever is how much you ask for. `--no-public` is by far the cheapest mode:
+private declarations are library-scoped, so each query searches one library
+instead of the whole workspace, and it surfaces the highest-confidence dead code
+anyway. `--include`/`--exclude` narrow the scan while still counting references
+from everywhere. `dart pub global activate` compiles ahead of time, so there's no
+JIT warmup per run.
 
 ## Library usage
 
-The tool also exposes a public API for running the finder programmatically:
+The finder is also available programmatically:
 
 ```dart
 import 'package:ciach/ciach.dart';
@@ -292,8 +264,7 @@ dart analyze
 dart test          # spins up a real analysis server against the example/ package
 ```
 
-The implementation lives under `lib/src/`; the CLI entry point is `bin/`. See
-[example/](example) for a runnable demonstration.
+The implementation lives under `lib/src/`; the CLI entry point is `bin/`.
 
 ## License
 
