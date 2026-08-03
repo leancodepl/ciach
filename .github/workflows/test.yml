@@ -44,20 +44,8 @@ jobs:
         with:
           dry-run: true
 
-      # Informational: keep the `pana` status out of the required checks. It
-      # carries the verdict, so nothing below fails this job.
-      - name: Set up the latest stable Dart for pana
-        uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
-        with:
-          sdk: stable # the score has to be the one pub.dev will give
-
-      - name: Install pana
-        run: dart pub global activate pana
-
-      - name: Score and report package
-        uses: ./.github/actions/pana-score
-        with:
-          package: .
+      - name: Score package with pana
+        uses: leancodepl/mobile-tools/.github/actions/pana-score@34126f9701f6f344cf97d65f5c73e61a33532a3c
 
   verify-sdk-floor:
     name: Verify Dart 3.10 floor
