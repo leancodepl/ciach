@@ -8,6 +8,8 @@
  *     - mark-ai-provenance
  */
 
+import 'dart:math';
+
 import 'package:ciach/src/models.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Position, SymbolKind;
 
@@ -135,11 +137,11 @@ extension SymbolChecks on DocumentSymbol {
 
   /// The annotations, modifiers and doc comments immediately preceding this
   /// symbol, as a single string, for cheap annotation detection.
-  String leadingMetadata(List<String> lines) {
+  String leadingMetadata(List<String> strippedLines) {
     final nameLine = selectionRange.start.line;
-    final top = metadataTopLine(lines);
-    final end = nameLine < lines.length ? nameLine : lines.length - 1;
-    return lines.sublist(top, end + 1).join('\n');
+    final top = metadataTopLine(strippedLines);
+    final end = min(nameLine, strippedLines.length - 1);
+    return strippedLines.sublist(top, end + 1).join('\n');
   }
 }
 

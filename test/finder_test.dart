@@ -44,8 +44,8 @@ void main() {
     bool skipOverrides = true,
     bool skipOperators = true,
     Set<SymbolKind>? kinds,
-    // The widget/union/guard/enum-values fixtures are scanned only by their
-    // dedicated tests; exclude them from the default-run assertions.
+    // The widget/union/guard/enum-values/recovery fixtures are scanned only by
+    // their dedicated tests; exclude them from the default-run assertions.
     List<String> exclude = const [
       'lib/widgets.dart',
       'lib/unions.dart',
@@ -53,6 +53,13 @@ void main() {
       'lib/enum_values.dart',
       'lib/freezed_unions.dart',
       'lib/serialization.dart',
+      'lib/comment_annotations.dart',
+      'lib/xref_shapes.dart',
+      'lib/xref_event.dart',
+      'lib/xref_analytics.dart',
+      'lib/xref_uses.dart',
+      'lib/xref_collision.dart',
+      'lib/xref_collision_uses.dart',
     ],
     List<String> include = const [],
   }) => Ciach(
@@ -79,6 +86,13 @@ void main() {
       'lib/enum_values.dart',
       'lib/freezed_unions.dart',
       'lib/serialization.dart',
+      'lib/comment_annotations.dart',
+      'lib/xref_shapes.dart',
+      'lib/xref_event.dart',
+      'lib/xref_analytics.dart',
+      'lib/xref_uses.dart',
+      'lib/xref_collision.dart',
+      'lib/xref_collision_uses.dart',
     ],
     List<String> include = const [],
   }) async {
@@ -708,6 +722,203 @@ void main() {
       expect(names, contains('Stringy.toJson'));
       // fromJson reporting is independent of the toJson flag.
       expect(names, contains('Plain.fromJson'));
+    });
+  });
+
+  group('cross-library reference recovery', () {
+    // The consumer file must be scanned too, or the recovery can't see the
+    // usage sites the reference index misses.
+    Future<FinderResult> runXrefResult() => runFinder(
+      include: const [
+        'lib/xref_shapes.dart',
+        'lib/xref_event.dart',
+        'lib/xref_analytics.dart',
+        'lib/xref_uses.dart',
+      ],
+      exclude: const [],
+    );
+
+    Future<Set<String>> runXref() async =>
+        (await runXrefResult()).unused.map((d) => d.qualifiedName).toSet();
+
+    test('a getter/field used only by a cross-file object pattern is not '
+        'flagged', () async {
+      final names = await runXref();
+      expect(names, isNot(contains('XrefLoadedState.hasActive')));
+      expect(names, isNot(contains('XrefLoadedState.ready')));
+    });
+
+    test(
+      'a same-file object-pattern reference still keeps a getter alive',
+      () async {
+        expect(await runXref(), isNot(contains('XrefLoadedState.localFlag')));
+      },
+    );
+
+    test(
+      'an enum value used only via a cross-library dot-shorthand is not flagged',
+      () async {
+        expect(await runXref(), isNot(contains('XrefEvent.signOut')));
+      },
+    );
+
+    test('a normally-referenced enum value is not flagged', () async {
+      expect(await runXref(), isNot(contains('XrefEvent.signIn')));
+    });
+
+    test(
+      'genuinely-dead members are still flagged — the recovery did not blind '
+      'the detector',
+      () async {
+        final names = await runXref();
+        expect(names, contains('XrefLoadedState.deadShapeGetter'));
+        expect(names, contains('XrefEvent.deadEvent'));
+      },
+    );
+
+    test('each recovered reference is surfaced as a warning; normal and '
+        'genuinely-dead declarations are not', () async {
+      final result = await runXrefResult();
+      final warned = result.recoveredReferences
+          .map((w) => w.qualifiedName)
+          .toSet();
+      // Confirmed used by the secondary check.
+      expect(
+        warned,
+        containsAll([
+          'XrefLoadedState.hasActive',
+          'XrefLoadedState.ready',
+          'XrefEvent.signOut',
+        ]),
+      );
+      // Normally referenced -> not recovered, no warning.
+      expect(warned, isNot(contains('XrefEvent.signIn')));
+      expect(warned, isNot(contains('XrefLoadedState.localFlag')));
+      // Genuinely dead -> stays a finding, not a warning.
+      expect(warned, isNot(contains('XrefLoadedState.deadShapeGetter')));
+      expect(warned, isNot(contains('XrefEvent.deadEvent')));
+      // The warning carries the confirmed usage location and the hedge.
+      final signOut = result.recoveredReferences.firstWhere(
+        (w) => w.qualifiedName == 'XrefEvent.signOut',
+      );
+      expect(signOut.usageFilePath, endsWith('xref_uses.dart'));
+      expect(signOut.message, contains('likely a Dart SDK find-references'));
+    });
+  });
+
+  group('same-simple-name collision recovery', () {
+    // Two members share the simple name `status`: one used only from another
+    // file (must be recovered) and one never used (must stay flagged). Guards
+    // the definition position-matching that tells them apart.
+    Future<FinderResult> runCollision() => runFinder(
+      include: const [
+        'lib/xref_collision.dart',
+        'lib/xref_collision_uses.dart',
+      ],
+      exclude: const [],
+    );
+
+    test(
+      'recovers the used member and still flags the dead namesake',
+      () async {
+        final result = await runCollision();
+        final unused = result.unused.map((d) => d.qualifiedName).toSet();
+        final warned = result.recoveredReferences
+            .map((w) => w.qualifiedName)
+            .toSet();
+        // The genuinely-dead namesake is still reported.
+        expect(unused, contains('DeadState.status'));
+        // The used-only-cross-file namesake is recovered, not reported.
+        expect(unused, isNot(contains('LiveState.status')));
+        expect(warned, contains('LiveState.status'));
+        expect(warned, isNot(contains('DeadState.status')));
+      },
+    );
+  });
+
+  group('annotation detection ignores comments', () {
+    Future<Set<String>> runCommentAnnotations() async {
+      final result = await runFinder(
+        include: const ['lib/comment_annotations.dart'],
+        exclude: const [],
+      );
+      return result.unused.map((d) => d.qualifiedName).toSet();
+    }
+
+    test(
+      'a doc comment mentioning @override does not skip the declaration',
+      () {
+        return expectLater(
+          runCommentAnnotations(),
+          completion(contains('deadOverrideInDoc')),
+        );
+      },
+    );
+
+    test('a trailing comment mentioning @override does not skip it', () {
+      return expectLater(
+        runCommentAnnotations(),
+        completion(contains('deadOverrideTrailing')),
+      );
+    });
+
+    test('a blank-separated comment mentioning @override does not skip it', () {
+      return expectLater(
+        runCommentAnnotations(),
+        completion(contains('deadOverrideBlankSeparated')),
+      );
+    });
+
+    test('a doc comment mentioning vm:entry-point does not skip it', () {
+      return expectLater(
+        runCommentAnnotations(),
+        completion(contains('deadEntryPointInDoc')),
+      );
+    });
+
+    test('a trailing comment mentioning vm:entry-point does not skip it', () {
+      return expectLater(
+        runCommentAnnotations(),
+        completion(contains('deadEntryPointTrailing')),
+      );
+    });
+
+    test('a blank-separated comment mentioning vm:entry-point does not skip '
+        'it', () {
+      return expectLater(
+        runCommentAnnotations(),
+        completion(contains('deadEntryPointBlankSeparated')),
+      );
+    });
+
+    test('a file-header block mentioning both literals does not skip the first '
+        'declaration', () {
+      return expectLater(
+        runCommentAnnotations(),
+        completion(contains('deadAfterHeaderBlock')),
+      );
+    });
+
+    test('an unprefixed block-comment line mentioning @override does not skip '
+        'it', () {
+      return expectLater(
+        runCommentAnnotations(),
+        completion(contains('deadOverrideBareBlock')),
+      );
+    });
+
+    test('an unprefixed block-comment line mentioning vm:entry-point does not '
+        'skip it', () {
+      return expectLater(
+        runCommentAnnotations(),
+        completion(contains('deadEntryPointBareBlock')),
+      );
+    });
+
+    test('a real @pragma(vm:entry-point) is still skipped — the string literal '
+        'survives comment-stripping', () async {
+      final names = await runCommentAnnotations();
+      expect(names, isNot(contains('liveByRealPragma')));
     });
   });
 }

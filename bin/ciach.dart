@@ -136,6 +136,11 @@ Future<int> _run(List<String> arguments) async {
   log?.write(
     'Scanned ${result.filesScanned} file(s) and checked ${result.declarationsChecked} declaration(s) in ${result.elapsed.inMilliseconds}ms: ${result.unused.length} unused, ${result.docOnly.length} referenced only from doc comments.',
   );
+  if (result.recoveredReferences.isNotEmpty) {
+    log?.write(
+      'Kept ${result.recoveredReferences.length} declaration(s) the reference search called unused: the definition check found a use for each. Reported as warnings.',
+    );
+  }
 
   switch (format) {
     case 'json':
@@ -150,6 +155,9 @@ Future<int> _run(List<String> arguments) async {
       stdout.write(Reporter.github(result, pathPrefix: prefix));
     case _:
       stdout.writeln(Reporter.text(result, useColor: useColor));
+      // Recovery warnings go to stderr so they never corrupt text stdout; the
+      // json and github formats carry them in-band instead.
+      stderr.write(Reporter.warningsText(result));
   }
 
   if (result.unused.isNotEmpty && resolved.remove) {

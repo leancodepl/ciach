@@ -261,6 +261,61 @@ class UnusedDeclaration {
   };
 }
 
+/// A declaration that had no reported references but was confirmed used by the
+/// secondary definition check. Surfaced as a warning so the missed reference
+/// can be looked into.
+class RecoveredReference {
+  const RecoveredReference({
+    required this.name,
+    required this.filePath,
+    required this.line,
+    required this.column,
+    required this.usageFilePath,
+    required this.usageLine,
+    required this.usageColumn,
+    this.container,
+  });
+
+  /// Simple (unqualified) name of the recovered declaration.
+  final String name;
+
+  /// Enclosing declaration name (e.g. the class for a method), if any.
+  final String? container;
+
+  /// Declaration location (root-relative `/`-path, one-based line/column).
+  final String filePath;
+  final int line;
+  final int column;
+
+  /// The confirmed usage location.
+  final String usageFilePath;
+  final int usageLine;
+  final int usageColumn;
+
+  /// Fully qualified display name, e.g. `MyClass.myMethod`.
+  String get qualifiedName => container == null ? name : '$container.$name';
+
+  /// Channel-neutral explanation; callers prepend the name and declaration
+  /// location as their output format needs.
+  String get message =>
+      'used at $usageFilePath:$usageLine:$usageColumn, but the Dart analyzer '
+      'did not report this reference (find-references returned none); recovered '
+      'via definition — likely a Dart SDK find-references bug';
+
+  Map<String, Object?> toJson() => {
+    'name': name,
+    'qualifiedName': qualifiedName,
+    'container': ?container,
+    'file': filePath,
+    'line': line,
+    'column': column,
+    'usageFile': usageFilePath,
+    'usageLine': usageLine,
+    'usageColumn': usageColumn,
+    'message': message,
+  };
+}
+
 /// The outcome of a finder run.
 class FinderResult {
   /// Creates a result describing a completed finder run.
@@ -270,6 +325,7 @@ class FinderResult {
     required this.filesScanned,
     required this.declarationsChecked,
     required this.elapsed,
+    this.recoveredReferences = const [],
   });
 
   /// Declarations with zero references of any kind — the tool's actual
@@ -293,4 +349,8 @@ class FinderResult {
 
   /// Wall-clock time the run took.
   final Duration elapsed;
+
+  /// Declarations confirmed used by the secondary definition check despite
+  /// having no reported references — surfaced as warnings, not findings.
+  final List<RecoveredReference> recoveredReferences;
 }

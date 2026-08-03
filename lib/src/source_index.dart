@@ -25,12 +25,17 @@ typedef TokenWindow = ({List<Token> tokens, int start, int end});
 /// offset or a token, without re-reading or re-lexing a file, lives here.
 class SourceIndex {
   final _lines = <String, List<String>>{};
+  final _strippedLines = <String, List<String>>{};
   final _content = <String, String>{};
   final _lineStarts = <String, List<int>>{};
   final _tokens = <String, List<Token>>{};
+  final _scanned = <String>{};
 
   /// The absolute file path a reference [uri] points at.
   static String pathOf(String uri) => Uri.parse(uri).toFilePath();
+
+  /// The files opened for this run — every path passed to [cacheLines].
+  Iterable<String> get scannedPaths => _scanned;
 
   /// Reads [path] from disk, returning `null` if it can't be read.
   static String? readFile(String path) {
@@ -45,9 +50,16 @@ class SourceIndex {
   List<String> lines(String path) =>
       _lines[path] ??= readFile(path)?.split('\n') ?? const [];
 
+  /// The lines of [path] with comments blanked, aligned 1:1 with [lines].
+  List<String> strippedLines(String path) =>
+      _strippedLines[path] ??= stripComments(content(path)).split('\n');
+
   /// Records the [lines] of a file already opened in the analysis server, so
-  /// its content isn't re-read from disk.
-  void cacheLines(String path, List<String> lines) => _lines[path] = lines;
+  /// its content isn't re-read from disk, and marks the file as scanned.
+  void cacheLines(String path, List<String> lines) {
+    _lines[path] = lines;
+    _scanned.add(path);
+  }
 
   /// The full text of [path], reconstructed from the cached lines so it matches
   /// the document content the analysis server resolved positions against.

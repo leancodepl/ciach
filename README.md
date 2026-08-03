@@ -113,8 +113,8 @@ combined.
 ### Verbose mode
 
 `-v` narrates the run on stderr, with elapsed times: the config file read and
-what it set, every setting and the layer it came from, each scan phase, and what
-`--remove` touches.
+what it set, every setting and the layer it came from, each scan phase, anything
+the definition check rescued, and what `--remove` touches.
 
 ```console
 $ ciach -v

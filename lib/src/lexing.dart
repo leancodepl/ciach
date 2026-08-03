@@ -15,6 +15,8 @@
 /// string — but it is deliberately *not* a full parser.
 library;
 
+import 'package:ciach/src/extensions.dart';
+
 /// Opening bracket punctuation.
 const _openers = {'(', '[', '{'};
 
@@ -44,6 +46,36 @@ final class Token {
   bool get isCloser => !isWord && _closers.contains(value);
 }
 
+final _nonNewline = RegExp(r'[^\n]');
+
+/// [content] with `//` and `/* */` comments blanked to spaces; strings and
+/// offsets preserved.
+String stripComments(String content) {
+  final n = content.length;
+  final out = StringBuffer();
+  var i = 0;
+  while (i < n) {
+    final start = i;
+    if (_stringLiteralEnd(content, i) case final end?) {
+      out.write(content.substring(start, end));
+      i = end;
+      continue;
+    }
+    switch (content[i]) {
+      case '/' when i + 1 < n && content[i + 1] == '/':
+        i = content.indexOfOrNull('\n', i) ?? n;
+        out.write(content.substring(start, i).replaceAll(_nonNewline, ' '));
+      case '/' when i + 1 < n && content[i + 1] == '*':
+        i = _skipBlockComment(content, i);
+        out.write(content.substring(start, i).replaceAll(_nonNewline, ' '));
+      default:
+        out.write(content[i]);
+        i++;
+    }
+  }
+  return out.toString();
+}
+
 /// The byte offset of the start of each line in [content] (index 0 is offset
 /// 0). Used to translate LSP line/character positions into absolute offsets.
 List<int> computeLineStarts(String content) {
@@ -66,49 +98,35 @@ List<Token> tokenize(String content) {
   var i = 0;
   while (i < n) {
     final ch = content[i];
-    if (ch case ' ' || '\t' || '\n' || '\r') {
-      i++;
+    if (_stringLiteralEnd(content, i) case final end?) {
+      i = end;
       continue;
     }
-    if (ch == '/' && i + 1 < n && content[i + 1] == '/') {
-      i += 2;
-      while (i < n && content[i] != '\n') {
+    switch (ch) {
+      case ' ' || '\t' || '\n' || '\r':
         i++;
-      }
-      continue;
-    }
-    if (ch == '/' && i + 1 < n && content[i + 1] == '*') {
-      i = _skipBlockComment(content, i);
-      continue;
-    }
-    if ((ch == 'r' || ch == 'R') &&
-        i + 1 < n &&
-        (content[i + 1] == "'" || content[i + 1] == '"')) {
-      i = _skipString(content, i + 1, raw: true);
-      continue;
-    }
-    if (ch == "'" || ch == '"') {
-      i = _skipString(content, i, raw: false);
-      continue;
-    }
-    if (_isIdentStart(ch)) {
-      final start = i;
-      i++;
-      while (i < n && _isIdentPart(content[i])) {
+      case '/' when i + 1 < n && content[i + 1] == '/':
+        i = content.indexOfOrNull('\n', i) ?? n;
+      case '/' when i + 1 < n && content[i + 1] == '*':
+        i = _skipBlockComment(content, i);
+      case final c when _isIdentStart(c):
+        final start = i;
         i++;
-      }
-      tokens.add(
-        Token(
-          start: start,
-          end: i,
-          isWord: true,
-          value: content.substring(start, i),
-        ),
-      );
-      continue;
+        while (i < n && _isIdentPart(content[i])) {
+          i++;
+        }
+        tokens.add(
+          Token(
+            start: start,
+            end: i,
+            isWord: true,
+            value: content.substring(start, i),
+          ),
+        );
+      default:
+        tokens.add(Token(start: i, end: i + 1, isWord: false, value: ch));
+        i++;
     }
-    tokens.add(Token(start: i, end: i + 1, isWord: false, value: ch));
-    i++;
   }
   return tokens;
 }
@@ -196,6 +214,18 @@ int _skipBlockComment(String content, int from) {
   }
   return i;
 }
+
+bool _isQuote(String c) => c == "'" || c == '"';
+
+int? _stringLiteralEnd(String content, int i) => switch (content[i]) {
+  final c when _isQuote(c) => _skipString(content, i, raw: false),
+  'r' when i + 1 < content.length && _isQuote(content[i + 1]) => _skipString(
+    content,
+    i + 1,
+    raw: true,
+  ),
+  _ => null,
+};
 
 /// Skips a string literal whose opening quote is at [from], returning the
 /// index just past the closing quote. Handles triple quotes, escapes, and —
