@@ -10,6 +10,9 @@
 - Add a secondary `textDocument/definition` check for zero-reference
   declarations, so valid uses the reference search misses no longer produce
   false 'unused' reports. ([#26](https://github.com/leancodepl/ciach/pull/26))
+- Add `--[no-]fail-public` (default on): `--no-fail-public` still reports unused
+  public declarations but excludes them from `--set-exit-if-changed`, so CI fails
+  only on unused private ones. ([#23](https://github.com/leancodepl/ciach/pull/23))
 - Document the `--unused-union-members`, `--report-tojson`,
   `--generated-suffix`, and `--help` options in the README, which existed in
   the CLI but were missing from the options table.

@@ -15,6 +15,7 @@ class ResolvedOptions {
     required this.additionalGeneratedSuffixes,
     required this.kinds,
     required this.includePublic,
+    required this.failPublic,
     required this.includeGenerated,
     required this.overrides,
     required this.operators,
@@ -38,6 +39,7 @@ class ResolvedOptions {
   final List<String> additionalGeneratedSuffixes;
   final Set<SymbolKind> kinds;
   final bool includePublic;
+  final bool failPublic;
   final bool includeGenerated;
 
   /// Whether to report `@override` members — inverted for the finder.
@@ -113,6 +115,7 @@ ResolvedOptions resolveOptions(
     // Already validated by the option; this only converts the names.
     kinds: parseKinds(configuration.value(CiachOption.kinds)),
     includePublic: configuration.value(CiachOption.public),
+    failPublic: configuration.value(CiachOption.failPublic),
     includeGenerated: configuration.value(CiachOption.generated),
     overrides: configuration.value(CiachOption.overrides),
     operators: configuration.value(CiachOption.operators),

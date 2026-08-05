@@ -166,8 +166,14 @@ Future<int> _run(List<String> arguments) async {
     log?.write('Leaving the findings in place; --remove was not given.');
   }
 
-  if (result.unused.isNotEmpty && resolved.setExitIfChanged) {
-    return 1;
+  if (resolved.setExitIfChanged) {
+    // Public findings are still reported; --no-fail-public only drops them from the exit code.
+    final failing = resolved.failPublic
+        ? result.unused
+        : result.unused.where((d) => d.isPrivate);
+    if (failing.isNotEmpty) {
+      return 1;
+    }
   }
   return 0;
 }
