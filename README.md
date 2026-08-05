@@ -47,13 +47,13 @@ Examples below show bare `ciach …`; prefix them with `dart run` for the second
 ## Usage
 
 ```bash
-ciach                                  # scan the current package
-ciach path/to/package                  # scan another package
-ciach --no-public -f json              # private-only (highest confidence), as JSON
-ciach -f github --set-exit-if-changed  # CI: annotations, non-zero if anything is found
-ciach --remove                         # delete the findings, after confirming
+ciach                                  # current package
+ciach path/to/package                  # another package
+ciach --no-public -f json              # private-only, as JSON
+ciach -f github --set-exit-if-changed  # CI: annotations, non-zero on finds
+ciach --remove                         # delete findings, asks first
 ciach --remove --force                 # …without asking
-ciach --verbose                        # explain what's happening
+ciach --verbose                        # explain each step
 ```
 
 ### Options
