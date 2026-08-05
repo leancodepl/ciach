@@ -1,4 +1,4 @@
-## Unreleased
+## 0.4.0
 
 - Add config file support: any option can be set in a `ciach.yaml` in the
   package root, and the command line overrides it. `--config <path>` reads one
