@@ -51,7 +51,6 @@ ciach                                  # scan the current package
 ciach path/to/package                  # scan another package
 ciach --no-public -f json              # private-only (highest confidence), as JSON
 ciach -f github --set-exit-if-changed  # CI: annotations, non-zero if anything is found
-ciach --set-exit-if-changed --no-fail-public  # CI: report public, fail only on private
 ciach --remove                         # delete the findings, after confirming
 ciach --remove --force                 # …without asking
 ciach --verbose                        # explain what's happening
