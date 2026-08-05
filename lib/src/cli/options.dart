@@ -39,10 +39,6 @@ class ResolvedOptions {
   final List<String> additionalGeneratedSuffixes;
   final Set<SymbolKind> kinds;
   final bool includePublic;
-
-  /// Whether unused public declarations count toward the exit code under
-  /// [setExitIfChanged]. When `false` (`--no-fail-public`) they are still
-  /// reported, but the build fails on unused private declarations alone.
   final bool failPublic;
   final bool includeGenerated;
 

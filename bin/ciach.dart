@@ -167,8 +167,7 @@ Future<int> _run(List<String> arguments) async {
   }
 
   if (resolved.setExitIfChanged) {
-    // Public findings are still reported above; --no-fail-public only keeps
-    // them out of the exit code, so the build fails on private findings alone.
+    // Public findings are still reported; --no-fail-public only drops them from the exit code.
     final failing = resolved.failPublic
         ? result.unused
         : result.unused.where((d) => d.isPrivate);

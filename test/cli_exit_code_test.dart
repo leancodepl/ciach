@@ -17,15 +17,12 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 void main() {
-  // Drives the real CLI (bin/ciach.dart) against the example package, the same
-  // `sample_pkg` fixture the finder tests use, and asserts the process exit
-  // code — the behavior --set-exit-if-changed / --no-fail-public controls.
+  // Drives the real binary and asserts its exit code.
   final fixturePath = p.join(Directory.current.path, 'example');
   final entrypoint = p.join('bin', 'ciach.dart');
 
   setUpAll(() async {
-    // The fixture is a real package; the analysis server needs its
-    // package_config.json to resolve `package:sample_pkg/...` imports.
+    // pub get first: the analyzer needs the fixture's package_config.json.
     final config = File(
       p.join(fixturePath, '.dart_tool', 'package_config.json'),
     );
@@ -43,8 +40,7 @@ void main() {
     ['run', entrypoint, fixturePath, '--no-progress', ...args],
   );
 
-  // orphans.dart has only unused *public* declarations; greeting.dart also has
-  // an unused *private* one (`_danglingPrivate`).
+  // orphans.dart: unused public only; greeting.dart: also an unused private one.
   const publicOnly = ['--include', 'lib/orphans.dart'];
   const withPrivate = ['--include', 'lib/greeting.dart'];
 
