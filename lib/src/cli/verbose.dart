@@ -68,6 +68,7 @@ String _setting(
 ) => switch (option) {
   .path => resolved.absoluteRootPath,
   .public => '${resolved.includePublic}',
+  .failPublic => '${resolved.failPublic}',
   .generated => '${resolved.includeGenerated}',
   .overrides => '${resolved.overrides}',
   .operators => '${resolved.operators}',

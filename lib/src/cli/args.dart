@@ -112,6 +112,17 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'highest-confidence dead code.',
     ),
   ),
+  failPublic(
+    FlagOption(
+      argName: 'fail-public',
+      configKey: '/fail-public',
+      defaultsTo: true,
+      helpText:
+          'Count unused public declarations toward the exit code (with\n'
+          '--set-exit-if-changed). Use --no-fail-public to report them\n'
+          'without failing the build.',
+    ),
+  ),
   generated(
     FlagOption(
       argName: 'generated',

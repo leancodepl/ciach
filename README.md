@@ -51,6 +51,7 @@ ciach                                  # scan the current package
 ciach path/to/package                  # scan another package
 ciach --no-public -f json              # private-only (highest confidence), as JSON
 ciach -f github --set-exit-if-changed  # CI: annotations, non-zero if anything is found
+ciach --set-exit-if-changed --no-fail-public  # CI: report public, fail only on private
 ciach --remove                         # delete the findings, after confirming
 ciach --remove --force                 # …without asking
 ciach --verbose                        # explain what's happening
@@ -71,6 +72,7 @@ ciach --verbose                        # explain what's happening
 | `--[no-]unused-union-members` | off | Also flag a (sealed) supertype member matched only by type patterns, never constructed. Report-only — never touched by `--remove`. |
 | `--[no-]report-tojson` | off | Report an otherwise-unused `toJson()` serialization hook too. Off by default — `jsonEncode` dispatches to it dynamically. |
 | `--set-exit-if-changed` | off | Exit with status `1` when anything is found (for CI). Named after `dart format`. |
+| `--[no-]fail-public` | on | Count unused public declarations toward the exit code (with `--set-exit-if-changed`). `--no-fail-public` reports them but fails only on private findings. |
 | `--remove` | off | Remove unused declarations after reporting them. Prompts for confirmation first. |
 | `--force` | off | Skip the confirmation prompt for `--remove`. Requires `--remove`. |
 | `-e, --exclude <glob>` | — | Skip files matching the glob (repeatable). |
@@ -168,6 +170,14 @@ the doc link to have one reported as properly unused.
 Each finding becomes a `::warning` annotation inline on the PR diff. Run it from
 the repository root so paths resolve; when scanning a sub-package (`ciach -f
 github app`), the scan path is prepended automatically.
+
+For a library or workspace package whose public API is legitimately "unused"
+from its own perspective, add `--no-fail-public` to still surface those
+findings while gating the job on unused *private* declarations only:
+
+```yaml
+- run: dart run ciach -f github --set-exit-if-changed --no-fail-public
+```
 
 ### Removing declarations
 
