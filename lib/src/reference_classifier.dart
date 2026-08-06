@@ -29,7 +29,7 @@ class ReferenceClassifier {
   final SourceIndex _sources;
 
   /// Whether a class matched only by a type pattern (never constructed) counts
-  /// as dead — the opt-in `--unused-union-members` behaviour.
+  /// as dead — the opt-in `--unused-union-members` behavior.
   final bool unusedUnionMembers;
 
   /// Classifies [candidate] from the [refs] reported for it, consulting

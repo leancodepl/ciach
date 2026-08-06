@@ -4,25 +4,12 @@
 // by the dedicated guard tests (excluded from the default-run assertions); see
 // test/finder_test.dart.
 
-// --- Guard 2 (no `.values`): an all-dead enum kept alive only by a type ref ---
-//
-// No value is named individually and `.values` is never iterated, but the enum
-// TYPE stays referenced (as a return type below). Removing all the values would
-// leave `enum SilentSignal {}` (a compile error), so the empty-enum guard
-// reports every value as removal-blocked, keeping `--remove` safe. This is the
-// non-`.values` path: `.values`-iterated enums are instead treated as used and
-// never reported (see example/lib/enum_values.dart).
-
-/// Every value is dead: none is named directly, and `.values` is never
-/// iterated. The enum TYPE is kept alive by the return-type reference below.
-enum SilentSignal { ping, pong }
-
-/// Uses the enum TYPE as a return type (keeping it alive) without naming either
-/// value or iterating `.values`.
-SilentSignal? firstSignal(List<SilentSignal> signals) =>
-    signals.isEmpty ? null : signals.first;
-
 // --- Guard 2: emptying a still-referenced enum ---
+//
+// This is the non-`.values` path: no value is named individually and `.values`
+// is never iterated, so every value is dead while the enum TYPE stays
+// referenced. Enums that *are* `.values`-iterated count as used and are never
+// reported instead (see scenarios/enum_values.dart).
 
 /// Neither value is referenced, but the enum TYPE is (as a parameter type
 /// below), so removing both would leave `enum EmptyableStatus {}` — a compile

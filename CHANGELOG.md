@@ -1,3 +1,8 @@
+## Unreleased
+
+- Fix a constructor reached only through a dot shorthand (`.new(…)`), from a
+  file that never names its class, being reported as unused.
+
 ## 0.4.0
 
 - Add config file support: any option can be set in a `ciach.yaml` in the

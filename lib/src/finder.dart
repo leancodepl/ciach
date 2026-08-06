@@ -331,8 +331,14 @@ class Ciach {
   ) {
     final emptyRefNames = <String>{
       for (var i = 0; i < candidates.length; i++)
-        if (refsByCandidate[i].isEmpty && candidates[i].symbol.kind != .class$)
+        if (refsByCandidate[i].isEmpty &&
+            candidates[i].symbol.kind != .class$) ...[
           _simpleName(candidates[i].symbol.name),
+          // An unnamed constructor is spelled by the class name at an
+          // ordinary `Foo(…)` site but as `new` at a dot-shorthand one
+          // (`.new(…)`), so probe for both spellings.
+          candidates[i].symbol.declarationName(candidates[i].container),
+        ],
     };
     if (emptyRefNames.isNotEmpty) {
       _report('Recovering cross-library references…');

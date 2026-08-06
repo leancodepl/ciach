@@ -1,14 +1,14 @@
 import 'package:sample_pkg/callables.dart';
 import 'package:sample_pkg/extensions.dart';
-import 'package:sample_pkg/freezed_unions.dart';
 import 'package:sample_pkg/greeting.dart';
 import 'package:sample_pkg/orphans.dart';
 import 'package:sample_pkg/private_ctors.dart';
-import 'package:sample_pkg/serialization.dart';
+import 'package:sample_pkg/scenarios/freezed_unions.dart';
+import 'package:sample_pkg/scenarios/serialization.dart';
+import 'package:sample_pkg/scenarios/unions.dart';
+import 'package:sample_pkg/scenarios/widgets.dart';
 import 'package:sample_pkg/shapes.dart';
-import 'package:sample_pkg/unions.dart';
 import 'package:sample_pkg/user.dart';
-import 'package:sample_pkg/widgets.dart';
 
 void main() {
   final user = UsedClass('root');

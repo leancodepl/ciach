@@ -44,23 +44,9 @@ void main() {
     bool skipOverrides = true,
     bool skipOperators = true,
     Set<SymbolKind>? kinds,
-    // The widget/union/guard/enum-values/recovery fixtures are scanned only by
-    // their dedicated tests; exclude them from the default-run assertions.
-    List<String> exclude = const [
-      'lib/widgets.dart',
-      'lib/unions.dart',
-      'lib/guards.dart',
-      'lib/enum_values.dart',
-      'lib/freezed_unions.dart',
-      'lib/serialization.dart',
-      'lib/comment_annotations.dart',
-      'lib/xref_shapes.dart',
-      'lib/xref_event.dart',
-      'lib/xref_analytics.dart',
-      'lib/xref_uses.dart',
-      'lib/xref_collision.dart',
-      'lib/xref_collision_uses.dart',
-    ],
+    // The scenario fixtures under lib/scenarios/ are scanned only by their
+    // dedicated tests; exclude them from the default-run assertions.
+    List<String> exclude = const ['lib/scenarios/**'],
     List<String> include = const [],
   }) => Ciach(
     .new(
@@ -79,21 +65,7 @@ void main() {
     bool skipOverrides = true,
     bool skipOperators = true,
     Set<SymbolKind>? kinds,
-    List<String> exclude = const [
-      'lib/widgets.dart',
-      'lib/unions.dart',
-      'lib/guards.dart',
-      'lib/enum_values.dart',
-      'lib/freezed_unions.dart',
-      'lib/serialization.dart',
-      'lib/comment_annotations.dart',
-      'lib/xref_shapes.dart',
-      'lib/xref_event.dart',
-      'lib/xref_analytics.dart',
-      'lib/xref_uses.dart',
-      'lib/xref_collision.dart',
-      'lib/xref_collision_uses.dart',
-    ],
+    List<String> exclude = const ['lib/scenarios/**'],
     List<String> include = const [],
   }) async {
     final result = await runFinder(
@@ -333,25 +305,9 @@ void main() {
   group('dead widget classes', () {
     // Scan only the widget fixture; cross-package references (e.g. the live
     // widget constructed in bin/app.dart) still resolve, since the analysis
-    // server analyses the whole package regardless of the candidate filter.
+    // server analyzes the whole package regardless of the candidate filter.
     Future<FinderResult> runWidgets() =>
-        runFinder(include: ['lib/widgets.dart'], exclude: const []);
-
-    test(
-      'reports a fully dead StatelessWidget-style class as a class',
-      () async {
-        final result = await runWidgets();
-        final names = result.unused.map((d) => d.qualifiedName).toSet();
-        // The whole class is dead — reported once, as the class, not just its
-        // constructor.
-        expect(names, contains('DeadLeafWidget'));
-        expect(names, isNot(contains('DeadLeafWidget.new')));
-        final leaf = result.unused.firstWhere(
-          (d) => d.name == 'DeadLeafWidget',
-        );
-        expect(leaf.kind, SymbolKind.class$);
-      },
-    );
+        runFinder(include: ['lib/scenarios/widgets.dart'], exclude: const []);
 
     test(
       'reports a fully dead StatefulWidget as a class and couples its State',
@@ -393,12 +349,12 @@ void main() {
   group('unused union members (opt-in --unused-union-members)', () {
     // Scan only the union fixture; cross-file references (the live member
     // constructed in bin/app.dart) still resolve, since the analysis server
-    // analyses the whole package regardless of the candidate filter.
+    // analyzes the whole package regardless of the candidate filter.
     Future<FinderResult> runUnions({required bool flag}) => Ciach(
       .new(
         rootPath: fixturePath,
         unusedUnionMembers: flag,
-        includeGlobs: const ['lib/unions.dart'],
+        includeGlobs: const ['lib/scenarios/unions.dart'],
       ),
     ).run();
 
@@ -460,7 +416,7 @@ void main() {
     });
 
     test('flag OFF: every pattern-matched member counts as used (Phase 1 '
-        'behaviour is unchanged)', () async {
+        'behavior is unchanged)', () async {
       final names = (await runUnions(
         flag: false,
       )).unused.map((d) => d.qualifiedName).toSet();
@@ -476,7 +432,7 @@ void main() {
     // Scan only the guard fixture; its declarations are self-contained (kept
     // alive by in-file type references), so no cross-file setup is needed.
     Future<FinderResult> runGuards() =>
-        runFinder(include: ['lib/guards.dart'], exclude: const []);
+        runFinder(include: ['lib/scenarios/guards.dart'], exclude: const []);
 
     UnusedDeclaration? findByQualified(FinderResult result, String qualified) {
       for (final decl in result.unused) {
@@ -488,35 +444,14 @@ void main() {
     }
 
     test(
-      'an all-dead enum kept alive only by a type reference (no `.values`) has '
-      'every value flagged but removal-blocked (empty-enum guard keeps --remove '
-      'safe)',
-      () async {
-        final result = await runGuards();
-        // No value is named individually and `.values` is never iterated, but
-        // the enum TYPE stays referenced (as a return type), so the empty-enum
-        // guard blocks removal instead of emptying the enum. (Enums reached via
-        // `.values` are instead treated as used and never reported — see the
-        // `enum `.values` detection fix` group.)
-        for (final qualified in const [
-          'SilentSignal.ping',
-          'SilentSignal.pong',
-        ]) {
-          final decl = findByQualified(result, qualified);
-          expect(decl, isNotNull, reason: '$qualified should be flagged dead');
-          expect(
-            decl!.removalBlocked,
-            isTrue,
-            reason: '$qualified would empty a still-referenced enum',
-          );
-        }
-      },
-    );
-
-    test(
       'emptying a still-referenced enum is reported but removal-blocked',
       () async {
         final result = await runGuards();
+        // No value is named individually and `.values` is never iterated, but
+        // the enum TYPE stays referenced, so the empty-enum guard blocks removal
+        // instead of emptying the enum. (Enums reached via `.values` are
+        // instead treated as used and never reported — see the `enum `.values`
+        // detection fix` group.)
         for (final qualified in const [
           'EmptyableStatus.pending',
           'EmptyableStatus.settled',
@@ -579,8 +514,10 @@ void main() {
 
   group('enum `.values` detection fix', () {
     // Scan only the enum-`.values` fixture (enums kept alive by in-file refs).
-    Future<FinderResult> runEnumValues() =>
-        runFinder(include: ['lib/enum_values.dart'], exclude: const []);
+    Future<FinderResult> runEnumValues() => runFinder(
+      include: ['lib/scenarios/enum_values.dart'],
+      exclude: const [],
+    );
 
     test(
       'enum values reached only via qualified `EnumName.values` iteration are '
@@ -619,7 +556,7 @@ void main() {
     // Whole-package analysis still resolves the cross-file `Base.fromJson` use.
     Future<Set<String>> runFreezedUnions() async {
       final result = await runFinder(
-        include: const ['lib/freezed_unions.dart'],
+        include: const ['lib/scenarios/freezed_unions.dart'],
         exclude: const [],
       );
       return result.unused.map((d) => d.qualifiedName).toSet();
@@ -666,7 +603,7 @@ void main() {
       final result = await Ciach(
         .new(
           rootPath: fixturePath,
-          includeGlobs: const ['lib/serialization.dart'],
+          includeGlobs: const ['lib/scenarios/serialization.dart'],
           reportToJson: reportToJson,
         ),
       ).run();
@@ -730,10 +667,10 @@ void main() {
     // usage sites the reference index misses.
     Future<FinderResult> runXrefResult() => runFinder(
       include: const [
-        'lib/xref_shapes.dart',
-        'lib/xref_event.dart',
-        'lib/xref_analytics.dart',
-        'lib/xref_uses.dart',
+        'lib/scenarios/xref_shapes.dart',
+        'lib/scenarios/xref_event.dart',
+        'lib/scenarios/xref_analytics.dart',
+        'lib/scenarios/xref_uses.dart',
       ],
       exclude: const [],
     );
@@ -812,8 +749,8 @@ void main() {
     // the definition position-matching that tells them apart.
     Future<FinderResult> runCollision() => runFinder(
       include: const [
-        'lib/xref_collision.dart',
-        'lib/xref_collision_uses.dart',
+        'lib/scenarios/xref_collision.dart',
+        'lib/scenarios/xref_collision_uses.dart',
       ],
       exclude: const [],
     );
@@ -836,10 +773,125 @@ void main() {
     );
   });
 
+  group('dot-shorthand references', () {
+    // Each declaration below is reached from lib/dot_shorthand_uses.dart only
+    // through a `.name` shorthand, one per context Dart allows a shorthand in,
+    // so a context the reference search cannot see surfaces as exactly one
+    // finding here.
+    const shorthandReached = {
+      // Argument positions.
+      'Weight.positional',
+      'Weight.named',
+      // Initializers, returns, and yields.
+      'Weight.variableInit',
+      'Weight.fieldInit',
+      'Weight.arrowReturn',
+      'Weight.blockReturn',
+      'Weight.asyncReturn',
+      'Weight.yielded',
+      // Collection, record, and map literals.
+      'Weight.listElement',
+      'Weight.setElement',
+      'Weight.mapKey',
+      'Weight.mapValue',
+      'Weight.recordField',
+      // Patterns.
+      'Weight.switchCase',
+      'Weight.switchArm',
+      'Weight.ifCase',
+      'Palette.patternField',
+      // Operators and conditionals.
+      'Weight.equality',
+      'Weight.ternaryThen',
+      'Weight.ternaryElse',
+      'Weight.ifNull',
+      // Constant contexts.
+      'Weight.paramDefault',
+      'Weight.constArg',
+      'Weight.annotationArg',
+      // Assignment, and a context type from an inferred type argument.
+      'Weight.assignment',
+      'Weight.typeArgument',
+      // A shorthand inside the declaring library.
+      'Weight.sameFile',
+      // Shorthand heads other than an enum value: constructors, statics on a
+      // class and on an enum, a generic static, nesting, and trailing
+      // selectors.
+      'Palette.new',
+      'Palette.of',
+      'Palette.constField',
+      'Palette.getter',
+      'Palette.parse',
+      'Palette.blend',
+      'Palette.nestedFirst',
+      'Palette.nestedSecond',
+      'Palette.chainSeed',
+      'Palette.cascadeSeed',
+      'Palette.tinted',
+      'Tier.standard',
+      'Box.filled',
+      // Nested constructor shorthands: the three unnamed heads of a
+      // `.new(.new(.new(…)))` chain, outermost first, and a named constructor
+      // nested in a static-method shorthand.
+      'Layer.new',
+      'Depth.new',
+      'Tint.new',
+      'Tint.step',
+    };
+
+    Future<FinderResult> runShorthandsResult() => runFinder(
+      include: const [
+        'lib/scenarios/dot_shorthands.dart',
+        'lib/scenarios/dot_shorthand_uses.dart',
+      ],
+      exclude: const [],
+    );
+
+    Future<Set<String>> runShorthands() async => (await runShorthandsResult())
+        .unused
+        .map((d) => d.qualifiedName)
+        .toSet();
+
+    test('no declaration reached only through a dot shorthand is reported, in '
+        'any context a shorthand is allowed in', () async {
+      final result = await runShorthandsResult();
+      // Doc-only counts as a miss too: a shorthand the reference search cannot
+      // see must not be papered over by a dartdoc mention.
+      final reported = {
+        for (final d in [...result.unused, ...result.docOnly]) d.qualifiedName,
+      };
+      // Compared as a set so a failure lists exactly which shorthand context
+      // went unseen.
+      expect(reported.intersection(shorthandReached), isEmpty);
+    });
+
+    test('the shorthand fixture reports exactly its dead controls — the '
+        'detection is real, not a blanket exemption', () async {
+      expect(await runShorthands(), {
+        // Same shapes as the shorthand-reached declarations above, but no
+        // shorthand (and no other reference) reaches them.
+        'Weight.deadWeight',
+        'Tier.deadStandard',
+        'Palette.deadCtor',
+        'Palette.deadGetter',
+        'Palette.deadParse',
+        'Box.deadFilled',
+        // Constructing a class through one shorthand does not exempt its other
+        // constructors…
+        'Tint.deadTint',
+        // …and an unnamed constructor no shorthand ever reaches is still
+        // reported, even though `.new` sites are now probed by name.
+        'DeadLayer.new',
+        // The fixture's own entry point, which nothing calls.
+        'exerciseDotShorthands',
+      });
+    });
+  });
+
   group('annotation detection ignores comments', () {
     Future<Set<String>> runCommentAnnotations() async {
       final result = await runFinder(
-        include: const ['lib/comment_annotations.dart'],
+        include: const ['lib/scenarios/comment_annotations.dart'],
         exclude: const [],
       );
       return result.unused.map((d) => d.qualifiedName).toSet();

@@ -103,5 +103,7 @@ String buildSerializable() => jsonEncode(<Object>[
   const Point(2, 3),
   Listy(4),
   Stringy(5),
-  Domainy(6),
+  // Kept alive without being encoded: its `toJson` returns a domain object,
+  // which `jsonEncode` cannot serialize.
+  Domainy(6).toString(),
 ]);
