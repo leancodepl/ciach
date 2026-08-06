@@ -108,6 +108,10 @@ class Palette {
   static Palette blend(Palette first, Palette second) =>
       Palette._('${first.name}+${second.name}');
 
+  /// Reached only as `.tinted(…)`, whose argument is a *constructor* shorthand
+  /// rather than a static one.
+  static Palette tinted(Tint tint) => Palette._('tint-${tint.level}');
+
   /// Reached only as a nested shorthand inside `.blend(…)`.
   static const Palette nestedFirst = Palette._('nested-first');
 
@@ -127,6 +131,53 @@ class Palette {
   static Palette deadParse(String source) => Palette._(source);
 
   Palette brightened() => Palette._('$name+bright');
+}
+
+// Nested constructor shorthands. `Layer`, `Depth`, and `Tint` form a chain
+// constructed by a single `.new(.new(.new(…)))`: three unnamed heads in one
+// expression, none of them carrying a name for the reference search to key on,
+// each a different class's constructor. One link per nesting depth, so a depth
+// that goes unseen is a single finding.
+
+/// The innermost link, and the only class here with a *named* constructor
+/// reached by nesting.
+class Tint {
+  /// Reached only as the innermost `.new(…)` of `.new(.new(.new(…)))`.
+  Tint(this.level);
+
+  /// Reached only as the nested `.step(…)` in `.tinted(.step(…))`.
+  Tint.step(this.level);
+
+  /// Never used -> flagged: constructing a class through one shorthand must not
+  /// exempt its other constructors.
+  Tint.deadTint(this.level);
+
+  final int level;
+}
+
+/// The middle link: nested inside a shorthand, with a shorthand nested in it.
+class Depth {
+  /// Reached only as the middle `.new(…)` of `.new(.new(.new(…)))`.
+  Depth(this.tint);
+
+  final Tint tint;
+}
+
+/// The outermost link.
+class Layer {
+  /// Reached only as the outer `.new(…)` of `.new(.new(.new(…)))`.
+  Layer(this.depth);
+
+  final Depth depth;
+}
+
+/// The control for the nested `.new` heads: the type is referenced, but no
+/// shorthand ever constructs it.
+class DeadLayer {
+  /// Never used -> flagged.
+  DeadLayer(this.depth);
+
+  final Depth depth;
 }
 
 /// A generic static, whose type argument comes from the shorthand's context.

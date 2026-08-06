@@ -17,6 +17,7 @@ void exerciseDotShorthands() {
   _constContexts();
   _assignmentAndTypeArguments();
   _staticHeads();
+  _nestedConstructors();
   // The same-file shorthand, and the annotated helper's own annotation.
   print(sameFileWeight);
   _annotated();
@@ -134,7 +135,8 @@ void _staticHeads() {
   const Palette staticField = .constField;
   final Palette staticGetter = .getter;
   final Palette staticMethod = .parse('parsed');
-  // A shorthand whose arguments are themselves shorthands.
+  // A shorthand whose arguments are themselves shorthands — see
+  // _nestedConstructors for the constructor flavour.
   final Palette nested = .blend(.nestedFirst, .nestedSecond);
   // A shorthand head followed by a further selector, and by a cascade.
   final Palette chained = .chainSeed.brightened();
@@ -154,3 +156,19 @@ void _staticHeads() {
     box.value,
   ]);
 }
+
+// -- Nested constructor shorthands --------------------------------------------
+
+void _nestedConstructors() {
+  // Three unnamed heads in one expression, each a different class's
+  // constructor: `Layer.new`, then `Depth.new`, then `Tint.new`. Nothing but
+  // the context type says which is which.
+  final Layer nestedUnnamed = .new(.new(.new(1)));
+  // A named constructor nested in a static-method shorthand.
+  final Palette nestedNamed = .tinted(.step(2));
+  print([nestedUnnamed.depth.tint.level, nestedNamed]);
+  // The type is referenced, but no shorthand ever constructs it.
+  _typeOnly(null);
+}
+
+void _typeOnly(DeadLayer? layer) => print(layer);

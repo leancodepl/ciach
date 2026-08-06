@@ -895,8 +895,16 @@ void main() {
       'Palette.nestedSecond',
       'Palette.chainSeed',
       'Palette.cascadeSeed',
+      'Palette.tinted',
       'Tier.standard',
       'Box.filled',
+      // Nested constructor shorthands: the three unnamed heads of a
+      // `.new(.new(.new(…)))` chain, outermost first, and a named constructor
+      // nested in a static-method shorthand.
+      'Layer.new',
+      'Depth.new',
+      'Tint.new',
+      'Tint.step',
     };
 
     Future<FinderResult> runShorthandsResult() => runFinder(
@@ -933,6 +941,12 @@ void main() {
         'Palette.deadGetter',
         'Palette.deadParse',
         'Box.deadFilled',
+        // Constructing a class through one shorthand does not exempt its other
+        // constructors…
+        'Tint.deadTint',
+        // …and an unnamed constructor no shorthand ever reaches is still
+        // reported, even though `.new` sites are now probed by name.
+        'DeadLayer.new',
         // The fixture's own entry point, which nothing calls.
         'exerciseDotShorthands',
       });

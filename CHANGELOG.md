@@ -1,3 +1,10 @@
+## Unreleased
+
+- Fix an unnamed constructor reached only through a *nested* dot shorthand
+  (`.new(.new(…))`) being reported as unused: the recovery pass probed for the
+  class name, which such a use site never spells, so it now probes for `new` as
+  well.
+
 ## 0.4.0
 
 - Add config file support: any option can be set in a `ciach.yaml` in the
