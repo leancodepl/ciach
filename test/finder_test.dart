@@ -305,7 +305,7 @@ void main() {
   group('dead widget classes', () {
     // Scan only the widget fixture; cross-package references (e.g. the live
     // widget constructed in bin/app.dart) still resolve, since the analysis
-    // server analyses the whole package regardless of the candidate filter.
+    // server analyzes the whole package regardless of the candidate filter.
     Future<FinderResult> runWidgets() =>
         runFinder(include: ['lib/scenarios/widgets.dart'], exclude: const []);
 
@@ -349,7 +349,7 @@ void main() {
   group('unused union members (opt-in --unused-union-members)', () {
     // Scan only the union fixture; cross-file references (the live member
     // constructed in bin/app.dart) still resolve, since the analysis server
-    // analyses the whole package regardless of the candidate filter.
+    // analyzes the whole package regardless of the candidate filter.
     Future<FinderResult> runUnions({required bool flag}) => Ciach(
       .new(
         rootPath: fixturePath,
@@ -416,7 +416,7 @@ void main() {
     });
 
     test('flag OFF: every pattern-matched member counts as used (Phase 1 '
-        'behaviour is unchanged)', () async {
+        'behavior is unchanged)', () async {
       final names = (await runUnions(
         flag: false,
       )).unused.map((d) => d.qualifiedName).toSet();

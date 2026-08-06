@@ -136,7 +136,7 @@ void _staticHeads() {
   final Palette staticGetter = .getter;
   final Palette staticMethod = .parse('parsed');
   // A shorthand whose arguments are themselves shorthands — see
-  // _nestedConstructors for the constructor flavour.
+  // _nestedConstructors for the constructor flavor.
   final Palette nested = .blend(.nestedFirst, .nestedSecond);
   // A shorthand head followed by a further selector, and by a cascade.
   final Palette chained = .chainSeed.brightened();

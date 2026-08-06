@@ -20,7 +20,7 @@ everyday declaration kinds, referenced (or not) from `bin/app.dart`.
 | `lib/private_ctors.dart` | private constructors reported like any dead code, with a prevent-instantiation hint on the sole zero-parameter `Foo._()` |
 
 `lib/scenarios/` holds the **scenario fixtures**: one file (or a small cluster
-of them) per detection rule, each pinning down one behaviour that is easy to
+of them) per detection rule, each pinning down one behavior that is easy to
 regress. Every file says up front what it covers and which findings are
 expected; each is scanned only by its own test, never by the demo run above.
 

@@ -45,7 +45,7 @@ typedef DiscoveredDartFiles = ({
 });
 
 /// Discovers the `.dart` files under the configured root that should be
-/// scanned for declarations, honouring include/exclude globs and
+/// scanned for declarations, honoring include/exclude globs and
 /// generated-file rules.
 ///
 /// Results are returned as absolute file paths, sorted for stable output.

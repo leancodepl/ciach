@@ -1,7 +1,7 @@
 // Flutter-free stand-ins for the StatefulWidget / State pairing, so the
 // dead-widget detection can be exercised without a Flutter dependency. The
 // finder keys off the textual `State<Widget>` shape, so the stand-in must be
-// named exactly `State` for the pairing to be recognised.
+// named exactly `State` for the pairing to be recognized.
 //
 // Scanned only by the dedicated widget tests (excluded from the default-run
 // assertions); see test/finder_test.dart.
