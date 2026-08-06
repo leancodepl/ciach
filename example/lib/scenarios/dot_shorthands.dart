@@ -2,12 +2,12 @@
 // as "reached only as `.x`" is reachable from outside this file ONLY through a
 // shorthand, from exactly one kind of shorthand context, so a context the
 // reference search cannot see surfaces as exactly one finding. The uses live in
-// lib/dot_shorthand_uses.dart; expected findings are asserted by
+// scenarios/dot_shorthand_uses.dart; expected findings are asserted by
 // test/finder_test.dart — keep in sync.
 //
 // Nothing here iterates `Weight.values`, nor names a bare `values` inside the
-// enum body: either would mark every value used (see lib/enum_values.dart) and
-// hide whatever the shorthand detection misses.
+// enum body: either would mark every value used (see enum_values.dart) and hide
+// whatever the shorthand detection misses.
 
 /// One value per shorthand context, written as `.value` at its use site and
 /// never as `Weight.value`.

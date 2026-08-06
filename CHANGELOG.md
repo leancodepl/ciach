@@ -1,9 +1,7 @@
 ## Unreleased
 
-- Fix an unnamed constructor reached only through a *nested* dot shorthand
-  (`.new(.new(…))`) being reported as unused: the recovery pass probed for the
-  class name, which such a use site never spells, so it now probes for `new` as
-  well.
+- Fix an unnamed constructor reached only through a nested dot shorthand
+  (`.new(.new(…))`) being reported as unused.
 
 ## 0.4.0
 

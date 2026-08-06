@@ -1,10 +1,10 @@
 // Uses for the dot-shorthand fixture: every reference to a declaration in
-// lib/dot_shorthands.dart is a `.name` shorthand, never the long
+// scenarios/dot_shorthands.dart is a `.name` shorthand, never the long
 // `Weight.value`/`Palette.member` form. Each helper covers one context a
 // shorthand is allowed in. Expected findings are asserted by
 // test/finder_test.dart; keep in sync.
 
-import 'package:sample_pkg/dot_shorthands.dart';
+import 'package:sample_pkg/scenarios/dot_shorthands.dart';
 
 /// The single public entry point: every helper below hangs off it, so the file
 /// contributes no findings of its own beyond this function.

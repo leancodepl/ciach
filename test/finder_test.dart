@@ -44,26 +44,9 @@ void main() {
     bool skipOverrides = true,
     bool skipOperators = true,
     Set<SymbolKind>? kinds,
-    // The widget/union/guard/enum-values/recovery/shorthand fixtures are
-    // scanned only by their dedicated tests; exclude them from the default-run
-    // assertions.
-    List<String> exclude = const [
-      'lib/widgets.dart',
-      'lib/unions.dart',
-      'lib/guards.dart',
-      'lib/enum_values.dart',
-      'lib/freezed_unions.dart',
-      'lib/serialization.dart',
-      'lib/comment_annotations.dart',
-      'lib/xref_shapes.dart',
-      'lib/xref_event.dart',
-      'lib/xref_analytics.dart',
-      'lib/xref_uses.dart',
-      'lib/xref_collision.dart',
-      'lib/xref_collision_uses.dart',
-      'lib/dot_shorthands.dart',
-      'lib/dot_shorthand_uses.dart',
-    ],
+    // The scenario fixtures under lib/scenarios/ are scanned only by their
+    // dedicated tests; exclude them from the default-run assertions.
+    List<String> exclude = const ['lib/scenarios/**'],
     List<String> include = const [],
   }) => Ciach(
     .new(
@@ -82,23 +65,7 @@ void main() {
     bool skipOverrides = true,
     bool skipOperators = true,
     Set<SymbolKind>? kinds,
-    List<String> exclude = const [
-      'lib/widgets.dart',
-      'lib/unions.dart',
-      'lib/guards.dart',
-      'lib/enum_values.dart',
-      'lib/freezed_unions.dart',
-      'lib/serialization.dart',
-      'lib/comment_annotations.dart',
-      'lib/xref_shapes.dart',
-      'lib/xref_event.dart',
-      'lib/xref_analytics.dart',
-      'lib/xref_uses.dart',
-      'lib/xref_collision.dart',
-      'lib/xref_collision_uses.dart',
-      'lib/dot_shorthands.dart',
-      'lib/dot_shorthand_uses.dart',
-    ],
+    List<String> exclude = const ['lib/scenarios/**'],
     List<String> include = const [],
   }) async {
     final result = await runFinder(
@@ -340,23 +307,7 @@ void main() {
     // widget constructed in bin/app.dart) still resolve, since the analysis
     // server analyses the whole package regardless of the candidate filter.
     Future<FinderResult> runWidgets() =>
-        runFinder(include: ['lib/widgets.dart'], exclude: const []);
-
-    test(
-      'reports a fully dead StatelessWidget-style class as a class',
-      () async {
-        final result = await runWidgets();
-        final names = result.unused.map((d) => d.qualifiedName).toSet();
-        // The whole class is dead — reported once, as the class, not just its
-        // constructor.
-        expect(names, contains('DeadLeafWidget'));
-        expect(names, isNot(contains('DeadLeafWidget.new')));
-        final leaf = result.unused.firstWhere(
-          (d) => d.name == 'DeadLeafWidget',
-        );
-        expect(leaf.kind, SymbolKind.class$);
-      },
-    );
+        runFinder(include: ['lib/scenarios/widgets.dart'], exclude: const []);
 
     test(
       'reports a fully dead StatefulWidget as a class and couples its State',
@@ -403,7 +354,7 @@ void main() {
       .new(
         rootPath: fixturePath,
         unusedUnionMembers: flag,
-        includeGlobs: const ['lib/unions.dart'],
+        includeGlobs: const ['lib/scenarios/unions.dart'],
       ),
     ).run();
 
@@ -481,7 +432,7 @@ void main() {
     // Scan only the guard fixture; its declarations are self-contained (kept
     // alive by in-file type references), so no cross-file setup is needed.
     Future<FinderResult> runGuards() =>
-        runFinder(include: ['lib/guards.dart'], exclude: const []);
+        runFinder(include: ['lib/scenarios/guards.dart'], exclude: const []);
 
     UnusedDeclaration? findByQualified(FinderResult result, String qualified) {
       for (final decl in result.unused) {
@@ -493,35 +444,14 @@ void main() {
     }
 
     test(
-      'an all-dead enum kept alive only by a type reference (no `.values`) has '
-      'every value flagged but removal-blocked (empty-enum guard keeps --remove '
-      'safe)',
-      () async {
-        final result = await runGuards();
-        // No value is named individually and `.values` is never iterated, but
-        // the enum TYPE stays referenced (as a return type), so the empty-enum
-        // guard blocks removal instead of emptying the enum. (Enums reached via
-        // `.values` are instead treated as used and never reported — see the
-        // `enum `.values` detection fix` group.)
-        for (final qualified in const [
-          'SilentSignal.ping',
-          'SilentSignal.pong',
-        ]) {
-          final decl = findByQualified(result, qualified);
-          expect(decl, isNotNull, reason: '$qualified should be flagged dead');
-          expect(
-            decl!.removalBlocked,
-            isTrue,
-            reason: '$qualified would empty a still-referenced enum',
-          );
-        }
-      },
-    );
-
-    test(
       'emptying a still-referenced enum is reported but removal-blocked',
       () async {
         final result = await runGuards();
+        // No value is named individually and `.values` is never iterated, but
+        // the enum TYPE stays referenced, so the empty-enum guard blocks removal
+        // instead of emptying the enum. (Enums reached via `.values` are
+        // instead treated as used and never reported — see the `enum `.values`
+        // detection fix` group.)
         for (final qualified in const [
           'EmptyableStatus.pending',
           'EmptyableStatus.settled',
@@ -584,8 +514,10 @@ void main() {
 
   group('enum `.values` detection fix', () {
     // Scan only the enum-`.values` fixture (enums kept alive by in-file refs).
-    Future<FinderResult> runEnumValues() =>
-        runFinder(include: ['lib/enum_values.dart'], exclude: const []);
+    Future<FinderResult> runEnumValues() => runFinder(
+      include: ['lib/scenarios/enum_values.dart'],
+      exclude: const [],
+    );
 
     test(
       'enum values reached only via qualified `EnumName.values` iteration are '
@@ -624,7 +556,7 @@ void main() {
     // Whole-package analysis still resolves the cross-file `Base.fromJson` use.
     Future<Set<String>> runFreezedUnions() async {
       final result = await runFinder(
-        include: const ['lib/freezed_unions.dart'],
+        include: const ['lib/scenarios/freezed_unions.dart'],
         exclude: const [],
       );
       return result.unused.map((d) => d.qualifiedName).toSet();
@@ -671,7 +603,7 @@ void main() {
       final result = await Ciach(
         .new(
           rootPath: fixturePath,
-          includeGlobs: const ['lib/serialization.dart'],
+          includeGlobs: const ['lib/scenarios/serialization.dart'],
           reportToJson: reportToJson,
         ),
       ).run();
@@ -735,10 +667,10 @@ void main() {
     // usage sites the reference index misses.
     Future<FinderResult> runXrefResult() => runFinder(
       include: const [
-        'lib/xref_shapes.dart',
-        'lib/xref_event.dart',
-        'lib/xref_analytics.dart',
-        'lib/xref_uses.dart',
+        'lib/scenarios/xref_shapes.dart',
+        'lib/scenarios/xref_event.dart',
+        'lib/scenarios/xref_analytics.dart',
+        'lib/scenarios/xref_uses.dart',
       ],
       exclude: const [],
     );
@@ -817,8 +749,8 @@ void main() {
     // the definition position-matching that tells them apart.
     Future<FinderResult> runCollision() => runFinder(
       include: const [
-        'lib/xref_collision.dart',
-        'lib/xref_collision_uses.dart',
+        'lib/scenarios/xref_collision.dart',
+        'lib/scenarios/xref_collision_uses.dart',
       ],
       exclude: const [],
     );
@@ -908,7 +840,10 @@ void main() {
     };
 
     Future<FinderResult> runShorthandsResult() => runFinder(
-      include: const ['lib/dot_shorthands.dart', 'lib/dot_shorthand_uses.dart'],
+      include: const [
+        'lib/scenarios/dot_shorthands.dart',
+        'lib/scenarios/dot_shorthand_uses.dart',
+      ],
       exclude: const [],
     );
 
@@ -956,7 +891,7 @@ void main() {
   group('annotation detection ignores comments', () {
     Future<Set<String>> runCommentAnnotations() async {
       final result = await runFinder(
-        include: const ['lib/comment_annotations.dart'],
+        include: const ['lib/scenarios/comment_annotations.dart'],
         exclude: const [],
       );
       return result.unused.map((d) => d.qualifiedName).toSet();

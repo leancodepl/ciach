@@ -9,14 +9,8 @@
 /// Stand-in for Flutter's `State<T>`. USED via the `State<...>` pairings below.
 abstract class State<T> {}
 
-/// A fully dead StatelessWidget-style class: never constructed or referenced.
-/// Its only "reference" is its own unnamed constructor declaration, so before
-/// the dead-class detection it slipped through as used. Detected as a dead
-/// CLASS (`DeadLeafWidget`); the `DeadLeafWidget.new` constructor is not
-/// reported separately.
-class DeadLeafWidget {
-  const DeadLeafWidget();
-}
+// A dead widget with no State pairing is just a dead class, covered by
+// `FullyDeadClass` in lib/orphans.dart; only the pairing is widget-specific.
 
 /// A fully dead StatefulWidget: never used, and kept "referenced" only by its
 /// own constructor, its `createState` return type, and its paired
