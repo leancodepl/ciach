@@ -135,9 +135,14 @@ class Palette {
 
 // Nested constructor shorthands. `Layer`, `Depth`, and `Tint` form a chain
 // constructed by a single `.new(.new(.new(…)))`: three unnamed heads in one
-// expression, none of them carrying a name for the reference search to key on,
-// each a different class's constructor. One link per nesting depth, so a depth
-// that goes unseen is a single finding.
+// expression, each a different class's constructor, and one link per nesting
+// depth so a depth that goes unseen is a single finding.
+//
+// The nesting is also what makes the consumer never name `Depth` or `Tint`,
+// which is the shape a references query actually trips over: it looks only in
+// files that mention the constructor's class, and a shorthand mentions no class
+// at all. `Layer` is spelled at the use site (a type annotation), so it stands
+// as the control that does resolve.
 
 /// The innermost link, and the only class here with a *named* constructor
 /// reached by nesting.

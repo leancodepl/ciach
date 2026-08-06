@@ -1,7 +1,7 @@
 ## Unreleased
 
-- Fix an unnamed constructor reached only through a nested dot shorthand
-  (`.new(.new(…))`) being reported as unused.
+- Fix a constructor reached only through a dot shorthand (`.new(…)`), from a
+  file that never names its class, being reported as unused.
 
 ## 0.4.0
 
