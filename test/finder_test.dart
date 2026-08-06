@@ -44,8 +44,9 @@ void main() {
     bool skipOverrides = true,
     bool skipOperators = true,
     Set<SymbolKind>? kinds,
-    // The widget/union/guard/enum-values/recovery fixtures are scanned only by
-    // their dedicated tests; exclude them from the default-run assertions.
+    // The widget/union/guard/enum-values/recovery/shorthand fixtures are
+    // scanned only by their dedicated tests; exclude them from the default-run
+    // assertions.
     List<String> exclude = const [
       'lib/widgets.dart',
       'lib/unions.dart',
@@ -60,6 +61,8 @@ void main() {
       'lib/xref_uses.dart',
       'lib/xref_collision.dart',
       'lib/xref_collision_uses.dart',
+      'lib/dot_shorthands.dart',
+      'lib/dot_shorthand_uses.dart',
     ],
     List<String> include = const [],
   }) => Ciach(
@@ -93,6 +96,8 @@ void main() {
       'lib/xref_uses.dart',
       'lib/xref_collision.dart',
       'lib/xref_collision_uses.dart',
+      'lib/dot_shorthands.dart',
+      'lib/dot_shorthand_uses.dart',
     ],
     List<String> include = const [],
   }) async {
@@ -834,6 +839,104 @@ void main() {
         expect(warned, isNot(contains('DeadState.status')));
       },
     );
+  });
+
+  group('dot-shorthand references', () {
+    // Each declaration below is reached from lib/dot_shorthand_uses.dart only
+    // through a `.name` shorthand, one per context Dart allows a shorthand in,
+    // so a context the reference search cannot see surfaces as exactly one
+    // finding here.
+    const shorthandReached = {
+      // Argument positions.
+      'Weight.positional',
+      'Weight.named',
+      // Initializers, returns, and yields.
+      'Weight.variableInit',
+      'Weight.fieldInit',
+      'Weight.arrowReturn',
+      'Weight.blockReturn',
+      'Weight.asyncReturn',
+      'Weight.yielded',
+      // Collection, record, and map literals.
+      'Weight.listElement',
+      'Weight.setElement',
+      'Weight.mapKey',
+      'Weight.mapValue',
+      'Weight.recordField',
+      // Patterns.
+      'Weight.switchCase',
+      'Weight.switchArm',
+      'Weight.ifCase',
+      'Palette.patternField',
+      // Operators and conditionals.
+      'Weight.equality',
+      'Weight.ternaryThen',
+      'Weight.ternaryElse',
+      'Weight.ifNull',
+      // Constant contexts.
+      'Weight.paramDefault',
+      'Weight.constArg',
+      'Weight.annotationArg',
+      // Assignment, and a context type from an inferred type argument.
+      'Weight.assignment',
+      'Weight.typeArgument',
+      // A shorthand inside the declaring library.
+      'Weight.sameFile',
+      // Shorthand heads other than an enum value: constructors, statics on a
+      // class and on an enum, a generic static, nesting, and trailing
+      // selectors.
+      'Palette.new',
+      'Palette.of',
+      'Palette.constField',
+      'Palette.getter',
+      'Palette.parse',
+      'Palette.blend',
+      'Palette.nestedFirst',
+      'Palette.nestedSecond',
+      'Palette.chainSeed',
+      'Palette.cascadeSeed',
+      'Tier.standard',
+      'Box.filled',
+    };
+
+    Future<FinderResult> runShorthandsResult() => runFinder(
+      include: const ['lib/dot_shorthands.dart', 'lib/dot_shorthand_uses.dart'],
+      exclude: const [],
+    );
+
+    Future<Set<String>> runShorthands() async => (await runShorthandsResult())
+        .unused
+        .map((d) => d.qualifiedName)
+        .toSet();
+
+    test('no declaration reached only through a dot shorthand is reported, in '
+        'any context a shorthand is allowed in', () async {
+      final result = await runShorthandsResult();
+      // Doc-only counts as a miss too: a shorthand the reference search cannot
+      // see must not be papered over by a dartdoc mention.
+      final reported = {
+        for (final d in [...result.unused, ...result.docOnly]) d.qualifiedName,
+      };
+      // Compared as a set so a failure lists exactly which shorthand context
+      // went unseen.
+      expect(reported.intersection(shorthandReached), isEmpty);
+    });
+
+    test('the shorthand fixture reports exactly its dead controls — the '
+        'detection is real, not a blanket exemption', () async {
+      expect(await runShorthands(), {
+        // Same shapes as the shorthand-reached declarations above, but no
+        // shorthand (and no other reference) reaches them.
+        'Weight.deadWeight',
+        'Tier.deadStandard',
+        'Palette.deadCtor',
+        'Palette.deadGetter',
+        'Palette.deadParse',
+        'Box.deadFilled',
+        // The fixture's own entry point, which nothing calls.
+        'exerciseDotShorthands',
+      });
+    });
   });
 
   group('annotation detection ignores comments', () {

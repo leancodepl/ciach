@@ -4,5 +4,7 @@ analyzer:
   errors:
     avoid_print: ignore
     cascade_invocations: ignore
+    # The dot-shorthand fixture needs statics that return their own class.
+    prefer_constructors_over_static_methods: ignore
     unused_element: ignore
     unused_field: ignore
