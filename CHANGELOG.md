@@ -1,4 +1,4 @@
-## Unreleased
+## 0.4.1
 
 - Fix a constructor reached only through a dot shorthand (`.new(…)`), from a
   file that never names its class, being reported as unused.
