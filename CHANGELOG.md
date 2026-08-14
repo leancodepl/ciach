@@ -1,13 +1,11 @@
 ## Unreleased
 
-- Support Dart 3.13 primary constructors. A dead declaration in a class *header*
-  — the constructor, or a `var`/`final` declaring parameter — is now
-  report-only: `--remove` used to delete it, leaving a `class ;` fragment or
-  silently changing the constructor's signature. A dead class's declaring
-  parameters go with the class rather than being reported separately, and the
-  `this : …` body part is no longer reported as a bogus `Class.this` finding.
-- Count only what `--remove` actually deletes in its summary, and say how many
-  findings it left in place.
+- Support Dart 3.13 primary constructors: a dead constructor or declaring
+  parameter in a class header is report-only, since `--remove` cannot delete
+  part of a header.
+- Stop reporting a primary constructor's `this : …` body part as a `Class.this`
+  finding, and a dead class's declaring parameters separately from the class.
+- Count only what `--remove` actually deletes in its summary.
 
 ## 0.4.1
 
