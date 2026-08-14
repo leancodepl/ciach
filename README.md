@@ -210,19 +210,7 @@ auto-remove — remove manually` and skipped, along with anything coupled to the
 | A sealed member matched only by type patterns (`--unused-union-members`) | its `case` arms would need rewriting |
 | Every value of a still-referenced enum | `enum E {}` doesn't compile |
 | The sole constructor of a live class with `final` fields or `super` forwarding | the implicit default constructor can't replace it |
-| [Anything in a class header](#primary-constructors) | only part of a declaration |
-
-### Primary constructors
-
-```dart
-class const Endpoint.of(final String host, final int port);
-```
-
-- A dead class goes whole, `;` body and all.
-- Its constructor and declaring parameters are report-only: deleting one would
-  leave `class ;` or change the signature at every call site.
-- Body members (`new named()`, `factory fact()`) stay removable; the `this : …`
-  body part is never reported.
+| A primary constructor or its declaring parameters | only part of the class header |
 
 ## What it skips by default
 
@@ -257,9 +245,9 @@ deleting blindly:
   code you excluded** are invisible to a reference search.
 - **Entry points other than `main`** (isolate entry points, plugin registrants)
   need excluding or `@pragma('vm:entry-point')`.
-- **A [primary constructor](#primary-constructors) shares its class's
-  references**, since a query at the header resolves to the class: a
-  never-invoked one only surfaces once the class itself is dead.
+- **A primary constructor shares its class's references**, since a query at the
+  header resolves to the class: a never-invoked one only surfaces once the class
+  itself is dead.
 - A package that doesn't analyze cleanly (missing `pub get`, errors) yields
   incomplete references.
 

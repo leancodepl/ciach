@@ -85,6 +85,9 @@ void main() {
     return result.docOnly.map((d) => d.qualifiedName).toSet();
   }
 
+  UnusedDeclaration? findByQualified(FinderResult result, String qualified) =>
+      result.unused.firstWhereOrNull((d) => d.qualifiedName == qualified);
+
   test('reports exactly the expected unused declarations by default', () async {
     expect(await findUnused(), {
       'danglingFunction',
@@ -434,15 +437,6 @@ void main() {
     // alive by in-file type references), so no cross-file setup is needed.
     Future<FinderResult> runGuards() =>
         runFinder(include: ['lib/scenarios/guards.dart'], exclude: const []);
-
-    UnusedDeclaration? findByQualified(FinderResult result, String qualified) {
-      for (final decl in result.unused) {
-        if (decl.qualifiedName == qualified) {
-          return decl;
-        }
-      }
-      return null;
-    }
 
     test(
       'emptying a still-referenced enum is reported but removal-blocked',
@@ -894,9 +888,6 @@ void main() {
       include: ['lib/scenarios/primary_constructors.dart'],
       exclude: const [],
     );
-
-    UnusedDeclaration? findByQualified(FinderResult result, String qualified) =>
-        result.unused.firstWhereOrNull((d) => d.qualifiedName == qualified);
 
     test("reports exactly the fixture's dead declarations", () async {
       final result = await runPrimary();
