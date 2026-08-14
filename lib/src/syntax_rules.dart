@@ -95,14 +95,10 @@ extension StructuralChecks on SourceIndex {
     return false;
   }
 
-  /// Whether [candidate] starts before its type's body does — a Dart 3.13
-  /// primary constructor (`class const Point._(…)`) or one of its declaring
-  /// parameters (`var int x`), both reported as ordinary constructor/field
-  /// symbols that happen to sit in the header.
-  ///
-  /// Neither is a node that can be deleted on its own: dropping the
-  /// constructor leaves a `class ;` fragment, and dropping a declaring
-  /// parameter changes the constructor's signature.
+  /// Whether [candidate] starts before its type's body does: a primary
+  /// constructor (`class const Point._(…)`) or a declaring parameter
+  /// (`var int x`). Deleting either alone leaves a `class ;` fragment or
+  /// changes the constructor's signature.
   bool isDeclaredInTypeHeader(Candidate candidate) {
     final type = candidate.containerSymbol;
     if (type == null) {
@@ -113,12 +109,9 @@ extension StructuralChecks on SourceIndex {
     return headerEnd != null && start != null && start < headerEnd;
   }
 
-  /// The offset at which [type]'s header ends in [path]: the `{` opening its
-  /// body, or the `;` of a bodyless declaration (`class Point(int x);`).
-  ///
-  /// Parentheses are tracked so the `{` of a *named* parameter group
-  /// (`class C({required var int x})`) isn't taken for the body brace, which is
-  /// the first one at depth zero.
+  /// Where [type]'s header ends: its body `{`, or the `;` of a bodyless
+  /// declaration. Parens are tracked so a named parameter group's `{`
+  /// (`class C({required var int x})`) isn't taken for the body brace.
   int? _typeHeaderEnd(String path, DocumentSymbol type) {
     final window = tokenWindow(path, type);
     if (window == null) {

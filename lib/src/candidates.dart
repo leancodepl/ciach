@@ -56,8 +56,8 @@ final class Candidate {
   final DocumentSymbol symbol;
   final String? container;
 
-  /// The symbol [container] names — the enclosing type's source span, kept so a
-  /// member can be placed against its header or its body.
+  /// The symbol [container] names, so a member can be placed against its type's
+  /// header or body.
   final DocumentSymbol? containerSymbol;
   final bool isEnumValue;
   final bool isPreventInstantiationCtor;

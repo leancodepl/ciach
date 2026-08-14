@@ -68,8 +68,6 @@ class Ciach {
       'looks like a prevent-instantiation constructor — for a '
       'non-instantiable static-only class, prefer `abstract final class`';
 
-  /// Notes on the two Dart 3.13 header declarations, saying why neither can be
-  /// auto-removed.
   static const _primaryConstructorHint =
       'primary constructor — declared in the class header, so it cannot be '
       'removed without removing the class';
@@ -364,7 +362,6 @@ class Ciach {
   static String _simpleName(String name) =>
       name.contains('.') ? name.split('.').last : name;
 
-  /// The advisory note to attach to a finding, if any.
   String? _hintFor(Candidate candidate) {
     if (_isHeaderDeclaration(candidate)) {
       return candidate.symbol.kind == .constructor
@@ -376,8 +373,7 @@ class Ciach {
         : null;
   }
 
-  /// Whether [candidate] is a primary constructor or one of its declaring
-  /// parameters — see [StructuralChecks.isDeclaredInTypeHeader].
+  /// See [StructuralChecks.isDeclaredInTypeHeader].
   bool _isHeaderDeclaration(Candidate candidate) =>
       switch (candidate.symbol.kind) {
         .constructor || .field => _sources.isDeclaredInTypeHeader(candidate),
@@ -419,8 +415,7 @@ class Ciach {
   /// * an enum value whose removal would empty a still-referenced enum;
   /// * the last constructor of a live class with `final` fields or
   ///   super-constructor forwarding;
-  /// * a primary constructor or one of its declaring parameters, neither of
-  ///   which is a node that can be deleted on its own.
+  /// * a primary constructor or one of its declaring parameters.
   ///
   /// Each is surfaced so a human can act on it, but the remover leaves it — and
   /// anything coupled to it — entirely alone.
@@ -599,9 +594,9 @@ class Ciach {
     );
   }
 
-  /// Whether [candidate] is part of an already-dead class's own declaration —
-  /// any constructor, or a declaring parameter — and so goes with it. Reporting
-  /// those separately would double-count a single removal.
+  /// Whether [candidate] goes with an already-dead class's own declaration —
+  /// any constructor, or a declaring parameter — so a single removal is not
+  /// reported twice.
   bool _isRemovedWithDeadClass(
     Candidate candidate,
     Map<String, Set<String>> deadClassNames,

@@ -44,10 +44,9 @@ dart run ciach
 
 Examples below show bare `ciach …`; prefix them with `dart run` for the second.
 
-ciach runs on Dart 3.10 and up, but analyzes with the SDK it is invoked with (or
-the one `--dart` points at), so scanning code that uses newer syntax needs an SDK
-that can parse it — 3.13 or later for
-[primary constructors](#primary-constructors).
+ciach runs on Dart 3.10 and up, but analyzes with the SDK it is invoked with, so
+scanning code that uses newer syntax needs an SDK that can parse it — 3.13 or
+later for [primary constructors](#primary-constructors).
 
 ## Usage
 
@@ -205,7 +204,7 @@ false-positive risk, which `--overrides` and `--operators` widen considerably.
 you would after any automated refactor.
 
 Findings whose removal wouldn't compile are **report-only**: marked `unsafe to
-auto-remove — remove manually`, and skipped along with anything coupled to them.
+auto-remove — remove manually` and skipped, along with anything coupled to them.
 Those are a sealed member kept dead only by type patterns
 (`--unused-union-members`), an enum value whose removal would empty a
 still-referenced enum, the sole constructor of a live class with `final` fields
@@ -214,24 +213,16 @@ or super-constructor forwarding, and anything declared in a class *header*
 
 ### Primary constructors
 
-Dart 3.13 lets a class declare its constructor, and the instance variables its
-`var`/`final` parameters induce, in the header:
-
 ```dart
 class const Endpoint.of(final String host, final int port);
 ```
 
-A dead one is reported, and a class dead as a whole is removed in one piece, `;`
-body and all — but a *part* of a header is never deleted: removing the
-constructor would leave `class ;`, and removing a declaring parameter would
-change the signature at every call site, so both are report-only. The
-abbreviated in-body headers from the same feature (`new named()`,
-`factory fact()`, `const factory redir() = C;`) are ordinary body members and
-stay removable. The `this : …` body part is the header constructor's tail, not a
-declaration, so it is never reported separately.
-
-[example/lib/scenarios/primary_constructors.dart](example/lib/scenarios/primary_constructors.dart)
-covers each shape.
+A dead class is removed in one piece, `;` body and all, but a *part* of a header
+never is: removing the constructor would leave `class ;`, and removing a
+declaring parameter would change the signature at every call site, so both are
+report-only. Abbreviated in-body headers (`new named()`, `factory fact()`) are
+ordinary body members and stay removable, and the `this : …` body part is not
+reported at all — it belongs to the constructor in the header.
 
 ## What it skips by default
 

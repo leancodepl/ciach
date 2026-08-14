@@ -889,8 +889,6 @@ void main() {
   });
 
   group('primary constructors (Dart 3.13)', () {
-    // Scan only the primary-constructor fixture; it is self-contained (every
-    // live declaration is used from within the file).
     Future<FinderResult> runPrimary() => runFinder(
       include: ['lib/scenarios/primary_constructors.dart'],
       exclude: const [],
@@ -909,7 +907,6 @@ void main() {
       final result = await runPrimary();
       expect(result.unused.map((d) => d.qualifiedName).toSet(), {
         'Suit.spades',
-        // Reported as the class, not as its header declarations.
         'DeadPoint',
         'Registry.deadNamed',
         'Registry.deadFactory',
@@ -920,16 +917,14 @@ void main() {
         'Chip.badge',
         'Ranged.high',
         'Secret.seed',
-        // The fixture's own entry points, referenced by nothing in the scan.
+        // The fixture's own entry points, called by nothing in the scan.
         'usePrimaryConstructors',
         'useSecretType',
       });
     });
 
     test("a primary constructor's body part is never a finding of its own", () {
-      // `class Delta(…) { this : assert(…); }` — the server reports the body
-      // part as a constructor named `this`, which must not surface as a
-      // `Delta.this` finding nobody can act on.
+      // The server reports `this : assert(…);` as a constructor named `this`.
       return expectLater(
         runPrimary().then((r) => r.unused.map((d) => d.qualifiedName)),
         completion(isNot(contains(anyOf('Delta.this', 'Delta.new')))),
@@ -940,9 +935,7 @@ void main() {
       'a dead declaring parameter is reported but removal-blocked',
       () async {
         final result = await runPrimary();
-        // Positional, named (`{required var String label, …}`) and optional
-        // positional (`[var int high = 10]`) alike: a parameter group's own
-        // brackets must not be mistaken for the class body.
+        // A parameter group's own brackets must not be taken for the body.
         for (final qualified in const [
           'Endpoint.port',
           'Chip.badge',
@@ -962,8 +955,6 @@ void main() {
       final decl = findByQualified(result, 'DeadPoint');
       expect(decl, isNotNull);
       expect(decl!.kind, SymbolKind.class$);
-      // The `;`-bodied declaration goes whole, so its declaring parameters must
-      // not also be reported (or blocked) on their own.
       expect(decl.removalBlocked, isFalse);
       for (final qualified in const ['DeadPoint.x', 'DeadPoint.y']) {
         expect(findByQualified(result, qualified), isNull);
@@ -983,15 +974,14 @@ void main() {
         expect(
           decl.removalBlocked,
           isFalse,
-          reason: '$qualified is a body member, not part of the header',
+          reason: '$qualified is a body member',
         );
       }
     });
 
     test('a primary constructor asked for on its own is report-only', () async {
-      // Restricting the run to constructors drops the class candidates that
-      // would otherwise absorb a dead class's header constructor, so
-      // `DeadPoint` is reported through its constructor alone.
+      // Without class candidates to absorb it, a dead class's header
+      // constructor is reported on its own.
       final result = await runFinder(
         include: ['lib/scenarios/primary_constructors.dart'],
         exclude: const [],
@@ -1001,11 +991,9 @@ void main() {
       expect(decl, isNotNull, reason: '`DeadPoint` is never constructed');
       expect(decl!.removalBlocked, isTrue);
       expect(decl.hint, contains('primary constructor'));
-      // The header constructor of a live, constructed class is not a finding.
       expect(findByQualified(result, 'Point.new'), isNull);
-      // Nor is one whose class is alive as a type only: a query at the header
-      // resolves to the class, so a primary constructor always inherits its
-      // class's references.
+      // A query at the header resolves to the class, so `Secret._` inherits the
+      // references of a class that is still used as a type.
       expect(findByQualified(result, 'Secret._'), isNull);
     });
   });

@@ -756,8 +756,7 @@ Holder? holderRef;
 
   test('removes a dead class declared with a primary constructor and a `;` '
       'body', () {
-    // The whole declaration is the header, ending in `;` instead of a `{}`
-    // body; the class range covers it, terminator included.
+    // The whole declaration is the header; the class range covers the `;`.
     const source = '''
 class Kept(var int x);
 
@@ -786,8 +785,6 @@ int useKept() => Kept(1).x;
   test(
     'removes an abbreviated `new`/`factory` constructor from a class body',
     () {
-      // These name no class, but are ordinary body members: whole-node
-      // removal, `;` and all.
       const source = '''
 class Registry {
   new() : tag = null;
