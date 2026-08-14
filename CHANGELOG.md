@@ -1,4 +1,4 @@
-## Unreleased
+## 0.4.2
 
 - Support Dart 3.13 primary constructors: a dead constructor or declaring
   parameter in a class header is report-only, since `--remove` cannot delete
