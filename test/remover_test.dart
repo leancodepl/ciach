@@ -756,8 +756,8 @@ Holder? holderRef;
 
   test('removes a dead class declared with a primary constructor and a `;` '
       'body', () {
-    // Dart 3.13: the whole declaration is the header, ending in `;` instead of
-    // a `{}` body. The class range covers it, terminator included.
+    // The whole declaration is the header, ending in `;` instead of a `{}`
+    // body; the class range covers it, terminator included.
     const source = '''
 class Kept(var int x);
 
@@ -777,7 +777,6 @@ int useKept() => Kept(1).x;
       ),
     ]);
     expect(result, isNot(contains('DeadPoint')));
-    // Neither the doc comment nor a stray `;` may be left behind.
     expect(result, isNot(contains('Never referenced')));
     expect(result, contains('class Kept(var int x);'));
     expect(result, contains('int useKept() => Kept(1).x;'));
@@ -787,8 +786,8 @@ int useKept() => Kept(1).x;
   test(
     'removes an abbreviated `new`/`factory` constructor from a class body',
     () {
-      // Dart 3.13's abbreviated in-body constructor headers name no class, but
-      // they are ordinary body members: whole-node removal, `;` and all.
+      // These name no class, but are ordinary body members: whole-node
+      // removal, `;` and all.
       const source = '''
 class Registry {
   new() : tag = null;

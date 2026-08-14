@@ -67,15 +67,11 @@ extension SymbolChecks on DocumentSymbol {
     return dot >= 0 && dot + 1 < name.length && name[dot + 1] == '_';
   }
 
-  /// Whether this is the *body part* of a primary constructor — the
-  /// `this : <initializers> { … }` member a Dart 3.13 class body may carry to
-  /// complete the constructor declared in its header.
-  ///
-  /// The analysis server reports it as a constructor literally named `this`, a
-  /// name no ordinary constructor can have (those are `Foo` or `Foo.named`).
-  /// It is not a declaration of its own — it is the tail of the primary
-  /// constructor, already represented by the header's constructor symbol — so
-  /// it is never a candidate on its own.
+  /// Whether this is a primary constructor's body part — the `this : …` member
+  /// completing the constructor declared in the class header, which the server
+  /// reports as a constructor literally named `this` (a name no ordinary
+  /// constructor can have). It is that constructor's tail, not a declaration of
+  /// its own.
   bool get isPrimaryConstructorBody => kind == .constructor && name == 'this';
 
   /// Whether the parameter list is empty. The server reports the signature in

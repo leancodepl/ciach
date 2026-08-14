@@ -56,10 +56,8 @@ final class Candidate {
   final DocumentSymbol symbol;
   final String? container;
 
-  /// The enclosing type declaration's symbol, when this candidate is a member
-  /// of one — the source span [container] names. Kept alongside the name so a
-  /// member can be placed against its type's *header* (where a primary
-  /// constructor and its declaring parameters live) or its body.
+  /// The symbol [container] names — the enclosing type's source span, kept so a
+  /// member can be placed against its header or its body.
   final DocumentSymbol? containerSymbol;
   final bool isEnumValue;
   final bool isPreventInstantiationCtor;

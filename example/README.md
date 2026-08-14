@@ -4,8 +4,8 @@ This directory is a small, self-contained Dart package (`sample_pkg`) with a
 deliberate mix of **used** and **unused** declarations, spread across several
 files so the report's per-file grouping actually has something to group. It
 doubles as the integration-test fixture, so it is a real, runnable
-demonstration of the tool. It needs Dart 3.13 or later — one scenario fixture is
-written with primary constructors, which older SDKs cannot parse.
+demonstration of the tool. It needs Dart 3.13 or later: one scenario fixture is
+written with primary constructors.
 
 It comes in two tiers. The files directly under `lib/` are the **demo**: the
 everyday declaration kinds, referenced (or not) from `bin/app.dart`.
@@ -35,7 +35,7 @@ expected; each is scanned only by its own test, never by the demo run above.
 | `serialization.dart` | the `toJson`/`fromJson` conventions, and `--report-tojson` |
 | `comment_annotations.dart` | a comment mentioning `@override` or `vm:entry-point` does not skip the declaration below it |
 | `dot_shorthands.dart`, `dot_shorthand_uses.dart` | every context a `.name` dot shorthand is allowed in, including nested constructor shorthands |
-| `primary_constructors.dart` | Dart 3.13 primary constructors: a dead one is reported but never partly removed, while the abbreviated `new`/`factory` body headers stay removable |
+| `primary_constructors.dart` | primary constructors: a dead declaration in the class header is report-only, while the class body stays removable |
 | `xref_*.dart` | the cross-library reference recovery, and telling same-named members apart |
 
 Run the finder against the demo tier from the repository root:

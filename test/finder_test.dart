@@ -908,19 +908,14 @@ void main() {
     test("reports exactly the fixture's dead declarations", () async {
       final result = await runPrimary();
       expect(result.unused.map((d) => d.qualifiedName).toSet(), {
-        // A dead enum value of an enum that has a primary constructor.
         'Suit.spades',
-        // A class whose whole declaration — header constructor and the
-        // instance variables its declaring parameters induce — is dead.
+        // Reported as the class, not as its header declarations.
         'DeadPoint',
-        // The abbreviated `new`/`factory` headers: body members like any other.
         'Registry.deadNamed',
         'Registry.deadFactory',
         'Registry.deadRedirect',
-        // A plain body field of a class that has a primary constructor.
         'Registry.deadCounter',
-        // Declaring parameters nothing ever reads — positional, named, and
-        // optional positional.
+        // Declaring parameters: positional, named, optional positional.
         'Endpoint.port',
         'Chip.badge',
         'Ranged.high',
@@ -932,10 +927,9 @@ void main() {
     });
 
     test("a primary constructor's body part is never a finding of its own", () {
-      // `class Delta(…) { this : assert(…); }` — the analysis server reports
-      // the body part as a constructor literally named `this`. It is the tail
-      // of the header's constructor, not a declaration, so it must not surface
-      // (least of all as a `Delta.this` finding nobody can act on).
+      // `class Delta(…) { this : assert(…); }` — the server reports the body
+      // part as a constructor named `this`, which must not surface as a
+      // `Delta.this` finding nobody can act on.
       return expectLater(
         runPrimary().then((r) => r.unused.map((d) => d.qualifiedName)),
         completion(isNot(contains(anyOf('Delta.this', 'Delta.new')))),
@@ -946,9 +940,9 @@ void main() {
       'a dead declaring parameter is reported but removal-blocked',
       () async {
         final result = await runPrimary();
-        // Positional, named (`{required var String label, var int badge = 0}`)
-        // and optional positional (`[var int high = 10]`) alike: a parameter
-        // group's own brackets must not be mistaken for the class body.
+        // Positional, named (`{required var String label, …}`) and optional
+        // positional (`[var int high = 10]`) alike: a parameter group's own
+        // brackets must not be mistaken for the class body.
         for (final qualified in const [
           'Endpoint.port',
           'Chip.badge',
@@ -957,9 +951,6 @@ void main() {
           final decl = findByQualified(result, qualified);
           expect(decl, isNotNull, reason: 'nothing ever reads $qualified');
           expect(decl!.kind, SymbolKind.field);
-          // The field and the constructor parameter are one declaration in the
-          // header: deleting it would change the constructor's signature at
-          // every call site, so the finding is surfaced and left in place.
           expect(decl.removalBlocked, isTrue);
           expect(decl.hint, contains('declaring parameter'));
         }
@@ -971,9 +962,8 @@ void main() {
       final decl = findByQualified(result, 'DeadPoint');
       expect(decl, isNotNull);
       expect(decl!.kind, SymbolKind.class$);
-      // Removing the class removes its `;`-bodied declaration whole, so its
-      // declaring parameters must not also be reported (or blocked) on their
-      // own.
+      // The `;`-bodied declaration goes whole, so its declaring parameters must
+      // not also be reported (or blocked) on their own.
       expect(decl.removalBlocked, isFalse);
       for (final qualified in const ['DeadPoint.x', 'DeadPoint.y']) {
         expect(findByQualified(result, qualified), isNull);
@@ -990,7 +980,6 @@ void main() {
         final decl = findByQualified(result, qualified);
         expect(decl, isNotNull, reason: '$qualified is never invoked');
         expect(decl!.kind, SymbolKind.constructor);
-        // Declared in the class BODY, so an ordinary whole-node removal.
         expect(
           decl.removalBlocked,
           isFalse,
@@ -1001,10 +990,8 @@ void main() {
 
     test('a primary constructor asked for on its own is report-only', () async {
       // Restricting the run to constructors drops the class candidates that
-      // would otherwise absorb a dead class's header constructor: `DeadPoint`
-      // is then reported through its constructor alone. It must be blocked —
-      // that declaration IS the class header, so deleting the node would leave
-      // a `class ;` fragment behind.
+      // would otherwise absorb a dead class's header constructor, so
+      // `DeadPoint` is reported through its constructor alone.
       final result = await runFinder(
         include: ['lib/scenarios/primary_constructors.dart'],
         exclude: const [],
@@ -1016,10 +1003,9 @@ void main() {
       expect(decl.hint, contains('primary constructor'));
       // The header constructor of a live, constructed class is not a finding.
       expect(findByQualified(result, 'Point.new'), isNull);
-      // Nor is one whose class is alive as a type only: a references query at
-      // the header resolves to the class itself, so a primary constructor
-      // always inherits its class's references. Conservative on purpose — the
-      // failure mode is missing a dead constructor, never deleting a live one.
+      // Nor is one whose class is alive as a type only: a query at the header
+      // resolves to the class, so a primary constructor always inherits its
+      // class's references.
       expect(findByQualified(result, 'Secret._'), isNull);
     });
   });

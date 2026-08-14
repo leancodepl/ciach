@@ -188,9 +188,8 @@ Future<void> _removeUnused(
   bool useColor,
   _VerboseLog? log,
 ) async {
-  // Only findings the remover will actually touch are counted: a report-only
-  // one is left in place, so counting it would promise an edit that never
-  // happens.
+  // Report-only findings are left in place, so counting them would promise an
+  // edit that never happens.
   final count = result.unused.whereNot((d) => d.removalBlocked).length;
   final plural = count == 1 ? '' : 's';
 

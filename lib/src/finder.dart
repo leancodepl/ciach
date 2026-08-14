@@ -68,16 +68,12 @@ class Ciach {
       'looks like a prevent-instantiation constructor — for a '
       'non-instantiable static-only class, prefer `abstract final class`';
 
-  /// Advisory note attached to a dead primary constructor: it lives in the
-  /// class header, so there is nothing to delete on its own — the class itself
-  /// is what would have to go.
+  /// Notes on the two Dart 3.13 header declarations, saying why neither can be
+  /// auto-removed.
   static const _primaryConstructorHint =
       'primary constructor — declared in the class header, so it cannot be '
       'removed without removing the class';
 
-  /// Advisory note attached to a dead *declaring parameter* of a primary
-  /// constructor: the field and the constructor parameter are one declaration,
-  /// so dropping it changes the constructor signature.
   static const _declaringParameterHint =
       'declaring parameter of the primary constructor — removing it changes '
       'the constructor signature at every call site';
@@ -368,9 +364,7 @@ class Ciach {
   static String _simpleName(String name) =>
       name.contains('.') ? name.split('.').last : name;
 
-  /// The advisory note to attach to a finding, if any: an explanation of why a
-  /// header declaration can't be auto-removed, or the nudge toward
-  /// `abstract final class` on a sole, zero-parameter private constructor.
+  /// The advisory note to attach to a finding, if any.
   String? _hintFor(Candidate candidate) {
     if (_isHeaderDeclaration(candidate)) {
       return candidate.symbol.kind == .constructor
@@ -382,9 +376,8 @@ class Ciach {
         : null;
   }
 
-  /// Whether [candidate] is declared in its class's *header* rather than its
-  /// body: a primary constructor, or one of its declaring parameters (Dart
-  /// 3.13). Neither is a standalone node the remover can delete.
+  /// Whether [candidate] is a primary constructor or one of its declaring
+  /// parameters — see [StructuralChecks.isDeclaredInTypeHeader].
   bool _isHeaderDeclaration(Candidate candidate) =>
       switch (candidate.symbol.kind) {
         .constructor || .field => _sources.isDeclaredInTypeHeader(candidate),
@@ -426,9 +419,8 @@ class Ciach {
   /// * an enum value whose removal would empty a still-referenced enum;
   /// * the last constructor of a live class with `final` fields or
   ///   super-constructor forwarding;
-  /// * a primary constructor or one of its declaring parameters: both live in
-  ///   the class header, where deleting the node alone leaves a `class ;`
-  ///   fragment or silently changes the constructor's signature.
+  /// * a primary constructor or one of its declaring parameters, neither of
+  ///   which is a node that can be deleted on its own.
   ///
   /// Each is surfaced so a human can act on it, but the remover leaves it — and
   /// anything coupled to it — entirely alone.
@@ -564,8 +556,7 @@ class Ciach {
     if (symbol.isCallMethod) {
       return false;
     }
-    // A primary constructor's `this : …` body part is the tail of the
-    // constructor declared in the header, not a declaration of its own.
+    // Already represented by the header's constructor symbol.
     if (symbol.isPrimaryConstructorBody) {
       return false;
     }
@@ -608,10 +599,9 @@ class Ciach {
     );
   }
 
-  /// Whether [candidate] is part of an already-dead class's own declaration,
-  /// and so goes with it: any constructor, or a declaring parameter of a
-  /// primary constructor (which lives in the class header). Reporting those
-  /// separately would double-count a single removal.
+  /// Whether [candidate] is part of an already-dead class's own declaration —
+  /// any constructor, or a declaring parameter — and so goes with it. Reporting
+  /// those separately would double-count a single removal.
   bool _isRemovedWithDeadClass(
     Candidate candidate,
     Map<String, Set<String>> deadClassNames,
