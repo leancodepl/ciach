@@ -95,6 +95,69 @@ extension StructuralChecks on SourceIndex {
     return false;
   }
 
+  /// Whether [candidate] is declared in the *header* of its enclosing type
+  /// rather than in its body — the shape Dart 3.13's primary constructors
+  /// introduce.
+  ///
+  /// Two candidate kinds land here:
+  ///
+  /// * the primary constructor itself (`class const Point._(…)`), reported by
+  ///   the analysis server as a constructor whose range starts at the class
+  ///   name (or the `const` before it);
+  /// * a *declaring parameter* (`var int x`, `final int y`), reported as a
+  ///   field whose range sits inside the header's parameter list.
+  ///
+  /// Neither can be deleted on its own: dropping the header constructor would
+  /// leave a `class ;` fragment, and dropping a declaring parameter changes the
+  /// constructor's signature, breaking every call site. Both are reported and
+  /// left to a human.
+  ///
+  /// Decided by position: the declaration starts before its type's header ends
+  /// — at the body's `{`, or at the `;` of a bodyless declaration
+  /// ([_typeHeaderEnd]).
+  bool isDeclaredInTypeHeader(Candidate candidate) {
+    final type = candidate.containerSymbol;
+    if (type == null) {
+      return false;
+    }
+    final headerEnd = _typeHeaderEnd(candidate.path, type);
+    final start = offsetOf(candidate.path, candidate.symbol.range.start);
+    return headerEnd != null && start != null && start < headerEnd;
+  }
+
+  /// The offset at which [type]'s header ends in [path]: the `{` opening its
+  /// body, or the `;` closing a bodyless declaration (`class Point(int x);`).
+  /// `null` when neither can be found.
+  ///
+  /// Parentheses and brackets are tracked so that the `{` of a *named*
+  /// parameter group (`class C({required var int x})`) is not mistaken for the
+  /// body — the body brace is the first one at nesting depth zero.
+  int? _typeHeaderEnd(String path, DocumentSymbol type) {
+    final window = tokenWindow(path, type);
+    if (window == null) {
+      return null;
+    }
+    final (:tokens, :start, :end) = window;
+    var depth = 0;
+    for (var i = start; i < end; i++) {
+      final t = tokens[i];
+      if (t.isWord) {
+        continue;
+      }
+      switch (t.value) {
+        case '(' || '[':
+          depth++;
+        case ')' || ']':
+          if (depth > 0) {
+            depth--;
+          }
+        case '{' || ';' when depth == 0:
+          return t.start;
+      }
+    }
+    return null;
+  }
+
   /// Whether [classCandidate] declares at least one `final` *instance* field
   /// (not `static`/`const`). Such a field relies on a constructor to be
   /// initialized, so removing the class's sole constructor would strand it

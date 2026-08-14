@@ -44,6 +44,12 @@ dart run ciach
 
 Examples below show bare `ciach …`; prefix them with `dart run` for the second.
 
+ciach itself runs on Dart 3.10 and up, but it analyzes with the SDK you invoke
+it with — it launches that SDK's analysis server (or the one `--dart` points
+at). Scanning a package that uses newer syntax therefore means running ciach on
+an SDK new enough to parse it: Dart 3.13 or later for
+[primary constructors](#primary-constructors), for instance.
+
 ## Usage
 
 ```bash
@@ -199,6 +205,40 @@ false-positive risk, which `--overrides` and `--operators` widen considerably.
 [Doc-only findings](#doc-only-findings) are never included. Review the diff, as
 you would after any automated refactor.
 
+Some findings are **report-only**: real dead code, but deleting the node would
+not compile, so `--remove` leaves them (and anything coupled to them) in place
+and says so, marking each `unsafe to auto-remove — remove manually`. That covers
+a member of a sealed union kept dead only by type patterns
+(`--unused-union-members`), an enum value whose removal would empty a
+still-referenced enum, the sole constructor of a live class with `final` fields
+or super-constructor forwarding, and everything declared in a class *header*
+(see [Primary constructors](#primary-constructors)).
+
+### Primary constructors
+
+Dart 3.13 lets a class declare its constructor — and the instance variables its
+`var`/`final` parameters induce — in the header:
+
+```dart
+class const Endpoint.of(final String host, final int port);
+```
+
+ciach reads these like any other declaration: a dead one is reported, and a
+class that is dead as a whole is removed in one piece, `;` body and all. What it
+never does is delete a *part* of a header. Removing the constructor alone would
+leave a `class ;` fragment, and removing a declaring parameter would silently
+change the constructor's signature at every call site — so both are reported as
+report-only, with a hint saying which. The abbreviated in-body constructor
+headers that ship with the same feature (`new named()`, `factory fact()`, `const
+factory redir() = C;`) are ordinary body members and stay fully removable.
+
+The `this : …` body part that completes a primary constructor is not a
+declaration of its own — it is the tail of the one in the header — so it is
+never reported separately.
+
+See [example/lib/scenarios/primary_constructors.dart](example/lib/scenarios/primary_constructors.dart)
+for a runnable fixture covering each shape.
+
 ## What it skips by default
 
 Each of these is a known source of false positives; the flag opts back in at
@@ -232,6 +272,12 @@ deleting blindly:
   code you excluded** are invisible to a reference search.
 - **Entry points other than `main`** (isolate entry points, plugin registrants)
   need excluding or `@pragma('vm:entry-point')`.
+- **A [primary constructor](#primary-constructors) shares its class's
+  references**: a reference query at the header resolves to the class, so a
+  never-invoked primary constructor of a class that is still used as a type
+  reads as used. The class being dead is what surfaces it — deliberately, since
+  the failure mode is missing a dead constructor rather than deleting a live
+  one.
 - A package that doesn't analyze cleanly (missing `pub get`, errors) yields
   incomplete references.
 

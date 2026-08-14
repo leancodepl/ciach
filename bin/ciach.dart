@@ -188,14 +188,24 @@ Future<void> _removeUnused(
   bool useColor,
   _VerboseLog? log,
 ) async {
-  final count = result.unused.length;
+  // Only findings the remover will actually touch are counted: a report-only
+  // one is left in place, so counting it would promise an edit that never
+  // happens.
+  final count = result.unused.whereNot((d) => d.removalBlocked).length;
   final plural = count == 1 ? '' : 's';
 
-  final blocked = result.unused.where((d) => d.removalBlocked).length;
+  final blocked = result.unused.length - count;
   if (blocked > 0) {
     log?.write(
-      'Skipping $blocked of $count finding$plural: removing them safely would need a source rewrite (see --unused-union-members and remove safety).',
+      'Skipping $blocked of ${result.unused.length} finding(s): removing them safely would need a source rewrite (see --unused-union-members and remove safety).',
     );
+  }
+  if (count == 0) {
+    stdout.writeln(
+      'Nothing removed: all $blocked finding${blocked == 1 ? ' is' : 's are'} '
+      'unsafe to auto-remove — remove them manually.',
+    );
+    return;
   }
 
   var proceed = resolved.force;
@@ -234,8 +244,11 @@ Future<void> _removeUnused(
   }
 
   final filesChanged = removeDeclarations(result.unused, rootPath);
+  final left = blocked > 0
+      ? ' $blocked left in place — unsafe to auto-remove.'
+      : '';
   stdout.writeln(
-    "Removed $count unused declaration$plural from $filesChanged file${filesChanged == 1 ? '' : 's'}. Run 'dart format' to tidy up spacing.",
+    "Removed $count unused declaration$plural from $filesChanged file${filesChanged == 1 ? '' : 's'}.$left Run 'dart format' to tidy up spacing.",
   );
   // Repeat any advisory hints: removing a declaration takes the reported line
   // that carried its hint with it.

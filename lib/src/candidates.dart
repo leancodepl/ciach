@@ -48,12 +48,19 @@ final class Candidate {
     required this.container,
     required this.isEnumValue,
     required this.isPreventInstantiationCtor,
+    this.containerSymbol,
   });
 
   final Uri uri;
   final String path;
   final DocumentSymbol symbol;
   final String? container;
+
+  /// The enclosing type declaration's symbol, when this candidate is a member
+  /// of one — the source span [container] names. Kept alongside the name so a
+  /// member can be placed against its type's *header* (where a primary
+  /// constructor and its declaring parameters live) or its body.
+  final DocumentSymbol? containerSymbol;
   final bool isEnumValue;
   final bool isPreventInstantiationCtor;
 
