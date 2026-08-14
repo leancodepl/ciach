@@ -67,6 +67,11 @@ extension SymbolChecks on DocumentSymbol {
     return dot >= 0 && dot + 1 < name.length && name[dot + 1] == '_';
   }
 
+  /// Whether this is a primary constructor's `this : …` body part, which the
+  /// server reports as a constructor named `this` — a name no ordinary
+  /// constructor can have.
+  bool get isPrimaryConstructorBody => kind == .constructor && name == 'this';
+
   /// Whether the parameter list is empty. The server reports the signature in
   /// [DocumentSymbol.detail] as the parenthesized parameter list (`()`,
   /// `(int a)`, …); if the detail is missing we can't tell the arity, so treat

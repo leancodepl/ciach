@@ -1,3 +1,12 @@
+## 0.4.2
+
+- Support Dart 3.13 primary constructors: a dead constructor or declaring
+  parameter in a class header is report-only, since `--remove` cannot delete
+  part of a header.
+- Stop reporting a primary constructor's `this : …` body part as a `Class.this`
+  finding, and a dead class's declaring parameters separately from the class.
+- Count only what `--remove` actually deletes in its summary.
+
 ## 0.4.1
 
 - Fix a constructor reached only through a dot shorthand (`.new(…)`), from a

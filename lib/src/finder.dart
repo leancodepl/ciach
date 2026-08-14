@@ -25,6 +25,7 @@ import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/remove_safety.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
+import 'package:ciach/src/syntax_rules.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location;
 
@@ -66,6 +67,14 @@ class Ciach {
   static const _preventInstantiationHint =
       'looks like a prevent-instantiation constructor — for a '
       'non-instantiable static-only class, prefer `abstract final class`';
+
+  static const _primaryConstructorHint =
+      'primary constructor — declared in the class header, so it cannot be '
+      'removed without removing the class';
+
+  static const _declaringParameterHint =
+      'declaring parameter of the primary constructor — removing it changes '
+      'the constructor signature at every call site';
 
   void _report(String message) => options.onProgress?.call(message);
 
@@ -219,11 +228,7 @@ class Ciach {
                       )
                     : const [],
                 removalBlocked: _isRemovalBlocked(candidate, refs, safety),
-                // A sole, zero-parameter private constructor is dead code like
-                // any other, but nudge toward `abstract final class`.
-                hint: candidate.isPreventInstantiationCtor
-                    ? _preventInstantiationHint
-                    : null,
+                hint: _hintFor(candidate),
               ),
             );
           case .docOnly:
@@ -357,6 +362,24 @@ class Ciach {
   static String _simpleName(String name) =>
       name.contains('.') ? name.split('.').last : name;
 
+  String? _hintFor(Candidate candidate) {
+    if (_isHeaderDeclaration(candidate)) {
+      return candidate.symbol.kind == .constructor
+          ? _primaryConstructorHint
+          : _declaringParameterHint;
+    }
+    return candidate.isPreventInstantiationCtor
+        ? _preventInstantiationHint
+        : null;
+  }
+
+  /// See [StructuralChecks.isDeclaredInTypeHeader].
+  bool _isHeaderDeclaration(Candidate candidate) =>
+      switch (candidate.symbol.kind) {
+        .constructor || .field => _sources.isDeclaredInTypeHeader(candidate),
+        _ => false,
+      };
+
   /// Whether an unused [candidate] should be silently suppressed (never
   /// reported): a live freezed-union arm, an exempt `toJson` hook, a
   /// constructor removed with its already-dead class, or an enum value reached
@@ -374,7 +397,7 @@ class Ciach {
     if (!options.reportToJson && _sources.isToJsonHook(candidate)) {
       return true;
     }
-    if (_isConstructorOfDeadClass(candidate, deadClassNames)) {
+    if (_isRemovedWithDeadClass(candidate, deadClassNames)) {
       return true;
     }
     final containerKey = candidate.containerKey;
@@ -391,7 +414,8 @@ class Ciach {
   ///   scattered `case`s is a source rewrite this tool won't attempt;
   /// * an enum value whose removal would empty a still-referenced enum;
   /// * the last constructor of a live class with `final` fields or
-  ///   super-constructor forwarding.
+  ///   super-constructor forwarding;
+  /// * a primary constructor or one of its declaring parameters.
   ///
   /// Each is surfaced so a human can act on it, but the remover leaves it — and
   /// anything coupled to it — entirely alone.
@@ -409,7 +433,8 @@ class Ciach {
             safety.emptiedEnums.contains(containerKey)) ||
         (candidate.symbol.kind == .constructor &&
             containerKey != null &&
-            safety.blockedCtorClasses.contains(containerKey));
+            safety.blockedCtorClasses.contains(containerKey)) ||
+        _isHeaderDeclaration(candidate);
   }
 
   /// Opens [path] in the analysis server without collecting candidates from
@@ -444,6 +469,7 @@ class Ciach {
       path,
       symbols,
       null,
+      null,
       false,
       _sources.strippedLines(path),
       out,
@@ -461,6 +487,7 @@ class Ciach {
     String path,
     List<DocumentSymbol> symbols,
     String? container,
+    DocumentSymbol? containerSymbol,
     bool parentIsEnum,
     List<String> strippedLines,
     List<Candidate> out,
@@ -474,6 +501,7 @@ class Ciach {
             path: path,
             symbol: symbol,
             container: container,
+            containerSymbol: containerSymbol,
             isEnumValue: parentIsEnum && symbol.kind == .enum$,
             // `symbols` are this symbol's siblings (its class's members when
             // `symbol` is a constructor), so this confirms the sole-constructor
@@ -484,14 +512,13 @@ class Ciach {
           ),
         );
       }
-      final childContainer = typeLikeKinds.contains(symbol.kind)
-          ? symbol.name
-          : container;
+      final isTypeLike = typeLikeKinds.contains(symbol.kind);
       _collectCandidates(
         uri,
         path,
         symbol.children ?? const [],
-        childContainer,
+        isTypeLike ? symbol.name : container,
+        isTypeLike ? symbol : containerSymbol,
         symbol.kind == .enum$,
         strippedLines,
         out,
@@ -522,6 +549,10 @@ class Ciach {
     // Always skipped (no flag): implicit-call syntax is unresolvable, like
     // operators.
     if (symbol.isCallMethod) {
+      return false;
+    }
+    // Already represented by the header's constructor symbol.
+    if (symbol.isPrimaryConstructorBody) {
       return false;
     }
 
@@ -563,11 +594,15 @@ class Ciach {
     );
   }
 
-  bool _isConstructorOfDeadClass(
+  /// Whether [candidate] goes with an already-dead class's own declaration —
+  /// any constructor, or a declaring parameter — so a single removal is not
+  /// reported twice.
+  bool _isRemovedWithDeadClass(
     Candidate candidate,
     Map<String, Set<String>> deadClassNames,
   ) =>
-      candidate.symbol.kind == .constructor &&
+      (candidate.symbol.kind == .constructor ||
+          _isHeaderDeclaration(candidate)) &&
       (deadClassNames[candidate.path]?.contains(candidate.container) ?? false);
 
   static int _byLocation(UnusedDeclaration a, UnusedDeclaration b) {

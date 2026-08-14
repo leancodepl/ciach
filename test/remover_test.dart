@@ -753,6 +753,76 @@ Holder? holderRef;
       expect(result, contains('const Holder(this.label);'));
     },
   );
+
+  test('removes a dead class declared with a primary constructor and a `;` '
+      'body', () {
+    // The whole declaration is the header; the class range covers the `;`.
+    const source = '''
+class Kept(var int x);
+
+/// Never referenced.
+class DeadPoint(var int x, var int y);
+
+int useKept() => Kept(1).x;
+''';
+    // `class DeadPoint(var int x, var int y);` is line index 3, columns 0..38.
+    final result = applyRemoval(source, [
+      decl(
+        startLine: 3,
+        startColumn: 0,
+        endLine: 3,
+        endColumn: 38,
+        kind: .class$,
+      ),
+    ]);
+    expect(result, isNot(contains('DeadPoint')));
+    expect(result, isNot(contains('Never referenced')));
+    expect(result, contains('class Kept(var int x);'));
+    expect(result, contains('int useKept() => Kept(1).x;'));
+    _expectBalanced(result);
+  });
+
+  test(
+    'removes an abbreviated `new`/`factory` constructor from a class body',
+    () {
+      const source = '''
+class Registry {
+  new() : tag = null;
+
+  /// Never invoked.
+  new deadNamed() : tag = null;
+
+  /// Never invoked either.
+  factory deadRedirect() = Registry;
+
+  final String? tag;
+}
+''';
+      final result = applyRemoval(source, [
+        // `new deadNamed() : tag = null;` is line index 4, columns 2..30.
+        decl(
+          startLine: 4,
+          startColumn: 2,
+          endLine: 4,
+          endColumn: 30,
+          kind: .constructor,
+        ),
+        // `factory deadRedirect() = Registry;` is line index 7, columns 2..35.
+        decl(
+          startLine: 7,
+          startColumn: 2,
+          endLine: 7,
+          endColumn: 35,
+          kind: .constructor,
+        ),
+      ]);
+      expect(result, isNot(contains('deadNamed')));
+      expect(result, isNot(contains('deadRedirect')));
+      expect(result, contains('new() : tag = null;'));
+      expect(result, contains('final String? tag;'));
+      _expectBalanced(result);
+    },
+  );
 }
 
 /// A cheap brace-balance check so a regression that mangles a removal shows

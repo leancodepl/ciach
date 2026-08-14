@@ -44,6 +44,9 @@ dart run ciach
 
 Examples below show bare `ciach …`; prefix them with `dart run` for the second.
 
+ciach runs on Dart 3.10 and up, but analyzes with the SDK it is invoked with, so
+scanning code needs an SDK new enough to parse it.
+
 ## Usage
 
 ```bash
@@ -199,6 +202,16 @@ false-positive risk, which `--overrides` and `--operators` widen considerably.
 [Doc-only findings](#doc-only-findings) are never included. Review the diff, as
 you would after any automated refactor.
 
+Findings whose removal wouldn't compile are **report-only**: marked `unsafe to
+auto-remove — remove manually` and skipped, along with anything coupled to them.
+
+| Report-only finding | Why |
+| --- | --- |
+| A sealed member matched only by type patterns (`--unused-union-members`) | its `case` arms would need rewriting |
+| Every value of a still-referenced enum | `enum E {}` doesn't compile |
+| The sole constructor of a live class with `final` fields or `super` forwarding | the implicit default constructor can't replace it |
+| A primary constructor or its declaring parameters | only part of the class header |
+
 ## What it skips by default
 
 Each of these is a known source of false positives; the flag opts back in at
@@ -232,6 +245,9 @@ deleting blindly:
   code you excluded** are invisible to a reference search.
 - **Entry points other than `main`** (isolate entry points, plugin registrants)
   need excluding or `@pragma('vm:entry-point')`.
+- **A primary constructor shares its class's references**, since a query at the
+  header resolves to the class: a never-invoked one only surfaces once the class
+  itself is dead.
 - A package that doesn't analyze cleanly (missing `pub get`, errors) yields
   incomplete references.
 

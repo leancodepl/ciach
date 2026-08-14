@@ -48,12 +48,17 @@ final class Candidate {
     required this.container,
     required this.isEnumValue,
     required this.isPreventInstantiationCtor,
+    this.containerSymbol,
   });
 
   final Uri uri;
   final String path;
   final DocumentSymbol symbol;
   final String? container;
+
+  /// The symbol [container] names, so a member can be placed against its type's
+  /// header or body.
+  final DocumentSymbol? containerSymbol;
   final bool isEnumValue;
   final bool isPreventInstantiationCtor;
 

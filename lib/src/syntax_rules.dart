@@ -95,6 +95,49 @@ extension StructuralChecks on SourceIndex {
     return false;
   }
 
+  /// Whether [candidate] starts before its type's body does: a primary
+  /// constructor (`class const Point._(…)`) or a declaring parameter
+  /// (`var int x`). Deleting either alone leaves a `class ;` fragment or
+  /// changes the constructor's signature.
+  bool isDeclaredInTypeHeader(Candidate candidate) {
+    final type = candidate.containerSymbol;
+    if (type == null) {
+      return false;
+    }
+    final headerEnd = _typeHeaderEnd(candidate.path, type);
+    final start = offsetOf(candidate.path, candidate.symbol.range.start);
+    return headerEnd != null && start != null && start < headerEnd;
+  }
+
+  /// Where [type]'s header ends: its body `{`, or the `;` of a bodyless
+  /// declaration. Parens are tracked so a named parameter group's `{`
+  /// (`class C({required var int x})`) isn't taken for the body brace.
+  int? _typeHeaderEnd(String path, DocumentSymbol type) {
+    final window = tokenWindow(path, type);
+    if (window == null) {
+      return null;
+    }
+    final (:tokens, :start, :end) = window;
+    var depth = 0;
+    for (var i = start; i < end; i++) {
+      final t = tokens[i];
+      if (t.isWord) {
+        continue;
+      }
+      switch (t.value) {
+        case '(' || '[':
+          depth++;
+        case ')' || ']':
+          if (depth > 0) {
+            depth--;
+          }
+        case '{' || ';' when depth == 0:
+          return t.start;
+      }
+    }
+    return null;
+  }
+
   /// Whether [classCandidate] declares at least one `final` *instance* field
   /// (not `static`/`const`). Such a field relies on a constructor to be
   /// initialized, so removing the class's sole constructor would strand it
