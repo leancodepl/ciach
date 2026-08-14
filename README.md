@@ -45,8 +45,7 @@ dart run ciach
 Examples below show bare `ciach …`; prefix them with `dart run` for the second.
 
 ciach runs on Dart 3.10 and up, but analyzes with the SDK it is invoked with, so
-scanning code that uses newer syntax needs an SDK that can parse it — 3.13 or
-later for [primary constructors](#primary-constructors).
+scanning code needs an SDK new enough to parse it.
 
 ## Usage
 
@@ -205,11 +204,13 @@ you would after any automated refactor.
 
 Findings whose removal wouldn't compile are **report-only**: marked `unsafe to
 auto-remove — remove manually` and skipped, along with anything coupled to them.
-Those are a sealed member kept dead only by type patterns
-(`--unused-union-members`), an enum value whose removal would empty a
-still-referenced enum, the sole constructor of a live class with `final` fields
-or super-constructor forwarding, and anything declared in a class *header*
-(see [Primary constructors](#primary-constructors)).
+
+| Report-only finding | Why |
+| --- | --- |
+| A sealed member matched only by type patterns (`--unused-union-members`) | its `case` arms would need rewriting |
+| Every value of a still-referenced enum | `enum E {}` doesn't compile |
+| The sole constructor of a live class with `final` fields or `super` forwarding | the implicit default constructor can't replace it |
+| [Anything in a class header](#primary-constructors) | only part of a declaration |
 
 ### Primary constructors
 
@@ -217,12 +218,11 @@ or super-constructor forwarding, and anything declared in a class *header*
 class const Endpoint.of(final String host, final int port);
 ```
 
-A dead class is removed in one piece, `;` body and all, but a *part* of a header
-never is: removing the constructor would leave `class ;`, and removing a
-declaring parameter would change the signature at every call site, so both are
-report-only. Abbreviated in-body headers (`new named()`, `factory fact()`) are
-ordinary body members and stay removable, and the `this : …` body part is not
-reported at all — it belongs to the constructor in the header.
+- A dead class goes whole, `;` body and all.
+- Its constructor and declaring parameters are report-only: deleting one would
+  leave `class ;` or change the signature at every call site.
+- Body members (`new named()`, `factory fact()`) stay removable; the `this : …`
+  body part is never reported.
 
 ## What it skips by default
 

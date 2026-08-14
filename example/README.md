@@ -4,8 +4,7 @@ This directory is a small, self-contained Dart package (`sample_pkg`) with a
 deliberate mix of **used** and **unused** declarations, spread across several
 files so the report's per-file grouping actually has something to group. It
 doubles as the integration-test fixture, so it is a real, runnable
-demonstration of the tool. It needs Dart 3.13 or later: one scenario fixture is
-written with primary constructors.
+demonstration of the tool.
 
 It comes in two tiers. The files directly under `lib/` are the **demo**: the
 everyday declaration kinds, referenced (or not) from `bin/app.dart`.

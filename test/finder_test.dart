@@ -15,6 +15,7 @@ import 'dart:io';
 
 import 'package:ciach/src/finder.dart';
 import 'package:ciach/src/models.dart';
+import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 import 'package:test/test.dart';
@@ -894,14 +895,8 @@ void main() {
       exclude: const [],
     );
 
-    UnusedDeclaration? findByQualified(FinderResult result, String qualified) {
-      for (final decl in result.unused) {
-        if (decl.qualifiedName == qualified) {
-          return decl;
-        }
-      }
-      return null;
-    }
+    UnusedDeclaration? findByQualified(FinderResult result, String qualified) =>
+        result.unused.firstWhereOrNull((d) => d.qualifiedName == qualified);
 
     test("reports exactly the fixture's dead declarations", () async {
       final result = await runPrimary();
