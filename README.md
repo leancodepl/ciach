@@ -19,6 +19,8 @@ AI-Provenance:
 [![ciach pub.dev badge][pub-badge]][pub-badge-link]
 [![Test status][test-badge]][test-badge-link]
 [![License: Apache 2.0][license-badge]][license-badge-link]
+[![style: leancode_lint][leancode-lint-badge]][leancode-lint-badge-link]
+[![Pub Points][pub-points-badge]][pub-points-badge-link]
 
 **Dead code detector for Dart and Flutter.** Finds declarations that are never
 referenced — classes, functions, methods, fields, constants, enum values — and
@@ -325,12 +327,21 @@ We are **top-tier experts** focused on Flutter Enterprise solutions.
 
 </div>
 
-[pub-badge]: https://img.shields.io/pub/v/ciach
+[pub-badge]: https://img.shields.io/pub/v/ciach?style=for-the-badge&logo=dart
 [pub-badge-link]: https://pub.dev/packages/ciach
-[test-badge]: https://github.com/leancodepl/ciach/actions/workflows/test.yml/badge.svg
+
+[test-badge]: https://img.shields.io/github/actions/workflow/status/leancodepl/ciach/test.yml?branch=main&style=for-the-badge&logo=github
 [test-badge-link]: https://github.com/leancodepl/ciach/actions/workflows/test.yml
-[license-badge]: https://img.shields.io/github/license/leancodepl/ciach
+
+[license-badge]: https://img.shields.io/github/license/leancodepl/ciach?style=for-the-badge
 [license-badge-link]: https://github.com/leancodepl/ciach/blob/main/LICENSE
+
+[leancode-lint-badge]: https://img.shields.io/badge/style-leancode__lint-f0ff00?style=for-the-badge
+[leancode-lint-badge-link]: https://pub.dev/packages/leancode_lint
+
+[pub-points-badge]: https://img.shields.io/pub/points/ciach?style=for-the-badge&logo=dart
+[pub-points-badge-link]: https://pub.dev/packages/ciach/score
+
 [leancode-landing]: https://leancode.co/?utm_source=github.com&utm_medium=referral&utm_campaign=ciach
 [leancode-estimate]: https://leancode.co/get-estimate?utm_source=github.com&utm_medium=referral&utm_campaign=ciach
 [leancode-packages]: https://pub.dev/packages?q=publisher%3Aleancode.co&sort=downloads
