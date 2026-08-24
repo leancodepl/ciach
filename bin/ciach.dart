@@ -17,6 +17,7 @@ import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/options.dart';
 import 'package:ciach/src/cli/verbose.dart';
 import 'package:ciach/src/reporter.dart';
+import 'package:ciach/src/version.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
 import 'package:path/path.dart' as p;
@@ -43,6 +44,11 @@ Future<int> _run(List<String> arguments) async {
 
   if (args.flag('help')) {
     stdout.writeln(usage(parser));
+    return 0;
+  }
+
+  if (args.flag('version')) {
+    stdout.writeln('ciach $ciachVersion');
     return 0;
   }
 

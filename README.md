@@ -67,6 +67,7 @@ ciach --verbose                        # explain each step
 | --- | --- | --- |
 | `[path]` | `.` | Package root to analyze. |
 | `-h, --help` | — | Print usage information. |
+| `--version` | — | Print the ciach version and exit. The `--help` header carries it too. |
 | `--config <path>` | auto | Read settings from this YAML file instead of the auto-discovered one. See [Configuration file](#configuration-file). |
 | `--no-config` | off | Ignore the config file, even if one is found. |
 | `--[no-]public` | on | Report unused public declarations too. Disable to report only private (`_`-prefixed) ones. |

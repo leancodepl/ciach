@@ -1,3 +1,9 @@
+## Unreleased
+
+- Add `--version`, printing the ciach version, and lead the `--help` output with
+  it. The version also reaches the analysis server as the LSP client version,
+  which was pinned at `1.0.0` before.
+
 ## 0.4.2
 
 - Support Dart 3.13 primary constructors: a dead constructor or declaring

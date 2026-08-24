@@ -12,6 +12,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:ciach/src/version.dart';
 import 'package:pro_lsp/pro_lsp.dart' as lsp;
 import 'package:stream_channel/stream_channel.dart';
 
@@ -57,7 +58,7 @@ class LspClient {
       'language-server',
       '--protocol=lsp',
       '--client-id=ciach',
-      '--client-version=1.0.0',
+      '--client-version=$ciachVersion',
     ]);
 
     final channel = StreamChannel<List<int>>(process.stdout, process.stdin);
@@ -95,7 +96,7 @@ class LspClient {
   Future<void> initialize(Uri rootUri) async {
     final uri = rootUri.toString();
     final result = await _client.start(
-      clientInfo: const .new(name: 'ciach', version: '1.0.0'),
+      clientInfo: const .new(name: 'ciach', version: ciachVersion),
       rootUri: uri,
       workspaceFolders: [.new(uri: uri, name: 'root')],
       // Hierarchical document symbols yield nested `DocumentSymbol[]` rather
