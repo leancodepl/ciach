@@ -9,4 +9,4 @@
  */
 
 /// The published version of ciach. Keep in sync with `pubspec.yaml`.
-const ciachVersion = '0.4.2';
+const ciachVersion = '0.4.3';

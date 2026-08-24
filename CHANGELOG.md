@@ -1,4 +1,4 @@
-## Unreleased
+## 0.4.3
 
 - Add `--version`, printing the ciach version, and lead the `--help` output with
   it. The version also reaches the analysis server as the LSP client version,
