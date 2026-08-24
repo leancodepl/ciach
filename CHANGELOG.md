@@ -1,3 +1,8 @@
+## 0.4.3
+
+- Add `--version`, and show the version in the `--help` header. The analysis
+  server now sees the real version instead of `1.0.0`.
+
 ## 0.4.2
 
 - Support Dart 3.13 primary constructors: a dead constructor or declaring

@@ -10,6 +10,7 @@
 
 import 'package:args/args.dart';
 import 'package:ciach/ciach.dart';
+import 'package:ciach/src/version.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
 
@@ -61,8 +62,8 @@ Set<SymbolKind> parseKinds(List<String> raw) {
 /// Every setting ciach accepts, declared once for the command line, the config
 /// file (`configKey`) and its default.
 ///
-/// [help], [config] and [noConfig] have no `configKey`: a config file doesn't
-/// get to decide whether it is read.
+/// [help], [version], [config] and [noConfig] have no `configKey`: a config
+/// file doesn't get to decide whether it is read, or what ciach is called.
 enum CiachOption<V> implements OptionDefinition<V> {
   help(
     FlagOption(
@@ -71,6 +72,15 @@ enum CiachOption<V> implements OptionDefinition<V> {
       negatable: false,
       defaultsTo: false,
       helpText: 'Print this usage information.',
+    ),
+  ),
+  // No `-v`: that is --verbose.
+  version(
+    FlagOption(
+      argName: 'version',
+      negatable: false,
+      defaultsTo: false,
+      helpText: 'Print the ciach version and exit.',
     ),
   ),
   config(
@@ -357,6 +367,8 @@ ArgParser buildParser() {
 /// The full `--help` text, wrapping [parser]'s generated option list.
 String usage(ArgParser parser) =>
     '''
+ciach $ciachVersion
+
 Find unused (never-referenced) declarations in a Dart/Flutter package.
 
 Usage: ciach [options] [path]

@@ -88,7 +88,7 @@ String _setting(
   .concurrency => '${resolved.concurrency}',
   .dart => dartExecutable,
   // No config key, so never listed; spelled out so a new option must be too.
-  .help || .config || .noConfig => '',
+  .help || .version || .config || .noConfig => '',
 };
 
 /// Where a value came from, in the user's words.

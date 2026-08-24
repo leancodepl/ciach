@@ -91,7 +91,7 @@ dart: /sdk/bin/dart
 
     test('covers every command-line option', () {
       // Anything settable on the command line is settable in the file.
-      final cliOnly = {'help', 'config', 'no-config'};
+      final cliOnly = {'help', 'version', 'config', 'no-config'};
       final optionNames = parser.options.keys.toSet().difference(cliOnly);
 
       expect(configKeys.difference({'path'}), optionNames);
