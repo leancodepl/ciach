@@ -1,8 +1,7 @@
 ## 0.4.3
 
-- Add `--version`, printing the ciach version, and lead the `--help` output with
-  it. The version also reaches the analysis server as the LSP client version,
-  which was pinned at `1.0.0` before.
+- Add `--version`, and show the version in the `--help` header. The analysis
+  server now sees the real version instead of `1.0.0`.
 
 ## 0.4.2
 
