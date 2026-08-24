@@ -8,10 +8,5 @@
  *     - mark-ai-provenance
  */
 
-/// The published version of ciach, as `--version` and the `--help` header
-/// report it.
-///
-/// A compiled or globally activated binary has no `pubspec.yaml` to read at
-/// run time, so the version is a constant here and `test/version_test.dart`
-/// fails if a release bumps `pubspec.yaml` without it.
+/// The published version of ciach. Keep in sync with `pubspec.yaml`.
 const ciachVersion = '0.4.2';
