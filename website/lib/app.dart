@@ -1,4 +1,4 @@
-import 'package:ciach_website/components/chop_demo.dart';
+import 'package:ciach_website/components/remove_demo.dart';
 import 'package:ciach_website/components/ci_section.dart';
 import 'package:ciach_website/components/faq.dart';
 import 'package:ciach_website/components/features.dart';
@@ -32,7 +32,7 @@ class App extends StatelessComponent {
         id: 'main',
         children: [
           Hero(version: version),
-          const ChopDemo(),
+          const RemoveDemo(),
           const Features(),
           const HowItWorks(),
           const OutputFormats(),

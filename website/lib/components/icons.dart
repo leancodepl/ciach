@@ -12,7 +12,7 @@ enum Icon {
   arrow(['M5 12h14', 'm13 6 6 6-6 6']),
   external(['M14 4h6v6', 'M20 4 10 14', 'M18 13v7H4V6h7']),
   terminal(['m4 17 6-6-6-6', 'M12 19h8']),
-  knife([
+  logoMark([
     'M3 21 14.5 9.5',
     'M14.5 9.5 21 3c-1.5 5.5-4 8.5-8 10.5',
     'M9 15 5.5 18.5',
@@ -63,12 +63,12 @@ enum Icon {
   );
 }
 
-/// The ciach word mark: a chopped-off "ciach" with an accent slash.
+/// The ciach word mark: the logo icon next to the package name.
 Component logo({bool large = false}) => span(
   classes: large ? 'logo logo-large' : 'logo',
   attributes: const {'aria-hidden': 'true'},
   [
-    span(classes: 'logo-mark', [Icon.knife.build(size: large ? 28 : 20)]),
+    span(classes: 'logo-mark', [Icon.logoMark.build(size: large ? 28 : 20)]),
     const span(classes: 'logo-text', [Component.text('ciach')]),
   ],
 );

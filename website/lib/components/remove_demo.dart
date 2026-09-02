@@ -46,8 +46,8 @@ Found 4 unused declarations in 1 file (scanned 1 file, 8 declarations, 0.4s).
 Remove 4 unused declarations? [y/N] y
 Removed 4 unused declarations from 1 file.''';
 
-class ChopDemo extends StatelessComponent {
-  const ChopDemo({super.key});
+class RemoveDemo extends StatelessComponent {
+  const RemoveDemo({super.key});
 
   @override
   Component build(BuildContext context) {
@@ -60,16 +60,16 @@ class ChopDemo extends StatelessComponent {
           'declaration — doc comment and annotations included — after showing '
           'you exactly what it is about to cut and asking first.',
       children: [
-        div(classes: 'chop-grid', [
+        div(classes: 'remove-grid', [
           CodeBlock(
             code: _before,
             language: Language.dart,
             title: 'lib/greeting.dart — before',
             deadLines: {8, 9, 13, 14, 16, 17, 18},
             copyText: '',
-            classes: 'chop-before',
+            classes: 'remove-before',
           ),
-          div(classes: 'chop-middle', [
+          div(classes: 'remove-middle', [
             Terminal(transcript: _removeTranscript, title: 'ciach --remove'),
           ]),
           CodeBlock(
@@ -77,7 +77,7 @@ class ChopDemo extends StatelessComponent {
             language: Language.dart,
             title: 'lib/greeting.dart — after',
             copyText: '',
-            classes: 'chop-after',
+            classes: 'remove-after',
           ),
         ]),
         ul(classes: 'notes', [
