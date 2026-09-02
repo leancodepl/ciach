@@ -931,7 +931,6 @@ svg {
 
 .table {
   width: 100%;
-  min-width: 640px;
   border-collapse: collapse;
   font-size: 0.95rem;
 }
@@ -1309,6 +1308,59 @@ svg {
   .docs-nav li a:hover,
   .docs-nav li a.is-active {
     border-color: var(--accent);
+  }
+}
+
+@media (max-width: 640px) {
+  /* Tables stack: one card per row, column names as small labels. */
+  .table thead {
+    display: none;
+  }
+
+  .table tbody,
+  .table tr,
+  .table th,
+  .table td {
+    display: block;
+  }
+
+  .table tr {
+    padding: 0.9rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .table tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .table th,
+  .table td {
+    padding: 0;
+    border: 0;
+  }
+
+  .table tbody th {
+    margin-bottom: 0.5rem;
+    white-space: normal;
+  }
+
+  .table td + td {
+    margin-top: 0.5rem;
+  }
+
+  .table td[data-label]::before {
+    content: attr(data-label) ': ';
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .table-compare td {
+    width: auto;
+    text-align: left;
   }
 }
 

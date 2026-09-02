@@ -360,8 +360,14 @@ class DocsPage extends StatelessComponent {
                             attributes: const {'scope': 'row'},
                             [Component.text(capability)],
                           ),
-                          td([_mark(analyzer)]),
-                          td([_mark(ciach)]),
+                          td(
+                            attributes: const {'data-label': 'dart analyze'},
+                            [_mark(analyzer)],
+                          ),
+                          td(
+                            attributes: const {'data-label': 'ciach'},
+                            [_mark(ciach)],
+                          ),
                         ]),
                     ]),
                   ]),
@@ -446,14 +452,17 @@ class DocsPage extends StatelessComponent {
                             ],
                           ),
                           td([Component.text(why)]),
-                          td([
-                            if (flag != null)
-                              code(classes: 'flag', [Component.text(flag)])
-                            else
-                              const span(classes: 'muted', [
-                                Component.text('—'),
-                              ]),
-                          ]),
+                          td(
+                            attributes: const {'data-label': 'Opt back in'},
+                            [
+                              if (flag != null)
+                                code(classes: 'flag', [Component.text(flag)])
+                              else
+                                const span(classes: 'muted', [
+                                  Component.text('—'),
+                                ]),
+                            ],
+                          ),
                         ]),
                     ]),
                   ]),
