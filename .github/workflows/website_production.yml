@@ -25,7 +25,7 @@ concurrency:
 
 env:
   VERCEL_SCOPE: leancode
-  VERCEL_PROJECT: ciach-landing
+  VERCEL_PROJECT: ciach
   VERCEL_CLI_VERSION: 50.41.0
   SITE_URL: https://ciach.leancode.co
 

@@ -27,7 +27,7 @@ to the production domain, and any other value produces a preview build whose
 
 ## Deploy
 
-The site is hosted on Vercel as the `ciach-landing` project of the `leancode`
+The site is hosted on Vercel as the `ciach` project of the `leancode`
 team and deployed from GitHub Actions with the Vercel CLI, the same way as
 [flitz-landing](https://github.com/leancodepl/flitz-landing): `vercel pull`,
 `vercel build`, `vercel deploy --prebuilt`.
@@ -37,7 +37,7 @@ team and deployed from GitHub Actions with the Vercel CLI, the same way as
   the deployment to `ciach.leancode.co`.
 - `.github/workflows/website_preview.yml` runs on pull requests that touch
   `website/`: analyzer, formatter, then a preview deployment aliased to
-  `ciach-landing-<branch>.vercel.app` and built for that URL.
+  `ciach-<branch>.vercel.app` and built for that URL.
 
 The only secret is `VERCEL_TOKEN`. Both workflows create the Vercel project
 if it does not exist yet and link it with `vercel link`, so no org or project
