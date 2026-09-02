@@ -729,6 +729,8 @@ svg {
 
 .ciach-before .line.dead {
   position: relative;
+  /* Size to the text so the strike covers the code, not the whole block. */
+  min-width: 0;
   animation: dead-fade 7s ease-in-out infinite;
 }
 
@@ -736,8 +738,8 @@ svg {
   content: '';
   position: absolute;
   top: 50%;
-  left: -0.2em;
-  right: 0.2em;
+  left: -0.15em;
+  right: -0.15em;
   height: 2px;
   background: var(--danger);
   transform: scaleX(0);
