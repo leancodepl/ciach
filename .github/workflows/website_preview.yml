@@ -1,0 +1,142 @@
+name: Website preview deployment
+
+# Analyzes website/ and deploys every pull request that touches it to a
+# stable per-branch preview URL. Previews are built for their own URL and
+# ship a robots.txt that keeps them out of search engines.
+
+on:
+  pull_request:
+    paths:
+      - 'website/**'
+      - '.github/workflows/website_preview.yml'
+
+permissions:
+  contents: read
+
+# Supersede in-flight preview builds for the same PR.
+concurrency:
+  group: website-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  VERCEL_SCOPE: leancode
+  VERCEL_PROJECT: ciach-landing
+  VERCEL_CLI_VERSION: 50.41.0
+
+jobs:
+  deploy:
+    name: Check and deploy preview
+
+    runs-on: ubuntu-latest
+
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+      alias: ${{ steps.alias.outputs.alias }}
+
+    environment:
+      name: Preview
+      url: https://${{ steps.alias.outputs.alias }}
+
+    defaults:
+      run:
+        working-directory: website
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
+        with:
+          sdk: '3.13'
+
+      - name: Download pub dependencies
+        run: dart pub get
+
+      - name: Run analyzer
+        run: dart analyze --fatal-infos
+
+      - name: Check formatting
+        run: dart format --set-exit-if-changed .
+
+      - name: Compute preview alias
+        id: alias
+        env:
+          # Passed through the environment, never interpolated into the shell
+          # command: branch names are attacker-controlled.
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          branch_slug=$(echo "$HEAD_REF" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g' | cut -c1-40)
+          echo "alias=${VERCEL_PROJECT}-${branch_slug}.vercel.app" >> "$GITHUB_OUTPUT"
+
+      - name: Install Vercel CLI
+        run: npm install --global "vercel@$VERCEL_CLI_VERSION"
+
+      - name: Link Vercel project
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          vercel project inspect "$VERCEL_PROJECT" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN" >/dev/null 2>&1 \
+            || vercel project add "$VERCEL_PROJECT" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+          vercel link --yes --project="$VERCEL_PROJECT" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+
+      - name: Pull Vercel environment information
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: >-
+          vercel pull --yes --environment=preview
+          --git-branch="$HEAD_REF"
+          --token="$VERCEL_TOKEN"
+
+      - name: Build project artifacts
+        env:
+          SITE_URL: https://${{ steps.alias.outputs.alias }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --token="$VERCEL_TOKEN"
+
+      - name: Deploy project artifacts to Vercel
+        id: deploy
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          url=$(vercel deploy --prebuilt --token="$VERCEL_TOKEN" \
+            -m githubDeployment=1 \
+            -m githubCommitRef="$HEAD_REF" \
+            -m githubCommitOrg="$REPO_OWNER" \
+            -m githubCommitRepo="$REPO_NAME" \
+            -m githubCommitSha="$COMMIT_SHA" \
+            -m githubCommitMessage="$PR_TITLE" \
+            -m githubCommitAuthorLogin="$PR_AUTHOR_LOGIN" \
+            -m githubPrId="$PR_NUMBER")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Alias deployment to branch URL
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+          DEPLOY_ALIAS: ${{ steps.alias.outputs.alias }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel alias set "$DEPLOY_URL" "$DEPLOY_ALIAS" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+
+      - name: Deployment summary
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+          DEPLOY_ALIAS: ${{ steps.alias.outputs.alias }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          cat <<EOF >> "$GITHUB_STEP_SUMMARY"
+          ## Preview deployment
+
+          | | |
+          |---|---|
+          | **URL** | [https://$DEPLOY_ALIAS](https://$DEPLOY_ALIAS) |
+          | **Vercel URL** | $DEPLOY_URL |
+          | **Commit** | \`$COMMIT_SHA\` |
+          EOF

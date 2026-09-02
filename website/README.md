@@ -17,33 +17,37 @@ jaspr serve          # http://localhost:8080, hot-reloads on save
 ## Build
 
 ```bash
-jaspr build --sitemap-domain https://ciach.leancode.co \
-  --dart-define=SITE_URL=https://ciach.leancode.co
+SITE_URL=https://ciach.leancode.co bash tool/build.sh
 ```
 
 The static site lands in `build/jaspr/`. `SITE_URL` drives the `<base href>`,
-the canonical URL, Open Graph URLs and the JSON-LD; it defaults to the
-production domain, so the define only matters for previews. `--sitemap-domain`
-generates `sitemap.xml` for the same domain.
+the canonical URL, Open Graph URLs, the JSON-LD and the sitemap; it defaults
+to the production domain, and any other value produces a preview build whose
+`robots.txt` disallows indexing.
 
 ## Deploy
 
-The site is hosted on Vercel. `vercel.json` in this directory holds the whole
-build configuration, so the Vercel project only needs:
+The site is hosted on Vercel as the `ciach-landing` project of the `leancode`
+team and deployed from GitHub Actions with the Vercel CLI, the same way as
+[flitz-landing](https://github.com/leancodepl/flitz-landing): `vercel pull`,
+`vercel build`, `vercel deploy --prebuilt`.
 
-- **Root Directory**: `website`
-- **Framework Preset**: Other
-- **Domain**: `ciach.leancode.co`
+- `.github/workflows/website_production.yml` runs on pushes to `main` that
+  touch `website/` or the package version, deploys to production and aliases
+  the deployment to `ciach.leancode.co`.
+- `.github/workflows/website_preview.yml` runs on pull requests that touch
+  `website/`: analyzer, formatter, then a preview deployment aliased to
+  `ciach-landing-<branch>.vercel.app` and built for that URL.
 
-`tool/vercel_install.sh` downloads a pinned Dart SDK into `.dart-sdk/` (the
-Vercel image has none) and activates the Jaspr CLI; `tool/vercel_build.sh`
-runs `jaspr build` and trims build_runner's intermediate output. Production
-builds advertise `https://ciach.leancode.co`; preview builds use their
-`VERCEL_URL` and ship a `robots.txt` that disallows indexing.
+The only secret is `VERCEL_TOKEN`. Both workflows create the Vercel project
+if it does not exist yet and link it with `vercel link`, so no org or project
+id secrets are needed. `vercel.json` in this directory holds the build
+configuration the CLI uses (`tool/build.sh`, output in `build/jaspr`, cache
+headers); Dart comes from `dart-lang/setup-dart` in the workflow.
 
-`.github/workflows/website.yml` analyzes, format-checks and builds the site on
-pull requests and pushes to `main`, so a broken site fails the check before
-Vercel ever sees it.
+One-time DNS: `ciach.leancode.co` needs a CNAME to `cname.vercel-dns.com`
+(or the record Vercel shows for the domain in the project settings). The
+production workflow's alias step assigns the domain to the project.
 
 ## Layout
 

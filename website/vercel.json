@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "installCommand": "bash tool/vercel_install.sh",
-  "buildCommand": "bash tool/vercel_build.sh",
+  "installCommand": "dart pub get && dart pub global activate jaspr_cli 0.23.4",
+  "buildCommand": "bash tool/build.sh",
   "outputDirectory": "build/jaspr",
   "cleanUrls": true,
   "trailingSlash": false,
