@@ -1,4 +1,3 @@
-import 'package:ciach_website/components/remove_demo.dart';
 import 'package:ciach_website/components/ci_section.dart';
 import 'package:ciach_website/components/faq.dart';
 import 'package:ciach_website/components/features.dart';
@@ -8,6 +7,7 @@ import 'package:ciach_website/components/hero.dart';
 import 'package:ciach_website/components/how_it_works.dart';
 import 'package:ciach_website/components/library_section.dart';
 import 'package:ciach_website/components/nav_bar.dart';
+import 'package:ciach_website/components/remove_demo.dart';
 import 'package:ciach_website/components/safety.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
