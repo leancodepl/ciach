@@ -29,16 +29,6 @@ kinds: [class, function, method]
 format: github
 set-exit-if-changed: true''';
 
-const _verbose = r'''
-$ ciach -v --no-public
-[  0.0s] Read config from ciach.yaml.
-[  0.0s]   It sets 2 options:
-[  0.0s]     public: false
-[  0.0s]     exclude: test/**
-[  0.1s] Starting Dart analysis server…
-[  0.3s] Collecting declarations from 13 file(s)…
-[  0.5s] Scanned 13 file(s) and checked 44 declaration(s) in 478ms: 4 unused, 1 referenced only from doc comments.''';
-
 const _docOnly = '''
 lib/greeting.dart
   15:6  function  danglingFunction  (public)
@@ -63,7 +53,7 @@ const _toc = [
   ('options', 'Options'),
   ('ci', 'CI'),
   ('config', 'Configuration'),
-  ('how-it-works', 'How it works'),
+  ('compared', 'vs. the analyzer'),
   ('removing', 'Removing'),
   ('skips', 'Skips and limits'),
   ('library', 'Library API'),
@@ -101,27 +91,13 @@ const _options = [
   ('-v', 'Narrate the run on stderr with timings.'),
 ];
 
-const _steps = [
-  (
-    'Start the analysis server',
-    'The one behind your IDE, over LSP. The '
-        'package is analyzed once, in full.',
-  ),
-  (
-    'Collect declarations',
-    'Every kind, minus the default skips. Files stay '
-        'open so the server’s cache stays warm.',
-  ),
-  (
-    'Ask who references each one',
-    'One textDocument/references query per '
-        'declaration, -j at a time. Zero results get a definition cross-check.',
-  ),
-  (
-    'Report, or remove',
-    'Grouped per file; doc-only mentions listed apart. '
-        '--remove edits the source in place.',
-  ),
+const _comparison = [
+  ('Unused private declarations', true, true),
+  ('Unused public declarations', false, true),
+  ('References followed across libraries', false, true),
+  ('Removes what it finds', false, true),
+  ('GitHub annotations on the pull request', false, true),
+  ('JSON output', true, true),
 ];
 
 const _skips = [
@@ -166,6 +142,18 @@ const _reportOnly = [
   'A primary constructor or its declaring parameters.',
 ];
 
+Component _mark(bool yes) => yes
+    ? const span(
+        classes: 'mark mark-yes',
+        attributes: {'aria-label': 'yes'},
+        [Component.text('✓')],
+      )
+    : const span(
+        classes: 'mark mark-no',
+        attributes: {'aria-label': 'no'},
+        [Component.text('—')],
+      );
+
 /// Everything past the landing page, on one page with a sticky table of
 /// contents. The README on GitHub stays the exhaustive reference.
 class DocsPage extends StatelessComponent {
@@ -207,12 +195,12 @@ class DocsPage extends StatelessComponent {
             ],
           ),
           div(classes: 'docs-body', [
-            header(classes: 'docs-head', [
-              const h1([Component.text('Docs')]),
+            const header(classes: 'docs-head', [
+              h1([Component.text('Docs')]),
               p(classes: 'lead', [
                 Component.text(
-                  'ciach $version. Everything past the landing page; the '
-                  'README has the exhaustive options table.',
+                  'Install, configure and run ciach, and read its findings '
+                  'with confidence.',
                 ),
               ]),
             ]),
@@ -332,24 +320,60 @@ class DocsPage extends StatelessComponent {
               ],
             ),
             DocSection(
-              id: 'how-it-works',
-              heading: 'How it works',
+              id: 'compared',
+              heading: 'Compared with the analyzer',
               children: [
-                ol(classes: 'steps', [
-                  for (final (index, (title, body)) in _steps.indexed)
-                    li(classes: 'step', [
-                      span(
-                        classes: 'step-number',
-                        attributes: const {'aria-hidden': 'true'},
-                        [Component.text('0${index + 1}')],
-                      ),
-                      div([
-                        h3([Component.text(title)]),
-                        p([Component.text(body)]),
+                const p([
+                  Component.text(
+                    'The Dart analyzer already flags unused private '
+                    'declarations through ',
+                  ),
+                  code([Component.text('unused_element')]),
+                  Component.text(
+                    ' and friends, one library at a time. ciach starts where that '
+                    'stops.',
+                  ),
+                ]),
+                div(classes: 'table-wrap', [
+                  table(classes: 'table table-compare', [
+                    const thead([
+                      tr([
+                        th(attributes: {'scope': 'col'}, [Component.text('')]),
+                        th(
+                          attributes: {'scope': 'col'},
+                          [
+                            code([Component.text('dart analyze')]),
+                          ],
+                        ),
+                        th(
+                          attributes: {'scope': 'col'},
+                          [
+                            code([Component.text('ciach')]),
+                          ],
+                        ),
                       ]),
                     ]),
+                    tbody([
+                      for (final (capability, analyzer, ciach) in _comparison)
+                        tr([
+                          th(
+                            attributes: const {'scope': 'row'},
+                            [Component.text(capability)],
+                          ),
+                          td([_mark(analyzer)]),
+                          td([_mark(ciach)]),
+                        ]),
+                    ]),
+                  ]),
                 ]),
-                const Terminal(transcript: _verbose, title: 'ciach -v'),
+                const p([
+                  Component.text(
+                    'Both resolve references the same way, because ciach asks '
+                    'the analysis server. The difference is scope and the '
+                    'removal step. Dart Code Metrics covers unused code as well, '
+                    'as part of a larger commercial toolset.',
+                  ),
+                ]),
               ],
             ),
             DocSection(

@@ -83,12 +83,24 @@ List<Component> highlight(
   String source,
   Language language, {
   Set<int> deadLines = const {},
-}) => [
-  for (final (index, line) in highlightLines(source, language).indexed) ...[
-    if (index > 0) const Component.text('\n'),
-    span(classes: deadLines.contains(index + 1) ? 'line dead' : 'line', line),
-  ],
-];
+}) {
+  var dead = 0;
+  return [
+    for (final (index, line) in highlightLines(source, language).indexed) ...[
+      if (index > 0) const Component.text('\n'),
+      if (deadLines.contains(index + 1))
+        // `--d` is the line's position among the dead ones, so CSS can
+        // stagger the strike-through animation.
+        span(
+          classes: 'line dead',
+          styles: Styles(raw: {'--d': '${dead++}'}),
+          line,
+        )
+      else
+        span(classes: 'line', line),
+    ],
+  ];
+}
 
 /// Highlights [source] and returns the tokens of each line separately, for
 /// callers that lay lines out themselves.

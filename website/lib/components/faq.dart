@@ -18,13 +18,6 @@ const faqEntries = [
         'polymorphically; pass --overrides to report them anyway.',
   ),
   FaqEntry(
-    'How is this different from the analyzer’s unused_element hint?',
-    'The analyzer only flags unused private declarations inside one library. '
-        'ciach asks the analysis server for references across the whole '
-        'package, so it also finds unused public API, and it can remove what '
-        'it finds.',
-  ),
-  FaqEntry(
     'Is it safe to run ciach --remove?',
     'It shows the list and asks first, leaves ambiguous multi-declarator '
         'statements alone and marks findings whose removal would not compile '

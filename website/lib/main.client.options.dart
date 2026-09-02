@@ -8,6 +8,8 @@ import 'package:jaspr/client.dart';
 
 import 'package:ciach_website/components/copy_button.dart'
     deferred as _copy_button;
+import 'package:ciach_website/components/demo_trigger.dart'
+    deferred as _demo_trigger;
 import 'package:ciach_website/components/docs_toc.dart' deferred as _docs_toc;
 
 /// Default [ClientOptions] for use with your Jaspr project.
@@ -34,6 +36,10 @@ ClientOptions get defaultClientOptions => ClientOptions(
         label: p['label'] as String?,
       ),
       loader: _copy_button.loadLibrary,
+    ),
+    'demo_trigger': ClientLoader(
+      (p) => _demo_trigger.DemoTrigger(targetId: p['targetId'] as String),
+      loader: _demo_trigger.loadLibrary,
     ),
     'docs_toc': ClientLoader(
       (p) => _docs_toc.DocsToc(
