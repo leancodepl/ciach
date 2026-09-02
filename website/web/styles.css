@@ -408,7 +408,10 @@ svg {
 }
 
 .ipa {
-  font-family: var(--font-mono);
+  /* IPA glyphs: skip the mono stack, which lacks them on Android, and
+     prefer fonts that ship the IPA block before the generic fallback. */
+  font-family: 'Noto Sans', 'DejaVu Sans', 'Segoe UI', 'Helvetica Neue', Arial, system-ui, sans-serif;
+  font-size: 0.95em;
   color: var(--text-2);
 }
 

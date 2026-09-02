@@ -60,7 +60,7 @@ class Hero extends StatelessComponent {
               span(
                 classes: 'ipa',
                 attributes: {'lang': 'pl'},
-                [Component.text('/t͡ɕax/')],
+                [Component.text('/tɕax/')],
               ),
               Component.text(' — Polish for the sound of a clean chop.'),
             ]),
