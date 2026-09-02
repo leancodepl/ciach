@@ -11,11 +11,13 @@ dependencies:
   universal_web: ^1.1.0
 
 dev_dependencies:
-  build_runner: ^2.10.0
-  # 4.8.6+ is compiled against analyzer 13, and the analyzer override below
-  # hides that from pub; without the cap pub picks 4.8.10 and the build
-  # fails to compile. Lift both together with the next jaspr release.
+  # The analyzer override below hides analyzer requirements from pub, so
+  # every build-time package that compiles against analyzer is capped at its
+  # last release for analyzer 12; newer ones fail to compile. pubspec.lock is
+  # committed for the same reason. Lift all of it with the next jaspr release.
+  build_runner: '>=2.10.0 <2.15.2'
   build_web_compilers: '>=4.8.5 <4.8.6'
+  dart_style: '>=3.1.8 <3.1.9'
   jaspr_builder: ^0.23.4
   leancode_lint: ^27.0.0
 

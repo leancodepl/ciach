@@ -63,9 +63,11 @@ Vercel ever sees it.
   13 or 14. `leancode_lint` requires 13+, but only its `analysis_options.yaml`
   is consumed here (an enabled plugin is resolved separately by the analysis
   server under `~/.dartServer/.plugin_manager/`), so `dependency_overrides`
-  pins `analyzer` to 12. That override hides `build_web_compilers`' own
-  analyzer-13 requirement from pub, so it is capped below 4.8.6 explicitly.
-  Three lint rules whose fixes produce Dart 3.13 constructor syntax are off,
+  pins `analyzer` to 12. That override hides other packages' analyzer
+  requirements from pub, so `build_runner`, `build_web_compilers` and
+  `dart_style` are capped at their last analyzer-12 releases and
+  `pubspec.lock` is committed; a fresh resolve without those would pick
+  versions that fail to compile. Three lint rules whose fixes produce Dart 3.13 constructor syntax are off,
   since analyzer 12 cannot parse it. Drop all of this once Jaspr moves to a
   newer analyzer.
 - The package is excluded from the root `dart analyze` (see the root
