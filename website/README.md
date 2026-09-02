@@ -59,7 +59,7 @@ production workflow's alias step assigns the domain to the project.
 | `lib/grammars/` | TextMate grammars: JSON and YAML vendored from `syntax_highlight`, plus small ones for shell prompts and ciach's own terminal output. |
 | `lib/app.dart` | The `jaspr_router` routes: `/` (landing page) and `/docs`. |
 | `lib/pages/` | The two pages; each sets its own title, description and canonical URL through `pageHead`. |
-| `lib/components/` | Sections and building blocks: `CodeBlock`, `Terminal`, the `@client` `CopyButton`, the page shell. |
+| `lib/components/` | Sections and building blocks: `CodeBlock`, `Terminal`, the page shell, and the two `@client` islands: `CopyButton` and the scroll-following `DocsToc`. |
 | `web/styles.css` | The stylesheet. Design tokens are CSS custom properties at the top. |
 | `web/` | Static assets copied verbatim: favicon, manifest, robots.txt, the Open Graph image. |
 

@@ -3,8 +3,17 @@ import 'package:ciach_website/components/nav_bar.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
-/// Which top-level page is being shown; drives the active nav item.
-enum SitePage { home, docs }
+/// Which top-level page is being shown; drives the active nav item and the
+/// page-relative anchors (a bare `#fragment` would resolve against the
+/// document's `<base href>`).
+enum SitePage {
+  home('/'),
+  docs('/docs');
+
+  SitePage(this.path);
+
+  final String path;
+}
 
 /// Skip link, header, `<main>` and footer around a page's content.
 class PageShell extends StatelessComponent {
@@ -22,7 +31,7 @@ class PageShell extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     return Component.fragment([
-      const a(href: '#main', classes: 'skip-link', [
+      a(href: '${page.path}#main', classes: 'skip-link', const [
         Component.text('Skip to content'),
       ]),
       NavBar(page: page),

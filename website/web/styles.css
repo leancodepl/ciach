@@ -1008,7 +1008,8 @@ svg {
   color: var(--text-2);
 }
 
-.docs-nav li a:hover {
+.docs-nav li a:hover,
+.docs-nav li a.is-active {
   border-left-color: var(--accent);
   color: var(--text);
 }
@@ -1290,7 +1291,8 @@ svg {
     font-size: 0.85rem;
   }
 
-  .docs-nav li a:hover {
+  .docs-nav li a:hover,
+  .docs-nav li a.is-active {
     border-color: var(--accent);
   }
 }

@@ -1,4 +1,5 @@
 import 'package:ciach_website/components/code_block.dart';
+import 'package:ciach_website/components/docs_toc.dart';
 import 'package:ciach_website/components/faq.dart';
 import 'package:ciach_website/components/section.dart';
 import 'package:ciach_website/components/shell.dart';
@@ -193,12 +194,11 @@ class DocsPage extends StatelessComponent {
             attributes: const {'aria-label': 'On this page'},
             [
               const p(classes: 'eyebrow', [Component.text('Docs')]),
-              ul([
-                for (final (id, label) in _toc)
-                  li([
-                    a(href: '#$id', [Component.text(label)]),
-                  ]),
-              ]),
+              DocsToc(
+                path: '/docs',
+                ids: [for (final (id, _) in _toc) id],
+                labels: [for (final (_, label) in _toc) label],
+              ),
               p(classes: 'docs-nav-foot', [
                 externalLink(readmeUrl, [
                   const Component.text('Full README on GitHub →'),
