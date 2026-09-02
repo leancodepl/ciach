@@ -1,0 +1,14 @@
+include: package:leancode_lint/analysis_options.yaml
+
+analyzer:
+  exclude:
+    - lib/**.options.dart
+
+linter:
+  rules:
+    # jaspr_builder still parses with analyzer 12, which predates Dart 3.13
+    # primary constructors and `new(…)` constructor headers; the fixes for
+    # these rules produce syntax it rejects.
+    use_primary_constructors: false
+    unnecessary_primary_constructor_body: false
+    unnecessary_type_name_in_constructor: false

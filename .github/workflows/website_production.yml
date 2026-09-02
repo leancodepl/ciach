@@ -1,0 +1,102 @@
+name: Website production deployment
+
+# Builds website/ with the Vercel CLI and promotes it to production at
+# https://ciach.leancode.co. Only VERCEL_TOKEN is needed: the workflow creates
+# and links the Vercel project itself when it does not exist yet.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      # The site shows the package version, read from the root pubspec.
+      - 'pubspec.yaml'
+      - '.github/workflows/website_production.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Queue production deploys instead of cancelling them, so overlapping pushes
+# promote in order and the newest commit is always the one left live.
+concurrency:
+  group: website-production
+  cancel-in-progress: false
+
+env:
+  VERCEL_SCOPE: leancode
+  VERCEL_PROJECT: ciach
+  VERCEL_CLI_VERSION: 50.41.0
+  SITE_URL: https://ciach.leancode.co
+
+jobs:
+  deploy:
+    name: Deploy to production
+
+    runs-on: ubuntu-latest
+
+    environment:
+      name: Production
+      url: ${{ env.SITE_URL }}
+
+    defaults:
+      run:
+        working-directory: website
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
+        with:
+          sdk: '3.13'
+
+      - name: Install Vercel CLI
+        run: npm install --global "vercel@$VERCEL_CLI_VERSION"
+
+      - name: Link Vercel project
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          vercel project inspect "$VERCEL_PROJECT" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN" >/dev/null 2>&1 \
+            || vercel project add "$VERCEL_PROJECT" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+          vercel link --yes --project="$VERCEL_PROJECT" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+
+      - name: Pull Vercel environment information
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Build project artifacts
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy project artifacts to Vercel
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: echo "url=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")" >> "$GITHUB_OUTPUT"
+
+      - name: Alias deployment to the production domain
+        # Idempotent: assigns ciach.leancode.co to the project on the first
+        # run and is a no-op afterwards. DNS for the name must point at Vercel.
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel alias set "$DEPLOY_URL" ciach.leancode.co --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+
+      - name: Deployment summary
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          cat <<EOF >> "$GITHUB_STEP_SUMMARY"
+          ## Production deployment
+
+          | | |
+          |---|---|
+          | **URL** | [$SITE_URL]($SITE_URL) |
+          | **Vercel URL** | $DEPLOY_URL |
+          | **Commit** | \`$GITHUB_SHA\` |
+          EOF

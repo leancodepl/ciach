@@ -22,7 +22,7 @@ class Shifted(super.at) extends Origin;
 
 enum Suit(final String glyph) {
   hearts('♥'),
-  spades('♠');
+  spades('♠'),
 }
 
 mixin Marker;
