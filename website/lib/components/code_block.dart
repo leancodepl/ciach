@@ -35,7 +35,13 @@ class CodeBlock extends StatelessComponent {
   Component build(BuildContext context) {
     final copy = copyText ?? code;
     return figure(
-      classes: ['code-block', if (lineNumbers) 'numbered', ?classes].join(' '),
+      classes: [
+        'code-block',
+        // Console output wraps like a terminal; real code scrolls.
+        if (language == Language.console) 'terminal',
+        if (lineNumbers) 'numbered',
+        ?classes,
+      ].join(' '),
       [
         div(classes: 'code-bar', [
           const span(

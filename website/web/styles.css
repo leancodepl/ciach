@@ -664,8 +664,25 @@ svg {
 .tk-punct,
 .tk-operator { color: var(--tk-function); }
 
+/* Transcripts wrap like a real terminal; code blocks keep scrolling because
+   indentation there carries meaning. */
 .terminal pre {
   color: var(--text-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.terminal code {
+  min-width: 0;
+}
+
+/* Wrapped continuations hang under the line's first character. */
+.terminal .line {
+  display: inline-block;
+  width: 100%;
+  min-width: 0;
+  padding-left: 2.5ch;
+  text-indent: -2.5ch;
 }
 
 /* Sequential reveal for animated terminals. */
