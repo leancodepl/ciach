@@ -129,7 +129,7 @@ svg {
    scroll instead of stretching the page. */
 .hero-grid > *,
 .hero-copy > *,
-.remove-grid > *,
+.ciach-grid > *,
 .how-grid > *,
 .ci-grid > *,
 .safety-grid > *,
@@ -761,9 +761,9 @@ svg {
   display: inline-flex;
 }
 
-/* ---------- Remove demo ---------- */
+/* ---------- Ciach demo ---------- */
 
-.remove-grid {
+.ciach-grid {
   display: grid;
   gap: 1.25rem;
   grid-template-areas:
@@ -772,16 +772,16 @@ svg {
     'after';
 }
 
-.remove-before { grid-area: before; }
-.remove-middle { grid-area: middle; }
-.remove-after { grid-area: after; }
+.ciach-before { grid-area: before; }
+.ciach-middle { grid-area: middle; }
+.ciach-after { grid-area: after; }
 
-.remove-before .line.dead {
+.ciach-before .line.dead {
   position: relative;
   animation: dead-fade 7s ease-in-out infinite;
 }
 
-.remove-before .line.dead::after {
+.ciach-before .line.dead::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -791,11 +791,11 @@ svg {
   background: var(--danger);
   transform: scaleX(0);
   transform-origin: left center;
-  animation: strike 7s ease-in-out infinite;
+  animation: ciach 7s ease-in-out infinite;
   pointer-events: none;
 }
 
-@keyframes strike {
+@keyframes ciach {
   0%,
   18% { transform: scaleX(0); }
   32%,
@@ -1243,11 +1243,11 @@ svg {
 
 @media (min-width: 760px) {
   .safety-grid,
-  .remove-grid {
+  .ciach-grid {
     grid-template-columns: 1fr 1fr;
   }
 
-  .remove-grid {
+  .ciach-grid {
     grid-template-areas:
       'before after'
       'middle middle';
@@ -1332,14 +1332,14 @@ svg {
     opacity: 1;
   }
 
-  .remove-before .line.dead {
+  .ciach-before .line.dead {
     text-decoration: line-through;
     text-decoration-color: var(--danger);
     text-decoration-thickness: 2px;
     opacity: 0.6;
   }
 
-  .remove-before .line.dead::after {
+  .ciach-before .line.dead::after {
     display: none;
   }
 }

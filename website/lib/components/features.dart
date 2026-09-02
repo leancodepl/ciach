@@ -29,7 +29,7 @@ const _features = [
         'uses, plus a definition cross-check for what find-references misses.',
   ),
   _Feature(
-    Icon.logoMark,
+    Icon.ciach,
     'Removes it for you',
     'One flag deletes what was found, doc comments and annotations included, '
         'after a confirmation prompt. Anything whose removal wouldn’t compile '

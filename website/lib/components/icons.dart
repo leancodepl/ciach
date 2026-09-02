@@ -12,7 +12,7 @@ enum Icon {
   arrow(['M5 12h14', 'm13 6 6 6-6 6']),
   external(['M14 4h6v6', 'M20 4 10 14', 'M18 13v7H4V6h7']),
   terminal(['m4 17 6-6-6-6', 'M12 19h8']),
-  logoMark([
+  ciach([
     'M3 21 14.5 9.5',
     'M14.5 9.5 21 3c-1.5 5.5-4 8.5-8 10.5',
     'M9 15 5.5 18.5',
@@ -39,7 +39,7 @@ enum Icon {
   book(['M4 4h7v16H4z', 'M13 4h7v16h-7z', 'M11 4a2 2 0 0 1 2 0']),
   search(['M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z', 'm20 20-4-4']);
 
-  const Icon(this.paths);
+  Icon(this.paths);
 
   final List<String> paths;
 
@@ -68,7 +68,7 @@ Component logo({bool large = false}) => span(
   classes: large ? 'logo logo-large' : 'logo',
   attributes: const {'aria-hidden': 'true'},
   [
-    span(classes: 'logo-mark', [Icon.logoMark.build(size: large ? 28 : 20)]),
+    span(classes: 'logo-mark', [Icon.ciach.build(size: large ? 28 : 20)]),
     const span(classes: 'logo-text', [Component.text('ciach')]),
   ],
 );

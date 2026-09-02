@@ -1,4 +1,5 @@
 import 'package:ciach_website/components/ci_section.dart';
+import 'package:ciach_website/components/ciach_demo.dart';
 import 'package:ciach_website/components/faq.dart';
 import 'package:ciach_website/components/features.dart';
 import 'package:ciach_website/components/footer.dart';
@@ -7,7 +8,6 @@ import 'package:ciach_website/components/hero.dart';
 import 'package:ciach_website/components/how_it_works.dart';
 import 'package:ciach_website/components/library_section.dart';
 import 'package:ciach_website/components/nav_bar.dart';
-import 'package:ciach_website/components/remove_demo.dart';
 import 'package:ciach_website/components/safety.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
@@ -32,7 +32,7 @@ class App extends StatelessComponent {
         id: 'main',
         children: [
           Hero(version: version),
-          const RemoveDemo(),
+          const CiachDemo(),
           const Features(),
           const HowItWorks(),
           const OutputFormats(),

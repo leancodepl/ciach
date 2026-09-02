@@ -3,7 +3,7 @@ description: The ciach landing page, a statically generated Jaspr site.
 publish_to: none
 
 environment:
-  sdk: ^3.10.0
+  sdk: ^3.13.0
 
 dependencies:
   jaspr: ^0.23.4
@@ -16,7 +16,7 @@ dev_dependencies:
   # no longer accepts. Lift the cap together with the next jaspr release.
   build_web_compilers: '>=4.8.5 <4.8.6'
   jaspr_builder: ^0.23.4
-  leancode_lint: ^24.0.0
+  leancode_lint: ^27.0.0
 
 dependency_overrides:
   # Only leancode_lint's analysis_options.yaml is consumed here; its lint
