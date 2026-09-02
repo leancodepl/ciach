@@ -1,0 +1,24 @@
+include: package:lints/recommended.yaml
+
+analyzer:
+  exclude:
+    - lib/**.options.dart
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+
+linter:
+  rules:
+    - always_use_package_imports
+    - avoid_dynamic_calls
+    - directives_ordering
+    - prefer_const_constructors
+    - prefer_const_declarations
+    - prefer_final_locals
+    - prefer_single_quotes
+    - require_trailing_commas
+    - unawaited_futures
+    - unnecessary_lambdas
+    - unnecessary_parenthesis
+    - use_super_parameters

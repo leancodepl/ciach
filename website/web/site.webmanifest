@@ -1,0 +1,13 @@
+{
+  "name": "ciach — Dead code detector for Dart and Flutter",
+  "short_name": "ciach",
+  "description": "Finds and removes unused declarations in Dart and Flutter packages.",
+  "start_url": "./",
+  "display": "browser",
+  "background_color": "#050505",
+  "theme_color": "#050505",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

@@ -26,6 +26,8 @@ AI-Provenance:
 referenced — classes, functions, methods, fields, constants, enum values — and
 can remove them for you.
 
+🌐 **[Landing page][site]** — a tour of what ciach finds, skips, and removes.
+
 *"Ciach!"* — pronounced **/t͡ɕax/** — is Polish for the sound of a clean chop,
 the noise a knife makes right before something falls off.
 
@@ -327,6 +329,8 @@ We are **top-tier experts** focused on Flutter Enterprise solutions.
   [Check our other packages][leancode-packages]
 
 </div>
+
+[site]: https://leancodepl.github.io/ciach/
 
 [pub-badge]: https://img.shields.io/pub/v/ciach?style=for-the-badge&logo=dart
 [pub-badge-link]: https://pub.dev/packages/ciach

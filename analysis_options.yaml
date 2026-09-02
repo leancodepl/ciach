@@ -1,1 +1,7 @@
 include: package:leancode_lint/analysis_options.yaml
+
+analyzer:
+  exclude:
+    # The landing page is its own Dart package with its own dependencies;
+    # see website/analysis_options.yaml.
+    - website/**
