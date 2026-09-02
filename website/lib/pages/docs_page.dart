@@ -68,14 +68,14 @@ const _options = [
   ),
   (
     '--remove, --force',
-    'Delete what was found after confirming. --force skips '
+    'Delete what was found after confirming. `--force` skips '
         'the prompt.',
   ),
   ('-f text|json|github', 'Output format.'),
   (
     '--set-exit-if-changed',
     'Exit 1 when anything is found. Add '
-        '--no-fail-public to count only private findings.',
+        '`--no-fail-public` to count only private findings.',
   ),
   ('-k, --kinds', 'Restrict to declaration kinds, e.g. class,function,method.'),
   (
@@ -140,6 +140,14 @@ const _reportOnly = [
   'Every value of a still-referenced enum.',
   'The sole constructor of a live class with final fields or super forwarding.',
   'A primary constructor or its declaring parameters.',
+];
+
+/// Renders `text`, turning each backtick-quoted span into a code chip so a
+/// flag mentioned in prose never breaks at one of its hyphens.
+List<Component> _rich(String text) => [
+  for (final (i, part) in text.split('`').indexed)
+    if (part.isNotEmpty)
+      if (i.isOdd) code([Component.text(part)]) else Component.text(part),
 ];
 
 Component _mark(bool yes) => yes
@@ -254,10 +262,16 @@ class DocsPage extends StatelessComponent {
                           th(
                             attributes: const {'scope': 'row'},
                             [
-                              code([Component.text(flag)]),
+                              // One chip per flag, so a row listing several
+                              // wraps between them rather than inside one.
+                              for (final (i, f)
+                                  in flag.split(', ').indexed) ...[
+                                if (i > 0) const Component.text(' '),
+                                code([Component.text(f)]),
+                              ],
                             ],
                           ),
-                          td([Component.text(what)]),
+                          td(_rich(what)),
                         ]),
                     ]),
                   ]),

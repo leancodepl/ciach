@@ -960,6 +960,14 @@ svg {
 
 .table tbody th {
   font-weight: 500;
+}
+
+/* Flag and name columns hug their chips so the prose column gets the room. */
+.table:not(.table-compare) tbody th {
+  width: 1%;
+}
+
+.table tbody th code {
   white-space: nowrap;
 }
 
@@ -1369,6 +1377,14 @@ svg {
     display: none;
   }
 
+  .nav {
+    gap: 0.75rem;
+  }
+
+  .nav-actions .button-ghost {
+    padding: 0.55rem 0.8rem;
+  }
+
   .button-icon {
     padding: 0.55rem;
   }
@@ -1383,6 +1399,13 @@ svg {
   }
 
   .install-command .tk-prompt {
+    display: none;
+  }
+}
+
+@media (max-width: 400px) {
+  /* The footer still links to pub.dev; the header needs the room. */
+  .nav-actions .button-ghost:not(.button-icon) {
     display: none;
   }
 }
