@@ -77,7 +77,10 @@ const _options = [
     'Exit 1 when anything is found. Add '
         '`--no-fail-public` to count only private findings.',
   ),
-  ('-k, --kinds', 'Restrict to declaration kinds, e.g. class,function,method.'),
+  (
+    '-k, --kinds',
+    'Restrict to declaration kinds, e.g. `class,function,method`.',
+  ),
   (
     '-i, -e',
     'Include or exclude file globs. References are still counted '
@@ -109,12 +112,12 @@ const _skips = [
   ),
   (
     'Operator overloads',
-    'The server does not resolve a + b to the declaration.',
+    'The server does not resolve `a + b` to the declaration.',
     '--operators',
   ),
   (
     'call methods',
-    'Implicit-call syntax obj(…) is unresolvable the same way.',
+    'Implicit-call syntax `obj(…)` is unresolvable the same way.',
     null,
   ),
   (
@@ -124,30 +127,22 @@ const _skips = [
   ),
   (
     'Generated files',
-    'By filename and the GENERATED CODE banner; still opened for analysis.',
+    'By filename and the `GENERATED CODE` banner; still opened for analysis.',
     '--generated',
   ),
   (
     'toJson()',
-    'jsonEncode(obj) calls it by dynamic dispatch.',
+    '`jsonEncode(obj)` calls it by dynamic dispatch.',
     '--report-tojson',
   ),
   ('dartdoc [Xxx] links', 'Not a code reference; reported as doc-only.', null),
 ];
 
 const _reportOnly = [
-  'A sealed member matched only by type patterns (--unused-union-members).',
+  'A sealed member matched only by type patterns (`--unused-union-members`).',
   'Every value of a still-referenced enum.',
   'The sole constructor of a live class with final fields or super forwarding.',
   'A primary constructor or its declaring parameters.',
-];
-
-/// Renders `text`, turning each backtick-quoted span into a code chip so a
-/// flag mentioned in prose never breaks at one of its hyphens.
-List<Component> _rich(String text) => [
-  for (final (i, part) in text.split('`').indexed)
-    if (part.isNotEmpty)
-      if (i.isOdd) code([Component.text(part)]) else Component.text(part),
 ];
 
 Component _mark(bool yes) => yes
@@ -271,7 +266,7 @@ class DocsPage extends StatelessComponent {
                               ],
                             ],
                           ),
-                          td(_rich(what)),
+                          td(rich(what)),
                         ]),
                     ]),
                   ]),
@@ -424,7 +419,7 @@ class DocsPage extends StatelessComponent {
                   Component.text('Report-only: removal would not compile'),
                 ]),
                 ul(classes: 'checklist', [
-                  for (final item in _reportOnly) li([Component.text(item)]),
+                  for (final item in _reportOnly) li(rich(item)),
                 ]),
               ],
             ),
@@ -465,7 +460,7 @@ class DocsPage extends StatelessComponent {
                               code([Component.text(what)]),
                             ],
                           ),
-                          td([Component.text(why)]),
+                          td(rich(why)),
                           td(
                             attributes: const {'data-label': 'Opt back in'},
                             [
@@ -496,32 +491,32 @@ class DocsPage extends StatelessComponent {
                   copyText: '',
                 ),
                 const h3([Component.text('Limitations')]),
-                const ul(classes: 'checklist', [
-                  li([
-                    Component.text(
+                ul(classes: 'checklist', [
+                  li(
+                    rich(
                       'A library package’s public API is legitimately unused '
-                      'from the inside: prefer --no-public there.',
+                      'from the inside: prefer `--no-public` there.',
                     ),
-                  ]),
-                  li([
-                    Component.text(
+                  ),
+                  li(
+                    rich(
                       'Reflection, dynamic invocation and names used only from '
                       'excluded generated code are invisible to a reference '
                       'search.',
                     ),
-                  ]),
-                  li([
-                    Component.text(
-                      'Entry points other than main need excluding or '
-                      "@pragma('vm:entry-point').",
+                  ),
+                  li(
+                    rich(
+                      'Entry points other than `main` need excluding or '
+                      "`@pragma('vm:entry-point')`.",
                     ),
-                  ]),
-                  li([
-                    Component.text(
+                  ),
+                  li(
+                    rich(
                       'A package that does not analyze cleanly yields '
                       'incomplete references.',
                     ),
-                  ]),
+                  ),
                 ]),
               ],
             ),

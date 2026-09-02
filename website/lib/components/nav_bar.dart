@@ -5,6 +5,9 @@ import 'package:ciach_website/site.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
+/// The site header: the brand on the left, and on the right the three places
+/// a visitor can go from any page. Every item is a real link; in-page
+/// sections are reached by scrolling.
 class NavBar extends StatelessComponent {
   const NavBar({required this.page, super.key});
 
@@ -12,7 +15,7 @@ class NavBar extends StatelessComponent {
 
   @override
   Component build(BuildContext context) {
-    final onHome = page == SitePage.home;
+    final onDocs = page == SitePage.docs;
     return header(classes: 'site-header', [
       nav(
         classes: 'container nav',
@@ -25,38 +28,26 @@ class NavBar extends StatelessComponent {
             [logo()],
           ),
           ul(classes: 'nav-links', [
-            li(classes: 'hide-md', [
-              a(href: onHome ? '#features' : '/#features', const [
-                Component.text('Features'),
-              ]),
-            ]),
-            li(classes: 'hide-md', [
-              a(href: onHome ? '#formats' : '/#formats', const [
-                Component.text('Output'),
-              ]),
-            ]),
             li([
               a(
                 href: '/docs',
-                classes: onHome ? null : 'is-active',
-                attributes: onHome ? null : const {'aria-current': 'page'},
-                const [Component.text('Docs')],
+                classes: onDocs ? 'is-active' : null,
+                attributes: onDocs ? const {'aria-current': 'page'} : null,
+                [Icon.book.build(size: 18), const Component.text('Docs')],
               ),
             ]),
-          ]),
-          div(classes: 'nav-actions', [
-            externalLink(pubUrl, classes: 'button button-ghost', [
-              const Component.text('pub.dev'),
+            li([
+              externalLink(pubUrl, [
+                Icon.external.build(size: 18),
+                const Component.text('pub.dev'),
+              ]),
             ]),
-            externalLink(
-              repoUrl,
-              classes: 'button button-ghost button-icon',
-              label: 'ciach on GitHub',
-              [
+            li([
+              externalLink(repoUrl, label: 'ciach on GitHub', [
                 Icon.github.build(size: 18),
                 const span(classes: 'hide-sm', [Component.text('GitHub')]),
-              ],
-            ),
+              ]),
+            ]),
           ]),
         ],
       ),

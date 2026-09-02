@@ -68,7 +68,7 @@ class OutputFormats extends StatelessComponent {
       id: 'formats',
       eyebrow: 'Output',
       heading: 'Speaks human, machine and GitHub.',
-      lead: 'Pick the format with -f. Exit codes are the same in every one.',
+      lead: 'Pick the format with `-f`. Exit codes are the same in every one.',
       children: [
         div(classes: 'tabs', [
           for (final (index, format) in _formats.indexed)

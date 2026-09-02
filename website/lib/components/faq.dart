@@ -1,3 +1,4 @@
+import 'package:ciach_website/components/section.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
@@ -9,32 +10,34 @@ class FaqEntry {
 }
 
 /// Shared with the FAQPage JSON-LD, so the structured data and the visible
-/// answers can never drift apart.
+/// answers can never drift apart. Backticks mark inline code; the structured
+/// data drops them.
 const faqEntries = [
   FaqEntry(
     'Does ciach work with Flutter apps?',
-    'Yes, with any Dart package. @override members such as build and '
-        'initState are skipped by default because frameworks reach them '
-        'polymorphically; pass --overrides to report them anyway.',
+    'Yes, with any Dart package. `@override` members such as `build` and '
+        '`initState` are skipped by default because frameworks reach them '
+        'polymorphically; pass `--overrides` to report them anyway.',
   ),
   FaqEntry(
-    'Is it safe to run ciach --remove?',
+    'Is it safe to run `ciach --remove`?',
     'It shows the list and asks first, leaves ambiguous multi-declarator '
         'statements alone and marks findings whose removal would not compile '
         'as report-only. Still review the diff, as after any automated '
-        'refactor. --overrides and --operators widen the false-positive risk.',
+        'refactor. `--overrides` and `--operators` widen the false-positive '
+        'risk.',
   ),
   FaqEntry(
     'My library’s public API is reported as unused.',
-    'That is expected from inside the package. Use --no-public to report only '
-        'private declarations, or keep public findings visible but out of the '
-        'exit code with --set-exit-if-changed --no-fail-public.',
+    'That is expected from inside the package. Use `--no-public` to report '
+        'only private declarations, or keep public findings visible but out '
+        'of the exit code with `--set-exit-if-changed` `--no-fail-public`.',
   ),
   FaqEntry(
     'How fast is it?',
     'As fast as the analysis server: the package is analyzed once per run, '
         'then one references query per declaration goes through a pool of 16 '
-        'concurrent requests. --no-public is by far the cheapest mode.',
+        'concurrent requests. `--no-public` is by far the cheapest mode.',
   ),
   FaqEntry(
     'Which Dart versions are supported?',
@@ -55,15 +58,15 @@ class Faq extends StatelessComponent {
           classes: 'faq-item',
           attributes: {'name': 'faq', if (index == 0) 'open': ''},
           [
-            summary([
-              h3([Component.text(entry.question)]),
-            ]),
-            p([Component.text(entry.answer)]),
+            summary([h3(rich(entry.question))]),
+            p(rich(entry.answer)),
           ],
         ),
     ]);
   }
 }
+
+String _plain(String text) => text.replaceAll('`', '');
 
 Map<String, Object?> faqStructuredData() => {
   '@context': 'https://schema.org',
@@ -72,8 +75,8 @@ Map<String, Object?> faqStructuredData() => {
     for (final entry in faqEntries)
       {
         '@type': 'Question',
-        'name': entry.question,
-        'acceptedAnswer': {'@type': 'Answer', 'text': entry.answer},
+        'name': _plain(entry.question),
+        'acceptedAnswer': {'@type': 'Answer', 'text': _plain(entry.answer)},
       },
   ],
 };

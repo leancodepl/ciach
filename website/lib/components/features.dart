@@ -33,8 +33,8 @@ const _features = [
   _Feature(
     Icon.shield,
     'Safe defaults',
-    '@override members, operators, entry points, generated files and '
-        'toJson() are skipped unless you opt in.',
+    '`@override` members, operators, entry points, generated files and '
+        '`toJson()` are skipped unless you opt in.',
   ),
   _Feature(
     Icon.braces,
@@ -44,7 +44,7 @@ const _features = [
   _Feature(
     Icon.cog,
     'A config file, optionally',
-    'Every flag can live in ciach.yaml. The command line always wins.',
+    'Every flag can live in `ciach.yaml`. The command line always wins.',
   ),
 ];
 
@@ -63,7 +63,7 @@ class Features extends StatelessComponent {
             li(classes: 'card feature', [
               span(classes: 'feature-icon', [feature.icon.build(size: 22)]),
               h3([Component.text(feature.title)]),
-              p([Component.text(feature.body)]),
+              p(rich(feature.body)),
             ]),
         ]),
       ],
