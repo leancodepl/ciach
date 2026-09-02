@@ -57,7 +57,9 @@ production workflow's alias step assigns the domain to the project.
 | `lib/seo.dart` | Canonical link, icons, Open Graph and Twitter cards, JSON-LD (`SoftwareSourceCode`, `WebSite`, `FAQPage`). |
 | `lib/highlight.dart` | Build-time syntax highlighting: `syntax_highlight_lite` (the TextMate engine behind `jaspr_content`) plus a scope-to-CSS-class mapping and per-line splitting. |
 | `lib/grammars/` | TextMate grammars: JSON and YAML vendored from `syntax_highlight`, plus small ones for shell prompts and ciach's own terminal output. |
-| `lib/components/` | One file per page section, plus `CodeBlock`, `Terminal` and the `@client` `CopyButton`. |
+| `lib/app.dart` | The `jaspr_router` routes: `/` (landing page) and `/docs`. |
+| `lib/pages/` | The two pages; each sets its own title, description and canonical URL through `pageHead`. |
+| `lib/components/` | Sections and building blocks: `CodeBlock`, `Terminal`, the `@client` `CopyButton`, the page shell. |
 | `web/styles.css` | The stylesheet. Design tokens are CSS custom properties at the top. |
 | `web/` | Static assets copied verbatim: favicon, manifest, robots.txt, the Open Graph image. |
 

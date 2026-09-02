@@ -31,16 +31,6 @@ const _jsonOutput = '''
       "line": 8,
       "column": 7,
       "isPrivate": false
-    },
-    {
-      "name": "orphanMethod",
-      "qualifiedName": "UnusedClass.orphanMethod",
-      "kind": "method",
-      "file": "lib/orphans.dart",
-      "line": 10,
-      "column": 8,
-      "isPrivate": false,
-      "container": "UnusedClass"
     }
   ],
   "docOnly": []
@@ -50,55 +40,21 @@ const _githubOutput = '''
 ::warning file=lib/orphans.dart,line=8,col=7,title=Unused declaration::Unused class 'UnusedClass'
 ::warning file=lib/orphans.dart,line=10,col=8,title=Unused declaration::Unused method 'UnusedClass.orphanMethod'
 ::warning file=lib/orphans.dart,line=22,col=7,title=Unused declaration::Unused class 'FullyDeadClass'
-::warning file=lib/orphans.dart,line=31,col=3,title=Unused declaration::Unused constructor 'ReferencedAsTypeOnly.new'
 ::notice file=lib/greeting.dart,line=41,col=6,title=Referenced only from a doc comment::function '_docOnlyMentioned' has no code references, only a dartdoc link''';
 
 class _Format {
-  const _Format(
-    this.id,
-    this.label,
-    this.command,
-    this.blurb,
-    this.output,
-    this.language,
-  );
+  const _Format(this.id, this.command, this.output, this.language);
 
   final String id;
-  final String label;
   final String command;
-  final String blurb;
   final String output;
   final Language language;
 }
 
 const _formats = [
-  _Format(
-    'text',
-    'text',
-    'ciach',
-    'Grouped by file, aligned in columns, colored on a terminal. Doc-only '
-        'findings get their own section at the end.',
-    _textOutput,
-    Language.console,
-  ),
-  _Format(
-    'json',
-    'json',
-    'ciach -f json',
-    'A summary plus one object per finding, with kind, position, visibility '
-        'and container. Everything else goes to stderr, so piping stays clean.',
-    _jsonOutput,
-    Language.json,
-  ),
-  _Format(
-    'github',
-    'github',
-    'ciach -f github',
-    'GitHub Actions workflow commands: a ::warning per finding that shows up '
-        'inline on the pull request diff, and a ::notice for doc-only ones.',
-    _githubOutput,
-    Language.console,
-  ),
+  _Format('text', 'ciach', _textOutput, Language.console),
+  _Format('json', 'ciach -f json', _jsonOutput, Language.json),
+  _Format('github', 'ciach -f github', _githubOutput, Language.console),
 ];
 
 /// Output-format switcher built from radio inputs and CSS alone, so all three
@@ -112,9 +68,7 @@ class OutputFormats extends StatelessComponent {
       id: 'formats',
       eyebrow: 'Output',
       heading: 'Speaks human, machine and GitHub.',
-      lead:
-          'Pick the format with -f. Exit codes are the same in every one: '
-          '0 clean, 1 findings with --set-exit-if-changed, 2 usage or analysis error.',
+      lead: 'Pick the format with -f. Exit codes are the same in every one.',
       children: [
         div(classes: 'tabs', [
           for (final (index, format) in _formats.indexed)
@@ -140,7 +94,7 @@ class OutputFormats extends StatelessComponent {
                   classes: 'tab',
                   attributes: {'for': 'format-${format.id}'},
                   [
-                    code([Component.text('-f ${format.label}')]),
+                    code([Component.text('-f ${format.id}')]),
                   ],
                 ),
             ],
@@ -148,7 +102,6 @@ class OutputFormats extends StatelessComponent {
           div(classes: 'tab-panels', [
             for (final format in _formats)
               div(classes: 'tab-panel tab-panel-${format.id}', [
-                p(classes: 'tab-blurb', [Component.text(format.blurb)]),
                 CodeBlock(
                   code: format.output,
                   language: format.language,

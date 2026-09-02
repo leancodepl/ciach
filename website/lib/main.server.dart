@@ -1,4 +1,4 @@
-/// Server entrypoint: runs once during `jaspr build` to pre-render the page.
+/// Server entrypoint: runs once during `jaspr build` to pre-render every route.
 library;
 
 import 'dart:io';
@@ -18,11 +18,10 @@ Future<void> main() async {
 
   runApp(
     Document(
-      title: pageTitle,
       lang: 'en',
       base: basePath,
-      meta: seoMeta,
-      head: seoHead(version: version),
+      meta: siteMeta,
+      head: siteHead(version: version),
       body: App(version: version),
     ),
   );

@@ -130,11 +130,9 @@ svg {
 .hero-grid > *,
 .hero-copy > *,
 .ciach-grid > *,
-.how-grid > *,
-.ci-grid > *,
-.safety-grid > *,
-.library-grid > *,
 .feature-grid > *,
+.docs > *,
+.doc-section > *,
 .tab-panel,
 .card {
   min-width: 0;
@@ -330,7 +328,8 @@ svg {
   color: var(--text-2);
 }
 
-.nav-links a:hover {
+.nav-links a:hover,
+.nav-links a.is-active {
   background: var(--surface);
   color: var(--text);
 }
@@ -458,37 +457,6 @@ svg {
   min-width: 0;
 }
 
-.stats {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1px;
-  margin-top: 4rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  background: var(--border);
-}
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  padding: 1.25rem 1.5rem;
-  background: var(--bg-2);
-}
-
-.stat-value {
-  font-size: 2rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: var(--accent);
-}
-
-.stat-label {
-  font-size: 0.9rem;
-  color: var(--text-2);
-}
-
 /* ---------- Sections ---------- */
 
 .section {
@@ -536,6 +504,29 @@ svg {
   color: var(--text-2);
 }
 
+.section-more {
+  margin-top: 1.5rem;
+  font-weight: 500;
+}
+
+.section-more a {
+  color: var(--accent);
+}
+
+.section-more a:hover {
+  text-decoration: underline;
+}
+
+.note {
+  margin-top: 1rem;
+  font-size: 0.95rem;
+  color: var(--text-2);
+}
+
+.note a {
+  color: var(--accent);
+}
+
 .card {
   padding: 1.5rem;
   border: 1px solid var(--border);
@@ -554,46 +545,6 @@ svg {
 .card p {
   color: var(--text-2);
   font-size: 0.98rem;
-}
-
-.notes {
-  display: grid;
-  gap: 1rem;
-  margin-top: 2.5rem;
-}
-
-.notes li {
-  padding-left: 1.25rem;
-  border-left: 2px solid var(--border-2);
-  color: var(--text-2);
-}
-
-.notes strong {
-  color: var(--text);
-  font-weight: 600;
-}
-
-.checklist {
-  display: grid;
-  gap: 0.75rem;
-  margin-top: 1rem;
-}
-
-.checklist li {
-  position: relative;
-  padding-left: 1.6rem;
-  color: var(--text-2);
-  font-size: 0.98rem;
-}
-
-.checklist li::before {
-  content: '';
-  position: absolute;
-  top: 0.55em;
-  left: 0;
-  width: 0.9rem;
-  height: 2px;
-  background: var(--accent);
 }
 
 /* ---------- Code blocks & terminals ---------- */
@@ -851,25 +802,6 @@ svg {
   flex: 1;
 }
 
-.feature-code {
-  margin: 0.5rem 0 0;
-  padding: 0.6rem 0.8rem;
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  overflow-x: auto;
-  font-size: 0.78rem;
-  color: var(--text-2);
-}
-
-/* ---------- How it works ---------- */
-
-.how-grid {
-  display: grid;
-  gap: 2.5rem;
-  align-items: start;
-}
-
 .steps {
   display: grid;
   gap: 1.75rem;
@@ -953,12 +885,6 @@ svg {
   display: none;
 }
 
-.tab-blurb {
-  max-width: 44rem;
-  margin-bottom: 1rem;
-  color: var(--text-2);
-}
-
 #format-text:checked ~ .tab-list [for='format-text'],
 #format-json:checked ~ .tab-list [for='format-json'],
 #format-github:checked ~ .tab-list [for='format-github'] {
@@ -979,31 +905,7 @@ svg {
   outline-offset: 2px;
 }
 
-/* ---------- CI ---------- */
-
-.ci-grid {
-  display: grid;
-  gap: 1.5rem;
-}
-
-.ci-col {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  min-width: 0;
-}
-
-.ci-col h3 {
-  font-size: 1.2rem;
-}
-
-.ci-col > p {
-  flex: 1;
-  color: var(--text-2);
-  font-size: 0.98rem;
-}
-
-/* ---------- Safety ---------- */
+/* ---------- Tables ---------- */
 
 .table-wrap {
   overflow-x: auto;
@@ -1012,22 +914,22 @@ svg {
   background: var(--surface);
 }
 
-.skips {
+.table {
   width: 100%;
   min-width: 640px;
   border-collapse: collapse;
   font-size: 0.95rem;
 }
 
-.skips th,
-.skips td {
+.table th,
+.table td {
   padding: 0.9rem 1.1rem;
   text-align: left;
   vertical-align: top;
   border-bottom: 1px solid var(--border);
 }
 
-.skips thead th {
+.table thead th {
   font-family: var(--font-mono);
   font-size: 0.75rem;
   font-weight: 600;
@@ -1037,46 +939,104 @@ svg {
   background: var(--surface-2);
 }
 
-.skips tbody tr:last-child th,
-.skips tbody tr:last-child td {
+.table tbody tr:last-child th,
+.table tbody tr:last-child td {
   border-bottom: 0;
 }
 
-.skips tbody th {
+.table tbody th {
   font-weight: 500;
   white-space: nowrap;
 }
 
-.skips td {
+.table td {
   color: var(--text-2);
 }
 
-.skips code.flag {
+.table code.flag {
   color: var(--accent);
   border-color: rgba(237, 255, 47, 0.3);
   white-space: nowrap;
 }
 
-.safety-grid {
+/* ---------- Docs ---------- */
+
+.docs {
+  display: grid;
+  gap: 2.5rem;
+  padding: clamp(2.5rem, 6vw, 4.5rem) 0 clamp(3rem, 8vw, 6rem);
+}
+
+.docs-nav ul {
+  display: grid;
+  gap: 0.15rem;
+  border-left: 1px solid var(--border);
+}
+
+.docs-nav li a {
+  display: block;
+  padding: 0.4rem 0.9rem;
+  margin-left: -1px;
+  border-left: 2px solid transparent;
+  font-size: 0.95rem;
+  color: var(--text-2);
+}
+
+.docs-nav li a:hover {
+  border-left-color: var(--accent);
+  color: var(--text);
+}
+
+.docs-nav-foot {
+  margin-top: 1.25rem;
+  font-size: 0.9rem;
+}
+
+.docs-nav-foot a {
+  color: var(--accent);
+}
+
+.docs-body {
+  max-width: 52rem;
+}
+
+.docs-head h1 {
+  font-size: clamp(2.2rem, 4vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.docs-head .lead {
+  margin-top: 0.75rem;
+}
+
+.doc-section {
   display: grid;
   gap: 1.25rem;
-  margin-top: 1.5rem;
+  padding: 3rem 0 0;
+  margin-top: 3rem;
+  border-top: 1px solid var(--border);
 }
 
-.safety-grid .code-block {
-  margin-top: 1.25rem;
+.doc-section h2 {
+  font-size: clamp(1.5rem, 2.6vw, 1.9rem);
 }
 
-/* ---------- Library ---------- */
-
-.library-grid {
-  display: grid;
-  gap: 2rem;
-  align-items: start;
+.doc-section h3 {
+  font-size: 1.1rem;
+  margin-top: 0.5rem;
 }
 
-.library-grid .notes {
+.doc-section p {
+  color: var(--text-2);
+}
+
+.doc-section .checklist {
   margin-top: 0;
+}
+
+.doc-section .steps {
+  gap: 1.25rem;
 }
 
 /* ---------- FAQ ---------- */
@@ -1242,7 +1202,6 @@ svg {
 }
 
 @media (min-width: 760px) {
-  .safety-grid,
   .ciach-grid {
     grid-template-columns: 1fr 1fr;
   }
@@ -1258,15 +1217,15 @@ svg {
   }
 }
 
-@media (min-width: 900px) {
-  .how-grid,
-  .library-grid {
-    grid-template-columns: 1fr 1fr;
+@media (min-width: 960px) {
+  .docs {
+    grid-template-columns: 220px minmax(0, 1fr);
   }
 
-  .how-grid .terminal {
+  .docs-nav {
     position: sticky;
-    top: calc(var(--header-h) + 1.5rem);
+    top: calc(var(--header-h) + 2rem);
+    align-self: start;
   }
 }
 
@@ -1280,15 +1239,36 @@ svg {
   }
 }
 
-@media (min-width: 1100px) {
-  .ci-grid {
-    grid-template-columns: repeat(3, 1fr);
+@media (max-width: 899px) {
+  .nav-links .hide-md {
+    display: none;
   }
 }
 
-@media (max-width: 899px) {
-  .nav-links {
+@media (max-width: 959px) {
+  /* On narrow screens the table of contents becomes a compact chip row. */
+  .docs-nav .eyebrow,
+  .docs-nav-foot {
     display: none;
+  }
+
+  .docs-nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    border-left: 0;
+  }
+
+  .docs-nav li a {
+    margin: 0;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid var(--border-2);
+    border-radius: 999px;
+    font-size: 0.85rem;
+  }
+
+  .docs-nav li a:hover {
+    border-color: var(--accent);
   }
 }
 

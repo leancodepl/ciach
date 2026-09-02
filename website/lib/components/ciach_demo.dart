@@ -46,6 +46,8 @@ Found 4 unused declarations in 1 file (scanned 1 file, 8 declarations, 0.4s).
 Remove 4 unused declarations? [y/N] y
 Removed 4 unused declarations from 1 file.''';
 
+/// The `--remove` walkthrough: dead code struck through, the command, and the
+/// file afterwards.
 class CiachDemo extends StatelessComponent {
   const CiachDemo({super.key});
 
@@ -53,12 +55,11 @@ class CiachDemo extends StatelessComponent {
   Component build(BuildContext context) {
     return const Section(
       id: 'remove',
-      eyebrow: 'Ciach!',
-      heading: 'And it’s gone.',
+      eyebrow: '--remove',
+      heading: 'Report it. Or ciach it.',
       lead:
-          'ciach doesn’t stop at a report. --remove deletes every reported '
-          'declaration — doc comment and annotations included — after showing '
-          'you exactly what it is about to cut and asking first.',
+          'One flag deletes what was found, doc comments included, after '
+          'showing the list and asking first.',
       children: [
         div(classes: 'ciach-grid', [
           CodeBlock(
@@ -80,30 +81,9 @@ class CiachDemo extends StatelessComponent {
             classes: 'ciach-after',
           ),
         ]),
-        ul(classes: 'notes', [
-          li([
-            strong([Component.text('Asks first. ')]),
-            Component.text(
-              'The prompt lists what goes; --force skips it for scripts and CI. '
-              'With no terminal to confirm on and no --force, nothing is removed.',
-            ),
-          ]),
-          li([
-            strong([Component.text('Conservative about what it deletes. ')]),
-            Component.text(
-              'An ambiguous int a = 1, b = 2; is left alone unless every '
-              'declarator is unused. Run dart format afterwards.',
-            ),
-          ]),
-          li([
-            strong([
-              Component.text('Report-only when removal wouldn’t compile. '),
-            ]),
-            Component.text(
-              'The last constructor of a live class, every value of a '
-              'still-used enum, or part of a primary-constructor header is '
-              'flagged “unsafe to auto-remove” and skipped.',
-            ),
+        p(classes: 'section-more', [
+          a(href: '/docs#removing', [
+            Component.text('What --remove refuses to touch →'),
           ]),
         ]),
       ],

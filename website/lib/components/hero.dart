@@ -10,21 +10,14 @@ const heroTranscript = r'''
 $ ciach
 lib/greeting.dart
   15:6  function  danglingFunction  (public)
-  18:6  function  _danglingPrivate  (private)
   24:7  variable  unusedConstant  (public)
-  30:5  variable  staleCounter  (public)
 
 lib/orphans.dart
   8:7   class        UnusedClass  (public)
-  10:8  method       UnusedClass.orphanMethod  (public)
   22:7  class        FullyDeadClass  (public)
   31:3  constructor  ReferencedAsTypeOnly.new  (public)
 
-Referenced only from doc comments — not counted as unused, never removed:
-lib/greeting.dart
-  41:6  function  _docOnlyMentioned  (private)
-
-Found 8 unused declarations in 2 files (scanned 13 files, 44 declarations, 0.5s). 1 more referenced only from doc comments.''';
+Found 5 unused declarations in 2 files (scanned 13 files, 44 declarations, 0.5s).''';
 
 class Hero extends StatelessComponent {
   const Hero({required this.version, super.key});
@@ -43,7 +36,7 @@ class Hero extends StatelessComponent {
           div(classes: 'hero-copy', [
             p(classes: 'hero-badges', [
               externalLink(pubUrl, classes: 'pill pill-accent', [
-                Component.text('v$version on pub.dev'),
+                Component.text('v$version'),
               ]),
               const span(classes: 'pill', [Component.text('Dart 3.10+')]),
               const span(classes: 'pill', [Component.text('Apache-2.0')]),
@@ -57,24 +50,19 @@ class Hero extends StatelessComponent {
             ]),
             const p(classes: 'hero-lead', [
               Component.text(
-                'ciach finds declarations nothing references — classes, '
-                'functions, methods, fields, constants, enum values — and '
-                'removes them for you. One command, no setup, backed by the '
-                'real Dart analysis server.',
+                'Finds declarations nothing references and removes them for '
+                'you. One command, no setup, backed by the Dart analysis server.',
               ),
             ]),
             const p(classes: 'pronounce', [
               em([Component.text('“Ciach!”')]),
-              Component.text(' — pronounced '),
+              Component.text(' '),
               span(
                 classes: 'ipa',
                 attributes: {'lang': 'pl'},
                 [Component.text('/t͡ɕax/')],
               ),
-              Component.text(
-                ' — is Polish for the sound of a clean chop, the noise a knife '
-                'makes right before something falls off.',
-              ),
+              Component.text(' — Polish for the sound of a clean chop.'),
             ]),
             const div(classes: 'install', [
               div(classes: 'install-command', [
@@ -86,19 +74,15 @@ class Hero extends StatelessComponent {
                 code([Component.text(installCommand)]),
                 CopyButton(text: installCommand, label: 'Copy'),
               ]),
-              p(classes: 'install-alt', [
-                Component.text('or as a dev dependency: '),
-                code([Component.text(devDependencyCommand)]),
-              ]),
             ]),
             div(classes: 'hero-actions', [
-              a(href: '#get-started', classes: 'button button-primary', [
-                const Component.text('Get started'),
+              a(href: '/docs', classes: 'button button-primary', [
+                const Component.text('Read the docs'),
                 Icon.arrow.build(size: 18),
               ]),
               externalLink(repoUrl, classes: 'button button-secondary', [
                 Icon.github.build(size: 18),
-                const Component.text('Star on GitHub'),
+                const Component.text('GitHub'),
               ]),
             ]),
           ]),
@@ -109,18 +93,6 @@ class Hero extends StatelessComponent {
               animated: true,
             ),
           ]),
-        ]),
-        div(classes: 'container stats', [
-          for (final (value, label) in const [
-            ('15', 'declaration kinds'),
-            ('3', 'output formats'),
-            ('1', 'command, zero config'),
-            ('0', 'regex guesswork'),
-          ])
-            div(classes: 'stat', [
-              span(classes: 'stat-value', [Component.text(value)]),
-              span(classes: 'stat-label', [Component.text(label)]),
-            ]),
         ]),
       ],
     );
