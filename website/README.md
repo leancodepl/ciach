@@ -64,7 +64,7 @@ production workflow's alias step assigns the domain to the project.
 | `lib/components/` | Sections and building blocks: `CodeBlock`, `Terminal`, the page shell, and the three `@client` islands: `CopyButton`, `DocsToc` and `DemoTrigger`. |
 | `web/styles.css` | The stylesheet. Design tokens are CSS custom properties at the top. |
 | `web/` | Static assets copied verbatim: favicon, manifest, robots.txt, the Open Graph image. |
-| `tool/render_assets.mjs` | Regenerates the PNG icons and the Open Graph image from `favicon.svg` with Playwright: `PLAYWRIGHT_CHROMIUM=<path> node tool/render_assets.mjs` (needs `playwright` resolvable from `tool/`). |
+| `tool/render_assets.mjs` | Regenerates the PNG icons from `favicon.svg` and the Open Graph card from the site's own stylesheet and web fonts, with Playwright: `PLAYWRIGHT_CHROMIUM=<path> node tool/render_assets.mjs` (needs `playwright` resolvable from `tool/` and access to Google Fonts). |
 
 ## Notes
 
