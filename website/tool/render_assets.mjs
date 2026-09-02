@@ -6,9 +6,10 @@
 // Outputs: web/favicon.png (96px, rounded, transparent corners),
 // web/apple-touch-icon.png (180px, full-bleed: iOS masks the corners itself)
 // and web/images/og.png (the 1200x630 social card, rendered with the site's
-// stylesheet and web fonts, so it needs network access to Google Fonts).
+// stylesheet and web fonts; curl must be able to reach Google Fonts).
 import { chromium } from 'playwright';
-import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -45,11 +46,33 @@ await shoot(icon(180, 0), 180, 180, join(web, 'apple-touch-icon.png'));
 
 // The social card is the landing page's hero, laid out for 1200x630: it links
 // the site's own stylesheet and fonts, so it changes with the design.
-const fontsHref =
+const fontsCss =
   'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap';
+
+// Chromium may not be able to reach Google Fonts (a proxy, a sandbox), so the
+// font files are fetched with curl, which honours the usual proxy settings,
+// and handed to the page as local files.
+const fontDir = mkdtempSync(join(tmpdir(), 'ciach-fonts-'));
+function fetchFonts() {
+  const curl = (url, ...args) =>
+    execFileSync('curl', ['--fail', '--silent', '--show-error', '--location', ...args, url]);
+  // A modern UA makes Google Fonts answer with woff2 sources.
+  const ua = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36';
+  let css = curl(fontsCss, '--user-agent', ua).toString();
+  let n = 0;
+  css = css.replace(/url\((https:[^)]+)\)/g, (_, url) => {
+    const file = join(fontDir, `font-${n++}.woff2`);
+    writeFileSync(file, curl(url));
+    return `url(${pathToFileURL(file).href})`;
+  });
+  if (n === 0) throw new Error('No font files found in the Google Fonts stylesheet');
+  return css;
+}
+const fontFaces = fetchFonts();
+
 const card = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
-<link rel="stylesheet" href="${fontsHref}">
+<style>${fontFaces}</style>
 <link rel="stylesheet" href="${pathToFileURL(join(web, 'styles.css')).href}">
 <style>
   html, body { margin: 0; background: var(--bg); }
@@ -87,14 +110,19 @@ const card = `<!doctype html>
   const page = await browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1, ignoreHTTPSErrors: true });
   await page.goto(pathToFileURL(tmp).href, { waitUntil: 'load' });
   await page.evaluate(() => document.fonts.ready);
-  for (const font of ["700 16px 'Space Grotesk'", "400 16px 'JetBrains Mono'"]) {
-    if (!(await page.evaluate((f) => document.fonts.check(f), font))) {
-      throw new Error(`Web font not loaded: ${font}. Is fonts.googleapis.com reachable?`);
+  // document.fonts.check() is vacuously true when no face matches, so look at
+  // the faces themselves: both families must be present and loaded.
+  const loaded = await page.evaluate(() =>
+    [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replace(/"/g, '')));
+  for (const family of ['Space Grotesk', 'JetBrains Mono']) {
+    if (!loaded.includes(family)) {
+      throw new Error(`Web font not loaded: ${family} (loaded: ${[...new Set(loaded)].join(', ') || 'none'})`);
     }
   }
   await page.screenshot({ path: out, clip: { x: 0, y: 0, width: 1200, height: 630 } });
   await page.close();
   rmSync(tmp);
 }
+rmSync(fontDir, { recursive: true, force: true });
 
 await browser.close();
