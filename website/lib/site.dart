@@ -1,20 +1,19 @@
 /// Site-wide constants: where the site lives and where it links to.
 library;
 
-/// Public URL of the deployed site. Override with
-/// `--dart-define=SITE_URL=https://…` at build time; the default matches the
-/// GitHub Pages project URL.
+/// Public URL of the deployed site. Preview deployments override it with
+/// `--dart-define=SITE_URL=https://…` at build time.
 const siteUrl = String.fromEnvironment(
   'SITE_URL',
-  defaultValue: 'https://leancodepl.github.io/ciach',
+  defaultValue: 'https://ciach.leancode.co',
 );
 
 /// [siteUrl] with a guaranteed trailing slash, for canonical and Open Graph
 /// URLs.
 final canonicalUrl = siteUrl.endsWith('/') ? siteUrl : '$siteUrl/';
 
-/// The `<base href>` derived from [siteUrl], so relative asset paths resolve
-/// when the site is served from a sub-path such as GitHub Pages' `/ciach/`.
+/// The `<base href>` derived from [siteUrl], so relative asset paths still
+/// resolve if the site is ever served from a sub-path.
 final basePath = () {
   final path = Uri.parse(siteUrl).path;
   if (path.isEmpty || path == '/') {

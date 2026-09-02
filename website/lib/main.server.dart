@@ -4,13 +4,15 @@ library;
 import 'dart:io';
 
 import 'package:ciach_website/app.dart';
+import 'package:ciach_website/highlight.dart';
 import 'package:ciach_website/main.server.options.dart';
 import 'package:ciach_website/seo.dart';
 import 'package:ciach_website/site.dart';
 import 'package:jaspr/server.dart';
 
-void main() {
+Future<void> main() async {
   Jaspr.initializeApp(options: defaultServerOptions);
+  await initHighlighting();
 
   final version = _ciachVersion();
 

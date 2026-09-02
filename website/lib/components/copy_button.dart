@@ -64,7 +64,7 @@ class _CopyButtonState extends State<CopyButton> {
         if (label == null) 'copy-button-icon',
         if (_copied) 'is-copied',
       ].join(' '),
-      attributes: {
+      attributes: const {
         'type': 'button',
         'aria-label': 'Copy to clipboard',
         'aria-live': 'polite',

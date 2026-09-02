@@ -1,209 +1,141 @@
-/// A tiny build-time syntax highlighter.
+/// Build-time syntax highlighting.
 ///
-/// Runs on the server while the site is pre-rendered, so the browser receives
-/// finished `<span>` markup and never downloads a highlighting library.
+/// Tokenizing is done by `syntax_highlight_lite`, the pure-Dart TextMate
+/// engine behind `jaspr_content`, while the site is pre-rendered. Its scopes
+/// are mapped to CSS classes here, so the browser receives finished `<span>`
+/// markup and never downloads a highlighting library.
 library;
 
+import 'package:ciach_website/grammars/console_grammar.dart';
+import 'package:ciach_website/grammars/json_grammar.dart';
+import 'package:ciach_website/grammars/shell_grammar.dart';
+import 'package:ciach_website/grammars/yaml_grammar.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import 'package:syntax_highlight_lite/syntax_highlight_lite.dart' as sh;
 
-enum Language { dart, yaml, shell, console, json }
+enum Language {
+  dart,
+  yaml,
+  shell,
+  json,
 
-/// Highlights [source] line by line. Each line becomes a `span.line`, which
-/// lets CSS number lines and mark the ones listed in [deadLines] (1-based) as
-/// dead code.
+  /// ciach's own terminal output, with shell prompts.
+  console,
+}
+
+/// Registers the grammars. Call once before rendering; the Dart grammar ships
+/// with the engine, the rest live in `grammars/`.
+Future<void> initHighlighting() async {
+  await sh.Highlighter.initialize(['dart']);
+  sh.Highlighter.addLanguage(Language.yaml.name, kYamlGrammar);
+  sh.Highlighter.addLanguage(Language.json.name, kJsonGrammar);
+  sh.Highlighter.addLanguage(Language.shell.name, kShellGrammar);
+  sh.Highlighter.addLanguage(Language.console.name, kConsoleGrammar);
+}
+
+/// Colors come from CSS classes, not from the engine's theme, so the theme is
+/// empty. Its text style is required but never rendered.
+final _theme = sh.HighlighterTheme.fromConfiguration(
+  '{"settings": []}',
+  sh.TextStyle(foreground: const sh.Color(0)),
+);
+
+final _highlighters = <Language, sh.Highlighter>{};
+
+/// TextMate scope prefixes to CSS classes (`tk-<class>`). For each token the
+/// innermost scope is tried first, longest prefix first; a scope with no
+/// entry falls through to its parent, so punctuation inside a string stays a
+/// string.
+const _scopeClasses = <String, String>{
+  'comment.block.documentation': 'doc',
+  'comment': 'comment',
+  'string': 'string',
+  'constant.character.escape': 'string',
+  'constant.numeric': 'number',
+  'constant.language': 'keyword',
+  'keyword.operator.pipe': 'punct',
+  'keyword.operator': 'operator',
+  'keyword.other.prompt': 'prompt',
+  'keyword.kind': 'kind',
+  'keyword': 'keyword',
+  'storage.type.annotation': 'annotation',
+  'storage': 'keyword',
+  'variable.language': 'keyword',
+  'variable.other.flag': 'flag',
+  'support.class': 'type',
+  'support.type.property-name': 'key',
+  'entity.name.tag.path': 'path',
+  'entity.name.tag': 'key',
+  'entity.name.command': 'command',
+  'entity.name.declaration': 'name',
+  'entity.name.function': 'function',
+  'entity.name.type': 'type',
+  'meta.embedded.expression': 'annotation',
+  'markup.inserted': 'summary',
+  'markup.changed': 'ask',
+  'invalid.hint': 'hint',
+};
+
+/// Highlights [source] and wraps each line in a `span.line`, which lets CSS
+/// mark the 1-based [deadLines] as dead code.
 List<Component> highlight(
   String source,
   Language language, {
   Set<int> deadLines = const {},
-}) {
-  final lines = source.split('\n');
-  return [
-    for (final (index, line) in lines.indexed) ...[
-      if (index > 0) const Component.text('\n'),
-      span(
-        classes: deadLines.contains(index + 1) ? 'line dead' : 'line',
-        _tokenizeLine(line, language),
-      ),
-    ],
-  ];
-}
-
-class _Rule {
-  _Rule(String pattern, this.className) : pattern = RegExp(pattern);
-
-  final RegExp pattern;
-
-  /// `null` renders the match as plain text, useful for consuming indentation.
-  final String? className;
-}
-
-const _dartKeywords = [
-  'abstract', 'as', 'assert', 'async', 'await', 'base', 'break', 'case', //
-  'catch', 'class', 'const', 'continue', 'covariant', 'default', 'deferred',
-  'do', 'dynamic', 'else', 'enum', 'export', 'extends', 'extension',
-  'external', 'factory', 'false', 'final', 'finally', 'for', 'Function',
-  'get', 'hide', 'if', 'implements', 'import', 'in', 'interface', 'is',
-  'late', 'library', 'mixin', 'new', 'null', 'on', 'operator', 'part',
-  'required', 'rethrow', 'return', 'sealed', 'set', 'show', 'static',
-  'super', 'switch', 'sync', 'this', 'throw', 'true', 'try', 'typedef',
-  'var', 'void', 'when', 'while', 'with', 'yield',
+}) => [
+  for (final (index, line) in highlightLines(source, language).indexed) ...[
+    if (index > 0) const Component.text('\n'),
+    span(classes: deadLines.contains(index + 1) ? 'line dead' : 'line', line),
+  ],
 ];
 
-final _dartRules = [
-  _Rule(r'///.*', 'doc'),
-  _Rule('//.*', 'comment'),
-  _Rule(r"'(?:[^'\\]|\\.)*'", 'string'),
-  _Rule(r'"(?:[^"\\]|\\.)*"', 'string'),
-  _Rule(r'@[A-Za-z_]\w*', 'annotation'),
-  _Rule('\\b(?:${_dartKeywords.join('|')})\\b', 'keyword'),
-  _Rule(r'\b[A-Z][A-Za-z0-9_]*\b', 'type'),
-  _Rule(r'\b\d+(?:\.\d+)?\b', 'number'),
-  _Rule(r'\b[a-z_]\w*(?=\()', 'function'),
-];
-
-final _yamlRules = [
-  _Rule('#.*', 'comment'),
-  _Rule(r'(?<=^\s*|^\s*- )[\w.-]+(?=\s*:(?:\s|$))', 'key'),
-  _Rule(r"'(?:[^'\\]|\\.)*'", 'string'),
-  _Rule(r'"(?:[^"\\]|\\.)*"', 'string'),
-  _Rule(r'\$\{\{.*?\}\}', 'annotation'),
-  _Rule(r'\b(?:true|false|on|off|yes|no)\b', 'keyword'),
-  _Rule(r'\b\d+(?:\.\d+)?\b', 'number'),
-  _Rule(r'(?<=\s|^)--?[\w-]+', 'flag'),
-];
-
-final _shellRules = [
-  _Rule(r'^\$(?=\s)', 'prompt'),
-  _Rule('#.*', 'comment'),
-  _Rule(r'(?<=^\$\s+)[\w./-]+', 'command'),
-  _Rule(r'(?<=^\$\s+[\w./-]+\s+)(?:run|pub|global|activate|add)\b', 'command'),
-  _Rule(r"'(?:[^'\\]|\\.)*'", 'string'),
-  _Rule(r'"(?:[^"\\]|\\.)*"', 'string'),
-  _Rule(r'(?<=\s)--?[\w-]+', 'flag'),
-  _Rule(r'(?<=\s)\|(?=\s)', 'punct'),
-];
-
-final _jsonRules = [
-  _Rule(r'"(?:[^"\\]|\\.)*"(?=\s*:)', 'key'),
-  _Rule(r'"(?:[^"\\]|\\.)*"', 'string'),
-  _Rule(r'\b(?:true|false|null)\b', 'keyword'),
-  _Rule(r'-?\b\d+(?:\.\d+)?\b', 'number'),
-];
-
-final _rules = {
-  Language.dart: _dartRules,
-  Language.yaml: _yamlRules,
-  Language.shell: _shellRules,
-  Language.json: _jsonRules,
-};
-
-final _findingLine = RegExp(
-  r'^(\s+)(\d+:\d+)(\s+)'
-  '(class|mixin|interface|enum value|enum|extension|function|method|'
-  'constructor|field|property|getter|setter|variable|constant)'
-  r'(\s+)(\S+)(\s+)\((public|private)\)(.*)$',
-);
-final _pathLine = RegExp(r'^[\w./-]+\.dart$');
-final _annotationLine = RegExp(r'^(::(?:warning|notice|error)) ([^:]*)::(.*)$');
-final _verboseLine = RegExp(r'^(\[\s*[\d.]+s\])(.*)$');
-
-List<Component> _tokenizeLine(String line, Language language) {
-  if (language == Language.console) {
-    return _consoleLine(line);
-  }
-  return _tokenizeWith(line, _rules[language]!);
-}
-
-List<Component> _tokenizeWith(String line, List<_Rule> rules) {
-  final out = <Component>[];
-  final plain = StringBuffer();
-  var index = 0;
-
-  void flush() {
-    if (plain.isNotEmpty) {
-      out.add(Component.text(plain.toString()));
-      plain.clear();
+/// Highlights [source] and returns the tokens of each line separately, for
+/// callers that lay lines out themselves.
+List<List<Component>> highlightLines(String source, Language language) {
+  final highlighter = _highlighters.putIfAbsent(
+    language,
+    () => sh.Highlighter(language: language.name, theme: _theme),
+  );
+  final lines = <List<Component>>[<Component>[]];
+  for (final (text, className) in _flatten(highlighter.highlight(source))) {
+    final parts = text.split('\n');
+    for (final (index, part) in parts.indexed) {
+      if (index > 0) {
+        lines.add(<Component>[]);
+      }
+      if (part.isEmpty) {
+        continue;
+      }
+      lines.last.add(
+        className == null
+            ? Component.text(part)
+            : span(classes: 'tk-$className', [Component.text(part)]),
+      );
     }
   }
+  return lines;
+}
 
-  outer:
-  while (index < line.length) {
-    for (final rule in rules) {
-      final match = rule.pattern.matchAsPrefix(line, index);
-      if (match != null && match.end > index) {
-        flush();
-        final text = match[0]!;
-        if (rule.className case final className?) {
-          out.add(span(classes: 'tk-$className', [Component.text(text)]));
-        } else {
-          out.add(Component.text(text));
-        }
-        index = match.end;
-        continue outer;
+/// Walks the span tree into `(text, class)` runs, in document order.
+Iterable<(String, String?)> _flatten(sh.TextSpan node) sync* {
+  if (node.text case final text?) {
+    yield (text, _classFor(node.scopes));
+  }
+  for (final child in node.children) {
+    yield* _flatten(child);
+  }
+}
+
+String? _classFor(List<String> scopes) {
+  for (final scope in scopes.reversed) {
+    final parts = scope.split('.');
+    for (var length = parts.length; length > 0; length--) {
+      final className = _scopeClasses[parts.take(length).join('.')];
+      if (className != null) {
+        return className;
       }
     }
-    plain.write(line[index]);
-    index++;
   }
-  flush();
-  return out;
-}
-
-/// Terminal transcripts mix a shell prompt with ciach's own output, so they
-/// are matched whole-line against the shapes ciach prints.
-List<Component> _consoleLine(String line) {
-  if (line.startsWith(r'$ ')) {
-    return _tokenizeWith(line, _shellRules);
-  }
-  if (_findingLine.firstMatch(line) case final match?) {
-    return [
-      Component.text(match[1]!),
-      span(classes: 'tk-number', [Component.text(match[2]!)]),
-      Component.text(match[3]!),
-      span(classes: 'tk-kind', [Component.text(match[4]!)]),
-      Component.text(match[5]!),
-      span(classes: 'tk-name', [Component.text(match[6]!)]),
-      Component.text(match[7]!),
-      span(classes: 'tk-vis', [Component.text('(${match[8]})')]),
-      if (match[9]!.isNotEmpty)
-        span(classes: 'tk-hint', [Component.text(match[9]!)]),
-    ];
-  }
-  if (_annotationLine.firstMatch(line) case final match?) {
-    return [
-      span(classes: 'tk-keyword', [Component.text(match[1]!)]),
-      const Component.text(' '),
-      span(classes: 'tk-flag', [Component.text(match[2]!)]),
-      const span(classes: 'tk-punct', [Component.text('::')]),
-      span(classes: 'tk-name', [Component.text(match[3]!)]),
-    ];
-  }
-  if (_verboseLine.firstMatch(line) case final match?) {
-    return [
-      span(classes: 'tk-comment', [Component.text(match[1]!)]),
-      Component.text(match[2]!),
-    ];
-  }
-  if (_pathLine.hasMatch(line)) {
-    return [
-      span(classes: 'tk-path', [Component.text(line)]),
-    ];
-  }
-  if (line.startsWith('Found ') || line.startsWith('Removed ')) {
-    return [
-      span(classes: 'tk-summary', [Component.text(line)]),
-    ];
-  }
-  if (line.startsWith('Remove ')) {
-    return [
-      span(classes: 'tk-ask', [Component.text(line)]),
-    ];
-  }
-  if (line.startsWith('Referenced only') || line.startsWith('warning:')) {
-    return [
-      span(classes: 'tk-comment', [Component.text(line)]),
-    ];
-  }
-  return [Component.text(line)];
+  return null;
 }

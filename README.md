@@ -330,7 +330,7 @@ We are **top-tier experts** focused on Flutter Enterprise solutions.
 
 </div>
 
-[site]: https://leancodepl.github.io/ciach/
+[site]: https://ciach.leancode.co/
 
 [pub-badge]: https://img.shields.io/pub/v/ciach?style=for-the-badge&logo=dart
 [pub-badge-link]: https://pub.dev/packages/ciach

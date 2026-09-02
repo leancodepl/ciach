@@ -13,7 +13,7 @@ import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
 /// The landing page. Rendered once on the server into static HTML; only
-/// [CopyButton] islands hydrate on the client.
+/// `CopyButton` islands hydrate on the client.
 class App extends StatelessComponent {
   const App({required this.version, super.key});
 

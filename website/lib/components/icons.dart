@@ -58,7 +58,7 @@ enum Icon {
       'focusable': 'false',
     },
     [
-      for (final d in paths) path([], attributes: {'d': d}),
+      for (final d in paths) path(const [], attributes: {'d': d}),
     ],
   );
 }
@@ -66,7 +66,7 @@ enum Icon {
 /// The ciach word mark: a chopped-off "ciach" with an accent slash.
 Component logo({bool large = false}) => span(
   classes: large ? 'logo logo-large' : 'logo',
-  attributes: {'aria-hidden': 'true'},
+  attributes: const {'aria-hidden': 'true'},
   [
     span(classes: 'logo-mark', [Icon.knife.build(size: large ? 28 : 20)]),
     const span(classes: 'logo-text', [Component.text('ciach')]),

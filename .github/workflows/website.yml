@@ -1,17 +1,17 @@
 name: website
 
+# Verifies the landing page builds. Hosting is on Vercel (ciach.leancode.co),
+# which builds and deploys from its own integration; see website/README.md.
 on:
   push:
     branches: [main]
     paths:
       - 'website/**'
-      - 'pubspec.yaml'
       - '.github/workflows/website.yml'
   pull_request:
     paths:
       - 'website/**'
       - '.github/workflows/website.yml'
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -22,14 +22,13 @@ concurrency:
 
 jobs:
   build:
-    name: Build site
+    name: Analyze and build site
 
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
+    defaults:
+      run:
+        working-directory: website
 
     steps:
       - name: Checkout
@@ -40,64 +39,21 @@ jobs:
         with:
           sdk: '3.13'
 
-      - name: Configure GitHub Pages
-        # Resolves the public URL (https://<owner>.github.io/<repo> or a
-        # custom domain) so the canonical, Open Graph and sitemap URLs match
-        # wherever the site is served from.
-        if: github.event_name != 'pull_request'
-        id: pages
-        uses: actions/configure-pages@v5
-
       - name: Download pub dependencies
-        working-directory: website
         run: dart pub get
 
-      - name: Analyze
-        working-directory: website
+      - name: Run analyzer
         run: dart analyze --fatal-infos
 
       - name: Check formatting
-        working-directory: website
         run: dart format --set-exit-if-changed .
 
       - name: Install Jaspr CLI
         run: dart pub global activate jaspr_cli 0.23.4
 
       - name: Build static site
-        working-directory: website
-        env:
-          SITE_URL: ${{ steps.pages.outputs.base_url || 'https://leancodepl.github.io/ciach' }}
+        # Same commands Vercel runs, minus the SDK download.
         run: |
-          jaspr build --sitemap-domain "$SITE_URL" --dart-define=SITE_URL="$SITE_URL"
-          # Deploy only the rendered page and its assets, not build_runner's
-          # intermediate package sources.
-          rm -rf build/jaspr/packages build/jaspr/.dart_tool build/jaspr/.build.manifest
-          printf 'Sitemap: %s/sitemap.xml\n' "$SITE_URL" >> build/jaspr/robots.txt
-          ls -R build/jaspr
-
-      - name: Upload Pages artifact
-        if: github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: website/build/jaspr
-
-  deploy:
-    name: Deploy to GitHub Pages
-
-    if: github.event_name != 'pull_request'
-    needs: build
-
-    runs-on: ubuntu-latest
-
-    permissions:
-      pages: write
-      id-token: write
-
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    steps:
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
+          jaspr build --sitemap-domain https://ciach.leancode.co --dart-define=SITE_URL=https://ciach.leancode.co
+          test -f build/jaspr/index.html
+          test -f build/jaspr/sitemap.xml

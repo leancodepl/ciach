@@ -686,7 +686,8 @@ svg {
 .tk-hint { color: var(--tk-number); }
 .tk-summary { color: var(--ok); font-weight: 600; }
 .tk-ask { color: var(--tk-annotation); }
-.tk-punct { color: var(--tk-function); }
+.tk-punct,
+.tk-operator { color: var(--tk-function); }
 
 .terminal pre {
   color: var(--text-2);

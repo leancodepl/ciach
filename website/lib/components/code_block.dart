@@ -84,7 +84,6 @@ class Terminal extends StatelessComponent {
 
   @override
   Component build(BuildContext context) {
-    final lines = transcript.split('\n');
     return figure(
       classes: animated
           ? 'code-block terminal animated'
@@ -103,12 +102,15 @@ class Terminal extends StatelessComponent {
           attributes: const {'tabindex': '0'},
           [
             code([
-              for (final (index, line) in lines.indexed) ...[
+              for (final (index, line) in highlightLines(
+                transcript,
+                Language.console,
+              ).indexed) ...[
                 if (index > 0) const Component.text('\n'),
                 span(
                   classes: 'line',
                   styles: animated ? Styles(raw: {'--i': '$index'}) : null,
-                  highlight(line, Language.console),
+                  line,
                 ),
               ],
             ]),

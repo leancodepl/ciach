@@ -7,6 +7,7 @@ environment:
 
 dependencies:
   jaspr: ^0.23.4
+  syntax_highlight_lite: ^0.0.1
   universal_web: ^1.1.0
 
 dev_dependencies:
@@ -15,8 +16,12 @@ dev_dependencies:
   # no longer accepts. Lift the cap together with the next jaspr release.
   build_web_compilers: '>=4.8.5 <4.8.6'
   jaspr_builder: ^0.23.4
-  # leancode_lint needs analyzer 13 too, so the site uses the core lint set.
-  lints: ^6.0.0
+  leancode_lint: ^24.0.0
+
+dependency_overrides:
+  # Only leancode_lint's analysis_options.yaml is consumed here; its lint
+  # plugin runs in the analysis server. jaspr_builder needs analyzer 12.
+  analyzer: ^12.1.0
 
 jaspr:
   mode: static
