@@ -69,6 +69,6 @@ Component logo({bool large = false}) => span(
   attributes: const {'aria-hidden': 'true'},
   [
     span(classes: 'logo-mark', [Icon.ciach.build(size: large ? 28 : 20)]),
-    const span(classes: 'logo-text', [Component.text('ciach')]),
+    const span(classes: 'logo-text', [.text('ciach')]),
   ],
 );

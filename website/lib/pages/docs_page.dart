@@ -3,7 +3,6 @@ import 'package:ciach_website/components/docs_toc.dart';
 import 'package:ciach_website/components/faq.dart';
 import 'package:ciach_website/components/section.dart';
 import 'package:ciach_website/components/shell.dart';
-import 'package:ciach_website/highlight.dart';
 import 'package:ciach_website/seo.dart';
 import 'package:ciach_website/site.dart';
 import 'package:jaspr/dom.dart';
@@ -149,12 +148,12 @@ Component _mark(bool yes) => yes
     ? const span(
         classes: 'mark mark-yes',
         attributes: {'aria-label': 'yes'},
-        [Component.text('✓')],
+        [.text('✓')],
       )
     : const span(
         classes: 'mark mark-no',
         attributes: {'aria-label': 'no'},
-        [Component.text('—')],
+        [.text('—')],
       );
 
 /// Everything past the landing page, on one page with a sticky table of
@@ -167,7 +166,7 @@ class DocsPage extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     return PageShell(
-      page: SitePage.docs,
+      page: .docs,
       version: version,
       children: [
         pageHead(
@@ -184,7 +183,7 @@ class DocsPage extends StatelessComponent {
             classes: 'docs-nav',
             attributes: const {'aria-label': 'On this page'},
             [
-              const p(classes: 'eyebrow', [Component.text('Docs')]),
+              const p(classes: 'eyebrow', [.text('Docs')]),
               DocsToc(
                 path: '/docs',
                 ids: [for (final (id, _) in _toc) id],
@@ -192,16 +191,16 @@ class DocsPage extends StatelessComponent {
               ),
               p(classes: 'docs-nav-foot', [
                 externalLink(readmeUrl, [
-                  const Component.text('Full README on GitHub →'),
+                  const .text('Full README on GitHub →'),
                 ]),
               ]),
             ],
           ),
           div(classes: 'docs-body', [
             const header(classes: 'docs-head', [
-              h1([Component.text('Docs')]),
+              h1([.text('Docs')]),
               p(classes: 'lead', [
-                Component.text(
+                .text(
                   'Install, configure and run ciach, and read its findings '
                   'with confidence.',
                 ),
@@ -212,21 +211,21 @@ class DocsPage extends StatelessComponent {
               heading: 'Install',
               children: [
                 p([
-                  Component.text('Globally, for a '),
-                  code([Component.text('ciach')]),
-                  Component.text(
+                  .text('Globally, for a '),
+                  code([.text('ciach')]),
+                  .text(
                     ' command everywhere, or as a dev dependency that pins the '
                     'version for the team and CI (then prefix commands with ',
                   ),
-                  code([Component.text('dart run')]),
-                  Component.text(
+                  code([.text('dart run')]),
+                  .text(
                     '). Requires Dart 3.10+ and analyzes with the SDK it runs '
                     'with.',
                   ),
                 ]),
                 CodeBlock(
                   code: '$installCommand\n$devDependencyCommand',
-                  language: Language.shell,
+                  language: .shell,
                   title: 'install',
                   copyText: installCommand,
                 ),
@@ -241,13 +240,10 @@ class DocsPage extends StatelessComponent {
                   table(classes: 'table', [
                     const thead([
                       tr([
+                        th(attributes: {'scope': 'col'}, [.text('Flag')]),
                         th(
                           attributes: {'scope': 'col'},
-                          [Component.text('Flag')],
-                        ),
-                        th(
-                          attributes: {'scope': 'col'},
-                          [Component.text('What it does')],
+                          [.text('What it does')],
                         ),
                       ]),
                     ]),
@@ -261,8 +257,8 @@ class DocsPage extends StatelessComponent {
                               // wraps between them rather than inside one.
                               for (final (i, f)
                                   in flag.split(', ').indexed) ...[
-                                if (i > 0) const Component.text(' '),
-                                code([Component.text(f)]),
+                                if (i > 0) const .text(' '),
+                                code([.text(f)]),
                               ],
                             ],
                           ),
@@ -272,12 +268,10 @@ class DocsPage extends StatelessComponent {
                   ]),
                 ]),
                 p(classes: 'note', [
-                  const Component.text('Exit codes: 0 clean, 1 findings with '),
-                  const code([Component.text('--set-exit-if-changed')]),
-                  const Component.text(', 2 usage or analysis error. '),
-                  externalLink(readmeUrl, [
-                    const Component.text('All options →'),
-                  ]),
+                  const .text('Exit codes: 0 clean, 1 findings with '),
+                  const code([.text('--set-exit-if-changed')]),
+                  const .text(', 2 usage or analysis error. '),
+                  externalLink(readmeUrl, [const .text('All options →')]),
                 ]),
               ],
             ),
@@ -286,18 +280,18 @@ class DocsPage extends StatelessComponent {
               heading: 'GitHub Actions',
               children: [
                 p([
-                  Component.text(
+                  .text(
                     'Each finding becomes an annotation on the diff, and the '
                     'job fails when anything is found. Run from the repository '
                     'root so paths resolve. For a library whose public API is '
                     'legitimately unused from the inside, add ',
                   ),
-                  code([Component.text('--no-fail-public')]),
-                  Component.text('.'),
+                  code([.text('--no-fail-public')]),
+                  .text('.'),
                 ]),
                 CodeBlock(
                   code: _workflow,
-                  language: Language.yaml,
+                  language: .yaml,
                   title: '.github/workflows/test.yml',
                 ),
               ],
@@ -307,25 +301,21 @@ class DocsPage extends StatelessComponent {
               heading: 'Configuration file',
               children: [
                 p([
-                  Component.text('Every option can live in a '),
-                  code([Component.text('ciach.yaml')]),
-                  Component.text(
+                  .text('Every option can live in a '),
+                  code([.text('ciach.yaml')]),
+                  .text(
                     ' in the package root. Command line beats config file beats '
                     'default, and a repeatable option on the command line '
                     'replaces the list instead of appending. Discovery looks in '
                     'the analyzed package root only, so each package in a '
                     'monorepo owns its config; ',
                   ),
-                  code([Component.text('--config <path>')]),
-                  Component.text(' reads one from elsewhere, '),
-                  code([Component.text('--no-config')]),
-                  Component.text(' ignores it.'),
+                  code([.text('--config <path>')]),
+                  .text(' reads one from elsewhere, '),
+                  code([.text('--no-config')]),
+                  .text(' ignores it.'),
                 ]),
-                CodeBlock(
-                  code: _config,
-                  language: Language.yaml,
-                  title: 'ciach.yaml',
-                ),
+                CodeBlock(code: _config, language: .yaml, title: 'ciach.yaml'),
               ],
             ),
             DocSection(
@@ -333,12 +323,12 @@ class DocsPage extends StatelessComponent {
               heading: 'Compared with the analyzer',
               children: [
                 const p([
-                  Component.text(
+                  .text(
                     'The Dart analyzer already flags unused private '
                     'declarations through ',
                   ),
-                  code([Component.text('unused_element')]),
-                  Component.text(
+                  code([.text('unused_element')]),
+                  .text(
                     ' and friends, one library at a time. ciach starts where that '
                     'stops.',
                   ),
@@ -347,17 +337,17 @@ class DocsPage extends StatelessComponent {
                   table(classes: 'table table-compare', [
                     const thead([
                       tr([
-                        th(attributes: {'scope': 'col'}, [Component.text('')]),
+                        th(attributes: {'scope': 'col'}, [.text('')]),
                         th(
                           attributes: {'scope': 'col'},
                           [
-                            code([Component.text('dart analyze')]),
+                            code([.text('dart analyze')]),
                           ],
                         ),
                         th(
                           attributes: {'scope': 'col'},
                           [
-                            code([Component.text('ciach')]),
+                            code([.text('ciach')]),
                           ],
                         ),
                       ]),
@@ -367,7 +357,7 @@ class DocsPage extends StatelessComponent {
                         tr([
                           th(
                             attributes: const {'scope': 'row'},
-                            [Component.text(capability)],
+                            [.text(capability)],
                           ),
                           td(
                             attributes: const {'data-label': 'dart analyze'},
@@ -382,7 +372,7 @@ class DocsPage extends StatelessComponent {
                   ]),
                 ]),
                 const p([
-                  Component.text(
+                  .text(
                     'Both resolve references the same way, because ciach asks '
                     'the analysis server. The difference is scope and the '
                     'removal step. Dart Code Metrics covers unused code as well, '
@@ -396,28 +386,26 @@ class DocsPage extends StatelessComponent {
               heading: 'Removing safely',
               children: [
                 const p([
-                  code([Component.text('--remove')]),
-                  Component.text(
+                  code([.text('--remove')]),
+                  .text(
                     ' shows what it is about to delete and asks first; '
                     'with no terminal and no ',
                   ),
-                  code([Component.text('--force')]),
-                  Component.text(
+                  code([.text('--force')]),
+                  .text(
                     ', nothing is removed. It deletes whole declarations '
                     'with their doc comments and annotations, leaves an '
                     'ambiguous ',
                   ),
-                  code([Component.text('int a = 1, b = 2;')]),
-                  Component.text(
+                  code([.text('int a = 1, b = 2;')]),
+                  .text(
                     ' alone unless every declarator is unused, and never '
                     'touches doc-only findings. Run ',
                   ),
-                  code([Component.text('dart format')]),
-                  Component.text(' afterwards and review the diff.'),
+                  code([.text('dart format')]),
+                  .text(' afterwards and review the diff.'),
                 ]),
-                const h3([
-                  Component.text('Report-only: removal would not compile'),
-                ]),
+                const h3([.text('Report-only: removal would not compile')]),
                 ul(classes: 'checklist', [
                   for (final item in _reportOnly) li(rich(item)),
                 ]),
@@ -428,7 +416,7 @@ class DocsPage extends StatelessComponent {
               heading: 'What it skips, and what it cannot see',
               children: [
                 const p([
-                  Component.text(
+                  .text(
                     'Each default skip is a known false-positive source; the '
                     'flag opts back in at that cost.',
                   ),
@@ -437,18 +425,9 @@ class DocsPage extends StatelessComponent {
                   table(classes: 'table', [
                     const thead([
                       tr([
-                        th(
-                          attributes: {'scope': 'col'},
-                          [Component.text('Skipped')],
-                        ),
-                        th(
-                          attributes: {'scope': 'col'},
-                          [Component.text('Why')],
-                        ),
-                        th(
-                          attributes: {'scope': 'col'},
-                          [Component.text('Flag')],
-                        ),
+                        th(attributes: {'scope': 'col'}, [.text('Skipped')]),
+                        th(attributes: {'scope': 'col'}, [.text('Why')]),
+                        th(attributes: {'scope': 'col'}, [.text('Flag')]),
                       ]),
                     ]),
                     tbody([
@@ -457,7 +436,7 @@ class DocsPage extends StatelessComponent {
                           th(
                             attributes: const {'scope': 'row'},
                             [
-                              code([Component.text(what)]),
+                              code([.text(what)]),
                             ],
                           ),
                           td(rich(why)),
@@ -465,20 +444,18 @@ class DocsPage extends StatelessComponent {
                             attributes: const {'data-label': 'Opt back in'},
                             [
                               if (flag != null)
-                                code(classes: 'flag', [Component.text(flag)])
+                                code(classes: 'flag', [.text(flag)])
                               else
-                                const span(classes: 'muted', [
-                                  Component.text('—'),
-                                ]),
+                                const span(classes: 'muted', [.text('—')]),
                             ],
                           ),
                         ]),
                     ]),
                   ]),
                 ]),
-                const h3([Component.text('Doc-only findings')]),
+                const h3([.text('Doc-only findings')]),
                 const p([
-                  Component.text(
+                  .text(
                     'A dartdoc link counts as a reference to the analysis '
                     'server, but a comment is not a call. Declarations with no '
                     'code references are listed separately, never count toward '
@@ -487,10 +464,10 @@ class DocsPage extends StatelessComponent {
                 ]),
                 const CodeBlock(
                   code: _docOnly,
-                  language: Language.console,
+                  language: .console,
                   copyText: '',
                 ),
-                const h3([Component.text('Limitations')]),
+                const h3([.text('Limitations')]),
                 ul(classes: 'checklist', [
                   li(
                     rich(
@@ -525,9 +502,9 @@ class DocsPage extends StatelessComponent {
               heading: 'Library API',
               children: [
                 p([
-                  Component.text('The finder behind the CLI is exported from '),
-                  code([Component.text('package:ciach/ciach.dart')]),
-                  Component.text(
+                  .text('The finder behind the CLI is exported from '),
+                  code([.text('package:ciach/ciach.dart')]),
+                  .text(
                     '. Options mirror the flags; the result carries every '
                     'finding with file, line, kind and qualified name, and '
                     'doc-only findings in their own list.',
@@ -535,7 +512,7 @@ class DocsPage extends StatelessComponent {
                 ]),
                 CodeBlock(
                   code: _library,
-                  language: Language.dart,
+                  language: .dart,
                   title: 'tool/dead_code.dart',
                 ),
               ],

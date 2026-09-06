@@ -38,7 +38,7 @@ class CodeBlock extends StatelessComponent {
       classes: [
         'code-block',
         // Console output wraps like a terminal; real code scrolls.
-        if (language == Language.console) 'terminal',
+        if (language == .console) 'terminal',
         if (lineNumbers) 'numbered',
         ?classes,
       ].join(' '),
@@ -50,7 +50,7 @@ class CodeBlock extends StatelessComponent {
             [span([]), span([]), span([])],
           ),
           if (title case final title?)
-            figcaption(classes: 'code-title', [Component.text(title)])
+            figcaption(classes: 'code-title', [.text(title)])
           else
             const span(classes: 'code-title', []),
           if (copy.isNotEmpty) CopyButton(text: copy),
@@ -58,7 +58,7 @@ class CodeBlock extends StatelessComponent {
         pre(
           attributes: const {'tabindex': '0'},
           [
-            Component.element(
+            .element(
               tag: 'code',
               classes: 'language-${language.name}',
               children: highlight(code, language, deadLines: deadLines),
@@ -101,7 +101,7 @@ class Terminal extends StatelessComponent {
             attributes: {'aria-hidden': 'true'},
             [span([]), span([]), span([])],
           ),
-          figcaption(classes: 'code-title', [Component.text(title)]),
+          figcaption(classes: 'code-title', [.text(title)]),
           if (copyText.isNotEmpty) CopyButton(text: copyText),
         ]),
         pre(
@@ -110,9 +110,9 @@ class Terminal extends StatelessComponent {
             code([
               for (final (index, line) in highlightLines(
                 transcript,
-                Language.console,
+                .console,
               ).indexed) ...[
-                if (index > 0) const Component.text('\n'),
+                if (index > 0) const .text('\n'),
                 span(
                   classes: 'line',
                   styles: animated ? Styles(raw: {'--i': '$index'}) : null,

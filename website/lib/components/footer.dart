@@ -18,16 +18,16 @@ class SiteFooter extends StatelessComponent {
         [
           div(classes: 'container cta-inner', [
             const h2(id: 'cta-heading', [
-              Component.text('Ready to make the first cut?'),
+              .text('Ready to make the first cut?'),
             ]),
             div(classes: 'hero-actions center', [
               externalLink(pubUrl, classes: 'button button-primary', [
-                const Component.text('Get it on pub.dev'),
+                const .text('Get it on pub.dev'),
                 Icon.external.build(size: 18),
               ]),
               a(href: '/docs', classes: 'button button-secondary', [
                 Icon.book.build(size: 18),
-                const Component.text('Read the docs'),
+                const .text('Read the docs'),
               ]),
             ]),
           ]),
@@ -37,27 +37,27 @@ class SiteFooter extends StatelessComponent {
         div(classes: 'footer-brand', [
           logo(),
           p([
-            const Component.text('Dead code detector for Dart and Flutter. '),
-            externalLink(changelogUrl, [Component.text('v$version')]),
-            const Component.text(', Apache-2.0.'),
+            const .text('Dead code detector for Dart and Flutter. '),
+            externalLink(changelogUrl, [.text('v$version')]),
+            const .text(', Apache-2.0.'),
           ]),
         ]),
         nav(
           attributes: const {'aria-label': 'Project'},
           [
-            const h3([Component.text('Project')]),
+            const h3([.text('Project')]),
             ul([
               li([
-                externalLink(pubUrl, [const Component.text('pub.dev')]),
+                externalLink(pubUrl, [const .text('pub.dev')]),
               ]),
               li([
-                externalLink(repoUrl, [const Component.text('GitHub')]),
+                externalLink(repoUrl, [const .text('GitHub')]),
               ]),
               li([
-                externalLink(changelogUrl, [const Component.text('Changelog')]),
+                externalLink(changelogUrl, [const .text('Changelog')]),
               ]),
               li([
-                externalLink(issuesUrl, [const Component.text('Issues')]),
+                externalLink(issuesUrl, [const .text('Issues')]),
               ]),
             ]),
           ],
@@ -65,19 +65,19 @@ class SiteFooter extends StatelessComponent {
         const nav(
           attributes: {'aria-label': 'Docs'},
           [
-            h3([Component.text('Docs')]),
+            h3([.text('Docs')]),
             ul([
               li([
-                a(href: '/docs#install', [Component.text('Install')]),
+                a(href: '/docs#install', [.text('Install')]),
               ]),
               li([
-                a(href: '/docs#ci', [Component.text('CI setup')]),
+                a(href: '/docs#ci', [.text('CI setup')]),
               ]),
               li([
-                a(href: '/docs#config', [Component.text('Configuration')]),
+                a(href: '/docs#config', [.text('Configuration')]),
               ]),
               li([
-                a(href: '/docs#faq', [Component.text('FAQ')]),
+                a(href: '/docs#faq', [.text('FAQ')]),
               ]),
             ]),
           ],
@@ -85,24 +85,22 @@ class SiteFooter extends StatelessComponent {
         nav(
           attributes: const {'aria-label': 'LeanCode'},
           [
-            const h3([Component.text('LeanCode')]),
+            const h3([.text('LeanCode')]),
             ul([
               li([
-                externalLink(leancodeUrl, [
-                  const Component.text('leancode.co'),
-                ]),
+                externalLink(leancodeUrl, [const .text('leancode.co')]),
               ]),
               li([
-                externalLink(patrolUrl, [const Component.text('Patrol')]),
+                externalLink(patrolUrl, [const .text('Patrol')]),
               ]),
               li([
                 externalLink(leancodePackagesUrl, [
-                  const Component.text('More packages'),
+                  const .text('More packages'),
                 ]),
               ]),
               li([
                 externalLink(leancodeEstimateUrl, [
-                  const Component.text('Hire our team'),
+                  const .text('Hire our team'),
                 ]),
               ]),
             ]),
@@ -111,14 +109,14 @@ class SiteFooter extends StatelessComponent {
       ]),
       div(classes: 'container footer-bottom', [
         p([
-          const Component.text('© 2026 '),
-          externalLink(leancodeUrl, [const Component.text('LeanCode')]),
-          const Component.text('. Apache License 2.0.'),
+          const .text('© 2026 '),
+          externalLink(leancodeUrl, [const .text('LeanCode')]),
+          const .text('. Apache License 2.0.'),
         ]),
         p([
-          const Component.text('Built with '),
-          externalLink('https://jaspr.site', [const Component.text('Jaspr')]),
-          const Component.text('.'),
+          const .text('Built with '),
+          externalLink('https://jaspr.site', [const .text('Jaspr')]),
+          const .text('.'),
         ]),
       ]),
     ]);

@@ -36,53 +36,53 @@ class Hero extends StatelessComponent {
           div(classes: 'hero-copy', [
             p(classes: 'hero-badges', [
               externalLink(pubUrl, classes: 'pill pill-accent', [
-                Component.text('v$version'),
+                .text('v$version'),
               ]),
-              const span(classes: 'pill', [Component.text('Dart 3.10+')]),
-              const span(classes: 'pill', [Component.text('Apache-2.0')]),
+              const span(classes: 'pill', [.text('Dart 3.10+')]),
+              const span(classes: 'pill', [.text('Apache-2.0')]),
             ]),
             const h1(id: 'hero-heading', [
-              Component.text('Dead code detector for '),
-              span(classes: 'accent', [Component.text('Dart')]),
-              Component.text(' and '),
-              span(classes: 'accent', [Component.text('Flutter')]),
-              Component.text('.'),
+              .text('Dead code detector for '),
+              span(classes: 'accent', [.text('Dart')]),
+              .text(' and '),
+              span(classes: 'accent', [.text('Flutter')]),
+              .text('.'),
             ]),
             const p(classes: 'hero-lead', [
-              Component.text(
+              .text(
                 'Finds declarations nothing references and removes them for '
                 'you. One command, no setup, backed by the Dart analysis server.',
               ),
             ]),
             const p(classes: 'pronounce', [
-              em([Component.text('“Ciach!”')]),
-              Component.text(' '),
+              em([.text('“Ciach!”')]),
+              .text(' '),
               span(
                 classes: 'ipa',
                 attributes: {'lang': 'pl'},
-                [Component.text('/tɕax/')],
+                [.text('/tɕax/')],
               ),
-              Component.text(' — Polish for the sound of a clean chop.'),
+              .text(' — Polish for the sound of a clean chop.'),
             ]),
             const div(classes: 'install', [
               div(classes: 'install-command', [
                 span(
                   classes: 'tk-prompt',
                   attributes: {'aria-hidden': 'true'},
-                  [Component.text(r'$')],
+                  [.text(r'$')],
                 ),
-                code([Component.text(installCommand)]),
+                code([.text(installCommand)]),
                 CopyButton(text: installCommand, label: 'Copy'),
               ]),
             ]),
             div(classes: 'hero-actions', [
               a(href: '/docs', classes: 'button button-primary', [
-                const Component.text('Read the docs'),
+                const .text('Read the docs'),
                 Icon.arrow.build(size: 18),
               ]),
               externalLink(repoUrl, classes: 'button button-secondary', [
                 Icon.github.build(size: 18),
-                const Component.text('GitHub'),
+                const .text('GitHub'),
               ]),
             ]),
           ]),

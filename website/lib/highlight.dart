@@ -87,7 +87,7 @@ List<Component> highlight(
   var dead = 0;
   return [
     for (final (index, line) in highlightLines(source, language).indexed) ...[
-      if (index > 0) const Component.text('\n'),
+      if (index > 0) const .text('\n'),
       if (deadLines.contains(index + 1))
         // `--d` is the line's position among the dead ones, so CSS can
         // stagger the strike-through animation.
@@ -121,8 +121,8 @@ List<List<Component>> highlightLines(String source, Language language) {
       }
       lines.last.add(
         className == null
-            ? Component.text(part)
-            : span(classes: 'tk-$className', [Component.text(part)]),
+            ? .text(part)
+            : span(classes: 'tk-$className', [.text(part)]),
       );
     }
   }

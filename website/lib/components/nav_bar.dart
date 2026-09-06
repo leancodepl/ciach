@@ -15,7 +15,7 @@ class NavBar extends StatelessComponent {
 
   @override
   Component build(BuildContext context) {
-    final onDocs = page == SitePage.docs;
+    final onDocs = page == .docs;
     return header(classes: 'site-header', [
       nav(
         classes: 'container nav',
@@ -33,19 +33,19 @@ class NavBar extends StatelessComponent {
                 href: '/docs',
                 classes: onDocs ? 'is-active' : null,
                 attributes: onDocs ? const {'aria-current': 'page'} : null,
-                [Icon.book.build(size: 18), const Component.text('Docs')],
+                [Icon.book.build(size: 18), const .text('Docs')],
               ),
             ]),
             li([
               externalLink(pubUrl, [
                 Icon.external.build(size: 18),
-                const Component.text('pub.dev'),
+                const .text('pub.dev'),
               ]),
             ]),
             li([
               externalLink(repoUrl, label: 'ciach on GitHub', [
                 Icon.github.build(size: 18),
-                const span(classes: 'hide-sm', [Component.text('GitHub')]),
+                const span(classes: 'hide-sm', [.text('GitHub')]),
               ]),
             ]),
           ]),

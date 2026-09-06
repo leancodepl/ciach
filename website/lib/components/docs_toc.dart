@@ -113,7 +113,7 @@ class _DocsTocState extends State<DocsToc> {
             href: '${component.path}#$id',
             classes: id == _active ? 'is-active' : null,
             attributes: id == _active ? const {'aria-current': 'true'} : null,
-            [Component.text(component.labels[index])],
+            [.text(component.labels[index])],
           ),
         ]),
     ]);

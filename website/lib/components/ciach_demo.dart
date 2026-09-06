@@ -1,7 +1,6 @@
 import 'package:ciach_website/components/code_block.dart';
 import 'package:ciach_website/components/demo_trigger.dart';
 import 'package:ciach_website/components/section.dart';
-import 'package:ciach_website/highlight.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
@@ -56,7 +55,7 @@ class CiachDemo extends StatelessComponent {
           div(id: 'remove-demo', classes: 'ciach-before', [
             CodeBlock(
               code: _before,
-              language: Language.dart,
+              language: .dart,
               title: 'lib/greeting.dart',
               deadLines: {8, 9, 13, 14, 16, 17, 18},
               copyText: '',
@@ -69,7 +68,7 @@ class CiachDemo extends StatelessComponent {
         DemoTrigger(targetId: 'remove-demo'),
         p(classes: 'section-more', [
           a(href: '/docs#removing', [
-            Component.text('What --remove refuses to touch →'),
+            .text('What --remove refuses to touch →'),
           ]),
         ]),
       ],

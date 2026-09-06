@@ -13,36 +13,36 @@ class _Feature {
 
 const _features = [
   _Feature(
-    Icon.layers,
+    .layers,
     'Every declaration kind',
     'Classes, enums and their values, functions, methods, constructors, '
         'fields, getters, variables and more.',
   ),
   _Feature(
-    Icon.search,
+    .search,
     'Backed by the real analyzer',
     'Reference queries go to the Dart analysis server: the same resolution '
         'your IDE uses, not a regex.',
   ),
   _Feature(
-    Icon.git,
+    .git,
     'Built for CI',
     'Annotations inline on the pull request diff and a non-zero exit when '
         'anything turns up.',
   ),
   _Feature(
-    Icon.shield,
+    .shield,
     'Safe defaults',
     '`@override` members, operators, entry points, generated files and '
         '`toJson()` are skipped unless you opt in.',
   ),
   _Feature(
-    Icon.braces,
+    .braces,
     'Text, JSON or GitHub output',
     'Human-readable by default, machine-readable on request.',
   ),
   _Feature(
-    Icon.cog,
+    .cog,
     'A config file, optionally',
     'Every flag can live in `ciach.yaml`. The command line always wins.',
   ),
@@ -62,7 +62,7 @@ class Features extends StatelessComponent {
           for (final feature in _features)
             li(classes: 'card feature', [
               span(classes: 'feature-icon', [feature.icon.build(size: 22)]),
-              h3([Component.text(feature.title)]),
+              h3([.text(feature.title)]),
               p(rich(feature.body)),
             ]),
         ]),

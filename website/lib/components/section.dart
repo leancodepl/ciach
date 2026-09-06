@@ -34,8 +34,8 @@ class Section extends StatelessComponent {
       [
         div(classes: 'container', [
           header(classes: 'section-head', [
-            p(classes: 'eyebrow', [Component.text(eyebrow)]),
-            h2(id: headingId, [Component.text(heading)]),
+            p(classes: 'eyebrow', [.text(eyebrow)]),
+            h2(id: headingId, [.text(heading)]),
             if (lead case final lead?) p(classes: 'lead', rich(lead)),
           ]),
           ...children,
@@ -66,7 +66,7 @@ class DocSection extends StatelessComponent {
       classes: 'doc-section',
       attributes: {'aria-labelledby': headingId},
       [
-        h2(id: headingId, [Component.text(heading)]),
+        h2(id: headingId, [.text(heading)]),
         ...children,
       ],
     );
@@ -79,7 +79,7 @@ class DocSection extends StatelessComponent {
 List<Component> rich(String text) => [
   for (final (i, part) in text.split('`').indexed)
     if (part.isNotEmpty)
-      if (i.isOdd) code([Component.text(part)]) else Component.text(part),
+      if (i.isOdd) code([.text(part)]) else .text(part),
 ];
 
 /// An external link that opens in a new tab with the right `rel`.

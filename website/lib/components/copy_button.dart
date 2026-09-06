@@ -75,9 +75,7 @@ class _CopyButtonState extends State<CopyButton> {
         span(classes: 'copy-icon copy-icon-idle', [Icon.copy.build(size: 16)]),
         span(classes: 'copy-icon copy-icon-done', [Icon.check.build(size: 16)]),
         if (label != null)
-          span(classes: 'copy-label', [
-            Component.text(_copied ? 'Copied!' : label),
-          ]),
+          span(classes: 'copy-label', [.text(_copied ? 'Copied!' : label)]),
       ],
     );
   }

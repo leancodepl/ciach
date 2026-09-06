@@ -16,7 +16,7 @@ class HomePage extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     return PageShell(
-      page: SitePage.home,
+      page: .home,
       version: version,
       children: [
         pageHead(

@@ -52,9 +52,9 @@ class _Format {
 }
 
 const _formats = [
-  _Format('text', 'ciach', _textOutput, Language.console),
-  _Format('json', 'ciach -f json', _jsonOutput, Language.json),
-  _Format('github', 'ciach -f github', _githubOutput, Language.console),
+  _Format('text', 'ciach', _textOutput, .console),
+  _Format('json', 'ciach -f json', _jsonOutput, .json),
+  _Format('github', 'ciach -f github', _githubOutput, .console),
 ];
 
 /// Output-format switcher built from radio inputs and CSS alone, so all three
@@ -72,7 +72,7 @@ class OutputFormats extends StatelessComponent {
       children: [
         div(classes: 'tabs', [
           for (final (index, format) in _formats.indexed)
-            Component.element(
+            .element(
               tag: 'input',
               attributes: {
                 'type': 'radio',
@@ -94,7 +94,7 @@ class OutputFormats extends StatelessComponent {
                   classes: 'tab',
                   attributes: {'for': 'format-${format.id}'},
                   [
-                    code([Component.text('-f ${format.id}')]),
+                    code([.text('-f ${format.id}')]),
                   ],
                 ),
             ],

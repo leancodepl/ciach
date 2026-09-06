@@ -30,12 +30,12 @@ class PageShell extends StatelessComponent {
 
   @override
   Component build(BuildContext context) {
-    return Component.fragment([
+    return .fragment([
       a(href: '${page.path}#main', classes: 'skip-link', const [
-        Component.text('Skip to content'),
+        .text('Skip to content'),
       ]),
       NavBar(page: page),
-      Component.element(tag: 'main', id: 'main', children: children),
+      .element(tag: 'main', id: 'main', children: children),
       SiteFooter(version: version),
     ]);
   }
