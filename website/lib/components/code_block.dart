@@ -4,23 +4,33 @@ import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
 /// A highlighted, copyable code sample in a window-like frame.
-class const CodeBlock({
-  required final String source,
-  required final Language language,
+class CodeBlock extends StatelessComponent {
+  const CodeBlock({
+    required this.source,
+    required this.language,
+    this.title,
+    this.copyText,
+    this.deadLines = const {},
+    this.lineNumbers = false,
+    this.classes,
+    super.key,
+  });
+
+  final String source;
+  final Language language;
 
   /// Shown in the frame's title bar, e.g. a file name.
-  final String? title,
+  final String? title;
 
   /// What the copy button copies. Defaults to [source]; pass `''` to hide the
   /// button.
-  final String? copyText,
+  final String? copyText;
 
   /// 1-based lines to render struck through as dead code.
-  final Set<int> deadLines = const {},
-  final bool lineNumbers = false,
-  final String? classes,
-  super.key,
-}) extends StatelessComponent {
+  final Set<int> deadLines;
+  final bool lineNumbers;
+  final String? classes;
+
   @override
   Component build(BuildContext context) {
     final copy = copyText ?? source;
@@ -60,16 +70,23 @@ class const CodeBlock({
 }
 
 /// A terminal transcript whose lines appear one after another.
-class const Terminal({
-  required final String transcript,
-  final String title = 'zsh',
+class Terminal extends StatelessComponent {
+  const Terminal({
+    required this.transcript,
+    this.title = 'zsh',
+    this.animated = false,
+    this.copyText = '',
+    super.key,
+  });
+
+  final String transcript;
+  final String title;
 
   /// Reveal lines sequentially with a CSS animation (respects
   /// `prefers-reduced-motion`).
-  final bool animated = false,
-  final String copyText = '',
-  super.key,
-}) extends StatelessComponent {
+  final bool animated;
+  final String copyText;
+
   @override
   Component build(BuildContext context) {
     return figure(

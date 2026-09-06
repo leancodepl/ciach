@@ -8,8 +8,11 @@ import 'package:ciach_website/site.dart';
 import 'package:jaspr/jaspr.dart';
 
 /// The landing page: what ciach is, what it looks like, where to go next.
-class const HomePage({required final String version, super.key})
-    extends StatelessComponent {
+class HomePage extends StatelessComponent {
+  const HomePage({required this.version, super.key});
+
+  final String version;
+
   @override
   Component build(BuildContext context) {
     return PageShell(

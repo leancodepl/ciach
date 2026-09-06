@@ -12,18 +12,19 @@ import 'package:universal_web/web.dart' as web;
 /// as a plain button and hydrated on the client, so the page stays useful with
 /// JavaScript disabled and the shipped script stays tiny.
 @client
-class const CopyButton({
-  required final String text,
+class CopyButton extends StatefulComponent {
+  const CopyButton({required this.text, this.label, super.key});
+
+  final String text;
 
   /// Visible label. Omit for an icon-only button.
-  final String? label,
-  super.key,
-}) extends StatefulComponent {
+  final String? label;
+
   @override
   State<CopyButton> createState() => _CopyButtonState();
 }
 
-class _CopyButtonState() extends State<CopyButton> {
+class _CopyButtonState extends State<CopyButton> {
   bool _copied = false;
   Timer? _resetTimer;
 

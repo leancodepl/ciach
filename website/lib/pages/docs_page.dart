@@ -158,8 +158,11 @@ Component _mark(bool yes) => yes
 
 /// Everything past the landing page, on one page with a sticky table of
 /// contents. The README on GitHub stays the exhaustive reference.
-class const DocsPage({required final String version, super.key})
-    extends StatelessComponent {
+class DocsPage extends StatelessComponent {
+  const DocsPage({required this.version, super.key});
+
+  final String version;
+
   @override
   Component build(BuildContext context) {
     return PageShell(

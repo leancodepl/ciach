@@ -14,7 +14,7 @@ import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 import 'package:syntax_highlight_lite/syntax_highlight_lite.dart' as sh;
 
-enum Language() {
+enum Language {
   dart,
   yaml,
   shell,

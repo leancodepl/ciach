@@ -8,8 +8,11 @@ import 'package:jaspr/jaspr.dart';
 /// The site header: the brand on the left, and on the right the three places
 /// a visitor can go from any page. Every item is a real link; in-page
 /// sections are reached by scrolling.
-class const NavBar({required final SitePage page, super.key})
-    extends StatelessComponent {
+class NavBar extends StatelessComponent {
+  const NavBar({required this.page, super.key});
+
+  final SitePage page;
+
   @override
   Component build(BuildContext context) {
     final onDocs = page == .docs;

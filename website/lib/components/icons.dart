@@ -3,7 +3,7 @@ import 'package:jaspr/jaspr.dart';
 
 /// Inline SVG icons, drawn with Jaspr's typed SVG components so they hydrate
 /// cleanly inside client components too.
-enum Icon(final List<String> paths) {
+enum Icon {
   copy(['M9 9h10v10H9z', 'M5 15V5h10']),
   check(['m5 12 5 5L20 7']),
   github([
@@ -38,6 +38,10 @@ enum Icon(final List<String> paths) {
   ]),
   book(['M4 4h7v16H4z', 'M13 4h7v16h-7z', 'M11 4a2 2 0 0 1 2 0']),
   search(['M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z', 'm20 20-4-4']);
+
+  Icon(this.paths);
+
+  final List<String> paths;
 
   Component build({int size = 20, String? classes}) => svg(
     classes: classes,

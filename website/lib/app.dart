@@ -5,11 +5,12 @@ import 'package:jaspr_router/jaspr_router.dart';
 
 /// The site: a lean landing page and a docs page. Both routes are rendered to
 /// static HTML at build time; only `CopyButton` islands hydrate on the client.
-class const App({
+class App extends StatelessComponent {
+  const App({required this.version, super.key});
+
   /// The ciach version shown across the site.
-  required final String version,
-  super.key,
-}) extends StatelessComponent {
+  final String version;
+
   @override
   Component build(BuildContext context) {
     return Router(

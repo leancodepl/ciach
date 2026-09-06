@@ -4,6 +4,16 @@ analyzer:
   exclude:
     - lib/**.options.dart
 
+linter:
+  rules:
+    # jaspr_builder parses with analyzer 12, which accepts Dart 3.13 primary
+    # constructors only behind an experiment flag that `jaspr` cannot pass to
+    # build_runner, so the site keeps classic constructors until Jaspr moves
+    # to a newer analyzer.
+    use_primary_constructors: false
+    unnecessary_primary_constructor_body: false
+    unnecessary_type_name_in_constructor: false
+
 plugins:
   jaspr_lints:
     version: ^0.7.2

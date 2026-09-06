@@ -10,22 +10,28 @@ import 'package:universal_web/web.dart' as web;
 /// Links carry the page path, because the document's `<base href>` would
 /// otherwise resolve a bare `#fragment` against the site root.
 @client
-class const DocsToc({
+class DocsToc extends StatefulComponent {
+  const DocsToc({
+    required this.path,
+    required this.ids,
+    required this.labels,
+    super.key,
+  });
+
   /// Absolute path of the page the sections live on, e.g. `/docs`.
-  required final String path,
+  final String path;
 
   /// Section element ids, in page order.
-  required final List<String> ids,
+  final List<String> ids;
 
   /// Link labels, parallel to [ids].
-  required final List<String> labels,
-  super.key,
-}) extends StatefulComponent {
+  final List<String> labels;
+
   @override
   State<DocsToc> createState() => _DocsTocState();
 }
 
-class _DocsTocState() extends State<DocsToc> {
+class _DocsTocState extends State<DocsToc> {
   String? _active;
   JSFunction? _listener;
   bool _scheduled = false;

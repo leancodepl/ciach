@@ -10,13 +10,16 @@ import 'package:universal_web/web.dart' as web;
 /// With it, hydration first arms the target so nothing is struck yet, and
 /// the animation plays once the block is on screen.
 @client
-class const DemoTrigger({required final String targetId, super.key})
-    extends StatefulComponent {
+class DemoTrigger extends StatefulComponent {
+  const DemoTrigger({required this.targetId, super.key});
+
+  final String targetId;
+
   @override
   State<DemoTrigger> createState() => _DemoTriggerState();
 }
 
-class _DemoTriggerState() extends State<DemoTrigger> {
+class _DemoTriggerState extends State<DemoTrigger> {
   web.IntersectionObserver? _observer;
 
   @override
