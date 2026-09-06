@@ -38,9 +38,7 @@ Removed 4 unused declarations from 1 file.''';
 
 /// The `--remove` walkthrough: the file with its dead code struck out as the
 /// block scrolls into view, next to the command that did it.
-class CiachDemo extends StatelessComponent {
-  const CiachDemo({super.key});
-
+class const CiachDemo({super.key}) extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     return const Section(
@@ -54,7 +52,7 @@ class CiachDemo extends StatelessComponent {
         div(classes: 'ciach-grid', [
           div(id: 'remove-demo', classes: 'ciach-before', [
             CodeBlock(
-              code: _before,
+              source: _before,
               language: .dart,
               title: 'lib/greeting.dart',
               deadLines: {8, 9, 13, 14, 16, 17, 18},

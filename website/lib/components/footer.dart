@@ -4,11 +4,8 @@ import 'package:ciach_website/site.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
-class SiteFooter extends StatelessComponent {
-  const SiteFooter({required this.version, super.key});
-
-  final String version;
-
+class const SiteFooter({required final String version, super.key})
+    extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     return footer(classes: 'site-footer', [

@@ -42,14 +42,12 @@ const _githubOutput = '''
 ::warning file=lib/orphans.dart,line=22,col=7,title=Unused declaration::Unused class 'FullyDeadClass'
 ::notice file=lib/greeting.dart,line=41,col=6,title=Referenced only from a doc comment::function '_docOnlyMentioned' has no code references, only a dartdoc link''';
 
-class _Format {
-  const _Format(this.id, this.command, this.output, this.language);
-
-  final String id;
-  final String command;
-  final String output;
-  final Language language;
-}
+class const _Format(
+  final String id,
+  final String command,
+  final String output,
+  final Language language,
+);
 
 const _formats = [
   _Format('text', 'ciach', _textOutput, .console),
@@ -59,9 +57,7 @@ const _formats = [
 
 /// Output-format switcher built from radio inputs and CSS alone, so all three
 /// samples are in the HTML for crawlers and the page needs no script for it.
-class OutputFormats extends StatelessComponent {
-  const OutputFormats({super.key});
-
+class const OutputFormats({super.key}) extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     return Section(
@@ -72,15 +68,12 @@ class OutputFormats extends StatelessComponent {
       children: [
         div(classes: 'tabs', [
           for (final (index, format) in _formats.indexed)
-            .element(
-              tag: 'input',
-              attributes: {
-                'type': 'radio',
-                'name': 'format',
-                'id': 'format-${format.id}',
-                'class': 'tab-input',
-                if (index == 0) 'checked': '',
-              },
+            input(
+              type: .radio,
+              name: 'format',
+              id: 'format-${format.id}',
+              classes: 'tab-input',
+              checked: index == 0 ? true : null,
             ),
           div(
             classes: 'tab-list',
@@ -103,7 +96,7 @@ class OutputFormats extends StatelessComponent {
             for (final format in _formats)
               div(classes: 'tab-panel tab-panel-${format.id}', [
                 CodeBlock(
-                  code: format.output,
+                  source: format.output,
                   language: format.language,
                   title: r'$ ' + format.command,
                   copyText: format.command,

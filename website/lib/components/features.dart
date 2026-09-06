@@ -3,13 +3,7 @@ import 'package:ciach_website/components/section.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
-class _Feature {
-  const _Feature(this.icon, this.title, this.body);
-
-  final Icon icon;
-  final String title;
-  final String body;
-}
+class const _Feature(final Icon icon, final String title, final String body);
 
 const _features = [
   _Feature(
@@ -48,9 +42,7 @@ const _features = [
   ),
 ];
 
-class Features extends StatelessComponent {
-  const Features({super.key});
-
+class const Features({super.key}) extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     return Section(

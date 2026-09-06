@@ -13,8 +13,19 @@ trigger that starts the `--remove` animation.
 dart pub global activate jaspr_cli 0.23.4
 cd website
 dart pub get
-jaspr serve          # http://localhost:8080, hot-reloads on save
+tool/jaspr.sh serve  # http://localhost:8080, hot-reloads on save
 ```
+
+`tool/jaspr.sh` is `jaspr` with one addition: the site uses Dart 3.13
+primary constructors, which `jaspr_builder` (still on analyzer 12) only
+accepts with an experiment flag that `jaspr` itself cannot pass to
+build_runner. The wrapper puts a `dart` shim first on PATH that adds the
+flag; see `tool/dart_shim.sh`. Plain `jaspr serve` fails on the first
+primary constructor it meets.
+
+Analysis needs nothing special: the IDE and `dart analyze` (from here or
+from the repository root) use the SDK's analyzer, with `leancode_lint` and
+the `jaspr_lints` plugin from `analysis_options.yaml`.
 
 ## Build
 
@@ -70,14 +81,15 @@ production workflow's alias step assigns the domain to the project.
 
 - `jaspr_builder` 0.23 requires `analyzer` 12 and does not compile against
   13 or 14. `leancode_lint` requires 13+, but only its `analysis_options.yaml`
-  is consumed here (an enabled plugin is resolved separately by the analysis
+  is consumed here (lint plugins are resolved separately by the analysis
   server under `~/.dartServer/.plugin_manager/`), so `dependency_overrides`
   pins `analyzer` to 12. That override hides other packages' analyzer
   requirements from pub, so `build_runner`, `build_web_compilers` and
   `dart_style` are capped at their last analyzer-12 releases and
   `pubspec.lock` is committed; a fresh resolve without those would pick
-  versions that fail to compile. Three lint rules whose fixes produce Dart 3.13 constructor syntax are off,
-  since analyzer 12 cannot parse it. Drop all of this once Jaspr moves to a
-  newer analyzer.
-- The package is excluded from the root `dart analyze` (see the root
-  `analysis_options.yaml`) and from the published package (`.pubignore`).
+  versions that fail to compile. Primary constructors reach the builder
+  through the `dart` shim described above. Drop all of this once Jaspr moves
+  to a newer analyzer.
+- The package is part of the root `dart analyze` (the root workflow runs
+  `dart pub get` here first) but excluded from the published package
+  (`.pubignore`).

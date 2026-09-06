@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
 # Builds the static site into build/jaspr. Used by `vercel build` (see
 # vercel.json) and by anyone building locally; expects `dart` and `jaspr` on
-# PATH.
+# PATH. Wraps `dart` so jaspr_builder accepts primary constructors; see
+# tool/dart_shim.sh.
 #
 # SITE_URL is the URL the build will be served from. It drives <base href>,
 # canonical and Open Graph URLs, the sitemap, and robots.txt: anything other
 # than the production domain is treated as a preview and kept out of search
 # engines.
 set -euo pipefail
+cd "$(dirname "$0")/.."
+
+# shellcheck source=tool/dart_shim.sh
+source tool/dart_shim.sh
+use_dart_shim
+trap 'rm -rf "$DART_SHIM_DIR"' EXIT
 
 PRODUCTION_URL="https://ciach.leancode.co"
 SITE_URL="${SITE_URL:-$PRODUCTION_URL}"

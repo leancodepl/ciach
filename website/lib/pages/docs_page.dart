@@ -158,11 +158,8 @@ Component _mark(bool yes) => yes
 
 /// Everything past the landing page, on one page with a sticky table of
 /// contents. The README on GitHub stays the exhaustive reference.
-class DocsPage extends StatelessComponent {
-  const DocsPage({required this.version, super.key});
-
-  final String version;
-
+class const DocsPage({required final String version, super.key})
+    extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     return PageShell(
@@ -224,7 +221,7 @@ class DocsPage extends StatelessComponent {
                   ),
                 ]),
                 CodeBlock(
-                  code: '$installCommand\n$devDependencyCommand',
+                  source: '$installCommand\n$devDependencyCommand',
                   language: .shell,
                   title: 'install',
                   copyText: installCommand,
@@ -290,7 +287,7 @@ class DocsPage extends StatelessComponent {
                   .text('.'),
                 ]),
                 CodeBlock(
-                  code: _workflow,
+                  source: _workflow,
                   language: .yaml,
                   title: '.github/workflows/test.yml',
                 ),
@@ -315,7 +312,11 @@ class DocsPage extends StatelessComponent {
                   code([.text('--no-config')]),
                   .text(' ignores it.'),
                 ]),
-                CodeBlock(code: _config, language: .yaml, title: 'ciach.yaml'),
+                CodeBlock(
+                  source: _config,
+                  language: .yaml,
+                  title: 'ciach.yaml',
+                ),
               ],
             ),
             DocSection(
@@ -463,7 +464,7 @@ class DocsPage extends StatelessComponent {
                   ),
                 ]),
                 const CodeBlock(
-                  code: _docOnly,
+                  source: _docOnly,
                   language: .console,
                   copyText: '',
                 ),
@@ -511,7 +512,7 @@ class DocsPage extends StatelessComponent {
                   ),
                 ]),
                 CodeBlock(
-                  code: _library,
+                  source: _library,
                   language: .dart,
                   title: 'tool/dead_code.dart',
                 ),

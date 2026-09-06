@@ -19,11 +19,8 @@ lib/orphans.dart
 
 Found 5 unused declarations in 2 files (scanned 13 files, 44 declarations, 0.5s).''';
 
-class Hero extends StatelessComponent {
-  const Hero({required this.version, super.key});
-
-  final String version;
-
+class const Hero({required final String version, super.key})
+    extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     return section(

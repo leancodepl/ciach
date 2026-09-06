@@ -6,28 +6,18 @@ import 'package:jaspr/jaspr.dart';
 /// Which top-level page is being shown; drives the active nav item and the
 /// page-relative anchors (a bare `#fragment` would resolve against the
 /// document's `<base href>`).
-enum SitePage {
+enum SitePage(final String path) {
   home('/'),
-  docs('/docs');
-
-  SitePage(this.path);
-
-  final String path;
+  docs('/docs'),
 }
 
 /// Skip link, header, `<main>` and footer around a page's content.
-class PageShell extends StatelessComponent {
-  const PageShell({
-    required this.page,
-    required this.version,
-    required this.children,
-    super.key,
-  });
-
-  final SitePage page;
-  final String version;
-  final List<Component> children;
-
+class const PageShell({
+  required final SitePage page,
+  required final String version,
+  required final List<Component> children,
+  super.key,
+}) extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     return .fragment([
@@ -35,7 +25,7 @@ class PageShell extends StatelessComponent {
         .text('Skip to content'),
       ]),
       NavBar(page: page),
-      .element(tag: 'main', id: 'main', children: children),
+      main_(id: 'main', children),
       SiteFooter(version: version),
     ]);
   }
