@@ -12,6 +12,3 @@ jaspr serve
 `bash tool/build.sh` builds it into `build/jaspr`; Vercel runs the same
 script from the GitHub workflows in `.github/workflows/website_*.yml`.
 `node tool/render_assets.mjs` regenerates the icons and the social card.
-
-`jaspr_builder` still needs analyzer 12, hence the `dependency_overrides`
-and the capped dev dependencies in `pubspec.yaml`.
