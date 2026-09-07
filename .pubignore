@@ -1,0 +1,9 @@
+# pub uses this file instead of .gitignore, so it repeats those entries.
+.dart_tool/
+.idea/
+pubspec.lock
+.fvm/
+.DS_Store
+
+# The landing page is not part of the published package.
+website/

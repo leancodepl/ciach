@@ -29,6 +29,10 @@ jobs:
       - name: Download pub dependencies
         run: dart pub get
 
+      - name: Download website pub dependencies
+        run: dart pub get
+        working-directory: website
+
       - name: Run analyzer
         run: dart analyze
 
