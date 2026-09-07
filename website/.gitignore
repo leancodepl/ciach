@@ -4,4 +4,3 @@ build/
 # application and pins its build toolchain with it.
 !pubspec.lock
 .vercel/
-node_modules/
