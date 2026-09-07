@@ -28,7 +28,7 @@ const fontsStylesheetUrl =
     '?family=Space+Grotesk:wght@400;500;600;700'
     '&family=JetBrains+Mono:wght@400;600&display=swap';
 
-/// `<head>` children shared by every page: icons, fonts, styles, the social
+/// `<head>` children shared by every page: icons, fonts, the social
 /// card image and the structured data describing the package itself.
 List<Component> siteHead({required String version}) => [
   const link(rel: 'icon', href: 'favicon.svg', type: 'image/svg+xml'),
@@ -48,7 +48,6 @@ List<Component> siteHead({required String version}) => [
     attributes: {'crossorigin': ''},
   ),
   const link(rel: 'stylesheet', href: fontsStylesheetUrl),
-  const link(rel: 'stylesheet', href: 'styles.css'),
   ..._properties({
     'og:type': 'website',
     'og:site_name': siteName,

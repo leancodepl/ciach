@@ -1,6 +1,7 @@
 import 'package:ciach_website/components/code_block.dart';
 import 'package:ciach_website/components/section.dart';
 import 'package:ciach_website/highlight.dart';
+import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
@@ -61,6 +62,63 @@ const _formats = [
 /// samples are in the HTML for crawlers and the page needs no script for it.
 class OutputFormats extends StatelessComponent {
   const OutputFormats({super.key});
+
+  @css
+  static List<StyleRule> get styles => [
+    css('.tabs').styles(position: const .relative()),
+    css('.tab-input').styles(
+      position: const .absolute(),
+      width: 1.px,
+      height: 1.px,
+      margin: .all((-1).px),
+      opacity: 0,
+      overflow: .hidden,
+      raw: {'clip': 'rect(0 0 0 0)'},
+    ),
+    css('.tab-list').styles(
+      display: .inlineFlex,
+      padding: .all(0.3.rem),
+      margin: .only(bottom: 1.25.rem),
+      border: hairline(borderColor),
+      radius: .circular(999.px),
+      gap: .all(0.25.rem),
+      backgroundColor: surfaceColor,
+    ),
+    css('.tab').styles(
+      padding: .symmetric(vertical: 0.5.rem, horizontal: 1.rem),
+      radius: .circular(999.px),
+      cursor: .pointer,
+      transition: .combine([
+        Transition('background-color', duration: 150.ms, curve: .ease),
+        Transition('color', duration: 150.ms, curve: .ease),
+      ]),
+      color: text2Color,
+    ),
+    css('.tab code').styles(fontSize: 0.85.rem),
+    css('.tab:hover').styles(color: textColor),
+    css('.tab-panel').styles(display: .none),
+    // The checked radio selects its tab and panel, so the tabs need no script.
+    css(
+      _selectors((id) => "#format-$id:checked ~ .tab-list [for='format-$id']"),
+    ).styles(color: accentInkColor, backgroundColor: accentColor),
+    css(_selectors((id) => '#format-$id:checked ~ .tab-panels .tab-panel-$id'))
+        .styles(display: .block),
+    css(
+      _selectors(
+        (id) => "#format-$id:focus-visible ~ .tab-list [for='format-$id']",
+      ),
+    ).styles(
+      outline: Outline(
+        color: accentColor,
+        style: .solid,
+        width: OutlineWidth(2.px),
+        offset: 2.px,
+      ),
+    ),
+  ];
+
+  static String _selectors(String Function(String id) selector) =>
+      _formats.map((format) => selector(format.id)).join(', ');
 
   @override
   Component build(BuildContext context) {

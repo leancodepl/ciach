@@ -1,5 +1,6 @@
 import 'package:ciach_website/components/icons.dart';
 import 'package:ciach_website/components/section.dart';
+import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
@@ -50,6 +51,37 @@ const _features = [
 
 class Features extends StatelessComponent {
   const Features({super.key});
+
+  @css
+  static List<StyleRule> get styles => [
+    css('.feature-grid').styles(
+      display: .grid,
+      gap: .all(1.rem),
+      raw: {
+        'grid-template-columns':
+            'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
+      },
+    ),
+    css('.feature')
+        .styles(display: .flex, flexDirection: .column, gap: .all(0.6.rem)),
+    css('.feature:hover').styles(
+      transform: .translate(y: (-2).px),
+      raw: {'border-color': 'var(--border-2)'},
+    ),
+    css('.feature-icon').styles(
+      display: .inlineGrid,
+      width: 42.px,
+      height: 42.px,
+      margin: .only(bottom: 0.5.rem),
+      border: hairline(accentAlpha(0.3)),
+      radius: .circular(12.px),
+      color: accentColor,
+      backgroundColor: accentSoftColor,
+      raw: {'place-items': 'center'},
+    ),
+    css('.feature h3').styles(margin: .zero),
+    css('.feature p').styles(raw: {'flex': '1'}),
+  ];
 
   @override
   Component build(BuildContext context) {

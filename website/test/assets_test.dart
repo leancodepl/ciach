@@ -1,7 +1,7 @@
 /// Golden test for the rendered image assets in `web/`: the PNG icons and the
 /// social card. Each asset is rendered again in a pinned Chrome for Testing and
 /// compared with the committed file, so `web/` cannot drift from
-/// `favicon.svg`, the `OgCard` component or the stylesheet it is built with.
+/// `favicon.svg`, the `OgCard` component or the styles it is built with.
 ///
 ///     dart test                    # compare with the committed files
 ///     UPDATE_GOLDENS=1 dart test   # rewrite them after an intended change
@@ -156,16 +156,12 @@ Future<Uint8List> renderIcon(
 /// Renders [OgCard] through Jaspr with the site's stylesheet and web fonts.
 Future<Uint8List> renderCard(Browser browser, Directory work) async {
   final fontFaces = fetchFonts(work);
+  // Jaspr inlines the site's own rules into the head; the card brings its
+  // sizing along.
   final response = await renderComponent(
     Document(
       lang: 'en',
-      head: [
-        link(
-          rel: 'stylesheet',
-          href: File('web/styles.css').absolute.uri.toString(),
-        ),
-        RawText('<style>$fontFaces</style>'),
-      ],
+      head: [RawText('<style>$fontFaces</style>')],
       body: const OgCard(),
     ),
   );

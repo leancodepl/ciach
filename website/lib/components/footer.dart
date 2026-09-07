@@ -1,6 +1,7 @@
 import 'package:ciach_website/components/icons.dart';
 import 'package:ciach_website/components/section.dart';
 import 'package:ciach_website/site.dart';
+import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
@@ -8,6 +9,75 @@ class SiteFooter extends StatelessComponent {
   const SiteFooter({required this.version, super.key});
 
   final String version;
+
+  @css
+  static List<StyleRule> get styles => [
+    css('.site-footer').styles(
+      border: .only(top: hairlineSide(borderColor)),
+      backgroundColor: bg2Color,
+    ),
+    css('.cta').styles(
+      padding: const .symmetric(
+        vertical: .expression('clamp(4rem, 8vw, 6rem)'),
+        horizontal: .zero,
+      ),
+      border: .only(bottom: hairlineSide(borderColor)),
+      raw: {
+        'background':
+            'radial-gradient(50% 60% at 50% 100%, rgba(237, 255, 47, 0.12), '
+            'transparent 70%), var(--bg-2)',
+      },
+    ),
+    css('.cta-inner').styles(maxWidth: 40.rem, textAlign: .center),
+    css('.cta h2')
+        .styles(fontSize: const .expression('clamp(1.9rem, 3.6vw, 2.75rem)')),
+    css('.cta p').styles(
+      margin: .only(top: 1.rem),
+      color: text2Color,
+      fontSize: 1.1.rem,
+    ),
+    css('.footer-grid').styles(
+      display: .grid,
+      padding: .symmetric(vertical: 3.5.rem, horizontal: .zero),
+      gap: .all(2.5.rem),
+    ),
+    css('.footer-grid h3').styles(
+      margin: .only(bottom: 0.9.rem),
+      color: mutedColor,
+      fontFamily: fontMono,
+      fontSize: 0.75.rem,
+      fontWeight: .w600,
+      textTransform: .upperCase,
+      letterSpacing: 0.08.em,
+    ),
+    css('.footer-grid ul').styles(display: .grid, gap: .all(0.5.rem)),
+    css('.footer-grid li a').styles(color: text2Color),
+    css('.footer-grid li a:hover').styles(color: accentColor),
+    css('.footer-brand p').styles(
+      maxWidth: 24.rem,
+      margin: .only(top: 1.rem),
+      color: text2Color,
+      fontSize: 0.95.rem,
+    ),
+    css('.footer-bottom').styles(
+      display: .flex,
+      padding: .fromLTRB(.zero, 1.5.rem, .zero, 2.rem),
+      border: .only(top: hairlineSide(borderColor)),
+      flexWrap: .wrap,
+      justifyContent: .spaceBetween,
+      gap: .all(0.75.rem),
+      color: mutedColor,
+      fontSize: 0.85.rem,
+    ),
+    css('.footer-bottom a').styles(color: text2Color),
+    css.media(MediaQuery.all(minWidth: 760.px), [
+      css('.footer-grid').styles(raw: {'grid-template-columns': '1fr 1fr'}),
+    ]),
+    css.media(MediaQuery.all(minWidth: 1000.px), [
+      css('.footer-grid')
+          .styles(raw: {'grid-template-columns': '1.6fr 1fr 1fr 1.4fr'}),
+    ]),
+  ];
 
   @override
   Component build(BuildContext context) {

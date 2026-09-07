@@ -3,6 +3,7 @@ import 'package:ciach_website/components/copy_button.dart';
 import 'package:ciach_website/components/icons.dart';
 import 'package:ciach_website/components/section.dart';
 import 'package:ciach_website/site.dart';
+import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
@@ -23,6 +24,120 @@ class Hero extends StatelessComponent {
   const Hero({required this.version, super.key});
 
   final String version;
+
+  @css
+  static List<StyleRule> get styles => [
+    css('.hero').styles(
+      position: const .relative(),
+      padding: .fromLTRB(
+        .zero,
+        const .expression('clamp(3.5rem, 9vw, 7rem)'),
+        .zero,
+        3.rem,
+      ),
+      overflow: .hidden,
+      raw: {'isolation': 'isolate'},
+    ),
+    css('.hero-bg').styles(
+      position: const .absolute(),
+      zIndex: const ZIndex(-1),
+      raw: {
+        'inset': '0',
+        'background':
+            'radial-gradient(55% 45% at 72% 18%, rgba(237, 255, 47, 0.14), '
+            'transparent 65%), '
+            'radial-gradient(40% 40% at 10% 90%, rgba(237, 255, 47, 0.06), '
+            'transparent 60%), '
+            'repeating-linear-gradient(-58deg, transparent 0 148px, '
+            'rgba(237, 255, 47, 0.09) 148px 149px)',
+        'mask-image': 'linear-gradient(to bottom, #000 30%, transparent 100%)',
+        '-webkit-mask-image':
+            'linear-gradient(to bottom, #000 30%, transparent 100%)',
+      },
+    ),
+    css('.hero-grid')
+        .styles(display: .grid, alignItems: .center, gap: .all(3.rem)),
+    css('.hero-badges').styles(
+      display: .flex,
+      margin: .only(bottom: 1.5.rem),
+      flexWrap: .wrap,
+      gap: .all(0.5.rem),
+    ),
+    css('.hero h1').styles(
+      fontSize: const .expression('clamp(2.5rem, 5.6vw, 4.25rem)'),
+      fontWeight: .w700,
+      letterSpacing: (-0.035).em,
+      lineHeight: const .expression('1.02'),
+    ),
+    css('.hero-lead').styles(
+      maxWidth: 38.rem,
+      margin: .only(top: 1.5.rem),
+      color: text2Color,
+      fontSize: const .expression('clamp(1.1rem, 1.6vw, 1.3rem)'),
+    ),
+    css('.pronounce').styles(
+      maxWidth: 38.rem,
+      padding: .only(left: 1.rem),
+      margin: .only(top: 1.25.rem),
+      border: .only(
+        left: BorderSide(color: accentColor, width: 2.px),
+      ),
+      color: mutedColor,
+      fontSize: 0.95.rem,
+    ),
+    css('.pronounce em').styles(color: textColor, fontStyle: .italic),
+    // IPA glyphs: skip the mono stack, which lacks them on Android, and
+    // prefer fonts that ship the IPA block before the generic fallback.
+    css('.ipa').styles(
+      color: text2Color,
+      fontFamily: const .list([
+        FontFamily('Noto Sans'),
+        FontFamily('DejaVu Sans'),
+        FontFamily('Segoe UI'),
+        FontFamily('Helvetica Neue'),
+        FontFamilies.arial,
+        FontFamilies.systemUi,
+        FontFamilies.sansSerif,
+      ]),
+      fontSize: 0.95.em,
+    ),
+    css('.install').styles(margin: .only(top: 2.rem)),
+    css('.install-command').styles(
+      display: .flex,
+      maxWidth: 34.rem,
+      padding: .fromLTRB(1.rem, 0.5.rem, 0.5.rem, 0.5.rem),
+      border: hairline(border2Color),
+      radius: const .circular(radius),
+      alignItems: .center,
+      gap: .all(0.75.rem),
+      backgroundColor: surfaceColor,
+      raw: {'box-shadow': shadow},
+    ),
+    css('.install-command code').styles(
+      minWidth: .zero,
+      overflow: const .only(x: .auto),
+      fontSize: 0.95.rem,
+      whiteSpace: .noWrap,
+      raw: {'flex': '1'},
+    ),
+    css('.hero-actions').styles(
+      display: .flex,
+      margin: .only(top: 1.75.rem),
+      flexWrap: .wrap,
+      gap: .all(0.75.rem),
+    ),
+    css('.hero-actions.center').styles(justifyContent: .center),
+    css('.hero-demo').styles(minWidth: .zero),
+    css.media(MediaQuery.all(minWidth: 1000.px), [
+      css('.hero-grid').styles(raw: {'grid-template-columns': '1.05fr 1fr'}),
+    ]),
+    css.media(MediaQuery.all(maxWidth: 540.px), [
+      css('.install-command').styles(flexWrap: .wrap),
+      css('.install-command code')
+          .styles(order: -1, raw: {'flex-basis': '100%'}),
+      css('.install-command .tk-prompt').styles(display: .none),
+    ]),
+  ];
 
   @override
   Component build(BuildContext context) {

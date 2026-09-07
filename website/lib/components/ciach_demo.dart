@@ -1,6 +1,7 @@
 import 'package:ciach_website/components/code_block.dart';
 import 'package:ciach_website/components/demo_trigger.dart';
 import 'package:ciach_website/components/section.dart';
+import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
@@ -40,6 +41,61 @@ Removed 4 unused declarations from 1 file.''';
 /// block scrolls into view, next to the command that did it.
 class CiachDemo extends StatelessComponent {
   const CiachDemo({super.key});
+
+  @css
+  static List<StyleRule> get styles => [
+    css('.ciach-grid')
+        .styles(display: .grid, alignItems: .start, gap: .all(1.25.rem)),
+    // Dead lines: struck and faded. Without JavaScript that is the resting
+    // state; with it, `.armed` hides the strike until the block scrolls into
+    // view and `.play` runs the animation once, one line after another.
+    css('.ciach-before .line.dead').styles(
+      position: const .relative(),
+      // Size to the text so the strike covers the code, not the whole block.
+      minWidth: .zero,
+      opacity: 0.45,
+    ),
+    css('.ciach-before .line.dead::after').styles(
+      content: '',
+      position: .absolute(top: 50.percent, left: (-0.15).em, right: (-0.15).em),
+      height: 2.px,
+      pointerEvents: .none,
+      backgroundColor: dangerColor,
+      raw: {'transform-origin': 'left center'},
+    ),
+    css('.ciach-before.armed .line.dead').styles(opacity: 1),
+    css('.ciach-before.armed .line.dead::after')
+        .styles(raw: {'transform': 'scaleX(0)'}),
+    css('.ciach-before.play .line.dead').styles(
+      animation: Animation(
+        name: 'dead-fade',
+        duration: 500.ms,
+        curve: .easeOut,
+        fillMode: .forwards,
+      ),
+      raw: {'animation-delay': 'calc(var(--d, 0) * 140ms + 1.1s)'},
+    ),
+    css('.ciach-before.play .line.dead::after').styles(
+      animation: Animation(
+        name: 'ciach',
+        duration: 300.ms,
+        curve: .easeOut,
+        fillMode: .forwards,
+      ),
+      raw: {'animation-delay': 'calc(var(--d, 0) * 140ms + 0.4s)'},
+    ),
+    css.keyframes('ciach', {
+      'to': const Styles(raw: {'transform': 'scaleX(1)'}),
+    }),
+    css.keyframes('dead-fade', {'to': const Styles(opacity: 0.45)}),
+    css.media(MediaQuery.all(minWidth: 760.px), [
+      css('.ciach-grid').styles(raw: {'grid-template-columns': '1fr 1fr'}),
+    ]),
+    css.media(const MediaQuery.raw('(prefers-reduced-motion: reduce)'), [
+      css('.ciach-before.armed .line.dead').styles(opacity: 0.45),
+      css('.ciach-before.armed .line.dead::after').styles(transform: .none),
+    ]),
+  ];
 
   @override
   Component build(BuildContext context) {

@@ -5,6 +5,7 @@ import 'package:ciach_website/components/section.dart';
 import 'package:ciach_website/components/shell.dart';
 import 'package:ciach_website/seo.dart';
 import 'package:ciach_website/site.dart';
+import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
@@ -162,6 +163,158 @@ class DocsPage extends StatelessComponent {
   const DocsPage({required this.version, super.key});
 
   final String version;
+
+  @css
+  static List<StyleRule> get styles => [
+    ..._tableStyles,
+    css('.docs').styles(
+      display: .grid,
+      padding: const .fromLTRB(
+        .zero,
+        .expression('clamp(2.5rem, 6vw, 4.5rem)'),
+        .zero,
+        .expression('clamp(3rem, 8vw, 6rem)'),
+      ),
+      gap: .all(2.5.rem),
+    ),
+    css('.docs-nav ul').styles(
+      display: .grid,
+      border: .only(left: hairlineSide(borderColor)),
+      gap: .all(0.15.rem),
+    ),
+    css('.docs-nav li a').styles(
+      display: .block,
+      padding: .symmetric(vertical: 0.4.rem, horizontal: 0.9.rem),
+      margin: .only(left: (-1).px),
+      border: .only(
+        left: BorderSide(color: const Color('transparent'), width: 2.px),
+      ),
+      color: text2Color,
+      fontSize: 0.95.rem,
+    ),
+    css('.docs-nav li a:hover, .docs-nav li a.is-active')
+        .styles(color: textColor, raw: {'border-left-color': 'var(--accent)'}),
+    css('.docs-nav-foot').styles(
+      margin: .only(top: 1.25.rem),
+      fontSize: 0.9.rem,
+    ),
+    css('.docs-nav-foot a').styles(color: accentColor),
+    css('.docs-body').styles(maxWidth: 52.rem),
+    css('.docs-head h1').styles(
+      fontSize: const .expression('clamp(2.2rem, 4vw, 3rem)'),
+      fontWeight: .w700,
+      letterSpacing: (-0.03).em,
+    ),
+    css('.docs-head .lead').styles(margin: .only(top: 1.rem)),
+    css.media(MediaQuery.all(minWidth: 960.px), [
+      css('.docs')
+          .styles(raw: {'grid-template-columns': '220px minmax(0, 1fr)'}),
+      css('.docs-nav').styles(
+        position: const .sticky(
+          top: .expression('calc(var(--header-h) + 2rem)'),
+        ),
+        alignSelf: .start,
+      ),
+    ]),
+    // On narrow screens the table of contents becomes a compact chip row.
+    css.media(MediaQuery.all(maxWidth: 959.px), [
+      css('.docs-nav .eyebrow, .docs-nav-foot').styles(display: .none),
+      css('.docs-nav ul').styles(
+        display: .flex,
+        flexWrap: .wrap,
+        gap: .all(0.4.rem),
+        raw: {'border-left': '0'},
+      ),
+      css('.docs-nav li a').styles(
+        padding: .symmetric(vertical: 0.35.rem, horizontal: 0.75.rem),
+        margin: .zero,
+        border: hairline(border2Color),
+        radius: .circular(999.px),
+        fontSize: 0.85.rem,
+      ),
+      css('.docs-nav li a:hover, .docs-nav li a.is-active')
+          .styles(raw: {'border-color': 'var(--accent)'}),
+    ]),
+  ];
+
+  static List<StyleRule> get _tableStyles => [
+    css('.table-wrap').styles(
+      border: hairline(borderColor),
+      radius: const .circular(radius),
+      overflow: const .only(x: .auto),
+      backgroundColor: surfaceColor,
+    ),
+    css('.table').styles(
+      width: 100.percent,
+      fontSize: 0.95.rem,
+      raw: {'border-collapse': 'collapse'},
+    ),
+    css('.table th, .table td').styles(
+      padding: .symmetric(vertical: 0.9.rem, horizontal: 1.1.rem),
+      border: .only(bottom: hairlineSide(borderColor)),
+      textAlign: .left,
+      raw: {'vertical-align': 'top'},
+    ),
+    css('.table thead th').styles(
+      color: mutedColor,
+      fontFamily: fontMono,
+      fontSize: 0.75.rem,
+      fontWeight: .w600,
+      textTransform: .upperCase,
+      letterSpacing: 0.08.em,
+      backgroundColor: surface2Color,
+    ),
+    css('.table tbody tr:last-child th, .table tbody tr:last-child td')
+        .styles(raw: {'border-bottom': '0'}),
+    css('.table tbody th').styles(fontWeight: .w500),
+    // Flag and name columns hug their chips so the prose column gets the room.
+    css('.table:not(.table-compare) tbody th').styles(width: 1.percent),
+    css('.table tbody th code').styles(whiteSpace: .noWrap),
+    css('.table td').styles(color: text2Color),
+    css('.table code.flag').styles(
+      color: accentColor,
+      whiteSpace: .noWrap,
+      raw: {'border-color': 'rgba(237, 255, 47, 0.3)'},
+    ),
+    css(".table-compare th[scope='row']")
+        .styles(color: text2Color, whiteSpace: .normal),
+    css('.table-compare thead th')
+        .styles(textAlign: .center, whiteSpace: .noWrap),
+    css('.table-compare thead th:first-child').styles(textAlign: .left),
+    css('.table-compare thead code')
+        .styles(textTransform: .none, letterSpacing: .zero),
+    css('.table-compare td').styles(width: 8.rem, textAlign: .center),
+    css('.mark').styles(fontWeight: .w700),
+    css('.mark-yes').styles(color: okColor),
+    css('.mark-no').styles(color: mutedColor),
+    // Tables stack: one card per row, column names as small labels.
+    css.media(MediaQuery.all(maxWidth: 640.px), [
+      css('.table thead').styles(display: .none),
+      css('.table tbody, .table tr, .table th, .table td')
+          .styles(display: .block),
+      css('.table tr').styles(
+        padding: .symmetric(vertical: 0.9.rem, horizontal: 1.1.rem),
+        border: .only(bottom: hairlineSide(borderColor)),
+      ),
+      css('.table tbody tr:last-child').styles(raw: {'border-bottom': '0'}),
+      css('.table th, .table td').styles(padding: .zero, raw: {'border': '0'}),
+      css('.table tbody th').styles(
+        margin: .only(bottom: 0.5.rem),
+        whiteSpace: .normal,
+      ),
+      css('.table td + td').styles(margin: .only(top: 0.5.rem)),
+      css('.table td[data-label]::before').styles(
+        color: mutedColor,
+        fontFamily: fontMono,
+        fontSize: 0.7.rem,
+        fontWeight: .w600,
+        textTransform: .upperCase,
+        letterSpacing: 0.08.em,
+        raw: {'content': "attr(data-label) ': '"},
+      ),
+      css('.table-compare td').styles(width: .auto, textAlign: .left),
+    ]),
+  ];
 
   @override
   Component build(BuildContext context) {
