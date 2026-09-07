@@ -1,9 +1,9 @@
 name: Website production deployment
 
 # Builds website/ with the Vercel CLI and promotes it to production at
-# https://ciach.leancode.co. Only VERCEL_TOKEN is needed: the workflow links
-# the existing Vercel project by name. The production domain is assigned to
-# the project once, in its Vercel settings.
+# https://ciach.leancode.co. Needs VERCEL_TOKEN plus VERCEL_ORG_ID and
+# VERCEL_PROJECT_ID, which point the CLI at the project without linking. The
+# production domain is assigned to the project once, in its Vercel settings.
 
 on:
   push:
@@ -26,6 +26,8 @@ concurrency:
 
 env:
   VERCEL_SCOPE: leancode
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
   VERCEL_PROJECT: ciach
   VERCEL_CLI_VERSION: 50.41.0
   SITE_URL: https://ciach.leancode.co
@@ -55,13 +57,6 @@ jobs:
 
       - name: Install Vercel CLI
         run: npm install --global "vercel@$VERCEL_CLI_VERSION"
-
-      - name: Link Vercel project
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        # Resolves the org and project ids by name, since the workflow has no
-        # VERCEL_ORG_ID / VERCEL_PROJECT_ID; pull, build and deploy need them.
-        run: vercel link --yes --project="$VERCEL_PROJECT" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
 
       - name: Pull Vercel environment information
         env:
