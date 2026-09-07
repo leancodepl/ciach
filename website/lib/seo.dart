@@ -31,6 +31,7 @@ const fontsStylesheetUrl =
 /// `<head>` children shared by every page: icons, fonts, the social
 /// card image and the structured data describing the package itself.
 List<Component> siteHead({required String version}) => [
+  const link(rel: 'icon', href: 'favicon.ico', attributes: {'sizes': '32x32'}),
   const link(rel: 'icon', href: 'favicon.svg', type: 'image/svg+xml'),
   const link(
     rel: 'icon',

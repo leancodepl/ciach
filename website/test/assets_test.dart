@@ -1,4 +1,4 @@
-/// Golden test for the rendered image assets in `web/`: the PNG icons and the
+/// Golden test for the rendered image assets in `web/`: the icons and the
 /// social card. Each asset is rendered again in a pinned Chrome for Testing and
 /// compared with the committed file, so `web/` cannot drift from
 /// `favicon.svg`, the `OgCard` component or the styles it is built with.
@@ -39,14 +39,25 @@ const colorThreshold = 0.1;
 
 final updateGoldens = Platform.environment['UPDATE_GOLDENS'] == '1';
 
-/// The files this test produces, relative to `web/`.
+/// The files this test produces, relative to `web/`. Together with
+/// `favicon.svg` they are the icon set browsers, crawlers and home screens
+/// look for: a legacy `.ico` at the root, a PNG tab icon for browsers without
+/// SVG favicons, the iOS touch icon, and the two manifest sizes.
 final assets = <String, Future<Uint8List> Function(Browser, Directory)>{
-  // Rounded with transparent corners for browsers.
+  // Rounded with transparent corners for browser tabs.
+  'favicon.ico': (browser, _) async => img.encodeIco(
+    img.decodePng(
+      await renderIcon(browser, size: 32, radius: 14, transparent: true),
+    )!,
+  ),
   'favicon.png': (browser, _) =>
       renderIcon(browser, size: 96, radius: 14, transparent: true),
-  // Full-bleed for iOS, which masks the corners itself.
+  // Full-bleed for iOS and Android, which mask the corners themselves. The
+  // mark sits within the inner 80%, so the manifest icons pass as maskable.
   'apple-touch-icon.png': (browser, _) =>
       renderIcon(browser, size: 180, radius: 0),
+  'icon-192.png': (browser, _) => renderIcon(browser, size: 192, radius: 0),
+  'icon-512.png': (browser, _) => renderIcon(browser, size: 512, radius: 0),
   'images/og.png': renderCard,
 };
 
@@ -80,8 +91,8 @@ void main() {
         return;
       }
 
-      final expected = img.decodePng(file.readAsBytesSync())!;
-      final rendered = img.decodePng(actual)!;
+      final expected = img.decodeNamedImage(asset, file.readAsBytesSync())!;
+      final rendered = img.decodeNamedImage(asset, actual)!;
       expect(
         (rendered.width, rendered.height),
         (expected.width, expected.height),
