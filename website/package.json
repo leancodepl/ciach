@@ -1,0 +1,15 @@
+{
+  "name": "ciach-website-tools",
+  "private": true,
+  "description": "Renders and checks the site's image assets; see tool/render_assets.mjs.",
+  "type": "module",
+  "scripts": {
+    "assets": "node tool/render_assets.mjs",
+    "assets:check": "node tool/render_assets.mjs --check"
+  },
+  "devDependencies": {
+    "pixelmatch": "7.2.0",
+    "playwright": "1.56.1",
+    "pngjs": "7.0.0"
+  }
+}

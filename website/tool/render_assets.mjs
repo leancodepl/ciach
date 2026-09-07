@@ -1,59 +1,43 @@
 // Rasterizes the static image assets in web/ from the SVG mark and an inline
-// HTML card. Needs Node with Playwright and a Chromium it can launch:
+// HTML card, or checks that the committed files still match what it renders.
 //
-//   PLAYWRIGHT_CHROMIUM=/path/to/chromium node tool/render_assets.mjs
+//   npm ci && npx playwright install --with-deps chromium
+//   node tool/render_assets.mjs          # write web/favicon.png, web/apple-touch-icon.png, web/images/og.png
+//   node tool/render_assets.mjs --check  # render to a temp dir and compare against the committed files
 //
-// Outputs: web/favicon.png (96px, rounded, transparent corners),
-// web/apple-touch-icon.png (180px, full-bleed: iOS masks the corners itself)
-// and web/images/og.png (the 1200x630 social card, rendered with the site's
-// stylesheet and web fonts; curl must be able to reach Google Fonts).
+// The social card is rendered with the site's stylesheet and web fonts, so
+// curl must be able to reach Google Fonts. Pixel output depends on the
+// Chromium build, so --check is meant for CI on Linux with the Playwright
+// version pinned in package.json; small antialiasing differences are
+// tolerated, a changed layout, colour or font is not.
 import { chromium } from 'playwright';
+import pixelmatch from 'pixelmatch';
+import { PNG } from 'pngjs';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const web = join(root, 'web');
-const svg = readFileSync(join(web, 'favicon.svg'), 'utf8');
-const mark = svg.match(/<g[\s\S]*<\/g>/)[0];
+
+/** Relative paths of the files this script produces. */
+const assets = ['favicon.png', 'apple-touch-icon.png', 'images/og.png'];
+
+// Share of pixels that may differ before --check fails.
+const maxDifferentPixels = 0.005;
 
 const logoSvg = (size) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21 14.5 9.5"/><path d="M14.5 9.5 21 3c-1.5 5.5-4 8.5-8 10.5"/><path d="M9 15 5.5 18.5"/></svg>`;
 
-// Web fonts come from Google Fonts; honour an outbound proxy when one is set.
-const proxy = process.env.HTTPS_PROXY || process.env.https_proxy;
-const browser = await chromium.launch({
-  ...(proxy ? { proxy: { server: proxy } } : {}),
-  executablePath: process.env.PLAYWRIGHT_CHROMIUM,
-  args: ['--no-sandbox'],
-});
-
-async function shoot(html, width, height, out, { transparent = false } = {}) {
-  const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, ignoreHTTPSErrors: true });
-  await page.setContent(`<!doctype html><style>html,body{margin:0;background:${transparent ? 'transparent' : '#050505'}}</style>${html}`);
-  await page.screenshot({ path: out, omitBackground: transparent, clip: { x: 0, y: 0, width, height } });
-  await page.close();
-}
-
-const icon = (size, rx) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="${size}" height="${size}" style="display:block">
-     <rect width="64" height="64" rx="${rx}" fill="#050505"/>${mark}</svg>`;
-
-await shoot(icon(96, 14), 96, 96, join(web, 'favicon.png'), { transparent: true });
-await shoot(icon(180, 0), 180, 180, join(web, 'apple-touch-icon.png'));
-
-// The social card is the landing page's hero, laid out for 1200x630: it links
-// the site's own stylesheet and fonts, so it changes with the design.
 const fontsCss =
   'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap';
 
 // Chromium may not be able to reach Google Fonts (a proxy, a sandbox), so the
 // font files are fetched with curl, which honours the usual proxy settings,
 // and handed to the page as local files.
-const fontDir = mkdtempSync(join(tmpdir(), 'ciach-fonts-'));
-function fetchFonts() {
+function fetchFonts(fontDir) {
   const curl = (url, ...args) =>
     execFileSync('curl', ['--fail', '--silent', '--show-error', '--location', ...args, url]);
   // A modern UA makes Google Fonts answer with woff2 sources.
@@ -68,9 +52,10 @@ function fetchFonts() {
   if (n === 0) throw new Error('No font files found in the Google Fonts stylesheet');
   return css;
 }
-const fontFaces = fetchFonts();
 
-const card = `<!doctype html>
+// The social card is the landing page's hero, laid out for 1200x630: it links
+// the site's own stylesheet and fonts, so it changes with the design.
+const card = (fontFaces) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <style>${fontFaces}</style>
 <link rel="stylesheet" href="${pathToFileURL(join(web, 'styles.css')).href}">
@@ -103,26 +88,91 @@ const card = `<!doctype html>
   </div>
 </div></body></html>`;
 
-{
-  const out = join(web, 'images', 'og.png');
-  const tmp = join(tmpdir(), `ciach-og-${process.pid}.html`);
-  writeFileSync(tmp, card);
-  const page = await browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1, ignoreHTTPSErrors: true });
-  await page.goto(pathToFileURL(tmp).href, { waitUntil: 'load' });
-  await page.evaluate(() => document.fonts.ready);
-  // document.fonts.check() is vacuously true when no face matches, so look at
-  // the faces themselves: both families must be present and loaded.
-  const loaded = await page.evaluate(() =>
-    [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replace(/"/g, '')));
-  for (const family of ['Space Grotesk', 'JetBrains Mono']) {
-    if (!loaded.includes(family)) {
-      throw new Error(`Web font not loaded: ${family} (loaded: ${[...new Set(loaded)].join(', ') || 'none'})`);
+/** Renders every asset into [outDir], which mirrors the layout of web/. */
+async function render(outDir) {
+  mkdirSync(join(outDir, 'images'), { recursive: true });
+  const work = mkdtempSync(join(tmpdir(), 'ciach-assets-'));
+  // The full Chromium rather than the headless shell, so local runs and CI
+  // rasterize with the same binary.
+  const browser = await chromium.launch({ channel: 'chromium', args: ['--no-sandbox'] });
+  try {
+    const shoot = async (html, width, height, out, { transparent = false } = {}) => {
+      const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
+      await page.setContent(
+        `<!doctype html><style>html,body{margin:0;background:${transparent ? 'transparent' : '#050505'}}</style>${html}`,
+      );
+      await page.screenshot({ path: out, omitBackground: transparent, clip: { x: 0, y: 0, width, height } });
+      await page.close();
+    };
+
+    const mark = readFileSync(join(web, 'favicon.svg'), 'utf8').match(/<g[\s\S]*<\/g>/)[0];
+    const icon = (size, rx) =>
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="${size}" height="${size}" style="display:block">
+         <rect width="64" height="64" rx="${rx}" fill="#050505"/>${mark}</svg>`;
+    // Rounded with transparent corners for browsers; full-bleed for iOS, which
+    // masks the corners itself.
+    await shoot(icon(96, 14), 96, 96, join(outDir, 'favicon.png'), { transparent: true });
+    await shoot(icon(180, 0), 180, 180, join(outDir, 'apple-touch-icon.png'));
+
+    const html = join(work, 'og.html');
+    writeFileSync(html, card(fetchFonts(work)));
+    const page = await browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
+    await page.goto(pathToFileURL(html).href, { waitUntil: 'load' });
+    await page.evaluate(() => document.fonts.ready);
+    // document.fonts.check() is vacuously true when no face matches, so look
+    // at the faces themselves: both families must be present and loaded.
+    const loaded = await page.evaluate(() =>
+      [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replace(/"/g, '')),
+    );
+    for (const family of ['Space Grotesk', 'JetBrains Mono']) {
+      if (!loaded.includes(family)) {
+        throw new Error(`Web font not loaded: ${family} (loaded: ${[...new Set(loaded)].join(', ') || 'none'})`);
+      }
+    }
+    await page.screenshot({ path: join(outDir, 'images', 'og.png'), clip: { x: 0, y: 0, width: 1200, height: 630 } });
+    await page.close();
+  } finally {
+    await browser.close();
+    rmSync(work, { recursive: true, force: true });
+  }
+}
+
+/** Compares a fresh render against web/; writes diff images next to the render. */
+async function check() {
+  const outDir = mkdtempSync(join(tmpdir(), 'ciach-assets-check-'));
+  await render(outDir);
+  let failed = false;
+  for (const asset of assets) {
+    const expected = PNG.sync.read(readFileSync(join(web, asset)));
+    const actual = PNG.sync.read(readFileSync(join(outDir, asset)));
+    const label = relative(root, join(web, asset));
+    if (expected.width !== actual.width || expected.height !== actual.height) {
+      console.log(`FAIL ${label}: ${expected.width}x${expected.height} committed, ${actual.width}x${actual.height} rendered`);
+      failed = true;
+      continue;
+    }
+    const diff = new PNG({ width: expected.width, height: expected.height });
+    const differing = pixelmatch(expected.data, actual.data, diff.data, expected.width, expected.height, {
+      threshold: 0.1,
+    });
+    const share = differing / (expected.width * expected.height);
+    const verdict = share > maxDifferentPixels ? 'FAIL' : 'ok  ';
+    console.log(`${verdict} ${label}: ${differing} pixels differ (${(share * 100).toFixed(3)}%)`);
+    if (share > maxDifferentPixels) {
+      failed = true;
+      writeFileSync(join(outDir, asset.replace(/\.png$/, '.diff.png')), PNG.sync.write(diff));
     }
   }
-  await page.screenshot({ path: out, clip: { x: 0, y: 0, width: 1200, height: 630 } });
-  await page.close();
-  rmSync(tmp);
+  if (failed) {
+    console.log(`\nRendered files and diffs are in ${outDir}.`);
+    console.log('If the change is intended, run `node tool/render_assets.mjs` and commit the result.');
+    process.exit(1);
+  }
+  rmSync(outDir, { recursive: true, force: true });
 }
-rmSync(fontDir, { recursive: true, force: true });
 
-await browser.close();
+if (process.argv.includes('--check')) {
+  await check();
+} else {
+  await render(web);
+}

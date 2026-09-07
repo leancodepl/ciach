@@ -11,4 +11,6 @@ jaspr serve
 
 `bash tool/build.sh` builds it into `build/jaspr`; Vercel runs the same
 script from the GitHub workflows in `.github/workflows/website_*.yml`.
-`node tool/render_assets.mjs` regenerates the icons and the social card.
+`node tool/render_assets.mjs` regenerates the icons and the social card;
+`--check` compares a fresh render with the committed files instead (CI does
+this on every pull request).
