@@ -58,10 +58,9 @@ jobs:
       - name: Link Vercel project
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: |
-          vercel project inspect "$VERCEL_PROJECT" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN" >/dev/null 2>&1 \
-            || vercel project add "$VERCEL_PROJECT" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
-          vercel link --yes --project="$VERCEL_PROJECT" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
+        # Resolves the org and project ids by name, since the workflow has no
+        # VERCEL_ORG_ID / VERCEL_PROJECT_ID; pull, build and deploy need them.
+        run: vercel link --yes --project="$VERCEL_PROJECT" --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
 
       - name: Pull Vercel environment information
         env:
@@ -78,14 +77,6 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: echo "url=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")" >> "$GITHUB_OUTPUT"
-
-      - name: Alias deployment to the production domain
-        # Idempotent: assigns ciach.leancode.co to the project on the first
-        # run and is a no-op afterwards. DNS for the name must point at Vercel.
-        env:
-          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: vercel alias set "$DEPLOY_URL" ciach.leancode.co --scope="$VERCEL_SCOPE" --token="$VERCEL_TOKEN"
 
       - name: Deployment summary
         env:
