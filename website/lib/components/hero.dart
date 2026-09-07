@@ -1,7 +1,8 @@
+import 'package:ciach_website/components/button.dart';
 import 'package:ciach_website/components/code_block.dart';
 import 'package:ciach_website/components/copy_button.dart';
 import 'package:ciach_website/components/icons.dart';
-import 'package:ciach_website/components/section.dart';
+import 'package:ciach_website/components/pill.dart';
 import 'package:ciach_website/site.dart';
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
@@ -164,11 +165,11 @@ class Hero extends StatelessComponent {
             ]),
             div(classes: 'install', [installCommandBox()]),
             div(classes: 'hero-actions', [
-              a(href: '/docs', classes: 'button button-primary', [
+              Button(href: '/docs', [
                 const .text('Read the docs'),
                 Icon.arrow.build(size: 18),
               ]),
-              externalLink(repoUrl, classes: 'button button-secondary', [
+              Button(href: repoUrl, variant: .secondary, external: true, [
                 Icon.github.build(size: 18),
                 const .text('GitHub'),
               ]),
@@ -191,9 +192,9 @@ class Hero extends StatelessComponent {
 /// pub.dev: the version on the page, a label on the social card so the card
 /// does not change with every release.
 Component heroBadges({required String primary}) => p(classes: 'hero-badges', [
-  externalLink(pubUrl, classes: 'pill pill-accent', [.text(primary)]),
-  const span(classes: 'pill', [.text('Dart 3.10+')]),
-  const span(classes: 'pill', [.text('Apache-2.0')]),
+  Pill(primary, href: pubUrl, accent: true),
+  const Pill('Dart 3.10+'),
+  const Pill('Apache-2.0'),
 ]);
 
 /// The one-line pitch, shared by the page and the social card.

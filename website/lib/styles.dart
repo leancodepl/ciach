@@ -1,7 +1,7 @@
-/// Design tokens and the site-wide rules: the reset, typography, shared
-/// utilities, buttons, pills and cards. Component-specific rules live next to
-/// their components in `@css` getters; Jaspr collects all of them into one
-/// stylesheet, global rules first, and inlines it into every page.
+/// Design tokens and the site-wide rules: the reset, typography and shared
+/// utilities. Everything else lives next to the component it styles, in `@css`
+/// getters; Jaspr collects all of them into one stylesheet, global rules
+/// first, and inlines it into every page.
 library;
 
 import 'package:jaspr/dom.dart';
@@ -47,15 +47,12 @@ Border hairline(Color color) => Border.all(color: color, width: 1.px);
 BorderSide hairlineSide(Color color) => BorderSide(color: color, width: 1.px);
 
 /// Everything the page needs before any component draws: tokens, the reset,
-/// typography, utilities, buttons, pills and cards.
+/// typography and utilities.
 @css
 List<StyleRule> get styles => [
   ..._tokens,
   ..._reset,
   ..._utilities,
-  ..._buttons,
-  ..._pills,
-  ..._cards,
   ..._motion,
 ];
 
@@ -202,85 +199,6 @@ List<StyleRule> get _utilities => [
   css.media(MediaQuery.all(maxWidth: 540.px), [
     css('.hide-sm').styles(display: .none),
   ]),
-];
-
-List<StyleRule> get _buttons => [
-  css('.button').styles(
-    display: .inlineFlex,
-    padding: .symmetric(vertical: 0.75.rem, horizontal: 1.2.rem),
-    border: hairline(const Color('transparent')),
-    radius: .circular(999.px),
-    cursor: .pointer,
-    transition: .combine([
-      Transition('transform', duration: 150.ms, curve: .ease),
-      Transition('background-color', duration: 150.ms, curve: .ease),
-      Transition('border-color', duration: 150.ms, curve: .ease),
-      Transition('color', duration: 150.ms, curve: .ease),
-    ]),
-    alignItems: .center,
-    gap: .all(0.5.rem),
-    fontSize: 0.95.rem,
-    fontWeight: .w600,
-    lineHeight: const .expression('1'),
-    whiteSpace: .noWrap,
-  ),
-  css('.button:hover').styles(transform: .translate(y: (-1).px)),
-  css('.button-primary')
-      .styles(color: accentInkColor, backgroundColor: accentColor),
-  css('.button-primary:hover')
-      .styles(color: accentInkColor, backgroundColor: const Color('#f6ff6b')),
-  css('.button-secondary').styles(
-    color: textColor,
-    backgroundColor: surfaceColor,
-    raw: {'border-color': 'var(--border-2)'},
-  ),
-  css('.button-secondary:hover')
-      .styles(color: textColor, raw: {'border-color': 'var(--accent)'}),
-  css('.button-ghost').styles(
-    padding: .symmetric(vertical: 0.55.rem, horizontal: 0.9.rem),
-    color: text2Color,
-  ),
-  css('.button-ghost:hover')
-      .styles(color: textColor, backgroundColor: surfaceColor),
-];
-
-List<StyleRule> get _pills => [
-  css('.pill').styles(
-    display: .inlineFlex,
-    padding: .symmetric(vertical: 0.3.rem, horizontal: 0.7.rem),
-    border: hairline(border2Color),
-    radius: .circular(999.px),
-    alignItems: .center,
-    gap: .all(0.35.rem),
-    color: text2Color,
-    fontSize: 0.8.rem,
-    fontWeight: .w500,
-    backgroundColor: const Color.rgba(255, 255, 255, 0.02),
-  ),
-  css('.pill-accent').styles(
-    color: accentColor,
-    backgroundColor: accentSoftColor,
-    raw: {'border-color': 'rgba(237, 255, 47, 0.4)'},
-  ),
-  css('.pill-accent:hover').styles(raw: {'border-color': 'var(--accent)'}),
-];
-
-List<StyleRule> get _cards => [
-  css('.card').styles(
-    padding: .all(1.5.rem),
-    border: hairline(borderColor),
-    radius: const .circular(radius),
-    transition: .combine([
-      Transition('border-color', duration: 200.ms, curve: .ease),
-      Transition('transform', duration: 200.ms, curve: .ease),
-    ]),
-    backgroundColor: surfaceColor,
-  ),
-  css('.card h3').styles(
-    margin: .only(bottom: 0.6.rem),
-    fontSize: 1.2.rem,
-  ),
-  css('.card p').styles(color: text2Color, fontSize: 0.98.rem),
 ];
 
 // Motion is a garnish here; readers who asked for less of it get none.

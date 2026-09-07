@@ -1,3 +1,4 @@
+import 'package:ciach_website/components/button.dart';
 import 'package:ciach_website/components/icons.dart';
 import 'package:ciach_website/components/section.dart';
 import 'package:ciach_website/site.dart';
@@ -91,11 +92,11 @@ class SiteFooter extends StatelessComponent {
               .text('Ready to make the first cut?'),
             ]),
             div(classes: 'hero-actions center', [
-              externalLink(pubUrl, classes: 'button button-primary', [
+              Button(href: pubUrl, external: true, [
                 const .text('Get it on pub.dev'),
                 Icon.external.build(size: 18),
               ]),
-              a(href: '/docs', classes: 'button button-secondary', [
+              Button(href: '/docs', variant: .secondary, [
                 Icon.book.build(size: 18),
                 const .text('Read the docs'),
               ]),

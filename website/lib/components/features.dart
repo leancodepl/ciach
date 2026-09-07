@@ -1,3 +1,4 @@
+import 'package:ciach_website/components/card.dart';
 import 'package:ciach_website/components/icons.dart';
 import 'package:ciach_website/components/section.dart';
 import 'package:ciach_website/styles.dart';
@@ -92,7 +93,7 @@ class Features extends StatelessComponent {
       children: [
         ul(classes: 'feature-grid', [
           for (final feature in _features)
-            li(classes: 'card feature', [
+            Card(classes: 'feature', listItem: true, [
               span(classes: 'feature-icon', [feature.icon.build(size: 22)]),
               h3([.text(feature.title)]),
               p(rich(feature.body)),

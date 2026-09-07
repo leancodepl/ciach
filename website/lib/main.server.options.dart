@@ -5,6 +5,8 @@
 // Generated with jaspr_builder
 
 import 'package:jaspr/server.dart';
+import 'package:ciach_website/components/button.dart' as _button;
+import 'package:ciach_website/components/card.dart' as _card;
 import 'package:ciach_website/components/ciach_demo.dart' as _ciach_demo;
 import 'package:ciach_website/components/code_block.dart' as _code_block;
 import 'package:ciach_website/components/copy_button.dart' as _copy_button;
@@ -16,6 +18,7 @@ import 'package:ciach_website/components/footer.dart' as _footer;
 import 'package:ciach_website/components/formats.dart' as _formats;
 import 'package:ciach_website/components/hero.dart' as _hero;
 import 'package:ciach_website/components/nav_bar.dart' as _nav_bar;
+import 'package:ciach_website/components/pill.dart' as _pill;
 import 'package:ciach_website/components/section.dart' as _section;
 import 'package:ciach_website/pages/docs_page.dart' as _docs_page;
 import 'package:ciach_website/styles.dart' as _styles;
@@ -54,6 +57,8 @@ ServerOptions get defaultServerOptions => ServerOptions(
   },
   styles: () => [
     ..._styles.styles,
+    ..._button.Button.styles,
+    ..._card.Card.styles,
     ..._ciach_demo.CiachDemo.styles,
     ..._code_block.CodeBlock.styles,
     ..._copy_button.CopyButton.styles,
@@ -63,6 +68,7 @@ ServerOptions get defaultServerOptions => ServerOptions(
     ..._formats.OutputFormats.styles,
     ..._hero.Hero.styles,
     ..._nav_bar.NavBar.styles,
+    ..._pill.Pill.styles,
     ..._section.Section.styles,
     ..._docs_page.DocsPage.styles,
   ],
