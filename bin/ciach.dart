@@ -108,8 +108,7 @@ Future<int> _run(List<String> arguments) async {
   final showProgress = resolved.showProgress;
   final rootPath = resolved.absoluteRootPath;
 
-  // Resolved up front so a missing SDK fails before any scanning, and so the
-  // verbose rundown shows the `dart` the run will actually use.
+  // Up front: a missing SDK fails fast, and verbose shows the real `dart`.
   final String dartExecutable;
   try {
     dartExecutable = findDartExecutable(explicit: resolved.dartExecutable);

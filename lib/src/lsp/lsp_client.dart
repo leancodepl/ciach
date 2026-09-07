@@ -37,10 +37,9 @@ class LspClient {
   final Process _process;
   final lsp.LspClient _client;
 
-  /// Completes when the server process exits, however it does.
   final _exited = Completer<void>();
 
-  /// Why the server died, when it did so outside [dispose]; null otherwise.
+  /// Set when the server dies outside [dispose].
   StateError? _exitError;
 
   /// Completers waiting for the server to become idle.
@@ -60,10 +59,8 @@ class LspClient {
 
   /// Spawns `<dart> language-server --protocol=lsp` and wires up the client.
   ///
-  /// [dartExecutable] defaults to [findDartExecutable]: the Dart VM running
-  /// this tool when there is one, so the server matches the SDK the user
-  /// invoked us with, else `dart` from `PATH`. Throws a
-  /// [DartSdkNotFoundException] when neither exists.
+  /// [dartExecutable] defaults to [findDartExecutable], which throws a
+  /// [DartSdkNotFoundException] when there is no SDK to be found.
   static Future<LspClient> start({String? dartExecutable}) async {
     final executable = findDartExecutable(explicit: dartExecutable);
     final process = await Process.start(executable, [
@@ -82,14 +79,11 @@ class LspClient {
         .listen(wrapper._stderrBuffer.write, onError: (_) {})
         .asFuture<void>()
         .catchError((_) {});
-    // Writes to a dead server's stdin fail with a broken pipe. The exit report
-    // below is the account of that death; the pipe error has nothing to add
-    // and nobody awaits it.
+    // A dead server's stdin fails with a broken pipe; the exit report covers it.
     unawaited(process.stdin.done.catchError((_) {}));
     unawaited(() async {
       final code = await process.exitCode;
-      // The exit code can land before the last of stderr does; the report
-      // should carry all of it.
+      // Can land before the last of stderr does.
       await stderrDrained;
       if (!wrapper._shuttingDown) {
         final stderr = wrapper.stderr.trim();
@@ -144,14 +138,8 @@ class LspClient {
     _semanticTokenTypes = _legendTokenTypes(result.capabilities);
   }
 
-  /// Runs [request], swapping the opaque error a dead connection produces for
-  /// the server's exit code and stderr.
-  ///
-  /// When the server process dies, `json_rpc_2` fails every pending request
-  /// with `The client closed with pending request "<method>"`, which says
-  /// nothing about why. The exit handler in [start] records the real story;
-  /// this gives it a moment to arrive (the exit code and the closed pipe race)
-  /// and throws that instead.
+  /// Runs [request]; if the server died meanwhile, throws its exit code and
+  /// stderr instead of `json_rpc_2`'s uninformative "client closed" error.
   Future<T> _guard<T>(Future<T> Function() request) async {
     try {
       return await request();

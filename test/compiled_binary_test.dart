@@ -6,10 +6,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-/// `dart compile exe` / `dart build cli` / `dart install` produce a binary in
-/// which `Platform.resolvedExecutable` is ciach itself, not the SDK. Before
-/// #42 was fixed, such a binary spawned itself as the analysis server and
-/// failed every run with `The client closed with pending request "initialize"`.
+/// In a compiled binary (`dart compile exe`, `dart install`) the resolved
+/// executable is ciach itself; it used to spawn itself as the server (#42).
 void main() {
   final fixturePath = p.join(Directory.current.path, 'example');
   final sdkBin = p.dirname(Platform.resolvedExecutable);
@@ -60,7 +58,7 @@ void main() {
     () async {
       final result = await run({'PATH': tmp.path});
       expect(result.exitCode, 2);
-      expect(result.stderr, contains('Could not find the Dart SDK'));
+      expect(result.stderr, contains('Could not find a Dart SDK'));
       expect(result.stderr, contains('--dart'));
       expect(result.stderr, isNot(contains('pending request')));
     },

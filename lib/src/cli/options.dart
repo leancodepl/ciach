@@ -65,10 +65,8 @@ class ResolvedOptions {
   /// [rootPath] resolved against the current directory.
   String get absoluteRootPath => p.normalize(p.absolute(rootPath));
 
-  /// The finder's share of these settings, reporting progress to [onProgress].
-  ///
-  /// [dartExecutable] is the `dart` the caller resolved (see
-  /// `findDartExecutable`); when null the finder resolves one itself.
+  /// The finder's share of these settings, reporting progress to [onProgress]
+  /// and launching the server with [dartExecutable] (else it finds one).
   FinderOptions finderOptions({
     String? dartExecutable,
     void Function(String message)? onProgress,

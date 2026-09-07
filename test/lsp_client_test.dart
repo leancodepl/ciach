@@ -16,8 +16,8 @@ void main() {
 
   tearDown(() => tmp.deleteSync(recursive: true));
 
-  // A stand-in `dart` that, asked to be a language server, complains and dies —
-  // what a compiled ciach spawned as its own server does (#42).
+  // A `dart` that complains and dies, like a compiled ciach spawned as its own
+  // server did (#42).
   String fakeDart(String stderrText, int exitCode) {
     final script = File(
       p.join(tmp.path, 'dart'),
