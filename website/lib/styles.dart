@@ -40,6 +40,9 @@ const shadow = 'var(--shadow)';
 /// The accent at a given alpha, for borders and glows.
 Color accentAlpha(double alpha) => Color.rgba(237, 255, 47, alpha);
 
+/// Marks a link inside running text by more than its color.
+const underlined = TextDecoration(line: .underline);
+
 /// A 1px solid border in [color].
 Border hairline(Color color) => Border.all(color: color, width: 1.px);
 
@@ -67,7 +70,7 @@ List<StyleRule> get _tokens => [
       '--border-2': '#33333e',
       '--text': '#f4f4f1',
       '--text-2': '#b7b7b3',
-      '--muted': '#7d7d84',
+      '--muted': '#84848d',
       '--accent': '#edff2f',
       '--accent-2': '#c9dc00',
       '--accent-ink': '#0b0c00',
@@ -78,7 +81,7 @@ List<StyleRule> get _tokens => [
       '--tk-type': '#82aaff',
       '--tk-string': '#c3e88d',
       '--tk-number': '#f78c6c',
-      '--tk-comment': '#676e95',
+      '--tk-comment': '#767eaa',
       '--tk-annotation': '#ffcb6b',
       '--tk-function': '#89ddff',
       '--font-sans':

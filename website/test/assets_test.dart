@@ -7,8 +7,8 @@
 ///     UPDATE_GOLDENS=1 dart test   # rewrite them after an intended change
 ///
 /// Chrome for Testing is downloaded into `.dart_tool/puppeteer` on first run.
-/// The social card needs `curl` and access to Google Fonts. Small antialiasing
-/// differences are tolerated, a changed layout, color or font is not.
+/// Small antialiasing differences are tolerated, a changed layout, color or
+/// font is not.
 ///
 /// This file says what the assets are; `support/asset_renderer.dart` draws
 /// them and `support/pixel_compare.dart` judges the result.

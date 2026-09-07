@@ -69,15 +69,16 @@ class Section extends StatelessComponent {
       margin: .only(top: 1.5.rem),
       fontWeight: .w500,
     ),
-    css('.section-more a').styles(color: accentColor),
-    css('.section-more a:hover')
-        .styles(textDecoration: const TextDecoration(line: .underline)),
+    css('.section-more a, .note a').styles(
+      color: accentColor,
+      textDecoration: underlined,
+      raw: {'text-underline-offset': '0.15em'},
+    ),
     css('.note').styles(
       margin: .only(top: 1.rem),
       color: text2Color,
       fontSize: 0.95.rem,
     ),
-    css('.note a').styles(color: accentColor),
     css('.checklist').styles(display: .grid, gap: .all(0.6.rem)),
     css('.checklist li').styles(
       position: const .relative(),

@@ -70,7 +70,11 @@ class SiteFooter extends StatelessComponent {
       color: mutedColor,
       fontSize: 0.85.rem,
     ),
-    css('.footer-bottom a').styles(color: text2Color),
+    css('.footer-bottom a, .footer-brand p a').styles(
+      color: text2Color,
+      textDecoration: underlined,
+      raw: {'text-underline-offset': '0.15em'},
+    ),
     css.media(MediaQuery.all(minWidth: 760.px), [
       css('.footer-grid').styles(raw: {'grid-template-columns': '1fr 1fr'}),
     ]),

@@ -196,7 +196,11 @@ class DocsPage extends StatelessComponent {
       margin: .only(top: 1.25.rem),
       fontSize: 0.9.rem,
     ),
-    css('.docs-nav-foot a').styles(color: accentColor),
+    css('.docs-nav-foot a').styles(
+      color: accentColor,
+      textDecoration: underlined,
+      raw: {'text-underline-offset': '0.15em'},
+    ),
     css('.docs-body').styles(maxWidth: 52.rem),
     css('.docs-head h1').styles(
       fontSize: const .expression('clamp(2.2rem, 4vw, 3rem)'),
