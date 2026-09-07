@@ -1,11 +1,11 @@
-/// Pixel comparison for golden images, after pixelmatch: colours are compared
-/// in the YIQ space so antialiasing passes and a new colour does not.
+/// Pixel comparison for golden images, after pixelmatch: colors are compared
+/// in the YIQ space so antialiasing passes and a new color does not.
 library;
 
 import 'package:image/image.dart' as img;
 
-/// Per-pixel colour distance (in the YIQ space, on a 0–1 scale) below which
-/// two pixels count as the same. 0.1 forgives antialiasing, not a new colour.
+/// Per-pixel color distance (in the YIQ space, on a 0–1 scale) below which
+/// two pixels count as the same. 0.1 forgives antialiasing, not a new color.
 const colorThreshold = 0.1;
 
 /// Counts the pixels of [actual] that differ from [expected] beyond

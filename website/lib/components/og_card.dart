@@ -21,7 +21,7 @@ class OgCard extends StatelessComponent {
   /// Font families the card must have loaded before it is rendered.
   static const fonts = ['Space Grotesk', 'JetBrains Mono'];
 
-  /// Sizes the hero pieces for the fixed canvas; colours and fonts come from
+  /// Sizes the hero pieces for the fixed canvas; colors and fonts come from
   /// the site's own rules. Rendered after them, so equal-specificity rules
   /// such as `.logo-large .logo-mark` lose to the card's.
   static List<StyleRule> get styles => [
@@ -41,9 +41,10 @@ class OgCard extends StatelessComponent {
     css('.og-card .logo-mark')
         .styles(width: 56.px, height: 56.px, radius: .circular(15.px)),
     css('.og-card .logo-mark svg').styles(width: 30.px, height: 30.px),
-    css(
-      '.og-card .hero-badges',
-    ).styles(margin: .fromLTRB(.zero, 34.px, .zero, .zero), gap: .all(0.6.rem)),
+    css('.og-card .hero-badges').styles(
+      margin: .only(top: 34.px, bottom: .zero),
+      gap: .all(0.6.rem),
+    ),
     css('.og-card .pill').styles(
       padding: .symmetric(vertical: 0.4.rem, horizontal: 0.95.rem),
       fontSize: 1.05.rem,
@@ -69,7 +70,12 @@ class OgCard extends StatelessComponent {
       alignItems: .center,
     ),
     css('.og-card .install-command').styles(
-      padding: .fromLTRB(1.4.rem, 0.9.rem, 1.6.rem, 0.9.rem),
+      padding: .only(
+        top: 0.9.rem,
+        right: 1.6.rem,
+        bottom: 0.9.rem,
+        left: 1.4.rem,
+      ),
       gap: .all(1.rem),
       raw: {'max-width': 'none'},
     ),

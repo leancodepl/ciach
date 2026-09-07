@@ -30,11 +30,9 @@ class Hero extends StatelessComponent {
   static List<StyleRule> get styles => [
     css('.hero').styles(
       position: const .relative(),
-      padding: .fromLTRB(
-        .zero,
-        const .expression('clamp(3.5rem, 9vw, 7rem)'),
-        .zero,
-        3.rem,
+      padding: .only(
+        top: const .expression('clamp(3.5rem, 9vw, 7rem)'),
+        bottom: 3.rem,
       ),
       overflow: .hidden,
       raw: {'isolation': 'isolate'},
@@ -106,7 +104,12 @@ class Hero extends StatelessComponent {
     css('.install-command').styles(
       display: .flex,
       maxWidth: 34.rem,
-      padding: .fromLTRB(1.rem, 0.5.rem, 0.5.rem, 0.5.rem),
+      padding: .only(
+        top: 0.5.rem,
+        right: 0.5.rem,
+        bottom: 0.5.rem,
+        left: 1.rem,
+      ),
       border: hairline(border2Color),
       radius: const .circular(radius),
       alignItems: .center,

@@ -62,7 +62,7 @@ class SiteFooter extends StatelessComponent {
     ),
     css('.footer-bottom').styles(
       display: .flex,
-      padding: .fromLTRB(.zero, 1.5.rem, .zero, 2.rem),
+      padding: .only(top: 1.5.rem, bottom: 2.rem),
       border: .only(top: hairlineSide(borderColor)),
       flexWrap: .wrap,
       justifyContent: .spaceBetween,

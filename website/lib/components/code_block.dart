@@ -46,7 +46,12 @@ class CodeBlock extends StatelessComponent {
     css('.code-bar').styles(
       display: .flex,
       minHeight: 2.6.rem,
-      padding: .fromLTRB(0.9.rem, 0.4.rem, 0.6.rem, 0.4.rem),
+      padding: .only(
+        top: 0.4.rem,
+        right: 0.6.rem,
+        bottom: 0.4.rem,
+        left: 0.9.rem,
+      ),
       border: .only(bottom: hairlineSide(borderColor)),
       alignItems: .center,
       gap: .all(0.75.rem),
@@ -72,7 +77,12 @@ class CodeBlock extends StatelessComponent {
       raw: {'flex': '1'},
     ),
     css('.code-block pre').styles(
-      padding: .fromLTRB(1.1.rem, 1.rem, 1.1.rem, 1.1.rem),
+      padding: .only(
+        top: 1.rem,
+        right: 1.1.rem,
+        bottom: 1.1.rem,
+        left: 1.1.rem,
+      ),
       margin: .zero,
       overflow: .auto,
       fontSize: 0.8125.rem,
@@ -85,7 +95,7 @@ class CodeBlock extends StatelessComponent {
     ),
     css('.code-block code').styles(display: .block, minWidth: .maxContent),
     css('.line').styles(display: .inlineBlock, minWidth: 100.percent),
-    // Token colours, shared by the TextMate scopes and ciach's own output.
+    // Token colors, shared by the TextMate scopes and ciach's own output.
     css('.tk-keyword').styles(color: const .variable('--tk-keyword')),
     css('.tk-type').styles(color: const .variable('--tk-type')),
     css('.tk-string').styles(color: const .variable('--tk-string')),

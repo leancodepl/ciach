@@ -139,7 +139,7 @@ class AssetRenderer {
   /// Downloads the site's Google Fonts stylesheet and the font files it names
   /// into the work directory, and returns the stylesheet rewritten to point at
   /// the local files. Chrome may not be able to reach Google Fonts (a proxy, a
-  /// sandbox); curl honours the usual proxy settings.
+  /// sandbox); curl honors the usual proxy settings.
   String _fetchFonts() {
     String curl(String url, [List<String> args = const []]) {
       final result = Process.runSync('curl', [

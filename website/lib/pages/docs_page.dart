@@ -169,11 +169,9 @@ class DocsPage extends StatelessComponent {
     ..._tableStyles,
     css('.docs').styles(
       display: .grid,
-      padding: const .fromLTRB(
-        .zero,
-        .expression('clamp(2.5rem, 6vw, 4.5rem)'),
-        .zero,
-        .expression('clamp(3rem, 8vw, 6rem)'),
+      padding: const .only(
+        top: .expression('clamp(2.5rem, 6vw, 4.5rem)'),
+        bottom: .expression('clamp(3rem, 8vw, 6rem)'),
       ),
       gap: .all(2.5.rem),
     ),
@@ -560,7 +558,7 @@ class DocsPage extends StatelessComponent {
                     'touches doc-only findings. Run ',
                   ),
                   code([.text('dart format')]),
-                  .text(' afterwards and review the diff.'),
+                  .text(' afterward and review the diff.'),
                 ]),
                 const h3([.text('Report-only: removal would not compile')]),
                 ul(classes: 'checklist', [

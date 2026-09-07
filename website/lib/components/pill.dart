@@ -4,7 +4,7 @@ import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
 /// A small rounded badge: a version, a licence, a requirement. With [href] it
-/// links out; [accent] draws it in the accent colour.
+/// links out; [accent] draws it in the accent color.
 class Pill extends StatelessComponent {
   const Pill(this.text, {this.href, this.accent = false, super.key});
 
