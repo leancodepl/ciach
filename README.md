@@ -39,6 +39,15 @@ Install it globally for a `ciach` command everywhere, in `~/.pub-cache/bin`:
 dart pub global activate ciach
 ```
 
+Or, on a recent SDK, as a compiled binary:
+
+```bash
+dart install ciach
+```
+
+A compiled `ciach` runs the analysis server with the `dart` on your `PATH` (an
+fvm or Flutter `dart` works too); `--dart <path>` picks a different one.
+
 Or add it as a dev dependency, which pins the version for the team and CI:
 
 ```bash
@@ -91,7 +100,7 @@ ciach --verbose                        # explain each step
 | `--[no-]color` | auto | Colorize text output. |
 | `--[no-]progress` | auto | Show scan progress on stderr. |
 | `-v, --verbose` | off | Explain what's happening on stderr. See [Verbose mode](#verbose-mode). |
-| `--dart <path>` | current SDK | Path to the `dart` executable to launch the server with. |
+| `--dart <path>` | auto | Path to the `dart` executable to launch the server with. Defaults to the SDK running ciach, or to `dart` from `PATH` for a compiled binary. |
 
 Exit codes: `0` success, `1` unused found with `--set-exit-if-changed`, `2`
 usage or analysis error.

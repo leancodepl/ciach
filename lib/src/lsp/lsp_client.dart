@@ -12,6 +12,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:ciach/src/dart_executable.dart';
 import 'package:ciach/src/version.dart';
 import 'package:pro_lsp/pro_lsp.dart' as lsp;
 import 'package:stream_channel/stream_channel.dart';
@@ -28,10 +29,18 @@ const _analyzerStatusMethod = r'$/analyzerStatus';
 /// does not: spawning the server process, waiting for the Dart-specific
 /// `$/analyzerStatus` idle signal, and shutting the process down cleanly.
 class LspClient {
-  LspClient._(this._process, this._client);
+  LspClient._(this.dartExecutable, this._process, this._client);
+
+  /// The `dart` the server was launched with.
+  final String dartExecutable;
 
   final Process _process;
   final lsp.LspClient _client;
+
+  final _exited = Completer<void>();
+
+  /// Set when the server dies outside [dispose].
+  StateError? _exitError;
 
   /// Completers waiting for the server to become idle.
   final _idleWaiters = <Completer<void>>[];
@@ -50,36 +59,45 @@ class LspClient {
 
   /// Spawns `<dart> language-server --protocol=lsp` and wires up the client.
   ///
-  /// [dartExecutable] defaults to the Dart VM currently running this tool, so
-  /// the analysis server always matches the SDK the user invoked us with.
+  /// [dartExecutable] defaults to [findDartExecutable], which throws a
+  /// [DartSdkNotFoundException] when there is no SDK to be found.
   static Future<LspClient> start({String? dartExecutable}) async {
-    final executable = dartExecutable ?? Platform.resolvedExecutable;
+    final executable = findDartExecutable(explicit: dartExecutable);
     final process = await Process.start(executable, [
       'language-server',
       '--protocol=lsp',
       '--client-id=ciach',
       '--client-version=$ciachVersion',
-    ]);
+    ], runInShell: executableNeedsShell(executable));
 
     final channel = StreamChannel<List<int>>(process.stdout, process.stdin);
     final client = lsp.LspClient.fromChannel(channel);
-    final wrapper = LspClient._(process, client);
+    final wrapper = LspClient._(executable, process, client);
 
-    process.stderr
+    final stderrDrained = process.stderr
         .transform(utf8.decoder)
-        .listen(wrapper._stderrBuffer.write, onError: (_) {});
-    unawaited(
-      process.exitCode.then((code) {
-        if (!wrapper._shuttingDown) {
-          wrapper._failIdleWaiters(
-            StateError(
-              'Language server exited unexpectedly (code $code).\n'
-              '${wrapper.stderr}',
-            ),
-          );
-        }
-      }),
-    );
+        .listen(wrapper._stderrBuffer.write, onError: (_) {})
+        .asFuture<void>()
+        .catchError((_) {});
+    // A dead server's stdin fails with a broken pipe; the exit report covers it.
+    unawaited(process.stdin.done.catchError((_) {}));
+    unawaited(() async {
+      final code = await process.exitCode;
+      // Can land before the last of stderr does.
+      await stderrDrained;
+      if (!wrapper._shuttingDown) {
+        final stderr = wrapper.stderr.trim();
+        final error = StateError(
+          'The Dart analysis server (`$executable language-server`) exited '
+          'unexpectedly with code $code.\n'
+          '${stderr.isEmpty ? 'It wrote nothing to stderr.' : 'Its stderr:\n$stderr'}',
+        );
+        wrapper
+          .._exitError = error
+          .._failIdleWaiters(error);
+      }
+      wrapper._exited.complete();
+    }());
 
     // Register before the handshake so no status notification is missed. The
     // Dart server only emits `$/analyzerStatus` after `initialized`, by which
@@ -95,27 +113,46 @@ class LspClient {
   /// Performs the `initialize` / `initialized` handshake for [rootUri].
   Future<void> initialize(Uri rootUri) async {
     final uri = rootUri.toString();
-    final result = await _client.start(
-      clientInfo: const .new(name: 'ciach', version: ciachVersion),
-      rootUri: uri,
-      workspaceFolders: [.new(uri: uri, name: 'root')],
-      // Hierarchical document symbols yield nested `DocumentSymbol[]` rather
-      // than flat `SymbolInformation`; semantic tokens make the server send its
-      // legend. `workDoneProgress` is left unset so progress arrives via
-      // `$/analyzerStatus`.
-      capabilities: const .new(
-        textDocument: .new(
-          documentSymbol: .new(hierarchicalDocumentSymbolSupport: true),
-          semanticTokens: .new(
-            requests: .new(full: .bool(true)),
-            tokenTypes: [],
-            tokenModifiers: [],
-            formats: [.relative],
+    final result = await _guard(
+      () => _client.start(
+        clientInfo: const .new(name: 'ciach', version: ciachVersion),
+        rootUri: uri,
+        workspaceFolders: [.new(uri: uri, name: 'root')],
+        // Hierarchical document symbols yield nested `DocumentSymbol[]` rather
+        // than flat `SymbolInformation`; semantic tokens make the server send its
+        // legend. `workDoneProgress` is left unset so progress arrives via
+        // `$/analyzerStatus`.
+        capabilities: const .new(
+          textDocument: .new(
+            documentSymbol: .new(hierarchicalDocumentSymbolSupport: true),
+            semanticTokens: .new(
+              requests: .new(full: .bool(true)),
+              tokenTypes: [],
+              tokenModifiers: [],
+              formats: [.relative],
+            ),
           ),
         ),
       ),
     );
     _semanticTokenTypes = _legendTokenTypes(result.capabilities);
+  }
+
+  /// Runs [request]; if the server died meanwhile, throws its exit code and
+  /// stderr instead of `json_rpc_2`'s uninformative "client closed" error.
+  Future<T> _guard<T>(Future<T> Function() request) async {
+    try {
+      return await request();
+    } on Object {
+      if (_shuttingDown) {
+        rethrow;
+      }
+      await _exited.future.timeout(const .new(seconds: 1)).catchError((_) {});
+      if (_exitError case final error?) {
+        throw error;
+      }
+      rethrow;
+    }
   }
 
   /// Reads the legend from raw capabilities JSON to avoid depending on the
@@ -188,8 +225,10 @@ class LspClient {
   /// Hierarchical support is advertised in [initialize], so this is always the
   /// `DocumentSymbol[]` variant (never flat `SymbolInformation`).
   Future<List<lsp.DocumentSymbol>> documentSymbol(Uri uri) async {
-    final result = await _client.server.textDocument.documentSymbol(
-      .new(textDocument: .new(uri: uri.toString())),
+    final result = await _guard(
+      () => _client.server.textDocument.documentSymbol(
+        .new(textDocument: .new(uri: uri.toString())),
+      ),
     );
     if (result.isNull) {
       return const [];
@@ -206,11 +245,13 @@ class LspClient {
     lsp.Position position, {
     bool includeDeclaration = false,
   }) async {
-    final result = await _client.server.textDocument.references(
-      .new(
-        textDocument: .new(uri: uri.toString()),
-        position: position,
-        context: .new(includeDeclaration: includeDeclaration),
+    final result = await _guard(
+      () => _client.server.textDocument.references(
+        .new(
+          textDocument: .new(uri: uri.toString()),
+          position: position,
+          context: .new(includeDeclaration: includeDeclaration),
+        ),
       ),
     );
     return result ?? const [];
@@ -219,10 +260,12 @@ class LspClient {
   /// Resolves the declaration(s) the symbol at [position] in [uri] points to,
   /// via `textDocument/definition` (forward resolution).
   Future<List<lsp.Location>> definition(Uri uri, lsp.Position position) async {
-    final result = await _client.server.textDocument.definition(
-      .new(
-        textDocument: .new(uri: uri.toString()),
-        position: position,
+    final result = await _guard(
+      () => _client.server.textDocument.definition(
+        .new(
+          textDocument: .new(uri: uri.toString()),
+          position: position,
+        ),
       ),
     );
     final definition = result.asDefinition;
@@ -232,8 +275,10 @@ class LspClient {
   /// The raw, delta-encoded `textDocument/semanticTokens/full` data for [uri],
   /// or empty when the server produces no tokens.
   Future<List<int>> semanticTokensFull(Uri uri) async {
-    final result = await _client.server.textDocument.semanticTokensFull(
-      .new(textDocument: .new(uri: uri.toString())),
+    final result = await _guard(
+      () => _client.server.textDocument.semanticTokensFull(
+        .new(textDocument: .new(uri: uri.toString())),
+      ),
     );
     return result?.data ?? const [];
   }
