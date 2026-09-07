@@ -1,3 +1,9 @@
+## 0.4.4
+
+- Fix a compiled `ciach` (`dart install`) spawning itself as the analysis
+  server and failing every run. ([#44](https://github.com/leancodepl/ciach/pull/44))
+- Show the analysis server's exit code and stderr when it dies.
+
 ## 0.4.3
 
 - Add `--version`, and show the version in the `--help` header. The analysis
