@@ -27,6 +27,8 @@ library;
 
 export 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
+export 'src/dart_executable.dart'
+    show DartSdkNotFoundException, findDartExecutable;
 export 'src/finder.dart' show Ciach;
 export 'src/models.dart'
     show

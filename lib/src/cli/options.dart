@@ -66,23 +66,28 @@ class ResolvedOptions {
   String get absoluteRootPath => p.normalize(p.absolute(rootPath));
 
   /// The finder's share of these settings, reporting progress to [onProgress].
-  FinderOptions finderOptions({void Function(String message)? onProgress}) =>
-      .new(
-        rootPath: absoluteRootPath,
-        includeGlobs: includeGlobs,
-        excludeGlobs: excludeGlobs,
-        additionalGeneratedSuffixes: additionalGeneratedSuffixes,
-        kinds: kinds,
-        includePublic: includePublic,
-        includeGenerated: includeGenerated,
-        skipOverrides: !overrides,
-        skipOperators: !operators,
-        unusedUnionMembers: unusedUnionMembers,
-        reportToJson: reportToJson,
-        concurrency: concurrency,
-        dartExecutable: dartExecutable,
-        onProgress: onProgress,
-      );
+  ///
+  /// [dartExecutable] is the `dart` the caller resolved (see
+  /// `findDartExecutable`); when null the finder resolves one itself.
+  FinderOptions finderOptions({
+    String? dartExecutable,
+    void Function(String message)? onProgress,
+  }) => .new(
+    rootPath: absoluteRootPath,
+    includeGlobs: includeGlobs,
+    excludeGlobs: excludeGlobs,
+    additionalGeneratedSuffixes: additionalGeneratedSuffixes,
+    kinds: kinds,
+    includePublic: includePublic,
+    includeGenerated: includeGenerated,
+    skipOverrides: !overrides,
+    skipOperators: !operators,
+    unusedUnionMembers: unusedUnionMembers,
+    reportToJson: reportToJson,
+    concurrency: concurrency,
+    dartExecutable: dartExecutable ?? this.dartExecutable,
+    onProgress: onProgress,
+  );
 }
 
 /// Resolves every [CiachOption] from [args] and [config], the command line
