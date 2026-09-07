@@ -139,10 +139,10 @@ class OutputFormats extends StatelessComponent {
             ),
           div(
             classes: 'tab-list',
-            attributes: const {
-              'role': 'tablist',
-              'aria-label': 'Output format',
-            },
+            // The switch is radio inputs with labels, which is what assistive
+            // technology already sees; a tablist would promise tab roles the
+            // labels do not have.
+            attributes: const {'role': 'group', 'aria-label': 'Output format'},
             [
               for (final format in _formats)
                 label(
