@@ -93,7 +93,7 @@ class SiteFooter extends StatelessComponent {
         [
           div(classes: 'container cta-inner', [
             const h2(id: 'cta-heading', [
-              .text('Ready to make the first cut?'),
+              .text('Ready to make the first ciach?'),
             ]),
             div(classes: 'hero-actions center', [
               Button(href: pubUrl, external: true, [
