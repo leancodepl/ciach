@@ -12,12 +12,6 @@ enum Icon {
   arrow(['M5 12h14', 'm13 6 6 6-6 6']),
   external(['M14 4h6v6', 'M20 4 10 14', 'M18 13v7H4V6h7']),
   terminal(['m4 17 6-6-6-6', 'M12 19h8']),
-  // The blade runs along the 30° cut of the word mark; see [logo].
-  ciach([
-    'M6.27 21.92 13.59 9.24',
-    'M13.59 9.24 17.73 2.08c-.03 5.13-1.5 8.32-4.51 10.99',
-    'M10.09 15.31 7.86 19.16',
-  ]),
   bolt(['M13 2 4 14h7l-1 8 9-12h-7z']),
   shield(['M12 3 4 6v6c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V6z', 'm9 12 2 2 4-4']),
   git([
@@ -76,10 +70,32 @@ Component logo({bool large = false, String id = 'logo'}) => span(
   classes: large ? 'logo logo-large' : 'logo',
   attributes: const {'aria-hidden': 'true'},
   [
-    span(classes: 'logo-mark', [Icon.ciach.build(size: large ? 30 : 22)]),
+    span(classes: 'logo-mark', [logoMark(size: large ? 30 : 22)]),
     span(classes: 'logo-text', [wordMark(id: id)]),
   ],
 );
+
+/// The blade: a filled outline of a 2.4-wide round-capped stroke on the
+/// 24-unit icon grid, running along the 30° cut of the word mark. Unlike the
+/// [Icon]s it does not depend on stroke settings, so it draws the same in the
+/// site header, the favicon and the social card. `web/favicon.svg` carries the
+/// same path.
+Component logoMark({int size = 24}) => svg(
+  attributes: {
+    'viewBox': '0 0 24 24',
+    'width': '$size',
+    'height': '$size',
+    'fill': 'currentColor',
+    'aria-hidden': 'true',
+    'focusable': 'false',
+  },
+  [
+    path(attributes: const {'d': _logoMarkPath}, const []),
+  ],
+);
+
+const _logoMarkPath =
+    'M12.31 13.85 7.31 22.52 7.22 22.65 7.06 22.82 6.87 22.96 6.66 23.06 6.43 23.11 6.19 23.12 5.96 23.08 5.74 23 5.54 22.87 5.39 22.74 5.27 22.59 5.16 22.38 5.1 22.19 5.07 22 5.08 21.76 5.13 21.53 5.21 21.35 16.69 1.48 16.83 1.29 17 1.13 17.2 1 17.38 0.93 17.62 0.89 17.81 0.88 18.05 0.92 18.23 0.99 18.47 1.13 18.58 1.24 18.69 1.35 18.83 1.59 18.91 1.85 18.93 2.05 18.92 2.72 18.85 4.02 18.77 4.76 18.66 5.53 18.54 6.22 18.39 6.88 18.21 7.53 18.01 8.15 17.78 8.75 17.53 9.34 17.23 9.96 16.89 10.57 16.52 11.15 16.09 11.75 15.62 12.33 15.12 12.9 14.58 13.44 14.02 13.97 13.83 14.1 13.61 14.2 13.39 14.26 13.15 14.27 12.92 14.23 12.7 14.15 12.5 14.03Z';
 
 /// The cut "ciach" word mark as an inline SVG, filled with `currentColor` and
 /// sized by the surrounding font size (see `.logo-text svg` in `NavBar`).
