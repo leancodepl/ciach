@@ -40,7 +40,7 @@ class OgCard extends StatelessComponent {
     css('.og-card .logo').styles(fontSize: 2.1.rem),
     css('.og-card .logo-mark')
         .styles(width: 56.px, height: 56.px, radius: .circular(15.px)),
-    css('.og-card .logo-mark svg').styles(width: 30.px, height: 30.px),
+    css('.og-card .logo-mark svg').styles(width: 38.px, height: 38.px),
     css('.og-card .hero-badges').styles(
       margin: .only(top: 34.px, bottom: .zero),
       gap: .all(0.6.rem),

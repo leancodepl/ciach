@@ -39,9 +39,9 @@ class NavBar extends StatelessComponent {
       alignItems: .center,
       gap: .all(0.5.rem),
       fontSize: 1.25.rem,
-      fontWeight: .w700,
-      letterSpacing: (-0.03).em,
     ),
+    // The word mark scales with the font size, like the text it replaces.
+    css('.logo-text svg').styles(display: .block, width: .auto, height: 0.8.em),
     css('.logo-mark').styles(
       display: .inlineGrid,
       width: 32.px,

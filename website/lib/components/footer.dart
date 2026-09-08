@@ -106,7 +106,7 @@ class SiteFooter extends StatelessComponent {
       ),
       div(classes: 'container footer-grid', [
         div(classes: 'footer-brand', [
-          logo(),
+          logo(id: 'footer-logo'),
           p([
             const .text('Dead code detector for Dart and Flutter. '),
             externalLink(changelogUrl, [.text('v$version')]),
