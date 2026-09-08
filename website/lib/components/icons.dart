@@ -89,8 +89,8 @@ Component logoMark({int size = 24}) => svg(
     'aria-hidden': 'true',
     'focusable': 'false',
   },
-  [
-    path(attributes: const {'d': _logoMarkPath}, const []),
+  const [
+    path(attributes: {'d': _logoMarkPath}, []),
   ],
 );
 
