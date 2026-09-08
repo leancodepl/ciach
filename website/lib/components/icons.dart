@@ -75,10 +75,11 @@ Component logo({bool large = false, String id = 'logo'}) => span(
   ],
 );
 
-/// The blade: a slim knife silhouette on the 24-unit icon grid, pointing
-/// up-right along the 30° cut of the word mark. A single filled path, unlike
-/// the stroked [Icon]s, so it draws the same in the site header, the favicon
-/// and the social card. `web/favicon.svg` carries the same path.
+/// The knife: a pictogram of a deep blade and a stub handle with a gap between
+/// them, on the 24-unit icon grid, pointing up-right along the 30° cut of the
+/// word mark. A single filled path, unlike the stroked [Icon]s, so it draws
+/// the same in the site header, the favicon and the social card.
+/// `web/favicon.svg` carries the same path.
 Component logoMark({int size = 24}) => svg(
   attributes: {
     'viewBox': '0 0 24 24',
@@ -94,7 +95,7 @@ Component logoMark({int size = 24}) => svg(
 );
 
 const _logoMarkPath =
-    'M5.08 21.28L10.03 12.71L9.47 12.39L9.92 11.61L10.52 11.96L13.81 6.26L18 1.61C18.41 4.2 16.86 9.59 14.25 14.11L13.38 13.61L12.93 14.39L12.37 14.06L7.42 22.63Q7.17 23.07 6.74 22.82L5.26 21.97Q4.83 21.72 5.08 21.28Z';
+    'M6.05 17.11L6.75 15.9Q8.05 13.64 10.3 14.94L10.3 14.94Q12.55 16.24 11.25 18.5L10.55 19.71Q9.25 21.96 7 20.66L7 20.66Q4.75 19.36 6.05 17.11ZM8.6 12.69L17 3.34C16.76 9.16 18.81 12.2 16.05 16.99Z';
 
 /// The cut "ciach" word mark as an inline SVG, filled with `currentColor` and
 /// sized by the surrounding font size (see `.logo-text svg` in `NavBar`).
