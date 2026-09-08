@@ -118,7 +118,8 @@ class FinderOptions {
   final int concurrency;
 
   /// Path to the `dart` executable used to launch the analysis server.
-  /// Defaults to the SDK currently running this tool.
+  /// Defaults to the SDK running this tool, or to `dart` from `PATH` when this
+  /// is a compiled binary; see `findDartExecutable`.
   final String? dartExecutable;
 
   /// Optional progress callback, invoked with a human-readable status line.

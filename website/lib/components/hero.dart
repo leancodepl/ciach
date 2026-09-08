@@ -168,9 +168,13 @@ class Hero extends StatelessComponent {
             ]),
             div(classes: 'install', [installCommandBox()]),
             div(classes: 'hero-actions', [
-              Button(href: '/docs', [
+              Button(href: pubUrl, external: true, [
+                const .text('Get it on pub.dev'),
+                Icon.external.build(size: 18),
+              ]),
+              Button(href: '/docs', variant: .secondary, [
+                Icon.book.build(size: 18),
                 const .text('Read the docs'),
-                Icon.arrow.build(size: 18),
               ]),
               Button(href: repoUrl, variant: .secondary, external: true, [
                 Icon.github.build(size: 18),

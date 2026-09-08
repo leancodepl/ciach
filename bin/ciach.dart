@@ -108,18 +108,24 @@ Future<int> _run(List<String> arguments) async {
   final showProgress = resolved.showProgress;
   final rootPath = resolved.absoluteRootPath;
 
+  // Up front: a missing SDK fails fast, and verbose shows the real `dart`.
+  final String dartExecutable;
+  try {
+    dartExecutable = findDartExecutable(explicit: resolved.dartExecutable);
+  } on DartSdkNotFoundException catch (e) {
+    stderr.writeln(e.message);
+    return 2;
+  }
+
   log?.writeAll(
-    describeSettings(
-      configuration,
-      resolved,
-      dartExecutable: resolved.dartExecutable ?? Platform.resolvedExecutable,
-    ),
+    describeSettings(configuration, resolved, dartExecutable: dartExecutable),
   );
 
   final FinderResult result;
   try {
     result = await Ciach(
       resolved.finderOptions(
+        dartExecutable: dartExecutable,
         // Verbose keeps every phase line; progress overwrites one in place.
         onProgress:
             log?.write ?? (showProgress ? _ProgressPrinter().update : null),
