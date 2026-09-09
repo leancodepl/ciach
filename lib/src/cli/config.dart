@@ -204,7 +204,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     return values;
   }
 
-  /// The entry-point specs under [key], validated but not yet converted.
+  /// The entry-point specs under [key], validated.
   List<String>? _entryPoints(String key) {
     final values = _strings(key);
     if (values != null) {

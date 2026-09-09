@@ -1,7 +1,5 @@
-// The `flutter test` configuration hook. The test runner finds this file by
-// name, walking up from each test file, and generates a bootstrap that calls
-// `testExecutable(testMain)` — so nothing in the package references it, yet it
-// is live. Expected findings: none.
+// The `flutter test` hook: the runner's generated bootstrap calls it, nothing
+// on disk does. Expected findings: none.
 
 import 'dart:async';
 

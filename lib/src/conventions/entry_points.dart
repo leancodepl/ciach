@@ -2,30 +2,20 @@ import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, SymbolKind;
 
-/// The one parameter `flutter test`'s bootstrap passes to `testExecutable`: the
-/// test file's `main`, typed `FutureOr<void> Function()`.
+/// The one parameter the `flutter test` bootstrap passes: the test's `main`.
 final _testMainParameter = RegExp(
   r'^\(\s*FutureOr<void>\s+Function\(\)\s+[A-Za-z_$][A-Za-z0-9_$]*\s*\)$',
 );
 
-/// A declaration a framework or tool invokes by convention, so that no source
-/// in the package ever references it.
+/// A declaration a framework or tool calls by convention, with no source
+/// reference for the search to find.
 ///
-/// The reference search cannot see such a call, so the declaration would read
-/// as dead. Each rule spells out the full contract the caller relies on — the
-/// file the declaration must live in, its name, and where the caller is picky,
-/// its kind and signature — and only a declaration meeting all of it is exempt.
-/// A same-named function elsewhere, or one with a shape the caller could not
-/// invoke, is still reported.
-///
-/// [builtIn] lists the conventions ciach knows; [EntryPoint.parse] builds one
-/// from the `--entry-point` / `entry-point:` spec a project adds for its own.
+/// A rule spells out the caller's contract — file, name, and where it matters,
+/// kind and signature — and exempts only a declaration meeting all of it.
 final class EntryPoint {
-  /// Creates a rule matching a declaration named [name] — `name` for a
-  /// top-level declaration, `Container.member` for a member — in files matching
-  /// the POSIX glob [file] (relative to the package root; `null` for any file),
-  /// of kind [kind] (`null` for any) whose LSP `detail` (the parameter list)
-  /// satisfies [signature] (`null` for any). [reason] says who calls it.
+  /// [name] is `name` or `Container.member`; [file] a POSIX glob relative to
+  /// the package root (`null` for any file); [signature] matches the LSP
+  /// `detail`, i.e. the parameter list. [reason] says who calls it.
   EntryPoint({
     required this.name,
     required this.reason,
@@ -36,13 +26,11 @@ final class EntryPoint {
        _file = file == null ? null : Glob(file, context: _posix),
        _signature = signature;
 
-  /// Parses a `<file glob>:<name>` or bare `<name>` spec, as given on the
-  /// command line or in the config file, into a rule that matches on file and
-  /// name alone (any kind, any signature).
+  /// Parses a `<file glob>:<name>` or bare `<name>` spec (the last `:` splits
+  /// them) into a rule matching on file and name alone.
   ///
-  /// The last `:` separates the two, so a glob may not contain one. Throws a
-  /// [FormatException] naming the problem for an empty name, an invalid glob,
-  /// or a name that is not a Dart identifier (optionally `Container.member`).
+  /// Throws a [FormatException] for an empty name or glob, a name that is not
+  /// an identifier (optionally `Container.member`), or an invalid glob.
   factory EntryPoint.parse(String spec) {
     final trimmed = spec.trim();
     final colon = trimmed.lastIndexOf(':');
@@ -81,35 +69,30 @@ final class EntryPoint {
     r'^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)?$',
   );
 
-  /// The declaration name: `name` for a top-level one, `Container.member` for
-  /// a member.
+  /// `name` for a top-level declaration, `Container.member` for a member.
   final String name;
 
-  /// The file glob as written, for display; `null` matches any file.
+  /// The file glob as written; `null` matches any file.
   final String? filePattern;
 
-  /// Who invokes the declaration, for `--verbose`.
+  /// Who calls the declaration, for `--verbose`.
   final String reason;
 
-  /// The kind the declaration must have, or `null` for any.
+  /// The required kind, or `null` for any.
   final SymbolKind? kind;
 
   final Glob? _file;
   final RegExp? _signature;
 
-  /// The conventions ciach applies on every run.
+  /// The conventions applied on every run.
   static final builtIn = <EntryPoint>[
-    // The program's entry point, in every file that has one: a `bin/` script, a
-    // test, an example.
     EntryPoint(
       name: 'main',
       kind: .function,
       reason: 'the program entry point',
     ),
-    // `flutter test` walks up from each test file to the nearest
-    // `flutter_test_config.dart` and generates a bootstrap that imports it and
-    // calls `testExecutable(testMain)`. The bootstrap never lands on disk, so
-    // the call is invisible to the reference search.
+    // `flutter test` generates an in-memory bootstrap that imports the nearest
+    // `flutter_test_config.dart` and calls `testExecutable(testMain)`.
     EntryPoint(
       name: 'testExecutable',
       file: '**/flutter_test_config.dart',
@@ -119,9 +102,8 @@ final class EntryPoint {
     ),
   ];
 
-  /// Whether [symbol], declared in the file at [relativePath] (POSIX, relative
-  /// to the package root) inside [container] (`null` at the top level), meets
-  /// this rule's whole contract.
+  /// Whether [symbol], in the file at [relativePath] (POSIX, from the package
+  /// root) inside [container] (`null` at the top level), meets this rule.
   bool matches(String relativePath, DocumentSymbol symbol, String? container) {
     final qualified = container == null
         ? symbol.name
@@ -142,24 +124,20 @@ final class EntryPoint {
     return true;
   }
 
-  /// The spec form of this rule, as `--entry-point` would take it.
+  /// The spec form, as `--entry-point` takes it.
   @override
   String toString() => filePattern == null ? name : '$filePattern:$name';
 }
 
-/// The built-in conventions followed by a project's own rules.
-///
-/// A declaration is matched against every rule in turn and the first hit wins;
-/// the order only decides which [EntryPoint.reason] `--verbose` shows.
+/// [EntryPoint.builtIn] followed by a project's own rules; the first match
+/// wins.
 final class EntryPoints {
-  /// Creates the rule set: [EntryPoint.builtIn] plus [extra].
   EntryPoints(List<EntryPoint> extra)
     : _rules = [...EntryPoint.builtIn, ...extra];
 
   final List<EntryPoint> _rules;
 
-  /// The first rule [symbol] satisfies, or `null` when it is an ordinary
-  /// declaration. See [EntryPoint.matches] for the arguments.
+  /// The first rule [symbol] meets, or `null` for an ordinary declaration.
   EntryPoint? match(
     String relativePath,
     DocumentSymbol symbol,

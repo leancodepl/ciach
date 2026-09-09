@@ -114,11 +114,8 @@ class FinderOptions {
   /// and would flag a live serializer. Enable to audit genuinely-dead `toJson`s.
   final bool reportToJson;
 
-  /// Declarations this project's frameworks or tools invoke by convention, with
-  /// no source reference for the search to find, on top of the conventions
-  /// ciach always applies ([EntryPoint.builtIn]: `main`, and `testExecutable`
-  /// in a `flutter_test_config.dart`). A declaration matching one is never a
-  /// candidate, so it is neither reported nor removed.
+  /// The project's own entry points, on top of [EntryPoint.builtIn]. A match
+  /// is never a candidate, so it is neither reported nor removed.
   final List<EntryPoint> entryPoints;
 
   /// How many `textDocument/references` requests to keep in flight at once.

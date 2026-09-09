@@ -56,11 +56,9 @@ class Ciach {
   /// Freezed-union tracking, fed as candidates are collected.
   final _freezed = FreezedUnions();
 
-  /// The built-in and project-declared entry points, which are never
-  /// candidates.
   late final _entryPoints = EntryPoints(options.entryPoints);
 
-  /// Declarations left out as entry points this run, for `--verbose`.
+  /// Skipped as entry points this run, for `--verbose`.
   final _skippedEntryPoints = <_SkippedEntryPoint>[];
 
   late final _classifier = ReferenceClassifier(
@@ -459,8 +457,7 @@ class Ciach {
     return true;
   }
 
-  /// Narrates, one line each, the declarations skipped as entry points other
-  /// than `main` — too common to be worth a line, and never a surprise.
+  /// One line per skipped entry point, except the ubiquitous `main`.
   void _reportSkippedEntryPoints() {
     if (options.onProgress == null) {
       return;
@@ -578,8 +575,7 @@ class Ciach {
     )) {
       return false;
     }
-    // A framework or tool calls it without a source reference: `main`, or a
-    // convention such as `testExecutable` in `flutter_test_config.dart`.
+    // Called by a framework or tool, with no source reference to find.
     if (_entryPoints.match(relativePath, symbol, container) case final rule?) {
       _skippedEntryPoints.add((
         path: relativePath,
@@ -663,6 +659,5 @@ class Ciach {
   }
 }
 
-/// A declaration the candidate filter left out as an entry point: where it is
-/// (POSIX path relative to the root, one-based line) and the rule it met.
+/// A skipped entry point: root-relative POSIX path, one-based line, rule met.
 typedef _SkippedEntryPoint = ({String path, int line, EntryPoint rule});

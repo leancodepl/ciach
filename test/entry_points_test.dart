@@ -3,8 +3,7 @@ import 'package:pro_lsp/pro_lsp.dart';
 import 'package:test/test.dart';
 
 void main() {
-  /// A symbol as the analysis server reports it: [detail] carries the
-  /// parenthesized parameter list.
+  /// A symbol as the server reports it: [detail] is the parameter list.
   DocumentSymbol symbol(
     String name, {
     SymbolKind kind = .function,
@@ -218,7 +217,6 @@ void main() {
   test('a project rule is consulted after the built-in ones', () {
     final rules = EntryPoints([EntryPoint.parse('tool/**:main')]);
 
-    // Still the built-in `main`, with its reason.
     expect(
       rules.match('tool/gen.dart', symbol('main'), null)?.reason,
       'the program entry point',

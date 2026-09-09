@@ -245,8 +245,7 @@ void main() {
     expect(unused, isNot(contains('Vector2')));
     // `main` is an entry point and is always skipped.
     expect(unused, isNot(contains('main')));
-    // So is `testExecutable` in test/flutter_test_config.dart, which only the
-    // `flutter test` bootstrap calls.
+    // So is `testExecutable` in test/flutter_test_config.dart.
     expect(unused, isNot(contains('testExecutable')));
     // Skipped because it is annotated with @override.
     expect(unused, isNot(contains('Dog.sound')));
@@ -913,16 +912,14 @@ void main() {
 
     test('exempts a declaration only when it meets the whole contract', () async {
       expect(located(await runEntryPoints()), {
-        // Right name and shape, wrong file.
+        // Wrong file.
         'lib/scenarios/entry_points.dart:testExecutable',
         'lib/scenarios/entry_points.dart:integrationMain',
         'lib/scenarios/entry_points.dart:Plugin.registerWith',
         'lib/scenarios/entry_points.dart:bootstrap',
-        // Right file and name, but a shape the bootstrap could not call…
+        // Wrong signature, and the file name exempts nothing beside it.
         'lib/scenarios/entry_points/flutter_test_config.dart:testExecutable',
-        // …and the file name alone exempts nothing beside it.
         'lib/scenarios/entry_points/flutter_test_config.dart:deadHelperNextToConfig',
-        // The real one in test/flutter_test_config.dart is not here.
       });
     });
 
@@ -942,9 +939,7 @@ void main() {
           'lib/scenarios/entry_points/flutter_test_config.dart:testExecutable',
           'lib/scenarios/entry_points/flutter_test_config.dart:deadHelperNextToConfig',
         });
-        // The class whose member is an entry point is still reported when it is
-        // itself unreferenced — it is not here only because `integrationMain`
-        // names it.
+        // `Plugin` is kept alive by `integrationMain`, not by its member's rule.
         expect(
           result.unused.map((d) => d.qualifiedName),
           isNot(contains('Plugin')),
@@ -981,7 +976,6 @@ void main() {
           'the `flutter test` bootstrap (entry point '
           '**/flutter_test_config.dart:testExecutable).';
       expect(skipped, [bootstrapLine, testExecutableLine]);
-      // Every test file has a `main`; a line each would drown the log.
       expect(lines, isNot(contains(contains(' main:'))));
     });
   });

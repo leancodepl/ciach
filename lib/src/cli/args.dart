@@ -39,10 +39,8 @@ String get kindNames => kindAliases.keys.sorted().join(', ');
 /// The accepted `--format` values; the first one is the default.
 const formatNames = ['text', 'json', 'github'];
 
-/// Parses the `--entry-point` specs (`<file glob>:<name>` or `<name>`,
-/// repeatable) into rules.
-///
-/// Throws a [FormatException] naming the offending spec on a malformed one.
+/// Parses the `--entry-point` specs into rules; throws a [FormatException]
+/// naming a malformed one.
 List<EntryPoint> parseEntryPoints(List<String> raw) => [
   for (final spec in raw) EntryPoint.parse(spec),
 ];
@@ -271,16 +269,13 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/entry-point',
       defaultsTo: [],
       valueHelp: 'glob:name',
-      // Rejects a malformed spec wherever it came from; the conversion to
-      // rules happens later.
       customValidator: parseEntryPoints,
       helpText:
-          'A declaration a framework or tool of this project calls by\n'
-          'convention, with no reference in the source, so it is never\n'
-          'reported: `<file glob>:<name>` (e.g. `lib/**_plugin.dart:registerWith`\n'
-          'or `test/setup.dart:Harness.bootstrap`), or a bare `<name>` for any\n'
-          'file. Repeatable. On top of the built-in `main` and `testExecutable`\n'
-          'in flutter_test_config.dart.',
+          'A declaration a framework calls by convention, so never reported:\n'
+          '`<file glob>:<name>` (e.g. `lib/**_plugin.dart:registerWith`,\n'
+          '`test/setup.dart:Harness.bootstrap`) or a bare `<name>` for any\n'
+          'file. Repeatable. Built in: `main`, and `testExecutable` in a\n'
+          'flutter_test_config.dart.',
     ),
   ),
   kinds(
