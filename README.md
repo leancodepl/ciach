@@ -117,7 +117,8 @@ kinds: [class, function, method]
 format: github
 set-exit-if-changed: true
 entry-points:                     # file-only; see Entry points below
-  registerWith: 'lib/**_plugin.dart'
+  - name: registerWith
+    glob: 'lib/**_plugin.dart'
 ```
 
 Command line beats config file beats default, even when the flag matches the
@@ -270,16 +271,19 @@ exemption:
 [  0.4s] Skipped test/flutter_test_config.dart:6 testExecutable: called by the `flutter test` bootstrap.
 ```
 
-A project adds its own under `entry-points:` in `ciach.yaml`, a map of
-declaration name — bare for a top-level declaration, `Container.member` for a
-member — to a file glob relative to the package root, a list of globs, or
-nothing for any file. This setting has no command-line form.
+A project adds its own under `entry-points:` in `ciach.yaml`: a list of rules,
+each with a `name` — bare for a top-level declaration, `Container.member` for a
+member — and an optional `glob` relative to the package root, one or a list, for
+the files it may live in; no `glob` means any file. This setting has no
+command-line form.
 
 ```yaml
 entry-points:
-  registerWith: 'lib/**_plugin.dart'          # a top-level function, in matching files
-  Harness.start: [test/harness.dart]          # a member
-  integrationMain:                            # any file
+  - name: registerWith
+    glob: 'lib/**_plugin.dart'   # a top-level function, in matching files
+  - name: Harness.start
+    glob: [test/harness.dart]    # a member
+  - name: integrationMain        # any file
 ```
 
 A declaration that matches is never a candidate, so it is neither reported nor

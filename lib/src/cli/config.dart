@@ -205,36 +205,52 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     return values;
   }
 
-  /// The rules under [key]: a map of declaration name to a file glob, a list
-  /// of globs, or nothing for any file.
+  /// The rules under [key]: a list of `{name: …, glob: …}` entries, `glob` a
+  /// file glob, a list of globs, or absent for any file.
   List<EntryPoint>? _entryPoints(String key) => switch (settings[key]) {
     null => null,
-    final Map<Object?, Object?> rules => [
-      for (final rule in rules.entries)
-        _entryPoint(key, '${rule.key}', rule.value),
+    final Iterable<Object?> rules => [
+      for (final (i, rule) in rules.indexed) _entryPoint('$key[$i]', rule),
     ],
     final other => _wrong(
       key,
-      'a map of declaration names to file globs',
+      'a list of entry points, each a map with `name` and optional `glob`',
       other,
     ),
   };
 
-  EntryPoint _entryPoint(String key, String name, Object? files) {
-    const expected = 'a file glob, a list of them, or nothing';
-    final globs = switch (files) {
+  EntryPoint _entryPoint(String at, Object? rule) {
+    if (rule is! Map<Object?, Object?>) {
+      return _wrong(at, 'a map with `name` and optional `glob`', rule);
+    }
+    for (final field in rule.keys) {
+      if (field != 'name' && field != 'glob') {
+        throw FormatException(
+          "$path: '$at' has an unknown field '$field'; expected `name` and optional `glob`.",
+        );
+      }
+    }
+    final name = switch (rule['name']) {
+      final String name => name,
+      final other => _wrong('$at.name', 'a declaration name', other),
+    };
+    const globExpected = 'a file glob or a list of them';
+    final globs = switch (rule['glob']) {
       null => const <String>[],
       final String glob => [glob],
       final Iterable<Object?> values => [
         for (final value in values)
-          if (value is String) value else _wrong('$key.$name', expected, value),
+          if (value is String)
+            value
+          else
+            _wrong('$at.glob', globExpected, value),
       ],
-      final other => _wrong('$key.$name', expected, other),
+      final other => _wrong('$at.glob', globExpected, other),
     };
     try {
       return EntryPoint.project(name, files: globs);
     } on FormatException catch (e) {
-      throw FormatException("$path: '$key': ${e.message}");
+      throw FormatException("$path: '$at': ${e.message}");
     }
   }
 
