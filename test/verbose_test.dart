@@ -16,7 +16,7 @@ void main() {
       final lines = describeConfigSource(
         .parse(
           "public: false\nexclude: ['test/**']\n"
-          "entry-points: {bootstrap: , registerWith: [lib/**, bin/**]}",
+          'entry-points: {bootstrap: , registerWith: [lib/**, bin/**]}',
           origin: '/c.yaml',
         ),
         projectDir: '/pkg',
