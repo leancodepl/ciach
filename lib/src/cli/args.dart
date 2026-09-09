@@ -39,8 +39,8 @@ String get kindNames => kindAliases.keys.sorted().join(', ');
 /// The accepted `--format` values; the first one is the default.
 const formatNames = ['text', 'json', 'github'];
 
-/// The `entry-points` map: declaration name → file glob(s). It has no
-/// command-line form; `ConfigFile` hands it over already parsed and validated.
+/// The `entry-points` list of `{name, glob}` rules. It has no command-line
+/// form; `ConfigFile` hands it over already parsed and validated.
 final class EntryPointsOption extends ConfigOptionBase<List<EntryPoint>> {
   const EntryPointsOption({required super.configKey, super.helpText})
     : super(valueParser: const _EntryPointsParser(), defaultsTo: const []);
@@ -53,7 +53,7 @@ final class _EntryPointsParser extends ValueParser<List<EntryPoint>> {
 
   @override
   List<EntryPoint> parse(String value) => throw const FormatException(
-    'entry-points is a map of declaration names to file globs.',
+    'entry-points is a list of {name, glob} rules.',
   );
 }
 
@@ -281,9 +281,10 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/entry-points',
       helpText:
           'Declarations a framework calls by convention, so never reported:\n'
-          'a map of declaration name (`registerWith`, `Harness.start`) to a\n'
-          'file glob, a list of globs, or nothing for any file. Built in:\n'
-          '`main`, and `testExecutable` in a flutter_test_config.dart.',
+          'a list of rules, each with a `name` (`registerWith`,\n'
+          '`Harness.start`) and an optional `glob` (one, or a list) for the\n'
+          'files it may live in. Built in: `main`, and `testExecutable` in a\n'
+          'flutter_test_config.dart.',
     ),
   ),
   kinds(
@@ -417,17 +418,19 @@ Config file:
 
   `entry-points` lives only there: declarations a framework or tool calls by
   convention (on top of the built-in `main` and `testExecutable` in a
-  flutter_test_config.dart), as a map of declaration name to file glob, list
-  of globs, or nothing for any file.
+  flutter_test_config.dart), each a `name` with an optional `glob` (one, or a
+  list) for the files it may live in.
 
     # $configFileName
     public: false
     exclude:
       - 'test/**'
     entry-points:
-      registerWith: 'lib/**_plugin.dart'
-      Harness.start: [test/harness.dart]
-      integrationMain:
+      - name: registerWith
+        glob: 'lib/**_plugin.dart'
+      - name: Harness.start
+        glob: [test/harness.dart]
+      - name: integrationMain
     kinds: [class, function]
     format: json
 

@@ -103,16 +103,12 @@ String _source(ValueSourceType source) => switch (source) {
 };
 
 /// A value as the log reads it: an empty list is `(none)`, a full one is
-/// comma-separated, and a map's valueless keys stand alone.
+/// comma-separated, and a map keeps its braces.
 String _value(Object? value) => switch (value) {
   [] => '(none)',
-  List() => value.join(', '),
+  List() => value.map(_value).join(', '),
   Map() =>
-    value.entries
-        .map(
-          (e) => e.value == null ? '${e.key}' : '${e.key}: ${_value(e.value)}',
-        )
-        .join(', '),
+    '{${value.entries.map((e) => '${e.key}: ${_value(e.value)}').join(', ')}}',
   _ => '$value',
 };
 

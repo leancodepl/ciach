@@ -15,9 +15,9 @@
 - Stop reporting (and removing) `testExecutable` in a `flutter_test_config.dart`:
   the `flutter test` bootstrap calls it, with no reference on disk.
   ([#49](https://github.com/leancodepl/ciach/issues/49))
-- Add `entry-points` to `ciach.yaml`, a map of declaration name to file glob(s),
-  to list a project's own framework-called declarations so they are never
-  reported. `--verbose` names each declaration skipped as an entry point.
+- Add `entry-points` to `ciach.yaml`, a list of `{name, glob}` rules, to list a
+  project's own framework-called declarations so they are never reported.
+  `--verbose` names each declaration skipped as an entry point.
 
 ## 0.4.4
 

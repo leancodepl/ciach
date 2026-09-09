@@ -59,9 +59,11 @@ include:
 generated-suffix:
   - .gc.dart
 entry-points:
-  registerWith: 'lib/**_plugin.dart'
-  bootstrap:
-  Harness.start: [test/a.dart, test/b.dart]
+  - name: registerWith
+    glob: 'lib/**_plugin.dart'
+  - name: bootstrap
+  - name: Harness.start
+    glob: [test/a.dart, test/b.dart]
 kinds: [class, function]
 format: github
 color: true
@@ -100,7 +102,7 @@ dart: /sdk/bin/dart
 
     test('covers every command-line option', () {
       // Anything settable on the command line is settable in the file. The
-      // other way round holds too, but for the `entry-points` map, which has
+      // other way round holds too, but for the `entry-points` list, which has
       // no command-line spelling.
       final cliOnly = {'help', 'version', 'config', 'no-config'};
       final optionNames = parser.options.keys.toSet().difference(cliOnly);
@@ -216,11 +218,17 @@ concurrency: 4
 
     test('rejects a malformed entry point, naming the key', () {
       final cases = {
-        'entry-points: [a]': 'a map of declaration names',
-        'entry-points: {a-b: }': 'not a declaration name',
-        'entry-points: {foo: 1}': "'entry-points.foo' must be a file glob",
-        'entry-points: {foo: [1]}': "'entry-points.foo' must be a file glob",
-        "entry-points: {foo: 'lib/['}": 'not a valid glob',
+        'entry-points: {name: a}': 'a list of entry points',
+        'entry-points: [a]': "'entry-points[0]' must be a map",
+        'entry-points: [{glob: lib/**}]': "'entry-points[0].name' must be",
+        'entry-points: [{name: 1}]': "'entry-points[0].name' must be",
+        'entry-points: [{name: a-b}]': 'not a declaration name',
+        'entry-points: [{name: a, glob: 1}]': "'entry-points[0].glob' must be",
+        'entry-points: [{name: a, glob: [1]}]':
+            "'entry-points[0].glob' must be",
+        "entry-points: [{name: a, glob: 'lib/['}]": 'not a valid glob',
+        'entry-points: [{name: a}, {name: b, file: x}]':
+            "'entry-points[1]' has an unknown field 'file'",
       };
       for (final MapEntry(key: source, value: message) in cases.entries) {
         expect(
@@ -246,7 +254,7 @@ concurrency: 4
     test('checks the type of every key, even one the argv overrides', () {
       // Every option is given on the command line below, so only the eager
       // check when the file is parsed can still catch the bad value. A map fits
-      // no setting but `entry-points`, which gets a number instead.
+      // no setting, so it is the one wrong value that works for every key.
       const everyOption = [
         '--public',
         '--generated',
@@ -281,10 +289,7 @@ concurrency: 4
         expect(
           () => resolve(
             everyOption,
-            .parse(
-              key == 'entry-points' ? '$key: 42' : '$key: {a: b}',
-              origin: 'ciach.yaml',
-            ),
+            .parse('$key: {a: b}', origin: 'ciach.yaml'),
           ),
           throwsA(isFormatException('ciach.yaml', contains("'$key'"))),
           reason: 'for a wrong value under $key',
@@ -630,7 +635,7 @@ dart: /sdk/bin/dart
         'test/**',
         '-j',
         '4',
-      ], .parse('entry-points: {bootstrap: }', origin: 'ciach.yaml'));
+      ], .parse('entry-points: [{name: bootstrap}]', origin: 'ciach.yaml'));
       final options = resolved.finderOptions();
 
       expect(options.rootPath, p.normalize(p.absolute('.')));

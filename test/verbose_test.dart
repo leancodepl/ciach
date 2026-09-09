@@ -16,7 +16,7 @@ void main() {
       final lines = describeConfigSource(
         .parse(
           "public: false\nexclude: ['test/**']\n"
-          'entry-points: {bootstrap: , registerWith: [lib/**, bin/**]}',
+          'entry-points: [{name: bootstrap}, {name: registerWith, glob: [lib/**, bin/**]}]',
           origin: '/c.yaml',
         ),
         projectDir: '/pkg',
@@ -27,7 +27,7 @@ void main() {
         '  It sets 3 options:',
         '    public: false',
         '    exclude: test/**',
-        '    entry-points: bootstrap, registerWith: lib/**, bin/**',
+        '    entry-points: {name: bootstrap}, {name: registerWith, glob: lib/**, bin/**}',
       ]);
     });
 
@@ -134,7 +134,7 @@ void main() {
       final configuration = resolveConfiguration(
         parser.parse(const ['--no-public']),
         .parse(
-          'format: json\nremove: true\nentry-points: {registerWith: lib/**}',
+          'format: json\nremove: true\nentry-points: [{name: registerWith, glob: lib/**}]',
           origin: 'c.yaml',
         ),
       );
