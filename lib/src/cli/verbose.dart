@@ -80,7 +80,7 @@ String _setting(
   .exclude => _value(resolved.excludeGlobs),
   .include => _value(resolved.includeGlobs),
   .generatedSuffix => _value(resolved.additionalGeneratedSuffixes),
-  .entryPoint => _value(resolved.entryPoints),
+  .entryPoints => _value(resolved.entryPoints),
   .kinds => _kinds(resolved.kinds),
   .format => resolved.format,
   .color => '${resolved.useColor}',
@@ -103,10 +103,16 @@ String _source(ValueSourceType source) => switch (source) {
 };
 
 /// A value as the log reads it: an empty list is `(none)`, a full one is
-/// comma-separated.
+/// comma-separated, and a map's valueless keys stand alone.
 String _value(Object? value) => switch (value) {
   [] => '(none)',
   List() => value.join(', '),
+  Map() =>
+    value.entries
+        .map(
+          (e) => e.value == null ? '${e.key}' : '${e.key}: ${_value(e.value)}',
+        )
+        .join(', '),
   _ => '$value',
 };
 

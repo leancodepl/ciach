@@ -51,7 +51,7 @@ class ResolvedOptions {
   final bool unusedUnionMembers;
   final bool reportToJson;
 
-  /// The project's own entry points, parsed from `--entry-point` specs.
+  /// The project's own entry points, from `entry-points` in the config file.
   final List<EntryPoint> entryPoints;
   final bool setExitIfChanged;
   final bool remove;
@@ -129,8 +129,7 @@ ResolvedOptions resolveOptions(
     operators: configuration.value(CiachOption.operators),
     unusedUnionMembers: configuration.value(CiachOption.unusedUnionMembers),
     reportToJson: configuration.value(CiachOption.reportToJson),
-    // Already validated by the option; this only converts the specs.
-    entryPoints: parseEntryPoints(configuration.value(CiachOption.entryPoint)),
+    entryPoints: configuration.value(CiachOption.entryPoints),
     setExitIfChanged: configuration.value(CiachOption.setExitIfChanged),
     remove: configuration.value(CiachOption.remove),
     force: configuration.value(CiachOption.force),

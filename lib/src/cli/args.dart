@@ -39,11 +39,23 @@ String get kindNames => kindAliases.keys.sorted().join(', ');
 /// The accepted `--format` values; the first one is the default.
 const formatNames = ['text', 'json', 'github'];
 
-/// Parses the `--entry-point` specs into rules; throws a [FormatException]
-/// naming a malformed one.
-List<EntryPoint> parseEntryPoints(List<String> raw) => [
-  for (final spec in raw) EntryPoint.parse(spec),
-];
+/// The `entry-points` map: declaration name → file glob(s). It has no
+/// command-line form; `ConfigFile` hands it over already parsed and validated.
+final class EntryPointsOption extends ConfigOptionBase<List<EntryPoint>> {
+  const EntryPointsOption({required super.configKey, super.helpText})
+    : super(valueParser: const _EntryPointsParser(), defaultsTo: const []);
+}
+
+/// Never reached: the config layer supplies the parsed list, and there is no
+/// string form to parse.
+final class _EntryPointsParser extends ValueParser<List<EntryPoint>> {
+  const _EntryPointsParser();
+
+  @override
+  List<EntryPoint> parse(String value) => throw const FormatException(
+    'entry-points is a map of declaration names to file globs.',
+  );
+}
 
 /// Parses the `--kinds` values (comma-separated, repeatable) into symbol kinds,
 /// falling back to [FinderOptions.defaultKinds] when none are given.
@@ -263,19 +275,15 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'Ignored when --generated is set.',
     ),
   ),
-  entryPoint(
-    MultiStringOption.noSplit(
-      argName: 'entry-point',
-      configKey: '/entry-point',
-      defaultsTo: [],
-      valueHelp: 'glob:name',
-      customValidator: parseEntryPoints,
+  // Config file only: a map has no command-line spelling.
+  entryPoints(
+    EntryPointsOption(
+      configKey: '/entry-points',
       helpText:
-          'A declaration a framework calls by convention, so never reported:\n'
-          '`<file glob>:<name>` (e.g. `lib/**_plugin.dart:registerWith`,\n'
-          '`test/setup.dart:Harness.bootstrap`) or a bare `<name>` for any\n'
-          'file. Repeatable. Built in: `main`, and `testExecutable` in a\n'
-          'flutter_test_config.dart.',
+          'Declarations a framework calls by convention, so never reported:\n'
+          'a map of declaration name (`registerWith`, `Harness.start`) to a\n'
+          'file glob, a list of globs, or nothing for any file. Built in:\n'
+          '`main`, and `testExecutable` in a flutter_test_config.dart.',
     ),
   ),
   kinds(
@@ -407,12 +415,19 @@ Config file:
   line wins over the file; --no-config ignores the file; --verbose says which
   file was read and what it set.
 
+  `entry-points` lives only there: declarations a framework or tool calls by
+  convention (on top of the built-in `main` and `testExecutable` in a
+  flutter_test_config.dart), as a map of declaration name to file glob, list
+  of globs, or nothing for any file.
+
     # $configFileName
     public: false
     exclude:
       - 'test/**'
-    entry-point:
-      - 'lib/**_plugin.dart:registerWith'
+    entry-points:
+      registerWith: 'lib/**_plugin.dart'
+      Harness.start: [test/harness.dart]
+      integrationMain:
     kinds: [class, function]
     format: json
 

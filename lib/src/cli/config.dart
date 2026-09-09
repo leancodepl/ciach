@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/src/cli/args.dart';
+import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
 import 'package:path/path.dart' as p;
@@ -144,7 +145,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
   Object? _typedValue(String key) => switch (_optionFor(key)) {
     .format => _oneOf(key, formatNames),
     .kinds => _kinds(key),
-    .entryPoint => _entryPoints(key),
+    .entryPoints => _entryPoints(key),
     .concurrency => _positiveInt(key),
     final option => switch (option.option) {
       FlagOption() => _boolean(key),
@@ -204,17 +205,37 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     return values;
   }
 
-  /// The entry-point specs under [key], validated.
-  List<String>? _entryPoints(String key) {
-    final values = _strings(key);
-    if (values != null) {
-      try {
-        parseEntryPoints(values);
-      } on FormatException catch (e) {
-        throw FormatException("$path: '$key': ${e.message}");
-      }
+  /// The rules under [key]: a map of declaration name to a file glob, a list
+  /// of globs, or nothing for any file.
+  List<EntryPoint>? _entryPoints(String key) => switch (settings[key]) {
+    null => null,
+    final Map<Object?, Object?> rules => [
+      for (final rule in rules.entries)
+        _entryPoint(key, '${rule.key}', rule.value),
+    ],
+    final other => _wrong(
+      key,
+      'a map of declaration names to file globs',
+      other,
+    ),
+  };
+
+  EntryPoint _entryPoint(String key, String name, Object? files) {
+    const expected = 'a file glob, a list of them, or nothing';
+    final globs = switch (files) {
+      null => const <String>[],
+      final String glob => [glob],
+      final Iterable<Object?> values => [
+        for (final value in values)
+          if (value is String) value else _wrong('$key.$name', expected, value),
+      ],
+      final other => _wrong('$key.$name', expected, other),
+    };
+    try {
+      return EntryPoint.project(name, files: globs);
+    } on FormatException catch (e) {
+      throw FormatException("$path: '$key': ${e.message}");
     }
-    return values;
   }
 
   int? _positiveInt(String key) => switch (settings[key]) {

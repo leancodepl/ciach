@@ -34,7 +34,7 @@ expected; each is scanned only by its own test, never by the demo run above.
 | `freezed_unions.dart` | `@freezed` union arms built only by a generated `fromJson` |
 | `serialization.dart` | the `toJson`/`fromJson` conventions, and `--report-tojson` |
 | `comment_annotations.dart` | a comment mentioning `@override` or `vm:entry-point` does not skip the declaration below it |
-| `entry_points.dart`, `entry_points/flutter_test_config.dart` | a built-in entry point exempts only its whole contract (file, name, signature), and `--entry-point` adds a project's own |
+| `entry_points.dart`, `entry_points/flutter_test_config.dart` | an entry point is exempt by file and name, whatever its shape, and `entry-points` in `ciach.yaml` adds a project's own |
 | `dot_shorthands.dart`, `dot_shorthand_uses.dart` | every context a `.name` dot shorthand is allowed in, including nested constructor shorthands |
 | `primary_constructors.dart` | primary constructors: a dead declaration in the class header is report-only, while the class body stays removable |
 | `xref_*.dart` | the cross-library reference recovery, and telling same-named members apart |

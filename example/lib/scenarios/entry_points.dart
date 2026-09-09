@@ -1,6 +1,6 @@
-// Entry points. Expected findings: everything, by default; with `--entry-point`
-// specs for `integrationMain`, `Plugin.registerWith` and `bootstrap`, only
-// `testExecutable` — right name and shape, wrong file.
+// Entry points. Expected findings: everything, by default; with `entry-points`
+// rules for `integrationMain`, `Plugin.registerWith` and `bootstrap`, only
+// `testExecutable` — right name, wrong file.
 
 import 'dart:async';
 
