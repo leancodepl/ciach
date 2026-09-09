@@ -63,15 +63,12 @@ final class Candidate {
   final bool isEnumValue;
   final bool isPreventInstantiationCtor;
 
-  /// Whether this is an `extension on T { … }` with no name. Nothing can refer
-  /// to one by name, so it gets no reference query: its liveness is exactly
-  /// its members'.
+  /// `extension on T { … }`: nothing can name it, so it gets no reference
+  /// query.
   final bool isUnnamedExtension;
 
-  /// Whether this is an `extension` declaration (named or not).
   bool get isExtension => symbol.kind == .namespace;
 
-  /// Whether this is a member of an `extension`.
   bool get isExtensionMember => containerSymbol?.kind == .namespace;
 
   /// This candidate's own `(path, name)` key.

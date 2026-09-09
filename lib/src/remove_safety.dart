@@ -25,11 +25,8 @@ import 'package:pro_lsp/pro_lsp.dart' show Location;
 /// * [enumValuesIterated] — enums whose values are all reachable through
 ///   `.values` iteration, so a value reached only that way is used, not dead,
 ///   and is suppressed entirely rather than reported.
-/// * [deadExtensions] — extensions nothing refers to by name and every member
-///   of which is dead. An extension is used only through its members, so this
-///   is what "unused extension" means; it is reported and removed whole, like
-///   a dead class, rather than left as an empty `extension E on T {}` shell
-///   once its members go.
+/// * [deadExtensions] — extensions nothing names and every member of which is
+///   dead: reported and removed whole, like a dead class.
 class RemoveSafety {
   const RemoveSafety({
     required this.emptiedEnums,
@@ -67,15 +64,15 @@ class RemoveSafety {
         }
       }
       if (candidate.isExtension) {
-        // Two unnamed extensions on one type in a file share a key; their
-        // tallies merge, which can only keep both, never drop a live one.
+        // Unnamed extensions on one type share a key; merged tallies can only
+        // keep both.
         extensionUnreferenced.update(
           candidate.key,
           (was) => was && unused,
           ifAbsent: () => unused,
         );
-        // Every member counts, candidate or not: one excluded by `--kinds` or
-        // `--no-public` is unaccounted for, and keeps the extension.
+        // Every member counts, so one excluded by `--kinds`/`--no-public`
+        // keeps the extension.
         extensionMemberTotal.update(
           candidate.key,
           (n) => n + (symbol.children?.length ?? 0),

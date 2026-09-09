@@ -26,8 +26,8 @@ typedef _Span = ({int start, int end});
 /// only removed on its own when that can be done unambiguously; otherwise it
 /// is left in place rather than risk producing invalid source.
 ///
-/// A rewritten file left with nothing but directives is then deleted, and the
-/// `import`s of it elsewhere dropped — see `deleteEmptiedFiles`.
+/// A rewritten file left with nothing but directives is then deleted; see
+/// `deleteEmptiedFiles`.
 RemovalResult removeDeclarations(
   List<UnusedDeclaration> declarations,
   String rootPath,

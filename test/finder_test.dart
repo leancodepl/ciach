@@ -111,7 +111,6 @@ void main() {
       'Direction.south',
       'Direction.west',
       'Loud.whisper',
-      // An extension's members are qualified by it, like a class's.
       'IntExtras.tripled',
       // Private constructors are reported like any other dead code. The sole,
       // zero-parameter `SoleMarker._()` also carries a prevent-instantiation
@@ -229,7 +228,6 @@ void main() {
     expect(unused, isNot(contains('UsedClass.name')));
     expect(unused, isNot(contains('UsedClass.nickname')));
     expect(unused, isNot(contains('IntExtras.doubled')));
-    // Alive through `doubled`, though nothing names the extension itself.
     expect(unused, isNot(contains('IntExtras')));
     expect(unused, isNot(contains('Loud')));
     expect(unused, isNot(contains('Loud.emphasize')));
@@ -511,8 +509,6 @@ void main() {
   });
 
   group('dead extensions', () {
-    // Scan the extension fixture and its uses file together: `LiveHelpers` is
-    // kept alive by a member call from the latter, `ShownHelpers` by a `show`.
     Future<FinderResult> runExtensions() => runFinder(
       include: [
         'lib/scenarios/extensions_emptied.dart',
@@ -541,8 +537,6 @@ void main() {
       expect(decl!.kind, SymbolKind.namespace);
       expect(decl.kind.label, 'extension');
       expect(decl.removalBlocked, isFalse);
-      // The members go with the extension, so they are not findings of their
-      // own — a double report would also be a double removal.
       expect(findByQualified(result, 'DeadHelpers.first'), isNull);
       expect(findByQualified(result, 'DeadHelpers.second'), isNull);
     });
@@ -551,7 +545,6 @@ void main() {
         'nothing names it', () async {
       final result = await runExtensions();
       expect(findByQualified(result, 'LiveHelpers'), isNull);
-      // Its dead member is still an ordinary finding.
       final stale = findByQualified(result, 'LiveHelpers.stale');
       expect(stale, isNotNull);
       expect(stale!.kind, SymbolKind.method);
@@ -563,7 +556,6 @@ void main() {
       final decl = findByQualified(result, 'extension on String');
       expect(decl, isNotNull);
       expect(decl!.kind, SymbolKind.namespace);
-      // Points at the declaration, not at the `on` type.
       expect(decl.column, 1);
       expect(findByQualified(result, 'shoutedOnce'), isNull);
       expect(

@@ -314,8 +314,7 @@ class Ciach {
     var filesDone = totalFiles - remainingPerFile.length;
 
     return mapPooled(candidates, options.concurrency, (candidate) async {
-      // An unnamed extension has no name to refer to it by — the server would
-      // answer for the `on` type instead — so it reads as unreferenced.
+      // The server would answer for an unnamed extension's `on` type.
       final refs = candidate.isUnnamedExtension
           ? const <Location>[]
           : await client.references(
@@ -389,9 +388,9 @@ class Ciach {
 
   /// Whether an unused [candidate] should be silently suppressed (never
   /// reported): a live freezed-union arm, an exempt `toJson` hook, a
-  /// constructor removed with its already-dead class, a member removed with
-  /// its dead extension (or an extension kept alive by a live member), or an
-  /// enum value reached only through `.values` iteration.
+  /// constructor removed with its already-dead class, an extension or its
+  /// members (see [RemoveSafety.deadExtensions]), or an enum value reached
+  /// only through `.values` iteration.
   bool _isSuppressed(
     Candidate candidate,
     int index,
@@ -408,8 +407,7 @@ class Ciach {
     if (_isRemovedWithDeadClass(candidate, deadClassNames)) {
       return true;
     }
-    // An extension is used through its members, never by name, so one with a
-    // live member stays even when nothing refers to the extension itself.
+    // Used through its members, never by name.
     if (candidate.isExtension &&
         !safety.deadExtensions.contains(candidate.key)) {
       return true;
@@ -418,8 +416,6 @@ class Ciach {
     if (containerKey == null) {
       return false;
     }
-    // A dead extension is removed whole, its members with it — like a dead
-    // class's constructors, they are not findings of their own.
     if (candidate.isExtensionMember &&
         safety.deadExtensions.contains(containerKey)) {
       return true;
@@ -516,8 +512,6 @@ class Ciach {
   ) {
     for (final symbol in symbols) {
       _freezed.noteIfAnnotated(path, symbol, strippedLines);
-      // The server files an `extension type` under the same kind as an
-      // `extension`; only the latter is a candidate (see [_shouldConsider]).
       final extensionShape = symbol.kind == .namespace
           ? _sources.extensionShape(path, symbol)
           : null;
@@ -574,9 +568,7 @@ class Ciach {
     if (symbol.kind == .function && symbol.name == 'main') {
       return false;
     }
-    // An `extension type` is a type, used by name like a class, and is not
-    // checked at all today; an `extension` is dead only once every member is
-    // (see [RemoveSafety.deadExtensions]).
+    // An `extension type` is never a candidate.
     if (symbol.kind == .namespace &&
         (extensionShape == null || extensionShape == .extensionType)) {
       return false;
@@ -616,14 +608,12 @@ class Ciach {
     String? hint,
   }) {
     final symbol = candidate.symbol;
-    // An unnamed extension's selection range is its `on` type; point at the
-    // declaration instead.
+    // An unnamed extension's selection range is its `on` type.
     final start = candidate.isUnnamedExtension
         ? symbol.range.start
         : symbol.selectionRange.start;
     final name = symbol.declarationName(candidate.container);
-    // An unnamed extension's members are keyed under the server's placeholder
-    // for it (`extension on T`), which is no name to qualify them by.
+    // `extension on T` is no name to qualify members by.
     final container = _isInUnnamedExtension(candidate)
         ? null
         : candidate.container;

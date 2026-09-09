@@ -16,8 +16,7 @@ void main() {
   });
 
   /// Writes [content] to `<tempDir>/lib.dart`, removes [decls] from it, and
-  /// returns the resulting content — or `''` when the removal left nothing and
-  /// deleted the file (see the `emptied files` group).
+  /// returns the resulting content, or `''` if the file was deleted.
   String applyRemoval(String content, List<UnusedDeclaration> decls) {
     final file = File(p.join(tempDir.path, 'lib.dart'))
       ..writeAsStringSync(content);
@@ -827,8 +826,6 @@ class Registry {
   );
 
   group('emptied files', () {
-    // Files are written under the temp root as a `pkg` package, so `package:`
-    // URIs resolve like the analysis server would resolve them.
     void write(String relativePath, String content) {
       File(p.join(tempDir.path, p.joinAll(p.posix.split(relativePath))))
         ..createSync(recursive: true)
@@ -843,8 +840,7 @@ class Registry {
       p.join(tempDir.path, p.joinAll(p.posix.split(relativePath))),
     ).existsSync();
 
-    /// The one declaration every emptied fixture file carries: a
-    /// `void gone() {}` on line index [line], columns 0..14.
+    /// `void gone() {}` on line index [line].
     UnusedDeclaration gone(String filePath, {int line = 2}) => .new(
       name: 'gone',
       kind: .function,
@@ -895,7 +891,6 @@ export 'user.dart';
       ]);
       expect(read('lib/user.dart'), "import 'dart:io';\n\nvoid kept() {}\n");
       expect(read('lib/sub/relative.dart'), '\nvoid alsoKept() {}\n');
-      // The barrel still exports something, so it stays.
       expect(read('lib/barrel.dart'), "export 'user.dart';\n");
     });
 
@@ -1046,7 +1041,6 @@ void main() {}
 ''');
       removeDeclarations([gone('lib/dead.dart')], tempDir.path);
       expect(exists('lib/dead.dart'), isFalse);
-      // Names the example's own lib/dead.dart, not the deleted one.
       expect(
         read('example/bin/main.dart'),
         contains('package:sample/dead.dart'),

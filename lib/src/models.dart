@@ -129,8 +129,7 @@ class FinderOptions {
   /// [SymbolKind.typeParameter] (always "used" within its scope) and the
   /// primitive value kinds the server never emits for Dart declarations.
   ///
-  /// [SymbolKind.namespace] is how the analysis server reports an `extension`
-  /// (and an `extension type`, which is never a candidate — see the finder).
+  /// [SymbolKind.namespace] is how the server reports an `extension`.
   ///
   /// Operator overloads are *not* a separate kind here: the analysis server
   /// reports them as plain [SymbolKind.method] declarations named `+`, `==`,
@@ -266,26 +265,18 @@ class UnusedDeclaration {
   };
 }
 
-/// A file `--remove` deleted because nothing but directives — a `library`
-/// line, `import`s, a `part of` — was left in it once its declarations went.
-typedef DeletedFile = ({
-  /// Path to the deleted file, relative to the analyzed root, using `/`
-  /// separators.
-  String filePath,
+/// A file `--remove` deleted for having nothing but directives left, and the
+/// files whose `import`/`export`/`part` of it were dropped. Root-relative
+/// `/`-paths.
+typedef DeletedFile = ({String filePath, List<String> unlinkedFrom});
 
-  /// The files (same form) whose `import`/`export`/`part` of it were dropped
-  /// so nothing names a file that no longer exists.
-  List<String> unlinkedFrom,
-});
-
-/// What a `removeDeclarations` run did to the package.
+/// What `removeDeclarations` did.
 class RemovalResult {
   const RemovalResult({required this.filesChanged, required this.deletedFiles});
 
-  /// The files declarations were removed from, deleted ones included.
+  /// Files declarations were removed from, deleted ones included.
   final int filesChanged;
 
-  /// The files deleted for having nothing but directives left, in path order.
   final List<DeletedFile> deletedFiles;
 }
 

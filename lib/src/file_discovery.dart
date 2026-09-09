@@ -108,8 +108,6 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
   return (candidates: candidates, warmOnly: warmOnly);
 }
 
-/// Whether the root-relative [relativePath] lies under a directory that never
-/// holds source worth touching (`build/`, `.dart_tool/`, …).
 bool isInSkippedDir(String relativePath) =>
     p.split(relativePath).any(_skippedDirs.contains);
 

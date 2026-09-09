@@ -7,24 +7,10 @@ import 'package:ciach/src/paths.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
-/// Deletes the files among [rewritten] (absolute paths `--remove` has just
-/// rewritten) that were left with nothing but directives — a `library` line,
-/// `import`s, a `part of` — and drops the `import`/`export`/`part` directives
-/// that pointed at them from the rest of the package under [rootPath], so
-/// nothing is left naming a file that no longer exists.
-///
-/// Only a file the removal itself emptied is a candidate — by taking its last
-/// declaration, or the last `export`/`part` it had left to hand on; one that
-/// had nothing to begin with is left alone. Conservative in the usual way — a
-/// file that still `export`s or owns `part`s hands something on and stays; a
-/// file named in a conditional import (`import 'a.dart' if (dart.library.io)
-/// 'b.dart'`) stays, since rewriting that directive is more than dropping it;
-/// and a `package:` URI whose package no pubspec under the root claims is taken
-/// to mean this file (kept) rather than a foreign one (ignored) whenever the
-/// paths line up.
-///
-/// Returns the deleted files, root-relative, with the files they were unlinked
-/// from.
+/// Deletes the [rewritten] files (absolute paths) left with nothing but
+/// `library`/`import`/`part of` directives, dropping the `import`/`export`/
+/// `part` lines naming them elsewhere under [rootPath]. A file that still
+/// `export`s or owns `part`s, or is named in a conditional import, stays.
 List<DeletedFile> deleteEmptiedFiles(Set<String> rewritten, String rootPath) {
   if (rewritten.isEmpty) {
     return const [];
@@ -34,9 +20,7 @@ List<DeletedFile> deleteEmptiedFiles(Set<String> rewritten, String rootPath) {
   final pending = rewritten.map(p.normalize).toSet();
   final deleted = <DeletedFile>[];
 
-  // Dropping the `part 'x.dart';` of a deleted part file, or the one `export`
-  // of a barrel, can leave that file with nothing but directives too, so go
-  // round until nothing more falls.
+  // Dropping a `part`/`export` line can empty that file in turn.
   var progressed = true;
   while (progressed) {
     progressed = false;
@@ -51,7 +35,6 @@ List<DeletedFile> deleteEmptiedFiles(Set<String> rewritten, String rootPath) {
       }
       final links = package.linksTo(path);
       if (links == null) {
-        // Something still needs the file in a way dropping a line won't fix.
         pending.remove(path);
         continue;
       }
@@ -74,9 +57,6 @@ List<DeletedFile> deleteEmptiedFiles(Set<String> rewritten, String rootPath) {
   return deleted;
 }
 
-/// One `library`, `import` or `part of` statement, possibly several, and
-/// nothing else — the shape of a file with no declarations left. Comments are
-/// blanked before matching, so a file of nothing but comments is empty too.
 final _directiveOnly = RegExp(
   r'''^(?:\s*(?:library\b[^;]*|import\s+r?['"][^;]*|part\s+of\b[^;]*);)*\s*$''',
 );
@@ -84,9 +64,7 @@ final _directiveOnly = RegExp(
 bool _isDirectiveOnly(String content) =>
     _directiveOnly.hasMatch(stripComments(content));
 
-/// A directive statement at the start of a line, through its `;`. Only the
-/// three that can name another file matter here, and only with a URI string
-/// (a `part of lib.name;` names no file).
+/// A directive with a URI string, through its `;`.
 final _directive = RegExp(
   r'''^[ \t]*(import|export|part)\s+((?:of\s+)?r?['"][^;]*);''',
   multiLine: true,
@@ -96,15 +74,11 @@ final _uriLiteral = RegExp(r'''r?(['"])([^'"\n]*)\1''');
 final _partOf = RegExp(r'^\s*of\b');
 final _conditional = RegExp(r'\bif\s*\(');
 
-/// A `[start, end)` span within a file's content.
 typedef _Span = ({int start, int end});
 
-/// How a directive relates to a file: not at all, by naming it in a way that
-/// can simply be dropped, or by naming it in a way that cannot.
 enum _Link { none, droppable, blocking }
 
-/// The Dart files and pubspecs under the root, with their contents cached and
-/// kept current across the rewrites made here.
+/// The package's Dart files, with contents cached across the rewrites here.
 final class _Package {
   _Package._(this._files, this._libDirByPackage);
 
@@ -150,9 +124,8 @@ final class _Package {
     return _contents[path] = read;
   }
 
-  /// The directives in the other files that name [target], as spans to drop
-  /// per file — or `null` when any of them names it in a way that can't be
-  /// dropped, so [target] must stay.
+  /// Spans to drop per file, or `null` when a directive naming [target] can't
+  /// be dropped.
   Map<String, List<_Span>>? linksTo(String target) {
     final spans = <String, List<_Span>>{};
     for (final path in _files) {
@@ -199,19 +172,13 @@ final class _Package {
     if (link == .none) {
       return link;
     }
-    // A conditional import would need rewriting, not dropping; a `part of`
-    // naming the file makes it a library that owns parts, which stays.
     final partOf = kind == 'part' && _partOf.hasMatch(body);
     return partOf || _conditional.hasMatch(body) ? .blocking : link;
   }
 
-  /// Marker for a `package:` URI whose package no pubspec under the root
-  /// claims — foreign, or this package without a readable pubspec.
+  /// A `package:` URI no pubspec under the root claims.
   static const _uncertain = '';
 
-  /// The absolute path [uri] names from the file at [from]: `null` for a
-  /// `dart:` or otherwise unresolvable URI, [_uncertain] for an unknown
-  /// package.
   String? _resolve(String uri, String from) {
     if (uri.startsWith('package:')) {
       final rest = uri.substring('package:'.length);
@@ -233,8 +200,7 @@ final class _Package {
     return p.normalize(p.joinAll([p.dirname(from), ...p.posix.split(uri)]));
   }
 
-  /// Whether the lib-relative path of a `package:` [uri] is where [target]
-  /// sits under some `lib/` — the one way an unknown package could be this one.
+  /// Whether an unknown package's [uri] could still mean [target].
   static bool _libPathMatches(String uri, String target) {
     final slash = uri.indexOf('/');
     if (slash < 0) {
@@ -244,8 +210,6 @@ final class _Package {
     return p.posix.joinAll(p.split(target)).endsWith('/lib/$libRelative');
   }
 
-  /// Removes [spans] (in the file's current content) from the file at [path],
-  /// each with the rest of its line when nothing else is on it.
   void dropSpans(String path, List<_Span> spans) {
     final source = content(path);
     if (source == null) {
@@ -282,8 +246,6 @@ String? _pubspecName(String pubspecPath) {
   }
 }
 
-/// If nothing but whitespace follows [end] on its line, the offset past the
-/// line break — so dropping a directive doesn't leave a blank line behind.
 int _consumeTrailingBlankLine(String content, int end) {
   final nextNewline = content.indexOf('\n', end);
   final restOfLine = content.substring(

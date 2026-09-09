@@ -14,8 +14,7 @@ import 'package:ciach/src/models.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Position, SymbolKind;
 
 /// Symbol kinds that introduce a lexical scope; their name becomes the
-/// container for nested members. [SymbolKind.namespace] is an extension (or
-/// extension type).
+/// container for nested members. [SymbolKind.namespace] is an extension.
 const typeLikeKinds = <SymbolKind>{.class$, .interface$, .enum$, .namespace};
 
 /// Names of Dart's overloadable operators. The analysis server reports an
