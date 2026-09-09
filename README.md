@@ -267,7 +267,7 @@ function, and its one parameter to be the test's `main`,
 code. Verbose mode names each exemption as it happens:
 
 ```
-[  0.4s] Skipped test/flutter_test_config.dart:8 testExecutable: called by the `flutter test` bootstrap (entry point **/flutter_test_config.dart:testExecutable).
+[  0.4s] Skipped test/flutter_test_config.dart:6 testExecutable: called by the `flutter test` bootstrap (entry point **/flutter_test_config.dart:testExecutable).
 ```
 
 A project adds its own with `--entry-point`, or `entry-point:` in `ciach.yaml`,

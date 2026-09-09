@@ -969,10 +969,10 @@ void main() {
 
       final skipped = lines.where((l) => l.startsWith('Skipped ')).toList();
       const bootstrapLine =
-          'Skipped lib/scenarios/entry_points.dart:27 bootstrap: listed as an '
+          'Skipped lib/scenarios/entry_points.dart:17 bootstrap: listed as an '
           'entry point by this project (entry point bootstrap).';
       const testExecutableLine =
-          'Skipped test/flutter_test_config.dart:8 testExecutable: called by '
+          'Skipped test/flutter_test_config.dart:6 testExecutable: called by '
           'the `flutter test` bootstrap (entry point '
           '**/flutter_test_config.dart:testExecutable).';
       expect(skipped, [bootstrapLine, testExecutableLine]);
