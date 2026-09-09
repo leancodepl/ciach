@@ -281,10 +281,10 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/entry-points',
       helpText:
           'Declarations a framework calls by convention, so never reported:\n'
-          'a list of rules, each with a `name` (`registerWith`,\n'
-          '`Harness.start`) and an optional `glob` (one, or a list) for the\n'
-          'files it may live in. Built in: `main`, and `testExecutable` in a\n'
-          'flutter_test_config.dart.',
+          'a list of rules, each with a `name` (`myBuilder`,\n'
+          '`MyPlugin.registerWith`) and an optional `glob` (one, or a list)\n'
+          'for the files it may live in. A member rule keeps its type too.\n'
+          'Built in: `main`, and `testExecutable` in a flutter_test_config.dart.',
     ),
   ),
   kinds(
@@ -419,18 +419,17 @@ Config file:
   `entry-points` lives only there: declarations a framework or tool calls by
   convention (on top of the built-in `main` and `testExecutable` in a
   flutter_test_config.dart), each a `name` with an optional `glob` (one, or a
-  list) for the files it may live in.
+  list) for the files it may live in. A member rule keeps its type too.
 
     # $configFileName
     public: false
     exclude:
       - 'test/**'
     entry-points:
-      - name: registerWith
-        glob: 'lib/**_plugin.dart'
-      - name: Harness.start
-        glob: [test/harness.dart]
-      - name: integrationMain
+      - name: MyPlugin.registerWith   # the generated plugin registrant
+        glob: 'lib/my_plugin.dart'
+      - name: myBuilder               # a build.yaml builder factory
+        glob: 'lib/builder.dart'
     kinds: [class, function]
     format: json
 

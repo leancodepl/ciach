@@ -1011,7 +1011,9 @@ void main() {
         // Wrong file.
         'lib/scenarios/entry_points.dart:testExecutable',
         'lib/scenarios/entry_points.dart:integrationMain',
+        'lib/scenarios/entry_points.dart:Plugin',
         'lib/scenarios/entry_points.dart:Plugin.registerWith',
+        'lib/scenarios/entry_points.dart:Plugin.other',
         'lib/scenarios/entry_points.dart:bootstrap',
         // The right file exempts `testExecutable` whatever its shape, and
         // nothing beside it.
@@ -1038,13 +1040,11 @@ void main() {
 
         expect(located(result), {
           'lib/scenarios/entry_points.dart:testExecutable',
+          // The member rule keeps the type it lives in — the generated call
+          // names it too — but not the type's other members.
+          'lib/scenarios/entry_points.dart:Plugin.other',
           'lib/scenarios/entry_points/flutter_test_config.dart:deadHelperNextToConfig',
         });
-        // `Plugin` is kept alive by `integrationMain`, not by its member's rule.
-        expect(
-          result.unused.map((d) => d.qualifiedName),
-          isNot(contains('Plugin')),
-        );
       },
     );
 
@@ -1066,13 +1066,22 @@ void main() {
     test('narrates each skipped entry point other than main', () async {
       final lines = <String>[];
       await runEntryPoints(
-        entryPoints: [EntryPoint.project('bootstrap')],
+        entryPoints: [
+          EntryPoint.project('bootstrap'),
+          EntryPoint.project('Plugin.registerWith'),
+        ],
         onProgress: lines.add,
       );
 
       final skipped = lines.where((l) => l.startsWith('Skipped ')).toList();
+      const plugin =
+          'Skipped lib/scenarios/entry_points.dart:14 Plugin: declares the '
+          'entry point Plugin.registerWith.';
+      const registerWith =
+          'Skipped lib/scenarios/entry_points.dart:15 Plugin.registerWith: '
+          'listed under `entry-points` in the config file.';
       const bootstrap =
-          'Skipped lib/scenarios/entry_points.dart:17 bootstrap: listed under '
+          'Skipped lib/scenarios/entry_points.dart:20 bootstrap: listed under '
           '`entry-points` in the config file.';
       const byShape =
           'Skipped lib/scenarios/entry_points/flutter_test_config.dart:4 '
@@ -1080,7 +1089,7 @@ void main() {
       const real =
           'Skipped test/flutter_test_config.dart:6 testExecutable: called by '
           'the `flutter test` bootstrap.';
-      expect(skipped, [bootstrap, byShape, real]);
+      expect(skipped, [plugin, registerWith, bootstrap, byShape, real]);
       expect(lines, isNot(contains(contains(' main:'))));
     });
   });
