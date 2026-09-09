@@ -62,7 +62,7 @@ class CodeBlock extends StatelessComponent {
       width: 10.px,
       height: 10.px,
       radius: .circular(50.percent),
-      backgroundColor: const Color('#3a3a45'),
+      backgroundColor: const Color('#3a3a35'),
     ),
     css('.code-dots span:first-child').styles(backgroundColor: accentColor),
     css('.code-title').styles(

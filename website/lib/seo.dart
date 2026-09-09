@@ -13,7 +13,7 @@ import 'package:jaspr/jaspr.dart';
 const siteMeta = {
   'author': 'LeanCode',
   'robots': 'index, follow, max-image-preview:large',
-  'theme-color': '#050505',
+  'theme-color': '#000000',
   'color-scheme': 'dark',
   'application-name': siteName,
   'generator': 'Jaspr',

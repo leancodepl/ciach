@@ -43,12 +43,12 @@ class Hero extends StatelessComponent {
       raw: {
         'inset': '0',
         'background':
-            'radial-gradient(55% 45% at 72% 18%, rgba(237, 255, 47, 0.14), '
+            'radial-gradient(55% 45% at 72% 18%, rgba(240, 255, 0, 0.14), '
             'transparent 65%), '
-            'radial-gradient(40% 40% at 10% 90%, rgba(237, 255, 47, 0.06), '
+            'radial-gradient(40% 40% at 10% 90%, rgba(240, 255, 0, 0.06), '
             'transparent 60%), '
             'repeating-linear-gradient(-58deg, transparent 0 148px, '
-            'rgba(237, 255, 47, 0.09) 148px 149px)',
+            'rgba(240, 255, 0, 0.09) 148px 149px)',
         'mask-image': 'linear-gradient(to bottom, #000 30%, transparent 100%)',
         '-webkit-mask-image':
             'linear-gradient(to bottom, #000 30%, transparent 100%)',

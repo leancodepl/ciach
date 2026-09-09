@@ -70,7 +70,7 @@ class AssetRenderer {
       html:
           '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" '
           'width="$size" height="$size" style="display:block">'
-          '<rect width="64" height="64" rx="$radius" fill="#050505"/>$mark</svg>',
+          '<rect width="64" height="64" rx="$radius" fill="#000000"/>$mark</svg>',
     );
   }
 
@@ -164,7 +164,7 @@ class AssetRenderer {
       await page.setViewport(DeviceViewport(width: width, height: height));
       await page.setContent(
         '<!doctype html><style>html,body{margin:0;background:'
-        '${transparent ? 'transparent' : '#050505'}}</style>$html',
+        '${transparent ? 'transparent' : '#000000'}}</style>$html',
       );
       return await page.screenshot(
         clip: math.Rectangle(0, 0, width, height),

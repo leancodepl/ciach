@@ -38,7 +38,7 @@ const headerHeight = Unit.variable('--header-h');
 const shadow = 'var(--shadow)';
 
 /// The accent at a given alpha, for borders and glows.
-Color accentAlpha(double alpha) => Color.rgba(237, 255, 47, alpha);
+Color accentAlpha(double alpha) => Color.rgba(240, 255, 0, alpha);
 
 /// Marks a link inside running text by more than its color.
 const underlined = TextDecoration(line: .underline);
@@ -62,21 +62,21 @@ List<StyleRule> get styles => [
 List<StyleRule> get _tokens => [
   css(':root').styles(
     raw: {
-      '--bg': '#050505',
-      '--bg-2': '#0b0b0d',
-      '--surface': '#101013',
-      '--surface-2': '#16161b',
-      '--border': '#23232b',
-      '--border-2': '#33333e',
-      '--text': '#f4f4f1',
-      '--text-2': '#b7b7b3',
-      '--muted': '#84848d',
-      '--accent': '#edff2f',
-      '--accent-2': '#c9dc00',
-      '--accent-ink': '#0b0c00',
-      '--accent-soft': 'rgba(237, 255, 47, 0.12)',
-      '--danger': '#ff5d5d',
-      '--ok': '#58e08a',
+      '--bg': '#000000',
+      '--bg-2': '#0a0a08',
+      '--surface': '#151513',
+      '--surface-2': '#1d1d1a',
+      '--border': 'rgba(255, 255, 255, 0.12)',
+      '--border-2': 'rgba(255, 255, 255, 0.2)',
+      '--text': '#ffffff',
+      '--text-2': '#d8d8d4',
+      '--muted': '#a3a3a0',
+      '--accent': '#f0ff00',
+      '--accent-2': '#ccd900',
+      '--accent-ink': '#000000',
+      '--accent-soft': 'rgba(240, 255, 0, 0.06)',
+      '--danger': '#e64239',
+      '--ok': '#80c340',
       '--tk-keyword': '#c792ea',
       '--tk-type': '#82aaff',
       '--tk-string': '#c3e88d',

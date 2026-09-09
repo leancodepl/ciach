@@ -276,7 +276,7 @@ class DocsPage extends StatelessComponent {
     css('.table code.flag').styles(
       color: accentColor,
       whiteSpace: .noWrap,
-      raw: {'border-color': 'rgba(237, 255, 47, 0.3)'},
+      raw: {'border-color': 'rgba(240, 255, 0, 0.3)'},
     ),
     css(".table-compare th[scope='row']")
         .styles(color: text2Color, whiteSpace: .normal),
