@@ -21,6 +21,7 @@ const kindAliases = <String, SymbolKind>{
   'interface': .interface$,
   'enum': .enum$,
   'extension': .namespace,
+  'extension-type': .struct,
   'function': .function,
   'method': .method,
   'constructor': .constructor,

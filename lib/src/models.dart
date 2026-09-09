@@ -129,7 +129,9 @@ class FinderOptions {
   /// [SymbolKind.typeParameter] (always "used" within its scope) and the
   /// primitive value kinds the server never emits for Dart declarations.
   ///
-  /// [SymbolKind.namespace] is how the server reports an `extension`.
+  /// [SymbolKind.namespace] is how the server reports an `extension`; an
+  /// `extension type` shares that kind and is remapped to [SymbolKind.struct]
+  /// (see `reportedKind`), which the server never emits itself.
   ///
   /// Operator overloads are *not* a separate kind here: the analysis server
   /// reports them as plain [SymbolKind.method] declarations named `+`, `==`,
@@ -139,6 +141,7 @@ class FinderOptions {
     .interface$,
     .enum$,
     .namespace,
+    .struct,
     .function,
     .method,
     .constructor,
@@ -158,6 +161,7 @@ extension SymbolKindLabel on SymbolKind {
     .enum$ => 'enum',
     .interface$ => 'interface',
     .namespace => 'extension',
+    .struct => 'extension type',
     .operator$ => 'operator',
     .null$ => 'null',
     .enumMember => 'enum value',

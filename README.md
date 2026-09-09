@@ -94,7 +94,7 @@ ciach --verbose                        # explain each step
 | `-e, --exclude <glob>` | — | Skip files matching the glob (repeatable). |
 | `-i, --include <glob>` | — | Only scan files matching the glob (repeatable). |
 | `--generated-suffix <suffix>` | — | Extra filename suffix (with leading dot) to treat as generated and skip, on top of the built-in set; repeatable. Ignored when `--generated` is set. |
-| `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
+| `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
 | `-f, --format <fmt>` | `text` | `text`, `json`, or `github` (GitHub Actions `::warning` annotations). |
 | `-j, --concurrency <n>` | `16` | Reference queries kept in flight against the analysis server. |
 | `--[no-]color` | auto | Colorize text output. |
@@ -222,6 +222,9 @@ Nothing is left behind as an empty shell, either:
   member is dead is reported and removed as the whole `extension`, the way a
   fully dead class is. One a `show`/`hide` combinator names stays, and only its
   members are reported.
+- An `extension type` is a *type*, named like a class, so it is dead when
+  nothing names it — references from its own body don't count — and is then
+  reported and removed whole. `-k extension-type` selects these on their own.
 - A file the removal leaves with nothing but directives — a `library` line,
   `import`s, a `part of` — is deleted, and the `import`/`export`/`part` lines
   naming it elsewhere are dropped; a barrel or a part's owner that is left

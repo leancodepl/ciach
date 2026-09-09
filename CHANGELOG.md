@@ -10,8 +10,14 @@
   elsewhere. `removeDeclarations` now returns a `RemovalResult` with the deleted
   files instead of a bare count.
   ([#48](https://github.com/leancodepl/ciach/issues/48))
+- Report a dead `extension type` — one nothing names — as the whole
+  declaration and remove it, instead of stripping its members and leaving the
+  shell. It is classified like a class, so references from its own body no
+  longer keep it alive.
+  ([#48](https://github.com/leancodepl/ciach/issues/48))
 - `-k extension` now selects extensions; it matched a kind the analysis server
-  never emits.
+  never emits. Add `-k extension-type` for extension types, which share that
+  kind on the wire.
 
 ## 0.4.4
 

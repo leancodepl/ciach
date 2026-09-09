@@ -536,6 +536,7 @@ class Ciach {
               symbols,
             ),
             isUnnamedExtension: extensionShape == .unnamed,
+            isExtensionType: extensionShape == .extensionType,
           ),
         );
       }
@@ -560,7 +561,10 @@ class Ciach {
     ExtensionShape? extensionShape,
   ) {
     if (!options.kinds.contains(
-      symbol.reportedKind(parentIsEnum: parentIsEnum),
+      symbol.reportedKind(
+        parentIsEnum: parentIsEnum,
+        isExtensionType: extensionShape == .extensionType,
+      ),
     )) {
       return false;
     }
@@ -568,9 +572,8 @@ class Ciach {
     if (symbol.kind == .function && symbol.name == 'main') {
       return false;
     }
-    // An `extension type` is never a candidate.
-    if (symbol.kind == .namespace &&
-        (extensionShape == null || extensionShape == .extensionType)) {
+    // A `namespace` whose shape the lexer can't confirm.
+    if (symbol.kind == .namespace && extensionShape == null) {
       return false;
     }
     if (!isPrivateName(symbol.name) && !options.includePublic) {
@@ -619,7 +622,10 @@ class Ciach {
         : candidate.container;
     return .new(
       name: name,
-      kind: symbol.reportedKind(parentIsEnum: candidate.isEnumValue),
+      kind: symbol.reportedKind(
+        parentIsEnum: candidate.isEnumValue,
+        isExtensionType: candidate.isExtensionType,
+      ),
       filePath: relativePosix(candidate.path, rootPath),
       // LSP positions are zero-based; report them one-based for humans.
       line: start.line + 1,

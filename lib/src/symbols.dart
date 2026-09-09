@@ -99,8 +99,14 @@ extension SymbolChecks on DocumentSymbol {
   /// The kind ciach reports for this symbol. The analysis server tags enum
   /// values with [SymbolKind.enum$] (same as the enum type), so remap them to
   /// [SymbolKind.enumMember] under an enum to match the `enum-value` CLI kind.
-  SymbolKind reportedKind({required bool parentIsEnum}) =>
-      parentIsEnum && kind == .enum$ ? .enumMember : kind;
+  SymbolKind reportedKind({
+    required bool parentIsEnum,
+    bool isExtensionType = false,
+  }) => switch (kind) {
+    .enum$ when parentIsEnum => .enumMember,
+    .namespace when isExtensionType => .struct,
+    _ => kind,
+  };
 
   /// The name to report for this symbol.
   ///

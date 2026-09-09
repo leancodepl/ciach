@@ -50,6 +50,7 @@ final class Candidate {
     required this.isPreventInstantiationCtor,
     this.containerSymbol,
     this.isUnnamedExtension = false,
+    this.isExtensionType = false,
   });
 
   final Uri uri;
@@ -67,7 +68,11 @@ final class Candidate {
   /// query.
   final bool isUnnamedExtension;
 
-  bool get isExtension => symbol.kind == .namespace;
+  /// `extension type Name(…)`: a type, used by name like a class, not an
+  /// extension used through its members.
+  final bool isExtensionType;
+
+  bool get isExtension => symbol.kind == .namespace && !isExtensionType;
 
   bool get isExtensionMember => containerSymbol?.kind == .namespace;
 

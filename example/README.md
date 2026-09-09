@@ -35,7 +35,7 @@ expected; each is scanned only by its own test, never by the demo run above.
 | `comment_annotations.dart` | a comment mentioning `@override` or `vm:entry-point` does not skip the declaration below it |
 | `dot_shorthands.dart`, `dot_shorthand_uses.dart` | every context a `.name` dot shorthand is allowed in, including nested constructor shorthands |
 | `primary_constructors.dart` | primary constructors: a dead declaration in the class header is report-only, while the class body stays removable |
-| `extensions_emptied.dart`, `extensions_emptied_uses.dart` | an extension whose every member is dead is reported (and removed) as the whole extension, unless a `show` names it |
+| `extensions_emptied.dart`, `extensions_emptied_uses.dart` | an extension whose every member is dead is reported (and removed) as the whole extension, unless a `show` names it; an extension type is dead when nothing names it |
 | `xref_*.dart` | the cross-library reference recovery, and telling same-named members apart |
 
 Run the finder against the demo tier from the repository root:

@@ -508,14 +508,20 @@ void main() {
     );
   });
 
+  const extensionFixture = [
+    'lib/scenarios/extensions_emptied.dart',
+    'lib/scenarios/extensions_emptied_uses.dart',
+  ];
+
   group('dead extensions', () {
-    Future<FinderResult> runExtensions() => runFinder(
-      include: [
-        'lib/scenarios/extensions_emptied.dart',
-        'lib/scenarios/extensions_emptied_uses.dart',
-      ],
+    Future<FinderResult> runExtensions() =>
+        runFinder(include: extensionFixture, exclude: const []);
+
+    Future<Set<String>> byKind(SymbolKind kind) async => (await runFinder(
+      include: extensionFixture,
       exclude: const [],
-    );
+      kinds: {kind},
+    )).unused.map((d) => d.qualifiedName).toSet();
 
     test("reports exactly the fixture's dead declarations", () async {
       final result = await runExtensions();
@@ -525,6 +531,10 @@ void main() {
         'extension on String',
         'ShownHelpers.shownButUnused',
         'Hollow',
+        'DeadMeters',
+        'DeadMeters.scaled',
+        'SelfMeters',
+        'SelfMeters.next',
         'useEmptiedExtensions',
       });
     });
@@ -576,19 +586,50 @@ void main() {
       expect(findByQualified(result, 'Hollow'), isNotNull);
     });
 
-    test('an extension type is never a candidate', () async {
+    test('an extension type is a type: dead when nothing names it, reported '
+        'whole with its members, like a dead class', () async {
+      final result = await runExtensions();
+      final decl = findByQualified(result, 'DeadMeters');
+      expect(decl, isNotNull);
+      expect(decl!.kind, SymbolKind.struct);
+      expect(decl.kind.label, 'extension type');
+      expect(decl.removalBlocked, isFalse);
+      expect(findByQualified(result, 'DeadMeters.scaled'), isNotNull);
+    });
+
+    test(
+      'an extension type referenced only from its own body is dead',
+      () async {
+        final result = await runExtensions();
+        expect(findByQualified(result, 'SelfMeters'), isNotNull);
+      },
+    );
+
+    test('an extension type named as a type is never reported', () async {
       final result = await runExtensions();
       expect(findByQualified(result, 'Meters'), isNull);
-      expect(findByQualified(result, 'Meters.value'), isNull);
+    });
+
+    test('`-k extension-type` selects the extension types on their own, which '
+        '`-k extension` does not', () async {
+      expect(await byKind(SymbolKind.struct), {'DeadMeters', 'SelfMeters'});
+      expect(
+        await byKind(SymbolKind.namespace),
+        isNot(contains(anyOf('DeadMeters', 'SelfMeters'))),
+      );
+    });
+
+    test('`-k extension` alone keeps an extension whose members were never '
+        'checked, reporting only a member-less one', () async {
+      // Unchecked members can't be proven dead, so only `Hollow` — which has
+      // none — is.
+      expect(await byKind(SymbolKind.namespace), {'Hollow'});
     });
 
     test('without extension candidates (`-k method`) the members are reported '
         'on their own', () async {
       final result = await runFinder(
-        include: [
-          'lib/scenarios/extensions_emptied.dart',
-          'lib/scenarios/extensions_emptied_uses.dart',
-        ],
+        include: extensionFixture,
         exclude: const [],
         kinds: const {SymbolKind.method},
       );

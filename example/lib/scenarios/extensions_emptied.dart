@@ -1,5 +1,7 @@
-// Dead extensions: one is dead only once every member is, and is then reported
-// whole. Scanned with extensions_emptied_uses.dart by its own test.
+// Dead extensions and extension types. An extension is dead only once every
+// member is; an extension type is a type, dead when nothing names it. Either
+// is then reported whole. Scanned with extensions_emptied_uses.dart by its own
+// test.
 
 /// Nothing names it or calls a member -> UNUSED (extension).
 extension DeadHelpers on int {
@@ -28,7 +30,18 @@ extension ShownHelpers on int {
 /// No members, no references -> UNUSED (extension).
 extension Hollow on int {}
 
-/// An `extension type` is never a candidate.
+/// Nothing names it -> UNUSED (extension type), reported whole like a dead
+/// class, with its dead members alongside it.
+extension type DeadMeters(int value) {
+  int get scaled => value * 2;
+}
+
+/// Only its own body names it -> UNUSED (extension type).
+extension type SelfMeters(int value) {
+  SelfMeters get next => SelfMeters(value + 1);
+}
+
+/// Named as a type by [toMeters] -> USED.
 extension type Meters(int value) {}
 
 Meters toMeters(int value) => Meters(value);
