@@ -490,7 +490,7 @@ class Ciach {
       }
       _report(
         'Skipped ${skipped.path}:${skipped.line} ${skipped.rule.name}: '
-        '${skipped.rule.reason} (entry point ${skipped.rule}).',
+        '${skipped.rule.reason}.',
       );
     }
   }

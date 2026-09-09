@@ -1,5 +1,5 @@
-// Right file, wrong signature: the bootstrap could not call this. Expected
-// findings: both declarations.
+// Right file: the bootstrap calls `testExecutable` whatever its shape, so it
+// is exempt. Expected findings: `deadHelperNextToConfig` only.
 
 Future<void> testExecutable(int retries) async {}
 

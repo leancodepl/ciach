@@ -1,67 +1,43 @@
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, SymbolKind;
-
-/// The one parameter the `flutter test` bootstrap passes: the test's `main`.
-final _testMainParameter = RegExp(
-  r'^\(\s*FutureOr<void>\s+Function\(\)\s+[A-Za-z_$][A-Za-z0-9_$]*\s*\)$',
-);
+import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
 /// A declaration a framework or tool calls by convention, with no source
-/// reference for the search to find.
+/// reference for the search to find: a top-level name in a file.
 ///
-/// A rule spells out the caller's contract — file, name, and where it matters,
-/// kind and signature — and exempts only a declaration meeting all of it.
+/// That is the whole contract the callers apply themselves — flutter_tools
+/// finds `flutter_test_config.dart` by name and generates a call to
+/// `testExecutable` — so a rule is a name plus the files it lives in, nothing
+/// about the declaration's shape. The compiler enforces the shape at the
+/// generated call site.
 final class EntryPoint {
-  /// [name] is `name` or `Container.member`; [file] a POSIX glob relative to
-  /// the package root (`null` for any file); [signature] matches the LSP
-  /// `detail`, i.e. the parameter list. [reason] says who calls it.
-  EntryPoint({
-    required this.name,
-    required this.reason,
-    String? file,
-    this.kind,
-    RegExp? signature,
-  }) : filePattern = file,
-       _file = file == null ? null : Glob(file, context: _posix),
-       _signature = signature;
+  /// [name] is `name` or `Container.member`; [files] are POSIX globs relative
+  /// to the package root, any of which may match (none means any file).
+  EntryPoint({required this.name, required this.reason, this.files = const []})
+    : _globs = [for (final file in files) Glob(file, context: _posix)];
 
-  /// Parses a `<file glob>:<name>` or bare `<name>` spec (the last `:` splits
-  /// them) into a rule matching on file and name alone.
+  /// A rule from the `entry-points` config key.
   ///
-  /// Throws a [FormatException] for an empty name or glob, a name that is not
-  /// an identifier (optionally `Container.member`), or an invalid glob.
-  factory EntryPoint.parse(String spec) {
-    final trimmed = spec.trim();
-    final colon = trimmed.lastIndexOf(':');
-    final file = colon < 0 ? null : trimmed.substring(0, colon).trim();
-    final name = colon < 0 ? trimmed : trimmed.substring(colon + 1).trim();
-    if (name.isEmpty) {
-      throw FormatException(
-        "Entry point '$spec' names no declaration; expected '<file glob>:<name>' or '<name>'.",
-      );
-    }
+  /// Throws a [FormatException] for a [name] that is not an identifier
+  /// (optionally `Container.member`) or a glob that does not parse.
+  factory EntryPoint.project(String name, {List<String> files = const []}) {
     if (!_qualifiedName.hasMatch(name)) {
       throw FormatException(
-        "Entry point '$spec': '$name' is not a declaration name; expected an identifier such as 'registerWith' or 'MyPlugin.registerWith'.",
+        "'$name' is not a declaration name; expected an identifier such as 'registerWith' or 'MyPlugin.registerWith'.",
       );
     }
-    if (file != null && file.isEmpty) {
-      throw FormatException(
-        "Entry point '$spec' has an empty file glob; drop the ':' to match any file.",
-      );
+    for (final file in files) {
+      try {
+        Glob(file, context: _posix);
+      } on FormatException catch (e) {
+        throw FormatException("'$file' is not a valid glob: ${e.message}");
+      }
     }
-    try {
-      return EntryPoint(
-        name: name,
-        file: file,
-        reason: 'listed as an entry point by this project',
-      );
-    } on FormatException catch (e) {
-      throw FormatException(
-        "Entry point '$spec': '$file' is not a valid glob: ${e.message}",
-      );
-    }
+    return EntryPoint(
+      name: name,
+      files: files,
+      reason: 'listed under `entry-points` in the config file',
+    );
   }
 
   static final _posix = p.Context(style: p.Style.posix);
@@ -72,32 +48,22 @@ final class EntryPoint {
   /// `name` for a top-level declaration, `Container.member` for a member.
   final String name;
 
-  /// The file glob as written; `null` matches any file.
-  final String? filePattern;
+  /// The file globs as written; empty matches any file.
+  final List<String> files;
 
   /// Who calls the declaration, for `--verbose`.
   final String reason;
 
-  /// The required kind, or `null` for any.
-  final SymbolKind? kind;
-
-  final Glob? _file;
-  final RegExp? _signature;
+  final List<Glob> _globs;
 
   /// The conventions applied on every run.
   static final builtIn = <EntryPoint>[
-    EntryPoint(
-      name: 'main',
-      kind: .function,
-      reason: 'the program entry point',
-    ),
+    EntryPoint(name: 'main', reason: 'the program entry point'),
     // `flutter test` generates an in-memory bootstrap that imports the nearest
     // `flutter_test_config.dart` and calls `testExecutable(testMain)`.
     EntryPoint(
       name: 'testExecutable',
-      file: '**/flutter_test_config.dart',
-      kind: .function,
-      signature: _testMainParameter,
+      files: const ['**/flutter_test_config.dart'],
       reason: 'called by the `flutter test` bootstrap',
     ),
   ];
@@ -108,25 +74,12 @@ final class EntryPoint {
     final qualified = container == null
         ? symbol.name
         : '$container.${symbol.name}';
-    if (qualified != name) {
-      return false;
-    }
-    if (kind != null && symbol.kind != kind) {
-      return false;
-    }
-    if (_file case final glob? when !glob.matches(relativePath)) {
-      return false;
-    }
-    if (_signature case final signature?
-        when !signature.hasMatch(symbol.detail?.trim() ?? '')) {
-      return false;
-    }
-    return true;
+    return qualified == name &&
+        (_globs.isEmpty || _globs.any((glob) => glob.matches(relativePath)));
   }
 
-  /// The spec form, as `--entry-point` takes it.
   @override
-  String toString() => filePattern == null ? name : '$filePattern:$name';
+  String toString() => files.isEmpty ? name : '$name in ${files.join(' or ')}';
 }
 
 /// [EntryPoint.builtIn] followed by a project's own rules; the first match

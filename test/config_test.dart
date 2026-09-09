@@ -58,9 +58,10 @@ include:
   - 'lib/**'
 generated-suffix:
   - .gc.dart
-entry-point:
-  - 'lib/**_plugin.dart:registerWith'
-  - bootstrap
+entry-points:
+  registerWith: 'lib/**_plugin.dart'
+  bootstrap:
+  Harness.start: [test/a.dart, test/b.dart]
 kinds: [class, function]
 format: github
 color: true
@@ -82,8 +83,9 @@ dart: /sdk/bin/dart
       expect(resolved.excludeGlobs, ['test/**', 'tool/**']);
       expect(resolved.includeGlobs, ['lib/**']);
       expect(resolved.entryPoints.map((e) => '$e'), [
-        'lib/**_plugin.dart:registerWith',
+        'registerWith in lib/**_plugin.dart',
         'bootstrap',
+        'Harness.start in test/a.dart or test/b.dart',
       ]);
       expect(resolved.additionalGeneratedSuffixes, ['.gc.dart']);
       expect(resolved.kinds, <SymbolKind>{.class$, .function});
@@ -97,11 +99,13 @@ dart: /sdk/bin/dart
     });
 
     test('covers every command-line option', () {
-      // Anything settable on the command line is settable in the file.
+      // Anything settable on the command line is settable in the file. The
+      // other way round holds too, but for the `entry-points` map, which has
+      // no command-line spelling.
       final cliOnly = {'help', 'version', 'config', 'no-config'};
       final optionNames = parser.options.keys.toSet().difference(cliOnly);
 
-      expect(configKeys.difference({'path'}), optionNames);
+      expect(configKeys.difference({'path', 'entry-points'}), optionNames);
     });
 
     test('settings lists what the file sets, and only that', () {
@@ -210,20 +214,21 @@ concurrency: 4
       );
     });
 
-    test('rejects a malformed entry point, naming it', () {
-      expect(
-        () => resolveFile("entry-point: ['lib/**:']"),
-        throwsA(
-          isFormatException(
-            'ciach.yaml',
-            allOf(contains("'entry-point'"), contains('names no declaration')),
-          ),
-        ),
-      );
-      expect(
-        () => resolveFile('entry-point: [1]'),
-        throwsA(isFormatException('ciach.yaml', contains('a list of strings'))),
-      );
+    test('rejects a malformed entry point, naming the key', () {
+      final cases = {
+        'entry-points: [a]': 'a map of declaration names',
+        'entry-points: {a-b: }': 'not a declaration name',
+        'entry-points: {foo: 1}': "'entry-points.foo' must be a file glob",
+        'entry-points: {foo: [1]}': "'entry-points.foo' must be a file glob",
+        "entry-points: {foo: 'lib/['}": 'not a valid glob',
+      };
+      for (final MapEntry(key: source, value: message) in cases.entries) {
+        expect(
+          () => resolveFile(source),
+          throwsA(isFormatException('ciach.yaml', contains(message))),
+          reason: 'for $source',
+        );
+      }
     });
 
     test('rejects a non-positive concurrency', () {
@@ -241,7 +246,7 @@ concurrency: 4
     test('checks the type of every key, even one the argv overrides', () {
       // Every option is given on the command line below, so only the eager
       // check when the file is parsed can still catch the bad value. A map fits
-      // no setting, so it is the one wrong value that works for every key.
+      // no setting but `entry-points`, which gets a number instead.
       const everyOption = [
         '--public',
         '--generated',
@@ -276,10 +281,13 @@ concurrency: 4
         expect(
           () => resolve(
             everyOption,
-            .parse('$key: {a: b}', origin: 'ciach.yaml'),
+            .parse(
+              key == 'entry-points' ? '$key: 42' : '$key: {a: b}',
+              origin: 'ciach.yaml',
+            ),
           ),
           throwsA(isFormatException('ciach.yaml', contains("'$key'"))),
-          reason: 'for a map under $key',
+          reason: 'for a wrong value under $key',
         );
       }
     });
@@ -487,18 +495,10 @@ dart: /sdk/bin/dart
         '.gc.dart',
         '--generated-suffix',
         '.pb.dart',
-        '--entry-point',
-        'bootstrap',
-        '--entry-point',
-        'lib/**_plugin.dart:registerWith',
       ]);
 
       expect(resolved.excludeGlobs, ['test/**', 'tool/**']);
       expect(resolved.additionalGeneratedSuffixes, ['.gc.dart', '.pb.dart']);
-      expect(resolved.entryPoints.map((e) => '$e'), [
-        'bootstrap',
-        'lib/**_plugin.dart:registerWith',
-      ]);
     });
 
     test('explicitly passing a flag at its default value still wins', () {
@@ -599,13 +599,6 @@ dart: /sdk/bin/dart
       );
     });
 
-    test('rejects a malformed --entry-point', () {
-      expect(
-        () => resolve(const ['--entry-point', 'a-b']),
-        throwsA(isUsageException(contains('not a declaration name'))),
-      );
-    });
-
     test('rejects an unknown --kinds value', () {
       expect(
         () => resolve(const ['-k', 'klass']),
@@ -637,9 +630,7 @@ dart: /sdk/bin/dart
         'test/**',
         '-j',
         '4',
-        '--entry-point',
-        'bootstrap',
-      ]);
+      ], .parse('entry-points: {bootstrap: }', origin: 'ciach.yaml'));
       final options = resolved.finderOptions();
 
       expect(options.rootPath, p.normalize(p.absolute('.')));
