@@ -144,6 +144,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
   Object? _typedValue(String key) => switch (_optionFor(key)) {
     .format => _oneOf(key, formatNames),
     .kinds => _kinds(key),
+    .entryPoint => _entryPoints(key),
     .concurrency => _positiveInt(key),
     final option => switch (option.option) {
       FlagOption() => _boolean(key),
@@ -196,6 +197,19 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     if (values != null) {
       try {
         parseKinds(values);
+      } on FormatException catch (e) {
+        throw FormatException("$path: '$key': ${e.message}");
+      }
+    }
+    return values;
+  }
+
+  /// The entry-point specs under [key], validated.
+  List<String>? _entryPoints(String key) {
+    final values = _strings(key);
+    if (values != null) {
+      try {
+        parseEntryPoints(values);
       } on FormatException catch (e) {
         throw FormatException("$path: '$key': ${e.message}");
       }

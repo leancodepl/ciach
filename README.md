@@ -94,6 +94,7 @@ ciach --verbose                        # explain each step
 | `-e, --exclude <glob>` | — | Skip files matching the glob (repeatable). |
 | `-i, --include <glob>` | — | Only scan files matching the glob (repeatable). |
 | `--generated-suffix <suffix>` | — | Extra filename suffix (with leading dot) to treat as generated and skip, on top of the built-in set; repeatable. Ignored when `--generated` is set. |
+| `--entry-point <glob:name>` | — | A declaration a framework or tool of this project calls by convention, never reported: `<file glob>:<name>` or a bare `<name>`; repeatable. On top of the built-in `main` and `testExecutable`. See [Entry points](#entry-points). |
 | `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
 | `-f, --format <fmt>` | `text` | `text`, `json`, or `github` (GitHub Actions `::warning` annotations). |
 | `-j, --concurrency <n>` | `16` | Reference queries kept in flight against the analysis server. |
@@ -113,6 +114,7 @@ long name minus the `--`, plus `path` for the positional argument:
 ```yaml
 public: false                     # --no-public
 exclude: ['test/**', 'tool/**']   # repeatable options take a list, or a bare string
+entry-point: ['lib/**_plugin.dart:registerWith']
 kinds: [class, function, method]
 format: github
 set-exit-if-changed: true
@@ -251,6 +253,7 @@ that cost.
 | Skipped | Why | Flag |
 | --- | --- | --- |
 | `main` | the entry point is never unused | — |
+| `testExecutable` in a `flutter_test_config.dart` | `flutter test` generates a bootstrap that calls it; nothing on disk does. See [Entry points](#entry-points) | `--entry-point` adds more |
 | `@override` members | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses | `--overrides` |
 | Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--operators` |
 | `call` methods | implicit-call syntax (`obj(…)`) is unresolvable the same way | — |
@@ -265,6 +268,40 @@ like any other. A sole zero-parameter `ClassName._()` — the classic
 prevent-instantiation marker — is reported with a hint suggesting `abstract final
 class` instead. See [example/](example) for a runnable demonstration of each case.
 
+### Entry points
+
+Some declarations are called by a framework or a tool, never by code in the
+package: `flutter test` finds the nearest `flutter_test_config.dart` and runs its
+`testExecutable`, a plugin registrant is named in `pubspec.yaml`, a driver script
+calls a conventionally-named function. A reference search cannot see those
+calls, so each would read as dead.
+
+ciach exempts a declaration only when it meets the caller's whole contract, not
+when it happens to share a name. The built-in `testExecutable` rule requires the
+file to be named `flutter_test_config.dart`, the declaration to be a top-level
+function, and its one parameter to be the test's `main`,
+`FutureOr<void> Function()` — anything less is reported like any other dead
+code. Verbose mode names each exemption as it happens:
+
+```
+[  0.4s] Skipped test/flutter_test_config.dart:6 testExecutable: called by the `flutter test` bootstrap (entry point **/flutter_test_config.dart:testExecutable).
+```
+
+A project adds its own with `--entry-point`, or `entry-point:` in `ciach.yaml`,
+as `<file glob>:<name>` — the glob relative to the package root, the name bare
+for a top-level declaration or `Container.member` for a member — or a bare
+`<name>` for any file:
+
+```yaml
+entry-point:
+  - 'lib/**_plugin.dart:registerWith'   # a top-level function, in matching files
+  - 'test/harness.dart:Harness.start'   # a member
+  - integrationMain                      # any file
+```
+
+These match on file and name only; a declaration that matches is never a
+candidate, so it is neither reported nor removed.
+
 ## Limitations
 
 This is a static, reference-based heuristic, so review its output rather than
@@ -275,7 +312,9 @@ deleting blindly:
 - **Reflection, dynamic invocation, and names referenced only from generated
   code you excluded** are invisible to a reference search.
 - **Entry points other than `main`** (isolate entry points, plugin registrants)
-  need excluding or `@pragma('vm:entry-point')`.
+  need listing with [`--entry-point`](#entry-points) or
+  `@pragma('vm:entry-point')`; only `flutter test`'s `testExecutable` is known
+  out of the box.
 - **A primary constructor shares its class's references**, since a query at the
   header resolves to the class: a never-invoked one only surfaces once the class
   itself is dead.

@@ -106,6 +106,11 @@ const _comparison = [
 const _skips = [
   ('main', 'The entry point is never unused.', null),
   (
+    'testExecutable in flutter_test_config.dart',
+    'Called by the `flutter test` bootstrap, which never lands on disk.',
+    '--entry-point',
+  ),
+  (
     '@override members',
     'Reached polymorphically or by a framework.',
     '--overrides',
@@ -661,7 +666,8 @@ class DocsPage extends StatelessComponent {
                   ),
                   li(
                     rich(
-                      'Entry points other than `main` need excluding or '
+                      'Entry points other than `main` and `flutter test`’s '
+                      '`testExecutable` need listing with `--entry-point` or '
                       "`@pragma('vm:entry-point')`.",
                     ),
                   ),

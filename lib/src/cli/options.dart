@@ -21,6 +21,7 @@ class ResolvedOptions {
     required this.operators,
     required this.unusedUnionMembers,
     required this.reportToJson,
+    required this.entryPoints,
     required this.setExitIfChanged,
     required this.remove,
     required this.force,
@@ -49,6 +50,9 @@ class ResolvedOptions {
   final bool operators;
   final bool unusedUnionMembers;
   final bool reportToJson;
+
+  /// The project's own entry points, parsed from `--entry-point` specs.
+  final List<EntryPoint> entryPoints;
   final bool setExitIfChanged;
   final bool remove;
   final bool force;
@@ -82,6 +86,7 @@ class ResolvedOptions {
     skipOperators: !operators,
     unusedUnionMembers: unusedUnionMembers,
     reportToJson: reportToJson,
+    entryPoints: entryPoints,
     concurrency: concurrency,
     dartExecutable: dartExecutable ?? this.dartExecutable,
     onProgress: onProgress,
@@ -124,6 +129,8 @@ ResolvedOptions resolveOptions(
     operators: configuration.value(CiachOption.operators),
     unusedUnionMembers: configuration.value(CiachOption.unusedUnionMembers),
     reportToJson: configuration.value(CiachOption.reportToJson),
+    // Already validated by the option; this only converts the specs.
+    entryPoints: parseEntryPoints(configuration.value(CiachOption.entryPoint)),
     setExitIfChanged: configuration.value(CiachOption.setExitIfChanged),
     remove: configuration.value(CiachOption.remove),
     force: configuration.value(CiachOption.force),

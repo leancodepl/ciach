@@ -58,6 +58,9 @@ include:
   - 'lib/**'
 generated-suffix:
   - .gc.dart
+entry-point:
+  - 'lib/**_plugin.dart:registerWith'
+  - bootstrap
 kinds: [class, function]
 format: github
 color: true
@@ -78,6 +81,10 @@ dart: /sdk/bin/dart
       expect(resolved.force, isTrue);
       expect(resolved.excludeGlobs, ['test/**', 'tool/**']);
       expect(resolved.includeGlobs, ['lib/**']);
+      expect(resolved.entryPoints.map((e) => '$e'), [
+        'lib/**_plugin.dart:registerWith',
+        'bootstrap',
+      ]);
       expect(resolved.additionalGeneratedSuffixes, ['.gc.dart']);
       expect(resolved.kinds, <SymbolKind>{.class$, .function});
       expect(resolved.format, 'github');
@@ -200,6 +207,22 @@ concurrency: 4
         throwsA(
           isFormatException('ciach.yaml', contains("Unknown kind 'klass'")),
         ),
+      );
+    });
+
+    test('rejects a malformed entry point, naming it', () {
+      expect(
+        () => resolveFile("entry-point: ['lib/**:']"),
+        throwsA(
+          isFormatException(
+            'ciach.yaml',
+            allOf(contains("'entry-point'"), contains('names no declaration')),
+          ),
+        ),
+      );
+      expect(
+        () => resolveFile('entry-point: [1]'),
+        throwsA(isFormatException('ciach.yaml', contains('a list of strings'))),
       );
     });
 
@@ -464,10 +487,18 @@ dart: /sdk/bin/dart
         '.gc.dart',
         '--generated-suffix',
         '.pb.dart',
+        '--entry-point',
+        'bootstrap',
+        '--entry-point',
+        'lib/**_plugin.dart:registerWith',
       ]);
 
       expect(resolved.excludeGlobs, ['test/**', 'tool/**']);
       expect(resolved.additionalGeneratedSuffixes, ['.gc.dart', '.pb.dart']);
+      expect(resolved.entryPoints.map((e) => '$e'), [
+        'bootstrap',
+        'lib/**_plugin.dart:registerWith',
+      ]);
     });
 
     test('explicitly passing a flag at its default value still wins', () {
@@ -568,6 +599,13 @@ dart: /sdk/bin/dart
       );
     });
 
+    test('rejects a malformed --entry-point', () {
+      expect(
+        () => resolve(const ['--entry-point', 'a-b']),
+        throwsA(isUsageException(contains('not a declaration name'))),
+      );
+    });
+
     test('rejects an unknown --kinds value', () {
       expect(
         () => resolve(const ['-k', 'klass']),
@@ -599,6 +637,8 @@ dart: /sdk/bin/dart
         'test/**',
         '-j',
         '4',
+        '--entry-point',
+        'bootstrap',
       ]);
       final options = resolved.finderOptions();
 
@@ -608,6 +648,7 @@ dart: /sdk/bin/dart
       expect(options.skipOverrides, isFalse);
       expect(options.skipOperators, isTrue);
       expect(options.excludeGlobs, ['test/**']);
+      expect(options.entryPoints.map((e) => '$e'), ['bootstrap']);
       expect(options.concurrency, 4);
       expect(options.onProgress, isNull);
     });

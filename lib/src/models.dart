@@ -8,6 +8,7 @@
  *     - mark-ai-provenance
  */
 
+import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
 /// A `[start, end)` span within a file, using 0-based line/column positions
@@ -44,6 +45,7 @@ class FinderOptions {
     this.skipOperators = true,
     this.unusedUnionMembers = false,
     this.reportToJson = false,
+    this.entryPoints = const [],
     this.concurrency = 16,
     this.dartExecutable,
     this.onProgress,
@@ -111,6 +113,10 @@ class FinderOptions {
   /// source-level `.toJson()` token, so the reference search can't see that use
   /// and would flag a live serializer. Enable to audit genuinely-dead `toJson`s.
   final bool reportToJson;
+
+  /// The project's own entry points, on top of [EntryPoint.builtIn]. A match
+  /// is never a candidate, so it is neither reported nor removed.
+  final List<EntryPoint> entryPoints;
 
   /// How many `textDocument/references` requests to keep in flight at once.
   /// Higher values keep the analysis server busier; there are diminishing

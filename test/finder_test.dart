@@ -13,6 +13,7 @@ library;
 
 import 'dart:io';
 
+import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/finder.dart';
 import 'package:ciach/src/models.dart';
 import 'package:collection/collection.dart';
@@ -49,6 +50,8 @@ void main() {
     // dedicated tests; exclude them from the default-run assertions.
     List<String> exclude = const ['lib/scenarios/**'],
     List<String> include = const [],
+    List<EntryPoint> entryPoints = const [],
+    void Function(String message)? onProgress,
   }) => Ciach(
     .new(
       rootPath: fixturePath,
@@ -58,6 +61,8 @@ void main() {
       kinds: kinds ?? FinderOptions.defaultKinds,
       excludeGlobs: exclude,
       includeGlobs: include,
+      entryPoints: entryPoints,
+      onProgress: onProgress,
     ),
   ).run();
 
@@ -241,6 +246,8 @@ void main() {
     expect(unused, isNot(contains('Vector2')));
     // `main` is an entry point and is always skipped.
     expect(unused, isNot(contains('main')));
+    // So is `testExecutable` in test/flutter_test_config.dart.
+    expect(unused, isNot(contains('testExecutable')));
     // Skipped because it is annotated with @override.
     expect(unused, isNot(contains('Dog.sound')));
   });
@@ -976,6 +983,96 @@ void main() {
         // The fixture's own entry point, which nothing calls.
         'exerciseDotShorthands',
       });
+    });
+  });
+
+  group('entry points', () {
+    Future<FinderResult> runEntryPoints({
+      List<EntryPoint> entryPoints = const [],
+      void Function(String message)? onProgress,
+    }) => runFinder(
+      include: [
+        'lib/scenarios/entry_points.dart',
+        'lib/scenarios/entry_points/**',
+        'test/**',
+      ],
+      exclude: const [],
+      entryPoints: entryPoints,
+      onProgress: onProgress,
+    );
+
+    /// `path:qualifiedName`, since the fixture has two `testExecutable`s.
+    Set<String> located(FinderResult result) => {
+      for (final d in result.unused) '${d.filePath}:${d.qualifiedName}',
+    };
+
+    test('exempts a declaration only when it meets the whole contract', () async {
+      expect(located(await runEntryPoints()), {
+        // Wrong file.
+        'lib/scenarios/entry_points.dart:testExecutable',
+        'lib/scenarios/entry_points.dart:integrationMain',
+        'lib/scenarios/entry_points.dart:Plugin.registerWith',
+        'lib/scenarios/entry_points.dart:bootstrap',
+        // Wrong signature, and the file name exempts nothing beside it.
+        'lib/scenarios/entry_points/flutter_test_config.dart:testExecutable',
+        'lib/scenarios/entry_points/flutter_test_config.dart:deadHelperNextToConfig',
+      });
+    });
+
+    test(
+      'a project lists its own, by file and name, member, or bare name',
+      () async {
+        final result = await runEntryPoints(
+          entryPoints: [
+            EntryPoint.parse('lib/scenarios/entry_points.dart:integrationMain'),
+            EntryPoint.parse('**/entry_points.dart:Plugin.registerWith'),
+            EntryPoint.parse('bootstrap'),
+          ],
+        );
+
+        expect(located(result), {
+          'lib/scenarios/entry_points.dart:testExecutable',
+          'lib/scenarios/entry_points/flutter_test_config.dart:testExecutable',
+          'lib/scenarios/entry_points/flutter_test_config.dart:deadHelperNextToConfig',
+        });
+        // `Plugin` is kept alive by `integrationMain`, not by its member's rule.
+        expect(
+          result.unused.map((d) => d.qualifiedName),
+          isNot(contains('Plugin')),
+        );
+      },
+    );
+
+    test(
+      'a project rule with a glob matching no scanned file changes nothing',
+      () async {
+        final result = await runEntryPoints(
+          entryPoints: [EntryPoint.parse('bin/**:bootstrap')],
+        );
+        expect(
+          located(result),
+          contains('lib/scenarios/entry_points.dart:bootstrap'),
+        );
+      },
+    );
+
+    test('narrates each skipped entry point other than main', () async {
+      final lines = <String>[];
+      await runEntryPoints(
+        entryPoints: [EntryPoint.parse('bootstrap')],
+        onProgress: lines.add,
+      );
+
+      final skipped = lines.where((l) => l.startsWith('Skipped ')).toList();
+      const bootstrapLine =
+          'Skipped lib/scenarios/entry_points.dart:17 bootstrap: listed as an '
+          'entry point by this project (entry point bootstrap).';
+      const testExecutableLine =
+          'Skipped test/flutter_test_config.dart:6 testExecutable: called by '
+          'the `flutter test` bootstrap (entry point '
+          '**/flutter_test_config.dart:testExecutable).';
+      expect(skipped, [bootstrapLine, testExecutableLine]);
+      expect(lines, isNot(contains(contains(' main:'))));
     });
   });
 
