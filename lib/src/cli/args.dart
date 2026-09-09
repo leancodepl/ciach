@@ -20,7 +20,7 @@ const kindAliases = <String, SymbolKind>{
   'mixin': .interface$,
   'interface': .interface$,
   'enum': .enum$,
-  'extension': .struct,
+  'extension': .namespace,
   'function': .function,
   'method': .method,
   'constructor': .constructor,

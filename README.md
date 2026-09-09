@@ -216,6 +216,23 @@ false-positive risk, which `--overrides` and `--operators` widen considerably.
 [Doc-only findings](#doc-only-findings) are never included. Review the diff, as
 you would after any automated refactor.
 
+Nothing is left behind as an empty shell, either:
+
+- An extension is used through its members, never by name, so one whose every
+  member is dead is reported and removed as the whole `extension`, the way a
+  fully dead class is. One a `show`/`hide` combinator names stays, and only its
+  members are reported.
+- A file the removal leaves with nothing but directives — a `library` line,
+  `import`s, a `part of` — is deleted, and the `import`/`export`/`part` lines
+  naming it elsewhere are dropped; a barrel or a part's owner that is left
+  with nothing by that goes too. A file that still `export`s or owns a `part`,
+  one named in a conditional import, and one that had no declarations to begin
+  with are all left alone.
+
+```
+Removed 4 unused declarations from 2 files. Deleted 1 file left with nothing but imports: lib/legacy.dart.
+```
+
 Findings whose removal wouldn't compile are **report-only**: marked `unsafe to
 auto-remove — remove manually` and skipped, along with anything coupled to them.
 

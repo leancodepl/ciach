@@ -16,11 +16,13 @@ void main() {
   });
 
   /// Writes [content] to `<tempDir>/lib.dart`, removes [decls] from it, and
-  /// returns the resulting content.
+  /// returns the resulting content — or `''` when the removal left nothing and
+  /// deleted the file (see the `emptied files` group).
   String applyRemoval(String content, List<UnusedDeclaration> decls) {
-    File(p.join(tempDir.path, 'lib.dart')).writeAsStringSync(content);
+    final file = File(p.join(tempDir.path, 'lib.dart'))
+      ..writeAsStringSync(content);
     removeDeclarations(decls, tempDir.path);
-    return File(p.join(tempDir.path, 'lib.dart')).readAsStringSync();
+    return file.existsSync() ? file.readAsStringSync() : '';
   }
 
   UnusedDeclaration decl({
@@ -823,6 +825,280 @@ class Registry {
       _expectBalanced(result);
     },
   );
+
+  group('emptied files', () {
+    // Files are written under the temp root as a `pkg` package, so `package:`
+    // URIs resolve like the analysis server would resolve them.
+    void write(String relativePath, String content) {
+      File(p.join(tempDir.path, p.joinAll(p.posix.split(relativePath))))
+        ..createSync(recursive: true)
+        ..writeAsStringSync(content);
+    }
+
+    String read(String relativePath) => File(
+      p.join(tempDir.path, p.joinAll(p.posix.split(relativePath))),
+    ).readAsStringSync();
+
+    bool exists(String relativePath) => File(
+      p.join(tempDir.path, p.joinAll(p.posix.split(relativePath))),
+    ).existsSync();
+
+    /// The one declaration every emptied fixture file carries: a
+    /// `void gone() {}` on line index [line], columns 0..14.
+    UnusedDeclaration gone(String filePath, {int line = 2}) => .new(
+      name: 'gone',
+      kind: .function,
+      filePath: filePath,
+      line: line + 1,
+      column: 6,
+      isPrivate: false,
+      range: (startLine: line, startColumn: 0, endLine: line, endColumn: 14),
+    );
+
+    setUp(() {
+      write('pubspec.yaml', 'name: pkg\n');
+    });
+
+    test('deletes a file left with nothing but imports and drops the '
+        'directives naming it — relative, package:, and an export', () {
+      write('lib/dead.dart', '''
+import 'dart:async';
+
+void gone() {}
+''');
+      write('lib/user.dart', '''
+import 'package:pkg/dead.dart';
+import 'dart:io';
+
+void kept() {}
+''');
+      write('lib/sub/relative.dart', '''
+import '../dead.dart' show gone;
+
+void alsoKept() {}
+''');
+      write('lib/barrel.dart', '''
+export 'dead.dart';
+export 'user.dart';
+''');
+
+      final result = removeDeclarations([gone('lib/dead.dart')], tempDir.path);
+
+      expect(exists('lib/dead.dart'), isFalse);
+      expect(result.filesChanged, 1);
+      final deleted = result.deletedFiles.single;
+      expect(deleted.filePath, 'lib/dead.dart');
+      expect(deleted.unlinkedFrom, [
+        'lib/barrel.dart',
+        'lib/sub/relative.dart',
+        'lib/user.dart',
+      ]);
+      expect(read('lib/user.dart'), "import 'dart:io';\n\nvoid kept() {}\n");
+      expect(read('lib/sub/relative.dart'), '\nvoid alsoKept() {}\n');
+      // The barrel still exports something, so it stays.
+      expect(read('lib/barrel.dart'), "export 'user.dart';\n");
+    });
+
+    test('a `library` line and comments do not keep a file', () {
+      write('lib/dead.dart', '''
+// Copyright: nobody.
+
+/// Docs for the library.
+library dead;
+
+// ignore_for_file: unused_import
+import 'dart:async';
+
+/// Gone.
+void gone() {}
+''');
+      removeDeclarations([gone('lib/dead.dart', line: 9)], tempDir.path);
+      expect(exists('lib/dead.dart'), isFalse);
+    });
+
+    test('a file that still exports something stays', () {
+      write('lib/dead.dart', '''
+export 'other.dart';
+
+void gone() {}
+''');
+      write('lib/other.dart', 'void other() {}\n');
+      final result = removeDeclarations([gone('lib/dead.dart')], tempDir.path);
+      expect(exists('lib/dead.dart'), isTrue);
+      expect(read('lib/dead.dart'), "export 'other.dart';\n\n");
+      expect(result.deletedFiles, isEmpty);
+    });
+
+    test('a file that still owns a part stays', () {
+      write('lib/dead.dart', '''
+part 'dead.g.dart';
+
+void gone() {}
+''');
+      write('lib/dead.g.dart', "part of 'dead.dart';\n");
+      removeDeclarations([gone('lib/dead.dart')], tempDir.path);
+      expect(exists('lib/dead.dart'), isTrue);
+      expect(exists('lib/dead.g.dart'), isTrue);
+    });
+
+    test('an emptied part file is deleted with its `part` line, and the '
+        'owner left with nothing but imports follows it', () {
+      write('lib/owner.dart', '''
+import 'dart:async';
+
+part 'piece.dart';
+''');
+      write('lib/piece.dart', '''
+part of 'owner.dart';
+
+void gone() {}
+''');
+      write('bin/main.dart', '''
+import 'package:pkg/owner.dart';
+
+void main() {}
+''');
+
+      final result = removeDeclarations([gone('lib/piece.dart')], tempDir.path);
+
+      expect(exists('lib/piece.dart'), isFalse);
+      expect(exists('lib/owner.dart'), isFalse);
+      expect(result.deletedFiles.map((d) => d.filePath), [
+        'lib/piece.dart',
+        'lib/owner.dart',
+      ]);
+      expect(read('bin/main.dart'), '\nvoid main() {}\n');
+    });
+
+    test('a barrel left with nothing once its only export is deleted '
+        'follows it', () {
+      write('lib/dead.dart', '''
+import 'dart:async';
+
+void gone() {}
+''');
+      write('lib/barrel.dart', "export 'dead.dart';\n");
+      write('bin/main.dart', '''
+import 'package:pkg/barrel.dart';
+
+void main() {}
+''');
+
+      final result = removeDeclarations([gone('lib/dead.dart')], tempDir.path);
+
+      expect(exists('lib/dead.dart'), isFalse);
+      expect(exists('lib/barrel.dart'), isFalse);
+      expect(result.deletedFiles.map((d) => d.filePath), [
+        'lib/dead.dart',
+        'lib/barrel.dart',
+      ]);
+      expect(read('bin/main.dart'), '\nvoid main() {}\n');
+    });
+
+    test('a file named in a conditional import stays', () {
+      write('lib/dead.dart', '''
+import 'dart:async';
+
+void gone() {}
+''');
+      write('lib/switch.dart', '''
+import 'stub.dart' if (dart.library.io) 'dead.dart';
+
+void kept() {}
+''');
+      write('lib/stub.dart', 'void stub() {}\n');
+      final result = removeDeclarations([gone('lib/dead.dart')], tempDir.path);
+      expect(exists('lib/dead.dart'), isTrue);
+      expect(result.deletedFiles, isEmpty);
+      expect(read('lib/switch.dart'), contains("'dead.dart'"));
+    });
+
+    test('a `package:` URI of a package no pubspec claims keeps the file '
+        'when the paths line up', () {
+      write('lib/dead.dart', '''
+import 'dart:async';
+
+void gone() {}
+''');
+      write('lib/user.dart', '''
+import 'package:mystery/dead.dart';
+
+void kept() {}
+''');
+      removeDeclarations([gone('lib/dead.dart')], tempDir.path);
+      expect(exists('lib/dead.dart'), isTrue);
+      expect(read('lib/user.dart'), contains('package:mystery/dead.dart'));
+    });
+
+    test('a `package:` URI of another package under the root is not this '
+        'file', () {
+      write('lib/dead.dart', '''
+import 'dart:async';
+
+void gone() {}
+''');
+      write('example/pubspec.yaml', 'name: sample\n');
+      write('example/lib/dead.dart', 'void sampleDead() {}\n');
+      write('example/bin/main.dart', '''
+import 'package:sample/dead.dart';
+
+void main() {}
+''');
+      removeDeclarations([gone('lib/dead.dart')], tempDir.path);
+      expect(exists('lib/dead.dart'), isFalse);
+      // Names the example's own lib/dead.dart, not the deleted one.
+      expect(
+        read('example/bin/main.dart'),
+        contains('package:sample/dead.dart'),
+      );
+    });
+
+    test('a file nothing was removed from is never deleted, even if empty', () {
+      write('lib/placeholder.dart', '// Reserved for later.\n');
+      write('lib/dead.dart', '''
+import 'placeholder.dart';
+
+void gone() {}
+''');
+      removeDeclarations([gone('lib/dead.dart')], tempDir.path);
+      expect(exists('lib/dead.dart'), isFalse);
+      expect(exists('lib/placeholder.dart'), isTrue);
+    });
+
+    test('a file with a declaration left is not deleted, and its import of '
+        'a deleted file is dropped whole even across lines', () {
+      write('lib/dead.dart', 'void gone() {}\n');
+      write('lib/user.dart', '''
+import 'dead.dart'
+    show gone,
+        other;
+
+/// Still here.
+void kept() {}
+''');
+      removeDeclarations([gone('lib/dead.dart', line: 0)], tempDir.path);
+      expect(exists('lib/dead.dart'), isFalse);
+      expect(read('lib/user.dart'), '\n/// Still here.\nvoid kept() {}\n');
+    });
+
+    test('a report-only finding does not empty its file', () {
+      write('lib/dead.dart', 'void gone() {}\n');
+      const blocked = UnusedDeclaration(
+        name: 'gone',
+        kind: .function,
+        filePath: 'lib/dead.dart',
+        line: 1,
+        column: 6,
+        isPrivate: false,
+        range: (startLine: 0, startColumn: 0, endLine: 0, endColumn: 14),
+        removalBlocked: true,
+      );
+      final result = removeDeclarations([blocked], tempDir.path);
+      expect(exists('lib/dead.dart'), isTrue);
+      expect(result.filesChanged, 0);
+      expect(result.deletedFiles, isEmpty);
+    });
+  });
 }
 
 /// A cheap brace-balance check so a regression that mangles a removal shows

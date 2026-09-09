@@ -34,9 +34,11 @@ export 'src/models.dart'
     show
         CoupledRemoval,
         DeclarationRange,
+        DeletedFile,
         FinderOptions,
         FinderResult,
         RecoveredReference,
+        RemovalResult,
         SymbolKindLabel,
         UnusedDeclaration;
 export 'src/remover.dart' show removeDeclarations;

@@ -25,11 +25,17 @@ import 'package:pro_lsp/pro_lsp.dart' show Location;
 /// * [enumValuesIterated] — enums whose values are all reachable through
 ///   `.values` iteration, so a value reached only that way is used, not dead,
 ///   and is suppressed entirely rather than reported.
+/// * [deadExtensions] — extensions nothing refers to by name and every member
+///   of which is dead. An extension is used only through its members, so this
+///   is what "unused extension" means; it is reported and removed whole, like
+///   a dead class, rather than left as an empty `extension E on T {}` shell
+///   once its members go.
 class RemoveSafety {
   const RemoveSafety({
     required this.emptiedEnums,
     required this.blockedCtorClasses,
     required this.enumValuesIterated,
+    required this.deadExtensions,
   });
 
   factory RemoveSafety.analyze(
@@ -47,12 +53,35 @@ class RemoveSafety {
     final ctorDead = <DeclKey, int>{};
     final ctorForwardsSuper = <DeclKey, bool>{};
     final classByKey = <DeclKey, Candidate>{};
+    final extensionUnreferenced = <DeclKey, bool>{};
+    final extensionMemberTotal = <DeclKey, int>{};
+    final extensionMemberDead = <DeclKey, int>{};
 
     for (var i = 0; i < candidates.length; i++) {
       final candidate = candidates[i];
       final symbol = candidate.symbol;
       final unused = statuses[i] == .unused;
-      if (symbol.kind == .enum$ && !candidate.isEnumValue) {
+      if (candidate.isExtensionMember && unused) {
+        if (candidate.containerKey case final key?) {
+          extensionMemberDead.update(key, (n) => n + 1, ifAbsent: () => 1);
+        }
+      }
+      if (candidate.isExtension) {
+        // Two unnamed extensions on one type in a file share a key; their
+        // tallies merge, which can only keep both, never drop a live one.
+        extensionUnreferenced.update(
+          candidate.key,
+          (was) => was && unused,
+          ifAbsent: () => unused,
+        );
+        // Every member counts, candidate or not: one excluded by `--kinds` or
+        // `--no-public` is unaccounted for, and keeps the extension.
+        extensionMemberTotal.update(
+          candidate.key,
+          (n) => n + (symbol.children?.length ?? 0),
+          ifAbsent: () => symbol.children?.length ?? 0,
+        );
+      } else if (symbol.kind == .enum$ && !candidate.isEnumValue) {
         enumTypeHasRef[candidate.key] = refsByCandidate[i].isNotEmpty;
         if (refsByCandidate[i].any(sources.isDotValuesRef) ||
             sources.enumIteratesOwnValues(candidate)) {
@@ -113,14 +142,24 @@ class RemoveSafety {
       }
     }
 
+    final deadExtensions = <DeclKey>{
+      for (final MapEntry(:key, value: unreferenced)
+          in extensionUnreferenced.entries)
+        if (unreferenced &&
+            (extensionMemberDead[key] ?? 0) == extensionMemberTotal[key])
+          key,
+    };
+
     return RemoveSafety(
       emptiedEnums: emptiedEnums,
       blockedCtorClasses: blockedCtorClasses,
       enumValuesIterated: enumValuesIterated,
+      deadExtensions: deadExtensions,
     );
   }
 
   final Set<DeclKey> emptiedEnums;
   final Set<DeclKey> blockedCtorClasses;
   final Set<DeclKey> enumValuesIterated;
+  final Set<DeclKey> deadExtensions;
 }

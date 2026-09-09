@@ -564,6 +564,24 @@ class DocsPage extends StatelessComponent {
                   code([.text('dart format')]),
                   .text(' afterward and review the diff.'),
                 ]),
+                const p([
+                  .text(
+                    'Nothing is left behind as an empty shell. An extension '
+                    'whose every member is dead is reported and removed as '
+                    'the whole extension, like a fully dead class (one a ',
+                  ),
+                  code([.text('show')]),
+                  .text(
+                    ' names stays). A file the removal leaves with nothing '
+                    'but directives is deleted, and the ',
+                  ),
+                  code([.text('import')]),
+                  .text(
+                    's of it elsewhere dropped; a file that still exports or '
+                    'owns a part, or that had no declarations to begin with, '
+                    'is left alone.',
+                  ),
+                ]),
                 const h3([.text('Report-only: removal would not compile')]),
                 ul(classes: 'checklist', [
                   for (final item in _reportOnly) li(rich(item)),

@@ -129,6 +129,9 @@ class FinderOptions {
   /// [SymbolKind.typeParameter] (always "used" within its scope) and the
   /// primitive value kinds the server never emits for Dart declarations.
   ///
+  /// [SymbolKind.namespace] is how the analysis server reports an `extension`
+  /// (and an `extension type`, which is never a candidate — see the finder).
+  ///
   /// Operator overloads are *not* a separate kind here: the analysis server
   /// reports them as plain [SymbolKind.method] declarations named `+`, `==`,
   /// etc. — see [skipOperators] for how they're excluded by default instead.
@@ -136,7 +139,7 @@ class FinderOptions {
     .class$,
     .interface$,
     .enum$,
-    .struct,
+    .namespace,
     .function,
     .method,
     .constructor,
@@ -155,6 +158,7 @@ extension SymbolKindLabel on SymbolKind {
     .class$ => 'class',
     .enum$ => 'enum',
     .interface$ => 'interface',
+    .namespace => 'extension',
     .operator$ => 'operator',
     .null$ => 'null',
     .enumMember => 'enum value',
@@ -260,6 +264,29 @@ class UnusedDeclaration {
     'container': ?container,
     'hint': ?hint,
   };
+}
+
+/// A file `--remove` deleted because nothing but directives — a `library`
+/// line, `import`s, a `part of` — was left in it once its declarations went.
+typedef DeletedFile = ({
+  /// Path to the deleted file, relative to the analyzed root, using `/`
+  /// separators.
+  String filePath,
+
+  /// The files (same form) whose `import`/`export`/`part` of it were dropped
+  /// so nothing names a file that no longer exists.
+  List<String> unlinkedFrom,
+});
+
+/// What a `removeDeclarations` run did to the package.
+class RemovalResult {
+  const RemovalResult({required this.filesChanged, required this.deletedFiles});
+
+  /// The files declarations were removed from, deleted ones included.
+  final int filesChanged;
+
+  /// The files deleted for having nothing but directives left, in path order.
+  final List<DeletedFile> deletedFiles;
 }
 
 /// A declaration that had no reported references but was confirmed used by the

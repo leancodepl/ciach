@@ -111,7 +111,8 @@ void main() {
       'Direction.south',
       'Direction.west',
       'Loud.whisper',
-      'tripled',
+      // An extension's members are qualified by it, like a class's.
+      'IntExtras.tripled',
       // Private constructors are reported like any other dead code. The sole,
       // zero-parameter `SoleMarker._()` also carries a prevent-instantiation
       // hint (asserted separately below).
@@ -227,7 +228,9 @@ void main() {
     expect(unused, isNot(contains('UsedClass._format')));
     expect(unused, isNot(contains('UsedClass.name')));
     expect(unused, isNot(contains('UsedClass.nickname')));
-    expect(unused, isNot(contains('doubled')));
+    expect(unused, isNot(contains('IntExtras.doubled')));
+    // Alive through `doubled`, though nothing names the extension itself.
+    expect(unused, isNot(contains('IntExtras')));
     expect(unused, isNot(contains('Loud')));
     expect(unused, isNot(contains('Loud.emphasize')));
     expect(unused, isNot(contains('Direction')));
@@ -505,6 +508,107 @@ void main() {
         );
       },
     );
+  });
+
+  group('dead extensions', () {
+    // Scan the extension fixture and its uses file together: `LiveHelpers` is
+    // kept alive by a member call from the latter, `ShownHelpers` by a `show`.
+    Future<FinderResult> runExtensions() => runFinder(
+      include: [
+        'lib/scenarios/extensions_emptied.dart',
+        'lib/scenarios/extensions_emptied_uses.dart',
+      ],
+      exclude: const [],
+    );
+
+    test("reports exactly the fixture's dead declarations", () async {
+      final result = await runExtensions();
+      expect(result.unused.map((d) => d.qualifiedName).toSet(), {
+        'DeadHelpers',
+        'LiveHelpers.stale',
+        'extension on String',
+        'ShownHelpers.shownButUnused',
+        'Hollow',
+        'useEmptiedExtensions',
+      });
+    });
+
+    test('an extension whose every member is dead is reported as the '
+        'extension, not its members', () async {
+      final result = await runExtensions();
+      final decl = findByQualified(result, 'DeadHelpers');
+      expect(decl, isNotNull, reason: 'nothing calls either member');
+      expect(decl!.kind, SymbolKind.namespace);
+      expect(decl.kind.label, 'extension');
+      expect(decl.removalBlocked, isFalse);
+      // The members go with the extension, so they are not findings of their
+      // own — a double report would also be a double removal.
+      expect(findByQualified(result, 'DeadHelpers.first'), isNull);
+      expect(findByQualified(result, 'DeadHelpers.second'), isNull);
+    });
+
+    test('an extension with a live member is never reported, even though '
+        'nothing names it', () async {
+      final result = await runExtensions();
+      expect(findByQualified(result, 'LiveHelpers'), isNull);
+      // Its dead member is still an ordinary finding.
+      final stale = findByQualified(result, 'LiveHelpers.stale');
+      expect(stale, isNotNull);
+      expect(stale!.kind, SymbolKind.method);
+    });
+
+    test("an unnamed extension is reported whole under the server's "
+        'placeholder name, its members unqualified', () async {
+      final result = await runExtensions();
+      final decl = findByQualified(result, 'extension on String');
+      expect(decl, isNotNull);
+      expect(decl!.kind, SymbolKind.namespace);
+      // Points at the declaration, not at the `on` type.
+      expect(decl.column, 1);
+      expect(findByQualified(result, 'shoutedOnce'), isNull);
+      expect(
+        findByQualified(result, 'extension on String.shoutedOnce'),
+        isNull,
+      );
+    });
+
+    test('an extension named in a `show` stays; only its dead member is '
+        'reported', () async {
+      final result = await runExtensions();
+      expect(findByQualified(result, 'ShownHelpers'), isNull);
+      expect(findByQualified(result, 'ShownHelpers.shownButUnused'), isNotNull);
+    });
+
+    test('an extension with no members and no references is dead', () async {
+      final result = await runExtensions();
+      expect(findByQualified(result, 'Hollow'), isNotNull);
+    });
+
+    test('an extension type is never a candidate', () async {
+      final result = await runExtensions();
+      expect(findByQualified(result, 'Meters'), isNull);
+      expect(findByQualified(result, 'Meters.value'), isNull);
+    });
+
+    test('without extension candidates (`-k method`) the members are reported '
+        'on their own', () async {
+      final result = await runFinder(
+        include: [
+          'lib/scenarios/extensions_emptied.dart',
+          'lib/scenarios/extensions_emptied_uses.dart',
+        ],
+        exclude: const [],
+        kinds: const {SymbolKind.method},
+      );
+      expect(result.unused.map((d) => d.qualifiedName).toSet(), {
+        'DeadHelpers.first',
+        'DeadHelpers.second',
+        'LiveHelpers.stale',
+        'shoutedOnce',
+        'shoutedTwice',
+        'ShownHelpers.shownButUnused',
+      });
+    });
   });
 
   group('enum `.values` detection fix', () {

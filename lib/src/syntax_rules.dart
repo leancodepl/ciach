@@ -11,11 +11,24 @@
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/lexing.dart';
 import 'package:ciach/src/source_index.dart';
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location;
+import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location, SymbolKind;
 
 /// The lexer token at a resolved reference: the file's token stream plus the
 /// index of the referenced type name.
 typedef _TypeToken = ({List<Token> tokens, int ti});
+
+/// What a [SymbolKind.namespace] symbol declares, told apart by the tokens
+/// that open it — the analysis server reports all three under one kind.
+enum ExtensionShape {
+  /// `extension Name on T { … }`.
+  named,
+
+  /// `extension on T { … }` — nothing can refer to it by name.
+  unnamed,
+
+  /// `extension type Name(…) { … }` — a type, not an extension.
+  extensionType,
+}
 
 /// Structural, lexer-level checks over a declaration or a reference — the
 /// syntactic special cases the reference classifier layers on top of the raw
@@ -187,6 +200,36 @@ extension StructuralChecks on SourceIndex {
       }
     }
     return isFinal;
+  }
+
+  /// How the `extension`-flavoured [symbol] in [path] is declared, or `null`
+  /// when its tokens don't open with the `extension` keyword at all.
+  ExtensionShape? extensionShape(String path, DocumentSymbol symbol) {
+    final window = tokenWindow(path, symbol);
+    if (window == null) {
+      return null;
+    }
+    final (:tokens, :start, :end) = window;
+    for (var i = start; i < end; i++) {
+      final t = tokens[i];
+      if (!t.isWord) {
+        continue;
+      }
+      if (t.value != 'extension') {
+        // An annotation's name (`@Deprecated(…)`) precedes the keyword.
+        continue;
+      }
+      final next = i + 1 < end ? tokens[i + 1] : null;
+      if (next == null || !next.isWord) {
+        return null;
+      }
+      return switch (next.value) {
+        'type' => .extensionType,
+        'on' => .unnamed,
+        _ => .named,
+      };
+    }
+    return null;
   }
 
   /// Whether [enumCandidate] iterates its own values via the implicit `values`

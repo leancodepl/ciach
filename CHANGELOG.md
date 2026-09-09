@@ -1,3 +1,18 @@
+## Unreleased
+
+- Report an extension whose every member is dead as the whole `extension`, the
+  way a fully dead class is reported, and remove it as one — instead of leaving
+  an empty `extension E on T {}` behind. One a `show`/`hide` names stays.
+  Extension members are now reported as `Extension.member`.
+  ([#48](https://github.com/leancodepl/ciach/issues/48))
+- `--remove` deletes a file it leaves with nothing but directives (`library`,
+  `import`s, `part of`) and drops the `import`/`export`/`part` lines naming it
+  elsewhere. `removeDeclarations` now returns a `RemovalResult` with the deleted
+  files instead of a bare count.
+  ([#48](https://github.com/leancodepl/ciach/issues/48))
+- `-k extension` now selects extensions; it matched a kind the analysis server
+  never emits.
+
 ## 0.4.4
 
 - Fix a compiled `ciach` (`dart install`) spawning itself as the analysis

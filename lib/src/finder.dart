@@ -265,7 +265,9 @@ class Ciach {
     final warnings = <RecoveredReference>[];
     for (var i = 0; i < candidates.length; i++) {
       final candidate = candidates[i];
-      if (refsByCandidate[i].isNotEmpty || candidate.symbol.kind == .class$) {
+      if (refsByCandidate[i].isNotEmpty ||
+          candidate.symbol.kind == .class$ ||
+          candidate.isExtension) {
         continue;
       }
       final usage = crossLib.recoveredUsage(candidate);
@@ -312,10 +314,14 @@ class Ciach {
     var filesDone = totalFiles - remainingPerFile.length;
 
     return mapPooled(candidates, options.concurrency, (candidate) async {
-      final refs = await client.references(
-        candidate.uri,
-        candidate.symbol.selectionRange.start,
-      );
+      // An unnamed extension has no name to refer to it by — the server would
+      // answer for the `on` type instead — so it reads as unreferenced.
+      final refs = candidate.isUnnamedExtension
+          ? const <Location>[]
+          : await client.references(
+              candidate.uri,
+              candidate.symbol.selectionRange.start,
+            );
       if (remainingPerFile.update(candidate.path, (n) => n - 1) == 0) {
         filesDone++;
         _report(
@@ -337,7 +343,8 @@ class Ciach {
     final emptyRefNames = <String>{
       for (var i = 0; i < candidates.length; i++)
         if (refsByCandidate[i].isEmpty &&
-            candidates[i].symbol.kind != .class$) ...[
+            candidates[i].symbol.kind != .class$ &&
+            !candidates[i].isExtension) ...[
           _simpleName(candidates[i].symbol.name),
           // An unnamed constructor is spelled by the class name at an
           // ordinary `Foo(…)` site but as `new` at a dot-shorthand one
@@ -382,8 +389,9 @@ class Ciach {
 
   /// Whether an unused [candidate] should be silently suppressed (never
   /// reported): a live freezed-union arm, an exempt `toJson` hook, a
-  /// constructor removed with its already-dead class, or an enum value reached
-  /// only through `.values` iteration.
+  /// constructor removed with its already-dead class, a member removed with
+  /// its dead extension (or an extension kept alive by a live member), or an
+  /// enum value reached only through `.values` iteration.
   bool _isSuppressed(
     Candidate candidate,
     int index,
@@ -400,9 +408,23 @@ class Ciach {
     if (_isRemovedWithDeadClass(candidate, deadClassNames)) {
       return true;
     }
+    // An extension is used through its members, never by name, so one with a
+    // live member stays even when nothing refers to the extension itself.
+    if (candidate.isExtension &&
+        !safety.deadExtensions.contains(candidate.key)) {
+      return true;
+    }
     final containerKey = candidate.containerKey;
+    if (containerKey == null) {
+      return false;
+    }
+    // A dead extension is removed whole, its members with it — like a dead
+    // class's constructors, they are not findings of their own.
+    if (candidate.isExtensionMember &&
+        safety.deadExtensions.contains(containerKey)) {
+      return true;
+    }
     return candidate.isEnumValue &&
-        containerKey != null &&
         safety.enumValuesIterated.contains(containerKey);
   }
 
@@ -494,7 +516,17 @@ class Ciach {
   ) {
     for (final symbol in symbols) {
       _freezed.noteIfAnnotated(path, symbol, strippedLines);
-      if (_shouldConsider(symbol, parentIsEnum, strippedLines)) {
+      // The server files an `extension type` under the same kind as an
+      // `extension`; only the latter is a candidate (see [_shouldConsider]).
+      final extensionShape = symbol.kind == .namespace
+          ? _sources.extensionShape(path, symbol)
+          : null;
+      if (_shouldConsider(
+        symbol,
+        parentIsEnum,
+        strippedLines,
+        extensionShape,
+      )) {
         out.add(
           Candidate(
             uri: uri,
@@ -509,6 +541,7 @@ class Ciach {
             isPreventInstantiationCtor: symbol.isPreventInstantiationMarker(
               symbols,
             ),
+            isUnnamedExtension: extensionShape == .unnamed,
           ),
         );
       }
@@ -530,6 +563,7 @@ class Ciach {
     DocumentSymbol symbol,
     bool parentIsEnum,
     List<String> strippedLines,
+    ExtensionShape? extensionShape,
   ) {
     if (!options.kinds.contains(
       symbol.reportedKind(parentIsEnum: parentIsEnum),
@@ -538,6 +572,13 @@ class Ciach {
     }
     // The program entry point is never "unused".
     if (symbol.kind == .function && symbol.name == 'main') {
+      return false;
+    }
+    // An `extension type` is a type, used by name like a class, and is not
+    // checked at all today; an `extension` is dead only once every member is
+    // (see [RemoveSafety.deadExtensions]).
+    if (symbol.kind == .namespace &&
+        (extensionShape == null || extensionShape == .extensionType)) {
       return false;
     }
     if (!isPrivateName(symbol.name) && !options.includePublic) {
@@ -575,8 +616,17 @@ class Ciach {
     String? hint,
   }) {
     final symbol = candidate.symbol;
-    final start = symbol.selectionRange.start;
+    // An unnamed extension's selection range is its `on` type; point at the
+    // declaration instead.
+    final start = candidate.isUnnamedExtension
+        ? symbol.range.start
+        : symbol.selectionRange.start;
     final name = symbol.declarationName(candidate.container);
+    // An unnamed extension's members are keyed under the server's placeholder
+    // for it (`extension on T`), which is no name to qualify them by.
+    final container = _isInUnnamedExtension(candidate)
+        ? null
+        : candidate.container;
     return .new(
       name: name,
       kind: symbol.reportedKind(parentIsEnum: candidate.isEnumValue),
@@ -585,7 +635,7 @@ class Ciach {
       line: start.line + 1,
       column: start.character + 1,
       isPrivate: isPrivateName(name),
-      container: candidate.container,
+      container: container,
       isEnumValue: candidate.isEnumValue,
       range: symbol.declarationRange,
       coupledRemovals: coupledRemovals,
@@ -593,6 +643,11 @@ class Ciach {
       hint: hint,
     );
   }
+
+  bool _isInUnnamedExtension(Candidate candidate) =>
+      candidate.isExtensionMember &&
+      _sources.extensionShape(candidate.path, candidate.containerSymbol!) ==
+          .unnamed;
 
   /// Whether [candidate] goes with an already-dead class's own declaration —
   /// any constructor, or a declaring parameter — so a single removal is not
