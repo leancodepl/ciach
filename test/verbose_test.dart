@@ -14,15 +14,20 @@ void main() {
   group('describeConfigSource', () {
     test('names the file it read and every option it set', () {
       final lines = describeConfigSource(
-        .parse("public: false\nexclude: ['test/**']", origin: '/c.yaml'),
+        .parse(
+          "public: false\nexclude: ['test/**']\n"
+          'entry-points: [{name: bootstrap}, {name: registerWith, glob: [lib/**, bin/**]}]',
+          origin: '/c.yaml',
+        ),
         projectDir: '/pkg',
       );
 
       expect(lines, [
         'Read config from /c.yaml.',
-        '  It sets 2 options:',
+        '  It sets 3 options:',
         '    public: false',
         '    exclude: test/**',
+        '    entry-points: {name: bootstrap}, {name: registerWith, glob: lib/**, bin/**}',
       ]);
     });
 
@@ -128,7 +133,10 @@ void main() {
     test('names the layer each value came from', () {
       final configuration = resolveConfiguration(
         parser.parse(const ['--no-public']),
-        .parse('format: json\nremove: true', origin: 'c.yaml'),
+        .parse(
+          'format: json\nremove: true\nentry-points: [{name: registerWith, glob: lib/**}]',
+          origin: 'c.yaml',
+        ),
       );
       final lines = describeSettings(
         configuration,
@@ -143,6 +151,10 @@ void main() {
       expect(lines, contains('  public: false (command line)'));
       expect(lines, contains('  format: json (config file)'));
       expect(lines, contains('  remove: true (config file)'));
+      expect(
+        lines,
+        contains('  entry-points: registerWith in lib/** (config file)'),
+      );
       expect(lines, contains('  concurrency: 16 (default)'));
       expect(lines, contains('  color: false (auto-detected)'));
     });
@@ -153,6 +165,7 @@ void main() {
       expect(lines, contains('  exclude: (none) (default)'));
       expect(lines, contains('  include: (none) (default)'));
       expect(lines, contains('  generated-suffix: (none) (default)'));
+      expect(lines, contains('  entry-points: (none) (default)'));
     });
 
     test('lists the kinds, all of them by default', () {

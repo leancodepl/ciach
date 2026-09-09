@@ -39,6 +39,24 @@ String get kindNames => kindAliases.keys.sorted().join(', ');
 /// The accepted `--format` values; the first one is the default.
 const formatNames = ['text', 'json', 'github'];
 
+/// The `entry-points` list of `{name, glob}` rules. It has no command-line
+/// form; `ConfigFile` hands it over already parsed and validated.
+final class EntryPointsOption extends ConfigOptionBase<List<EntryPoint>> {
+  const EntryPointsOption({required super.configKey, super.helpText})
+    : super(valueParser: const _EntryPointsParser(), defaultsTo: const []);
+}
+
+/// Never reached: the config layer supplies the parsed list, and there is no
+/// string form to parse.
+final class _EntryPointsParser extends ValueParser<List<EntryPoint>> {
+  const _EntryPointsParser();
+
+  @override
+  List<EntryPoint> parse(String value) => throw const FormatException(
+    'entry-points is a list of {name, glob} rules.',
+  );
+}
+
 /// Parses the `--kinds` values (comma-separated, repeatable) into symbol kinds,
 /// falling back to [FinderOptions.defaultKinds] when none are given.
 ///
@@ -257,6 +275,18 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'Ignored when --generated is set.',
     ),
   ),
+  // Config file only: a map has no command-line spelling.
+  entryPoints(
+    EntryPointsOption(
+      configKey: '/entry-points',
+      helpText:
+          'Declarations a framework calls by convention, so never reported:\n'
+          'a list of rules, each with a `name` (`myBuilder`,\n'
+          '`MyPlugin.registerWith`) and an optional `glob` (one, or a list)\n'
+          'for the files it may live in. A member rule keeps its type too.\n'
+          'Built in: `main`, and `testExecutable` in a flutter_test_config.dart.',
+    ),
+  ),
   kinds(
     MultiStringOption(
       argName: 'kinds',
@@ -386,10 +416,20 @@ Config file:
   line wins over the file; --no-config ignores the file; --verbose says which
   file was read and what it set.
 
+  `entry-points` lives only there: declarations a framework or tool calls by
+  convention (on top of the built-in `main` and `testExecutable` in a
+  flutter_test_config.dart), each a `name` with an optional `glob` (one, or a
+  list) for the files it may live in. A member rule keeps its type too.
+
     # $configFileName
     public: false
     exclude:
       - 'test/**'
+    entry-points:
+      - name: MyPlugin.registerWith   # the generated plugin registrant
+        glob: 'lib/my_plugin.dart'
+      - name: myBuilder               # a build.yaml builder factory
+        glob: 'lib/builder.dart'
     kinds: [class, function]
     format: json
 

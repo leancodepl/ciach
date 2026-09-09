@@ -116,6 +116,9 @@ exclude: ['test/**', 'tool/**']   # repeatable options take a list, or a bare st
 kinds: [class, function, method]
 format: github
 set-exit-if-changed: true
+entry-points:                     # file-only; see Entry points below
+  - name: MyPlugin.registerWith
+    glob: 'lib/my_plugin.dart'
 ```
 
 Command line beats config file beats default, even when the flag matches the
@@ -234,6 +237,7 @@ that cost.
 | Skipped | Why | Flag |
 | --- | --- | --- |
 | `main` | the entry point is never unused | — |
+| `testExecutable` in a `flutter_test_config.dart` | `flutter test` generates a bootstrap that calls it; nothing on disk does. See [Entry points](#entry-points) | `entry-points:` in `ciach.yaml` adds more |
 | `@override` members | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses | `--overrides` |
 | Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--operators` |
 | `call` methods | implicit-call syntax (`obj(…)`) is unresolvable the same way | — |
@@ -248,6 +252,48 @@ like any other. A sole zero-parameter `ClassName._()` — the classic
 prevent-instantiation marker — is reported with a hint suggesting `abstract final
 class` instead. See [example/](example) for a runnable demonstration of each case.
 
+### Entry points
+
+Some declarations are called by a framework or a tool, never by code in the
+package: `flutter test` finds the nearest `flutter_test_config.dart` and runs its
+`testExecutable`, a plugin registrant is named in `pubspec.yaml`, a driver script
+calls a conventionally-named function. A reference search cannot see those
+calls, so each would read as dead.
+
+Such tools find their function the same way: by name, in a file they know, and
+leave its shape to the compiler at the generated call site. ciach applies the
+same contract — a top-level name in matching files — and nothing more, so a
+`testExecutable` with an unexpected signature is left alone too: it is a broken
+hook `flutter test` will complain about, not dead code. Verbose mode names each
+exemption:
+
+```
+[  0.4s] Skipped test/flutter_test_config.dart:6 testExecutable: called by the `flutter test` bootstrap.
+```
+
+A project adds its own under `entry-points:` in `ciach.yaml`: a list of rules,
+each with a `name` — bare for a top-level declaration, `Type.member` for a
+member — and an optional `glob` relative to the package root, one or a list, for
+the files it may live in; no `glob` means any file. This setting has no
+command-line form.
+
+```yaml
+entry-points:
+  # The Dart plugin registrant flutter_tools generates from `dartPluginClass`
+  # in pubspec.yaml calls `MyPlugin.registerWith()`.
+  - name: MyPlugin.registerWith
+    glob: 'lib/my_plugin.dart'
+  # A builder factory named in build.yaml, called by build_runner's generated
+  # build script.
+  - name: myBuilder
+    glob: 'lib/builder.dart'
+```
+
+A declaration that matches is never a candidate, so it is neither reported nor
+removed. A member rule keeps the type it lives in as well — the generated call
+that reaches `MyPlugin.registerWith` names `MyPlugin` too — while the type's
+other members are checked as usual.
+
 ## Limitations
 
 This is a static, reference-based heuristic, so review its output rather than
@@ -258,7 +304,9 @@ deleting blindly:
 - **Reflection, dynamic invocation, and names referenced only from generated
   code you excluded** are invisible to a reference search.
 - **Entry points other than `main`** (isolate entry points, plugin registrants)
-  need excluding or `@pragma('vm:entry-point')`.
+  need listing under [`entry-points`](#entry-points) or
+  `@pragma('vm:entry-point')`; only `flutter test`'s `testExecutable` is known
+  out of the box.
 - **A primary constructor shares its class's references**, since a query at the
   header resolves to the class: a never-invoked one only surfaces once the class
   itself is dead.

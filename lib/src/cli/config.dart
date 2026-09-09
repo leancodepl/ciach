@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/src/cli/args.dart';
+import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
 import 'package:path/path.dart' as p;
@@ -144,6 +145,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
   Object? _typedValue(String key) => switch (_optionFor(key)) {
     .format => _oneOf(key, formatNames),
     .kinds => _kinds(key),
+    .entryPoints => _entryPoints(key),
     .concurrency => _positiveInt(key),
     final option => switch (option.option) {
       FlagOption() => _boolean(key),
@@ -201,6 +203,55 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
       }
     }
     return values;
+  }
+
+  /// The rules under [key]: a list of `{name: …, glob: …}` entries, `glob` a
+  /// file glob, a list of globs, or absent for any file.
+  List<EntryPoint>? _entryPoints(String key) => switch (settings[key]) {
+    null => null,
+    final Iterable<Object?> rules => [
+      for (final (i, rule) in rules.indexed) _entryPoint('$key[$i]', rule),
+    ],
+    final other => _wrong(
+      key,
+      'a list of entry points, each a map with `name` and optional `glob`',
+      other,
+    ),
+  };
+
+  EntryPoint _entryPoint(String at, Object? rule) {
+    if (rule is! Map<Object?, Object?>) {
+      return _wrong(at, 'a map with `name` and optional `glob`', rule);
+    }
+    for (final field in rule.keys) {
+      if (field != 'name' && field != 'glob') {
+        throw FormatException(
+          "$path: '$at' has an unknown field '$field'; expected `name` and optional `glob`.",
+        );
+      }
+    }
+    final name = switch (rule['name']) {
+      final String name => name,
+      final other => _wrong('$at.name', 'a declaration name', other),
+    };
+    const globExpected = 'a file glob or a list of them';
+    final globs = switch (rule['glob']) {
+      null => const <String>[],
+      final String glob => [glob],
+      final Iterable<Object?> values => [
+        for (final value in values)
+          if (value is String)
+            value
+          else
+            _wrong('$at.glob', globExpected, value),
+      ],
+      final other => _wrong('$at.glob', globExpected, other),
+    };
+    try {
+      return EntryPoint.project(name, files: globs);
+    } on FormatException catch (e) {
+      throw FormatException("$path: '$at': ${e.message}");
+    }
   }
 
   int? _positiveInt(String key) => switch (settings[key]) {

@@ -58,6 +58,12 @@ include:
   - 'lib/**'
 generated-suffix:
   - .gc.dart
+entry-points:
+  - name: registerWith
+    glob: 'lib/**_plugin.dart'
+  - name: bootstrap
+  - name: Harness.start
+    glob: [test/a.dart, test/b.dart]
 kinds: [class, function]
 format: github
 color: true
@@ -78,6 +84,11 @@ dart: /sdk/bin/dart
       expect(resolved.force, isTrue);
       expect(resolved.excludeGlobs, ['test/**', 'tool/**']);
       expect(resolved.includeGlobs, ['lib/**']);
+      expect(resolved.entryPoints.map((e) => '$e'), [
+        'registerWith in lib/**_plugin.dart',
+        'bootstrap',
+        'Harness.start in test/a.dart or test/b.dart',
+      ]);
       expect(resolved.additionalGeneratedSuffixes, ['.gc.dart']);
       expect(resolved.kinds, <SymbolKind>{.class$, .function});
       expect(resolved.format, 'github');
@@ -90,11 +101,13 @@ dart: /sdk/bin/dart
     });
 
     test('covers every command-line option', () {
-      // Anything settable on the command line is settable in the file.
+      // Anything settable on the command line is settable in the file. The
+      // other way round holds too, but for the `entry-points` list, which has
+      // no command-line spelling.
       final cliOnly = {'help', 'version', 'config', 'no-config'};
       final optionNames = parser.options.keys.toSet().difference(cliOnly);
 
-      expect(configKeys.difference({'path'}), optionNames);
+      expect(configKeys.difference({'path', 'entry-points'}), optionNames);
     });
 
     test('settings lists what the file sets, and only that', () {
@@ -203,6 +216,29 @@ concurrency: 4
       );
     });
 
+    test('rejects a malformed entry point, naming the key', () {
+      final cases = {
+        'entry-points: {name: a}': 'a list of entry points',
+        'entry-points: [a]': "'entry-points[0]' must be a map",
+        'entry-points: [{glob: lib/**}]': "'entry-points[0].name' must be",
+        'entry-points: [{name: 1}]': "'entry-points[0].name' must be",
+        'entry-points: [{name: a-b}]': 'not a declaration name',
+        'entry-points: [{name: a, glob: 1}]': "'entry-points[0].glob' must be",
+        'entry-points: [{name: a, glob: [1]}]':
+            "'entry-points[0].glob' must be",
+        "entry-points: [{name: a, glob: 'lib/['}]": 'not a valid glob',
+        'entry-points: [{name: a}, {name: b, file: x}]':
+            "'entry-points[1]' has an unknown field 'file'",
+      };
+      for (final MapEntry(key: source, value: message) in cases.entries) {
+        expect(
+          () => resolveFile(source),
+          throwsA(isFormatException('ciach.yaml', contains(message))),
+          reason: 'for $source',
+        );
+      }
+    });
+
     test('rejects a non-positive concurrency', () {
       for (final value in ['0', '-2', 'many', '1.5']) {
         expect(
@@ -256,7 +292,7 @@ concurrency: 4
             .parse('$key: {a: b}', origin: 'ciach.yaml'),
           ),
           throwsA(isFormatException('ciach.yaml', contains("'$key'"))),
-          reason: 'for a map under $key',
+          reason: 'for a wrong value under $key',
         );
       }
     });
@@ -599,7 +635,7 @@ dart: /sdk/bin/dart
         'test/**',
         '-j',
         '4',
-      ]);
+      ], .parse('entry-points: [{name: bootstrap}]', origin: 'ciach.yaml'));
       final options = resolved.finderOptions();
 
       expect(options.rootPath, p.normalize(p.absolute('.')));
@@ -608,6 +644,7 @@ dart: /sdk/bin/dart
       expect(options.skipOverrides, isFalse);
       expect(options.skipOperators, isTrue);
       expect(options.excludeGlobs, ['test/**']);
+      expect(options.entryPoints.map((e) => '$e'), ['bootstrap']);
       expect(options.concurrency, 4);
       expect(options.onProgress, isNull);
     });
