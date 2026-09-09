@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:ciach/src/emptied_files.dart';
 import 'package:ciach/src/models.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
@@ -25,8 +26,12 @@ typedef _Span = ({int start, int end});
 /// only removed on its own when that can be done unambiguously; otherwise it
 /// is left in place rather than risk producing invalid source.
 ///
-/// Returns the number of files that were actually modified.
-int removeDeclarations(List<UnusedDeclaration> declarations, String rootPath) {
+/// A rewritten file left with nothing but directives is then deleted; see
+/// `deleteEmptiedFiles`.
+RemovalResult removeDeclarations(
+  List<UnusedDeclaration> declarations,
+  String rootPath,
+) {
   final byFile = <String, List<UnusedDeclaration>>{};
   for (final decl in declarations) {
     // A blocked finding is reported but never auto-removed: deleting it safely
@@ -61,17 +66,20 @@ int removeDeclarations(List<UnusedDeclaration> declarations, String rootPath) {
     }
   }
 
-  var filesChanged = 0;
+  final rewritten = <String>{};
   for (final entry in byFile.entries) {
     final file = File(p.joinAll([rootPath, ...p.posix.split(entry.key)]));
     final content = file.readAsStringSync();
     final updated = _removeFromContent(content, entry.value);
     if (updated != content) {
       file.writeAsStringSync(updated);
-      filesChanged++;
+      rewritten.add(p.normalize(file.absolute.path));
     }
   }
-  return filesChanged;
+  return RemovalResult(
+    filesChanged: rewritten.length,
+    deletedFiles: deleteEmptiedFiles(rewritten, rootPath),
+  );
 }
 
 String _removeFromContent(String content, List<UnusedDeclaration> decls) {

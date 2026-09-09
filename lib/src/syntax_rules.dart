@@ -11,11 +11,14 @@
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/lexing.dart';
 import 'package:ciach/src/source_index.dart';
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location;
+import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location, SymbolKind;
 
 /// The lexer token at a resolved reference: the file's token stream plus the
 /// index of the referenced type name.
 typedef _TypeToken = ({List<Token> tokens, int ti});
+
+/// The three declarations the server reports as [SymbolKind.namespace].
+enum ExtensionShape { named, unnamed, extensionType }
 
 /// Structural, lexer-level checks over a declaration or a reference — the
 /// syntactic special cases the reference classifier layers on top of the raw
@@ -187,6 +190,34 @@ extension StructuralChecks on SourceIndex {
       }
     }
     return isFinal;
+  }
+
+  /// `null` when [symbol] doesn't open with the `extension` keyword.
+  ExtensionShape? extensionShape(String path, DocumentSymbol symbol) {
+    final window = tokenWindow(path, symbol);
+    if (window == null) {
+      return null;
+    }
+    final (:tokens, :start, :end) = window;
+    for (var i = start; i < end; i++) {
+      final t = tokens[i];
+      if (!t.isWord) {
+        continue;
+      }
+      if (t.value != 'extension') {
+        continue; // an annotation's name
+      }
+      final next = i + 1 < end ? tokens[i + 1] : null;
+      if (next == null || !next.isWord) {
+        return null;
+      }
+      return switch (next.value) {
+        'type' => .extensionType,
+        'on' => .unnamed,
+        _ => .named,
+      };
+    }
+    return null;
   }
 
   /// Whether [enumCandidate] iterates its own values via the implicit `values`

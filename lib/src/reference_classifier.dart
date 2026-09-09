@@ -47,7 +47,9 @@ class ReferenceClassifier {
     List<Location> refs,
     CrossLibraryReferences crossLib,
   ) {
-    if (candidate.symbol.kind == .class$) {
+    // An extension type is a type, named like a class, so it gets the class
+    // rule: references from its own body don't keep it alive.
+    if (candidate.symbol.kind == .class$ || candidate.isExtensionType) {
       return _classifyClass(candidate, refs);
     }
     if (refs.isEmpty) {

@@ -254,13 +254,25 @@ Future<void> _removeUnused(
     }
   }
 
-  final filesChanged = removeDeclarations(result.unused, rootPath);
+  final removal = removeDeclarations(result.unused, rootPath);
+  final filesChanged = removal.filesChanged;
   final left = blocked > 0
       ? ' $blocked left in place — unsafe to auto-remove.'
       : '';
+  final deleted = removal.deletedFiles;
+  final emptied = deleted.isEmpty
+      ? ''
+      : " Deleted ${deleted.length} file${deleted.length == 1 ? '' : 's'} left with nothing but imports: ${deleted.map((d) => d.filePath).join(', ')}.";
   stdout.writeln(
-    "Removed $count unused declaration$plural from $filesChanged file${filesChanged == 1 ? '' : 's'}.$left Run 'dart format' to tidy up spacing.",
+    "Removed $count unused declaration$plural from $filesChanged file${filesChanged == 1 ? '' : 's'}.$left$emptied Run 'dart format' to tidy up spacing.",
   );
+  for (final file in deleted) {
+    log?.write(
+      file.unlinkedFrom.isEmpty
+          ? 'Deleted ${file.filePath}: nothing left but directives.'
+          : 'Deleted ${file.filePath}: nothing left but directives. Dropped the directives naming it from ${file.unlinkedFrom.join(', ')}.',
+    );
+  }
   // Repeat any advisory hints: removing a declaration takes the reported line
   // that carried its hint with it.
   final removedHints = result.unused

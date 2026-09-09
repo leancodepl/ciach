@@ -265,7 +265,9 @@ class Ciach {
     final warnings = <RecoveredReference>[];
     for (var i = 0; i < candidates.length; i++) {
       final candidate = candidates[i];
-      if (refsByCandidate[i].isNotEmpty || candidate.symbol.kind == .class$) {
+      if (refsByCandidate[i].isNotEmpty ||
+          candidate.symbol.kind == .class$ ||
+          candidate.isExtension) {
         continue;
       }
       final usage = crossLib.recoveredUsage(candidate);
@@ -312,10 +314,13 @@ class Ciach {
     var filesDone = totalFiles - remainingPerFile.length;
 
     return mapPooled(candidates, options.concurrency, (candidate) async {
-      final refs = await client.references(
-        candidate.uri,
-        candidate.symbol.selectionRange.start,
-      );
+      // The server would answer for an unnamed extension's `on` type.
+      final refs = candidate.isUnnamedExtension
+          ? const <Location>[]
+          : await client.references(
+              candidate.uri,
+              candidate.symbol.selectionRange.start,
+            );
       if (remainingPerFile.update(candidate.path, (n) => n - 1) == 0) {
         filesDone++;
         _report(
@@ -337,7 +342,8 @@ class Ciach {
     final emptyRefNames = <String>{
       for (var i = 0; i < candidates.length; i++)
         if (refsByCandidate[i].isEmpty &&
-            candidates[i].symbol.kind != .class$) ...[
+            candidates[i].symbol.kind != .class$ &&
+            !candidates[i].isExtension) ...[
           _simpleName(candidates[i].symbol.name),
           // An unnamed constructor is spelled by the class name at an
           // ordinary `Foo(…)` site but as `new` at a dot-shorthand one
@@ -382,7 +388,8 @@ class Ciach {
 
   /// Whether an unused [candidate] should be silently suppressed (never
   /// reported): a live freezed-union arm, an exempt `toJson` hook, a
-  /// constructor removed with its already-dead class, or an enum value reached
+  /// constructor removed with its already-dead class, an extension or its
+  /// members (see [RemoveSafety.deadExtensions]), or an enum value reached
   /// only through `.values` iteration.
   bool _isSuppressed(
     Candidate candidate,
@@ -400,9 +407,20 @@ class Ciach {
     if (_isRemovedWithDeadClass(candidate, deadClassNames)) {
       return true;
     }
+    // Used through its members, never by name.
+    if (candidate.isExtension &&
+        !safety.deadExtensions.contains(candidate.key)) {
+      return true;
+    }
     final containerKey = candidate.containerKey;
+    if (containerKey == null) {
+      return false;
+    }
+    if (candidate.isExtensionMember &&
+        safety.deadExtensions.contains(containerKey)) {
+      return true;
+    }
     return candidate.isEnumValue &&
-        containerKey != null &&
         safety.enumValuesIterated.contains(containerKey);
   }
 
@@ -494,7 +512,15 @@ class Ciach {
   ) {
     for (final symbol in symbols) {
       _freezed.noteIfAnnotated(path, symbol, strippedLines);
-      if (_shouldConsider(symbol, parentIsEnum, strippedLines)) {
+      final extensionShape = symbol.kind == .namespace
+          ? _sources.extensionShape(path, symbol)
+          : null;
+      if (_shouldConsider(
+        symbol,
+        parentIsEnum,
+        strippedLines,
+        extensionShape,
+      )) {
         out.add(
           Candidate(
             uri: uri,
@@ -509,6 +535,8 @@ class Ciach {
             isPreventInstantiationCtor: symbol.isPreventInstantiationMarker(
               symbols,
             ),
+            isUnnamedExtension: extensionShape == .unnamed,
+            isExtensionType: extensionShape == .extensionType,
           ),
         );
       }
@@ -530,14 +558,22 @@ class Ciach {
     DocumentSymbol symbol,
     bool parentIsEnum,
     List<String> strippedLines,
+    ExtensionShape? extensionShape,
   ) {
     if (!options.kinds.contains(
-      symbol.reportedKind(parentIsEnum: parentIsEnum),
+      symbol.reportedKind(
+        parentIsEnum: parentIsEnum,
+        isExtensionType: extensionShape == .extensionType,
+      ),
     )) {
       return false;
     }
     // The program entry point is never "unused".
     if (symbol.kind == .function && symbol.name == 'main') {
+      return false;
+    }
+    // A `namespace` whose shape the lexer can't confirm.
+    if (symbol.kind == .namespace && extensionShape == null) {
       return false;
     }
     if (!isPrivateName(symbol.name) && !options.includePublic) {
@@ -575,17 +611,27 @@ class Ciach {
     String? hint,
   }) {
     final symbol = candidate.symbol;
-    final start = symbol.selectionRange.start;
+    // An unnamed extension's selection range is its `on` type.
+    final start = candidate.isUnnamedExtension
+        ? symbol.range.start
+        : symbol.selectionRange.start;
     final name = symbol.declarationName(candidate.container);
+    // `extension on T` is no name to qualify members by.
+    final container = _isInUnnamedExtension(candidate)
+        ? null
+        : candidate.container;
     return .new(
       name: name,
-      kind: symbol.reportedKind(parentIsEnum: candidate.isEnumValue),
+      kind: symbol.reportedKind(
+        parentIsEnum: candidate.isEnumValue,
+        isExtensionType: candidate.isExtensionType,
+      ),
       filePath: relativePosix(candidate.path, rootPath),
       // LSP positions are zero-based; report them one-based for humans.
       line: start.line + 1,
       column: start.character + 1,
       isPrivate: isPrivateName(name),
-      container: candidate.container,
+      container: container,
       isEnumValue: candidate.isEnumValue,
       range: symbol.declarationRange,
       coupledRemovals: coupledRemovals,
@@ -593,6 +639,11 @@ class Ciach {
       hint: hint,
     );
   }
+
+  bool _isInUnnamedExtension(Candidate candidate) =>
+      candidate.isExtensionMember &&
+      _sources.extensionShape(candidate.path, candidate.containerSymbol!) ==
+          .unnamed;
 
   /// Whether [candidate] goes with an already-dead class's own declaration —
   /// any constructor, or a declaring parameter — so a single removal is not

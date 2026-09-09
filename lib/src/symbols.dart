@@ -14,8 +14,8 @@ import 'package:ciach/src/models.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Position, SymbolKind;
 
 /// Symbol kinds that introduce a lexical scope; their name becomes the
-/// container for nested members.
-const typeLikeKinds = <SymbolKind>{.class$, .interface$, .enum$, .struct};
+/// container for nested members. [SymbolKind.namespace] is an extension.
+const typeLikeKinds = <SymbolKind>{.class$, .interface$, .enum$, .namespace};
 
 /// Names of Dart's overloadable operators. The analysis server reports an
 /// `operator +`/`operator ==`/… declaration as a plain [SymbolKind.method]
@@ -99,8 +99,14 @@ extension SymbolChecks on DocumentSymbol {
   /// The kind ciach reports for this symbol. The analysis server tags enum
   /// values with [SymbolKind.enum$] (same as the enum type), so remap them to
   /// [SymbolKind.enumMember] under an enum to match the `enum-value` CLI kind.
-  SymbolKind reportedKind({required bool parentIsEnum}) =>
-      parentIsEnum && kind == .enum$ ? .enumMember : kind;
+  SymbolKind reportedKind({
+    required bool parentIsEnum,
+    bool isExtensionType = false,
+  }) => switch (kind) {
+    .enum$ when parentIsEnum => .enumMember,
+    .namespace when isExtensionType => .struct,
+    _ => kind,
+  };
 
   /// The name to report for this symbol.
   ///

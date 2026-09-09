@@ -49,6 +49,8 @@ final class Candidate {
     required this.isEnumValue,
     required this.isPreventInstantiationCtor,
     this.containerSymbol,
+    this.isUnnamedExtension = false,
+    this.isExtensionType = false,
   });
 
   final Uri uri;
@@ -61,6 +63,18 @@ final class Candidate {
   final DocumentSymbol? containerSymbol;
   final bool isEnumValue;
   final bool isPreventInstantiationCtor;
+
+  /// `extension on T { … }`: nothing can name it, so it gets no reference
+  /// query.
+  final bool isUnnamedExtension;
+
+  /// `extension type Name(…)`: a type, used by name like a class, not an
+  /// extension used through its members.
+  final bool isExtensionType;
+
+  bool get isExtension => symbol.kind == .namespace && !isExtensionType;
+
+  bool get isExtensionMember => containerSymbol?.kind == .namespace;
 
   /// This candidate's own `(path, name)` key.
   DeclKey get key => DeclKey(path, symbol.name);
