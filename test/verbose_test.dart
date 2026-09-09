@@ -123,6 +123,10 @@ void main() {
       expect(lines, contains('  exclude: test/** (command line)'));
       expect(lines, contains('  concurrency: 4 (command line)'));
       expect(lines, contains('  dart: /sdk/bin/dart (auto-detected)'));
+      expect(
+        describe(const ['--entry-point', 'lib/**:registerWith']),
+        contains('  entry-point: lib/**:registerWith (command line)'),
+      );
     });
 
     test('names the layer each value came from', () {
@@ -153,6 +157,7 @@ void main() {
       expect(lines, contains('  exclude: (none) (default)'));
       expect(lines, contains('  include: (none) (default)'));
       expect(lines, contains('  generated-suffix: (none) (default)'));
+      expect(lines, contains('  entry-point: (none) (default)'));
     });
 
     test('lists the kinds, all of them by default', () {

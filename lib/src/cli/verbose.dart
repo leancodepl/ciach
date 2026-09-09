@@ -80,6 +80,7 @@ String _setting(
   .exclude => _value(resolved.excludeGlobs),
   .include => _value(resolved.includeGlobs),
   .generatedSuffix => _value(resolved.additionalGeneratedSuffixes),
+  .entryPoint => _value(resolved.entryPoints),
   .kinds => _kinds(resolved.kinds),
   .format => resolved.format,
   .color => '${resolved.useColor}',

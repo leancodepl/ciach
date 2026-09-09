@@ -18,6 +18,7 @@ everyday declaration kinds, referenced (or not) from `bin/app.dart`.
 | `lib/orphans.dart` | classes never referenced at all, and one referenced only as a type |
 | `lib/callables.dart` | a callable class (`call` method), whose implicit-call use is skipped |
 | `lib/private_ctors.dart` | private constructors reported like any dead code, with a prevent-instantiation hint on the sole zero-parameter `Foo._()` |
+| `test/flutter_test_config.dart` | the `flutter test` hook `testExecutable`, called by nothing on disk yet never reported |
 
 `lib/scenarios/` holds the **scenario fixtures**: one file (or a small cluster
 of them) per detection rule, each pinning down one behavior that is easy to
@@ -33,6 +34,7 @@ expected; each is scanned only by its own test, never by the demo run above.
 | `freezed_unions.dart` | `@freezed` union arms built only by a generated `fromJson` |
 | `serialization.dart` | the `toJson`/`fromJson` conventions, and `--report-tojson` |
 | `comment_annotations.dart` | a comment mentioning `@override` or `vm:entry-point` does not skip the declaration below it |
+| `entry_points.dart`, `entry_points/flutter_test_config.dart` | a built-in entry point exempts only its whole contract (file, name, signature), and `--entry-point` adds a project's own |
 | `dot_shorthands.dart`, `dot_shorthand_uses.dart` | every context a `.name` dot shorthand is allowed in, including nested constructor shorthands |
 | `primary_constructors.dart` | primary constructors: a dead declaration in the class header is report-only, while the class body stays removable |
 | `xref_*.dart` | the cross-library reference recovery, and telling same-named members apart |
@@ -83,7 +85,7 @@ Referenced only from doc comments — not counted as unused, never removed:
 lib/greeting.dart
   41:6  function  _docOnlyMentioned  (private)
 
-Found 21 unused declarations in 6 files (scanned 8 files, 59 declarations, ...s).
+Found 21 unused declarations in 6 files (scanned 9 files, 59 declarations, ...s).
 1 more referenced only from doc comments.
 ```
 
@@ -100,6 +102,8 @@ Things worth noticing:
   removing the class takes the constructor with it.
 - `_docOnlyMentioned` is reached only by a `[link]` in another declaration's doc
   comment, so it is listed separately and never removed.
+- `testExecutable` in `test/flutter_test_config.dart` is not reported: nothing
+  on disk calls it, but `flutter test` does, and ciach knows that contract.
 - `Dog.sound` (an `@override`) is skipped by default; add `--overrides` to
   include it — which also reveals `Animal.sound`, the abstract method it
   implements.
