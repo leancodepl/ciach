@@ -1,7 +1,9 @@
-/// Golden test for the rendered image assets in `web/`: the icons and the
-/// social card. Each asset is rendered again in a pinned Chrome for Testing and
-/// compared with the committed file, so `web/` cannot drift from
-/// `favicon.svg`, the `OgCard` component or the styles it is built with.
+/// Golden test for the generated assets in `web/`: the icons, the social card,
+/// `favicon.svg` and the web manifest. The images are rendered again in a
+/// pinned Chrome for Testing and compared with the committed files; the text
+/// files are compared byte for byte. So `web/` cannot drift from the palette,
+/// the `Icon.ciach` mark, the `OgCard` component or the styles it is built
+/// with.
 ///
 ///     dart test                    # compare with the committed files
 ///     UPDATE_GOLDENS=1 dart test   # rewrite them after an intended change
@@ -18,7 +20,9 @@ library;
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:ciach_website/components/icons.dart';
 import 'package:ciach_website/components/og_card.dart';
+import 'package:ciach_website/seo.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -31,7 +35,13 @@ const maxDifferingShare = 0.005;
 
 final updateGoldens = Platform.environment['UPDATE_GOLDENS'] == '1';
 
-/// The files this test produces, relative to `web/`. Together with
+/// Text files written from their Dart source, relative to `web/`.
+final textAssets = <String, String>{
+  'favicon.svg': '${faviconSvg()}\n',
+  'site.webmanifest': webManifest,
+};
+
+/// The images this test renders, relative to `web/`. Together with
 /// `favicon.svg` they are the icon set browsers, crawlers and home screens
 /// look for: a legacy `.ico` at the root, a PNG tab icon for browsers without
 /// SVG favicons, the iOS touch icon, and the two manifest sizes.
@@ -63,6 +73,24 @@ void main() {
   });
 
   tearDownAll(() => renderer.close());
+
+  for (final MapEntry(key: asset, value: content) in textAssets.entries) {
+    test(asset, () {
+      final file = File(p.join('web', asset));
+      if (updateGoldens) {
+        file.writeAsStringSync(content);
+        printOnFailure('Rewrote ${file.path}');
+        return;
+      }
+      expect(
+        file.readAsStringSync(),
+        content,
+        reason:
+            '${file.path} differs from its Dart source. If the change is '
+            'intended, run `UPDATE_GOLDENS=1 dart test` and commit the result.',
+      );
+    });
+  }
 
   for (final MapEntry(key: asset, value: render) in assets.entries) {
     test(asset, () async {
