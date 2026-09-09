@@ -15,12 +15,15 @@ void main() {
     tempDir.deleteSync(recursive: true);
   });
 
+  File libFile() => File(p.join(tempDir.path, 'lib.dart'));
+
   /// Writes [content] to `<tempDir>/lib.dart`, removes [decls] from it, and
-  /// returns the resulting content.
+  /// returns the resulting content — or the empty string when the removal
+  /// left the file declaring nothing and so deleted it.
   String applyRemoval(String content, List<UnusedDeclaration> decls) {
-    File(p.join(tempDir.path, 'lib.dart')).writeAsStringSync(content);
+    final file = libFile()..writeAsStringSync(content);
     removeDeclarations(decls, tempDir.path);
-    return File(p.join(tempDir.path, 'lib.dart')).readAsStringSync();
+    return file.existsSync() ? file.readAsStringSync() : '';
   }
 
   UnusedDeclaration decl({
@@ -130,13 +133,15 @@ class C {
       expect(result.trim(), 'int a = 1, b = 2;');
     });
 
-    test('removes the whole statement when every declarator is unused', () {
+    test('removes the whole statement when every declarator is unused — and '
+        'the file with it, once nothing is left', () {
       final result = applyRemoval(source, [
         declaratorAt(aRange),
         declaratorAt(bRange),
         declaratorAt(cRange),
       ]);
       expect(result.trim(), isEmpty);
+      expect(libFile().existsSync(), isFalse, reason: 'declared nothing');
     });
   });
 
@@ -156,6 +161,8 @@ class C {
       ),
     ]);
     expect(result.trim(), isEmpty);
+    // The sole declaration went, so the file did too.
+    expect(libFile().existsSync(), isFalse);
   });
 
   test("leaves a declarator alone when a top-level separator can't be found "

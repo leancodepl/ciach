@@ -20,7 +20,9 @@ const kindAliases = <String, SymbolKind>{
   'mixin': .interface$,
   'interface': .interface$,
   'enum': .enum$,
-  'extension': .struct,
+  // The server reports an extension as a namespace; see
+  // [FinderOptions.defaultKinds] for how one comes to be reported.
+  'extension': .namespace,
   'function': .function,
   'method': .method,
   'constructor': .constructor,

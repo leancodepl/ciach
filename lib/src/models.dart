@@ -132,11 +132,17 @@ class FinderOptions {
   /// Operator overloads are *not* a separate kind here: the analysis server
   /// reports them as plain [SymbolKind.method] declarations named `+`, `==`,
   /// etc. — see [skipOperators] for how they're excluded by default instead.
+  ///
+  /// [SymbolKind.namespace] is how the server reports an `extension`. An
+  /// extension is never reference-checked itself — the implicit `x.member()`
+  /// use never names it — so it is reported only when every one of its members
+  /// is, and then removed whole rather than left as an empty shell.
   static const defaultKinds = <SymbolKind>{
     .class$,
     .interface$,
     .enum$,
     .struct,
+    .namespace,
     .function,
     .method,
     .constructor,
@@ -155,6 +161,7 @@ extension SymbolKindLabel on SymbolKind {
     .class$ => 'class',
     .enum$ => 'enum',
     .interface$ => 'interface',
+    .namespace => 'extension',
     .operator$ => 'operator',
     .null$ => 'null',
     .enumMember => 'enum value',
@@ -315,6 +322,39 @@ class RecoveredReference {
     'usageColumn': usageColumn,
     'message': message,
   };
+}
+
+/// An `import`/`export`/`part` directive dropped by `removeDeclarations`
+/// because it pointed at a file that removal deleted: the root-relative
+/// `/`-separated path of the file it was dropped from, and the directive's
+/// source text.
+typedef RemovedDirective = ({String filePath, String directive});
+
+/// What `removeDeclarations` did to the files under the analyzed root.
+class RemovalResult {
+  /// Creates a summary of one removal pass.
+  const RemovalResult({
+    required this.filesChanged,
+    this.deletedFiles = const [],
+    this.removedDirectives = const [],
+  });
+
+  /// How many files a declaration was removed from — rewritten in place, or
+  /// deleted when nothing was left in them (see [deletedFiles]).
+  final int filesChanged;
+
+  /// Root-relative `/`-separated paths of the files removal left declaring
+  /// nothing — only comments, whitespace and `library`/`import`/`part of`
+  /// directives — and therefore deleted, sorted. A file that still `export`s
+  /// or has `part`s is not empty and stays.
+  ///
+  /// Includes files emptied indirectly: a barrel whose every `export` pointed
+  /// at a deleted file is deleted in turn.
+  final List<String> deletedFiles;
+
+  /// The directives dropped from other files because they pointed at one of
+  /// [deletedFiles] — an `import` of a deleted file would no longer resolve.
+  final List<RemovedDirective> removedDirectives;
 }
 
 /// The outcome of a finder run.

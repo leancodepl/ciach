@@ -984,6 +984,131 @@ void main() {
     });
   });
 
+  group('emptied extensions', () {
+    // An extension is never reference-checked itself (implicit `x.member()` use
+    // never names it); it is dead when every member is.
+    Future<FinderResult> runExtensions({
+      bool includePublic = true,
+      Set<SymbolKind>? kinds,
+    }) => runFinder(
+      include: ['lib/scenarios/emptied_extensions.dart'],
+      exclude: const [],
+      includePublic: includePublic,
+      kinds: kinds,
+    );
+
+    test('an extension whose every member is unused is reported as an '
+        'extension, alongside its members, and is removable', () async {
+      final result = await runExtensions();
+      final dead = findByQualified(result, 'DeadExtras');
+      expect(dead, isNotNull, reason: 'both members are dead');
+      expect(dead!.kind, SymbolKind.namespace);
+      expect(dead.kind.label, 'extension');
+      expect(dead.removalBlocked, isFalse);
+      // The extension's span contains the members', so `--remove` deletes it
+      // whole; the members stay reported in their own right, like the methods
+      // of a dead class.
+      final names = result.unused.map((d) => d.qualifiedName).toSet();
+      expect(names, containsAll(['tripled', 'quadrupled']));
+    });
+
+    test("an unnamed extension is reported under the server's name for "
+        'it', () async {
+      final result = await runExtensions();
+      final dead = findByQualified(result, 'extension on String');
+      expect(dead, isNotNull);
+      expect(dead!.kind, SymbolKind.namespace);
+    });
+
+    test('one live member keeps the extension; its dead member is still '
+        'reported', () async {
+      final names = (await runExtensions()).unused
+          .map((d) => d.qualifiedName)
+          .toSet();
+      expect(names, isNot(contains('MixedExtras')));
+      expect(names, contains('halved'));
+      expect(names, isNot(contains('doubled')));
+    });
+
+    test('a member skipped by default (an operator) means the extension '
+        'cannot be shown empty', () async {
+      final names = (await runExtensions()).unused
+          .map((d) => d.qualifiedName)
+          .toSet();
+      expect(names, isNot(contains('OperatorExtras')));
+      expect(names, contains('negated'));
+    });
+
+    test("reports exactly the fixture's dead declarations", () async {
+      final names = (await runExtensions()).unused
+          .map((d) => d.qualifiedName)
+          .toSet();
+      expect(names, {
+        'DeadExtras',
+        'tripled',
+        'quadrupled',
+        'extension on String',
+        'shouted',
+        'halved',
+        'negated',
+        '_PrivateExtras',
+        '_secret',
+        'PublicShell',
+        '_hidden',
+        // The fixture's own entry point, which nothing calls.
+        'useMixedExtras',
+      });
+    });
+
+    test('--no-public: an extension emptied of private members is reported, '
+        'whatever its own name; one with public members is not', () async {
+      final names = (await runExtensions(
+        includePublic: false,
+      )).unused.map((d) => d.qualifiedName).toSet();
+      // Its public members are not candidates, so it is not shown empty.
+      expect(names, isNot(contains('DeadExtras')));
+      // Private throughout.
+      expect(names, containsAll(['_PrivateExtras', '_secret']));
+      // A public extension with nothing left in it has nothing to offer: dead.
+      expect(names, containsAll(['PublicShell', '_hidden']));
+    });
+
+    test('without the extension kind, no extension is reported even when '
+        'emptied', () async {
+      final names = (await runExtensions(
+        kinds: {.method},
+      )).unused.map((d) => d.qualifiedName).toSet();
+      expect(names, contains('tripled'));
+      expect(names, isNot(contains('DeadExtras')));
+    });
+  });
+
+  group('entry points', () {
+    test('the testExecutable hook of test/flutter_test_config.dart is never '
+        'reported — `flutter test` calls it by name', () async {
+      // In the default run…
+      expect(await findUnused(), isNot(contains('testExecutable')));
+      // …and scanned on its own: the file has nothing to check at all.
+      final result = await runFinder(
+        include: ['test/flutter_test_config.dart'],
+        exclude: const [],
+      );
+      expect(result.filesScanned, 1);
+      expect(result.declarationsChecked, 0);
+      expect(result.unused, isEmpty);
+    });
+
+    test('a testExecutable anywhere else is an ordinary dead function', () {
+      return expectLater(
+        runFinder(
+          include: ['lib/scenarios/entry_points.dart'],
+          exclude: const [],
+        ).then((r) => r.unused.map((d) => d.qualifiedName)),
+        completion(contains('testExecutable')),
+      );
+    });
+  });
+
   group('annotation detection ignores comments', () {
     Future<Set<String>> runCommentAnnotations() async {
       final result = await runFinder(

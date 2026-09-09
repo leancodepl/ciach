@@ -1,3 +1,19 @@
+## Unreleased
+
+- Never report the `testExecutable` hook of a `flutter_test_config.dart`:
+  `flutter test` calls it by name, like `main`.
+  ([#49](https://github.com/leancodepl/ciach/issues/49))
+- Report an extension whose every member is unused, and have `--remove` delete
+  it whole instead of leaving `extension X on T {}` behind. `-k extension` now
+  selects these; it used to match nothing.
+  ([#48](https://github.com/leancodepl/ciach/issues/48))
+- Delete a file `--remove` leaves with nothing but comments and imports, and
+  drop the `import`/`export`/`part` directives elsewhere that pointed at it —
+  a barrel emptied that way goes too.
+  ([#48](https://github.com/leancodepl/ciach/issues/48))
+- Library API: `removeDeclarations` returns a `RemovalResult` (files changed,
+  files deleted, directives dropped) instead of a bare file count.
+
 ## 0.4.4
 
 - Fix a compiled `ciach` (`dart install`) spawning itself as the analysis

@@ -72,3 +72,36 @@ final class Candidate {
     null => null,
   };
 }
+
+/// An `extension` declaration and the candidates collected from its body.
+///
+/// Extensions are never reference-checked themselves: the implicit `x.member()`
+/// use never names the extension, so a query at its name would call every
+/// extension in use dead. Instead an extension is dead when all of its members
+/// are — an extension with no live member has nothing left to offer — and is
+/// then reported, and removed, whole rather than left as an `extension X on T
+/// {}` shell.
+final class ExtensionScope {
+  const ExtensionScope({
+    required this.self,
+    required this.members,
+    required this.memberCount,
+  });
+
+  /// The extension itself, shaped as a candidate so it can be reported.
+  final Candidate self;
+
+  /// The candidates collected from the extension's members.
+  final List<Candidate> members;
+
+  /// How many members the extension declares, candidates or not. When this
+  /// exceeds `members.length`, a member was skipped (public under
+  /// `--no-public`, a `call` method, an operator, a kind not asked for) and
+  /// the extension cannot be shown empty.
+  final int memberCount;
+
+  /// Whether every member is a candidate — the precondition for calling the
+  /// extension dead from its members' verdicts.
+  bool get coversEveryMember =>
+      members.isNotEmpty && members.length == memberCount;
+}

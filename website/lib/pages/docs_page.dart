@@ -104,7 +104,12 @@ const _comparison = [
 ];
 
 const _skips = [
-  ('main', 'The entry point is never unused.', null),
+  (
+    'main, testExecutable',
+    'Entry points a runtime calls by name: `main`, and the `testExecutable` '
+        'hook of a `flutter_test_config.dart`.',
+    null,
+  ),
   (
     '@override members',
     'Reached polymorphically or by a framework.',
@@ -563,6 +568,22 @@ class DocsPage extends StatelessComponent {
                   ),
                   code([.text('dart format')]),
                   .text(' afterward and review the diff.'),
+                ]),
+                const p([
+                  .text(
+                    'It tidies after itself: an extension whose every member '
+                    'is unused is reported and removed whole, a file left with '
+                    'nothing but comments and imports is deleted, and the ',
+                  ),
+                  code([.text('import')]),
+                  .text(', '),
+                  code([.text('export')]),
+                  .text(' and '),
+                  code([.text('part')]),
+                  .text(
+                    ' directives that pointed at it go with it. A file that '
+                    'still exports or has parts stays.',
+                  ),
                 ]),
                 const h3([.text('Report-only: removal would not compile')]),
                 ul(classes: 'checklist', [

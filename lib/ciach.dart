@@ -37,6 +37,8 @@ export 'src/models.dart'
         FinderOptions,
         FinderResult,
         RecoveredReference,
+        RemovalResult,
+        RemovedDirective,
         SymbolKindLabel,
         UnusedDeclaration;
 export 'src/remover.dart' show removeDeclarations;

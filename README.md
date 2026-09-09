@@ -94,7 +94,7 @@ ciach --verbose                        # explain each step
 | `-e, --exclude <glob>` | — | Skip files matching the glob (repeatable). |
 | `-i, --include <glob>` | — | Only scan files matching the glob (repeatable). |
 | `--generated-suffix <suffix>` | — | Extra filename suffix (with leading dot) to treat as generated and skip, on top of the built-in set; repeatable. Ignored when `--generated` is set. |
-| `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
+| `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. An `extension` is reported when every one of its members is, so it needs the member kinds too. |
 | `-f, --format <fmt>` | `text` | `text`, `json`, or `github` (GitHub Actions `::warning` annotations). |
 | `-j, --concurrency <n>` | `16` | Reference queries kept in flight against the analysis server. |
 | `--[no-]color` | auto | Colorize text output. |
@@ -211,6 +211,13 @@ confirm on and no `--force`, nothing is removed. Run `dart format` afterward:
 removal is conservative about *what* it deletes — an ambiguous `int a = 1, b = 2;`
 is left alone unless every declarator is unused — but not about spacing.
 
+It tidies after itself, too. An extension whose every member is unused is
+reported, and removed, as a whole, so no `extension X on T {}` shell is left
+behind. A file left with nothing but comments and `import`s is deleted, along
+with every `import`, `export` or `part` directive elsewhere in the package that
+pointed at it; a barrel emptied that way is deleted in turn. A file that still
+`export`s or has `part`s stays.
+
 Removal acts on whatever the finder reports, so it inherits the same
 false-positive risk, which `--overrides` and `--operators` widen considerably.
 [Doc-only findings](#doc-only-findings) are never included. Review the diff, as
@@ -233,7 +240,7 @@ that cost.
 
 | Skipped | Why | Flag |
 | --- | --- | --- |
-| `main` | the entry point is never unused | — |
+| `main`, and `testExecutable` in a `flutter_test_config.dart` | entry points a runtime calls by name are never unused | — |
 | `@override` members | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses | `--overrides` |
 | Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--operators` |
 | `call` methods | implicit-call syntax (`obj(…)`) is unresolvable the same way | — |

@@ -254,13 +254,25 @@ Future<void> _removeUnused(
     }
   }
 
-  final filesChanged = removeDeclarations(result.unused, rootPath);
+  final removal = removeDeclarations(result.unused, rootPath);
+  final filesChanged = removal.filesChanged;
   final left = blocked > 0
       ? ' $blocked left in place — unsafe to auto-remove.'
       : '';
   stdout.writeln(
     "Removed $count unused declaration$plural from $filesChanged file${filesChanged == 1 ? '' : 's'}.$left Run 'dart format' to tidy up spacing.",
   );
+  if (removal.deletedFiles.isNotEmpty) {
+    for (final file in removal.deletedFiles) {
+      log?.write(
+        'Deleted $file: nothing but comments and directives was left.',
+      );
+    }
+    for (final (:filePath, :directive) in removal.removedDirectives) {
+      log?.write('Dropped `$directive` from $filePath.');
+    }
+    stdout.writeln(_describeDeletions(removal));
+  }
   // Repeat any advisory hints: removing a declaration takes the reported line
   // that carried its hint with it.
   final removedHints = result.unused
@@ -270,6 +282,21 @@ Future<void> _removeUnused(
   for (final note in removedHints) {
     stdout.writeln('Note: $note');
   }
+}
+
+/// One line naming the files removal left empty and deleted, and how many
+/// directives elsewhere went with them.
+String _describeDeletions(RemovalResult removal) {
+  final files = removal.deletedFiles;
+  final directives = removal.removedDirectives.length;
+  final deleted =
+      'Deleted ${files.length} file${files.length == 1 ? '' : 's'} left with '
+      'no declarations (${files.join(', ')})';
+  if (directives == 0) {
+    return '$deleted.';
+  }
+  return '$deleted and $directives directive${directives == 1 ? '' : 's'} '
+      'that pointed at ${files.length == 1 ? 'it' : 'them'}.';
 }
 
 /// Prints `--verbose` narration to stderr — not stdout, so `-f json` stays

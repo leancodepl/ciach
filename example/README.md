@@ -18,6 +18,7 @@ everyday declaration kinds, referenced (or not) from `bin/app.dart`.
 | `lib/orphans.dart` | classes never referenced at all, and one referenced only as a type |
 | `lib/callables.dart` | a callable class (`call` method), whose implicit-call use is skipped |
 | `lib/private_ctors.dart` | private constructors reported like any dead code, with a prevent-instantiation hint on the sole zero-parameter `Foo._()` |
+| `test/flutter_test_config.dart` | the `testExecutable` hook `flutter test` calls by name, skipped like `main` |
 
 `lib/scenarios/` holds the **scenario fixtures**: one file (or a small cluster
 of them) per detection rule, each pinning down one behavior that is easy to
@@ -35,6 +36,8 @@ expected; each is scanned only by its own test, never by the demo run above.
 | `comment_annotations.dart` | a comment mentioning `@override` or `vm:entry-point` does not skip the declaration below it |
 | `dot_shorthands.dart`, `dot_shorthand_uses.dart` | every context a `.name` dot shorthand is allowed in, including nested constructor shorthands |
 | `primary_constructors.dart` | primary constructors: a dead declaration in the class header is report-only, while the class body stays removable |
+| `emptied_extensions.dart` | an extension whose every member is unused is reported, and removed, whole |
+| `entry_points.dart` | a `testExecutable` outside a `flutter_test_config.dart` is an ordinary dead function |
 | `xref_*.dart` | the cross-library reference recovery, and telling same-named members apart |
 
 Run the finder against the demo tier from the repository root:
@@ -83,7 +86,7 @@ Referenced only from doc comments — not counted as unused, never removed:
 lib/greeting.dart
   41:6  function  _docOnlyMentioned  (private)
 
-Found 21 unused declarations in 6 files (scanned 8 files, 59 declarations, ...s).
+Found 21 unused declarations in 6 files (scanned 9 files, 59 declarations, ...s).
 1 more referenced only from doc comments.
 ```
 

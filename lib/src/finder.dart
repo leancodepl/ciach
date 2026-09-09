@@ -27,7 +27,14 @@ import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:ciach/src/syntax_rules.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location;
+import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location, SymbolKind;
+
+/// One file's worth of collection: its candidates, and the extensions whose
+/// members they include.
+typedef _Collected = ({
+  List<Candidate> candidates,
+  List<ExtensionScope> extensions,
+});
 
 /// Finds declarations that are never referenced by driving the Dart analysis
 /// server over LSP.
@@ -134,7 +141,8 @@ class Ciach {
         options.concurrency,
         (path) => _collectCandidatesFor(client, path),
       );
-      final candidates = [for (final list in perFile) ...list];
+      final candidates = [for (final file in perFile) ...file.candidates];
+      final extensions = [for (final file in perFile) ...file.extensions];
       declarationsChecked = candidates.length;
 
       // Phase 2: check references for every candidate through a single global
@@ -199,6 +207,10 @@ class Ciach {
         deadClassNames,
       );
 
+      // The candidates reported as unused *and* left for `--remove` to delete
+      // — what an extension's emptiness is judged from.
+      final removable = <Candidate>{};
+
       for (var i = 0; i < candidates.length; i++) {
         final candidate = candidates[i];
         final refs = refsByCandidate[i];
@@ -214,6 +226,7 @@ class Ciach {
               break;
             }
             final isClass = candidate.symbol.kind == .class$;
+            final removalBlocked = _isRemovalBlocked(candidate, refs, safety);
             unused.add(
               _toUnused(
                 candidate,
@@ -227,14 +240,27 @@ class Ciach {
                         rootPath,
                       )
                     : const [],
-                removalBlocked: _isRemovalBlocked(candidate, refs, safety),
+                removalBlocked: removalBlocked,
                 hint: _hintFor(candidate),
               ),
             );
+            if (!removalBlocked) {
+              removable.add(candidate);
+            }
           case .docOnly:
             docOnly.add(_toUnused(candidate, rootPath));
           case .used:
             break;
+        }
+      }
+
+      // An extension every member of which is about to go is dead itself:
+      // report it so `--remove` deletes the whole declaration (its span
+      // contains the members') instead of leaving `extension X on T {}`.
+      for (final scope in extensions) {
+        if (scope.coversEveryMember &&
+            scope.members.every(removable.contains)) {
+          unused.add(_toUnused(scope.self, rootPath));
         }
       }
     } finally {
@@ -450,20 +476,22 @@ class Ciach {
     return true;
   }
 
-  /// Fetches the symbols for [path] and returns the declarations worth checking.
-  Future<List<Candidate>> _collectCandidatesFor(
+  /// Fetches the symbols for [path] and returns the declarations worth
+  /// checking, plus the extensions they sit in.
+  Future<_Collected> _collectCandidatesFor(
     LspClient client,
     String path,
   ) async {
     final content = SourceIndex.readFile(path);
     if (content == null) {
-      return const [];
+      return const (candidates: <Candidate>[], extensions: <ExtensionScope>[]);
     }
     final uri = File(path).uri;
     client.didOpen(uri, content);
     final symbols = await client.documentSymbol(uri);
     _sources.cacheLines(path, content.split('\n'));
     final out = <Candidate>[];
+    final extensions = <ExtensionScope>[];
     _collectCandidates(
       uri,
       path,
@@ -473,15 +501,18 @@ class Ciach {
       false,
       _sources.strippedLines(path),
       out,
+      extensions,
     );
-    return out;
+    return (candidates: out, extensions: extensions);
   }
 
   /// Recursively walks the symbol tree, keeping only symbols worth checking,
   /// and records the enclosing type name as their container.
   ///
   /// [parentIsEnum] marks children of an enum declaration so their enum values
-  /// are remapped to the `enum-value` kind.
+  /// are remapped to the `enum-value` kind. An extension is never a candidate
+  /// itself; it goes into [extensions] with the candidates found among its
+  /// members, to be judged from their verdicts (see [ExtensionScope]).
   void _collectCandidates(
     Uri uri,
     String path,
@@ -491,10 +522,44 @@ class Ciach {
     bool parentIsEnum,
     List<String> strippedLines,
     List<Candidate> out,
+    List<ExtensionScope> extensions,
   ) {
     for (final symbol in symbols) {
       _freezed.noteIfAnnotated(path, symbol, strippedLines);
-      if (_shouldConsider(symbol, parentIsEnum, strippedLines)) {
+      final children = symbol.children ?? const <DocumentSymbol>[];
+      if (symbol.kind == .namespace) {
+        final firstMember = out.length;
+        _collectCandidates(
+          uri,
+          path,
+          children,
+          container,
+          containerSymbol,
+          false,
+          strippedLines,
+          out,
+          extensions,
+        );
+        if (options.kinds.contains(SymbolKind.namespace)) {
+          extensions.add(
+            ExtensionScope(
+              self: Candidate(
+                uri: uri,
+                path: path,
+                symbol: symbol,
+                container: container,
+                containerSymbol: containerSymbol,
+                isEnumValue: false,
+                isPreventInstantiationCtor: false,
+              ),
+              members: out.sublist(firstMember),
+              memberCount: children.length,
+            ),
+          );
+        }
+        continue;
+      }
+      if (_shouldConsider(symbol, path, parentIsEnum, strippedLines)) {
         out.add(
           Candidate(
             uri: uri,
@@ -516,18 +581,20 @@ class Ciach {
       _collectCandidates(
         uri,
         path,
-        symbol.children ?? const [],
+        children,
         isTypeLike ? symbol.name : container,
         isTypeLike ? symbol : containerSymbol,
         symbol.kind == .enum$,
         strippedLines,
         out,
+        extensions,
       );
     }
   }
 
   bool _shouldConsider(
     DocumentSymbol symbol,
+    String path,
     bool parentIsEnum,
     List<String> strippedLines,
   ) {
@@ -536,8 +603,7 @@ class Ciach {
     )) {
       return false;
     }
-    // The program entry point is never "unused".
-    if (symbol.kind == .function && symbol.name == 'main') {
+    if (_isEntryPoint(symbol, path)) {
       return false;
     }
     if (!isPrivateName(symbol.name) && !options.includePublic) {
@@ -566,6 +632,18 @@ class Ciach {
     }
     return true;
   }
+
+  /// Whether [symbol] is a function a runtime calls by name, never from code:
+  /// the program entry point `main`, or the `testExecutable` hook of a
+  /// `flutter_test_config.dart`, which `flutter test` looks up by file name
+  /// and invokes around every test file. Neither is ever "unused".
+  static bool _isEntryPoint(DocumentSymbol symbol, String path) =>
+      symbol.kind == .function &&
+      switch (symbol.name) {
+        'main' => true,
+        'testExecutable' => p.basename(path) == 'flutter_test_config.dart',
+        _ => false,
+      };
 
   UnusedDeclaration _toUnused(
     Candidate candidate,
