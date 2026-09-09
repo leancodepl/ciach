@@ -4,8 +4,9 @@
   the `flutter test` bootstrap calls it, with no reference on disk.
   ([#49](https://github.com/leancodepl/ciach/issues/49))
 - Add `entry-points` to `ciach.yaml`, a list of `{name, glob}` rules, to list a
-  project's own framework-called declarations so they are never reported.
-  `--verbose` names each declaration skipped as an entry point.
+  project's own framework-called declarations so they are never reported. A
+  member rule (`MyPlugin.registerWith`) keeps its type too. `--verbose` names
+  each declaration skipped as an entry point.
 
 ## 0.4.4
 

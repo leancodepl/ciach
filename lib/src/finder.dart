@@ -61,6 +61,11 @@ class Ciach {
   /// Skipped as entry points this run, for `--verbose`.
   final _skippedEntryPoints = <_SkippedEntryPoint>[];
 
+  /// Types whose member is an entry point, by `(relative path, type name)`:
+  /// the generated call that reaches `MyPlugin.registerWith` names `MyPlugin`
+  /// too, so the type is not a candidate either.
+  final _entryPointContainers = <DeclKey, EntryPoint>{};
+
   late final _classifier = ReferenceClassifier(
     _sources,
     unusedUnionMembers: options.unusedUnionMembers,
@@ -467,12 +472,12 @@ class Ciach {
       return byFile != 0 ? byFile : a.line.compareTo(b.line);
     });
     for (final skipped in _skippedEntryPoints) {
-      if (skipped.rule.name == 'main') {
+      if (skipped.name == 'main') {
         continue;
       }
       _report(
-        'Skipped ${skipped.path}:${skipped.line} ${skipped.rule.name}: '
-        '${skipped.rule.reason}.',
+        'Skipped ${skipped.path}:${skipped.line} ${skipped.name}: '
+        '${skipped.reason}.',
       );
     }
   }
@@ -491,11 +496,12 @@ class Ciach {
     client.didOpen(uri, content);
     final symbols = await client.documentSymbol(uri);
     _sources.cacheLines(path, content.split('\n'));
+    final relativePath = relativePosix(path, rootPath);
     final out = <Candidate>[];
     _collectCandidates(
       uri,
       path,
-      relativePosix(path, rootPath),
+      relativePath,
       symbols,
       null,
       null,
@@ -503,7 +509,37 @@ class Ciach {
       _sources.strippedLines(path),
       out,
     );
-    return out;
+    return _withoutEntryPointContainers(out, relativePath);
+  }
+
+  /// [candidates] less the types a member entry point lives in; see
+  /// [_entryPointContainers]. Their other members stay candidates.
+  List<Candidate> _withoutEntryPointContainers(
+    List<Candidate> candidates,
+    String relativePath,
+  ) {
+    if (_entryPointContainers.isEmpty) {
+      return candidates;
+    }
+    final kept = <Candidate>[];
+    for (final candidate in candidates) {
+      final symbol = candidate.symbol;
+      final rule =
+          candidate.container == null && typeLikeKinds.contains(symbol.kind)
+          ? _entryPointContainers[DeclKey(relativePath, symbol.name)]
+          : null;
+      if (rule == null) {
+        kept.add(candidate);
+        continue;
+      }
+      _skippedEntryPoints.add((
+        path: relativePath,
+        line: symbol.selectionRange.start.line + 1,
+        name: symbol.name,
+        reason: 'declares the entry point ${rule.name}',
+      ));
+    }
+    return kept;
   }
 
   /// Recursively walks the symbol tree, keeping only symbols worth checking,
@@ -580,8 +616,15 @@ class Ciach {
       _skippedEntryPoints.add((
         path: relativePath,
         line: symbol.selectionRange.start.line + 1,
-        rule: rule,
+        name: rule.name,
+        reason: rule.reason,
       ));
+      if (container != null) {
+        _entryPointContainers.putIfAbsent(
+          DeclKey(relativePath, container),
+          () => rule,
+        );
+      }
       return false;
     }
     if (!isPrivateName(symbol.name) && !options.includePublic) {
@@ -659,5 +702,11 @@ class Ciach {
   }
 }
 
-/// A skipped entry point: root-relative POSIX path, one-based line, rule met.
-typedef _SkippedEntryPoint = ({String path, int line, EntryPoint rule});
+/// A skipped entry point: root-relative POSIX path, one-based line, the name
+/// as the rule spells it, and why.
+typedef _SkippedEntryPoint = ({
+  String path,
+  int line,
+  String name,
+  String reason,
+});

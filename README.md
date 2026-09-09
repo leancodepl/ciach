@@ -117,8 +117,8 @@ kinds: [class, function, method]
 format: github
 set-exit-if-changed: true
 entry-points:                     # file-only; see Entry points below
-  - name: registerWith
-    glob: 'lib/**_plugin.dart'
+  - name: MyPlugin.registerWith
+    glob: 'lib/my_plugin.dart'
 ```
 
 Command line beats config file beats default, even when the flag matches the
@@ -272,22 +272,27 @@ exemption:
 ```
 
 A project adds its own under `entry-points:` in `ciach.yaml`: a list of rules,
-each with a `name` — bare for a top-level declaration, `Container.member` for a
+each with a `name` — bare for a top-level declaration, `Type.member` for a
 member — and an optional `glob` relative to the package root, one or a list, for
 the files it may live in; no `glob` means any file. This setting has no
 command-line form.
 
 ```yaml
 entry-points:
-  - name: registerWith
-    glob: 'lib/**_plugin.dart'   # a top-level function, in matching files
-  - name: Harness.start
-    glob: [test/harness.dart]    # a member
-  - name: integrationMain        # any file
+  # The Dart plugin registrant flutter_tools generates from `dartPluginClass`
+  # in pubspec.yaml calls `MyPlugin.registerWith()`.
+  - name: MyPlugin.registerWith
+    glob: 'lib/my_plugin.dart'
+  # A builder factory named in build.yaml, called by build_runner's generated
+  # build script.
+  - name: myBuilder
+    glob: 'lib/builder.dart'
 ```
 
 A declaration that matches is never a candidate, so it is neither reported nor
-removed.
+removed. A member rule keeps the type it lives in as well — the generated call
+that reaches `MyPlugin.registerWith` names `MyPlugin` too — while the type's
+other members are checked as usual.
 
 ## Limitations
 
