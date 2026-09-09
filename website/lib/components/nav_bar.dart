@@ -1,6 +1,7 @@
 import 'package:ciach_website/components/icons.dart';
 import 'package:ciach_website/components/section.dart';
 import 'package:ciach_website/components/shell.dart';
+import 'package:ciach_website/palette.dart';
 import 'package:ciach_website/site.dart';
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
@@ -22,7 +23,7 @@ class NavBar extends StatelessComponent {
       height: headerHeight,
       border: .only(bottom: hairlineSide(borderColor)),
       backdropFilter: .list([const .saturate(1.4), .blur(14.px)]),
-      backgroundColor: const Color.rgba(0, 0, 0, 0.75),
+      backgroundColor: black.alpha(0.75),
       raw: {'-webkit-backdrop-filter': 'saturate(140%) blur(14px)'},
     ),
     css('.nav').styles(

@@ -6,7 +6,9 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:ciach_website/components/icons.dart';
 import 'package:ciach_website/main.server.options.dart';
+import 'package:ciach_website/palette.dart';
 import 'package:ciach_website/seo.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/server.dart';
@@ -53,26 +55,18 @@ class AssetRenderer {
     await _server.close();
   }
 
-  /// The mark of `web/favicon.svg` on a square with rounded corners of
-  /// [radius] (in the SVG's 64-unit space), rendered at [size] pixels. With
+  /// [faviconSvg] with corners of [radius], rendered at [size] pixels. With
   /// [transparent], the corners are see-through and the PNG keeps its alpha.
   Future<Uint8List> icon({
     required int size,
     required int radius,
     bool transparent = false,
-  }) {
-    final svg = File('web/favicon.svg').readAsStringSync();
-    final mark = RegExp(r'<g[\s\S]*</g>').firstMatch(svg)![0]!;
-    return _shoot(
-      width: size,
-      height: size,
-      transparent: transparent,
-      html:
-          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" '
-          'width="$size" height="$size" style="display:block">'
-          '<rect width="64" height="64" rx="$radius" fill="#000000"/>$mark</svg>',
-    );
-  }
+  }) => _shoot(
+    width: size,
+    height: size,
+    transparent: transparent,
+    html: faviconSvg(size: size, radius: radius),
+  );
 
   /// Renders [component] through Jaspr, with the site's styles and fonts, and
   /// screenshots the top-left [width]×[height] pixels. Every family
@@ -164,7 +158,8 @@ class AssetRenderer {
       await page.setViewport(DeviceViewport(width: width, height: height));
       await page.setContent(
         '<!doctype html><style>html,body{margin:0;background:'
-        '${transparent ? 'transparent' : '#000000'}}</style>$html',
+        '${transparent ? 'transparent' : black.hex}}svg{display:block}</style>'
+        '$html',
       );
       return await page.screenshot(
         clip: math.Rectangle(0, 0, width, height),

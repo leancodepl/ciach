@@ -1,4 +1,5 @@
 import 'package:ciach_website/components/section.dart';
+import 'package:ciach_website/palette.dart';
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
@@ -53,7 +54,7 @@ class Button extends StatelessComponent {
     css('.button-primary')
         .styles(color: accentInkColor, backgroundColor: accentColor),
     css('.button-primary:hover')
-        .styles(color: accentInkColor, backgroundColor: const Color('#f5ff4d')),
+        .styles(color: accentInkColor, backgroundColor: ctaYellowLight.color),
     css('.button-secondary').styles(
       color: textColor,
       backgroundColor: surfaceColor,

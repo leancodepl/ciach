@@ -4,12 +4,14 @@
 /// first, and inlines it into every page.
 library;
 
+import 'package:ciach_website/palette.dart';
 import 'package:jaspr/dom.dart';
 
 // ---------- Tokens ----------
 //
-// The palette and metrics are CSS custom properties on `:root`, so the values
-// below are the variables, and the definitions sit in [styles].
+// The palette (`palette.dart`) and metrics are CSS custom properties on
+// `:root`, so the values below are the variables, and the definitions sit in
+// [styles].
 
 const bgColor = Color.variable('--bg');
 const bg2Color = Color.variable('--bg-2');
@@ -38,7 +40,7 @@ const headerHeight = Unit.variable('--header-h');
 const shadow = 'var(--shadow)';
 
 /// The accent at a given alpha, for borders and glows.
-Color accentAlpha(double alpha) => Color.rgba(240, 255, 0, alpha);
+Color accentAlpha(double alpha) => ctaYellow.alpha(alpha);
 
 /// Marks a link inside running text by more than its color.
 const underlined = TextDecoration(line: .underline);
@@ -62,21 +64,20 @@ List<StyleRule> get styles => [
 List<StyleRule> get _tokens => [
   css(':root').styles(
     raw: {
-      '--bg': '#000000',
-      '--bg-2': '#0a0a08',
-      '--surface': '#151513',
-      '--surface-2': '#1d1d1a',
-      '--border': 'rgba(255, 255, 255, 0.12)',
-      '--border-2': 'rgba(255, 255, 255, 0.2)',
-      '--text': '#ffffff',
-      '--text-2': '#d8d8d4',
-      '--muted': '#a3a3a0',
-      '--accent': '#f0ff00',
-      '--accent-2': '#ccd900',
-      '--accent-ink': '#000000',
-      '--accent-soft': 'rgba(240, 255, 0, 0.06)',
-      '--danger': '#e64239',
-      '--ok': '#80c340',
+      '--bg': black.hex,
+      '--bg-2': nearBlack.hex,
+      '--surface': surface.hex,
+      '--surface-2': surface2.hex,
+      '--border': lineColor.value,
+      '--border-2': lineStrongColor.value,
+      '--text': white.hex,
+      '--text-2': bodyGray.hex,
+      '--muted': mutedGray.hex,
+      '--accent': ctaYellow.hex,
+      '--accent-ink': black.hex,
+      '--accent-soft': accentAlpha(0.06).value,
+      '--danger': error.hex,
+      '--ok': success.hex,
       '--tk-keyword': '#c792ea',
       '--tk-type': '#82aaff',
       '--tk-string': '#c3e88d',
@@ -94,7 +95,7 @@ List<StyleRule> get _tokens => [
       '--radius-sm': '8px',
       '--container': '1160px',
       '--header-h': '68px',
-      '--shadow': '0 24px 60px -32px rgba(0, 0, 0, 0.9)',
+      '--shadow': '0 24px 60px -32px ${black.alpha(0.9).value}',
       'color-scheme': 'dark',
     },
   ),

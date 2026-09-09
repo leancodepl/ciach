@@ -25,7 +25,7 @@ class SiteFooter extends StatelessComponent {
       border: .only(bottom: hairlineSide(borderColor)),
       raw: {
         'background':
-            'radial-gradient(50% 60% at 50% 100%, rgba(240, 255, 0, 0.12), '
+            'radial-gradient(50% 60% at 50% 100%, ${accentAlpha(0.12).value}, '
             'transparent 70%), var(--bg-2)',
       },
     ),

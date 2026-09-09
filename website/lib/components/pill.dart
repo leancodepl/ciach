@@ -29,7 +29,7 @@ class Pill extends StatelessComponent {
     css('.pill-accent').styles(
       color: accentColor,
       backgroundColor: accentSoftColor,
-      raw: {'border-color': 'rgba(240, 255, 0, 0.4)'},
+      raw: {'border-color': accentAlpha(0.4).value},
     ),
     css('.pill-accent:hover').styles(raw: {'border-color': 'var(--accent)'}),
   ];
