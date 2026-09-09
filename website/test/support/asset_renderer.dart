@@ -158,7 +158,8 @@ class AssetRenderer {
       await page.setViewport(DeviceViewport(width: width, height: height));
       await page.setContent(
         '<!doctype html><style>html,body{margin:0;background:'
-        '${transparent ? 'transparent' : black.hex}}svg{display:block}</style>'
+        '${transparent ? 'transparent' : Palette.black.hex}}'
+        'svg{display:block}</style>'
         '$html',
       );
       return await page.screenshot(

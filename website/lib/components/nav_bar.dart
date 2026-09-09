@@ -23,7 +23,7 @@ class NavBar extends StatelessComponent {
       height: headerHeight,
       border: .only(bottom: hairlineSide(borderColor)),
       backdropFilter: .list([const .saturate(1.4), .blur(14.px)]),
-      backgroundColor: black.alpha(0.75),
+      backgroundColor: Palette.black.alpha(0.75),
       raw: {'-webkit-backdrop-filter': 'saturate(140%) blur(14px)'},
     ),
     css('.nav').styles(

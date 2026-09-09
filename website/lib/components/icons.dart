@@ -71,9 +71,10 @@ enum Icon {
 String faviconSvg({int size = 64, int radius = 14}) =>
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" '
     'width="$size" height="$size">'
-    '<rect width="64" height="64" rx="$radius" fill="${black.hex}"/>'
+    '<rect width="64" height="64" rx="$radius" fill="${Palette.black.hex}"/>'
     '<g transform="translate(8 8) scale(2)" fill="none" '
-    'stroke="${ctaYellow.hex}" stroke-width="2.4" stroke-linecap="round" '
+    'stroke="${Palette.ctaYellow.hex}" stroke-width="2.4" '
+    'stroke-linecap="round" '
     'stroke-linejoin="round">'
     '${Icon.ciach.paths.map((d) => '<path d="$d"/>').join()}'
     '</g></svg>';

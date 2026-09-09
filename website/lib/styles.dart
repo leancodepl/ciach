@@ -40,7 +40,7 @@ const headerHeight = Unit.variable('--header-h');
 const shadow = 'var(--shadow)';
 
 /// The accent at a given alpha, for borders and glows.
-Color accentAlpha(double alpha) => ctaYellow.alpha(alpha);
+Color accentAlpha(double alpha) => Palette.ctaYellow.alpha(alpha);
 
 /// Marks a link inside running text by more than its color.
 const underlined = TextDecoration(line: .underline);
@@ -64,20 +64,20 @@ List<StyleRule> get styles => [
 List<StyleRule> get _tokens => [
   css(':root').styles(
     raw: {
-      '--bg': black.hex,
-      '--bg-2': nearBlack.hex,
-      '--surface': surface.hex,
-      '--surface-2': surface2.hex,
-      '--border': lineColor.value,
-      '--border-2': lineStrongColor.value,
-      '--text': white.hex,
-      '--text-2': bodyGray.hex,
-      '--muted': mutedGray.hex,
-      '--accent': ctaYellow.hex,
-      '--accent-ink': black.hex,
+      '--bg': Palette.black.hex,
+      '--bg-2': Palette.nearBlack.hex,
+      '--surface': Palette.surface.hex,
+      '--surface-2': Palette.surface2.hex,
+      '--border': Palette.line.value,
+      '--border-2': Palette.lineStrong.value,
+      '--text': Palette.white.hex,
+      '--text-2': Palette.bodyGray.hex,
+      '--muted': Palette.mutedGray.hex,
+      '--accent': Palette.ctaYellow.hex,
+      '--accent-ink': Palette.black.hex,
       '--accent-soft': accentAlpha(0.06).value,
-      '--danger': error.hex,
-      '--ok': success.hex,
+      '--danger': Palette.error.hex,
+      '--ok': Palette.success.hex,
       '--tk-keyword': '#c792ea',
       '--tk-type': '#82aaff',
       '--tk-string': '#c3e88d',
@@ -95,7 +95,7 @@ List<StyleRule> get _tokens => [
       '--radius-sm': '8px',
       '--container': '1160px',
       '--header-h': '68px',
-      '--shadow': '0 24px 60px -32px ${black.alpha(0.9).value}',
+      '--shadow': '0 24px 60px -32px ${Palette.black.alpha(0.9).value}',
       'color-scheme': 'dark',
     },
   ),

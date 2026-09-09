@@ -53,8 +53,10 @@ class Button extends StatelessComponent {
     css('.button:hover').styles(transform: .translate(y: (-1).px)),
     css('.button-primary')
         .styles(color: accentInkColor, backgroundColor: accentColor),
-    css('.button-primary:hover')
-        .styles(color: accentInkColor, backgroundColor: ctaYellowLight.color),
+    css('.button-primary:hover').styles(
+      color: accentInkColor,
+      backgroundColor: Palette.ctaYellowLight.color,
+    ),
     css('.button-secondary').styles(
       color: textColor,
       backgroundColor: surfaceColor,

@@ -14,7 +14,7 @@ import 'package:jaspr/jaspr.dart';
 final siteMeta = {
   'author': 'LeanCode',
   'robots': 'index, follow, max-image-preview:large',
-  'theme-color': black.hex,
+  'theme-color': Palette.black.hex,
   'color-scheme': 'dark',
   'application-name': siteName,
   'generator': 'Jaspr',
@@ -29,8 +29,8 @@ final webManifest =
       'description': 'Finds and removes unused declarations in Dart and Flutter packages.',
       'start_url': './',
       'display': 'browser',
-      'background_color': black.hex,
-      'theme_color': black.hex,
+      'background_color': Palette.black.hex,
+      'theme_color': Palette.black.hex,
       'icons': [
         {'src': 'favicon.svg', 'sizes': 'any', 'type': 'image/svg+xml'},
         {'src': 'icon-192.png', 'sizes': '192x192', 'type': 'image/png', 'purpose': 'any maskable'},
