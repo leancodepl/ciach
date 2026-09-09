@@ -1,8 +1,11 @@
 name: Website preview deployment
 
-# Analyzes website/ and deploys every pull request that touches it to a
-# stable per-branch preview URL. Previews are built for their own URL and
-# ship a robots.txt that keeps them out of search engines.
+# Analyzes website/ on every pull request that touches it and deploys a
+# stable per-branch preview URL for pull requests opened from branches of
+# this repository. Only people with write access can push such branches, so
+# forks (and their anonymous authors) get the checks but never a hosted
+# preview or access to the Vercel credentials. Previews are built for their
+# own URL and ship a robots.txt that keeps them out of search engines.
 
 on:
   pull_request:
@@ -54,8 +57,44 @@ jobs:
       - name: Compare with committed assets
         run: dart test
 
+  check:
+    name: Analyze website
+
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: website
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
+        with:
+          sdk: '3.13'
+
+      - name: Download pub dependencies
+        run: dart pub get
+
+      - name: Run analyzer
+        run: dart analyze --fatal-infos
+
+      - name: Check formatting
+        run: dart format --set-exit-if-changed .
+
   deploy:
-    name: Check and deploy preview
+    name: Deploy preview
+
+    # Deploy only from branches of this repository. A fork can be created by
+    # anyone, and a hosted preview of arbitrary content under a leancode
+    # Vercel alias is not something a stranger should be able to trigger.
+    # Fork pull requests are also never given repository secrets, so this
+    # skips the job cleanly instead of failing at the first Vercel call.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+
+    needs: check
 
     runs-on: ubuntu-latest
 
@@ -82,12 +121,6 @@ jobs:
 
       - name: Download pub dependencies
         run: dart pub get
-
-      - name: Run analyzer
-        run: dart analyze --fatal-infos
-
-      - name: Check formatting
-        run: dart format --set-exit-if-changed .
 
       - name: Compute preview alias
         id: alias
