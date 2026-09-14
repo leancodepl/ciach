@@ -17,9 +17,9 @@ void main() {
     );
   }
 
-  group('EntryPoint.project', () {
+  group('EntryPoint.fromConfig', () {
     test('a bare name matches in any file, whatever the kind', () {
-      final rule = EntryPoint.project('bootstrap');
+      final rule = EntryPoint.fromConfig('bootstrap');
 
       expect(rule.files, isEmpty);
       expect(rule.matches('lib/a.dart', symbol('bootstrap'), null), isTrue);
@@ -32,7 +32,7 @@ void main() {
     });
 
     test('globs narrow the file, any of them matching', () {
-      final rule = EntryPoint.project(
+      final rule = EntryPoint.fromConfig(
         'registerWith',
         files: ['lib/**_plugin.dart', 'bin/**'],
       );
@@ -52,7 +52,7 @@ void main() {
     });
 
     test('a qualified name matches a member of that container only', () {
-      final rule = EntryPoint.project('MyPlugin.registerWith');
+      final rule = EntryPoint.fromConfig('MyPlugin.registerWith');
       final member = symbol('registerWith', kind: .method);
 
       expect(rule.matches('lib/a.dart', member, 'MyPlugin'), isTrue);
@@ -61,7 +61,7 @@ void main() {
     });
 
     test('a bare name never matches a member', () {
-      final rule = EntryPoint.project('registerWith');
+      final rule = EntryPoint.fromConfig('registerWith');
 
       expect(
         rule.matches('lib/a.dart', symbol('registerWith', kind: .method), 'P'),
@@ -70,9 +70,9 @@ void main() {
     });
 
     test('prints as the name and its files', () {
-      expect('${EntryPoint.project('bootstrap')}', 'bootstrap');
+      expect('${EntryPoint.fromConfig('bootstrap')}', 'bootstrap');
       expect(
-        '${EntryPoint.project('run', files: ['a/**', 'b/**'])}',
+        '${EntryPoint.fromConfig('run', files: ['a/**', 'b/**'])}',
         'run in a/** or b/**',
       );
     });
@@ -80,7 +80,7 @@ void main() {
     test('rejects a name that is not an identifier', () {
       for (final name in ['', 'a-b', '1abc', 'a.b.c', 'a b', 'A.']) {
         expect(
-          () => EntryPoint.project(name),
+          () => EntryPoint.fromConfig(name),
           throwsA(isFormatException(contains('not a declaration name'))),
           reason: "for '$name'",
         );
@@ -89,7 +89,7 @@ void main() {
 
     test('rejects an invalid glob, naming it', () {
       expect(
-        () => EntryPoint.project('x', files: ['lib/[']),
+        () => EntryPoint.fromConfig('x', files: ['lib/[']),
         throwsA(isFormatException(contains("'lib/[' is not a valid glob"))),
       );
     });
@@ -159,7 +159,7 @@ void main() {
 
   test('a project rule is consulted after the built-in ones', () {
     final rules = EntryPoints([
-      EntryPoint.project('main', files: ['tool/**']),
+      EntryPoint.fromConfig('main', files: ['tool/**']),
     ]);
 
     expect(
@@ -169,7 +169,7 @@ void main() {
     expect(rules.match('lib/a.dart', symbol('serve'), null), isNull);
     expect(
       EntryPoints([
-        EntryPoint.project('serve'),
+        EntryPoint.fromConfig('serve'),
       ]).match('lib/a.dart', symbol('serve'), null)?.reason,
       contains('entry-points'),
     );

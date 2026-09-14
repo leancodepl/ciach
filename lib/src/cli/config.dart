@@ -248,7 +248,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
       final other => _wrong('$at.glob', globExpected, other),
     };
     try {
-      return EntryPoint.project(name, files: globs);
+      return EntryPoint.fromConfig(name, files: globs);
     } on FormatException catch (e) {
       throw FormatException("$path: '$at': ${e.message}");
     }
