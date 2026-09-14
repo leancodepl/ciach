@@ -223,12 +223,11 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     if (rule is! Map<Object?, Object?>) {
       return _wrong(at, 'a map with `name` and optional `glob`', rule);
     }
-    for (final field in rule.keys) {
-      if (field != 'name' && field != 'glob') {
-        throw FormatException(
-          "$path: '$at' has an unknown field '$field'; expected `name` and optional `glob`.",
-        );
-      }
+    if (rule.keys.firstWhereOrNull((f) => f != 'name' && f != 'glob')
+        case final unknown?) {
+      throw FormatException(
+        "$path: '$at' has an unknown field '$unknown'; expected `name` and optional `glob`.",
+      );
     }
     final name = switch (rule['name']) {
       final String name => name,

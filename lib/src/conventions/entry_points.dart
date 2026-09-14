@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
@@ -92,12 +93,7 @@ final class EntryPoints {
     String relativePath,
     DocumentSymbol symbol,
     String? container,
-  ) {
-    for (final rule in _rules) {
-      if (rule.matches(relativePath, symbol, container)) {
-        return rule;
-      }
-    }
-    return null;
-  }
+  ) => _rules.firstWhereOrNull(
+    (rule) => rule.matches(relativePath, symbol, container),
+  );
 }
