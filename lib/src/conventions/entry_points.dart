@@ -26,6 +26,11 @@ final class EntryPoint {
   /// (optionally `Container.member`); the constructor throws for a glob that
   /// does not parse.
   factory EntryPoint.fromConfig(String name, {List<String> files = const []}) {
+    if (name.contains('<')) {
+      throw FormatException(
+        "'$name': type parameters are not part of a declaration name; write `MyClass.member`, not `MyClass<T>.member`.",
+      );
+    }
     if (!_qualifiedName.hasMatch(name)) {
       throw FormatException(
         "'$name' is not a declaration name; expected an identifier such as 'registerWith' or 'MyPlugin.registerWith'.",
@@ -43,7 +48,8 @@ final class EntryPoint {
     r'^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)?$',
   );
 
-  /// `name` for a top-level declaration, `Container.member` for a member.
+  /// `name` for a top-level declaration, `Container.member` for a member;
+  /// type parameters are not part of either.
   final String name;
 
   /// The file globs as written; empty matches any file.

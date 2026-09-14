@@ -273,9 +273,9 @@ exemption:
 
 A project adds its own under `entry-points:` in `ciach.yaml`: a list of rules,
 each with a `name` — bare for a top-level declaration, `Type.member` for a
-member — and an optional `glob` relative to the package root, one or a list, for
-the files it may live in; no `glob` means any file. This setting has no
-command-line form.
+member; type parameters are not part of either — and an optional `glob`
+relative to the package root, one or a list, for the files it may live in; no
+`glob` means any file. This setting has no command-line form.
 
 ```yaml
 entry-points:

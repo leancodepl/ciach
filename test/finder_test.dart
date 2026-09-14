@@ -979,13 +979,13 @@ void main() {
 
       final skipped = lines.where((l) => l.startsWith('Skipped ')).toList();
       const plugin =
-          'Skipped lib/scenarios/entry_points.dart:14 Plugin: declares the '
+          'Skipped lib/scenarios/entry_points.dart:15 Plugin: declares the '
           'entry point Plugin.registerWith.';
       const registerWith =
-          'Skipped lib/scenarios/entry_points.dart:15 Plugin.registerWith: '
+          'Skipped lib/scenarios/entry_points.dart:16 Plugin.registerWith: '
           'listed under `entry-points` in the config file.';
       const bootstrap =
-          'Skipped lib/scenarios/entry_points.dart:20 bootstrap: listed under '
+          'Skipped lib/scenarios/entry_points.dart:21 bootstrap: listed under '
           '`entry-points` in the config file.';
       const byShape =
           'Skipped lib/scenarios/entry_points/flutter_test_config.dart:4 '
