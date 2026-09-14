@@ -87,10 +87,12 @@ void main() {
       }
     });
 
-    test('rejects an invalid glob, naming it', () {
+    test('rejects an invalid glob with the glob as the error source', () {
       expect(
         () => EntryPoint.fromConfig('x', files: ['lib/[']),
-        throwsA(isFormatException(contains("'lib/[' is not a valid glob"))),
+        throwsA(
+          isA<FormatException>().having((e) => e.source, 'source', 'lib/['),
+        ),
       );
     });
   });

@@ -226,7 +226,7 @@ concurrency: 4
         'entry-points: [{name: a, glob: 1}]': "'entry-points[0].glob' must be",
         'entry-points: [{name: a, glob: [1]}]':
             "'entry-points[0].glob' must be",
-        "entry-points: [{name: a, glob: 'lib/['}]": 'not a valid glob',
+        "entry-points: [{name: a, glob: 'lib/['}]": "glob 'lib/[': expected",
         'entry-points: [{name: a}, {name: b, file: x}]':
             "'entry-points[1]' has an unknown field 'file'",
       };
