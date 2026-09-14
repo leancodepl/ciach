@@ -250,7 +250,9 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     try {
       return EntryPoint.fromConfig(name, files: globs);
     } on FormatException catch (e) {
-      throw FormatException("$path: '$at': ${e.message}");
+      // The glob package's error carries the glob as its source; name it.
+      final about = e.source is String ? "glob '${e.source}': " : '';
+      throw FormatException("$path: '$at': $about${e.message}");
     }
   }
 
