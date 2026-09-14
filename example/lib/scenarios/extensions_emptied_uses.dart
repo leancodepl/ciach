@@ -1,5 +1,5 @@
-// Keeps `LiveHelpers` alive through a member and `ShownHelpers` through the
-// `show`, which is the point of the unused shown name.
+// Keeps `LiveHelpers` alive through a member, `ShownHelpers` through the
+// `show`.
 // ignore_for_file: unused_shown_name
 
 import 'package:sample_pkg/scenarios/extensions_emptied.dart'

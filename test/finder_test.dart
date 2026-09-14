@@ -621,8 +621,7 @@ void main() {
 
     test('`-k extension` alone keeps an extension whose members were never '
         'checked, reporting only a member-less one', () async {
-      // Unchecked members can't be proven dead, so only `Hollow` — which has
-      // none — is.
+      // Unchecked members can't be proven dead; `Hollow` has none.
       expect(await byKind(SymbolKind.namespace), {'Hollow'});
     });
 

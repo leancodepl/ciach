@@ -926,8 +926,7 @@ void gone() {}
     });
 
     test('an export keeps its file whichever directives sit around it', () {
-      // A `package:` export, a `show` combinator, and an import above it: the
-      // export is what matters, so the class goes and the file stays.
+      // Only the export matters, not the import or the `show`.
       write('pubspec.yaml', 'name: pkg\n');
       write('lib/other.dart', 'class Kept {}\n');
       write('lib/dead.dart', '''

@@ -129,9 +129,8 @@ class FinderOptions {
   /// [SymbolKind.typeParameter] (always "used" within its scope) and the
   /// primitive value kinds the server never emits for Dart declarations.
   ///
-  /// [SymbolKind.namespace] is how the server reports an `extension`; an
-  /// `extension type` shares that kind and is remapped to [SymbolKind.struct]
-  /// (see `reportedKind`), which the server never emits itself.
+  /// The server reports an `extension` as [SymbolKind.namespace]; an
+  /// `extension type` shares it and is remapped to [SymbolKind.struct].
   ///
   /// Operator overloads are *not* a separate kind here: the analysis server
   /// reports them as plain [SymbolKind.method] declarations named `+`, `==`,
@@ -269,8 +268,7 @@ class UnusedDeclaration {
   };
 }
 
-/// A file `--remove` deleted for having nothing but directives left, and the
-/// files whose `import`/`export`/`part` of it were dropped. Root-relative
+/// A file `--remove` deleted, and the files unlinked from it. Root-relative
 /// `/`-paths.
 typedef DeletedFile = ({String filePath, List<String> unlinkedFrom});
 

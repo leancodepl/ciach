@@ -1,7 +1,5 @@
-// Dead extensions and extension types. An extension is dead only once every
-// member is; an extension type is a type, dead when nothing names it. Either
-// is then reported whole. Scanned with extensions_emptied_uses.dart by its own
-// test.
+// Dead extensions and extension types, each reported whole. Scanned with
+// extensions_emptied_uses.dart by its own test.
 
 /// Nothing names it or calls a member -> UNUSED (extension).
 extension DeadHelpers on int {
@@ -16,13 +14,13 @@ extension LiveHelpers on int {
   int stale() => this * 3;
 }
 
-/// Both members dead -> UNUSED (extension), under the server's placeholder name.
+/// Both members dead -> UNUSED, under the server's placeholder name.
 extension on String {
   String shoutedOnce() => '$this!';
   String shoutedTwice() => '$this!!';
 }
 
-/// Named in a `show` -> the extension stays; only the member is reported.
+/// Named in a `show` -> stays; only the member is reported.
 extension ShownHelpers on int {
   int shownButUnused() => this - 1;
 }
@@ -30,8 +28,7 @@ extension ShownHelpers on int {
 /// No members, no references -> UNUSED (extension).
 extension Hollow on int {}
 
-/// Nothing names it -> UNUSED (extension type), reported whole like a dead
-/// class, with its dead members alongside it.
+/// Nothing names it -> UNUSED (extension type), with its dead members.
 extension type DeadMeters(int value) {
   int get scaled => value * 2;
 }

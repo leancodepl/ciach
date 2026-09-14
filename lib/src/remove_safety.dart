@@ -64,8 +64,7 @@ class RemoveSafety {
         }
       }
       if (candidate.isExtension) {
-        // Unnamed extensions on one type share a key; merged tallies can only
-        // keep both.
+        // Unnamed extensions on one type share a key; merging can only keep.
         extensionUnreferenced.update(
           candidate.key,
           (was) => was && unused,

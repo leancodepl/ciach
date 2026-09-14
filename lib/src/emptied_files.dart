@@ -7,10 +7,10 @@ import 'package:ciach/src/paths.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
-/// Deletes the [rewritten] files (absolute paths) left with nothing but
-/// `library`/`import`/`part of` directives, dropping the `import`/`export`/
-/// `part` lines naming them elsewhere under [rootPath]. A file that still
-/// `export`s or owns `part`s, or is named in a conditional import, stays.
+/// Deletes the [rewritten] files (absolute paths) left with only
+/// `library`/`import`/`part of` lines, dropping the directives naming them
+/// under [rootPath]. One that `export`s, owns a `part`, or sits in a
+/// conditional import stays.
 List<DeletedFile> deleteEmptiedFiles(Set<String> rewritten, String rootPath) {
   if (rewritten.isEmpty) {
     return const [];
@@ -78,7 +78,7 @@ typedef _Span = ({int start, int end});
 
 enum _Link { none, droppable, blocking }
 
-/// The package's Dart files, with contents cached across the rewrites here.
+/// The package's Dart files, contents cached across the rewrites.
 final class _Package {
   _Package._(this._files, this._libDirByPackage);
 

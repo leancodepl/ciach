@@ -216,42 +216,20 @@ false-positive risk, which `--overrides` and `--operators` widen considerably.
 [Doc-only findings](#doc-only-findings) are never included. Review the diff, as
 you would after any automated refactor.
 
-Nothing is left behind as an empty shell, either:
+Removal leaves no empty shells:
 
-- An extension is used through its members, never by name, so one whose every
-  member is dead is reported and removed as the whole `extension`, the way a
-  fully dead class is. One a `show`/`hide` combinator names stays, and only its
-  members are reported.
-- An `extension type` is a *type*, named like a class, so it is dead when
-  nothing names it — references from its own body don't count — and is then
-  reported and removed whole. `-k extension-type` selects these on their own.
-- A file the removal leaves with nothing but *inbound* directives — a `library`
-  line, `import`s, a `part of` — is deleted, and the `import`/`export`/`part`
-  lines naming it elsewhere are dropped; a barrel or a part's owner that is left
-  with nothing by that goes too.
+- An `extension` whose every member is dead is removed whole, like a fully dead
+  class. One named by a `show`/`hide` stays, and only its members are reported.
+- An `extension type` is a type: dead when nothing names it, references from its
+  own body aside, and then removed whole. `-k extension-type` selects these.
+- A file left with only `library`/`import`/`part of` lines is deleted, and the
+  `import`/`export`/`part` lines naming it are dropped. A file that `export`s,
+  owns a `part`, appears in a conditional import, or never had a declaration is
+  left alone; a barrel is deleted only once its last live `export` goes.
 
 ```
 Removed 4 unused declarations from 2 files. Deleted 1 now-empty file: lib/legacy.dart.
 ```
-
-An `export` hands something on, so it keeps its file. Given a dead `Legacy` and
-a re-export, only the class goes and the file stays:
-
-```dart
-// lib/legacy.dart, before
-export 'package:app/shapes.dart';
-
-class Legacy {}     // never referenced
-
-// lib/legacy.dart, after --remove
-export 'package:app/shapes.dart';
-```
-
-The same holds for a file that owns a `part`, one named in a conditional
-import (`import 'stub.dart' if (dart.library.io) 'io.dart';`), and one that had
-no declarations to begin with: all are left alone. A barrel is the one way an
-`export` stops protecting a file — when the file it exports is itself deleted,
-the now-dangling `export` line goes, and if that empties the barrel it follows.
 
 Findings whose removal wouldn't compile are **report-only**: marked `unsafe to
 auto-remove — remove manually` and skipped, along with anything coupled to them.

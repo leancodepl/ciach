@@ -17,10 +17,8 @@ import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location, SymbolKind;
 /// index of the referenced type name.
 typedef _TypeToken = ({List<Token> tokens, int ti});
 
-/// What a [SymbolKind.namespace] symbol's tokens open with. Two axes meet
-/// here because both change what the finder does: an `extension type` is a
-/// type rather than an extension, and an extension with no name cannot be
-/// referenced by one.
+/// What a [SymbolKind.namespace] symbol's tokens open with. An extension type
+/// is not an extension, and an unnamed extension cannot be referenced by name.
 enum ExtensionSyntax { namedExtension, unnamedExtension, extensionType }
 
 /// Structural, lexer-level checks over a declaration or a reference — the
@@ -195,8 +193,7 @@ extension StructuralChecks on SourceIndex {
     return isFinal;
   }
 
-  /// `null` when [symbol] doesn't open with the `extension` keyword, which
-  /// keeps it out of the candidates rather than guessing at its syntax.
+  /// `null` when [symbol] doesn't open with the `extension` keyword.
   ExtensionSyntax? extensionSyntax(String path, DocumentSymbol symbol) {
     final window = tokenWindow(path, symbol);
     if (window == null) {

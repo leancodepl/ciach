@@ -572,7 +572,7 @@ class Ciach {
     if (symbol.kind == .function && symbol.name == 'main') {
       return false;
     }
-    // A `namespace` whose shape the lexer can't confirm.
+    // A `namespace` the lexer can't confirm.
     if (symbol.kind == .namespace && extensionSyntax == null) {
       return false;
     }

@@ -566,20 +566,14 @@ class DocsPage extends StatelessComponent {
                 ]),
                 const p([
                   .text(
-                    'Nothing is left behind as an empty shell. An extension '
-                    'whose every member is dead is reported and removed as '
-                    'the whole extension, like a fully dead class (one a ',
+                    'Removal leaves no empty shells: an extension whose '
+                    'every member is dead goes whole, as does an ',
                   ),
-                  code([.text('show')]),
+                  code([.text('extension type')]),
                   .text(
-                    ' names stays). A file the removal leaves with nothing '
-                    'but directives is deleted, and the ',
-                  ),
-                  code([.text('import')]),
-                  .text(
-                    's of it elsewhere dropped; a file that still exports or '
-                    'owns a part, or that had no declarations to begin with, '
-                    'is left alone.',
+                    ' nothing names, and a file left with only '
+                    'library/import/part-of lines is deleted. A file that '
+                    'exports, owns a part, or never had a declaration stays.',
                   ),
                 ]),
                 const h3([.text('Report-only: removal would not compile')]),

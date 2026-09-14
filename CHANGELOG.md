@@ -18,9 +18,9 @@
 - `-k extension` now selects extensions; it matched a kind the analysis server
   never emits. Add `-k extension-type` for extension types, which share that
   kind on the wire.
-- `--remove` no longer describes a deleted file as one "left with nothing but
-  imports": an `export` keeps its file, and the summary now says "now-empty"
-  while `-v` names the rule.
+- `--remove` no longer calls a deleted file one "left with nothing but
+  imports": an `export` keeps its file. The summary says "now-empty" and `-v`
+  names the rule.
 
 ## 0.4.4
 
