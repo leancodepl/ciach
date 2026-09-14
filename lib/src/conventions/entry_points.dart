@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
@@ -25,6 +26,11 @@ final class EntryPoint {
   /// (optionally `Container.member`); the constructor throws for a glob that
   /// does not parse.
   factory EntryPoint.fromConfig(String name, {List<String> files = const []}) {
+    if (name.contains('<')) {
+      throw FormatException(
+        "'$name': type parameters are not part of a declaration name; write `MyClass.member`, not `MyClass<T>.member`.",
+      );
+    }
     if (!_qualifiedName.hasMatch(name)) {
       throw FormatException(
         "'$name' is not a declaration name; expected an identifier such as 'registerWith' or 'MyPlugin.registerWith'.",
@@ -42,7 +48,8 @@ final class EntryPoint {
     r'^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)?$',
   );
 
-  /// `name` for a top-level declaration, `Container.member` for a member.
+  /// `name` for a top-level declaration, `Container.member` for a member;
+  /// type parameters are not part of either.
   final String name;
 
   /// The file globs as written; empty matches any file.
@@ -92,12 +99,7 @@ final class EntryPoints {
     String relativePath,
     DocumentSymbol symbol,
     String? container,
-  ) {
-    for (final rule in _rules) {
-      if (rule.matches(relativePath, symbol, container)) {
-        return rule;
-      }
-    }
-    return null;
-  }
+  ) => _rules.firstWhereOrNull(
+    (rule) => rule.matches(relativePath, symbol, container),
+  );
 }

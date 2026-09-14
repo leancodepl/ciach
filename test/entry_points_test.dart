@@ -77,6 +77,13 @@ void main() {
       );
     });
 
+    test('rejects type parameters in a name, with a hint', () {
+      expect(
+        () => EntryPoint.fromConfig('Box<T>.convert'),
+        throwsA(isFormatException(contains('type parameters are not part'))),
+      );
+    });
+
     test('rejects a name that is not an identifier', () {
       for (final name in ['', 'a-b', '1abc', 'a.b.c', 'a b', 'A.']) {
         expect(

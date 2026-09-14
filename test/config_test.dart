@@ -223,6 +223,7 @@ concurrency: 4
         'entry-points: [{glob: lib/**}]': "'entry-points[0].name' must be",
         'entry-points: [{name: 1}]': "'entry-points[0].name' must be",
         'entry-points: [{name: a-b}]': 'not a declaration name',
+        'entry-points: [{name: "Box<T>.convert"}]': 'type parameters are not',
         'entry-points: [{name: a, glob: 1}]': "'entry-points[0].glob' must be",
         'entry-points: [{name: a, glob: [1]}]':
             "'entry-points[0].glob' must be",
