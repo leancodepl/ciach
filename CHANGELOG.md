@@ -1,3 +1,12 @@
+## Unreleased
+
+- Stop reporting (and removing) `testExecutable` in a `flutter_test_config.dart`,
+  which only the `flutter test` bootstrap calls.
+  ([#51](https://github.com/leancodepl/ciach/pull/51))
+- Add `entry-points` to `ciach.yaml`: `{name, glob}` rules for a project's own
+  tool-called declarations. A member rule keeps its type; `--verbose` names each
+  skipped entry point.
+
 ## 0.4.4
 
 - Fix a compiled `ciach` (`dart install`) spawning itself as the analysis

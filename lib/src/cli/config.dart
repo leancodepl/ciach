@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/src/cli/args.dart';
+import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
 import 'package:path/path.dart' as p;
@@ -144,6 +145,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
   Object? _typedValue(String key) => switch (_optionFor(key)) {
     .format => _oneOf(key, formatNames),
     .kinds => _kinds(key),
+    .entryPoints => _entryPoints(key),
     .concurrency => _positiveInt(key),
     final option => switch (option.option) {
       FlagOption() => _boolean(key),
@@ -201,6 +203,46 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
       }
     }
     return values;
+  }
+
+  /// The rules under [key]: `{name: …, glob: …}` maps, `glob` one glob, a list
+  /// of them, or absent for any file.
+  List<EntryPoint>? _entryPoints(String key) => switch (settings[key]) {
+    null => null,
+    final Iterable<Object?> rules => [
+      for (final (i, rule) in rules.indexed) _entryPoint('$key[$i]', rule),
+    ],
+    final other => _wrong(key, 'a list of `{name, glob}` rules', other),
+  };
+
+  static const _ruleFields = {'name', 'glob'};
+
+  EntryPoint _entryPoint(String at, Object? rule) => switch (rule) {
+    {'name': final String name, 'glob': final glob}
+        when _ruleFields.containsAll(rule.keys) =>
+      _rule(at, name, glob),
+    {'name': final String name} when _ruleFields.containsAll(rule.keys) =>
+      _rule(at, name, null),
+    _ => throw FormatException(
+      "$path: '$at' must be `{name: <declaration>, glob: <glob, list of globs, or none>}`, got $rule.",
+    ),
+  };
+
+  EntryPoint _rule(String at, String name, Object? glob) {
+    final files = switch (glob) {
+      null => const <String>[],
+      final String one => [one],
+      final Iterable<Object?> many when many.every((g) => g is String) =>
+        many.cast<String>().toList(),
+      final other => _wrong('$at.glob', 'a glob or a list of globs', other),
+    };
+    try {
+      return EntryPoint.fromConfig(name, files: files);
+    } on FormatException catch (e) {
+      // The glob package's error carries the glob as its source; name it.
+      final about = e.source is String ? "glob '${e.source}': " : '';
+      throw FormatException("$path: '$at': $about${e.message}");
+    }
   }
 
   int? _positiveInt(String key) => switch (settings[key]) {

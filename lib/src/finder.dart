@@ -13,6 +13,7 @@ import 'dart:io';
 
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/concurrency.dart';
+import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/flutter_widgets.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/conventions/serialization.dart';
@@ -39,8 +40,8 @@ import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location;
 /// `Ciach` owns the pipeline (discover → collect → check references → report);
 /// the semantic pieces live in collaborators: [ReferenceClassifier] decides
 /// used/unused, [RemoveSafety] flags findings that can't be auto-removed, and
-/// the `conventions/` rules ([FreezedUnions], serialization and Flutter
-/// widgets) keep framework-driven declarations alive.
+/// the `conventions/` rules ([EntryPoints], [FreezedUnions], serialization and
+/// Flutter widgets) keep framework-driven declarations alive.
 class Ciach {
   /// Creates a finder that runs with the given [options].
   Ciach(this.options);
@@ -54,6 +55,16 @@ class Ciach {
 
   /// Freezed-union tracking, fed as candidates are collected.
   final _freezed = FreezedUnions();
+
+  late final _entryPoints = EntryPoints(options.entryPoints);
+
+  /// Skipped as entry points this run, for `--verbose`.
+  final _skippedEntryPoints = <_SkippedEntryPoint>[];
+
+  /// Types whose member is an entry point, by `(relative path, type name)`:
+  /// the generated call that reaches `MyPlugin.registerWith` names `MyPlugin`
+  /// too, so the type is not a candidate either.
+  final _entryPointContainers = <DeclKey, EntryPoint>{};
 
   late final _classifier = ReferenceClassifier(
     _sources,
@@ -132,10 +143,11 @@ class Ciach {
       final perFile = await mapPooled(
         files,
         options.concurrency,
-        (path) => _collectCandidatesFor(client, path),
+        (path) => _collectCandidatesFor(client, path, rootPath),
       );
       final candidates = [for (final list in perFile) ...list];
       declarationsChecked = candidates.length;
+      _reportSkippedEntryPoints();
 
       // Phase 2: check references for every candidate through a single global
       // pool, so the server stays saturated instead of stalling between files.
@@ -450,10 +462,31 @@ class Ciach {
     return true;
   }
 
+  /// One line per skipped entry point, except the ubiquitous `main`.
+  void _reportSkippedEntryPoints() {
+    if (options.onProgress == null) {
+      return;
+    }
+    _skippedEntryPoints.sort((a, b) {
+      final byFile = a.path.compareTo(b.path);
+      return byFile != 0 ? byFile : a.line.compareTo(b.line);
+    });
+    for (final skipped in _skippedEntryPoints) {
+      if (skipped.name == 'main') {
+        continue;
+      }
+      _report(
+        'Skipped ${skipped.path}:${skipped.line} ${skipped.name}: '
+        '${skipped.reason}.',
+      );
+    }
+  }
+
   /// Fetches the symbols for [path] and returns the declarations worth checking.
   Future<List<Candidate>> _collectCandidatesFor(
     LspClient client,
     String path,
+    String rootPath,
   ) async {
     final content = SourceIndex.readFile(path);
     if (content == null) {
@@ -463,10 +496,12 @@ class Ciach {
     client.didOpen(uri, content);
     final symbols = await client.documentSymbol(uri);
     _sources.cacheLines(path, content.split('\n'));
+    final relativePath = relativePosix(path, rootPath);
     final out = <Candidate>[];
     _collectCandidates(
       uri,
       path,
+      relativePath,
       symbols,
       null,
       null,
@@ -474,7 +509,37 @@ class Ciach {
       _sources.strippedLines(path),
       out,
     );
-    return out;
+    return _withoutEntryPointContainers(out, relativePath);
+  }
+
+  /// [candidates] less the types a member entry point lives in; see
+  /// [_entryPointContainers]. Their other members stay candidates.
+  List<Candidate> _withoutEntryPointContainers(
+    List<Candidate> candidates,
+    String relativePath,
+  ) {
+    if (_entryPointContainers.isEmpty) {
+      return candidates;
+    }
+    final kept = <Candidate>[];
+    for (final candidate in candidates) {
+      final symbol = candidate.symbol;
+      final rule =
+          candidate.container == null && typeLikeKinds.contains(symbol.kind)
+          ? _entryPointContainers[DeclKey(relativePath, symbol.name)]
+          : null;
+      if (rule == null) {
+        kept.add(candidate);
+        continue;
+      }
+      _skippedEntryPoints.add((
+        path: relativePath,
+        line: symbol.selectionRange.start.line + 1,
+        name: symbol.name,
+        reason: 'declares the entry point ${rule.name}',
+      ));
+    }
+    return kept;
   }
 
   /// Recursively walks the symbol tree, keeping only symbols worth checking,
@@ -485,6 +550,7 @@ class Ciach {
   void _collectCandidates(
     Uri uri,
     String path,
+    String relativePath,
     List<DocumentSymbol> symbols,
     String? container,
     DocumentSymbol? containerSymbol,
@@ -494,7 +560,13 @@ class Ciach {
   ) {
     for (final symbol in symbols) {
       _freezed.noteIfAnnotated(path, symbol, strippedLines);
-      if (_shouldConsider(symbol, parentIsEnum, strippedLines)) {
+      if (_shouldConsider(
+        relativePath,
+        symbol,
+        container,
+        parentIsEnum,
+        strippedLines,
+      )) {
         out.add(
           Candidate(
             uri: uri,
@@ -516,6 +588,7 @@ class Ciach {
       _collectCandidates(
         uri,
         path,
+        relativePath,
         symbol.children ?? const [],
         isTypeLike ? symbol.name : container,
         isTypeLike ? symbol : containerSymbol,
@@ -527,7 +600,9 @@ class Ciach {
   }
 
   bool _shouldConsider(
+    String relativePath,
     DocumentSymbol symbol,
+    String? container,
     bool parentIsEnum,
     List<String> strippedLines,
   ) {
@@ -536,8 +611,20 @@ class Ciach {
     )) {
       return false;
     }
-    // The program entry point is never "unused".
-    if (symbol.kind == .function && symbol.name == 'main') {
+    // Called by a framework or tool, with no source reference to find.
+    if (_entryPoints.match(relativePath, symbol, container) case final rule?) {
+      _skippedEntryPoints.add((
+        path: relativePath,
+        line: symbol.selectionRange.start.line + 1,
+        name: rule.name,
+        reason: rule.reason,
+      ));
+      if (container != null) {
+        _entryPointContainers.putIfAbsent(
+          DeclKey(relativePath, container),
+          () => rule,
+        );
+      }
       return false;
     }
     if (!isPrivateName(symbol.name) && !options.includePublic) {
@@ -614,3 +701,12 @@ class Ciach {
     return byLine != 0 ? byLine : a.column.compareTo(b.column);
   }
 }
+
+/// A skipped entry point: root-relative POSIX path, one-based line, the name
+/// as the rule spells it, and why.
+typedef _SkippedEntryPoint = ({
+  String path,
+  int line,
+  String name,
+  String reason,
+});
