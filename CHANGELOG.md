@@ -12,13 +12,12 @@
   ([#48](https://github.com/leancodepl/ciach/issues/48))
 - `-k extension` now selects extensions; it matched a kind the analysis server
   never emits.
-- Stop reporting (and removing) `testExecutable` in a `flutter_test_config.dart`:
-  the `flutter test` bootstrap calls it, with no reference on disk.
+- Stop reporting (and removing) `testExecutable` in a `flutter_test_config.dart`,
+  which only the `flutter test` bootstrap calls.
   ([#51](https://github.com/leancodepl/ciach/pull/51))
-- Add `entry-points` to `ciach.yaml`, a list of `{name, glob}` rules, to list a
-  project's own framework-called declarations so they are never reported. A
-  member rule (`MyPlugin.registerWith`) keeps its type too. `--verbose` names
-  each declaration skipped as an entry point.
+- Add `entry-points` to `ciach.yaml`: `{name, glob}` rules for a project's own
+  tool-called declarations. A member rule keeps its type; `--verbose` names each
+  skipped entry point.
 
 ## 0.4.4
 

@@ -107,8 +107,8 @@ const _skips = [
   ('main', 'The entry point is never unused.', null),
   (
     'testExecutable in flutter_test_config.dart',
-    'Called by the `flutter test` bootstrap, which never lands on disk; '
-        '`entry-points:` in ciach.yaml adds more.',
+    'Called by the `flutter test` bootstrap; `entry-points:` in ciach.yaml '
+        'adds more.',
     null,
   ),
   (

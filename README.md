@@ -254,7 +254,7 @@ that cost.
 | Skipped | Why | Flag |
 | --- | --- | --- |
 | `main` | the entry point is never unused | — |
-| `testExecutable` in a `flutter_test_config.dart` | `flutter test` generates a bootstrap that calls it; nothing on disk does. See [Entry points](#entry-points) | `entry-points:` in `ciach.yaml` adds more |
+| `testExecutable` in a `flutter_test_config.dart` | called by the `flutter test` bootstrap | [`entry-points:`](#entry-points) adds more |
 | `@override` members | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses | `--overrides` |
 | Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--operators` |
 | `call` methods | implicit-call syntax (`obj(…)`) is unresolvable the same way | — |
@@ -271,45 +271,25 @@ class` instead. See [example/](example) for a runnable demonstration of each cas
 
 ### Entry points
 
-Some declarations are called by a framework or a tool, never by code in the
-package: `flutter test` finds the nearest `flutter_test_config.dart` and runs its
-`testExecutable`, a plugin registrant is named in `pubspec.yaml`, a driver script
-calls a conventionally-named function. A reference search cannot see those
-calls, so each would read as dead.
-
-Such tools find their function the same way: by name, in a file they know, and
-leave its shape to the compiler at the generated call site. ciach applies the
-same contract — a top-level name in matching files — and nothing more, so a
-`testExecutable` with an unexpected signature is left alone too: it is a broken
-hook `flutter test` will complain about, not dead code. Verbose mode names each
-exemption:
-
-```
-[  0.4s] Skipped test/flutter_test_config.dart:6 testExecutable: called by the `flutter test` bootstrap.
-```
-
-A project adds its own under `entry-points:` in `ciach.yaml`: a list of rules,
-each with a `name` — bare for a top-level declaration, `Type.member` for a
-member; type parameters are not part of either — and an optional `glob`
-relative to the package root, one or a list, for the files it may live in; no
-`glob` means any file. This setting has no command-line form.
+Some declarations are only ever called from code a tool generates: `flutter
+test` runs `testExecutable` from the nearest `flutter_test_config.dart`,
+flutter_tools calls `MyPlugin.registerWith()` on the plugin class named in
+`pubspec.yaml`. Nothing in the package references them, so they would read as
+dead. ciach knows `main` and `testExecutable`; a project lists its own under
+`entry-points:` in `ciach.yaml`:
 
 ```yaml
 entry-points:
-  # The Dart plugin registrant flutter_tools generates from `dartPluginClass`
-  # in pubspec.yaml calls `MyPlugin.registerWith()`.
-  - name: MyPlugin.registerWith
-    glob: 'lib/my_plugin.dart'
-  # A builder factory named in build.yaml, called by build_runner's generated
-  # build script.
-  - name: myBuilder
+  - name: MyPlugin.registerWith   # a member: `Type.member`, no type parameters
+    glob: 'lib/my_plugin.dart'    # one glob or a list; omit for any file
+  - name: myBuilder               # a build.yaml builder factory
     glob: 'lib/builder.dart'
 ```
 
-A declaration that matches is never a candidate, so it is neither reported nor
-removed. A member rule keeps the type it lives in as well — the generated call
-that reaches `MyPlugin.registerWith` names `MyPlugin` too — while the type's
-other members are checked as usual.
+A matching declaration is neither reported nor removed, whatever its signature.
+A member rule also keeps its type, while the type's other members are still
+checked. `-v` names each skipped entry point. This setting has no command-line
+form.
 
 ## Limitations
 
@@ -320,10 +300,9 @@ deleting blindly:
   package. Prefer `--no-public` there, or treat public findings as advisory.
 - **Reflection, dynamic invocation, and names referenced only from generated
   code you excluded** are invisible to a reference search.
-- **Entry points other than `main`** (isolate entry points, plugin registrants)
-  need listing under [`entry-points`](#entry-points) or
-  `@pragma('vm:entry-point')`; only `flutter test`'s `testExecutable` is known
-  out of the box.
+- **Entry points other than `main` and `testExecutable`** (plugin registrants,
+  isolate entry points) need listing under [`entry-points`](#entry-points) or
+  `@pragma('vm:entry-point')`.
 - **A primary constructor shares its class's references**, since a query at the
   header resolves to the class: a never-invoked one only surfaces once the class
   itself is dead.

@@ -280,11 +280,10 @@ enum CiachOption<V> implements OptionDefinition<V> {
     EntryPointsOption(
       configKey: '/entry-points',
       helpText:
-          'Declarations a framework calls by convention, so never reported:\n'
-          'a list of rules, each with a `name` (`myBuilder`,\n'
-          '`MyPlugin.registerWith`) and an optional `glob` (one, or a list)\n'
-          'for the files it may live in. A member rule keeps its type too.\n'
-          'Built in: `main`, and `testExecutable` in a flutter_test_config.dart.',
+          'Declarations a tool calls from generated code, so never reported:\n'
+          'rules with a `name` (`myBuilder`, `MyPlugin.registerWith`) and an\n'
+          'optional `glob` (one, or a list) for the files. Built in: `main`,\n'
+          'and `testExecutable` in a flutter_test_config.dart.',
     ),
   ),
   kinds(
@@ -416,10 +415,8 @@ Config file:
   line wins over the file; --no-config ignores the file; --verbose says which
   file was read and what it set.
 
-  `entry-points` lives only there: declarations a framework or tool calls by
-  convention (on top of the built-in `main` and `testExecutable` in a
-  flutter_test_config.dart), each a `name` with an optional `glob` (one, or a
-  list) for the files it may live in. A member rule keeps its type too.
+  `entry-points` lives only there: declarations a tool calls from generated
+  code, each a `name` with an optional `glob` for the files it may live in.
 
     # $configFileName
     public: false
