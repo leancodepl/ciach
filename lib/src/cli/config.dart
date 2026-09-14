@@ -205,48 +205,36 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     return values;
   }
 
-  /// The rules under [key]: a list of `{name: …, glob: …}` entries, `glob` a
-  /// file glob, a list of globs, or absent for any file.
+  /// The rules under [key]: `{name: …, glob: …}` maps, `glob` one glob, a list
+  /// of them, or absent for any file.
   List<EntryPoint>? _entryPoints(String key) => switch (settings[key]) {
     null => null,
     final Iterable<Object?> rules => [
       for (final (i, rule) in rules.indexed) _entryPoint('$key[$i]', rule),
     ],
-    final other => _wrong(
-      key,
-      'a list of entry points, each a map with `name` and optional `glob`',
-      other,
+    final other => _wrong(key, 'a list of `{name, glob}` rules', other),
+  };
+
+  static const _ruleFields = {'name', 'glob'};
+
+  EntryPoint _entryPoint(String at, Object? rule) => switch (rule) {
+    {'name': final String name, 'glob': final glob}
+        when _ruleFields.containsAll(rule.keys) =>
+      _rule(at, name, glob),
+    {'name': final String name} when _ruleFields.containsAll(rule.keys) =>
+      _rule(at, name, null),
+    _ => throw FormatException(
+      "$path: '$at' must be `{name: <declaration>, glob: <glob, list of globs, or none>}`, got $rule.",
     ),
   };
 
-  EntryPoint _entryPoint(String at, Object? rule) {
-    const fields = {'name', 'glob'};
-    return switch (rule) {
-      Map(:final keys) when !fields.containsAll(keys) => throw FormatException(
-        "$path: '$at' has an unknown field "
-        "'${keys.firstWhere((key) => !fields.contains(key))}'; "
-        'expected `name` and optional `glob`.',
-      ),
-      {'name': final String name, 'glob': final glob} => _rule(at, name, glob),
-      {'name': final String name} => _rule(at, name, null),
-      {'name': final other} => _wrong('$at.name', 'a declaration name', other),
-      Map() => _wrong('$at.name', 'a declaration name', null),
-      final other => _wrong(at, 'a map with `name` and optional `glob`', other),
-    };
-  }
-
-  /// The rule named [name] for the files [glob] denotes: one glob, a list of
-  /// them, or `null` for any file.
   EntryPoint _rule(String at, String name, Object? glob) {
-    const expected = 'a file glob or a list of them';
     final files = switch (glob) {
       null => const <String>[],
       final String one => [one],
-      final Iterable<Object?> many => [
-        for (final value in many)
-          if (value is String) value else _wrong('$at.glob', expected, value),
-      ],
-      final other => _wrong('$at.glob', expected, other),
+      final Iterable<Object?> many when many.every((g) => g is String) =>
+        many.cast<String>().toList(),
+      final other => _wrong('$at.glob', 'a glob or a list of globs', other),
     };
     try {
       return EntryPoint.fromConfig(name, files: files);
