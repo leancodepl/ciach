@@ -225,16 +225,33 @@ Nothing is left behind as an empty shell, either:
 - An `extension type` is a *type*, named like a class, so it is dead when
   nothing names it — references from its own body don't count — and is then
   reported and removed whole. `-k extension-type` selects these on their own.
-- A file the removal leaves with nothing but directives — a `library` line,
-  `import`s, a `part of` — is deleted, and the `import`/`export`/`part` lines
-  naming it elsewhere are dropped; a barrel or a part's owner that is left
-  with nothing by that goes too. A file that still `export`s or owns a `part`,
-  one named in a conditional import, and one that had no declarations to begin
-  with are all left alone.
+- A file the removal leaves with nothing but *inbound* directives — a `library`
+  line, `import`s, a `part of` — is deleted, and the `import`/`export`/`part`
+  lines naming it elsewhere are dropped; a barrel or a part's owner that is left
+  with nothing by that goes too.
 
 ```
-Removed 4 unused declarations from 2 files. Deleted 1 file left with nothing but imports: lib/legacy.dart.
+Removed 4 unused declarations from 2 files. Deleted 1 now-empty file: lib/legacy.dart.
 ```
+
+An `export` hands something on, so it keeps its file. Given a dead `Legacy` and
+a re-export, only the class goes and the file stays:
+
+```dart
+// lib/legacy.dart, before
+export 'package:app/shapes.dart';
+
+class Legacy {}     // never referenced
+
+// lib/legacy.dart, after --remove
+export 'package:app/shapes.dart';
+```
+
+The same holds for a file that owns a `part`, one named in a conditional
+import (`import 'stub.dart' if (dart.library.io) 'io.dart';`), and one that had
+no declarations to begin with: all are left alone. A barrel is the one way an
+`export` stops protecting a file — when the file it exports is itself deleted,
+the now-dangling `export` line goes, and if that empties the barrel it follows.
 
 Findings whose removal wouldn't compile are **report-only**: marked `unsafe to
 auto-remove — remove manually` and skipped, along with anything coupled to them.

@@ -911,7 +911,8 @@ void gone() {}
       expect(exists('lib/dead.dart'), isFalse);
     });
 
-    test('a file that still exports something stays', () {
+    test('a file that exports something stays, even once its own last '
+        'declaration is gone', () {
       write('lib/dead.dart', '''
 export 'other.dart';
 
@@ -922,6 +923,38 @@ void gone() {}
       expect(exists('lib/dead.dart'), isTrue);
       expect(read('lib/dead.dart'), "export 'other.dart';\n\n");
       expect(result.deletedFiles, isEmpty);
+    });
+
+    test('an export keeps its file whichever directives sit around it', () {
+      // A `package:` export, a `show` combinator, and an import above it: the
+      // export is what matters, so the class goes and the file stays.
+      write('pubspec.yaml', 'name: pkg\n');
+      write('lib/other.dart', 'class Kept {}\n');
+      write('lib/dead.dart', '''
+import 'dart:async';
+export 'package:pkg/other.dart' show Kept;
+
+class DeadClass {}
+''');
+      final result = removeDeclarations([
+        const UnusedDeclaration(
+          name: 'DeadClass',
+          kind: .class$,
+          filePath: 'lib/dead.dart',
+          line: 4,
+          column: 7,
+          isPrivate: false,
+          range: (startLine: 3, startColumn: 0, endLine: 3, endColumn: 17),
+        ),
+      ], tempDir.path);
+
+      expect(exists('lib/dead.dart'), isTrue);
+      expect(result.deletedFiles, isEmpty);
+      expect(
+        read('lib/dead.dart'),
+        contains("export 'package:pkg/other.dart'"),
+      );
+      expect(read('lib/dead.dart'), isNot(contains('DeadClass')));
     });
 
     test('a file that still owns a part stays', () {
