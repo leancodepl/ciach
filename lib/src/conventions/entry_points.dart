@@ -13,31 +13,35 @@ import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 final class EntryPoint {
   /// [name] is `name` or `Container.member`; [files] are POSIX globs relative
   /// to the package root, any of which may match (none means any file).
+  ///
+  /// Throws a [FormatException] naming a glob that does not parse.
   EntryPoint({required this.name, required this.reason, this.files = const []})
-    : _globs = [for (final file in files) Glob(file, context: _posix)];
+    : _globs = [for (final file in files) _glob(file)];
 
   /// A rule from the `entry-points` config key.
   ///
   /// Throws a [FormatException] for a [name] that is not an identifier
-  /// (optionally `Container.member`) or a glob that does not parse.
+  /// (optionally `Container.member`), or, from the constructor, for a glob
+  /// that does not parse.
   factory EntryPoint.fromConfig(String name, {List<String> files = const []}) {
     if (!_qualifiedName.hasMatch(name)) {
       throw FormatException(
         "'$name' is not a declaration name; expected an identifier such as 'registerWith' or 'MyPlugin.registerWith'.",
       );
     }
-    for (final file in files) {
-      try {
-        Glob(file, context: _posix);
-      } on FormatException catch (e) {
-        throw FormatException("'$file' is not a valid glob: ${e.message}");
-      }
-    }
     return EntryPoint(
       name: name,
       files: files,
       reason: 'listed under `entry-points` in the config file',
     );
+  }
+
+  static Glob _glob(String file) {
+    try {
+      return Glob(file, context: _posix);
+    } on FormatException catch (e) {
+      throw FormatException("'$file' is not a valid glob: ${e.message}");
+    }
   }
 
   static final _posix = p.Context(style: p.Style.posix);
