@@ -220,34 +220,36 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
   };
 
   EntryPoint _entryPoint(String at, Object? rule) {
-    if (rule is! Map<Object?, Object?>) {
-      return _wrong(at, 'a map with `name` and optional `glob`', rule);
-    }
-    if (rule.keys.firstWhereOrNull((f) => f != 'name' && f != 'glob')
-        case final unknown?) {
-      throw FormatException(
-        "$path: '$at' has an unknown field '$unknown'; expected `name` and optional `glob`.",
-      );
-    }
-    final name = switch (rule['name']) {
-      final String name => name,
-      final other => _wrong('$at.name', 'a declaration name', other),
+    const fields = {'name', 'glob'};
+    return switch (rule) {
+      Map(:final keys) when !fields.containsAll(keys) => throw FormatException(
+        "$path: '$at' has an unknown field "
+        "'${keys.firstWhere((key) => !fields.contains(key))}'; "
+        'expected `name` and optional `glob`.',
+      ),
+      {'name': final String name, 'glob': final glob} => _rule(at, name, glob),
+      {'name': final String name} => _rule(at, name, null),
+      {'name': final other} => _wrong('$at.name', 'a declaration name', other),
+      Map() => _wrong('$at.name', 'a declaration name', null),
+      final other => _wrong(at, 'a map with `name` and optional `glob`', other),
     };
-    const globExpected = 'a file glob or a list of them';
-    final globs = switch (rule['glob']) {
+  }
+
+  /// The rule named [name] for the files [glob] denotes: one glob, a list of
+  /// them, or `null` for any file.
+  EntryPoint _rule(String at, String name, Object? glob) {
+    const expected = 'a file glob or a list of them';
+    final files = switch (glob) {
       null => const <String>[],
-      final String glob => [glob],
-      final Iterable<Object?> values => [
-        for (final value in values)
-          if (value is String)
-            value
-          else
-            _wrong('$at.glob', globExpected, value),
+      final String one => [one],
+      final Iterable<Object?> many => [
+        for (final value in many)
+          if (value is String) value else _wrong('$at.glob', expected, value),
       ],
-      final other => _wrong('$at.glob', globExpected, other),
+      final other => _wrong('$at.glob', expected, other),
     };
     try {
-      return EntryPoint.fromConfig(name, files: globs);
+      return EntryPoint.fromConfig(name, files: files);
     } on FormatException catch (e) {
       // The glob package's error carries the glob as its source; name it.
       final about = e.source is String ? "glob '${e.source}': " : '';
