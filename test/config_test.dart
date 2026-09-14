@@ -218,18 +218,19 @@ concurrency: 4
 
     test('rejects a malformed entry point, naming the key', () {
       final cases = {
-        'entry-points: {name: a}': 'a list of entry points',
-        'entry-points: [a]': "'entry-points[0]' must be a map",
-        'entry-points: [{glob: lib/**}]': "'entry-points[0].name' must be",
-        'entry-points: [{name: 1}]': "'entry-points[0].name' must be",
+        'entry-points: {name: a}': 'a list of `{name, glob}` rules',
+        'entry-points: [a]': "'entry-points[0]' must be `{name:",
+        'entry-points: [{glob: lib/**}]': "'entry-points[0]' must be `{name:",
+        'entry-points: [{name: 1}]': "'entry-points[0]' must be `{name:",
         'entry-points: [{name: a-b}]': 'not a declaration name',
         'entry-points: [{name: "Box<T>.convert"}]': 'type parameters are not',
         'entry-points: [{name: a, glob: 1}]': "'entry-points[0].glob' must be",
         'entry-points: [{name: a, glob: [1]}]':
             "'entry-points[0].glob' must be",
         "entry-points: [{name: a, glob: 'lib/['}]": "glob 'lib/[': expected",
+        // An unknown field shows the whole rule back.
         'entry-points: [{name: a}, {name: b, file: x}]':
-            "'entry-points[1]' has an unknown field 'file'",
+            "'entry-points[1]' must be `{name:",
       };
       for (final MapEntry(key: source, value: message) in cases.entries) {
         expect(
