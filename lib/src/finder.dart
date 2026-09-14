@@ -512,14 +512,14 @@ class Ciach {
   ) {
     for (final symbol in symbols) {
       _freezed.noteIfAnnotated(path, symbol, strippedLines);
-      final extensionShape = symbol.kind == .namespace
-          ? _sources.extensionShape(path, symbol)
+      final extensionSyntax = symbol.kind == .namespace
+          ? _sources.extensionSyntax(path, symbol)
           : null;
       if (_shouldConsider(
         symbol,
         parentIsEnum,
         strippedLines,
-        extensionShape,
+        extensionSyntax,
       )) {
         out.add(
           Candidate(
@@ -535,8 +535,8 @@ class Ciach {
             isPreventInstantiationCtor: symbol.isPreventInstantiationMarker(
               symbols,
             ),
-            isUnnamedExtension: extensionShape == .unnamed,
-            isExtensionType: extensionShape == .extensionType,
+            isUnnamedExtension: extensionSyntax == .unnamedExtension,
+            isExtensionType: extensionSyntax == .extensionType,
           ),
         );
       }
@@ -558,12 +558,12 @@ class Ciach {
     DocumentSymbol symbol,
     bool parentIsEnum,
     List<String> strippedLines,
-    ExtensionShape? extensionShape,
+    ExtensionSyntax? extensionSyntax,
   ) {
     if (!options.kinds.contains(
       symbol.reportedKind(
         parentIsEnum: parentIsEnum,
-        isExtensionType: extensionShape == .extensionType,
+        isExtensionType: extensionSyntax == .extensionType,
       ),
     )) {
       return false;
@@ -573,7 +573,7 @@ class Ciach {
       return false;
     }
     // A `namespace` whose shape the lexer can't confirm.
-    if (symbol.kind == .namespace && extensionShape == null) {
+    if (symbol.kind == .namespace && extensionSyntax == null) {
       return false;
     }
     if (!isPrivateName(symbol.name) && !options.includePublic) {
@@ -642,8 +642,8 @@ class Ciach {
 
   bool _isInUnnamedExtension(Candidate candidate) =>
       candidate.isExtensionMember &&
-      _sources.extensionShape(candidate.path, candidate.containerSymbol!) ==
-          .unnamed;
+      _sources.extensionSyntax(candidate.path, candidate.containerSymbol!) ==
+          .unnamedExtension;
 
   /// Whether [candidate] goes with an already-dead class's own declaration —
   /// any constructor, or a declaring parameter — so a single removal is not
