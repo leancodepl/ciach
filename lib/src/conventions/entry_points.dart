@@ -20,7 +20,7 @@ final class EntryPoint {
   ///
   /// Throws a [FormatException] for a [name] that is not an identifier
   /// (optionally `Container.member`) or a glob that does not parse.
-  factory EntryPoint.project(String name, {List<String> files = const []}) {
+  factory EntryPoint.fromConfig(String name, {List<String> files = const []}) {
     if (!_qualifiedName.hasMatch(name)) {
       throw FormatException(
         "'$name' is not a declaration name; expected an identifier such as 'registerWith' or 'MyPlugin.registerWith'.",

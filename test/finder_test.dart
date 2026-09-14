@@ -1026,15 +1026,15 @@ void main() {
       () async {
         final result = await runEntryPoints(
           entryPoints: [
-            EntryPoint.project(
+            EntryPoint.fromConfig(
               'integrationMain',
               files: ['lib/scenarios/entry_points.dart'],
             ),
-            EntryPoint.project(
+            EntryPoint.fromConfig(
               'Plugin.registerWith',
               files: ['**/entry_points.dart'],
             ),
-            EntryPoint.project('bootstrap'),
+            EntryPoint.fromConfig('bootstrap'),
           ],
         );
 
@@ -1053,7 +1053,7 @@ void main() {
       () async {
         final result = await runEntryPoints(
           entryPoints: [
-            EntryPoint.project('bootstrap', files: ['bin/**']),
+            EntryPoint.fromConfig('bootstrap', files: ['bin/**']),
           ],
         );
         expect(
@@ -1067,8 +1067,8 @@ void main() {
       final lines = <String>[];
       await runEntryPoints(
         entryPoints: [
-          EntryPoint.project('bootstrap'),
-          EntryPoint.project('Plugin.registerWith'),
+          EntryPoint.fromConfig('bootstrap'),
+          EntryPoint.fromConfig('Plugin.registerWith'),
         ],
         onProgress: lines.add,
       );
