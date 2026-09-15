@@ -84,7 +84,7 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
       p.split(p.relative(absolute, from: rootPath)),
     );
 
-    if (_isInSkippedDir(relative)) {
+    if (isInSkippedDir(relative)) {
       continue;
     }
     if (!options.includeGenerated &&
@@ -108,7 +108,7 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
   return (candidates: candidates, warmOnly: warmOnly);
 }
 
-bool _isInSkippedDir(String relativePath) =>
+bool isInSkippedDir(String relativePath) =>
     p.split(relativePath).any(_skippedDirs.contains);
 
 bool _isGenerated(

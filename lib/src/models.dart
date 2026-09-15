@@ -135,6 +135,9 @@ class FinderOptions {
   /// [SymbolKind.typeParameter] (always "used" within its scope) and the
   /// primitive value kinds the server never emits for Dart declarations.
   ///
+  /// The server reports an `extension` as [SymbolKind.namespace]; an
+  /// `extension type` shares it and is remapped to [SymbolKind.struct].
+  ///
   /// Operator overloads are *not* a separate kind here: the analysis server
   /// reports them as plain [SymbolKind.method] declarations named `+`, `==`,
   /// etc. — see [skipOperators] for how they're excluded by default instead.
@@ -142,6 +145,7 @@ class FinderOptions {
     .class$,
     .interface$,
     .enum$,
+    .namespace,
     .struct,
     .function,
     .method,
@@ -161,6 +165,8 @@ extension SymbolKindLabel on SymbolKind {
     .class$ => 'class',
     .enum$ => 'enum',
     .interface$ => 'interface',
+    .namespace => 'extension',
+    .struct => 'extension type',
     .operator$ => 'operator',
     .null$ => 'null',
     .enumMember => 'enum value',
@@ -266,6 +272,20 @@ class UnusedDeclaration {
     'container': ?container,
     'hint': ?hint,
   };
+}
+
+/// A file `--remove` deleted, and the files unlinked from it. Root-relative
+/// `/`-paths.
+typedef DeletedFile = ({String filePath, List<String> unlinkedFrom});
+
+/// What `removeDeclarations` did.
+class RemovalResult {
+  const RemovalResult({required this.filesChanged, required this.deletedFiles});
+
+  /// Files declarations were removed from, deleted ones included.
+  final int filesChanged;
+
+  final List<DeletedFile> deletedFiles;
 }
 
 /// A declaration that had no reported references but was confirmed used by the
