@@ -116,6 +116,9 @@ exclude: ['test/**', 'tool/**']   # repeatable options take a list, or a bare st
 kinds: [class, function, method]
 format: github
 set-exit-if-changed: true
+entry-points:                     # file-only; see Entry points below
+  - name: MyPlugin.registerWith
+    glob: 'lib/my_plugin.dart'
 ```
 
 Command line beats config file beats default, even when the flag matches the
@@ -249,6 +252,7 @@ that cost.
 | Skipped | Why | Flag |
 | --- | --- | --- |
 | `main` | the entry point is never unused | — |
+| `testExecutable` in a `flutter_test_config.dart` | called by the `flutter test` bootstrap | [`entry-points:`](#entry-points) adds more |
 | `@override` members | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses | `--overrides` |
 | Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--operators` |
 | `call` methods | implicit-call syntax (`obj(…)`) is unresolvable the same way | — |
@@ -263,6 +267,28 @@ like any other. A sole zero-parameter `ClassName._()` — the classic
 prevent-instantiation marker — is reported with a hint suggesting `abstract final
 class` instead. See [example/](example) for a runnable demonstration of each case.
 
+### Entry points
+
+Some declarations are only ever called from code a tool generates: `flutter
+test` runs `testExecutable` from the nearest `flutter_test_config.dart`,
+flutter_tools calls `MyPlugin.registerWith()` on the plugin class named in
+`pubspec.yaml`. Nothing in the package references them, so they would read as
+dead. ciach knows `main` and `testExecutable`; a project lists its own under
+`entry-points:` in `ciach.yaml`:
+
+```yaml
+entry-points:
+  - name: MyPlugin.registerWith   # a member: `Type.member`, no type parameters
+    glob: 'lib/my_plugin.dart'    # one glob or a list; omit for any file
+  - name: myBuilder               # a build.yaml builder factory
+    glob: 'lib/builder.dart'
+```
+
+A matching declaration is neither reported nor removed, whatever its signature.
+A member rule also keeps its type, while the type's other members are still
+checked. `-v` names each skipped entry point. This setting has no command-line
+form.
+
 ## Limitations
 
 This is a static, reference-based heuristic, so review its output rather than
@@ -272,8 +298,9 @@ deleting blindly:
   package. Prefer `--no-public` there, or treat public findings as advisory.
 - **Reflection, dynamic invocation, and names referenced only from generated
   code you excluded** are invisible to a reference search.
-- **Entry points other than `main`** (isolate entry points, plugin registrants)
-  need excluding or `@pragma('vm:entry-point')`.
+- **Entry points other than `main` and `testExecutable`** (plugin registrants,
+  isolate entry points) need listing under [`entry-points`](#entry-points) or
+  `@pragma('vm:entry-point')`.
 - **A primary constructor shares its class's references**, since a query at the
   header resolves to the class: a never-invoked one only surfaces once the class
   itself is dead.

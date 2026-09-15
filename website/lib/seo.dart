@@ -5,19 +5,38 @@ library;
 
 import 'dart:convert';
 
+import 'package:ciach_website/palette.dart';
 import 'package:ciach_website/site.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
 /// Site-wide `<meta name>` tags rendered by the `Document`.
-const siteMeta = {
+final siteMeta = {
   'author': 'LeanCode',
   'robots': 'index, follow, max-image-preview:large',
-  'theme-color': '#050505',
+  'theme-color': Palette.black.hex,
   'color-scheme': 'dark',
   'application-name': siteName,
   'generator': 'Jaspr',
 };
+
+/// `web/site.webmanifest`, written by `test/assets_test.dart` so its colors
+/// follow the palette.
+final webManifest =
+    '${const JsonEncoder.withIndent('  ').convert({
+      'name': '$siteName — $tagline',
+      'short_name': siteName,
+      'description': 'Finds and removes unused declarations in Dart and Flutter packages.',
+      'start_url': './',
+      'display': 'browser',
+      'background_color': Palette.black.hex,
+      'theme_color': Palette.black.hex,
+      'icons': [
+        {'src': 'favicon.svg', 'sizes': 'any', 'type': 'image/svg+xml'},
+        {'src': 'icon-192.png', 'sizes': '192x192', 'type': 'image/png', 'purpose': 'any maskable'},
+        {'src': 'icon-512.png', 'sizes': '512x512', 'type': 'image/png', 'purpose': 'any maskable'},
+      ],
+    })}\n';
 
 String get _ogImage => '${canonicalUrl}images/og.png';
 

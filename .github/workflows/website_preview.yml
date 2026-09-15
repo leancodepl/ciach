@@ -48,9 +48,9 @@ jobs:
         run: dart pub get
 
       # Renders the icons and the social card again in a pinned Chrome for
-      # Testing and compares them with the committed files, so web/ cannot
-      # drift from favicon.svg, the OgCard component or the stylesheet the
-      # card is built with.
+      # Testing, regenerates favicon.svg and the manifest, and compares them
+      # with the committed files, so web/ cannot drift from the palette, the
+      # OgCard component or the stylesheet the card is built with.
       - name: Compare with committed assets
         run: dart test
 

@@ -1,3 +1,4 @@
+import 'package:ciach_website/palette.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
@@ -62,6 +63,21 @@ enum Icon {
     ],
   );
 }
+
+/// The favicon: [Icon.ciach] in the CTA yellow on a black square, [size]
+/// pixels on a side with corners of [radius] in the 64-unit viewBox. Written
+/// to `web/favicon.svg` and rasterized into the other icons by
+/// `test/assets_test.dart`.
+String faviconSvg({int size = 64, int radius = 14}) =>
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" '
+    'width="$size" height="$size">'
+    '<rect width="64" height="64" rx="$radius" fill="${Palette.black.hex}"/>'
+    '<g transform="translate(8 8) scale(2)" fill="none" '
+    'stroke="${Palette.ctaYellow.hex}" stroke-width="2.4" '
+    'stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '${Icon.ciach.paths.map((d) => '<path d="$d"/>').join()}'
+    '</g></svg>';
 
 /// The ciach word mark: the logo icon next to the package name.
 Component logo({bool large = false}) => span(

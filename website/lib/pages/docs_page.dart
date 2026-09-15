@@ -106,6 +106,12 @@ const _comparison = [
 const _skips = [
   ('main', 'The entry point is never unused.', null),
   (
+    'testExecutable in flutter_test_config.dart',
+    'Called by the `flutter test` bootstrap; `entry-points:` in ciach.yaml '
+        'adds more.',
+    null,
+  ),
+  (
     '@override members',
     'Reached polymorphically or by a framework.',
     '--overrides',
@@ -276,7 +282,7 @@ class DocsPage extends StatelessComponent {
     css('.table code.flag').styles(
       color: accentColor,
       whiteSpace: .noWrap,
-      raw: {'border-color': 'rgba(237, 255, 47, 0.3)'},
+      raw: {'border-color': accentAlpha(0.3).value},
     ),
     css(".table-compare th[scope='row']")
         .styles(color: text2Color, whiteSpace: .normal),
@@ -655,8 +661,9 @@ class DocsPage extends StatelessComponent {
                   ),
                   li(
                     rich(
-                      'Entry points other than `main` need excluding or '
-                      "`@pragma('vm:entry-point')`.",
+                      'Entry points other than `main` and `flutter test`’s '
+                      '`testExecutable` need listing under `entry-points` in '
+                      "ciach.yaml or `@pragma('vm:entry-point')`.",
                     ),
                   ),
                   li(
