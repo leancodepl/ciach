@@ -538,6 +538,8 @@ void main() {
         'extension on String',
         'ShownHelpers.shownButUnused',
         'Hollow',
+        'extension on List<T>',
+        'extension on T',
         'DeadMeters',
         'DeadMeters.scaled',
         'SelfMeters',
@@ -591,6 +593,23 @@ void main() {
     test('an extension with no members and no references is dead', () async {
       final result = await runExtensions();
       expect(findByQualified(result, 'Hollow'), isNotNull);
+    });
+
+    test('an unnamed extension is found when its type parameters stand where '
+        'a name would', () async {
+      final result = await runExtensions();
+      for (final qualified in const [
+        'extension on List<T>',
+        'extension on T',
+      ]) {
+        final decl = findByQualified(result, qualified);
+        expect(decl, isNotNull, reason: '$qualified is dead');
+        expect(decl!.kind, SymbolKind.namespace);
+        expect(decl.column, 1);
+      }
+      // Reported whole, so the members are not findings of their own.
+      expect(findByQualified(result, 'firstOrNothing'), isNull);
+      expect(findByQualified(result, 'deadNested'), isNull);
     });
 
     test('an extension type is a type: dead when nothing names it, reported '

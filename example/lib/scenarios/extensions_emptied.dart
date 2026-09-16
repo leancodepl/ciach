@@ -28,6 +28,18 @@ extension ShownHelpers on int {
 /// No members, no references -> UNUSED (extension).
 extension Hollow on int {}
 
+/// Unnamed and generic, so its type parameters sit where a name would ->
+/// UNUSED (extension).
+extension<T> on List<T> {
+  T? get firstOrNothing => isEmpty ? null : first;
+}
+
+/// A bound with its own generics must not end the type parameters early ->
+/// UNUSED (extension).
+extension<T extends Map<String, List<int>>> on T {
+  int get deadNested => length;
+}
+
 /// Nothing names it -> UNUSED (extension type), with its dead members.
 extension type DeadMeters(int value) {
   int get scaled => value * 2;

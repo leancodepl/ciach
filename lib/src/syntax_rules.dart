@@ -21,6 +21,27 @@ typedef _TypeToken = ({List<Token> tokens, int ti});
 /// is not an extension, and an unnamed extension cannot be referenced by name.
 enum ExtensionSyntax { namedExtension, unnamedExtension, extensionType }
 
+/// The index past a `<…>` at [from], or [from] if none starts there. Counts
+/// depth, so a bound's own generics (`<T extends List<int>>`) don't end it.
+int _pastTypeParameters(List<Token> tokens, int from, int end) {
+  if (from >= end || tokens[from].isWord || tokens[from].value != '<') {
+    return from;
+  }
+  var depth = 0;
+  for (var i = from; i < end; i++) {
+    final t = tokens[i];
+    if (t.isWord) {
+      continue;
+    }
+    if (t.value == '<') {
+      depth++;
+    } else if (t.value == '>' && --depth == 0) {
+      return i + 1;
+    }
+  }
+  return end;
+}
+
 /// Structural, lexer-level checks over a declaration or a reference — the
 /// syntactic special cases the reference classifier layers on top of the raw
 /// "has references?" verdict. They run over the cached token stream in
@@ -208,11 +229,12 @@ extension StructuralChecks on SourceIndex {
       if (t.value != 'extension') {
         continue; // an annotation's name
       }
-      final next = i + 1 < end ? tokens[i + 1] : null;
-      if (next == null || !next.isWord) {
+      // `extension<T> on T` puts its type parameters where a name would go.
+      final next = _pastTypeParameters(tokens, i + 1, end);
+      if (next >= end || !tokens[next].isWord) {
         return null;
       }
-      return switch (next.value) {
+      return switch (tokens[next].value) {
         'type' => .extensionType,
         'on' => .unnamedExtension,
         _ => .namedExtension,

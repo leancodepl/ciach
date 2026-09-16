@@ -15,6 +15,10 @@
   `RemovalResult`. ([#50](https://github.com/leancodepl/ciach/pull/50))
 - Add `-k extension-type`, and make `-k extension` select anything at all: it
   matched a kind the analysis server never emits.
+- Recognize an unnamed generic extension (`extension<T> on List<T>`), whose type
+  parameters stand where a name would. It was skipped, so its dead members were
+  reported one by one and `--remove` left the shell behind.
+  ([#50](https://github.com/leancodepl/ciach/pull/50))
 
 ## 0.4.4
 
