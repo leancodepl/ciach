@@ -58,10 +58,9 @@ class RemoveSafety {
       final candidate = candidates[i];
       final symbol = candidate.symbol;
       final unused = statuses[i] == .unused;
-      if (candidate.isExtensionMember && unused) {
-        if (candidate.containerKey case final key?) {
-          extensionMemberDead.update(key, (n) => n + 1, ifAbsent: () => 1);
-        }
+      if (candidate.containerKey case final key?
+          when candidate.isExtensionMember && unused) {
+        extensionMemberDead.update(key, (n) => n + 1, ifAbsent: () => 1);
       }
       if (candidate.isExtension) {
         // Unnamed extensions on one type share a key; merging can only keep.
