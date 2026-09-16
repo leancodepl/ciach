@@ -568,18 +568,9 @@ class DocsPage extends StatelessComponent {
                     'touches doc-only findings. Run ',
                   ),
                   code([.text('dart format')]),
-                  .text(' afterward and review the diff.'),
-                ]),
-                const p([
                   .text(
-                    'Removal leaves no empty shells: an extension whose '
-                    'every member is dead goes whole, as does an ',
-                  ),
-                  code([.text('extension type')]),
-                  .text(
-                    ' nothing names, and a file left with only '
-                    'library/import/part-of lines is deleted. A file that '
-                    'exports, owns a part, or never had a declaration stays.',
+                    ' afterward and review the diff. A file left with '
+                    'nothing but its imports is deleted too.',
                   ),
                 ]),
                 const h3([.text('Report-only: removal would not compile')]),

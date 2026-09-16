@@ -219,20 +219,9 @@ false-positive risk, which `--overrides` and `--operators` widen considerably.
 [Doc-only findings](#doc-only-findings) are never included. Review the diff, as
 you would after any automated refactor.
 
-Removal leaves no empty shells:
-
-- An `extension` whose every member is dead is removed whole, like a fully dead
-  class. One named by a `show`/`hide` stays, and only its members are reported.
-- An `extension type` is a type: dead when nothing names it, references from its
-  own body aside, and then removed whole. `-k extension-type` selects these.
-- A file left with only `library`/`import`/`part of` lines is deleted, and the
-  `import`/`export`/`part` lines naming it are dropped. A file that `export`s,
-  owns a `part`, appears in a conditional import, or never had a declaration is
-  left alone; a barrel is deleted only once its last live `export` goes.
-
-```
-Removed 4 unused declarations from 2 files. Deleted 1 now-empty file: lib/legacy.dart.
-```
+It also deletes a file it empties, dropping the directives that named it. A
+file left with only `library`/`import`/`part of` lines goes; one that still
+`export`s or owns a `part` stays.
 
 Findings whose removal wouldn't compile are **report-only**: marked `unsafe to
 auto-remove — remove manually` and skipped, along with anything coupled to them.
