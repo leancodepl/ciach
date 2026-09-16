@@ -569,8 +569,8 @@ void main() {
       expect(stale!.kind, SymbolKind.method);
     });
 
-    test("an unnamed extension is reported whole under the server's "
-        'placeholder name, its members unqualified', () async {
+    test('an unnamed extension is reported whole as `extension on <type>`, '
+        'its members unqualified', () async {
       final result = await runExtensions();
       final decl = findByQualified(result, 'extension on String');
       expect(decl, isNotNull);

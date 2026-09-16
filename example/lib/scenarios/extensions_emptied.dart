@@ -14,7 +14,7 @@ extension LiveHelpers on int {
   int stale() => this * 3;
 }
 
-/// Both members dead -> UNUSED, under the server's placeholder name.
+/// Both members dead -> UNUSED. The server names it `extension on String`.
 extension on String {
   String shoutedOnce() => '$this!';
   String shoutedTwice() => '$this!!';

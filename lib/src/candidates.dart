@@ -65,7 +65,7 @@ final class Candidate {
   final bool isPreventInstantiationCtor;
 
   /// `extension on T { … }`: nothing can name it, so it gets no reference
-  /// query.
+  /// query. The server calls it `extension on T`.
   final bool isUnnamedExtension;
 
   /// `extension type Name(…)`: a type, named like a class.
