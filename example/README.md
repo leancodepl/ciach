@@ -37,6 +37,7 @@ expected; each is scanned only by its own test, never by the demo run above.
 | `entry_points.dart`, `entry_points/flutter_test_config.dart` | an entry point is exempt by file and name, whatever its shape, and `entry-points` in `ciach.yaml` adds a project's own |
 | `dot_shorthands.dart`, `dot_shorthand_uses.dart` | every context a `.name` dot shorthand is allowed in, including nested constructor shorthands |
 | `primary_constructors.dart` | primary constructors: a dead declaration in the class header is report-only, while the class body stays removable |
+| `extensions_emptied.dart`, `extensions_emptied_uses.dart` | an extension whose every member is dead is reported (and removed) as the whole extension, unless a `show` names it; an extension type is dead when nothing names it |
 | `xref_*.dart` | the cross-library reference recovery, and telling same-named members apart |
 
 Run the finder against the demo tier from the repository root:
@@ -49,7 +50,7 @@ Expected output:
 
 ```text
 lib/extensions.dart
-  13:7  method  tripled  (public)
+  13:7  method  IntExtras.tripled  (public)
 
 lib/greeting.dart
   15:6  function  danglingFunction  (public)
@@ -97,7 +98,9 @@ Things worth noticing:
 - Declarations that *are* referenced (e.g. `UsedClass`, `registerHandlers`,
   `Direction.north`, the mixin `Loud`) are not reported, no matter which file
   references them from.
-- Constructors are reported as `Class.named` or `Class.new`.
+- Constructors are reported as `Class.named` or `Class.new`; extension members
+  as `Extension.member`. `IntExtras` itself is not reported: an extension is
+  used through its members, and `doubled` is called.
 - `FullyDeadClass` is reported as the whole class, not as its constructor:
   removing the class takes the constructor with it.
 - `_docOnlyMentioned` is reached only by a `[link]` in another declaration's doc

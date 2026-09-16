@@ -94,7 +94,7 @@ ciach --verbose                        # explain each step
 | `-e, --exclude <glob>` | — | Skip files matching the glob (repeatable). |
 | `-i, --include <glob>` | — | Only scan files matching the glob (repeatable). |
 | `--generated-suffix <suffix>` | — | Extra filename suffix (with leading dot) to treat as generated and skip, on top of the built-in set; repeatable. Ignored when `--generated` is set. |
-| `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
+| `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
 | `-f, --format <fmt>` | `text` | `text`, `json`, or `github` (GitHub Actions `::warning` annotations). |
 | `-j, --concurrency <n>` | `16` | Reference queries kept in flight against the analysis server. |
 | `--[no-]color` | auto | Colorize text output. |
@@ -218,6 +218,10 @@ Removal acts on whatever the finder reports, so it inherits the same
 false-positive risk, which `--overrides` and `--operators` widen considerably.
 [Doc-only findings](#doc-only-findings) are never included. Review the diff, as
 you would after any automated refactor.
+
+A file left with only `library`/`import`/`part of` lines is deleted too, and so
+are the `import`s of it elsewhere, so nothing points at a file that is gone. One
+that still `export`s or owns a `part` stays.
 
 Findings whose removal wouldn't compile are **report-only**: marked `unsafe to
 auto-remove — remove manually` and skipped, along with anything coupled to them.

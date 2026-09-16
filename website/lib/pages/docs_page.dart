@@ -568,7 +568,10 @@ class DocsPage extends StatelessComponent {
                     'touches doc-only findings. Run ',
                   ),
                   code([.text('dart format')]),
-                  .text(' afterward and review the diff.'),
+                  .text(
+                    ' afterward and review the diff. A file left with '
+                    'nothing but its imports is deleted too.',
+                  ),
                 ]),
                 const h3([.text('Report-only: removal would not compile')]),
                 ul(classes: 'checklist', [

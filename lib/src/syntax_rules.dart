@@ -11,11 +11,36 @@
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/lexing.dart';
 import 'package:ciach/src/source_index.dart';
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location;
+import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location, SymbolKind;
 
 /// The lexer token at a resolved reference: the file's token stream plus the
 /// index of the referenced type name.
 typedef _TypeToken = ({List<Token> tokens, int ti});
+
+/// What a [SymbolKind.namespace] symbol's tokens open with. An extension type
+/// is not an extension, and an unnamed extension cannot be referenced by name.
+enum ExtensionSyntax { namedExtension, unnamedExtension, extensionType }
+
+/// The index past a `<…>` at [from], or [from] if none starts there. Counts
+/// depth, so a bound's own generics (`<T extends List<int>>`) don't end it.
+int _pastTypeParameters(List<Token> tokens, int from, int end) {
+  if (from >= end || tokens[from].isWord || tokens[from].value != '<') {
+    return from;
+  }
+  var depth = 0;
+  for (var i = from; i < end; i++) {
+    final t = tokens[i];
+    if (t.isWord) {
+      continue;
+    }
+    if (t.value == '<') {
+      depth++;
+    } else if (t.value == '>' && --depth == 0) {
+      return i + 1;
+    }
+  }
+  return end;
+}
 
 /// Structural, lexer-level checks over a declaration or a reference — the
 /// syntactic special cases the reference classifier layers on top of the raw
@@ -187,6 +212,35 @@ extension StructuralChecks on SourceIndex {
       }
     }
     return isFinal;
+  }
+
+  /// `null` when [symbol] doesn't open with the `extension` keyword.
+  ExtensionSyntax? extensionSyntax(String path, DocumentSymbol symbol) {
+    final window = tokenWindow(path, symbol);
+    if (window == null) {
+      return null;
+    }
+    final (:tokens, :start, :end) = window;
+    for (var i = start; i < end; i++) {
+      final t = tokens[i];
+      if (!t.isWord) {
+        continue;
+      }
+      if (t.value != 'extension') {
+        continue; // an annotation's name
+      }
+      // `extension<T> on T` puts its type parameters where a name would go.
+      final next = _pastTypeParameters(tokens, i + 1, end);
+      if (next >= end || !tokens[next].isWord) {
+        return null;
+      }
+      return switch (tokens[next].value) {
+        'type' => .extensionType,
+        'on' => .unnamedExtension,
+        _ => .namedExtension,
+      };
+    }
+    return null;
   }
 
   /// Whether [enumCandidate] iterates its own values via the implicit `values`

@@ -6,6 +6,14 @@
 - Add `entry-points` to `ciach.yaml`: `{name, glob}` rules for a project's own
   tool-called declarations. A member rule keeps its type; `--verbose` names each
   skipped entry point.
+- Check `extension`s and `extension type`s, which were invisible before: a dead
+  one is removed whole rather than having its members stripped and the shell
+  left behind. `-k extension` and `-k extension-type` select them, and members
+  report as `Extension.member`.
+  ([#50](https://github.com/leancodepl/ciach/pull/50))
+- `--remove` deletes a file it leaves with only `library`/`import`/`part of`
+  lines and drops the directives naming it; `removeDeclarations` returns a
+  `RemovalResult`. ([#50](https://github.com/leancodepl/ciach/pull/50))
 
 ## 0.4.4
 
