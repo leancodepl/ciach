@@ -9,10 +9,10 @@
 - Remove a dead `extension` or `extension type` whole, instead of stripping its
   members and leaving the shell. An extension is dead once every member is, an
   extension type once nothing names it; members are now reported as
-  `Extension.member`. ([#48](https://github.com/leancodepl/ciach/issues/48))
+  `Extension.member`. ([#50](https://github.com/leancodepl/ciach/pull/50))
 - `--remove` deletes a file it leaves with only `library`/`import`/`part of`
   lines and drops the directives naming it; `removeDeclarations` returns a
-  `RemovalResult`. ([#48](https://github.com/leancodepl/ciach/issues/48))
+  `RemovalResult`. ([#50](https://github.com/leancodepl/ciach/pull/50))
 - Add `-k extension-type`, and make `-k extension` select anything at all: it
   matched a kind the analysis server never emits.
 
