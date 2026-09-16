@@ -219,9 +219,9 @@ false-positive risk, which `--overrides` and `--operators` widen considerably.
 [Doc-only findings](#doc-only-findings) are never included. Review the diff, as
 you would after any automated refactor.
 
-It also deletes a file it empties, dropping the directives that named it. A
-file left with only `library`/`import`/`part of` lines goes; one that still
-`export`s or owns a `part` stays.
+A file left with only `library`/`import`/`part of` lines is deleted too, and so
+are the `import`s of it elsewhere, so nothing points at a file that is gone. One
+that still `export`s or owns a `part` stays.
 
 Findings whose removal wouldn't compile are **report-only**: marked `unsafe to
 auto-remove — remove manually` and skipped, along with anything coupled to them.
