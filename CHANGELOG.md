@@ -6,19 +6,14 @@
 - Add `entry-points` to `ciach.yaml`: `{name, glob}` rules for a project's own
   tool-called declarations. A member rule keeps its type; `--verbose` names each
   skipped entry point.
-- Remove a dead `extension` or `extension type` whole, instead of stripping its
-  members and leaving the shell. An extension is dead once every member is, an
-  extension type once nothing names it; members are now reported as
-  `Extension.member`. ([#50](https://github.com/leancodepl/ciach/pull/50))
+- Check `extension`s and `extension type`s, which were invisible before: a dead
+  one is removed whole rather than having its members stripped and the shell
+  left behind. `-k extension` and `-k extension-type` select them, and members
+  report as `Extension.member`.
+  ([#50](https://github.com/leancodepl/ciach/pull/50))
 - `--remove` deletes a file it leaves with only `library`/`import`/`part of`
   lines and drops the directives naming it; `removeDeclarations` returns a
   `RemovalResult`. ([#50](https://github.com/leancodepl/ciach/pull/50))
-- Add `-k extension-type`, and make `-k extension` select anything at all: it
-  matched a kind the analysis server never emits.
-- Recognize an unnamed generic extension (`extension<T> on List<T>`), whose type
-  parameters stand where a name would. It was skipped, so its dead members were
-  reported one by one and `--remove` left the shell behind.
-  ([#50](https://github.com/leancodepl/ciach/pull/50))
 
 ## 0.4.4
 
