@@ -5,7 +5,7 @@ description: >-
 # Keep in sync with `ciachVersion` in lib/src/version.dart.
 version: 0.4.5
 repository: https://github.com/leancodepl/ciach
-homepage: https://github.com/leancodepl/ciach
+homepage: https://ciach.leancode.co
 issue_tracker: https://github.com/leancodepl/ciach/issues
 topics:
   - static-analysis
