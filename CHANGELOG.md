@@ -1,4 +1,4 @@
-## Unreleased
+## 0.4.5
 
 - Stop reporting (and removing) `testExecutable` in a `flutter_test_config.dart`,
   which only the `flutter test` bootstrap calls.
