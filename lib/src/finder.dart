@@ -21,6 +21,7 @@ import 'package:ciach/src/cross_library_refs.dart';
 import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
+import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/reference_classifier.dart';
@@ -158,6 +159,8 @@ class Ciach {
         files.length,
         rootPath,
       );
+
+      await _fetchSemanticTokensFor(client, refsByCandidate);
 
       // Phase 3: a secondary check that confirms apparently-unreferenced
       // members are actually unused before they are reported.
@@ -341,6 +344,42 @@ class Ciach {
     });
   }
 
+  /// Fetches the semantic tokens of every referenced file that has none yet.
+  Future<void> _fetchSemanticTokensFor(
+    LspClient client,
+    List<List<Location>> refsByCandidate,
+  ) async {
+    final paths = <String>{
+      for (final refs in refsByCandidate)
+        for (final loc in refs)
+          if (!_sources.hasSemanticTokens(SourceIndex.pathOf(loc.uri)))
+            SourceIndex.pathOf(loc.uri),
+    };
+    if (paths.isEmpty) {
+      return;
+    }
+    _report('Fetching tokens for ${paths.length} referenced file(s)…');
+    await mapPooled(paths.toList(), options.concurrency, (path) async {
+      _sources.cacheSemanticTokens(
+        path,
+        await _semanticTokensOrEmpty(client, path),
+      );
+    });
+  }
+
+  /// The semantic tokens of [path], or an empty list if the server has none.
+  /// A file without tokens reads as all code, which only keeps declarations.
+  Future<List<SemanticToken>> _semanticTokensOrEmpty(
+    LspClient client,
+    String path,
+  ) async {
+    try {
+      return await client.semanticTokens(File(path).uri, _sources.lines(path));
+    } on Object {
+      return const [];
+    }
+  }
+
   /// Runs the secondary definition check for the candidates whose reference
   /// query came back empty — the potential false positives.
   Future<CrossLibraryReferences> _recoverCrossLibraryRefs(
@@ -502,10 +541,12 @@ class Ciach {
     String rootPath,
   ) async {
     final uri = File(path).uri;
-    final (symbols, outline) = await (
+    final (symbols, outline, tokens) = await (
       client.documentSymbol(uri),
       client.outline(uri),
+      _semanticTokensOrEmpty(client, path),
     ).wait;
+    _sources.cacheSemanticTokens(path, tokens);
     final relativePath = relativePosix(path, rootPath);
     final out = <Candidate>[];
     _collectCandidates(
@@ -614,7 +655,7 @@ class Ciach {
   bool _shouldConsider(
     String relativePath,
     Candidate candidate,
-    String leadingMetadata,
+    Iterable<SemanticToken> leadingMetadata,
   ) {
     final symbol = candidate.symbol;
     final container = candidate.container;
@@ -663,11 +704,14 @@ class Ciach {
       return false;
     }
 
-    if (options.skipOverrides && leadingMetadata.contains('@override')) {
+    if (options.skipOverrides &&
+        leadingMetadata.any((t) => t.isAnnotationNamed('override'))) {
       return false;
     }
     // Symbols reachable from native code / reflection are not really unused.
-    if (leadingMetadata.contains('vm:entry-point')) {
+    if (leadingMetadata.any(
+      (t) => t.type == 'string' && t.text.contains('vm:entry-point'),
+    )) {
       return false;
     }
     return true;

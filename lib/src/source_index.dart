@@ -12,6 +12,7 @@ import 'dart:io';
 
 import 'package:ciach/src/lexing.dart';
 import 'package:ciach/src/lsp/outline.dart';
+import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Position;
 
 /// A `[start, end)` slice of a file's token stream: the full token list plus
@@ -26,7 +27,7 @@ typedef TokenWindow = ({List<Token> tokens, int start, int end});
 /// offset or a token, without re-reading or re-lexing a file, lives here.
 class SourceIndex {
   final _lines = <String, List<String>>{};
-  final _strippedContent = <String, String>{};
+  final _semanticTokens = <String, List<SemanticToken>>{};
   final _content = <String, String>{};
   final _lineStarts = <String, List<int>>{};
   final _tokens = <String, List<Token>>{};
@@ -51,19 +52,20 @@ class SourceIndex {
   List<String> lines(String path) =>
       _lines[path] ??= readFile(path)?.split('\n') ?? const [];
 
-  /// [content] with comments blanked out, offsets preserved.
-  String strippedContent(String path) =>
-      _strippedContent[path] ??= stripComments(content(path));
-
-  /// The doc comment and annotations of [outline], comments blanked out.
-  String leadingMetadata(String path, Outline outline) {
-    final start = offsetOf(path, outline.range.start);
-    final end = offsetOf(path, outline.codeRange.start);
-    if (start == null || end == null || end <= start) {
-      return '';
-    }
-    return strippedContent(path).substring(start, end);
+  void cacheSemanticTokens(String path, List<SemanticToken> tokens) {
+    _semanticTokens[path] = tokens;
   }
+
+  List<SemanticToken>? semanticTokens(String path) => _semanticTokens[path];
+
+  bool hasSemanticTokens(String path) => _semanticTokens.containsKey(path);
+
+  /// The tokens of [outline]'s doc comment and annotations.
+  Iterable<SemanticToken> leadingMetadata(String path, Outline outline) =>
+      semanticTokens(
+        path,
+      )?.between(outline.range.start, outline.codeRange.start) ??
+      const [];
 
   /// Records the [lines] of a file already opened in the analysis server, so
   /// its content isn't re-read from disk, and marks the file as scanned.

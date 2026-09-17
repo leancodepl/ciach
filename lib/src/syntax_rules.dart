@@ -10,6 +10,7 @@
 
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/lexing.dart';
+import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location;
 
@@ -142,51 +143,42 @@ extension StructuralChecks on SourceIndex {
   /// (not `static`/`const`). Such a field relies on a constructor to be
   /// initialized, so removing the class's sole constructor would strand it
   /// (`final_not_initialized`).
-  bool classHasFinalInstanceField(Candidate classCandidate) =>
-      classCandidate.symbol.children?.any(
-        (child) =>
-            child.kind == .field &&
-            _isFinalInstanceField(classCandidate.path, child),
-      ) ??
-      false;
-
-  /// Whether [field] in [path] is declared `final` and is an *instance* field,
-  /// determined by scanning the declaration's modifier/type prefix — the tokens
-  /// between the field name and the enclosing class body `{` or the previous
-  /// member's terminating `;`. A `static` or `const` modifier disqualifies it
-  /// (those don't depend on a constructor).
-  bool _isFinalInstanceField(String path, DocumentSymbol field) {
-    final ti = tokenIndexAtPosition(path, field.selectionRange.start);
-    if (ti == null) {
-      return false;
-    }
-    final toks = tokens(path);
-    var isFinal = false;
-    var depth = 0;
-    for (var i = ti - 1; i >= 0; i--) {
-      final t = toks[i];
-      if (t.isWord) {
-        if (t.value case 'static' || 'const') {
-          return false;
+  ///
+  /// Only the first declarator's outline range includes the statement's
+  /// modifiers (`b` in `final int a, b;` starts at its name), so the modifiers
+  /// are read from that range.
+  bool classHasFinalInstanceField(Candidate classCandidate) {
+    final path = classCandidate.path;
+    Outline? statementStart;
+    for (final member in classCandidate.outline.children) {
+      if (member.element.kind != .field) {
+        statementStart = null;
+        continue;
+      }
+      if (member.hasLeadingMetadata) {
+        statementStart = member;
+      }
+      if (statementStart == null) {
+        continue;
+      }
+      var isFinal = false;
+      for (final token in leadingMetadata(path, statementStart)) {
+        if (!token.isKeyword) {
+          continue;
         }
-        if (t.value == 'final') {
+        if (token.text case 'static' || 'const') {
+          isFinal = false;
+          break;
+        }
+        if (token.text == 'final') {
           isFinal = true;
         }
-      } else if (t.isCloser) {
-        depth++;
-      } else if (t.isOpener) {
-        // A `{` at depth 0 is the class body's opening brace, and an unmatched
-        // `(`/`[` there means the prefix's start — either way, the field
-        // declaration begins here.
-        if (depth == 0) {
-          return isFinal;
-        }
-        depth--;
-      } else if (t.value == ';' && depth == 0) {
-        return isFinal; // previous member/statement boundary
+      }
+      if (isFinal) {
+        return true;
       }
     }
-    return isFinal;
+    return false;
   }
 
   /// Whether [enumCandidate] iterates its own values via the implicit `values`

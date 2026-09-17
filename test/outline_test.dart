@@ -1,9 +1,5 @@
-import 'dart:io';
-
 import 'package:ciach/src/conventions/serialization.dart';
 import 'package:ciach/src/lsp/outline.dart';
-import 'package:ciach/src/source_index.dart';
-import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show Position;
 import 'package:test/test.dart';
 
@@ -104,52 +100,6 @@ void main() {
         element('CLASS', 'extension on String').isUnnamedExtension,
         isFalse,
       );
-    });
-  });
-
-  group('SourceIndex.leadingMetadata', () {
-    late Directory tempDir;
-
-    setUp(() {
-      tempDir = Directory.systemTemp.createTempSync('ciach_outline_test_');
-    });
-
-    tearDown(() {
-      tempDir.deleteSync(recursive: true);
-    });
-
-    test('is the annotations before the code, with comments blanked', () {
-      const source = '''
-/// Talks about @override in prose.
-@override
-@pragma('vm:entry-point')
-void f() {}
-''';
-      final path = p.join(tempDir.path, 'a.dart');
-      File(path).writeAsStringSync(source);
-      final sources = SourceIndex();
-      final outline = Outline.fromJson({
-        'element': {'kind': 'FUNCTION', 'name': 'f'},
-        'range': range(0, 0, 3, 11),
-        'codeRange': range(3, 0, 3, 11),
-      });
-
-      final leading = sources.leadingMetadata(path, outline);
-      expect(leading, contains('@override'));
-      expect(leading, contains("@pragma('vm:entry-point')"));
-      expect(leading, isNot(contains('prose')));
-      expect(leading, isNot(contains('void f')));
-    });
-
-    test('is empty for a declaration without metadata', () {
-      final path = p.join(tempDir.path, 'b.dart');
-      File(path).writeAsStringSync('void f() {}\n');
-      final outline = Outline.fromJson({
-        'element': {'kind': 'FUNCTION', 'name': 'f'},
-        'range': range(0, 0, 0, 11),
-        'codeRange': range(0, 0, 0, 11),
-      });
-      expect(SourceIndex().leadingMetadata(path, outline), isEmpty);
     });
   });
 

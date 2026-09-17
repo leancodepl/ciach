@@ -144,6 +144,10 @@ extension PositionGeometry on Position {
   bool atOrBefore(Position end) =>
       line < end.line || (line == end.line && character <= end.character);
 
+  /// Whether this position is before [other].
+  bool isBefore(Position other) =>
+      line < other.line || (line == other.line && character < other.character);
+
   /// Whether this position falls within [symbol]'s full source range.
   bool within(DocumentSymbol symbol) {
     final start = symbol.range.start;

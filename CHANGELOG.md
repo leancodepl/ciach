@@ -5,6 +5,10 @@
   analyzer delimits them: a multi-line annotation goes with it, a `//` comment
   above it stays. `UnusedDeclaration` gains `fullRange`.
   ([#53](https://github.com/leancodepl/ciach/pull/53))
+- Read comments and annotations from the analysis server's semantic tokens.
+  Dartdoc links in `/** */` comments count as doc-only references, and
+  `@override` and `vm:entry-point` are detected by annotation, not by text.
+  ([#54](https://github.com/leancodepl/ciach/pull/54))
 
 ## 0.4.5
 

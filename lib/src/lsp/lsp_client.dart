@@ -14,6 +14,7 @@ import 'dart:io';
 
 import 'package:ciach/src/dart_executable.dart';
 import 'package:ciach/src/lsp/outline.dart';
+import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/version.dart';
 import 'package:pro_lsp/pro_lsp.dart' as lsp;
 import 'package:stream_channel/stream_channel.dart';
@@ -56,14 +57,13 @@ class LspClient {
   final _stderrBuffer = StringBuffer();
   bool _shuttingDown = false;
 
-  List<String> _semanticTokenTypes = const [];
+  SemanticTokensLegend _semanticTokensLegend = SemanticTokensLegend.empty;
 
   /// Everything the server wrote to stderr (useful when things go wrong).
   String get stderr => _stderrBuffer.toString();
 
-  /// The ordered token-type names a `textDocument/semanticTokens` response
-  /// indexes into. Empty until [initialize], or if the server sends no legend.
-  List<String> get semanticTokenTypes => _semanticTokenTypes;
+  /// The legend for `semanticTokens` responses. Empty until [initialize].
+  SemanticTokensLegend get semanticTokensLegend => _semanticTokensLegend;
 
   /// Spawns `<dart> language-server --protocol=lsp` and wires up the client.
   ///
@@ -148,7 +148,9 @@ class LspClient {
         ),
       ),
     );
-    _semanticTokenTypes = _legendTokenTypes(result.capabilities);
+    _semanticTokensLegend = SemanticTokensLegend.fromCapabilities(
+      result.capabilities.toJson(),
+    );
   }
 
   /// Runs [request]; if the server died meanwhile, throws its exit code and
@@ -167,16 +169,6 @@ class LspClient {
       rethrow;
     }
   }
-
-  /// Reads the legend from raw capabilities JSON to avoid depending on the
-  /// `semanticTokensProvider` union's typed shape. Empty if absent.
-  static List<String> _legendTokenTypes(lsp.ServerCapabilities capabilities) =>
-      switch (capabilities.toJson()['semanticTokensProvider']) {
-        {'legend': {'tokenTypes': final List<Object?> types}} => [
-          for (final t in types) '$t',
-        ],
-        _ => const [],
-      };
 
   void _onAnalyzerStatus(Object? params) {
     final analyzing = params is Map && params['isAnalyzing'] == true;
@@ -322,15 +314,21 @@ class LspClient {
     return definition?.asLocationList ?? [?definition?.asLocation];
   }
 
-  /// The raw, delta-encoded `textDocument/semanticTokens/full` data for [uri],
-  /// or empty when the server produces no tokens.
-  Future<List<int>> semanticTokensFull(Uri uri) async {
+  /// The semantic tokens of [uri], with each token's text taken from [lines].
+  Future<List<SemanticToken>> semanticTokens(
+    Uri uri,
+    List<String> lines,
+  ) async {
     final result = await _guard(
       () => _client.server.textDocument.semanticTokensFull(
         .new(textDocument: .new(uri: uri.toString())),
       ),
     );
-    return result?.data ?? const [];
+    return decodeSemanticTokens(
+      result?.data ?? const [],
+      _semanticTokensLegend,
+      lines,
+    );
   }
 
   /// Gracefully shuts the server down and terminates the process.
