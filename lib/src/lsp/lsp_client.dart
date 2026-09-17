@@ -331,6 +331,29 @@ class LspClient {
     );
   }
 
+  /// The syntax nodes enclosing each of [positions] in [uri], innermost first.
+  /// `null` where the server has no answer.
+  Future<List<lsp.SelectionRange?>> selectionRanges(
+    Uri uri,
+    List<lsp.Position> positions,
+  ) async {
+    if (positions.isEmpty) {
+      return const [];
+    }
+    final result = await _guard(
+      () => _client.server.textDocument.selectionRange(
+        .new(
+          textDocument: .new(uri: uri.toString()),
+          positions: positions,
+        ),
+      ),
+    );
+    if (result == null || result.length != positions.length) {
+      return List.filled(positions.length, null);
+    }
+    return result;
+  }
+
   /// Gracefully shuts the server down and terminates the process.
   Future<void> dispose() async {
     _shuttingDown = true;

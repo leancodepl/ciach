@@ -30,7 +30,8 @@ import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:ciach/src/syntax_rules.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location, Range;
+import 'package:pro_lsp/pro_lsp.dart'
+    show DocumentSymbol, Location, Position, Range, SelectionRange;
 
 /// Finds declarations that are never referenced by driving the Dart analysis
 /// server over LSP.
@@ -161,6 +162,7 @@ class Ciach {
       );
 
       await _fetchSemanticTokensFor(client, refsByCandidate);
+      await _fetchSelectionRanges(client, candidates, refsByCandidate);
 
       // Phase 3: a secondary check that confirms apparently-unreferenced
       // members are actually unused before they are reported.
@@ -364,6 +366,60 @@ class Ciach {
         path,
         await _semanticTokensOrEmpty(client, path),
       );
+    });
+  }
+
+  /// Fetches the selection ranges the structural checks need, one request per
+  /// file.
+  Future<void> _fetchSelectionRanges(
+    LspClient client,
+    List<Candidate> candidates,
+    List<List<Location>> refsByCandidate,
+  ) async {
+    final positionsByPath = <String, Set<Position>>{};
+    void add(String path, Position position) =>
+        positionsByPath.putIfAbsent(path, () => {}).add(position);
+
+    for (var i = 0; i < candidates.length; i++) {
+      final candidate = candidates[i];
+      final kind = candidate.symbol.kind;
+      final isEnumType = kind == .enum$ && !candidate.isEnumValue;
+      if (isEnumType || (kind == .class$ && options.unusedUnionMembers)) {
+        for (final loc in refsByCandidate[i]) {
+          add(SourceIndex.pathOf(loc.uri), loc.range.start);
+        }
+      }
+      if (isEnumType) {
+        for (final token in _sources.valuesTokensIn(candidate)) {
+          add(candidate.path, token.start);
+        }
+      }
+      if (kind == .constructor) {
+        if (_sources.redirectProbePosition(candidate) case final position?) {
+          add(candidate.path, position);
+        }
+      }
+    }
+    if (positionsByPath.isEmpty) {
+      return;
+    }
+    _report('Fetching syntax nodes in ${positionsByPath.length} file(s)…');
+    await mapPooled(positionsByPath.entries.toList(), options.concurrency, (
+      entry,
+    ) async {
+      final MapEntry(key: path, value: positions) = entry;
+      final ordered = positions.toList();
+      List<SelectionRange?> ranges;
+      try {
+        ranges = await client.selectionRanges(File(path).uri, ordered);
+      } on Object {
+        return; // a position with no answer reads as "not the special shape"
+      }
+      for (var i = 0; i < ordered.length; i++) {
+        if (ranges[i] case final range?) {
+          _sources.cacheSelectionRange(path, ordered[i], range);
+        }
+      }
     });
   }
 

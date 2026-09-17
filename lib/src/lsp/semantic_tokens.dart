@@ -1,5 +1,5 @@
 import 'package:ciach/src/symbols.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Position;
+import 'package:pro_lsp/pro_lsp.dart' show Position, Range;
 
 /// The token type and modifier names a `semanticTokens` response indexes into.
 final class SemanticTokensLegend {
@@ -138,6 +138,12 @@ extension SemanticTokenLookup on List<SemanticToken> {
   SemanticToken? startingAt(Position position) {
     final i = firstIndexAtOrAfter(position);
     return i < length && this[i].start == position ? this[i] : null;
+  }
+
+  /// The last token starting within [range].
+  SemanticToken? lastIn(Range range) {
+    final i = firstIndexAtOrAfter(range.end) - 1;
+    return i >= 0 && !this[i].start.isBefore(range.start) ? this[i] : null;
   }
 
   /// The tokens starting at or after [from] and before [to].

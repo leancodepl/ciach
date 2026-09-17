@@ -9,6 +9,9 @@
   Dartdoc links in `/** */` comments count as doc-only references, and
   `@override` and `vm:entry-point` are detected by annotation, not by text.
   ([#54](https://github.com/leancodepl/ciach/pull/54))
+- Read the syntax around a reference from the analysis server's selection
+  ranges instead of a built-in lexer.
+  ([#55](https://github.com/leancodepl/ciach/pull/55))
 
 ## 0.4.5
 

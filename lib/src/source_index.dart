@@ -13,7 +13,8 @@ import 'dart:io';
 import 'package:ciach/src/lexing.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Position;
+import 'package:pro_lsp/pro_lsp.dart'
+    show DocumentSymbol, Position, SelectionRange;
 
 /// A `[start, end)` slice of a file's token stream: the full token list plus
 /// the index bounds of the tokens covered. Callers iterate `[start, end)` but
@@ -28,6 +29,7 @@ typedef TokenWindow = ({List<Token> tokens, int start, int end});
 class SourceIndex {
   final _lines = <String, List<String>>{};
   final _semanticTokens = <String, List<SemanticToken>>{};
+  final _selectionRanges = <String, Map<(int, int), SelectionRange>>{};
   final _content = <String, String>{};
   final _lineStarts = <String, List<int>>{};
   final _tokens = <String, List<Token>>{};
@@ -59,6 +61,21 @@ class SourceIndex {
   List<SemanticToken>? semanticTokens(String path) => _semanticTokens[path];
 
   bool hasSemanticTokens(String path) => _semanticTokens.containsKey(path);
+
+  void cacheSelectionRange(
+    String path,
+    Position position,
+    SelectionRange selectionRange,
+  ) {
+    _selectionRanges.putIfAbsent(
+      path,
+      () => {},
+    )[(position.line, position.character)] = selectionRange;
+  }
+
+  /// The syntax nodes enclosing [position] in [path], innermost first.
+  SelectionRange? selectionRangeAt(String path, Position position) =>
+      _selectionRanges[path]?[(position.line, position.character)];
 
   /// The tokens of [outline]'s doc comment and annotations.
   Iterable<SemanticToken> leadingMetadata(String path, Outline outline) =>
