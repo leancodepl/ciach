@@ -230,7 +230,7 @@ auto-remove — remove manually` and skipped, along with anything coupled to the
 | --- | --- |
 | A sealed member matched only by type patterns (`--unused-union-members`) | its `case` arms would need rewriting |
 | Every value of a still-referenced enum | `enum E {}` doesn't compile |
-| The sole constructor of a live class with `final` fields or `super` forwarding | the implicit default constructor can't replace it |
+| The sole constructor of a live class with `final` fields, or whose superclass needs constructor arguments | the implicit default constructor can't replace it |
 | A primary constructor or its declaring parameters | only part of the class header |
 
 ## What it skips by default

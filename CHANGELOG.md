@@ -1,4 +1,4 @@
-## Unreleased
+## 0.5.0
 
 - Read declarations from the analysis server's outline instead of the source
   text. `--remove` deletes a declaration's doc comment and annotations as the

@@ -3,7 +3,7 @@ description: >-
   Finds unused (never-referenced) declarations in a Dart/Flutter package by
   driving the Dart analysis server over LSP and querying textDocument/references.
 # Keep in sync with `ciachVersion` in lib/src/version.dart.
-version: 0.4.5
+version: 0.5.0
 repository: https://github.com/leancodepl/ciach
 homepage: https://ciach.leancode.co
 issue_tracker: https://github.com/leancodepl/ciach/issues
