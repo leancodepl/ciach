@@ -1,7 +1,7 @@
 import 'dart:io';
 
+import 'package:ciach/src/comment_stripping.dart';
 import 'package:ciach/src/file_discovery.dart';
-import 'package:ciach/src/lexing.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:collection/collection.dart';

@@ -13,13 +13,11 @@ import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart'
-    show DocumentSymbol, Location, Position, SelectionRange;
+import 'package:pro_lsp/pro_lsp.dart' show Location, Position, SelectionRange;
 
 /// Structural checks over a declaration or a reference, read from the
-/// server's semantic tokens and selection ranges cached in [SourceIndex]. Two
-/// constructor checks still scan the lexer's tokens. When a check cannot
-/// confirm a shape, it answers in the direction that keeps code.
+/// server's semantic tokens and selection ranges cached in [SourceIndex]. When
+/// a check cannot confirm a shape, it answers in the direction that keeps code.
 extension StructuralChecks on SourceIndex {
   /// Whether [ctor] is a redirecting factory, `factory X(..) = Target;`.
   ///
@@ -64,87 +62,28 @@ extension StructuralChecks on SourceIndex {
     return tokens.lastOrNull?.start;
   }
 
-  /// Whether [ctor] forwards to a super constructor *with arguments* — a
-  /// `super.<field>` parameter or a non-empty `super(...)` call. Such a
-  /// constructor exists to satisfy a superclass whose unnamed constructor is
-  /// not zero-arg; removing it (leaving an implicit default constructor that
-  /// calls `super()`) would fail to compile (`no_default_super_constructor`).
-  /// A bare `super()` is not forwarding.
-  ///
-  /// Deliberately conservative: a `super.method()` call in the body is also
-  /// treated as forwarding, which can over-block a safe removal — the tool
-  /// reports the finding rather than risk a build break.
-  bool ctorForwardsSuper(Candidate ctor) {
-    final window = tokenWindow(ctor.path, ctor.symbol);
-    if (window == null) {
-      return false;
-    }
-    final (:tokens, :start, :end) = window;
-    for (var i = start; i < end; i++) {
-      final t = tokens[i];
-      if (!t.isWord || t.value != 'super' || i + 1 >= tokens.length) {
-        continue;
-      }
-      final next = tokens[i + 1];
-      if (next.isWord) {
-        continue;
-      }
-      switch (next.value) {
-        case '.':
-          return true;
-        case '(':
-          final after = i + 2 < tokens.length ? tokens[i + 2] : null;
-          final emptyCall =
-              after != null && !after.isWord && after.value == ')';
-          if (!emptyCall) {
-            return true;
-          }
-      }
-    }
-    return false;
-  }
-
-  /// Whether [candidate] starts before its type's body does: a primary
+  /// Whether [candidate] is declared in its type's header: a primary
   /// constructor (`class const Point._(…)`) or a declaring parameter
-  /// (`var int x`). Deleting either alone leaves a `class ;` fragment or
-  /// changes the constructor's signature.
+  /// (`var int x`). Removing either alone breaks the type.
+  ///
+  /// Walks outwards from the name to the first node ending where the type
+  /// ends: the body for a body member, the type itself for a header
+  /// declaration.
   bool isDeclaredInTypeHeader(Candidate candidate) {
-    final type = candidate.containerSymbol;
+    final type = candidate.containerOutline;
     if (type == null) {
       return false;
     }
-    final headerEnd = _typeHeaderEnd(candidate.path, type);
-    final start = offsetOf(candidate.path, candidate.symbol.range.start);
-    return headerEnd != null && start != null && start < headerEnd;
-  }
-
-  /// Where [type]'s header ends: its body `{`, or the `;` of a bodyless
-  /// declaration. Parens are tracked so a named parameter group's `{`
-  /// (`class C({required var int x})`) isn't taken for the body brace.
-  int? _typeHeaderEnd(String path, DocumentSymbol type) {
-    final window = tokenWindow(path, type);
-    if (window == null) {
-      return null;
+    final end = type.codeRange.end;
+    var node = selectionRangeAt(
+      candidate.path,
+      candidate.symbol.selectionRange.start,
+    );
+    while (node != null && node.range.end != end) {
+      node = node.parent;
     }
-    final (:tokens, :start, :end) = window;
-    var depth = 0;
-    for (var i = start; i < end; i++) {
-      final t = tokens[i];
-      if (t.isWord) {
-        continue;
-      }
-      switch (t.value) {
-        case '(' || '[':
-          depth++;
-        case ')' || ']':
-          if (depth > 0) {
-            depth--;
-          }
-        case '{' || ';' when depth == 0:
-          return t.start;
-      }
-    }
-    return null;
+    return node != null &&
+        (node.range == type.codeRange || node.range == type.range);
   }
 
   /// Whether [classCandidate] declares at least one `final` *instance* field

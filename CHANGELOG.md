@@ -12,6 +12,10 @@
 - Read the syntax around a reference from the analysis server's selection
   ranges instead of a built-in lexer.
   ([#55](https://github.com/leancodepl/ciach/pull/55))
+- Ask the analysis server about a class's superclass before blocking the
+  removal of its last constructor: a `StatelessWidget` subclass is no longer
+  blocked on `super.key`. The built-in Dart lexer is gone.
+  ([#56](https://github.com/leancodepl/ciach/pull/56))
 
 ## 0.4.5
 

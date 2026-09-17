@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/src/candidates.dart';
+import 'package:ciach/src/conventions/flutter_widgets.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source_index.dart';
@@ -290,6 +291,129 @@ class Foo {
       final c = ctor('Foo.c', range(4, 2, 4, 21), range(4, 6, 4, 7));
       expect(sources.redirectProbePosition(c), isNull);
       expect(sources.isRedirectingFactory(c), isFalse);
+    });
+  });
+
+  group('isDeclaredInTypeHeader', () {
+    const source = '''
+class Point(var int x) {
+  int get sum => x;
+}
+''';
+    final classRange = range(0, 0, 2, 1);
+    final classOutline = Outline(
+      element: const OutlineElement(kind: .class$, name: 'Point'),
+      range: classRange,
+      codeRange: classRange,
+      children: const [],
+    );
+    final nodes = {
+      // var int x > (var int x) > Point(var int x) > class Point(var int x) { … }
+      at(0, 20): chain([
+        range(0, 12, 0, 21),
+        range(0, 11, 0, 22),
+        range(0, 6, 0, 22),
+        classRange,
+      ]),
+      // int get sum => x; > { … } > class …
+      at(1, 10): chain([range(1, 2, 1, 19), range(0, 23, 2, 1), classRange]),
+    };
+
+    Candidate member(String name, SymbolKind kind, Range nameRange) =>
+        Candidate(
+          uri: File(path).uri,
+          path: path,
+          symbol: DocumentSymbol(
+            name: name,
+            kind: kind,
+            range: nameRange,
+            selectionRange: nameRange,
+          ),
+          outline: Outline(
+            element: OutlineElement(kind: .field, name: name),
+            range: nameRange,
+            codeRange: nameRange,
+            children: const [],
+          ),
+          container: 'Point',
+          containerOutline: classOutline,
+          isEnumValue: false,
+          isPreventInstantiationCtor: false,
+        );
+
+    setUp(() => load(source, const [], nodes));
+
+    test('a declaring parameter is in the header', () {
+      expect(
+        sources.isDeclaredInTypeHeader(
+          member('x', SymbolKind.field, range(0, 20, 0, 21)),
+        ),
+        isTrue,
+      );
+    });
+
+    test('a body member is not, nor is one without nodes', () {
+      expect(
+        sources.isDeclaredInTypeHeader(
+          member('sum', SymbolKind.property, range(1, 10, 1, 13)),
+        ),
+        isFalse,
+      );
+      expect(
+        sources.isDeclaredInTypeHeader(
+          member('other', SymbolKind.property, range(1, 14, 1, 15)),
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  group('isStatePairingReference', () {
+    const source = '''
+class _S extends State<Foo> {
+  State<Foo> s = State<Foo>();
+}
+''';
+    final tokens = [
+      token(0, 0, 'class', 'keyword'),
+      token(0, 6, '_S', 'class', modifiers: {'declaration'}),
+      token(0, 9, 'extends', 'keyword'),
+      token(0, 17, 'State', 'class'),
+      token(0, 23, 'Foo', 'class'),
+      token(1, 2, 'State', 'class'),
+      token(1, 8, 'Foo', 'class'),
+      token(1, 13, 's', 'variable', modifiers: {'declaration', 'instance'}),
+      token(1, 17, 'State', 'class', modifiers: {'constructor'}),
+      token(1, 23, 'Foo', 'class'),
+    ];
+    final nodes = {
+      // Foo > <Foo> > State<Foo> > extends State<Foo> > class …
+      at(0, 23): chain([
+        range(0, 23, 0, 26),
+        range(0, 22, 0, 27),
+        range(0, 17, 0, 27),
+        range(0, 9, 0, 27),
+        range(0, 0, 2, 1),
+      ]),
+      // Foo > <Foo> > State<Foo> > State<Foo> s = State<Foo>(); > { … }
+      at(1, 8): chain([
+        range(1, 8, 1, 11),
+        range(1, 7, 1, 12),
+        range(1, 2, 1, 12),
+        range(1, 2, 1, 30),
+        range(0, 28, 2, 1),
+      ]),
+    };
+
+    setUp(() => load(source, tokens, nodes));
+
+    test('the type argument of State in an extends clause pairs', () {
+      expect(sources.isStatePairingReference('Foo', ref(0, 23, 3)), isTrue);
+      expect(sources.isStatePairingReference('Bar', ref(0, 23, 3)), isFalse);
+    });
+
+    test('a State<Foo> type annotation elsewhere is a real use', () {
+      expect(sources.isStatePairingReference('Foo', ref(1, 8, 3)), isFalse);
     });
   });
 }

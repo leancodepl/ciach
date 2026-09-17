@@ -27,6 +27,7 @@ import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/remove_safety.dart';
 import 'package:ciach/src/source_index.dart';
+import 'package:ciach/src/superclasses.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:ciach/src/syntax_rules.dart';
 import 'package:path/path.dart' as p;
@@ -205,12 +206,13 @@ class Ciach {
         }
       }
 
-      final safety = RemoveSafety.analyze(
+      final safety = await RemoveSafety.analyze(
         _sources,
         candidates,
         statuses,
         refsByCandidate,
         deadClassNames,
+        SuperclassChecks(client).needsConstructorArguments,
       );
 
       for (var i = 0; i < candidates.length; i++) {
@@ -384,10 +386,14 @@ class Ciach {
       final candidate = candidates[i];
       final kind = candidate.symbol.kind;
       final isEnumType = kind == .enum$ && !candidate.isEnumValue;
-      if (isEnumType || (kind == .class$ && options.unusedUnionMembers)) {
+      if (isEnumType || kind == .class$) {
         for (final loc in refsByCandidate[i]) {
           add(SourceIndex.pathOf(loc.uri), loc.range.start);
         }
+      }
+      if ((kind == .constructor || kind == .field) &&
+          candidate.containerOutline != null) {
+        add(candidate.path, candidate.symbol.selectionRange.start);
       }
       if (isEnumType) {
         for (final token in _sources.valuesTokensIn(candidate)) {

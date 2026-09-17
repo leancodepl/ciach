@@ -27,6 +27,9 @@ const _analyzerStatusMethod = r'$/analyzerStatus';
 /// Sent for every open file once `initializationOptions.outline` is set.
 const _publishOutlineMethod = 'dart/textDocument/publishOutline';
 
+/// The Dart-specific "go to super" request.
+const _superMethod = 'dart/textDocument/super';
+
 /// A session with the Dart analysis server, spoken over LSP via `pro_lsp`.
 ///
 /// `pro_lsp` handles JSON-RPC framing, request/response correlation, the typed
@@ -329,6 +332,24 @@ class LspClient {
       _semanticTokensLegend,
       lines,
     );
+  }
+
+  /// The superclass, super constructor or overridden member of the element at
+  /// [position] in [uri]. `null` when there is none.
+  Future<lsp.Location?> superOf(Uri uri, lsp.Position position) async {
+    final result = await _guard(
+      () => _client.connection.sendCustomRequest(
+        _superMethod,
+        lsp.TextDocumentPositionParams(
+          textDocument: .new(uri: uri.toString()),
+          position: position,
+        ).toJson(),
+      ),
+    );
+    return switch (result) {
+      final Map<String, Object?> json => lsp.Location.fromJson(json),
+      _ => null,
+    };
   }
 
   /// The syntax nodes enclosing each of [positions] in [uri], innermost first.
