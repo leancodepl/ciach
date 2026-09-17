@@ -98,7 +98,7 @@ extension FlutterWidgets on SourceIndex {
         )) {
           out.add((
             filePath: relativePosix(state.path, rootPath),
-            range: state.symbol.declarationRange,
+            range: state.outline.range.toDeclarationRange,
           ));
         }
         break;

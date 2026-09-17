@@ -1,3 +1,11 @@
+## Unreleased
+
+- Read declarations from the analysis server's outline instead of the source
+  text. `--remove` deletes a declaration's doc comment and annotations as the
+  analyzer delimits them: a multi-line annotation goes with it, a `//` comment
+  above it stays. `UnusedDeclaration` gains `fullRange`.
+  ([#53](https://github.com/leancodepl/ciach/pull/53))
+
 ## 0.4.5
 
 - Stop reporting (and removing) `testExecutable` in a `flutter_test_config.dart`,

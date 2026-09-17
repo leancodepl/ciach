@@ -110,11 +110,10 @@ class ReferenceClassifier {
   ///    pairing (see [FlutterWidgets.isStatePairingReference]).
   bool isSelfClassReference(Candidate candidate, Location loc) {
     if (SourceIndex.pathOf(loc.uri) == candidate.path) {
-      final top = candidate.symbol.metadataTopLine(
-        _sources.lines(candidate.path),
-      );
+      // A dartdoc link to the class from its own doc comment is a self-reference.
+      final range = candidate.outline.range;
       final pos = loc.range.start;
-      if (pos.line >= top && pos.atOrBefore(candidate.symbol.range.end)) {
+      if (range.start.atOrBefore(pos) && pos.atOrBefore(range.end)) {
         return true;
       }
     }

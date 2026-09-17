@@ -24,6 +24,7 @@ void main() {
     return file.existsSync() ? file.readAsStringSync() : '';
   }
 
+  /// A finding whose doc comment or annotations start at [docLine]:[docColumn].
   UnusedDeclaration decl({
     required int startLine,
     required int startColumn,
@@ -31,6 +32,8 @@ void main() {
     required int endColumn,
     SymbolKind kind = .function,
     bool isEnumValue = false,
+    int? docLine,
+    int? docColumn,
   }) => .new(
     name: 'x',
     kind: kind,
@@ -42,6 +45,12 @@ void main() {
     range: (
       startLine: startLine,
       startColumn: startColumn,
+      endLine: endLine,
+      endColumn: endColumn,
+    ),
+    fullRange: (
+      startLine: docLine ?? startLine,
+      startColumn: docColumn ?? (docLine == null ? startColumn : 0),
       endLine: endLine,
       endColumn: endColumn,
     ),
@@ -58,7 +67,7 @@ void alsoKept() {}
 ''';
     // `void danglingFunction() {}` is line index 3, columns 0..26.
     final result = applyRemoval(source, [
-      decl(startLine: 3, startColumn: 0, endLine: 3, endColumn: 26),
+      decl(startLine: 3, startColumn: 0, endLine: 3, endColumn: 26, docLine: 2),
     ]);
     expect(result, isNot(contains('danglingFunction')));
     expect(result, isNot(contains('Never referenced')));
@@ -88,6 +97,8 @@ class C {
         endLine: 2,
         endColumn: end,
         kind: .field,
+        docLine: 1,
+        docColumn: 2,
       ),
     ]);
     expect(result, isNot(contains('_unusedField')));
@@ -105,12 +116,14 @@ class C {
     const bRange = (start: 11, end: 16);
     const cRange = (start: 18, end: 23);
 
+    // The first declarator's full range starts at `int`; the others at their name.
     UnusedDeclaration declaratorAt(({int start, int end}) range) => decl(
       startLine: 0,
       startColumn: range.start,
       endLine: 0,
       endColumn: range.end,
       kind: .variable,
+      docLine: range == aRange ? 0 : null,
     );
 
     test('drops the trailing comma when removing the first declarator', () {
@@ -144,7 +157,7 @@ class C {
   test('does not mistake a comma inside a generic type for a declarator '
       'separator', () {
     const source = 'Map<String, int> _cache = {};\n';
-    // Range covers `_cache = {}` only, as the analysis server reports it.
+    // The range covers `_cache = {}` only, as the analysis server reports it.
     final start = source.indexOf('_cache');
     final end = source.indexOf(';');
     final result = applyRemoval(source, [
@@ -154,6 +167,7 @@ class C {
         endLine: 0,
         endColumn: end,
         kind: .field,
+        docLine: 0,
       ),
     ]);
     expect(result.trim(), isEmpty);
@@ -584,6 +598,7 @@ enum E {
         endLine: 6,
         endColumn: 1,
         kind: .class$,
+        docLine: 2,
       ),
       decl(
         startLine: 5,
@@ -591,6 +606,8 @@ enum E {
         endLine: 5,
         endColumn: 2 + 'void orphanMethod() {}'.length,
         kind: .method,
+        docLine: 4,
+        docColumn: 2,
       ),
     ]);
     expect(result, isNot(contains('UnusedClass')));
@@ -774,6 +791,7 @@ int useKept() => Kept(1).x;
         endLine: 3,
         endColumn: 38,
         kind: .class$,
+        docLine: 2,
       ),
     ]);
     expect(result, isNot(contains('DeadPoint')));
@@ -807,6 +825,8 @@ class Registry {
           endLine: 4,
           endColumn: 30,
           kind: .constructor,
+          docLine: 3,
+          docColumn: 2,
         ),
         // `factory deadRedirect() = Registry;` is line index 7, columns 2..35.
         decl(
@@ -815,6 +835,8 @@ class Registry {
           endLine: 7,
           endColumn: 35,
           kind: .constructor,
+          docLine: 6,
+          docColumn: 2,
         ),
       ]);
       expect(result, isNot(contains('deadNamed')));

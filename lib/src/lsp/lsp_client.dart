@@ -13,6 +13,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:ciach/src/dart_executable.dart';
+import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/version.dart';
 import 'package:pro_lsp/pro_lsp.dart' as lsp;
 import 'package:stream_channel/stream_channel.dart';
@@ -21,6 +22,9 @@ import 'package:stream_channel/stream_channel.dart';
 /// notification. It is not part of the LSP spec, so it is handled as a custom
 /// notification.
 const _analyzerStatusMethod = r'$/analyzerStatus';
+
+/// Sent for every open file once `initializationOptions.outline` is set.
+const _publishOutlineMethod = 'dart/textDocument/publishOutline';
 
 /// A session with the Dart analysis server, spoken over LSP via `pro_lsp`.
 ///
@@ -44,6 +48,10 @@ class LspClient {
 
   /// Completers waiting for the server to become idle.
   final _idleWaiters = <Completer<void>>[];
+
+  final _outlines = <String, Outline>{};
+
+  final _outlineWaiters = <String, Completer<Outline>>{};
 
   final _stderrBuffer = StringBuffer();
   bool _shuttingDown = false;
@@ -106,6 +114,10 @@ class LspClient {
       const _CustomMethod(_analyzerStatusMethod),
       (params, context) async => wrapper._onAnalyzerStatus(params),
     );
+    client.connection.registerCustomNotificationHandler(
+      const _CustomMethod(_publishOutlineMethod),
+      (params, context) async => wrapper._onPublishOutline(params),
+    );
 
     return wrapper;
   }
@@ -118,6 +130,7 @@ class LspClient {
         clientInfo: const .new(name: 'ciach', version: ciachVersion),
         rootUri: uri,
         workspaceFolders: [.new(uri: uri, name: 'root')],
+        initializationOptions: const {'outline': true},
         // Hierarchical document symbols yield nested `DocumentSymbol[]` rather
         // than flat `SymbolInformation`; semantic tokens make the server send its
         // legend. `workDoneProgress` is left unset so progress arrives via
@@ -179,12 +192,49 @@ class LspClient {
   }
 
   void _failIdleWaiters(Object error) {
-    final waiters = List.of(_idleWaiters);
+    final waiters = [..._idleWaiters, ..._outlineWaiters.values];
     _idleWaiters.clear();
+    _outlineWaiters.clear();
     for (final waiter in waiters) {
       if (!waiter.isCompleted) {
         waiter.completeError(error);
       }
+    }
+  }
+
+  void _onPublishOutline(Object? params) {
+    if (params case {
+      'uri': final String uri,
+      'outline': final Map<String, Object?> json,
+    }) {
+      final outline = Outline.fromJson(json);
+      _outlines[uri] = outline;
+      _outlineWaiters.remove(uri)?.complete(outline);
+    }
+  }
+
+  /// The outline of [uri], waiting for it if it has not arrived yet. Throws a
+  /// [StateError] after [timeout].
+  Future<Outline> outline(
+    Uri uri, {
+    Duration timeout = const .new(minutes: 2),
+  }) async {
+    final key = uri.toString();
+    if (_outlines[key] case final outline?) {
+      return outline;
+    }
+    if (_exitError case final error?) {
+      throw error;
+    }
+    final completer = _outlineWaiters.putIfAbsent(key, Completer<Outline>.new);
+    try {
+      return await completer.future.timeout(timeout);
+    } on TimeoutException {
+      _outlineWaiters.remove(key);
+      throw StateError(
+        'The Dart analysis server published no outline for $key within '
+        '${timeout.inSeconds}s.',
+      );
     }
   }
 

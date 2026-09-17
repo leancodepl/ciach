@@ -23,11 +23,10 @@ typedef DeclarationRange = ({
   int endColumn,
 });
 
-/// A whole-node span in a specific file to remove together with a reported
-/// declaration. Unlike a bare [DeclarationRange], it names its own
-/// `filePath` (relative to the analyzed root, `/`-separated), so a coupled
-/// removal can live in a *different* file from the declaration it is coupled
-/// to — e.g. a dead `StatefulWidget`'s paired `State` subclass.
+/// A whole declaration (doc comment and annotations included) to remove
+/// together with a reported one. It names its own `filePath` (relative to the
+/// analyzed root, `/`-separated), so it can live in another file, like a dead
+/// `StatefulWidget`'s `State` subclass.
 typedef CoupledRemoval = ({String filePath, DeclarationRange range});
 
 /// Configuration for a single run of the finder.
@@ -186,12 +185,13 @@ class UnusedDeclaration {
     required this.column,
     required this.isPrivate,
     required this.range,
+    DeclarationRange? fullRange,
     this.container,
     this.isEnumValue = false,
     this.coupledRemovals = const [],
     this.removalBlocked = false,
     this.hint,
-  });
+  }) : fullRange = fullRange ?? range;
 
   /// Simple (unqualified) name of the declaration.
   final String name;
@@ -214,10 +214,12 @@ class UnusedDeclaration {
   /// Enclosing declaration name (e.g. the class for a method), if any.
   final String? container;
 
-  /// The full source span of the declaration (including its body), used to
-  /// locate it again for removal. Unlike [line]/[column] (the name's
-  /// position), this covers the whole node.
+  /// The declaration's code, body included. For a `field`, `variable` or
+  /// `constant` it covers only that declarator.
   final DeclarationRange range;
+
+  /// [range] extended to include the doc comment and annotations.
+  final DeclarationRange fullRange;
 
   /// Whether this is an enum value (e.g. `south` in `enum Direction`).
   /// Removing one requires also tidying up a neighboring comma, unlike other
