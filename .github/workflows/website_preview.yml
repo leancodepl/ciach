@@ -8,6 +8,8 @@ on:
   pull_request:
     paths:
       - 'website/**'
+      # The site shows the package version, read from the root pubspec.
+      - 'pubspec.yaml'
       - '.github/workflows/website_preview.yml'
 
 permissions:
