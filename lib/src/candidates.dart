@@ -8,6 +8,7 @@
  *     - mark-ai-provenance
  */
 
+import 'package:ciach/src/lsp/outline.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
 /// A file path paired with a declaration name, used as a map key to look up
@@ -45,33 +46,37 @@ final class Candidate {
     required this.uri,
     required this.path,
     required this.symbol,
+    required this.outline,
     required this.container,
     required this.isEnumValue,
     required this.isPreventInstantiationCtor,
     this.containerSymbol,
-    this.isUnnamedExtension = false,
-    this.isExtensionType = false,
+    this.containerOutline,
   });
 
   final Uri uri;
   final String path;
   final DocumentSymbol symbol;
+
+  final Outline outline;
   final String? container;
 
   /// The symbol [container] names, so a member can be placed against its type's
   /// header or body.
   final DocumentSymbol? containerSymbol;
+
+  final Outline? containerOutline;
   final bool isEnumValue;
   final bool isPreventInstantiationCtor;
 
   /// `extension on T { … }`: nothing can name it, so it gets no reference
   /// query. The server calls it `extension on T`.
-  final bool isUnnamedExtension;
+  bool get isUnnamedExtension => outline.element.isUnnamedExtension;
 
   /// `extension type Name(…)`: a type, named like a class.
-  final bool isExtensionType;
+  bool get isExtensionType => outline.element.kind == .extensionType;
 
-  bool get isExtension => symbol.kind == .namespace && !isExtensionType;
+  bool get isExtension => outline.element.kind == .extension;
 
   bool get isExtensionMember => containerSymbol?.kind == .namespace;
 

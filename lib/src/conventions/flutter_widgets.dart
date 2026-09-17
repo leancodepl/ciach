@@ -9,6 +9,7 @@
  */
 
 import 'package:ciach/src/candidates.dart';
+import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/reference_kinds.dart';
@@ -16,43 +17,44 @@ import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location;
 
-/// The `State<` immediately preceding a type argument, with a token boundary
-/// before `State` so `MyState<…>`/`FooState<…>` don't match.
-final _statePrefix = RegExp(r'(?:^|[^A-Za-z0-9_$])State<\s*$');
-
-/// The `>` that closes a single `State<…>` type argument.
-final _stateSuffix = RegExp(r'^\s*>');
-
 /// Flutter `StatefulWidget`/`State` conventions: recognizing the `State<Widget>`
 /// pairing (so it isn't mistaken for an external use of the widget), and
 /// coupling a dead widget's private `State` subclass to the widget's removal.
 extension FlutterWidgets on SourceIndex {
-  /// Whether [loc] is the class name [className] appearing as the sole type
-  /// argument of `State<…>`, e.g. `class _FooState extends State<Foo>`.
-  ///
-  /// `State<Foo>` can only ever denote the state object of the `Foo` widget, so
-  /// it never means `Foo` itself is used elsewhere.
+  /// Whether [loc] is [className] as the sole type argument in an
+  /// `extends State<…>` clause. That reference is not a use of the widget.
   bool isStatePairingReference(String className, Location loc) {
-    final start = loc.range.start;
-    final end = loc.range.end;
-    if (start.line != end.line) {
+    final path = SourceIndex.pathOf(loc.uri);
+    final position = loc.range.start;
+    final tokens = semanticTokens(path);
+    final argument = selectionRangeAt(path, position);
+    final arguments = argument?.parent;
+    final type = arguments?.parent;
+    final clause = type?.parent;
+    if (tokens == null ||
+        argument == null ||
+        arguments == null ||
+        type == null ||
+        clause == null) {
       return false;
     }
-    final fileLines = lines(SourceIndex.pathOf(loc.uri));
-    if (start.line < 0 || start.line >= fileLines.length) {
+    final name = tokens.startingAt(position);
+    if (name == null || name.text != className) {
       return false;
     }
-    final line = fileLines[start.line];
-    if (start.character < 0 ||
-        end.character > line.length ||
-        start.character > end.character) {
+    // `State<Foo>`, not `State<Foo, Bar>`.
+    if (tokens.between(arguments.range.start, arguments.range.end).length !=
+        1) {
       return false;
     }
-    if (line.substring(start.character, end.character) != className) {
-      return false;
-    }
-    return _statePrefix.hasMatch(line.substring(0, start.character)) &&
-        _stateSuffix.hasMatch(line.substring(end.character));
+    final state = tokens.startingAt(type.range.start);
+    final keyword = tokens.startingAt(clause.range.start);
+    return state != null &&
+        state.type == 'class' &&
+        state.text == 'State' &&
+        keyword != null &&
+        keyword.isKeyword &&
+        keyword.text == 'extends';
   }
 
   /// The extra spans to remove alongside a dead [widget] class: the paired
@@ -98,7 +100,7 @@ extension FlutterWidgets on SourceIndex {
         )) {
           out.add((
             filePath: relativePosix(state.path, rootPath),
-            range: state.symbol.declarationRange,
+            range: state.outline.range.toDeclarationRange,
           ));
         }
         break;

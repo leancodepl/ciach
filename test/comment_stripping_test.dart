@@ -8,7 +8,7 @@
  *     - mark-ai-provenance
  */
 
-import 'package:ciach/src/lexing.dart';
+import 'package:ciach/src/comment_stripping.dart';
 import 'package:test/test.dart';
 
 void main() {

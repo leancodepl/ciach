@@ -1,45 +1,41 @@
-/*
- * AI-Provenance:
- *   model: claude-opus-4-8
- *   harness: Claude Code
- *   plugins:
- *     - lean-ai-provenance
- *   skills:
- *     - mark-ai-provenance
- */
-
 import 'package:ciach/src/candidates.dart';
-import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
+import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
-/// A JSON-value return type on a `toJson`'s declaration line, before the name.
-final _toJsonJsonReturn = RegExp(
-  r'\b(?:Map|List|String|int|double|num|bool|Object|dynamic)\b\s*(?:<[^;{]*>)?\s*\??\s*$',
-);
+/// Return types of a `toJson` hook.
+const _jsonValueTypes = {
+  'Map',
+  'List',
+  'String',
+  'int',
+  'double',
+  'num',
+  'bool',
+  'Object',
+  'dynamic',
+};
 
-/// `json_serializable`/hand-rolled JSON serialization conventions.
-extension SerializationHooks on SourceIndex {
-  /// Whether [candidate] is a `toJson()` serialization hook — a
-  /// zero-required-arg method named `toJson` returning any JSON value
-  /// (`Map`/`List`/`String`/`num`/`int`/`double`/`bool`, or `Object`/`dynamic`).
-  /// `jsonEncode(obj)` dispatches to it dynamically with no source-level
-  /// `.toJson()` token, so the reference search can't see that use; exempt it
-  /// for any class, annotated or not.
-  bool isToJsonHook(Candidate candidate) {
-    final symbol = candidate.symbol;
-    if (symbol.kind != .method ||
-        symbol.name != 'toJson' ||
-        !symbol.hasNoParameters) {
-      return false;
-    }
-    final fileLines = lines(candidate.path);
-    final line = symbol.selectionRange.start.line;
-    if (line < 0 || line >= fileLines.length) {
-      return false;
-    }
-    final col = symbol.selectionRange.start.character;
-    final text = fileLines[line];
-    final beforeName = col <= text.length ? text.substring(0, col) : text;
-    return _toJsonJsonReturn.hasMatch(beforeName);
+/// Whether [candidate] is a `toJson()` hook: a parameterless method named
+/// `toJson` returning a JSON value type. `jsonEncode` calls it without a
+/// source-level reference, so it is exempt from the reference check.
+bool isToJsonHook(Candidate candidate) => switch (candidate.symbol) {
+  DocumentSymbol(kind: .method, name: 'toJson', hasNoParameters: true) =>
+    isJsonValueType(candidate.outline.element.returnType),
+  _ => false,
+};
+
+/// Whether [returnType] (e.g. `Map<String, dynamic>?`) is a JSON value type.
+bool isJsonValueType(String? returnType) {
+  if (returnType == null) {
+    return false;
   }
+  var name = returnType.trim();
+  if (name.endsWith('?')) {
+    name = name.substring(0, name.length - 1).trimRight();
+  }
+  final typeArgs = name.indexOf('<');
+  if (typeArgs >= 0) {
+    name = name.substring(0, typeArgs).trimRight();
+  }
+  return _jsonValueTypes.contains(name);
 }

@@ -9,6 +9,7 @@
  */
 
 import 'package:ciach/src/candidates.dart';
+import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:ciach/src/syntax_rules.dart';
@@ -25,18 +26,18 @@ class FreezedUnions {
   /// Keys `(path, class name)` of classes annotated `@freezed`/`@Freezed`.
   final _annotatedClasses = <DeclKey>{};
 
-  static final _annotation = RegExp(r'@(?:freezed|Freezed)\b');
-
-  /// Records [symbol] as freezed-annotated when it is a type whose leading
-  /// metadata carries `@freezed`/`@Freezed`. Called for every symbol during
-  /// candidate collection.
+  /// Records [symbol] as a freezed class if it is a type annotated with
+  /// `@freezed` or `@Freezed`.
   void noteIfAnnotated(
     String path,
     DocumentSymbol symbol,
-    List<String> strippedLines,
+    Iterable<SemanticToken> leadingMetadata,
   ) {
     if (typeLikeKinds.contains(symbol.kind) &&
-        _annotation.hasMatch(symbol.leadingMetadata(strippedLines))) {
+        leadingMetadata.any(
+          (t) =>
+              t.isAnnotationNamed('freezed') || t.isAnnotationNamed('Freezed'),
+        )) {
       _annotatedClasses.add(DeclKey(path, symbol.name));
     }
   }

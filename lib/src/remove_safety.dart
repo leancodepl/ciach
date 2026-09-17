@@ -13,6 +13,9 @@ import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/syntax_rules.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location;
 
+/// Whether a class's superclass needs constructor arguments.
+typedef SuperclassNeedsArguments = Future<bool> Function(Candidate cls);
+
 /// The remove-safety pre-pass: facts gathered up front so the reporting loop
 /// stays a set of cheap lookups when deciding which findings are report-only
 /// (`removalBlocked`) because auto-removing them would break the build.
@@ -21,7 +24,7 @@ import 'package:pro_lsp/pro_lsp.dart' show Location;
 ///   the enum type is still referenced, leaving `enum E {}` (a compile error).
 /// * [blockedCtorClasses] — live classes all of whose constructors are dead:
 ///   removing them synthesizes an implicit default constructor that strands
-///   `final` fields or breaks super-constructor forwarding.
+///   `final` fields or calls a super constructor that needs arguments.
 /// * [enumValuesIterated] — enums whose values are all reachable through
 ///   `.values` iteration, so a value reached only that way is used, not dead,
 ///   and is suppressed entirely rather than reported.
@@ -35,20 +38,20 @@ class RemoveSafety {
     required this.deadExtensions,
   });
 
-  factory RemoveSafety.analyze(
+  static Future<RemoveSafety> analyze(
     SourceIndex sources,
     List<Candidate> candidates,
     List<RefStatus> statuses,
     List<List<Location>> refsByCandidate,
     Map<String, Set<String>> deadClassNames,
-  ) {
+    SuperclassNeedsArguments superclassNeedsArguments,
+  ) async {
     final enumTypeHasRef = <DeclKey, bool>{};
     final enumValueTotal = <DeclKey, int>{};
     final enumValueDead = <DeclKey, int>{};
     final enumValuesIterated = <DeclKey>{};
     final ctorTotal = <DeclKey, int>{};
     final ctorDead = <DeclKey, int>{};
-    final ctorForwardsSuper = <DeclKey, bool>{};
     final classByKey = <DeclKey, Candidate>{};
     final extensionUnreferenced = <DeclKey, bool>{};
     final extensionMemberTotal = <DeclKey, int>{};
@@ -96,9 +99,6 @@ class RemoveSafety {
           ctorTotal.update(key, (n) => n + 1, ifAbsent: () => 1);
           if (unused) {
             ctorDead.update(key, (n) => n + 1, ifAbsent: () => 1);
-            if (sources.ctorForwardsSuper(candidate)) {
-              ctorForwardsSuper[key] = true;
-            }
           }
         }
       }
@@ -128,11 +128,11 @@ class RemoveSafety {
       if (deadClassNames[key.path]?.contains(key.name) ?? false) {
         continue;
       }
+      // No declaration to inspect: block.
       final classCandidate = classByKey[key];
-      final hasFinalField =
-          classCandidate != null &&
-          sources.classHasFinalInstanceField(classCandidate);
-      if (hasFinalField || (ctorForwardsSuper[key] ?? false)) {
+      if (classCandidate == null ||
+          sources.classHasFinalInstanceField(classCandidate) ||
+          await superclassNeedsArguments(classCandidate)) {
         blockedCtorClasses.add(key);
       }
     }

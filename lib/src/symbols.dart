@@ -8,10 +8,9 @@
  *     - mark-ai-provenance
  */
 
-import 'dart:math';
-
 import 'package:ciach/src/models.dart';
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Position, SymbolKind;
+import 'package:pro_lsp/pro_lsp.dart'
+    show DocumentSymbol, Position, Range, SymbolKind;
 
 /// Symbol kinds that introduce a lexical scope; their name becomes the
 /// container for nested members. [SymbolKind.namespace] is an extension.
@@ -125,35 +124,18 @@ extension SymbolChecks on DocumentSymbol {
     return name.isEmpty || name == container ? 'new' : name;
   }
 
-  /// The full source span of this symbol (including its body).
-  DeclarationRange get declarationRange => (
-    startLine: range.start.line,
-    startColumn: range.start.character,
-    endLine: range.end.line,
-    endColumn: range.end.character,
+  /// The symbol's code, body included.
+  DeclarationRange get declarationRange => range.toDeclarationRange;
+}
+
+extension RangeConversion on Range {
+  /// This range as a [DeclarationRange].
+  DeclarationRange get toDeclarationRange => (
+    startLine: start.line,
+    startColumn: start.character,
+    endLine: end.line,
+    endColumn: end.character,
   );
-
-  /// The first line of this symbol including its contiguous leading
-  /// doc-comment/annotation block (mirrors the removal-side extension), so a
-  /// self-referencing dartdoc link in the class's own doc counts as a
-  /// self-reference.
-  int metadataTopLine(List<String> lines) {
-    final nameLine = selectionRange.start.line;
-    var top = range.start.line <= nameLine ? range.start.line : nameLine;
-    while (top - 1 >= 0 && _looksLikeMetadata(lines[top - 1].trim())) {
-      top--;
-    }
-    return top;
-  }
-
-  /// The annotations, modifiers and doc comments immediately preceding this
-  /// symbol, as a single string, for cheap annotation detection.
-  String leadingMetadata(List<String> strippedLines) {
-    final nameLine = selectionRange.start.line;
-    final top = metadataTopLine(strippedLines);
-    final end = min(nameLine, strippedLines.length - 1);
-    return strippedLines.sublist(top, end + 1).join('\n');
-  }
 }
 
 /// Position geometry against a symbol's source range.
@@ -161,6 +143,10 @@ extension PositionGeometry on Position {
   /// Whether this position is at or before [end].
   bool atOrBefore(Position end) =>
       line < end.line || (line == end.line && character <= end.character);
+
+  /// Whether this position is before [other].
+  bool isBefore(Position other) =>
+      line < other.line || (line == other.line && character < other.character);
 
   /// Whether this position falls within [symbol]'s full source range.
   bool within(DocumentSymbol symbol) {
@@ -176,11 +162,3 @@ extension PositionGeometry on Position {
 /// its simple segment starts with `_`.
 bool isPrivateName(String name) =>
     (name.contains('.') ? name.split('.').last : name).startsWith('_');
-
-bool _looksLikeMetadata(String trimmedLine) =>
-    trimmedLine.isEmpty ||
-    trimmedLine.startsWith('@') ||
-    trimmedLine.startsWith('//') ||
-    trimmedLine.startsWith('/*') ||
-    trimmedLine.startsWith('*') ||
-    trimmedLine.endsWith('*/');

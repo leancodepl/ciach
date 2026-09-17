@@ -126,7 +126,7 @@ String _removeFromContent(String content, List<UnusedDeclaration> decls) {
 
 /// Computes the span to delete for an enum value or a "whole-node" kind
 /// (class, function, method, property, …) whose [DeclarationRange] already
-/// covers the full declaration.
+/// covers the full declaration. Deletion starts at `fullRange`.
 _Span? _spanFor(
   UnusedDeclaration decl,
   String content,
@@ -136,44 +136,22 @@ _Span? _spanFor(
   final range = decl.range;
   final baseStart = offsetOf(range.startLine, range.startColumn);
   final baseEnd = offsetOf(range.endLine, range.endColumn);
-  final topLine = _extendedTopLine(range.startLine, lines);
+  final fullStart = _startWithIndentation(decl.fullRange, lines, offsetOf);
 
-  var start = baseStart;
+  var start = fullStart;
   var end = baseEnd;
 
   if (decl.isEnumValue) {
-    // Reach up to column 0 to grab the value's own leading doc/annotation
-    // lines, but only when it starts its own line: on a compact single-line
-    // enum the line above is the enum type's comment, not the value's.
-    final prefix = lines[range.startLine].substring(0, range.startColumn);
-    final startsOwnLine = prefix.trim().isEmpty;
-    final valueStart = !startsOwnLine
-        ? baseStart
-        : (topLine < range.startLine
-              ? offsetOf(topLine, 0)
-              : offsetOf(range.startLine, 0));
     (start, end) = _extendEnumValue(
       content,
-      valueStart: valueStart,
+      valueStart: fullStart,
       baseStart: baseStart,
       baseEnd: baseEnd,
     );
-  } else {
-    start = topLine < range.startLine ? offsetOf(topLine, 0) : baseStart;
-    // A whole-node range that shares its line with other content (unusual,
-    // but possible) is left alone rather than risk eating it; otherwise its
-    // leading indentation is safe to take too.
-    if (start == baseStart) {
-      final prefix = lines[range.startLine].substring(0, range.startColumn);
-      if (prefix.trim().isEmpty) {
-        start = offsetOf(range.startLine, 0);
-      }
-    }
+  } else if (end < content.length && content[end] == ';') {
     // Some whole-node kinds (bodyless constructors, arrow-bodied members)
     // don't include their terminating `;` in the range.
-    if (end < content.length && content[end] == ';') {
-      end++;
-    }
+    end++;
   }
 
   return (start: start, end: _consumeTrailingBlankLine(content, end));
@@ -273,9 +251,9 @@ _Span? _wholeStatementSpan(
     return null;
   }
 
-  final topLine = _extendedTopLine(first.range.startLine, lines);
+  // The first declarator's full range starts at the statement.
   return (
-    start: offsetOf(topLine, 0),
+    start: _startWithIndentation(first.fullRange, lines, offsetOf),
     end: _consumeTrailingBlankLine(content, statementEnd + 1),
   );
 }
@@ -312,27 +290,19 @@ _Span? _partialDeclaratorSpan(
   };
 }
 
-/// Extends [startLine] upward over contiguous doc-comment/annotation lines
-/// (stopping at the first blank line), so a declaration's leading metadata is
-/// removed along with it.
-int _extendedTopLine(int startLine, List<String> lines) {
-  var topLine = startLine;
-  while (topLine - 1 >= 0) {
-    final trimmed = lines[topLine - 1].trim();
-    if (trimmed.isEmpty || !_looksLikeMetadata(trimmed)) {
-      break;
-    }
-    topLine--;
-  }
-  return topLine;
+/// The start of [fullRange], moved to the start of its line when only
+/// indentation precedes it.
+int _startWithIndentation(
+  DeclarationRange fullRange,
+  List<String> lines,
+  int Function(int line, int column) offsetOf,
+) {
+  final prefix = lines[fullRange.startLine].substring(0, fullRange.startColumn);
+  return offsetOf(
+    fullRange.startLine,
+    prefix.trim().isEmpty ? 0 : fullRange.startColumn,
+  );
 }
-
-bool _looksLikeMetadata(String trimmedLine) =>
-    trimmedLine.startsWith('@') ||
-    trimmedLine.startsWith('//') ||
-    trimmedLine.startsWith('/*') ||
-    trimmedLine.startsWith('*') ||
-    trimmedLine.endsWith('*/');
 
 /// Enum values are comma-separated, not self-terminating: dropping one
 /// without also dropping a neighboring comma leaves invalid syntax. Prefers

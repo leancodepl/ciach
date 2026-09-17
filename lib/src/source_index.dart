@@ -10,25 +10,19 @@
 
 import 'dart:io';
 
-import 'package:ciach/src/lexing.dart';
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Position;
+import 'package:ciach/src/lsp/outline.dart';
+import 'package:ciach/src/lsp/semantic_tokens.dart';
+import 'package:pro_lsp/pro_lsp.dart' show Position, SelectionRange;
 
-/// A `[start, end)` slice of a file's token stream: the full token list plus
-/// the index bounds of the tokens covered. Callers iterate `[start, end)` but
-/// may still peek neighbours (`tokens[end]`, `tokens[start - 1]`).
-typedef TokenWindow = ({List<Token> tokens, int start, int end});
-
-/// Lazily-computed, per-file view of the source under analysis: its lines,
-/// content, line-start offsets, and token stream, each cached on first use.
-///
-/// Everything the finder needs to translate an LSP [Position] into a byte
-/// offset or a token, without re-reading or re-lexing a file, lives here.
+/// Per-file view of the source under analysis: its lines, content and line
+/// starts, plus the server's semantic tokens and selection ranges, each cached
+/// on first use.
 class SourceIndex {
   final _lines = <String, List<String>>{};
-  final _strippedLines = <String, List<String>>{};
+  final _semanticTokens = <String, List<SemanticToken>>{};
+  final _selectionRanges = <String, Map<(int, int), SelectionRange>>{};
   final _content = <String, String>{};
   final _lineStarts = <String, List<int>>{};
-  final _tokens = <String, List<Token>>{};
   final _scanned = <String>{};
 
   /// The absolute file path a reference [uri] points at.
@@ -50,9 +44,35 @@ class SourceIndex {
   List<String> lines(String path) =>
       _lines[path] ??= readFile(path)?.split('\n') ?? const [];
 
-  /// The lines of [path] with comments blanked, aligned 1:1 with [lines].
-  List<String> strippedLines(String path) =>
-      _strippedLines[path] ??= stripComments(content(path)).split('\n');
+  void cacheSemanticTokens(String path, List<SemanticToken> tokens) {
+    _semanticTokens[path] = tokens;
+  }
+
+  List<SemanticToken>? semanticTokens(String path) => _semanticTokens[path];
+
+  bool hasSemanticTokens(String path) => _semanticTokens.containsKey(path);
+
+  void cacheSelectionRange(
+    String path,
+    Position position,
+    SelectionRange selectionRange,
+  ) {
+    _selectionRanges.putIfAbsent(
+      path,
+      () => {},
+    )[(position.line, position.character)] = selectionRange;
+  }
+
+  /// The syntax nodes enclosing [position] in [path], innermost first.
+  SelectionRange? selectionRangeAt(String path, Position position) =>
+      _selectionRanges[path]?[(position.line, position.character)];
+
+  /// The tokens of [outline]'s doc comment and annotations.
+  Iterable<SemanticToken> leadingMetadata(String path, Outline outline) =>
+      semanticTokens(
+        path,
+      )?.between(outline.range.start, outline.codeRange.start) ??
+      const [];
 
   /// Records the [lines] of a file already opened in the analysis server, so
   /// its content isn't re-read from disk, and marks the file as scanned.
@@ -66,9 +86,7 @@ class SourceIndex {
   String content(String path) => _content[path] ??= lines(path).join('\n');
 
   List<int> lineStarts(String path) =>
-      _lineStarts[path] ??= computeLineStarts(content(path));
-
-  List<Token> tokens(String path) => _tokens[path] ??= tokenize(content(path));
+      _lineStarts[path] ??= _computeLineStarts(content(path));
 
   /// Absolute offset of an LSP [position] in [path]'s content, or `null` if out
   /// of range. LSP columns are UTF-16 code units, which is exactly how Dart
@@ -85,47 +103,14 @@ class SourceIndex {
     return offset;
   }
 
-  /// The token index whose span starts exactly at [position] in [path], or
-  /// `null` if the position doesn't line up with a token start.
-  int? tokenIndexAtPosition(String path, Position position) {
-    final offset = offsetOf(path, position);
-    return offset == null ? null : tokenIndexAt(tokens(path), offset);
-  }
-
-  /// The window of tokens in [path] whose start offset falls within [symbol]'s
-  /// full source range, or `null` if the range can't be resolved. Unifies the
-  /// "scan the tokens inside this declaration" preamble shared by the
-  /// structural detectors.
-  TokenWindow? tokenWindow(String path, DocumentSymbol symbol) {
-    if (content(path).isEmpty) {
-      return null;
-    }
-    final startOff = offsetOf(path, symbol.range.start);
-    final endOff = offsetOf(path, symbol.range.end);
-    if (startOff == null || endOff == null) {
-      return null;
-    }
-    final toks = tokens(path);
-    return (
-      tokens: toks,
-      start: _lowerBoundStart(toks, startOff),
-      end: _lowerBoundStart(toks, endOff),
-    );
-  }
-
-  /// The index of the first token whose start offset is `>= offset` (tokens are
-  /// ordered by start), i.e. the lower bound for a range scan.
-  static int _lowerBoundStart(List<Token> tokens, int offset) {
-    var lo = 0;
-    var hi = tokens.length;
-    while (lo < hi) {
-      final mid = (lo + hi) >> 1;
-      if (tokens[mid].start < offset) {
-        lo = mid + 1;
-      } else {
-        hi = mid;
+  /// The start offset of each line in [content].
+  static List<int> _computeLineStarts(String content) {
+    final starts = <int>[0];
+    for (var i = 0; i < content.length; i++) {
+      if (content[i] == '\n') {
+        starts.add(i + 1);
       }
     }
-    return lo;
+    return starts;
   }
 }

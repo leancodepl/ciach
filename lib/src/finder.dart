@@ -20,15 +20,19 @@ import 'package:ciach/src/conventions/serialization.dart';
 import 'package:ciach/src/cross_library_refs.dart';
 import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/lsp/outline.dart';
+import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/remove_safety.dart';
 import 'package:ciach/src/source_index.dart';
+import 'package:ciach/src/superclasses.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:ciach/src/syntax_rules.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location;
+import 'package:pro_lsp/pro_lsp.dart'
+    show DocumentSymbol, Location, Position, Range, SelectionRange;
 
 /// Finds declarations that are never referenced by driving the Dart analysis
 /// server over LSP.
@@ -123,27 +127,23 @@ class Ciach {
       _report('Waiting for initial analysis to complete…');
       await client.waitForAnalysisComplete();
 
-      // Phase 0: open the excluded generated files (without collecting them as
-      // candidates) so a reference query for a declaration used *only* from
-      // generated code — e.g. a `toJson` called from a `.g.dart` — resolves.
-      if (discovered.warmOnly.isNotEmpty) {
-        _report('Warming ${discovered.warmOnly.length} generated file(s)…');
-        await mapPooled(
-          discovered.warmOnly,
-          options.concurrency,
-          (path) => _warmFile(client, path),
-        );
-      }
+      // Phase 0: open every file first, so the server analyzes them in one
+      // pass and keeps them resident. Generated files are opened so references
+      // into them resolve, but no candidates are collected from them.
+      _report('Opening ${files.length + discovered.warmOnly.length} file(s)…');
+      final opened = <String>{
+        for (final path in [...discovered.warmOnly, ...files])
+          if (_openFile(client, path)) path,
+      };
 
-      // Phase 1: open every file and collect its candidate declarations,
-      // concurrently. Opening keeps each file's resolved unit warm in the
-      // server's cache; without it, reference queries against files the server
-      // has evicted come back empty and produce false "unused" reports.
+      // Phase 1: collect candidate declarations, concurrently.
       _report('Collecting declarations from ${files.length} file(s)…');
       final perFile = await mapPooled(
         files,
         options.concurrency,
-        (path) => _collectCandidatesFor(client, path, rootPath),
+        (path) => opened.contains(path)
+            ? _collectCandidatesFor(client, path, rootPath)
+            : Future.value(const <Candidate>[]),
       );
       final candidates = [for (final list in perFile) ...list];
       declarationsChecked = candidates.length;
@@ -161,6 +161,9 @@ class Ciach {
         files.length,
         rootPath,
       );
+
+      await _fetchSemanticTokensFor(client, refsByCandidate);
+      await _fetchSelectionRanges(client, candidates, refsByCandidate);
 
       // Phase 3: a secondary check that confirms apparently-unreferenced
       // members are actually unused before they are reported.
@@ -203,12 +206,13 @@ class Ciach {
         }
       }
 
-      final safety = RemoveSafety.analyze(
+      final safety = await RemoveSafety.analyze(
         _sources,
         candidates,
         statuses,
         refsByCandidate,
         deadClassNames,
+        SuperclassChecks(client).needsConstructorArguments,
       );
 
       for (var i = 0; i < candidates.length; i++) {
@@ -344,6 +348,100 @@ class Ciach {
     });
   }
 
+  /// Fetches the semantic tokens of every referenced file that has none yet.
+  Future<void> _fetchSemanticTokensFor(
+    LspClient client,
+    List<List<Location>> refsByCandidate,
+  ) async {
+    final paths = <String>{
+      for (final refs in refsByCandidate)
+        for (final loc in refs)
+          if (!_sources.hasSemanticTokens(SourceIndex.pathOf(loc.uri)))
+            SourceIndex.pathOf(loc.uri),
+    };
+    if (paths.isEmpty) {
+      return;
+    }
+    _report('Fetching tokens for ${paths.length} referenced file(s)…');
+    await mapPooled(paths.toList(), options.concurrency, (path) async {
+      _sources.cacheSemanticTokens(
+        path,
+        await _semanticTokensOrEmpty(client, path),
+      );
+    });
+  }
+
+  /// Fetches the selection ranges the structural checks need, one request per
+  /// file.
+  Future<void> _fetchSelectionRanges(
+    LspClient client,
+    List<Candidate> candidates,
+    List<List<Location>> refsByCandidate,
+  ) async {
+    final positionsByPath = <String, Set<Position>>{};
+    void add(String path, Position position) =>
+        positionsByPath.putIfAbsent(path, () => {}).add(position);
+
+    for (var i = 0; i < candidates.length; i++) {
+      final candidate = candidates[i];
+      final kind = candidate.symbol.kind;
+      final isEnumType = kind == .enum$ && !candidate.isEnumValue;
+      if (isEnumType || kind == .class$) {
+        for (final loc in refsByCandidate[i]) {
+          add(SourceIndex.pathOf(loc.uri), loc.range.start);
+        }
+      }
+      if ((kind == .constructor || kind == .field) &&
+          candidate.containerOutline != null) {
+        add(candidate.path, candidate.symbol.selectionRange.start);
+      }
+      if (isEnumType) {
+        for (final token in _sources.valuesTokensIn(candidate)) {
+          add(candidate.path, token.start);
+        }
+      }
+      if (kind == .constructor) {
+        if (_sources.redirectProbePosition(candidate) case final position?) {
+          add(candidate.path, position);
+        }
+      }
+    }
+    if (positionsByPath.isEmpty) {
+      return;
+    }
+    _report('Fetching syntax nodes in ${positionsByPath.length} file(s)…');
+    await mapPooled(positionsByPath.entries.toList(), options.concurrency, (
+      entry,
+    ) async {
+      final MapEntry(key: path, value: positions) = entry;
+      final ordered = positions.toList();
+      List<SelectionRange?> ranges;
+      try {
+        ranges = await client.selectionRanges(File(path).uri, ordered);
+      } on Object {
+        return; // a position with no answer reads as "not the special shape"
+      }
+      for (var i = 0; i < ordered.length; i++) {
+        if (ranges[i] case final range?) {
+          _sources.cacheSelectionRange(path, ordered[i], range);
+        }
+      }
+    });
+  }
+
+  /// The semantic tokens of [path], or an empty list if the server has none.
+  /// A file without tokens reads as all code, which only keeps declarations.
+  Future<List<SemanticToken>> _semanticTokensOrEmpty(
+    LspClient client,
+    String path,
+  ) async {
+    try {
+      return await client.semanticTokens(File(path).uri, _sources.lines(path));
+    } on Object {
+      return const [];
+    }
+  }
+
   /// Runs the secondary definition check for the candidates whose reference
   /// query came back empty — the potential false positives.
   Future<CrossLibraryReferences> _recoverCrossLibraryRefs(
@@ -413,7 +511,7 @@ class Ciach {
     if (freezedUnionArms.contains(index)) {
       return true;
     }
-    if (!options.reportToJson && _sources.isToJsonHook(candidate)) {
+    if (!options.reportToJson && isToJsonHook(candidate)) {
       return true;
     }
     if (_isRemovedWithDeadClass(candidate, deadClassNames)) {
@@ -467,10 +565,8 @@ class Ciach {
         _isHeaderDeclaration(candidate);
   }
 
-  /// Opens [path] in the analysis server without collecting candidates from
-  /// it, so references *into* still-scanned code from this file resolve.
-  /// Returns whether the file could be read and opened.
-  Future<bool> _warmFile(LspClient client, String path) async {
+  /// Opens [path] in the server. `false` if the file cannot be read.
+  bool _openFile(LspClient client, String path) {
     final content = SourceIndex.readFile(path);
     if (content == null) {
       return false;
@@ -500,20 +596,19 @@ class Ciach {
     }
   }
 
-  /// Fetches the symbols for [path] and returns the declarations worth checking.
+  /// The declarations of the open file [path] worth checking.
   Future<List<Candidate>> _collectCandidatesFor(
     LspClient client,
     String path,
     String rootPath,
   ) async {
-    final content = SourceIndex.readFile(path);
-    if (content == null) {
-      return const [];
-    }
     final uri = File(path).uri;
-    client.didOpen(uri, content);
-    final symbols = await client.documentSymbol(uri);
-    _sources.cacheLines(path, content.split('\n'));
+    final (symbols, outline, tokens) = await (
+      client.documentSymbol(uri),
+      client.outline(uri),
+      _semanticTokensOrEmpty(client, path),
+    ).wait;
+    _sources.cacheSemanticTokens(path, tokens);
     final relativePath = relativePosix(path, rootPath);
     final out = <Candidate>[];
     _collectCandidates(
@@ -524,7 +619,7 @@ class Ciach {
       null,
       null,
       false,
-      _sources.strippedLines(path),
+      _OutlineIndex(outline),
       out,
     );
     return _withoutEntryPointContainers(out, relativePath);
@@ -571,42 +666,37 @@ class Ciach {
     String relativePath,
     List<DocumentSymbol> symbols,
     String? container,
-    DocumentSymbol? containerSymbol,
+    Candidate? containerCandidate,
     bool parentIsEnum,
-    List<String> strippedLines,
+    _OutlineIndex outlines,
     List<Candidate> out,
   ) {
     for (final symbol in symbols) {
-      _freezed.noteIfAnnotated(path, symbol, strippedLines);
-      final extensionSyntax = symbol.kind == .namespace
-          ? _sources.extensionSyntax(path, symbol)
-          : null;
-      if (_shouldConsider(
-        relativePath,
-        symbol,
-        container,
-        parentIsEnum,
-        strippedLines,
-        extensionSyntax,
-      )) {
-        out.add(
-          Candidate(
-            uri: uri,
-            path: path,
-            symbol: symbol,
-            container: container,
-            containerSymbol: containerSymbol,
-            isEnumValue: parentIsEnum && symbol.kind == .enum$,
-            // `symbols` are this symbol's siblings (its class's members when
-            // `symbol` is a constructor), so this confirms the sole-constructor
-            // shape without threading the list any further.
-            isPreventInstantiationCtor: symbol.isPreventInstantiationMarker(
-              symbols,
-            ),
-            isUnnamedExtension: extensionSyntax == .unnamedExtension,
-            isExtensionType: extensionSyntax == .extensionType,
-          ),
+      final outline = outlines[symbol];
+      if (outline == null) {
+        _report(
+          'Skipped $relativePath:${symbol.selectionRange.start.line + 1} '
+          "${symbol.name}: the analysis server's outline has no entry for it.",
         );
+        continue;
+      }
+      final leadingMetadata = _sources.leadingMetadata(path, outline);
+      _freezed.noteIfAnnotated(path, symbol, leadingMetadata);
+      final candidate = Candidate(
+        uri: uri,
+        path: path,
+        symbol: symbol,
+        outline: outline,
+        container: container,
+        containerSymbol: containerCandidate?.symbol,
+        containerOutline: containerCandidate?.outline,
+        isEnumValue: parentIsEnum && symbol.kind == .enum$,
+        isPreventInstantiationCtor: symbol.isPreventInstantiationMarker(
+          symbols,
+        ),
+      );
+      if (_shouldConsider(relativePath, candidate, leadingMetadata)) {
+        out.add(candidate);
       }
       final isTypeLike = typeLikeKinds.contains(symbol.kind);
       _collectCandidates(
@@ -615,26 +705,26 @@ class Ciach {
         relativePath,
         symbol.children ?? const [],
         isTypeLike ? symbol.name : container,
-        isTypeLike ? symbol : containerSymbol,
+        isTypeLike ? candidate : containerCandidate,
         symbol.kind == .enum$,
-        strippedLines,
+        outlines,
         out,
       );
     }
   }
 
+  /// Whether [candidate] should have its references checked.
   bool _shouldConsider(
     String relativePath,
-    DocumentSymbol symbol,
-    String? container,
-    bool parentIsEnum,
-    List<String> strippedLines,
-    ExtensionSyntax? extensionSyntax,
+    Candidate candidate,
+    Iterable<SemanticToken> leadingMetadata,
   ) {
+    final symbol = candidate.symbol;
+    final container = candidate.container;
     if (!options.kinds.contains(
       symbol.reportedKind(
-        parentIsEnum: parentIsEnum,
-        isExtensionType: extensionSyntax == .extensionType,
+        parentIsEnum: candidate.isEnumValue,
+        isExtensionType: candidate.isExtensionType,
       ),
     )) {
       return false;
@@ -655,8 +745,9 @@ class Ciach {
       }
       return false;
     }
-    // A `namespace` the lexer can't confirm.
-    if (symbol.kind == .namespace && extensionSyntax == null) {
+    if (symbol.kind == .namespace &&
+        !candidate.isExtension &&
+        !candidate.isExtensionType) {
       return false;
     }
     if (!isPrivateName(symbol.name) && !options.includePublic) {
@@ -675,12 +766,14 @@ class Ciach {
       return false;
     }
 
-    final leading = symbol.leadingMetadata(strippedLines);
-    if (options.skipOverrides && leading.contains('@override')) {
+    if (options.skipOverrides &&
+        leadingMetadata.any((t) => t.isAnnotationNamed('override'))) {
       return false;
     }
     // Symbols reachable from native code / reflection are not really unused.
-    if (leading.contains('vm:entry-point')) {
+    if (leadingMetadata.any(
+      (t) => t.type == 'string' && t.text.contains('vm:entry-point'),
+    )) {
       return false;
     }
     return true;
@@ -717,6 +810,7 @@ class Ciach {
       container: container,
       isEnumValue: candidate.isEnumValue,
       range: symbol.declarationRange,
+      fullRange: candidate.outline.range.toDeclarationRange,
       coupledRemovals: coupledRemovals,
       removalBlocked: removalBlocked,
       hint: hint,
@@ -724,9 +818,7 @@ class Ciach {
   }
 
   bool _isInUnnamedExtension(Candidate candidate) =>
-      candidate.isExtensionMember &&
-      _sources.extensionSyntax(candidate.path, candidate.containerSymbol!) ==
-          .unnamedExtension;
+      candidate.containerOutline?.element.isUnnamedExtension ?? false;
 
   /// Whether [candidate] goes with an already-dead class's own declaration —
   /// any constructor, or a declaring parameter — so a single removal is not
@@ -757,3 +849,26 @@ typedef _SkippedEntryPoint = ({
   String name,
   String reason,
 });
+
+/// Outline nodes by document symbol: a symbol's `range` is its node's
+/// `codeRange`.
+final class _OutlineIndex {
+  _OutlineIndex(Outline root)
+    : _byCodeRange = {
+        for (final node in root.descendants) _key(node.codeRange): node,
+      };
+
+  final Map<_RangeKey, Outline> _byCodeRange;
+
+  Outline? operator [](DocumentSymbol symbol) =>
+      _byCodeRange[_key(symbol.range)];
+
+  static _RangeKey _key(Range range) => (
+    range.start.line,
+    range.start.character,
+    range.end.line,
+    range.end.character,
+  );
+}
+
+typedef _RangeKey = (int, int, int, int);

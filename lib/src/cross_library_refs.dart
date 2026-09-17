@@ -13,6 +13,7 @@ import 'dart:io';
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/concurrency.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/reference_kinds.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
@@ -61,40 +62,16 @@ class CrossLibraryReferences {
     if (emptyRefNames.isEmpty) {
       return empty;
     }
-    final tokenTypes = client.semanticTokenTypes;
-    if (tokenTypes.isEmpty) {
-      return empty;
-    }
 
     final declarations = <_DeclPosition>{
       for (final candidate in candidates) _positionOf(candidate),
     };
 
-    // A matched slice is always a substring of the file, so a file mentioning
-    // none of the names cannot contribute a site — skip its request entirely.
-    final paths = [
-      for (final path in sources.scannedPaths)
-        if (_mentionsAny(sources.content(path), emptyRefNames)) path,
-    ];
-    if (paths.isEmpty) {
-      return empty;
-    }
-
-    final perFile = await mapPooled(paths, concurrency, (path) async {
-      try {
-        return await client.semanticTokensFull(File(path).uri);
-      } on Object {
-        return const <int>[];
-      }
-    });
-
     final sites = [
-      for (var i = 0; i < paths.length; i++)
+      for (final path in sources.scannedPaths)
         ..._collectSites(
           sources: sources,
-          path: paths[i],
-          data: perFile[i],
-          tokenTypes: tokenTypes,
+          path: path,
           names: emptyRefNames,
           declarations: declarations,
         ),
@@ -147,64 +124,23 @@ class CrossLibraryReferences {
     return (candidate.path, start.line, start.character);
   }
 
-  static bool _mentionsAny(String content, Set<String> names) =>
-      names.any(content.contains);
-
   static Iterable<_Site> _collectSites({
     required SourceIndex sources,
     required String path,
-    required List<int> data,
-    required List<String> tokenTypes,
     required Set<String> names,
     required Set<_DeclPosition> declarations,
   }) sync* {
-    final lines = sources.lines(path);
-    final uri = File(path).uri;
-    var line = 0;
-    var char = 0;
-    // LSP semantic tokens: five ints each — deltaLine, deltaStartChar (relative
-    // to the previous token only on the same line), length, tokenType, mods.
-    for (var i = 0; i + 4 < data.length; i += 5) {
-      final deltaLine = data[i];
-      if (deltaLine > 0) {
-        line += deltaLine;
-        char = data[i + 1];
-      } else {
-        char += data[i + 1];
+    if (sources.semanticTokens(path) case final tokens?) {
+      final uri = File(path).uri;
+      for (final token in tokens) {
+        // A declaration's own name resolves to itself; a doc link is not a use.
+        if (_memberTokenTypes.contains(token.type) &&
+            names.contains(token.text) &&
+            !declarations.contains((path, token.line, token.character)) &&
+            !sources.isDocLine(path, token.line)) {
+          yield (uri: uri, position: token.start);
+        }
       }
-      final length = data[i + 2];
-      final typeIndex = data[i + 3];
-
-      if (typeIndex < 0 || typeIndex >= tokenTypes.length) {
-        continue;
-      }
-      if (!_memberTokenTypes.contains(tokenTypes[typeIndex])) {
-        continue;
-      }
-      if (line < 0 || line >= lines.length) {
-        continue;
-      }
-      final text = _slice(lines[line], char, length);
-      if (text == null || !names.contains(text)) {
-        continue;
-      }
-      // A declaration's own token resolves to itself, so skip it — otherwise
-      // every unreferenced member would recover itself.
-      if (declarations.contains((path, line, char))) {
-        continue;
-      }
-      // A dartdoc mention is a doc-only reference, not a real use.
-      if (lines[line].trimLeft().startsWith('///')) {
-        continue;
-      }
-      yield (uri: uri, position: Position(line: line, character: char));
     }
-  }
-
-  static String? _slice(String lineText, int char, int length) {
-    if (char < 0 || char + length > lineText.length) {
-      return null;
-    }
-    return lineText.substring(char, char + length);
   }
 }

@@ -13,6 +13,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:ciach/src/dart_executable.dart';
+import 'package:ciach/src/lsp/outline.dart';
+import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/version.dart';
 import 'package:pro_lsp/pro_lsp.dart' as lsp;
 import 'package:stream_channel/stream_channel.dart';
@@ -21,6 +23,12 @@ import 'package:stream_channel/stream_channel.dart';
 /// notification. It is not part of the LSP spec, so it is handled as a custom
 /// notification.
 const _analyzerStatusMethod = r'$/analyzerStatus';
+
+/// Sent for every open file once `initializationOptions.outline` is set.
+const _publishOutlineMethod = 'dart/textDocument/publishOutline';
+
+/// The Dart-specific "go to super" request.
+const _superMethod = 'dart/textDocument/super';
 
 /// A session with the Dart analysis server, spoken over LSP via `pro_lsp`.
 ///
@@ -45,17 +53,20 @@ class LspClient {
   /// Completers waiting for the server to become idle.
   final _idleWaiters = <Completer<void>>[];
 
+  final _outlines = <String, Outline>{};
+
+  final _outlineWaiters = <String, Completer<Outline>>{};
+
   final _stderrBuffer = StringBuffer();
   bool _shuttingDown = false;
 
-  List<String> _semanticTokenTypes = const [];
+  SemanticTokensLegend _semanticTokensLegend = SemanticTokensLegend.empty;
 
   /// Everything the server wrote to stderr (useful when things go wrong).
   String get stderr => _stderrBuffer.toString();
 
-  /// The ordered token-type names a `textDocument/semanticTokens` response
-  /// indexes into. Empty until [initialize], or if the server sends no legend.
-  List<String> get semanticTokenTypes => _semanticTokenTypes;
+  /// The legend for `semanticTokens` responses. Empty until [initialize].
+  SemanticTokensLegend get semanticTokensLegend => _semanticTokensLegend;
 
   /// Spawns `<dart> language-server --protocol=lsp` and wires up the client.
   ///
@@ -106,6 +117,10 @@ class LspClient {
       const _CustomMethod(_analyzerStatusMethod),
       (params, context) async => wrapper._onAnalyzerStatus(params),
     );
+    client.connection.registerCustomNotificationHandler(
+      const _CustomMethod(_publishOutlineMethod),
+      (params, context) async => wrapper._onPublishOutline(params),
+    );
 
     return wrapper;
   }
@@ -118,6 +133,7 @@ class LspClient {
         clientInfo: const .new(name: 'ciach', version: ciachVersion),
         rootUri: uri,
         workspaceFolders: [.new(uri: uri, name: 'root')],
+        initializationOptions: const {'outline': true},
         // Hierarchical document symbols yield nested `DocumentSymbol[]` rather
         // than flat `SymbolInformation`; semantic tokens make the server send its
         // legend. `workDoneProgress` is left unset so progress arrives via
@@ -135,7 +151,9 @@ class LspClient {
         ),
       ),
     );
-    _semanticTokenTypes = _legendTokenTypes(result.capabilities);
+    _semanticTokensLegend = SemanticTokensLegend.fromCapabilities(
+      result.capabilities.toJson(),
+    );
   }
 
   /// Runs [request]; if the server died meanwhile, throws its exit code and
@@ -155,16 +173,6 @@ class LspClient {
     }
   }
 
-  /// Reads the legend from raw capabilities JSON to avoid depending on the
-  /// `semanticTokensProvider` union's typed shape. Empty if absent.
-  static List<String> _legendTokenTypes(lsp.ServerCapabilities capabilities) =>
-      switch (capabilities.toJson()['semanticTokensProvider']) {
-        {'legend': {'tokenTypes': final List<Object?> types}} => [
-          for (final t in types) '$t',
-        ],
-        _ => const [],
-      };
-
   void _onAnalyzerStatus(Object? params) {
     final analyzing = params is Map && params['isAnalyzing'] == true;
     if (!analyzing) {
@@ -179,12 +187,49 @@ class LspClient {
   }
 
   void _failIdleWaiters(Object error) {
-    final waiters = List.of(_idleWaiters);
+    final waiters = [..._idleWaiters, ..._outlineWaiters.values];
     _idleWaiters.clear();
+    _outlineWaiters.clear();
     for (final waiter in waiters) {
       if (!waiter.isCompleted) {
         waiter.completeError(error);
       }
+    }
+  }
+
+  void _onPublishOutline(Object? params) {
+    if (params case {
+      'uri': final String uri,
+      'outline': final Map<String, Object?> json,
+    }) {
+      final outline = Outline.fromJson(json);
+      _outlines[uri] = outline;
+      _outlineWaiters.remove(uri)?.complete(outline);
+    }
+  }
+
+  /// The outline of [uri], waiting for it if it has not arrived yet. Throws a
+  /// [StateError] after [timeout].
+  Future<Outline> outline(
+    Uri uri, {
+    Duration timeout = const .new(minutes: 2),
+  }) async {
+    final key = uri.toString();
+    if (_outlines[key] case final outline?) {
+      return outline;
+    }
+    if (_exitError case final error?) {
+      throw error;
+    }
+    final completer = _outlineWaiters.putIfAbsent(key, Completer<Outline>.new);
+    try {
+      return await completer.future.timeout(timeout);
+    } on TimeoutException {
+      _outlineWaiters.remove(key);
+      throw StateError(
+        'The Dart analysis server published no outline for $key within '
+        '${timeout.inSeconds}s.',
+      );
     }
   }
 
@@ -272,15 +317,62 @@ class LspClient {
     return definition?.asLocationList ?? [?definition?.asLocation];
   }
 
-  /// The raw, delta-encoded `textDocument/semanticTokens/full` data for [uri],
-  /// or empty when the server produces no tokens.
-  Future<List<int>> semanticTokensFull(Uri uri) async {
+  /// The semantic tokens of [uri], with each token's text taken from [lines].
+  Future<List<SemanticToken>> semanticTokens(
+    Uri uri,
+    List<String> lines,
+  ) async {
     final result = await _guard(
       () => _client.server.textDocument.semanticTokensFull(
         .new(textDocument: .new(uri: uri.toString())),
       ),
     );
-    return result?.data ?? const [];
+    return decodeSemanticTokens(
+      result?.data ?? const [],
+      _semanticTokensLegend,
+      lines,
+    );
+  }
+
+  /// The superclass, super constructor or overridden member of the element at
+  /// [position] in [uri]. `null` when there is none.
+  Future<lsp.Location?> superOf(Uri uri, lsp.Position position) async {
+    final result = await _guard(
+      () => _client.connection.sendCustomRequest(
+        _superMethod,
+        lsp.TextDocumentPositionParams(
+          textDocument: .new(uri: uri.toString()),
+          position: position,
+        ).toJson(),
+      ),
+    );
+    return switch (result) {
+      final Map<String, Object?> json => lsp.Location.fromJson(json),
+      _ => null,
+    };
+  }
+
+  /// The syntax nodes enclosing each of [positions] in [uri], innermost first.
+  /// `null` where the server has no answer.
+  Future<List<lsp.SelectionRange?>> selectionRanges(
+    Uri uri,
+    List<lsp.Position> positions,
+  ) async {
+    if (positions.isEmpty) {
+      return const [];
+    }
+    final result = await _guard(
+      () => _client.server.textDocument.selectionRange(
+        .new(
+          textDocument: .new(uri: uri.toString()),
+          positions: positions,
+        ),
+      ),
+    );
+    if (result == null || result.length != positions.length) {
+      return List.filled(positions.length, null);
+    }
+    return result;
   }
 
   /// Gracefully shuts the server down and terminates the process.

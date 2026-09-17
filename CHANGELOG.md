@@ -1,3 +1,22 @@
+## Unreleased
+
+- Read declarations from the analysis server's outline instead of the source
+  text. `--remove` deletes a declaration's doc comment and annotations as the
+  analyzer delimits them: a multi-line annotation goes with it, a `//` comment
+  above it stays. `UnusedDeclaration` gains `fullRange`.
+  ([#53](https://github.com/leancodepl/ciach/pull/53))
+- Read comments and annotations from the analysis server's semantic tokens.
+  Dartdoc links in `/** */` comments count as doc-only references, and
+  `@override` and `vm:entry-point` are detected by annotation, not by text.
+  ([#54](https://github.com/leancodepl/ciach/pull/54))
+- Read the syntax around a reference from the analysis server's selection
+  ranges instead of a built-in lexer.
+  ([#55](https://github.com/leancodepl/ciach/pull/55))
+- Ask the analysis server about a class's superclass before blocking the
+  removal of its last constructor: a `StatelessWidget` subclass is no longer
+  blocked on `super.key`. The built-in Dart lexer is gone.
+  ([#56](https://github.com/leancodepl/ciach/pull/56))
+
 ## 0.4.5
 
 - Stop reporting (and removing) `testExecutable` in a `flutter_test_config.dart`,
