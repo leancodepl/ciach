@@ -235,10 +235,7 @@ class Ciach {
 
       // Phase 4: couple a dead member's overrides to its removal, or let one
       // that has to stay block it. Only scanned files are ever rewritten.
-      final scannedPaths = <String>{
-        for (final path in files)
-          if (opened.contains(path)) path,
-      };
+      final scannedPaths = files.where(opened.contains).toSet();
       final overridden = await _coupleOverrides(
         client,
         candidates,
