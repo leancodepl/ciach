@@ -1,11 +1,9 @@
 ## Unreleased
 
-- `--remove` deletes a dead member's overrides along with it, wherever they
-  live. An override was never a finding of its own, so removing only the member
-  left it overriding nothing (`override_on_non_overriding_member`). A member
-  whose override this tool won't delete — one in a file the run didn't scan, or
-  a field — is now report-only instead.
-  ([#62](https://github.com/leancodepl/ciach/issues/62))
+- `--remove` deletes a dead member's overrides along with it, so no `@override`
+  is left overriding nothing. A member is reported but not removed when one of
+  its overrides can't be deleted: it is in a file the run didn't scan, or it is
+  a field. ([#63](https://github.com/leancodepl/ciach/pull/63))
 
 ## 0.5.0
 
