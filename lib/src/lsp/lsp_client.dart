@@ -352,6 +352,24 @@ class LspClient {
     };
   }
 
+  /// The members that override the member at [position] in [uri], via
+  /// `textDocument/implementation`. Empty when nothing overrides it.
+  Future<List<lsp.Location>> implementations(
+    Uri uri,
+    lsp.Position position,
+  ) async {
+    final result = await _guard(
+      () => _client.server.textDocument.implementation(
+        .new(
+          textDocument: .new(uri: uri.toString()),
+          position: position,
+        ),
+      ),
+    );
+    final definition = result.asDefinition;
+    return definition?.asLocationList ?? [?definition?.asLocation];
+  }
+
   /// The syntax nodes enclosing each of [positions] in [uri], innermost first.
   /// `null` where the server has no answer.
   Future<List<lsp.SelectionRange?>> selectionRanges(

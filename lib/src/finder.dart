@@ -23,6 +23,7 @@ import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/models.dart';
+import 'package:ciach/src/overrides.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/remove_safety.dart';
@@ -90,6 +91,10 @@ class Ciach {
   static const _declaringParameterHint =
       'declaring parameter of the primary constructor — removing it changes '
       'the constructor signature at every call site';
+
+  static const _overriddenHint =
+      'overridden by a declaration this tool will not delete — removing it '
+      'alone would leave that override overriding nothing';
 
   void _report(String message) => options.onProgress?.call(message);
 
@@ -215,21 +220,46 @@ class Ciach {
         SuperclassChecks(client).needsConstructorArguments,
       );
 
+      final reported = <int>{
+        for (var i = 0; i < candidates.length; i++)
+          if (statuses[i] == .unused &&
+              !_isSuppressed(
+                candidates[i],
+                i,
+                freezedUnionArms,
+                deadClassNames,
+                safety,
+              ))
+            i,
+      };
+
+      // Phase 4: a dead member's overrides are dead with it, but they are not
+      // candidates, so they have to be coupled to its removal — or keep it
+      // from being removed at all. Only a file this run collected declarations
+      // from may be rewritten.
+      final scannedPaths = <String>{
+        for (final path in files)
+          if (opened.contains(path)) path,
+      };
+      final overridden = await _coupleOverrides(
+        client,
+        candidates,
+        reported,
+        scannedPaths,
+        rootPath,
+      );
+
       for (var i = 0; i < candidates.length; i++) {
         final candidate = candidates[i];
         final refs = refsByCandidate[i];
         switch (statuses[i]) {
           case .unused:
-            if (_isSuppressed(
-              candidate,
-              i,
-              freezedUnionArms,
-              deadClassNames,
-              safety,
-            )) {
+            if (!reported.contains(i)) {
               break;
             }
             final isClass = candidate.symbol.kind == .class$;
+            final overrides = overridden[i];
+            final blockedByOverride = overrides?.blocked ?? false;
             unused.add(
               _toUnused(
                 candidate,
@@ -242,9 +272,13 @@ class Ciach {
                         refsByCandidate,
                         rootPath,
                       )
-                    : const [],
-                removalBlocked: _isRemovalBlocked(candidate, refs, safety),
-                hint: _hintFor(candidate),
+                    : overrides?.removals ?? const [],
+                removalBlocked:
+                    _isRemovalBlocked(candidate, refs, safety) ||
+                    blockedByOverride,
+                hint:
+                    _hintFor(candidate) ??
+                    (blockedByOverride ? _overriddenHint : null),
               ),
             );
           case .docOnly:
@@ -269,6 +303,73 @@ class Ciach {
       recoveredReferences: recoveredReferences,
     );
   }
+
+  /// The overrides to delete along with each reported dead member, by
+  /// candidate index. An entry is present only when there is something to say:
+  /// spans to remove, or a member whose removal is now blocked.
+  Future<Map<int, OverriddenMember>> _coupleOverrides(
+    LspClient client,
+    List<Candidate> candidates,
+    Set<int> reported,
+    Set<String> scannedPaths,
+    String rootPath,
+  ) async {
+    final members = [
+      for (final index in reported)
+        if (_canBeOverridden(candidates[index])) index,
+    ];
+    if (members.isEmpty) {
+      return const {};
+    }
+    _report('Checking ${members.length} dead member(s) for overrides…');
+    final overrides = OverrideRemovals(
+      client,
+      scannedPaths: scannedPaths,
+      rootPath: rootPath,
+    );
+    final results = await mapPooled(
+      members,
+      options.concurrency,
+      (index) => overrides.of(candidates[index]),
+    );
+    final byCandidate = <int, OverriddenMember>{};
+    var coupled = 0;
+    var blocked = 0;
+    for (var i = 0; i < members.length; i++) {
+      final result = results[i];
+      if (result.removals.isEmpty && !result.blocked) {
+        continue;
+      }
+      byCandidate[members[i]] = result;
+      coupled += result.removals.length;
+      if (result.blocked) {
+        blocked++;
+      }
+    }
+    if (coupled > 0) {
+      _report(
+        'Coupling $coupled override(s) to the dead member(s) they implement.',
+      );
+    }
+    if (blocked > 0) {
+      _report(
+        '$blocked dead member(s) are overridden where --remove cannot '
+        'follow; leaving them in place.',
+      );
+    }
+    return byCandidate;
+  }
+
+  /// Whether a subclass could override [candidate], so its overrides have to
+  /// be accounted for before it is removed. A declaring parameter cannot be
+  /// removed at all, so it is not asked about.
+  bool _canBeOverridden(Candidate candidate) => switch (candidate.symbol.kind) {
+    .method || .property || .field =>
+      candidate.container != null &&
+          !candidate.isExtensionMember &&
+          !_isHeaderDeclaration(candidate),
+    _ => false,
+  };
 
   /// One warning per declaration the secondary check kept alive: it had no
   /// reported references, yet a use resolved back to it.

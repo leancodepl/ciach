@@ -358,6 +358,74 @@ void main() {
     );
   });
 
+  group('dead members with overrides', () {
+    // Scan the override fixture; the types are kept alive from bin/app.dart,
+    // which the analysis server analyzes either way.
+    Future<FinderResult> runOverrides({bool withImplFile = true}) => runFinder(
+      include: [
+        'lib/scenarios/overrides.dart',
+        if (withImplFile) 'lib/scenarios/overrides_impl.dart',
+      ],
+      exclude: const [],
+    );
+
+    UnusedDeclaration finding(FinderResult result, String name) =>
+        result.unused.firstWhere((d) => d.qualifiedName == name);
+
+    test('couples every override of a dead member to its removal', () async {
+      final result = await runOverrides();
+      final prime = finding(result, 'Pump.prime');
+      expect(prime.removalBlocked, isFalse);
+      // `Piston.prime`, and `Turbine.prime` two levels down.
+      expect(prime.coupledRemovals, hasLength(2));
+      // The overrides are removed with it, not reported in their own right.
+      final names = result.unused.map((d) => d.qualifiedName).toSet();
+      expect(names, isNot(contains('Piston.prime')));
+      expect(names, isNot(contains('Turbine.prime')));
+    });
+
+    test('couples an override that lives in another file', () async {
+      final close = finding(await runOverrides(), 'Valve.close');
+      expect(close.removalBlocked, isFalse);
+      expect(
+        close.coupledRemovals.single.filePath,
+        'lib/scenarios/overrides_impl.dart',
+      );
+    });
+
+    test('keeps a member whose override is in an unscanned file', () async {
+      final close = finding(
+        await runOverrides(withImplFile: false),
+        'Valve.close',
+      );
+      expect(close.removalBlocked, isTrue);
+      expect(close.coupledRemovals, isEmpty);
+      expect(close.hint, contains('overridden'));
+    });
+
+    test('keeps a member that a field implements', () async {
+      final reading = finding(await runOverrides(), 'Gauge.reading');
+      expect(reading.removalBlocked, isTrue);
+      expect(reading.coupledRemovals, isEmpty);
+    });
+
+    test('leaves a member called through the interface alone', () async {
+      final names = (await runOverrides()).unused
+          .map((d) => d.qualifiedName)
+          .toSet();
+      expect(names, isNot(contains('Pump.start')));
+      expect(names, isNot(contains('Piston.start')));
+    });
+
+    test('couples the override of a dead method in the default run', () async {
+      // `Animal.sound` is dead and `Dog.sound` overrides it; `--remove` takes
+      // both, so no `@override` is left overriding nothing.
+      final sound = finding(await runFinder(), 'Animal.sound');
+      expect(sound.removalBlocked, isFalse);
+      expect(sound.coupledRemovals, hasLength(1));
+    });
+  });
+
   group('unused union members (opt-in --unused-union-members)', () {
     // Scan only the union fixture; cross-file references (the live member
     // constructed in bin/app.dart) still resolve, since the analysis server
