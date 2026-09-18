@@ -430,6 +430,11 @@ void main() {
           reason: name,
         );
       }
+      // Both declarators are overrides, including the one that carries no
+      // annotation of its own, so neither is a finding.
+      final names = result.unused.map((d) => d.qualifiedName).toSet();
+      expect(names, isNot(contains('Pair.left')));
+      expect(names, isNot(contains('Pair.right')));
     });
 
     test('couples one declarator and keeps the rest of the statement', () async {

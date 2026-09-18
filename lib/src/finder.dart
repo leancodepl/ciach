@@ -767,6 +767,10 @@ class Ciach {
     _OutlineIndex outlines,
     List<Candidate> out,
   ) {
+    // A field statement's doc comment, annotations and modifiers all sit on its
+    // first declarator, so a later one (`b` in `@override final int a, b;`)
+    // reports none of its own and reads its statement's instead.
+    var statementMetadata = const <SemanticToken>[];
     for (final symbol in symbols) {
       final outline = outlines[symbol];
       if (outline == null) {
@@ -776,7 +780,16 @@ class Ciach {
         );
         continue;
       }
-      final leadingMetadata = _sources.leadingMetadata(path, outline);
+      final ownMetadata = _sources.leadingMetadata(path, outline);
+      final isField = outline.element.kind == .field;
+      final continuesStatement =
+          isField && outline.range.start == outline.codeRange.start;
+      final leadingMetadata = continuesStatement
+          ? statementMetadata
+          : ownMetadata;
+      statementMetadata = isField && !continuesStatement
+          ? ownMetadata.toList()
+          : const [];
       _freezed.noteIfAnnotated(path, symbol, leadingMetadata);
       final candidate = Candidate(
         uri: uri,
