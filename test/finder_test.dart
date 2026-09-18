@@ -432,6 +432,18 @@ void main() {
       }
     });
 
+    test('couples one declarator and keeps the rest of the statement', () async {
+      // `final int dead = 1, live = 2;` — only `dead` implements a dead member,
+      // so only that declarator is coupled and the statement survives.
+      final result = await runOverrides();
+      final dead = finding(result, 'Halved.dead');
+      expect(dead.removalBlocked, isFalse);
+      expect(dead.coupledRemovals.single.kind, SymbolKind.field);
+      final names = result.unused.map((d) => d.qualifiedName).toSet();
+      expect(names, isNot(contains('Halved.live')));
+      expect(names, isNot(contains('Mixed.live')));
+    });
+
     test('never reports a member called through the interface', () async {
       final names = (await runOverrides()).unused
           .map((d) => d.qualifiedName)

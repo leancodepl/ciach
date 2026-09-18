@@ -69,6 +69,21 @@ class Pair implements Paired {
   final int left = 1, right = 2;
 }
 
+/// Kept alive as the supertype of `Mixed`.
+abstract class Halved {
+  /// Never read -> UNUSED. Its override is one declarator of a statement whose
+  /// other declarator stays, so only that declarator is taken out.
+  int get dead;
+
+  /// Read from bin/app.dart -> USED, and so is its override.
+  int get live;
+}
+
+class Mixed implements Halved {
+  @override
+  final int dead = 1, live = 2;
+}
+
 /// Kept alive as the supertype of `Spigot` in overrides_impl.dart.
 abstract class Valve {
   /// Never called -> UNUSED. Coupled to the `Spigot.close` override when

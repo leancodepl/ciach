@@ -41,6 +41,9 @@ void main() {
   final Pump pump = Turbine();
   pump.start();
   print([Dial(), Spigot(), const Meter(1), Pair()]);
+  // Reads `live` but never `dead`, so only one declarator of their shared
+  // statement is coupled to a removal.
+  print(Mixed().live);
 
   // References ReferencedAsTypeOnly as a *type* only (never constructs it), so
   // the class stays USED while its constructor is reported unused.
