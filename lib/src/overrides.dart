@@ -153,18 +153,43 @@ final class OverrideRemovals {
   }
 
   /// The outline node whose name starts at [position], with the node it is
-  /// declared in.
+  /// declared in. Descends one level at a time, since a node's name is inside
+  /// its own range and inside every range around it.
   static ({Outline node, Outline? parent})? _nodeNamedAt(
     Outline root,
     Position position,
   ) {
-    for (final parent in root.descendants) {
-      for (final child in parent.children) {
-        if (child.element.range?.start == position) {
-          return (node: child, parent: parent);
-        }
+    var parent = root;
+    while (true) {
+      final child = _childAt(parent, position);
+      if (child == null) {
+        return null;
+      }
+      if (child.element.range?.start == position) {
+        return (node: child, parent: parent);
+      }
+      parent = child;
+    }
+  }
+
+  /// The child of [parent] covering [position]. Children are in source order,
+  /// so the only candidate is the last one starting at or before it.
+  static Outline? _childAt(Outline parent, Position position) {
+    final children = parent.children;
+    var lo = 0;
+    var hi = children.length;
+    while (lo < hi) {
+      final mid = (lo + hi) >> 1;
+      if (children[mid].range.start.atOrBefore(position)) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
       }
     }
-    return null;
+    if (lo == 0) {
+      return null;
+    }
+    final child = children[lo - 1];
+    return position.atOrBefore(child.range.end) ? child : null;
   }
 }
