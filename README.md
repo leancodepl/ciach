@@ -81,6 +81,7 @@ ciach --verbose                        # explain each step
 | `--version` | — | Print the ciach version and exit. The `--help` header carries it too. |
 | `--config <path>` | auto | Read settings from this YAML file instead of the auto-discovered one. See [Configuration file](#configuration-file). |
 | `--no-config` | off | Ignore the config file, even if one is found. |
+| `--analysis-root <path>` | the scanned path | Count references from this whole directory, not just the scanned package — for a monorepo wired by `path:` dependencies. See [Monorepos](#monorepos). |
 | `--[no-]public` | on | Report unused public declarations too. Disable to report only private (`_`-prefixed) ones. |
 | `--[no-]generated` | off | Scan generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, …). |
 | `--[no-]overrides` | off | Report `@override` members too. Off by default — see limitations. |
@@ -112,6 +113,7 @@ long name minus the `--`, plus `path` for the positional argument:
 
 ```yaml
 public: false                     # --no-public
+analysis-root: ..                 # --analysis-root; see Monorepos
 exclude: ['test/**', 'tool/**']   # repeatable options take a list, or a bare string
 kinds: [class, function, method]
 format: github
@@ -278,6 +280,28 @@ A member rule also keeps its type, while the type's other members are still
 checked. `-v` names each skipped entry point. This setting has no command-line
 form.
 
+### Monorepos
+
+The analysis server sees the directory it is pointed at. In a monorepo where
+sibling packages depend on this one by `path:`, their calls are invisible, and a
+declaration used only across that boundary reads as dead.
+
+`--analysis-root` widens where references are counted, and nothing else:
+
+```bash
+ciach pkgs/core --analysis-root .    # scan pkgs/core, count uses from the whole repo
+```
+
+- Candidates, reported paths, `--include`/`--exclude`, `ciach.yaml` discovery and
+  `--remove` all stay on the scanned package.
+- The path must contain that package; narrowing is a usage error.
+- The whole repo gets analyzed, which is where a run spends its time.
+  `--no-public` is unaffected — private declarations stay library-scoped.
+
+A pub workspace needs none of this: the analyzer roots its context at the
+workspace already. A *published* package's consumers stay invisible either way,
+not being on disk; treat public findings there as advisory.
+
 ## Limitations
 
 This is a static, reference-based heuristic, so review its output rather than
@@ -285,6 +309,8 @@ deleting blindly:
 
 - **A library package's public API** is legitimately unused from inside the
   package. Prefer `--no-public` there, or treat public findings as advisory.
+  In a monorepo, [`--analysis-root`](#monorepos) recovers uses that live in a
+  sibling package; a published package's consumers stay invisible.
 - **Reflection, dynamic invocation, and names referenced only from generated
   code you excluded** are invisible to a reference search.
 - **Entry points other than `main` and `testExecutable`** (plugin registrants,

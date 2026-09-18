@@ -1,3 +1,11 @@
+## Unreleased
+
+- Add `--analysis-root <path>` (and `analysis-root:` in `ciach.yaml`): count
+  references from a directory wider than the scanned package, so a monorepo
+  sibling's `path:` dependency keeps what it calls alive. What is scanned,
+  reported and removed is unchanged. A pub workspace already resolves those
+  references and needs no setting.
+
 ## 0.5.0
 
 - Read declarations from the analysis server's outline instead of the source

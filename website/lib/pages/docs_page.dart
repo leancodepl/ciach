@@ -87,6 +87,11 @@ const _options = [
         'from everywhere.',
   ),
   (
+    '--analysis-root',
+    'Count references from a whole monorepo, not just the scanned '
+        'package. What is scanned and removed is unchanged.',
+  ),
+  (
     '--overrides, --operators, --generated, --report-tojson',
     'Opt back into a '
         'category skipped by default.',
@@ -640,7 +645,9 @@ class DocsPage extends StatelessComponent {
                   li(
                     rich(
                       'A library package’s public API is legitimately unused '
-                      'from the inside: prefer `--no-public` there.',
+                      'from the inside: prefer `--no-public` there. In a '
+                      'monorepo, `--analysis-root` recovers uses that live in '
+                      'a sibling package.',
                     ),
                   ),
                   li(

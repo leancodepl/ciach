@@ -97,6 +97,10 @@ class Ciach {
   Future<FinderResult> run() async {
     final stopwatch = Stopwatch()..start();
     final rootPath = p.normalize(p.absolute(options.rootPath));
+    final analysisRoot = switch (options.analysisRootPath) {
+      final path? => p.normalize(p.absolute(path)),
+      null => rootPath,
+    };
 
     final discovered = discoverDartFilesSplit(options);
     final files = discovered.candidates;
@@ -123,7 +127,13 @@ class Ciach {
     var declarationsChecked = 0;
 
     try {
-      await client.initialize(Directory(rootPath).uri);
+      if (analysisRoot != rootPath) {
+        _report(
+          'Analyzing within $analysisRoot, so references outside the scanned '
+          'package count.',
+        );
+      }
+      await client.initialize(Directory(analysisRoot).uri);
       _report('Waiting for initial analysis to complete…');
       await client.waitForAnalysisComplete();
 
@@ -183,6 +193,7 @@ class Ciach {
         refsByCandidate,
         crossLib,
         rootPath,
+        analysisRoot,
       );
 
       // A deser-only union arm reads zero references but is a live serialization
@@ -277,6 +288,7 @@ class Ciach {
     List<List<Location>> refsByCandidate,
     CrossLibraryReferences crossLib,
     String rootPath,
+    String analysisRoot,
   ) {
     final warnings = <RecoveredReference>[];
     for (var i = 0; i < candidates.length; i++) {
@@ -298,7 +310,7 @@ class Ciach {
           filePath: relativePosix(candidate.path, rootPath),
           line: start.line + 1,
           column: start.character + 1,
-          usageFilePath: relativePosix(usage.path, rootPath),
+          usageFilePath: relativeUsagePosix(usage.path, rootPath, analysisRoot),
           usageLine: usage.line + 1,
           usageColumn: usage.character + 1,
         ),
