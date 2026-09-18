@@ -173,9 +173,8 @@ List<_Span> _declaratorSpans(
   int Function(int line, int column) offsetOf,
 ) {
   final groups = <int, List<UnusedDeclaration>>{};
-  // One declarator can arrive twice — reported in its own right and coupled to
-  // another declaration's removal — and the span arithmetic below reads each
-  // one once.
+  // One declarator can arrive twice: reported in its own right, and coupled to
+  // another declaration's removal.
   final seen = <(int, int)>{};
   for (final decl in decls) {
     final baseStart = offsetOf(decl.range.startLine, decl.range.startColumn);

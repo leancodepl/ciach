@@ -234,7 +234,7 @@ class Ciach {
       };
 
       // Phase 4: couple a dead member's overrides to its removal, or let one
-      // that has to stay block it. Only scanned files are ever rewritten.
+      // that has to stay block it.
       final scannedPaths = files.where(opened.contains).toSet();
       final overridden = await _coupleOverrides(
         client,
@@ -300,8 +300,7 @@ class Ciach {
   }
 
   /// The overrides to delete along with each reported dead member, by
-  /// candidate index. Members with nothing coupled and nothing blocking are
-  /// left out.
+  /// candidate index. Members with nothing to say are left out.
   Future<Map<int, OverriddenMember>> _coupleOverrides(
     LspClient client,
     List<Candidate> candidates,
@@ -357,7 +356,7 @@ class Ciach {
   }
 
   /// Whether [candidate] is a member a subclass could override. A declaring
-  /// parameter is never removed anyway, so it is not asked about.
+  /// parameter is never removed anyway.
   bool _canBeOverridden(Candidate candidate) => switch (candidate.symbol.kind) {
     .method || .property || .field =>
       candidate.container != null &&
@@ -767,9 +766,9 @@ class Ciach {
     _OutlineIndex outlines,
     List<Candidate> out,
   ) {
-    // A field statement's doc comment, annotations and modifiers all sit on its
+    // A field statement's doc comment, annotations and modifiers sit on its
     // first declarator, so a later one (`b` in `@override final int a, b;`)
-    // reports none of its own and reads its statement's instead.
+    // reads that statement's instead of its own, which are empty.
     var statementMetadata = const <SemanticToken>[];
     for (final symbol in symbols) {
       final outline = outlines[symbol];

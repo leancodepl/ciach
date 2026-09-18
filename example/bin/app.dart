@@ -37,12 +37,11 @@ void main() {
   print(const LiveWidget());
 
   // Keeps the override-scenario types alive, so only their members are dead:
-  // `start()` is called through Pump, `prime()` never is.
+  // `start()` is called through Pump, `prime()` never is, and `Mixed.live` is
+  // read while `Mixed.dead` is not.
   final Pump pump = Turbine();
   pump.start();
   print([Dial(), Spigot(), const Meter(1), Pair()]);
-  // Reads `live` but never `dead`, so only one declarator of their shared
-  // statement is coupled to a removal.
   print(Mixed().live);
 
   // References ReferencedAsTypeOnly as a *type* only (never constructs it), so

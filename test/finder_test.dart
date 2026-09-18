@@ -359,8 +359,7 @@ void main() {
   });
 
   group('dead members with overrides', () {
-    // The fixture's types are kept alive from bin/app.dart, which the
-    // analysis server analyzes either way.
+    // The fixture's types are kept alive from bin/app.dart.
     Future<FinderResult> runOverrides({bool withImplFile = true}) => runFinder(
       include: [
         'lib/scenarios/overrides.dart',
@@ -378,7 +377,6 @@ void main() {
       expect(prime.removalBlocked, isFalse);
       // `Piston.prime`, and `Turbine.prime` two levels down.
       expect(prime.coupledRemovals, hasLength(2));
-      // The overrides are removed with it, not reported in their own right.
       final names = result.unused.map((d) => d.qualifiedName).toSet();
       expect(names, isNot(contains('Piston.prime')));
       expect(names, isNot(contains('Turbine.prime')));
@@ -410,16 +408,14 @@ void main() {
     });
 
     test('keeps a member whose override is a declaring parameter', () async {
-      // Deleting `Meter`'s `rating` would change its constructor signature.
       final rating = finding(await runOverrides(), 'Rated.rating');
       expect(rating.removalBlocked, isTrue);
       expect(rating.coupledRemovals, isEmpty);
     });
 
     test('couples an override sharing a field statement', () async {
-      // `final int left = 1, right = 2;` — each declarator is coupled to the
-      // member it implements, as a field, so the remover takes the statement
-      // whole once both are gone.
+      // `final int left = 1, right = 2;` — each declarator is coupled as a
+      // field, so the remover takes the statement whole once both are gone.
       final result = await runOverrides();
       for (final name in ['Paired.left', 'Paired.right']) {
         final declarator = finding(result, name);
@@ -430,24 +426,25 @@ void main() {
           reason: name,
         );
       }
-      // Both declarators are overrides, including the one that carries no
-      // annotation of its own, so neither is a finding.
+      // Both are overrides, including the one with no annotation of its own.
       final names = result.unused.map((d) => d.qualifiedName).toSet();
       expect(names, isNot(contains('Pair.left')));
       expect(names, isNot(contains('Pair.right')));
     });
 
-    test('couples one declarator and keeps the rest of the statement', () async {
-      // `final int dead = 1, live = 2;` — only `dead` implements a dead member,
-      // so only that declarator is coupled and the statement survives.
-      final result = await runOverrides();
-      final dead = finding(result, 'Halved.dead');
-      expect(dead.removalBlocked, isFalse);
-      expect(dead.coupledRemovals.single.kind, SymbolKind.field);
-      final names = result.unused.map((d) => d.qualifiedName).toSet();
-      expect(names, isNot(contains('Halved.live')));
-      expect(names, isNot(contains('Mixed.live')));
-    });
+    test(
+      'couples one declarator and keeps the rest of the statement',
+      () async {
+        // Only `dead` implements a dead member, so the statement survives.
+        final result = await runOverrides();
+        final dead = finding(result, 'Halved.dead');
+        expect(dead.removalBlocked, isFalse);
+        expect(dead.coupledRemovals.single.kind, SymbolKind.field);
+        final names = result.unused.map((d) => d.qualifiedName).toSet();
+        expect(names, isNot(contains('Halved.live')));
+        expect(names, isNot(contains('Mixed.live')));
+      },
+    );
 
     test('never reports a member called through the interface', () async {
       final names = (await runOverrides()).unused
@@ -458,8 +455,7 @@ void main() {
     });
 
     test('couples the override of a dead method in the default run', () async {
-      // `Dog.sound` overrides the dead `Animal.sound`, so `--remove` takes
-      // both.
+      // `Dog.sound` overrides the dead `Animal.sound`; `--remove` takes both.
       final sound = finding(await runFinder(), 'Animal.sound');
       expect(sound.removalBlocked, isFalse);
       expect(sound.coupledRemovals, hasLength(1));

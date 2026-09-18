@@ -15,13 +15,11 @@ typedef OverriddenMember = ({List<CoupledRemoval> removals, bool blocked});
 
 /// Couples a dead member's overrides to its removal.
 ///
-/// An override is dead with the member it implements: a call through any
-/// subclass would have referenced that member. It is not a candidate, though
-/// (see [FinderOptions.skipOverrides]), so removing the member alone leaves it
-/// overriding nothing — `override_on_non_overriding_member`.
-///
-/// `textDocument/implementation` answers with every override of a member,
-/// transitively and across files.
+/// An override is dead with the member it implements — a call through any
+/// subclass would have referenced that member — but it is not a candidate
+/// (see [FinderOptions.skipOverrides]), so removing the member alone would
+/// leave it overriding nothing. `textDocument/implementation` answers with
+/// every override of a member, transitively and across files.
 final class OverrideRemovals {
   OverrideRemovals(
     this._client,
@@ -33,7 +31,6 @@ final class OverrideRemovals {
 
   final LspClient _client;
 
-  /// Source text and the selection ranges fetched for the overrides below.
   final SourceIndex _sources;
 
   /// The files this run collected declarations from; nothing else is edited.
@@ -41,10 +38,8 @@ final class OverrideRemovals {
 
   final String _rootPath;
 
-  /// The kinds an override is deleted as, and the kind the remover reads for
-  /// each. A `field` is deleted as a declarator, so one sharing a statement
-  /// with others (`final int a = 1, b = 2;`) is taken out of it, and the whole
-  /// statement goes only when every declarator does.
+  /// The kinds an override is deleted as, mapped to the kind the remover
+  /// reads. A `field` goes as a declarator, so it can share a statement.
   static const _removableKinds = <OutlineKind, SymbolKind>{
     .method: .method,
     .getter: .property,
@@ -71,8 +66,8 @@ final class OverrideRemovals {
     }
     final removals = <CoupledRemoval>[];
     for (final override in overrides) {
-      final removal = await _removalFor(override);
       // An override that has to stay blocks the member.
+      final removal = await _removalFor(override);
       if (removal == null) {
         return _blocked;
       }
@@ -96,8 +91,7 @@ final class OverrideRemovals {
     } on Object {
       return null;
     }
-    // The answer points at the override's name — an outline node's element
-    // range.
+    // The answer points at the override's name: an outline node's element range.
     final start = location.range.start;
     final found = _nodeNamedAt(outline, start);
     final kind = _removableKinds[found?.node.element.kind];
@@ -105,8 +99,8 @@ final class OverrideRemovals {
       return null;
     }
     final node = found.node;
-    // A declaring parameter of a primary constructor is a field too, and
-    // deleting one changes the constructor signature at every call site.
+    // Deleting a declaring parameter changes the constructor signature at
+    // every call site.
     if (kind == .field &&
         await _isDeclaringParameter(uri, path, found.parent, start)) {
       return null;
@@ -129,9 +123,8 @@ final class OverrideRemovals {
     );
   }
 
-  /// Whether the field named at [name] is declared in [type]'s header — a
-  /// declaring parameter of a primary constructor. `true` when the shape
-  /// cannot be read, which keeps the declaration.
+  /// Whether the field named at [name] is a declaring parameter of [type]'s
+  /// primary constructor. `true` when the shape cannot be read.
   Future<bool> _isDeclaringParameter(
     Uri uri,
     String path,
@@ -153,8 +146,7 @@ final class OverrideRemovals {
   }
 
   /// The outline node whose name starts at [position], with the node it is
-  /// declared in. Descends one level at a time, since a node's name is inside
-  /// its own range and inside every range around it.
+  /// declared in. A name is inside every range around it, so this descends.
   static ({Outline node, Outline? parent})? _nodeNamedAt(
     Outline root,
     Position position,
@@ -172,8 +164,7 @@ final class OverrideRemovals {
     }
   }
 
-  /// The child of [parent] covering [position]: the last one starting at or
-  /// before it, if it reaches that far.
+  /// The child of [parent] covering [position].
   static Outline? _childAt(Outline parent, Position position) {
     final child = lastStartingAtOrBefore(
       parent.children,

@@ -618,10 +618,9 @@ enum E {
   });
 
   test('a declarator reported and coupled at once is removed once', () {
-    // `Paired.left` and `Paired.right` are both dead, and each couples its own
-    // declarator of one statement; the second is also a finding in its own
-    // right. The same declarator arriving twice must not confuse the span
-    // arithmetic — the statement goes whole.
+    // Each of the two dead members couples its own declarator of one
+    // statement, and the second declarator is also a finding in its own right.
+    // The same declarator arriving twice must not confuse the span arithmetic.
     const source = '''
 class Pair {
   final int left = 1, right = 2;
@@ -661,10 +660,12 @@ class Pair {
     _expectBalanced(result);
   });
 
-  test('a coupled declarator is taken out of a statement that keeps the rest', () {
-    // `Halved.dead` is dead and `Mixed` implements it in a statement it shares
-    // with a live declarator: the statement stays, one declarator goes.
-    const source = '''
+  test(
+    'a coupled declarator is taken out of a statement that keeps the rest',
+    () {
+      // The implementing declarator shares its statement with a live one: the
+      // statement stays, one declarator goes.
+      const source = '''
 abstract class Halved {
   int get dead;
 }
@@ -673,31 +674,37 @@ class Mixed implements Halved {
   final int dead = 1, live = 2;
 }
 ''';
-    // `int get dead;` is line 1, cols 2..15; `dead = 1` is line 5, cols 12..20,
-    // and the statement it starts begins at col 2.
-    const member = UnusedDeclaration(
-      name: 'dead',
-      kind: SymbolKind.property,
-      filePath: 'lib.dart',
-      line: 2,
-      column: 11,
-      isPrivate: false,
-      range: (startLine: 1, startColumn: 2, endLine: 1, endColumn: 15),
-      coupledRemovals: [
-        (
-          filePath: 'lib.dart',
-          kind: SymbolKind.field,
-          range: (startLine: 5, startColumn: 12, endLine: 5, endColumn: 20),
-          fullRange: (startLine: 5, startColumn: 2, endLine: 5, endColumn: 20),
-        ),
-      ],
-    );
-    final result = applyRemoval(source, [member]);
-    expect(result, isNot(contains('dead')));
-    expect(result, contains('live = 2;'));
-    expect(result, contains('class Mixed implements Halved {'));
-    _expectBalanced(result);
-  });
+      // `int get dead;` is line 1, cols 2..15; `dead = 1` is line 5, cols 12..20,
+      // and the statement it starts begins at col 2.
+      const member = UnusedDeclaration(
+        name: 'dead',
+        kind: SymbolKind.property,
+        filePath: 'lib.dart',
+        line: 2,
+        column: 11,
+        isPrivate: false,
+        range: (startLine: 1, startColumn: 2, endLine: 1, endColumn: 15),
+        coupledRemovals: [
+          (
+            filePath: 'lib.dart',
+            kind: SymbolKind.field,
+            range: (startLine: 5, startColumn: 12, endLine: 5, endColumn: 20),
+            fullRange: (
+              startLine: 5,
+              startColumn: 2,
+              endLine: 5,
+              endColumn: 20,
+            ),
+          ),
+        ],
+      );
+      final result = applyRemoval(source, [member]);
+      expect(result, isNot(contains('dead')));
+      expect(result, contains('live = 2;'));
+      expect(result, contains('class Mixed implements Halved {'));
+      _expectBalanced(result);
+    },
+  );
 
   test('removing nothing leaves the file untouched', () {
     const source = 'void kept() {}\n';

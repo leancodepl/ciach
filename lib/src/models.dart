@@ -27,9 +27,8 @@ typedef DeclarationRange = ({
 /// `filePath` (relative to the analyzed root, `/`-separated), so it can live in
 /// another file, like a dead `StatefulWidget`'s `State` subclass.
 ///
-/// `range` and `fullRange` mean what they do on [UnusedDeclaration], and `kind`
-/// is what the remover reads to tell a declarator (which may share its
-/// statement with others) from a whole node.
+/// `range`, `fullRange` and `kind` mean what they do on [UnusedDeclaration];
+/// the remover reads `kind` to tell a declarator from a whole node.
 typedef CoupledRemoval = ({
   String filePath,
   SymbolKind kind,
@@ -243,10 +242,9 @@ class UnusedDeclaration {
   /// - a dead `StatefulWidget`'s paired private `State<Widget>` subclass, which
   ///   is not independently "unused" (the widget's own `createState` references
   ///   it) yet becomes uncompilable the moment the widget is deleted
-  ///   (`State<DeletedWidget>` no longer resolves). It lives in the same file.
-  /// - every override of a dead member: `skipOverrides` keeps them out of the
-  ///   findings, and they would be left overriding nothing
-  ///   (`override_on_non_overriding_member`). They can live in any file.
+  ///   (`State<DeletedWidget>` no longer resolves).
+  /// - every override of a dead member, which `skipOverrides` keeps out of the
+  ///   findings and which would be left overriding nothing.
   ///
   /// Coupling a removal keeps `--remove` from breaking the build without
   /// surfacing the coupled span as a separate report entry.
