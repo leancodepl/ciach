@@ -319,6 +319,7 @@ class Ciach {
     _report('Checking ${members.length} dead member(s) for overrides…');
     final overrides = OverrideRemovals(
       client,
+      _sources,
       scannedPaths: scannedPaths,
       rootPath: rootPath,
     );

@@ -34,14 +34,40 @@ class Turbine extends Piston {
 
 /// Kept alive as the supertype of `Dial`.
 abstract class Gauge {
-  /// Never read -> UNUSED, but `Dial.reading` implements it as a field, which
-  /// `--remove` will not delete: report-only.
+  /// Never read -> UNUSED. `Dial` implements it as a plain body field, which
+  /// is coupled to its removal like any other override.
   num get reading;
 }
 
 class Dial implements Gauge {
   @override
   final num reading = 0;
+}
+
+/// Kept alive as the supertype of `Meter`.
+abstract class Rated {
+  /// Never read -> UNUSED, but `Meter` declares its override in the class
+  /// header, where deleting it would change the constructor signature at every
+  /// call site: report-only.
+  int get rating;
+}
+
+class const Meter(@override final int rating) implements Rated;
+
+/// Kept alive as the supertype of `Pair`.
+abstract class Paired {
+  /// Never read -> UNUSED, but `Pair` declares its override next to another in
+  /// one statement, and a single declarator cannot be deleted on its own:
+  /// report-only.
+  int get left;
+
+  /// The other declarator of that statement, same story.
+  int get right;
+}
+
+class Pair implements Paired {
+  @override
+  final int left = 1, right = 2;
 }
 
 /// Kept alive as the supertype of `Spigot` in overrides_impl.dart.

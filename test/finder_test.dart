@@ -403,10 +403,28 @@ void main() {
       expect(close.hint, contains('overridden'));
     });
 
-    test('keeps a member that a field implements', () async {
+    test('couples an override declared as a plain field', () async {
       final reading = finding(await runOverrides(), 'Gauge.reading');
-      expect(reading.removalBlocked, isTrue);
-      expect(reading.coupledRemovals, isEmpty);
+      expect(reading.removalBlocked, isFalse);
+      expect(reading.coupledRemovals, hasLength(1));
+    });
+
+    test('keeps a member whose override is a declaring parameter', () async {
+      // Deleting `Meter`'s `rating` would change its constructor signature.
+      final rating = finding(await runOverrides(), 'Rated.rating');
+      expect(rating.removalBlocked, isTrue);
+      expect(rating.coupledRemovals, isEmpty);
+    });
+
+    test('keeps a member whose override shares a field statement', () async {
+      // `final int left = 1, right = 2;` — neither declarator can go on its
+      // own, whether it is the first or a later one.
+      final result = await runOverrides();
+      for (final name in ['Paired.left', 'Paired.right']) {
+        final declarator = finding(result, name);
+        expect(declarator.removalBlocked, isTrue, reason: name);
+        expect(declarator.coupledRemovals, isEmpty, reason: name);
+      }
     });
 
     test('never reports a member called through the interface', () async {

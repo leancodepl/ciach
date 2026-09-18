@@ -253,7 +253,7 @@ class UnusedDeclaration {
   /// deleting it would mean removing the member and rewriting every now-non-
   /// exhaustive `switch`/`if`-`case` over its supertype. Also set for a member
   /// whose override this tool won't delete — one in an unscanned file, or a
-  /// field — which would be left overriding nothing. The declaration is still
+  /// field that cannot go on its own — which would be left overriding nothing. The declaration is still
   /// reported so a human can act on it; it — and anything coupled to it — is
   /// simply skipped by the remover.
   final bool removalBlocked;

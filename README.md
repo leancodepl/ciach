@@ -237,7 +237,7 @@ auto-remove — remove manually` and skipped, along with anything coupled to the
 | Every value of a still-referenced enum | `enum E {}` doesn't compile |
 | The sole constructor of a live class with `final` fields, or whose superclass needs constructor arguments | the implicit default constructor can't replace it |
 | A primary constructor or its declaring parameters | only part of the class header |
-| A member whose override is a field, or is in a file the run didn't scan | that override would be left overriding nothing |
+| A member whose override is a declaring parameter, shares a field statement with another declarator, or is in a file the run didn't scan | that override can't be deleted on its own, and would be left overriding nothing |
 
 ## What it skips by default
 

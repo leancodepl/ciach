@@ -40,7 +40,7 @@ void main() {
   // `start()` is called through Pump, `prime()` never is.
   final Pump pump = Turbine();
   pump.start();
-  print([Dial(), Spigot()]);
+  print([Dial(), Spigot(), const Meter(1), Pair()]);
 
   // References ReferencedAsTypeOnly as a *type* only (never constructs it), so
   // the class stays USED while its constructor is reported unused.

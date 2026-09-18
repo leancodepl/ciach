@@ -2,8 +2,9 @@
 
 - `--remove` deletes a dead member's overrides along with it, so no `@override`
   is left overriding nothing. A member is reported but not removed when one of
-  its overrides can't be deleted: it is in a file the run didn't scan, or it is
-  a field. ([#63](https://github.com/leancodepl/ciach/pull/63))
+  its overrides can't be deleted on its own: a declaring parameter, a field
+  declarator sharing its statement, or a file the run didn't scan.
+  ([#63](https://github.com/leancodepl/ciach/pull/63))
 
 ## 0.5.0
 
