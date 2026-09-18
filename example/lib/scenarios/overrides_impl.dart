@@ -1,5 +1,5 @@
-// The override of `Valve.close` that lives outside overrides.dart, so a scan
-// of that file alone cannot delete it; see lib/scenarios/overrides.dart.
+// The `Valve.close` override in a second file, so a scan of overrides.dart
+// alone cannot delete it.
 
 import 'package:sample_pkg/scenarios/overrides.dart';
 

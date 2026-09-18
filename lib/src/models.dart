@@ -236,9 +236,9 @@ class UnusedDeclaration {
   ///   is not independently "unused" (the widget's own `createState` references
   ///   it) yet becomes uncompilable the moment the widget is deleted
   ///   (`State<DeletedWidget>` no longer resolves). It lives in the same file.
-  /// - every override of a dead member, which `skipOverrides` keeps out of the
-  ///   findings but which would be left overriding nothing
-  ///   (`override_on_non_overriding_member`). These can live in any file.
+  /// - every override of a dead member: `skipOverrides` keeps them out of the
+  ///   findings, and they would be left overriding nothing
+  ///   (`override_on_non_overriding_member`). They can live in any file.
   ///
   /// Coupling a removal keeps `--remove` from breaking the build without
   /// surfacing the coupled span as a separate report entry.
@@ -251,12 +251,11 @@ class UnusedDeclaration {
   /// Set for every dead sealed member surfaced by `--unused-union-members` (a
   /// class that is only ever *matched* by a type pattern, never constructed):
   /// deleting it would mean removing the member and rewriting every now-non-
-  /// exhaustive `switch`/`if`-`case` over its supertype. Set, too, for a dead
-  /// member with an override this tool won't delete — one in an unscanned file,
-  /// or a field — since removing the member alone would leave that override
-  /// overriding nothing. The declaration is still reported so a human can act
-  /// on it; it — and anything coupled to it — is simply skipped by the
-  /// remover.
+  /// exhaustive `switch`/`if`-`case` over its supertype. Also set for a member
+  /// whose override this tool won't delete — one in an unscanned file, or a
+  /// field — which would be left overriding nothing. The declaration is still
+  /// reported so a human can act on it; it — and anything coupled to it — is
+  /// simply skipped by the remover.
   final bool removalBlocked;
 
   /// An optional advisory note shown alongside the finding — extra context that

@@ -359,8 +359,8 @@ void main() {
   });
 
   group('dead members with overrides', () {
-    // Scan the override fixture; the types are kept alive from bin/app.dart,
-    // which the analysis server analyzes either way.
+    // The fixture's types are kept alive from bin/app.dart, which the
+    // analysis server analyzes either way.
     Future<FinderResult> runOverrides({bool withImplFile = true}) => runFinder(
       include: [
         'lib/scenarios/overrides.dart',
@@ -409,7 +409,7 @@ void main() {
       expect(reading.coupledRemovals, isEmpty);
     });
 
-    test('leaves a member called through the interface alone', () async {
+    test('never reports a member called through the interface', () async {
       final names = (await runOverrides()).unused
           .map((d) => d.qualifiedName)
           .toSet();
@@ -418,8 +418,8 @@ void main() {
     });
 
     test('couples the override of a dead method in the default run', () async {
-      // `Animal.sound` is dead and `Dog.sound` overrides it; `--remove` takes
-      // both, so no `@override` is left overriding nothing.
+      // `Dog.sound` overrides the dead `Animal.sound`, so `--remove` takes
+      // both.
       final sound = finding(await runFinder(), 'Animal.sound');
       expect(sound.removalBlocked, isFalse);
       expect(sound.coupledRemovals, hasLength(1));

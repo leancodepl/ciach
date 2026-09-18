@@ -93,8 +93,8 @@ class Ciach {
       'the constructor signature at every call site';
 
   static const _overriddenHint =
-      'overridden by a declaration this tool will not delete — removing it '
-      'alone would leave that override overriding nothing';
+      'overridden by a declaration --remove will not delete — that override '
+      'would be left overriding nothing';
 
   void _report(String message) => options.onProgress?.call(message);
 
@@ -233,10 +233,8 @@ class Ciach {
             i,
       };
 
-      // Phase 4: a dead member's overrides are dead with it, but they are not
-      // candidates, so they have to be coupled to its removal — or keep it
-      // from being removed at all. Only a file this run collected declarations
-      // from may be rewritten.
+      // Phase 4: couple a dead member's overrides to its removal, or let one
+      // that has to stay block it. Only scanned files are ever rewritten.
       final scannedPaths = <String>{
         for (final path in files)
           if (opened.contains(path)) path,
@@ -305,8 +303,8 @@ class Ciach {
   }
 
   /// The overrides to delete along with each reported dead member, by
-  /// candidate index. An entry is present only when there is something to say:
-  /// spans to remove, or a member whose removal is now blocked.
+  /// candidate index. Members with nothing coupled and nothing blocking are
+  /// left out.
   Future<Map<int, OverriddenMember>> _coupleOverrides(
     LspClient client,
     List<Candidate> candidates,
@@ -354,15 +352,14 @@ class Ciach {
     if (blocked > 0) {
       _report(
         '$blocked dead member(s) are overridden where --remove cannot '
-        'follow; leaving them in place.',
+        'follow; left in place.',
       );
     }
     return byCandidate;
   }
 
-  /// Whether a subclass could override [candidate], so its overrides have to
-  /// be accounted for before it is removed. A declaring parameter cannot be
-  /// removed at all, so it is not asked about.
+  /// Whether [candidate] is a member a subclass could override. A declaring
+  /// parameter is never removed anyway, so it is not asked about.
   bool _canBeOverridden(Candidate candidate) => switch (candidate.symbol.kind) {
     .method || .property || .field =>
       candidate.container != null &&

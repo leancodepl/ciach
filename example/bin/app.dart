@@ -36,8 +36,8 @@ void main() {
   // Constructs LiveWidget -> a real, external use, so it is never flagged.
   print(const LiveWidget());
 
-  // Keeps the override-scenario types alive, so only their members are dead.
-  // `start()` is called through Pump; `prime()` never is.
+  // Keeps the override-scenario types alive, so only their members are dead:
+  // `start()` is called through Pump, `prime()` never is.
   final Pump pump = Turbine();
   pump.start();
   print([Dial(), Spigot()]);

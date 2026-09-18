@@ -8,22 +8,19 @@ import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location;
 
-/// What to do about the overrides of a dead member: the spans to delete along
-/// with it, or `blocked` when at least one of them cannot be deleted.
+/// The overrides of a dead member: spans to delete with it, or `blocked` when
+/// one of them has to stay.
 typedef OverriddenMember = ({List<CoupledRemoval> removals, bool blocked});
 
 /// Couples a dead member's overrides to its removal.
 ///
-/// A member with no references is dead even where subclasses override it: a
-/// call through any of them would have referenced it, since the analyzer
-/// resolves `dog.name` back to the `Animal.name` it implements. The whole
-/// family is dead, but an `@override` member is not a candidate (see
-/// [FinderOptions.skipOverrides]), so removing only the member the finder
-/// reports leaves its overrides overriding nothing —
-/// `override_on_non_overriding_member`.
+/// An override is dead with the member it implements: a call through any
+/// subclass would have referenced that member. It is not a candidate, though
+/// (see [FinderOptions.skipOverrides]), so removing the member alone leaves it
+/// overriding nothing — `override_on_non_overriding_member`.
 ///
-/// The overrides come from `textDocument/implementation`, which answers with
-/// every member overriding the one asked about, transitively and across files.
+/// `textDocument/implementation` answers with every override of a member,
+/// transitively and across files.
 final class OverrideRemovals {
   OverrideRemovals(
     this._client, {
@@ -34,16 +31,14 @@ final class OverrideRemovals {
 
   final LspClient _client;
 
-  /// The files this run collected declarations from — the only ones a coupled
-  /// removal may touch.
+  /// The files this run collected declarations from; nothing else is edited.
   final Set<String> _scannedPaths;
 
   final String _rootPath;
 
-  /// The kinds an override is deleted as: a member of the type's body, which
-  /// goes as a whole node. A `field` is left alone — it can be a declaring
-  /// parameter of a primary constructor, or initialized by a constructor that
-  /// would no longer compile without it.
+  /// The kinds an override is deleted as. Not `field`: in the outline a
+  /// declaring parameter of a primary constructor is a field too, and deleting
+  /// one changes the constructor signature at every call site.
   static const _removableKinds = <OutlineKind>{.method, .getter, .setter};
 
   static const _none = (removals: <CoupledRemoval>[], blocked: false);
@@ -66,8 +61,7 @@ final class OverrideRemovals {
     final removals = <CoupledRemoval>[];
     for (final override in overrides) {
       final removal = await _removalFor(override);
-      // One override that has to stay blocks the member: removing it would
-      // leave that override overriding nothing.
+      // An override that has to stay blocks the member.
       if (removal == null) {
         return _blocked;
       }
@@ -77,8 +71,8 @@ final class OverrideRemovals {
   }
 
   /// The span to delete for the override at [location], or `null` when it has
-  /// to stay: it is in a file this run did not scan, its declaration cannot be
-  /// read, it is a kind this tool won't delete, or something references it.
+  /// to stay: an unscanned file, a declaration that cannot be read, a kind this
+  /// tool won't delete, or a reference of its own.
   Future<CoupledRemoval?> _removalFor(Location location) async {
     final path = SourceIndex.pathOf(location.uri);
     if (!_scannedPaths.contains(path)) {
@@ -91,8 +85,8 @@ final class OverrideRemovals {
     } on Object {
       return null;
     }
-    // `textDocument/implementation` answers with each override's name, which
-    // is an outline node's `element.range`.
+    // The answer points at the override's name — an outline node's element
+    // range.
     final start = location.range.start;
     final node = outline.descendants.firstWhereOrNull(
       (node) => node.element.range?.start == start,
@@ -106,8 +100,7 @@ final class OverrideRemovals {
     } on Object {
       return null;
     }
-    // The dead member has no references, so neither should its overrides; a
-    // reference here means the analyzer sees a use this run does not.
+    // The member is dead, so a reference here is a use this run cannot see.
     if (refs.isNotEmpty) {
       return null;
     }
