@@ -172,24 +172,14 @@ final class OverrideRemovals {
     }
   }
 
-  /// The child of [parent] covering [position]. Children are in source order,
-  /// so the only candidate is the last one starting at or before it.
+  /// The child of [parent] covering [position]: the last one starting at or
+  /// before it, if it reaches that far.
   static Outline? _childAt(Outline parent, Position position) {
-    final children = parent.children;
-    var lo = 0;
-    var hi = children.length;
-    while (lo < hi) {
-      final mid = (lo + hi) >> 1;
-      if (children[mid].range.start.atOrBefore(position)) {
-        lo = mid + 1;
-      } else {
-        hi = mid;
-      }
-    }
-    if (lo == 0) {
-      return null;
-    }
-    final child = children[lo - 1];
-    return position.atOrBefore(child.range.end) ? child : null;
+    final child = lastStartingAtOrBefore(
+      parent.children,
+      position,
+      (child) => child.range.start,
+    );
+    return child != null && position.atOrBefore(child.range.end) ? child : null;
   }
 }
