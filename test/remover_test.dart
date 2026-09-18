@@ -617,6 +617,50 @@ enum E {
     _expectBalanced(result);
   });
 
+  test('a declarator reported and coupled at once is removed once', () {
+    // `Paired.left` and `Paired.right` are both dead, and each couples its own
+    // declarator of one statement; the second is also a finding in its own
+    // right. The same declarator arriving twice must not confuse the span
+    // arithmetic — the statement goes whole.
+    const source = '''
+class Pair {
+  final int left = 1, right = 2;
+}
+''';
+    // `left = 1` is line 1, cols 12..20; `right = 2` cols 22..31.
+    const right = UnusedDeclaration(
+      name: 'right',
+      kind: SymbolKind.field,
+      filePath: 'lib.dart',
+      line: 2,
+      column: 23,
+      isPrivate: false,
+      range: (startLine: 1, startColumn: 22, endLine: 1, endColumn: 31),
+      fullRange: (startLine: 1, startColumn: 22, endLine: 1, endColumn: 31),
+      coupledRemovals: [
+        // The same declarator, coupled to the member it overrides.
+        (
+          filePath: 'lib.dart',
+          kind: SymbolKind.field,
+          range: (startLine: 1, startColumn: 22, endLine: 1, endColumn: 31),
+          fullRange: (startLine: 1, startColumn: 22, endLine: 1, endColumn: 31),
+        ),
+        // And the statement's other declarator.
+        (
+          filePath: 'lib.dart',
+          kind: SymbolKind.field,
+          range: (startLine: 1, startColumn: 12, endLine: 1, endColumn: 20),
+          fullRange: (startLine: 1, startColumn: 2, endLine: 1, endColumn: 20),
+        ),
+      ],
+    );
+    final result = applyRemoval(source, [right]);
+    expect(result, isNot(contains('left')));
+    expect(result, isNot(contains('right')));
+    expect(result, contains('class Pair {'));
+    _expectBalanced(result);
+  });
+
   test('removing nothing leaves the file untouched', () {
     const source = 'void kept() {}\n';
     expect(applyRemoval(source, const []), source);
@@ -652,7 +696,14 @@ class Kept {}
         coupledRemovals: [
           (
             filePath: 'lib.dart',
+            kind: SymbolKind.class$,
             range: (startLine: 6, startColumn: 0, endLine: 6, endColumn: 51),
+            fullRange: (
+              startLine: 6,
+              startColumn: 0,
+              endLine: 6,
+              endColumn: 51,
+            ),
           ),
         ],
       );
@@ -695,7 +746,9 @@ String describe(S s) => switch (s) {
       coupledRemovals: [
         (
           filePath: 'lib.dart',
+          kind: SymbolKind.class$,
           range: (startLine: 8, startColumn: 2, endLine: 9, endColumn: 0),
+          fullRange: (startLine: 8, startColumn: 2, endLine: 9, endColumn: 0),
         ),
       ],
     );

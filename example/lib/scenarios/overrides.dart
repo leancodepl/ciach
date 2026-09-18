@@ -56,12 +56,11 @@ class const Meter(@override final int rating) implements Rated;
 
 /// Kept alive as the supertype of `Pair`.
 abstract class Paired {
-  /// Never read -> UNUSED, but `Pair` declares its override next to another in
-  /// one statement, and a single declarator cannot be deleted on its own:
-  /// report-only.
+  /// Never read -> UNUSED. `Pair` declares its override next to another in one
+  /// statement, so the override is coupled as a declarator, not a whole node.
   int get left;
 
-  /// The other declarator of that statement, same story.
+  /// Never read -> UNUSED. Both declarators go, so the statement goes whole.
   int get right;
 }
 

@@ -55,12 +55,13 @@ RemovalResult removeDeclarations(
           .add(
             UnusedDeclaration(
               name: '',
-              kind: .class$,
+              kind: coupled.kind,
               filePath: coupled.filePath,
               line: range.startLine + 1,
               column: range.startColumn + 1,
               isPrivate: true,
               range: range,
+              fullRange: coupled.fullRange,
             ),
           );
     }
@@ -172,8 +173,16 @@ List<_Span> _declaratorSpans(
   int Function(int line, int column) offsetOf,
 ) {
   final groups = <int, List<UnusedDeclaration>>{};
+  // One declarator can arrive twice — reported in its own right and coupled to
+  // another declaration's removal — and the span arithmetic below reads each
+  // one once.
+  final seen = <(int, int)>{};
   for (final decl in decls) {
+    final baseStart = offsetOf(decl.range.startLine, decl.range.startColumn);
     final baseEnd = offsetOf(decl.range.endLine, decl.range.endColumn);
+    if (!seen.add((baseStart, baseEnd))) {
+      continue;
+    }
     final statementEnd = _finalStatementEnd(content, baseEnd);
     if (statementEnd == null) {
       // Can't even find where the statement ends; leave it alone.

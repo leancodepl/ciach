@@ -7,7 +7,7 @@ import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:ciach/src/syntax_rules.dart';
 import 'package:pro_lsp/pro_lsp.dart'
-    show Location, Position, Range, SelectionRange;
+    show Location, Position, SelectionRange, SymbolKind;
 
 /// The overrides of a dead member: spans to delete with it, or `blocked` when
 /// one of them has to stay.
@@ -41,13 +41,15 @@ final class OverrideRemovals {
 
   final String _rootPath;
 
-  /// The kinds an override is deleted as. A `field` needs two further checks
-  /// — see [_fieldIsRemovable].
-  static const _removableKinds = <OutlineKind>{
-    .method,
-    .getter,
-    .setter,
-    .field,
+  /// The kinds an override is deleted as, and the kind the remover reads for
+  /// each. A `field` is deleted as a declarator, so one sharing a statement
+  /// with others (`final int a = 1, b = 2;`) is taken out of it, and the whole
+  /// statement goes only when every declarator does.
+  static const _removableKinds = <OutlineKind, SymbolKind>{
+    .method: .method,
+    .getter: .property,
+    .setter: .property,
+    .field: .field,
   };
 
   static const _none = (removals: <CoupledRemoval>[], blocked: false);
@@ -98,12 +100,15 @@ final class OverrideRemovals {
     // range.
     final start = location.range.start;
     final found = _nodeNamedAt(outline, start);
-    if (found == null || !_removableKinds.contains(found.node.element.kind)) {
+    final kind = _removableKinds[found?.node.element.kind];
+    if (found == null || kind == null) {
       return null;
     }
     final node = found.node;
-    if (node.element.kind == .field &&
-        !await _fieldIsRemovable(uri, path, node, found.parent, start)) {
+    // A declaring parameter of a primary constructor is a field too, and
+    // deleting one changes the constructor signature at every call site.
+    if (kind == .field &&
+        await _isDeclaringParameter(uri, path, found.parent, start)) {
       return null;
     }
     final List<Location> refs;
@@ -118,21 +123,18 @@ final class OverrideRemovals {
     }
     return (
       filePath: relativePosix(path, _rootPath),
-      range: node.range.toDeclarationRange,
+      kind: kind,
+      range: node.codeRange.toDeclarationRange,
+      fullRange: node.range.toDeclarationRange,
     );
   }
 
-  /// Whether the field override [node] in [type] can be deleted on its own.
-  ///
-  /// Two shapes cannot. A declaring parameter of a primary constructor is a
-  /// field too, and deleting one changes the constructor signature at every
-  /// call site. A declarator sharing a statement with others
-  /// (`final int a = 1, b = 2;`) covers only its own text, so deleting it
-  /// would leave the statement malformed.
-  Future<bool> _fieldIsRemovable(
+  /// Whether the field named at [name] is declared in [type]'s header — a
+  /// declaring parameter of a primary constructor. `true` when the shape
+  /// cannot be read, which keeps the declaration.
+  Future<bool> _isDeclaringParameter(
     Uri uri,
     String path,
-    Outline node,
     Outline? type,
     Position name,
   ) async {
@@ -140,34 +142,15 @@ final class OverrideRemovals {
     try {
       ranges = await _client.selectionRanges(uri, [name]);
     } on Object {
-      return false;
+      return true;
     }
     final innermost = ranges.single;
     if (innermost == null) {
-      return false;
+      return true;
     }
     _sources.cacheSelectionRange(path, name, innermost);
-    if (_sources.isNameInTypeHeader(path, name, type)) {
-      return false;
-    }
-    // Only the first declarator of a statement carries its modifiers, so a
-    // node starting at its own name is a later one.
-    if (node.range.start == node.codeRange.start) {
-      return false;
-    }
-    // The declarator's parent covers every declarator in the statement; it
-    // ends where this one does only when this one is the last.
-    SelectionRange? declarator = innermost;
-    while (declarator != null && !_covers(declarator, node.codeRange)) {
-      declarator = declarator.parent;
-    }
-    final statement = declarator?.parent;
-    return statement != null && statement.range.end == declarator!.range.end;
+    return _sources.isNameInTypeHeader(path, name, type);
   }
-
-  static bool _covers(SelectionRange node, Range range) =>
-      node.range.start.atOrBefore(range.start) &&
-      range.end.atOrBefore(node.range.end);
 
   /// The outline node whose name starts at [position], with the node it is
   /// declared in.

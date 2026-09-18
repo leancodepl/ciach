@@ -23,11 +23,19 @@ typedef DeclarationRange = ({
   int endColumn,
 });
 
-/// A whole declaration (doc comment and annotations included) to remove
-/// together with a reported one. It names its own `filePath` (relative to the
-/// analyzed root, `/`-separated), so it can live in another file, like a dead
-/// `StatefulWidget`'s `State` subclass.
-typedef CoupledRemoval = ({String filePath, DeclarationRange range});
+/// A declaration to remove together with a reported one. It names its own
+/// `filePath` (relative to the analyzed root, `/`-separated), so it can live in
+/// another file, like a dead `StatefulWidget`'s `State` subclass.
+///
+/// `range` and `fullRange` mean what they do on [UnusedDeclaration], and `kind`
+/// is what the remover reads to tell a declarator (which may share its
+/// statement with others) from a whole node.
+typedef CoupledRemoval = ({
+  String filePath,
+  SymbolKind kind,
+  DeclarationRange range,
+  DeclarationRange fullRange,
+});
 
 /// Configuration for a single run of the finder.
 class FinderOptions {
@@ -253,7 +261,7 @@ class UnusedDeclaration {
   /// deleting it would mean removing the member and rewriting every now-non-
   /// exhaustive `switch`/`if`-`case` over its supertype. Also set for a member
   /// whose override this tool won't delete — one in an unscanned file, or a
-  /// field that cannot go on its own — which would be left overriding nothing. The declaration is still
+  /// declaring parameter — which would be left overriding nothing. The declaration is still
   /// reported so a human can act on it; it — and anything coupled to it — is
   /// simply skipped by the remover.
   final bool removalBlocked;

@@ -416,14 +416,19 @@ void main() {
       expect(rating.coupledRemovals, isEmpty);
     });
 
-    test('keeps a member whose override shares a field statement', () async {
-      // `final int left = 1, right = 2;` — neither declarator can go on its
-      // own, whether it is the first or a later one.
+    test('couples an override sharing a field statement', () async {
+      // `final int left = 1, right = 2;` — each declarator is coupled to the
+      // member it implements, as a field, so the remover takes the statement
+      // whole once both are gone.
       final result = await runOverrides();
       for (final name in ['Paired.left', 'Paired.right']) {
         final declarator = finding(result, name);
-        expect(declarator.removalBlocked, isTrue, reason: name);
-        expect(declarator.coupledRemovals, isEmpty, reason: name);
+        expect(declarator.removalBlocked, isFalse, reason: name);
+        expect(
+          declarator.coupledRemovals.single.kind,
+          SymbolKind.field,
+          reason: name,
+        );
       }
     });
 
