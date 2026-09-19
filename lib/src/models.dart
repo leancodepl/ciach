@@ -62,13 +62,12 @@ class FinderOptions {
   final String rootPath;
 
   /// Absolute path to the directory the analysis server is pointed at, for
-  /// references that live outside [rootPath] — a monorepo whose other packages
-  /// depend on this one by `path:`. Must contain [rootPath]; `null` (the
-  /// default) means [rootPath] itself.
+  /// references outside [rootPath] — a sibling package depending on it by
+  /// `path:`. Must contain [rootPath]; `null` (the default) means [rootPath].
   ///
   /// Only reference counting widens: candidates, reported paths and the
   /// include/exclude globs stay on [rootPath]. A pub workspace needs no
-  /// setting, the analyzer rooting its context there already.
+  /// setting.
   final String? analysisRootPath;
 
   /// If non-empty, only files matching one of these globs (relative to

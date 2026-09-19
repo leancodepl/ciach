@@ -134,7 +134,7 @@ class Ciach {
     try {
       if (analysisRoot != rootPath) {
         _report(
-          'Analyzing within $analysisRoot, so references outside the scanned '
+          'Analyzing within $analysisRoot: references outside the scanned '
           'package count.',
         );
       }

@@ -102,8 +102,8 @@ Future<int> _run(List<String> arguments) async {
       stderr.writeln('Analysis root does not exist: $analysisRoot');
       return 2;
     }
-    // Widening is the point: a root beside or below the scanned package would
-    // drop references instead of adding them.
+    // A root beside or below the scanned package would drop references, not
+    // add them.
     if (!p.equals(analysisRoot, resolved.absoluteRootPath) &&
         !p.isWithin(analysisRoot, resolved.absoluteRootPath)) {
       stderr.writeln(

@@ -288,10 +288,8 @@ form.
 
 ### Monorepos
 
-The analysis server sees the directory it is pointed at. In a monorepo where
-sibling packages depend on this one by `path:`, their calls are invisible, and a
-declaration used only across that boundary reads as dead.
-
+In a monorepo where sibling packages depend on this one by `path:`, their calls
+are invisible, so a declaration used only across that boundary reads as dead.
 `--analysis-root` widens where references are counted, and nothing else:
 
 ```bash
@@ -299,14 +297,14 @@ ciach pkgs/core --analysis-root .    # scan pkgs/core, count uses from the whole
 ```
 
 - Candidates, reported paths, `--include`/`--exclude`, `ciach.yaml` discovery and
-  `--remove` all stay on the scanned package.
+  `--remove` stay on the scanned package.
 - The path must contain that package; narrowing is a usage error.
-- The whole repo gets analyzed, which is where a run spends its time.
-  `--no-public` is unaffected — private declarations stay library-scoped.
+- The whole repo gets analyzed, so the run is slower. `--no-public` is
+  unaffected: private declarations stay library-scoped.
 
-A pub workspace needs none of this: the analyzer roots its context at the
-workspace already. A *published* package's consumers stay invisible either way,
-not being on disk; treat public findings there as advisory.
+A pub workspace needs no setting — the analyzer roots its context there already.
+A published package's consumers stay invisible either way; treat public findings
+there as advisory.
 
 ## Limitations
 

@@ -10,14 +10,14 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 void main() {
-  // A two-package monorepo wired by a `path:` dependency: the layout whose
-  // cross-package references the analyzer misses from the inner package alone
-  // (a pub workspace resolves them itself).
+  // A two-package monorepo wired by a `path:` dependency, the layout whose
+  // cross-package references the analyzer misses (a pub workspace resolves
+  // them itself).
   //
-  // The `package_config.json` files are hand-written but mirror what pub
-  // generates — `core` sees only itself, `app` sees both. That is the whole
-  // fixture: a `core` config that also listed `app` puts both packages in one
-  // analysis context and hides the false positive under test.
+  // The `package_config.json` files are hand-written, and mirror what pub
+  // generates: `core` sees only itself, `app` sees both. A `core` config that
+  // also listed `app` would put both in one analysis context and hide the
+  // false positive under test.
   late Directory repo;
   late String corePath;
   late String appFile;
@@ -87,8 +87,8 @@ void main() => usedByApp();
   test('without an analysis root a sibling package is invisible', () async {
     final result = await run();
 
-    // The false positive this option exists for: `app` calls it, nothing in
-    // `core` does, and `app` is outside the analyzed root.
+    // `app` calls it, nothing in `core` does, and `app` is outside the
+    // analyzed root.
     expect(namesOf(result), {'usedByApp', 'deadEverywhere'});
   });
 
@@ -101,8 +101,7 @@ void main() => usedByApp();
   test('widening does not scan the sibling package', () async {
     final result = await run(analysisRoot: repo.path);
 
-    // Only `core` is scanned: paths stay relative to it, and `app`'s own dead
-    // code is not a finding here.
+    // Only `core` is scanned, so paths stay relative to it.
     expect(result.filesScanned, 1);
     expect(result.unused.map((d) => d.filePath), everyElement('lib/core.dart'));
   });

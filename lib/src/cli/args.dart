@@ -139,7 +139,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'Count references from this whole directory, not just the scanned\n'
           'package — for a monorepo where sibling packages depend on it by\n'
           '`path:`. Must contain the scanned path; what is scanned, reported\n'
-          'and removed is unchanged. A pub workspace needs no setting here.',
+          'and removed is unchanged. A pub workspace needs no setting.',
     ),
   ),
   public(
