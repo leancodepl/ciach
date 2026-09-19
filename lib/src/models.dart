@@ -41,7 +41,8 @@ typedef CoupledRemoval = ({
 class FinderOptions {
   /// Creates options for analyzing the package rooted at [rootPath].
   ///
-  /// Both paths may be relative; they are stored absolute and normalized.
+  /// [rootPath] and [analysisRootPath] may be relative; both are stored
+  /// absolute and normalized.
   FinderOptions({
     required String rootPath,
     String? analysisRootPath,
