@@ -1,10 +1,10 @@
 ## Unreleased
 
-- `FinderOptions` normalizes `rootPath` and `analysisRootPath` and asserts that
-  the analysis root contains the scanned one, so a library caller gets the check
-  the CLI already had. Its constructor is no longer `const`.
+- `FinderOptions` normalizes `rootPath` and `analysisRootPath`, and throws an
+  `ArgumentError` when the analysis root doesn't contain the scanned one, so a
+  library caller gets the check the CLI already had. Its constructor is no
+  longer `const`.
   ([#64](https://github.com/leancodepl/ciach/pull/64))
-
 - `--remove` deletes a dead member's overrides along with it, so no `@override`
   is left overriding nothing. A member is reported but not removed when one of
   its overrides can't be deleted: a declaring parameter of a primary

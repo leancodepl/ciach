@@ -136,7 +136,7 @@ void main() => usedByApp();
           rootPath: corePath,
           analysisRootPath: p.join(repo.path, 'pkgs', 'app'),
         ),
-        throwsA(isA<AssertionError>()),
+        throwsArgumentError,
       );
     });
   });

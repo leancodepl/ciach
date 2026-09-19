@@ -41,8 +41,9 @@ typedef CoupledRemoval = ({
 class FinderOptions {
   /// Creates options for analyzing the package rooted at [rootPath].
   ///
-  /// Relative paths are fine; both are stored absolute and normalized. Not
-  /// `const`, because `p.absolute` can't run in a constant expression.
+  /// Both paths may be relative; they are stored absolute and normalized.
+  /// Throws an [ArgumentError] if [analysisRootPath] does not contain
+  /// [rootPath].
   FinderOptions({
     required String rootPath,
     String? analysisRootPath,
@@ -66,13 +67,15 @@ class FinderOptions {
            : p.normalize(p.absolute(analysisRootPath)),
        assert(concurrency > 0, 'concurrency must be positive') {
     final analysisRoot = this.analysisRootPath;
-    assert(
-      analysisRoot == null ||
-          p.equals(analysisRoot, this.rootPath) ||
-          p.isWithin(analysisRoot, this.rootPath),
-      'analysisRootPath must contain rootPath: '
-      '$analysisRoot does not contain ${this.rootPath}',
-    );
+    if (analysisRoot != null &&
+        !p.equals(analysisRoot, this.rootPath) &&
+        !p.isWithin(analysisRoot, this.rootPath)) {
+      throw ArgumentError.value(
+        analysisRoot,
+        'analysisRootPath',
+        'must contain ${this.rootPath}',
+      );
+    }
   }
 
   /// The package root to analyze, absolute and normalized.
