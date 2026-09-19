@@ -42,8 +42,6 @@ class FinderOptions {
   /// Creates options for analyzing the package rooted at [rootPath].
   ///
   /// Both paths may be relative; they are stored absolute and normalized.
-  /// Throws an [ArgumentError] if [analysisRootPath] does not contain
-  /// [rootPath].
   FinderOptions({
     required String rootPath,
     String? analysisRootPath,
@@ -65,18 +63,7 @@ class FinderOptions {
        analysisRootPath = analysisRootPath == null
            ? null
            : p.normalize(p.absolute(analysisRootPath)),
-       assert(concurrency > 0, 'concurrency must be positive') {
-    final analysisRoot = this.analysisRootPath;
-    if (analysisRoot != null &&
-        !p.equals(analysisRoot, this.rootPath) &&
-        !p.isWithin(analysisRoot, this.rootPath)) {
-      throw ArgumentError.value(
-        analysisRoot,
-        'analysisRootPath',
-        'must contain ${this.rootPath}',
-      );
-    }
-  }
+       assert(concurrency > 0, 'concurrency must be positive');
 
   /// The package root to analyze, absolute and normalized.
   final String rootPath;

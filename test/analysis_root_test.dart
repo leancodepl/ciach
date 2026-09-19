@@ -112,33 +112,24 @@ void main() => usedByApp();
     expect(namesOf(result), {'usedByApp', 'deadEverywhere'});
   });
 
-  group('FinderOptions', () {
-    test('makes both paths absolute and normalized', () {
-      final options = FinderOptions(
-        rootPath: 'pkgs/./core',
-        analysisRootPath: 'pkgs/core/..',
-      );
+  test('FinderOptions makes both paths absolute and normalized', () {
+    final options = FinderOptions(
+      rootPath: 'pkgs/./core',
+      analysisRootPath: 'pkgs/core/..',
+    );
 
-      expect(options.rootPath, p.join(Directory.current.path, 'pkgs', 'core'));
-      expect(options.analysisRootPath, p.join(Directory.current.path, 'pkgs'));
-    });
+    expect(options.rootPath, p.join(Directory.current.path, 'pkgs', 'core'));
+    expect(options.analysisRootPath, p.join(Directory.current.path, 'pkgs'));
+  });
 
-    test('accepts an analysis root equal to the scanned root', () {
-      expect(
-        () => FinderOptions(rootPath: corePath, analysisRootPath: corePath),
-        returnsNormally,
-      );
-    });
+  test('an analysis root beside the scanned one is rejected', () {
+    final options = FinderOptions(
+      rootPath: corePath,
+      analysisRootPath: p.join(repo.path, 'pkgs', 'app'),
+    );
 
-    test('rejects an analysis root that does not contain the scanned root', () {
-      expect(
-        () => FinderOptions(
-          rootPath: corePath,
-          analysisRootPath: p.join(repo.path, 'pkgs', 'app'),
-        ),
-        throwsArgumentError,
-      );
-    });
+    // Rejected before the analysis server starts, so this costs nothing.
+    expect(Ciach(options).run(), throwsArgumentError);
   });
 
   test('--remove only touches the scanned package', () async {
