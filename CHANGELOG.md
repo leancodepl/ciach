@@ -9,6 +9,11 @@
   belongs to. `b` in `@override final int a, b;` reported none of its own, so
   it was checked where an `@override` member is skipped.
   ([#63](https://github.com/leancodepl/ciach/pull/63))
+- Add `--analysis-root <path>` (and `analysis-root:` in `ciach.yaml`): count
+  references from a directory wider than the scanned package, so a sibling
+  package that depends on it by `path:` keeps what it calls alive. What is
+  scanned, reported and removed is unchanged. A pub workspace needs no setting.
+  ([#61](https://github.com/leancodepl/ciach/pull/61))
 
 ## 0.5.0
 

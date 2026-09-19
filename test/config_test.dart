@@ -42,6 +42,7 @@ void main() {
       // Checked through the merge, which is what the CLI does with them.
       final resolved = resolveFile('''
 path: packages/app
+analysis-root: .
 public: false
 generated: true
 overrides: true
@@ -73,6 +74,7 @@ dart: /sdk/bin/dart
 ''');
 
       expect(resolved.rootPath, 'packages/app');
+      expect(resolved.analysisRootPath, '.');
       expect(resolved.includePublic, isFalse);
       expect(resolved.includeGenerated, isTrue);
       expect(resolved.overrides, isTrue);

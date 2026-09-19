@@ -41,6 +41,7 @@ class FinderOptions {
   /// Creates options for analyzing the package rooted at [rootPath].
   const FinderOptions({
     required this.rootPath,
+    this.analysisRootPath,
     this.includeGlobs = const [],
     this.excludeGlobs = const [],
     this.kinds = defaultKinds,
@@ -59,6 +60,15 @@ class FinderOptions {
 
   /// Absolute path to the package root to analyze.
   final String rootPath;
+
+  /// Absolute path to the directory the analysis server is pointed at, for
+  /// references outside [rootPath] — a sibling package depending on it by
+  /// `path:`. Must contain [rootPath]; `null` (the default) means [rootPath].
+  ///
+  /// Only reference counting widens: candidates, reported paths and the
+  /// include/exclude globs stay on [rootPath]. A pub workspace needs no
+  /// setting.
+  final String? analysisRootPath;
 
   /// If non-empty, only files matching one of these globs (relative to
   /// [rootPath]) are scanned for declarations.

@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 class ResolvedOptions {
   const ResolvedOptions({
     required this.rootPath,
+    required this.analysisRootPath,
     required this.includeGlobs,
     required this.excludeGlobs,
     required this.additionalGeneratedSuffixes,
@@ -35,6 +36,10 @@ class ResolvedOptions {
 
   /// Package root to analyze, as written; see [absoluteRootPath].
   final String rootPath;
+
+  /// The directory to analyze within, as written, or `null` for [rootPath]
+  /// itself; see [absoluteAnalysisRootPath].
+  final String? analysisRootPath;
   final List<String> includeGlobs;
   final List<String> excludeGlobs;
   final List<String> additionalGeneratedSuffixes;
@@ -69,6 +74,13 @@ class ResolvedOptions {
   /// [rootPath] resolved against the current directory.
   String get absoluteRootPath => p.normalize(p.absolute(rootPath));
 
+  /// [analysisRootPath] resolved against the current directory, or `null` when
+  /// the scanned root is the analysis root.
+  String? get absoluteAnalysisRootPath => switch (analysisRootPath) {
+    final path? => p.normalize(p.absolute(path)),
+    null => null,
+  };
+
   /// The finder's share of these settings, reporting progress to [onProgress]
   /// and launching the server with [dartExecutable] (else it finds one).
   FinderOptions finderOptions({
@@ -76,6 +88,7 @@ class ResolvedOptions {
     void Function(String message)? onProgress,
   }) => .new(
     rootPath: absoluteRootPath,
+    analysisRootPath: absoluteAnalysisRootPath,
     includeGlobs: includeGlobs,
     excludeGlobs: excludeGlobs,
     additionalGeneratedSuffixes: additionalGeneratedSuffixes,
@@ -115,6 +128,7 @@ ResolvedOptions resolveOptions(
 
   return .new(
     rootPath: configuration.value(CiachOption.path),
+    analysisRootPath: configuration.optionalValue(CiachOption.analysisRoot),
     includeGlobs: configuration.value(CiachOption.include),
     excludeGlobs: configuration.value(CiachOption.exclude),
     additionalGeneratedSuffixes: configuration.value(
