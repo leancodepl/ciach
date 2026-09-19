@@ -15,7 +15,7 @@ List<DeletedFile> deleteEmptiedFiles(Set<String> rewritten, String rootPath) {
   if (rewritten.isEmpty) {
     return const [];
   }
-  final root = p.normalize(p.absolute(rootPath));
+  final root = rootPath.absoluteNormalized;
   final package = _Package.scan(root);
   final pending = rewritten.map(p.normalize).toSet();
   final deleted = <DeletedFile>[];

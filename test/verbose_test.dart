@@ -93,13 +93,15 @@ void main() {
         parser.parse(arguments),
         const .empty(),
       );
+      final resolved = resolveOptions(
+        configuration,
+        colorDefault: false,
+        progressDefault: false,
+      );
       return describeSettings(
         configuration,
-        resolveOptions(
-          configuration,
-          colorDefault: false,
-          progressDefault: false,
-        ),
+        resolved,
+        resolved.finderOptions(),
         dartExecutable: '/sdk/bin/dart',
       );
     }
@@ -138,13 +140,15 @@ void main() {
           origin: 'c.yaml',
         ),
       );
+      final resolved = resolveOptions(
+        configuration,
+        colorDefault: false,
+        progressDefault: false,
+      );
       final lines = describeSettings(
         configuration,
-        resolveOptions(
-          configuration,
-          colorDefault: false,
-          progressDefault: false,
-        ),
+        resolved,
+        resolved.finderOptions(),
         dartExecutable: '/sdk/bin/dart',
       );
 

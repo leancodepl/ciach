@@ -3,7 +3,6 @@ import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/args.dart';
 import 'package:ciach/src/cli/config.dart';
 import 'package:config/config.dart';
-import 'package:path/path.dart' as p;
 
 /// A resolved [Configuration] in the types the rest of the tool works in: kind
 /// names converted, the inverted flags flipped, the auto-detected ones settled.
@@ -34,11 +33,11 @@ class ResolvedOptions {
     required this.dartExecutable,
   });
 
-  /// Package root to analyze, as written; see [absoluteRootPath].
+  /// Package root to analyze, as written. [FinderOptions] normalizes it.
   final String rootPath;
 
   /// The directory to analyze within, as written, or `null` for [rootPath]
-  /// itself; see [absoluteAnalysisRootPath].
+  /// itself.
   final String? analysisRootPath;
   final List<String> includeGlobs;
   final List<String> excludeGlobs;
@@ -71,24 +70,14 @@ class ResolvedOptions {
   final int concurrency;
   final String? dartExecutable;
 
-  /// [rootPath] resolved against the current directory.
-  String get absoluteRootPath => p.normalize(p.absolute(rootPath));
-
-  /// [analysisRootPath] resolved against the current directory, or `null` when
-  /// the scanned root is the analysis root.
-  String? get absoluteAnalysisRootPath => switch (analysisRootPath) {
-    final path? => p.normalize(p.absolute(path)),
-    null => null,
-  };
-
   /// The finder's share of these settings, reporting progress to [onProgress]
   /// and launching the server with [dartExecutable] (else it finds one).
   FinderOptions finderOptions({
     String? dartExecutable,
     void Function(String message)? onProgress,
   }) => .new(
-    rootPath: absoluteRootPath,
-    analysisRootPath: absoluteAnalysisRootPath,
+    rootPath: rootPath,
+    analysisRootPath: analysisRootPath,
     includeGlobs: includeGlobs,
     excludeGlobs: excludeGlobs,
     additionalGeneratedSuffixes: additionalGeneratedSuffixes,

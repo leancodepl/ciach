@@ -10,6 +10,11 @@
 
 import 'package:path/path.dart' as p;
 
+extension AbsolutePath on String {
+  /// This path made absolute and normalized.
+  String get absoluteNormalized => p.normalize(p.absolute(this));
+}
+
 /// [absPath] expressed relative to [rootPath], with `/` separators — the form
 /// used for a finding's and a coupled removal's `filePath`.
 String relativePosix(String absPath, String rootPath) =>
@@ -25,3 +30,8 @@ String relativeUsagePosix(
 ) => p.isWithin(rootPath, absPath)
     ? relativePosix(absPath, rootPath)
     : relativePosix(absPath, analysisRoot);
+
+/// Whether [analysisRoot] contains [rootPath] — the invariant a widened
+/// analysis root has to meet. Both must be absolute and normalized.
+bool analysisRootContains(String analysisRoot, String rootPath) =>
+    p.equals(analysisRoot, rootPath) || p.isWithin(analysisRoot, rootPath);

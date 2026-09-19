@@ -16,6 +16,7 @@ import 'package:ciach/src/cli/args.dart';
 import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/options.dart';
 import 'package:ciach/src/cli/verbose.dart';
+import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/reporter.dart';
 import 'package:ciach/src/version.dart';
 import 'package:collection/collection.dart';
@@ -96,23 +97,6 @@ Future<int> _run(List<String> arguments) async {
     return 2;
   }
 
-  final analysisRoot = resolved.absoluteAnalysisRootPath;
-  if (analysisRoot != null) {
-    if (!Directory(analysisRoot).existsSync()) {
-      stderr.writeln('Analysis root does not exist: $analysisRoot');
-      return 2;
-    }
-    // A root beside or below the scanned package would drop references, not
-    // add them.
-    if (!p.equals(analysisRoot, resolved.absoluteRootPath) &&
-        !p.isWithin(analysisRoot, resolved.absoluteRootPath)) {
-      stderr.writeln(
-        'The analysis root must contain the analyzed path: $analysisRoot does not contain ${resolved.absoluteRootPath}.',
-      );
-      return 2;
-    }
-  }
-
   if (resolved.force && !resolved.remove) {
     stderr.writeln(
       'Skipping the removal prompt only makes sense when removing: --force (or `force: true`) requires --remove (or `remove: true`).',
@@ -123,7 +107,6 @@ Future<int> _run(List<String> arguments) async {
   final format = resolved.format;
   final useColor = resolved.useColor;
   final showProgress = resolved.showProgress;
-  final rootPath = resolved.absoluteRootPath;
 
   // Up front: a missing SDK fails fast, and verbose shows the real `dart`.
   final String dartExecutable;
@@ -134,20 +117,42 @@ Future<int> _run(List<String> arguments) async {
     return 2;
   }
 
+  // Built here so the checks below, --verbose and the run all read the same
+  // normalized paths.
+  final options = resolved.finderOptions(
+    dartExecutable: dartExecutable,
+    // Verbose keeps every phase line; progress overwrites one in place.
+    onProgress: log?.write ?? (showProgress ? _ProgressPrinter().update : null),
+  );
+  final rootPath = options.rootPath;
+
+  if (options.analysisRootPath case final analysisRoot?) {
+    if (!Directory(analysisRoot).existsSync()) {
+      stderr.writeln('Analysis root does not exist: $analysisRoot');
+      return 2;
+    }
+    // A root beside or below the scanned package would drop references, not
+    // add them.
+    if (!analysisRootContains(analysisRoot, rootPath)) {
+      stderr.writeln(
+        'The analysis root must contain the analyzed path: $analysisRoot does not contain $rootPath.',
+      );
+      return 2;
+    }
+  }
+
   log?.writeAll(
-    describeSettings(configuration, resolved, dartExecutable: dartExecutable),
+    describeSettings(
+      configuration,
+      resolved,
+      options,
+      dartExecutable: dartExecutable,
+    ),
   );
 
   final FinderResult result;
   try {
-    result = await Ciach(
-      resolved.finderOptions(
-        dartExecutable: dartExecutable,
-        // Verbose keeps every phase line; progress overwrites one in place.
-        onProgress:
-            log?.write ?? (showProgress ? _ProgressPrinter().update : null),
-      ),
-    ).run();
+    result = await Ciach(options).run();
   } on Object catch (e, st) {
     if (showProgress) {
       stderr.writeln();

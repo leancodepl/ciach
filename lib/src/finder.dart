@@ -99,13 +99,21 @@ class Ciach {
   void _report(String message) => options.onProgress?.call(message);
 
   /// Runs the analysis and returns the declarations that are never referenced.
+  ///
+  /// Throws an [ArgumentError] if [FinderOptions.analysisRootPath] does not
+  /// contain [FinderOptions.rootPath]; widening to a directory beside the
+  /// scanned one would drop references rather than add them.
   Future<FinderResult> run() async {
     final stopwatch = Stopwatch()..start();
-    final rootPath = p.normalize(p.absolute(options.rootPath));
-    final analysisRoot = switch (options.analysisRootPath) {
-      final path? => p.normalize(p.absolute(path)),
-      null => rootPath,
-    };
+    final rootPath = options.rootPath;
+    final analysisRoot = options.analysisRootPath ?? rootPath;
+    if (!analysisRootContains(analysisRoot, rootPath)) {
+      throw ArgumentError.value(
+        options.analysisRootPath,
+        'analysisRootPath',
+        'must contain $rootPath',
+      );
+    }
 
     final discovered = discoverDartFilesSplit(options);
     final files = discovered.candidates;
