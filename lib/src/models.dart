@@ -41,8 +41,8 @@ typedef CoupledRemoval = ({
 class FinderOptions {
   /// Creates options for analyzing the package rooted at [rootPath].
   ///
-  /// Both paths are made absolute and normalized here, so callers may pass
-  /// either form. Not `const`: that work can't run in a `const` constructor.
+  /// Relative paths are fine; both are stored absolute and normalized. Not
+  /// `const`, because `p.absolute` can't run in a constant expression.
   FinderOptions({
     required String rootPath,
     String? analysisRootPath,

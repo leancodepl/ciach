@@ -131,7 +131,6 @@ void main() => usedByApp();
     });
 
     test('rejects an analysis root that does not contain the scanned root', () {
-      // Beside it, so widening would drop references instead of adding them.
       expect(
         () => FinderOptions(
           rootPath: corePath,
