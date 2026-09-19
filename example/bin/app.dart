@@ -4,6 +4,8 @@ import 'package:sample_pkg/greeting.dart';
 import 'package:sample_pkg/orphans.dart';
 import 'package:sample_pkg/private_ctors.dart';
 import 'package:sample_pkg/scenarios/freezed_unions.dart';
+import 'package:sample_pkg/scenarios/overrides.dart';
+import 'package:sample_pkg/scenarios/overrides_impl.dart';
 import 'package:sample_pkg/scenarios/serialization.dart';
 import 'package:sample_pkg/scenarios/unions.dart';
 import 'package:sample_pkg/scenarios/widgets.dart';
@@ -33,6 +35,14 @@ void main() {
 
   // Constructs LiveWidget -> a real, external use, so it is never flagged.
   print(const LiveWidget());
+
+  // Keeps the override-scenario types alive, so only their members are dead:
+  // `start()` is called through Pump, `prime()` never is, and `Mixed.live` is
+  // read while `Mixed.dead` is not.
+  final Pump pump = Turbine();
+  pump.start();
+  print([Dial(), Spigot(), const Meter(1), Pair()]);
+  print(Mixed().live);
 
   // References ReferencedAsTypeOnly as a *type* only (never constructs it), so
   // the class stays USED while its constructor is reported unused.

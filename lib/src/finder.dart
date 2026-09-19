@@ -23,6 +23,7 @@ import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/models.dart';
+import 'package:ciach/src/overrides.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/remove_safety.dart';
@@ -90,6 +91,10 @@ class Ciach {
   static const _declaringParameterHint =
       'declaring parameter of the primary constructor — removing it changes '
       'the constructor signature at every call site';
+
+  static const _overriddenHint =
+      'overridden by a declaration --remove will not delete — that override '
+      'would be left overriding nothing';
 
   void _report(String message) => options.onProgress?.call(message);
 
@@ -226,21 +231,41 @@ class Ciach {
         SuperclassChecks(client).needsConstructorArguments,
       );
 
+      final reported = <int>{
+        for (var i = 0; i < candidates.length; i++)
+          if (statuses[i] == .unused &&
+              !_isSuppressed(
+                candidates[i],
+                i,
+                freezedUnionArms,
+                deadClassNames,
+                safety,
+              ))
+            i,
+      };
+
+      // Phase 4: couple a dead member's overrides to its removal, or let one
+      // that has to stay block it.
+      final scannedPaths = files.where(opened.contains).toSet();
+      final overridden = await _coupleOverrides(
+        client,
+        candidates,
+        reported,
+        scannedPaths,
+        rootPath,
+      );
+
       for (var i = 0; i < candidates.length; i++) {
         final candidate = candidates[i];
         final refs = refsByCandidate[i];
         switch (statuses[i]) {
           case .unused:
-            if (_isSuppressed(
-              candidate,
-              i,
-              freezedUnionArms,
-              deadClassNames,
-              safety,
-            )) {
+            if (!reported.contains(i)) {
               break;
             }
             final isClass = candidate.symbol.kind == .class$;
+            final overrides = overridden[i];
+            final blockedByOverride = overrides?.blocked ?? false;
             unused.add(
               _toUnused(
                 candidate,
@@ -253,9 +278,13 @@ class Ciach {
                         refsByCandidate,
                         rootPath,
                       )
-                    : const [],
-                removalBlocked: _isRemovalBlocked(candidate, refs, safety),
-                hint: _hintFor(candidate),
+                    : overrides?.removals ?? const [],
+                removalBlocked:
+                    _isRemovalBlocked(candidate, refs, safety) ||
+                    blockedByOverride,
+                hint:
+                    _hintFor(candidate) ??
+                    (blockedByOverride ? _overriddenHint : null),
               ),
             );
           case .docOnly:
@@ -280,6 +309,72 @@ class Ciach {
       recoveredReferences: recoveredReferences,
     );
   }
+
+  /// The overrides to delete along with each reported dead member, by
+  /// candidate index. Members with nothing to say are left out.
+  Future<Map<int, OverriddenMember>> _coupleOverrides(
+    LspClient client,
+    List<Candidate> candidates,
+    Set<int> reported,
+    Set<String> scannedPaths,
+    String rootPath,
+  ) async {
+    final members = [
+      for (final index in reported)
+        if (_canBeOverridden(candidates[index])) index,
+    ];
+    if (members.isEmpty) {
+      return const {};
+    }
+    _report('Checking ${members.length} dead member(s) for overrides…');
+    final overrides = OverrideRemovals(
+      client,
+      _sources,
+      scannedPaths: scannedPaths,
+      rootPath: rootPath,
+    );
+    final results = await mapPooled(
+      members,
+      options.concurrency,
+      (index) => overrides.of(candidates[index]),
+    );
+    final byCandidate = <int, OverriddenMember>{};
+    var coupled = 0;
+    var blocked = 0;
+    for (var i = 0; i < members.length; i++) {
+      final result = results[i];
+      if (result.removals.isEmpty && !result.blocked) {
+        continue;
+      }
+      byCandidate[members[i]] = result;
+      coupled += result.removals.length;
+      if (result.blocked) {
+        blocked++;
+      }
+    }
+    if (coupled > 0) {
+      _report(
+        'Coupling $coupled override(s) to the dead member(s) they implement.',
+      );
+    }
+    if (blocked > 0) {
+      _report(
+        '$blocked dead member(s) are overridden where --remove cannot '
+        'follow; left in place.',
+      );
+    }
+    return byCandidate;
+  }
+
+  /// Whether [candidate] is a member a subclass could override. A declaring
+  /// parameter is never removed anyway.
+  bool _canBeOverridden(Candidate candidate) => switch (candidate.symbol.kind) {
+    .method || .property || .field =>
+      candidate.container != null &&
+          !candidate.isExtensionMember &&
+          !_isHeaderDeclaration(candidate),
+    _ => false,
+  };
 
   /// One warning per declaration the secondary check kept alive: it had no
   /// reported references, yet a use resolved back to it.
@@ -683,6 +778,10 @@ class Ciach {
     _OutlineIndex outlines,
     List<Candidate> out,
   ) {
+    // A field statement's doc comment, annotations and modifiers sit on its
+    // first declarator, so a later one (`b` in `@override final int a, b;`)
+    // reads that statement's instead of its own, which are empty.
+    var statementMetadata = const <SemanticToken>[];
     for (final symbol in symbols) {
       final outline = outlines[symbol];
       if (outline == null) {
@@ -692,7 +791,16 @@ class Ciach {
         );
         continue;
       }
-      final leadingMetadata = _sources.leadingMetadata(path, outline);
+      final ownMetadata = _sources.leadingMetadata(path, outline);
+      final isField = outline.element.kind == .field;
+      final continuesStatement =
+          isField && outline.range.start == outline.codeRange.start;
+      final leadingMetadata = continuesStatement
+          ? statementMetadata
+          : ownMetadata;
+      statementMetadata = isField && !continuesStatement
+          ? ownMetadata.toList()
+          : const [];
       _freezed.noteIfAnnotated(path, symbol, leadingMetadata);
       final candidate = Candidate(
         uri: uri,

@@ -225,6 +225,11 @@ A file left with only `library`/`import`/`part of` lines is deleted too, and so
 are the `import`s of it elsewhere, so nothing points at a file that is gone. One
 that still `export`s or owns a `part` stays.
 
+A dead member's overrides are dead too — a call through any subclass would have
+referenced the member — so `--remove` deletes them with it, wherever they live.
+They are not reported separately: the finder [skips](#what-it-skips-by-default)
+`@override` declarations.
+
 Findings whose removal wouldn't compile are **report-only**: marked `unsafe to
 auto-remove — remove manually` and skipped, along with anything coupled to them.
 
@@ -234,6 +239,7 @@ auto-remove — remove manually` and skipped, along with anything coupled to the
 | Every value of a still-referenced enum | `enum E {}` doesn't compile |
 | The sole constructor of a live class with `final` fields, or whose superclass needs constructor arguments | the implicit default constructor can't replace it |
 | A primary constructor or its declaring parameters | only part of the class header |
+| A member whose override is a declaring parameter, or is in a file the run didn't scan | that override can't be deleted, and would be left overriding nothing |
 
 ## What it skips by default
 
@@ -244,7 +250,7 @@ that cost.
 | --- | --- | --- |
 | `main` | the entry point is never unused | — |
 | `testExecutable` in a `flutter_test_config.dart` | called by the `flutter test` bootstrap | [`entry-points:`](#entry-points) adds more |
-| `@override` members | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses | `--overrides` |
+| `@override` members — never reported, but removed with a dead member | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses, so none of them are findings. One that overrides a dead member is dead too, so `--remove` [takes both](#removing-declarations) | `--overrides` |
 | Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--operators` |
 | `call` methods | implicit-call syntax (`obj(…)`) is unresolvable the same way | — |
 | `@pragma('vm:entry-point')` | reachable from native code or reflection | — |

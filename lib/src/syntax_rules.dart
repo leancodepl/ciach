@@ -65,20 +65,24 @@ extension StructuralChecks on SourceIndex {
   /// Whether [candidate] is declared in its type's header: a primary
   /// constructor (`class const Point._(…)`) or a declaring parameter
   /// (`var int x`). Removing either alone breaks the type.
+  bool isDeclaredInTypeHeader(Candidate candidate) => isNameInTypeHeader(
+    candidate.path,
+    candidate.symbol.selectionRange.start,
+    candidate.containerOutline,
+  );
+
+  /// Whether the declaration named at [position] in [path] is in [type]'s
+  /// header rather than its body.
   ///
   /// Walks outwards from the name to the first node ending where the type
   /// ends: the body for a body member, the type itself for a header
   /// declaration.
-  bool isDeclaredInTypeHeader(Candidate candidate) {
-    final type = candidate.containerOutline;
+  bool isNameInTypeHeader(String path, Position position, Outline? type) {
     if (type == null) {
       return false;
     }
     final end = type.codeRange.end;
-    var node = selectionRangeAt(
-      candidate.path,
-      candidate.symbol.selectionRange.start,
-    );
+    var node = selectionRangeAt(path, position);
     while (node != null && node.range.end != end) {
       node = node.parent;
     }
