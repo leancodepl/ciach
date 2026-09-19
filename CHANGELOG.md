@@ -1,3 +1,15 @@
+## Unreleased
+
+- `--remove` deletes a dead member's overrides along with it, so no `@override`
+  is left overriding nothing. A member is reported but not removed when one of
+  its overrides can't be deleted: a declaring parameter of a primary
+  constructor, or one in a file the run didn't scan.
+  ([#63](https://github.com/leancodepl/ciach/pull/63))
+- Read a field declarator's doc comment and annotations from the statement it
+  belongs to. `b` in `@override final int a, b;` reported none of its own, so
+  it was checked where an `@override` member is skipped.
+  ([#63](https://github.com/leancodepl/ciach/pull/63))
+
 ## 0.5.0
 
 - Read declarations from the analysis server's outline instead of the source

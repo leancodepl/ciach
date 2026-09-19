@@ -90,27 +90,20 @@ final class SuperclassChecks {
         .any((t) => t.isKeyword && t.text == 'required');
   }
 
-  /// The symbol whose name starts at [position]. [symbols] are in source
-  /// order, so the enclosing symbol at each level is the last one starting at
-  /// or before [position].
+  /// The symbol whose name starts at [position]: the enclosing symbol at each
+  /// level is the last one starting at or before it.
   static DocumentSymbol? _symbolNamedAt(
     List<DocumentSymbol> symbols,
     Position position,
   ) {
-    var lo = 0;
-    var hi = symbols.length;
-    while (lo < hi) {
-      final mid = (lo + hi) >> 1;
-      if (symbols[mid].range.start.atOrBefore(position)) {
-        lo = mid + 1;
-      } else {
-        hi = mid;
-      }
-    }
-    if (lo == 0 || !position.within(symbols[lo - 1])) {
+    final symbol = lastStartingAtOrBefore(
+      symbols,
+      position,
+      (symbol) => symbol.range.start,
+    );
+    if (symbol == null || !position.within(symbol)) {
       return null;
     }
-    final symbol = symbols[lo - 1];
     if (symbol.selectionRange.start == position) {
       return symbol;
     }

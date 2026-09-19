@@ -138,6 +138,27 @@ extension RangeConversion on Range {
   );
 }
 
+/// The last of [items] starting at or before [position], or `null` when none
+/// does. [items] must be in source order, as the analysis server reports
+/// declarations, which makes this a binary search.
+T? lastStartingAtOrBefore<T>(
+  List<T> items,
+  Position position,
+  Position Function(T item) startOf,
+) {
+  var lo = 0;
+  var hi = items.length;
+  while (lo < hi) {
+    final mid = (lo + hi) >> 1;
+    if (startOf(items[mid]).atOrBefore(position)) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  return lo == 0 ? null : items[lo - 1];
+}
+
 /// Position geometry against a symbol's source range.
 extension PositionGeometry on Position {
   /// Whether this position is at or before [end].

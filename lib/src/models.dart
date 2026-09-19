@@ -23,11 +23,18 @@ typedef DeclarationRange = ({
   int endColumn,
 });
 
-/// A whole declaration (doc comment and annotations included) to remove
-/// together with a reported one. It names its own `filePath` (relative to the
-/// analyzed root, `/`-separated), so it can live in another file, like a dead
-/// `StatefulWidget`'s `State` subclass.
-typedef CoupledRemoval = ({String filePath, DeclarationRange range});
+/// A declaration to remove together with a reported one. It names its own
+/// `filePath` (relative to the analyzed root, `/`-separated), so it can live in
+/// another file, like a dead `StatefulWidget`'s `State` subclass.
+///
+/// `range`, `fullRange` and `kind` mean what they do on [UnusedDeclaration];
+/// the remover reads `kind` to tell a declarator from a whole node.
+typedef CoupledRemoval = ({
+  String filePath,
+  SymbolKind kind,
+  DeclarationRange range,
+  DeclarationRange fullRange,
+});
 
 /// Configuration for a single run of the finder.
 class FinderOptions {
@@ -230,11 +237,14 @@ class UnusedDeclaration {
   /// together with this declaration to keep the source compiling, but that are
   /// not themselves reported as findings.
   ///
-  /// One use today: a dead `StatefulWidget`'s paired private `State<Widget>`
-  /// subclass, which is not independently "unused" (the widget's own
-  /// `createState` references it) yet becomes uncompilable the moment the
-  /// widget is deleted (`State<DeletedWidget>` no longer resolves). It lives in
-  /// the same file.
+  /// Two uses today:
+  ///
+  /// - a dead `StatefulWidget`'s paired private `State<Widget>` subclass, which
+  ///   is not independently "unused" (the widget's own `createState` references
+  ///   it) yet becomes uncompilable the moment the widget is deleted
+  ///   (`State<DeletedWidget>` no longer resolves).
+  /// - every override of a dead member, which `skipOverrides` keeps out of the
+  ///   findings and which would be left overriding nothing.
   ///
   /// Coupling a removal keeps `--remove` from breaking the build without
   /// surfacing the coupled span as a separate report entry.
@@ -247,7 +257,9 @@ class UnusedDeclaration {
   /// Set for every dead sealed member surfaced by `--unused-union-members` (a
   /// class that is only ever *matched* by a type pattern, never constructed):
   /// deleting it would mean removing the member and rewriting every now-non-
-  /// exhaustive `switch`/`if`-`case` over its supertype. The class is still
+  /// exhaustive `switch`/`if`-`case` over its supertype. Also set for a member
+  /// whose override this tool won't delete — one in an unscanned file, or a
+  /// declaring parameter — which would be left overriding nothing. The declaration is still
   /// reported so a human can act on it; it — and anything coupled to it — is
   /// simply skipped by the remover.
   final bool removalBlocked;
