@@ -67,6 +67,9 @@ String _setting(
   String dartExecutable,
 ) => switch (option) {
   .path => resolved.absoluteRootPath,
+  // Unset, the analysis root is the scanned root.
+  .analysisRoot =>
+    resolved.absoluteAnalysisRootPath ?? resolved.absoluteRootPath,
   .public => '${resolved.includePublic}',
   .failPublic => '${resolved.failPublic}',
   .generated => '${resolved.includeGenerated}',

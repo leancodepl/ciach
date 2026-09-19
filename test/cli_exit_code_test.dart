@@ -75,4 +75,33 @@ void main() {
     final result = await runCli([...publicOnly, '--set-exit-if-changed']);
     expect(result.exitCode, 1, reason: '${result.stdout}\n${result.stderr}');
   });
+
+  test('--analysis-root that does not exist -> usage error', () async {
+    final result = await runCli([
+      '--analysis-root',
+      p.join(fixturePath, 'no', 'such', 'dir'),
+    ]);
+    expect(result.exitCode, 2, reason: '${result.stdout}\n${result.stderr}');
+    expect(result.stderr, contains('Analysis root does not exist'));
+  });
+
+  test('--analysis-root below the analyzed path -> usage error', () async {
+    // Narrowing would drop references rather than add them.
+    final result = await runCli([
+      '--analysis-root',
+      p.join(fixturePath, 'lib'),
+    ]);
+    expect(result.exitCode, 2, reason: '${result.stdout}\n${result.stderr}');
+    expect(result.stderr, contains('must contain the analyzed path'));
+  });
+
+  test('--analysis-root equal to the analyzed path is accepted', () async {
+    final result = await runCli([
+      ...publicOnly,
+      '--analysis-root',
+      fixturePath,
+    ]);
+    expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+    expect(result.stdout, contains('UnusedClass'));
+  });
 }

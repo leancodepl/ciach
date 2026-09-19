@@ -96,6 +96,23 @@ Future<int> _run(List<String> arguments) async {
     return 2;
   }
 
+  final analysisRoot = resolved.absoluteAnalysisRootPath;
+  if (analysisRoot != null) {
+    if (!Directory(analysisRoot).existsSync()) {
+      stderr.writeln('Analysis root does not exist: $analysisRoot');
+      return 2;
+    }
+    // A root beside or below the scanned package would drop references, not
+    // add them.
+    if (!p.equals(analysisRoot, resolved.absoluteRootPath) &&
+        !p.isWithin(analysisRoot, resolved.absoluteRootPath)) {
+      stderr.writeln(
+        'The analysis root must contain the analyzed path: $analysisRoot does not contain ${resolved.absoluteRootPath}.',
+      );
+      return 2;
+    }
+  }
+
   if (resolved.force && !resolved.remove) {
     stderr.writeln(
       'Skipping the removal prompt only makes sense when removing: --force (or `force: true`) requires --remove (or `remove: true`).',

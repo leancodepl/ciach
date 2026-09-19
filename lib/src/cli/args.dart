@@ -130,6 +130,18 @@ enum CiachOption<V> implements OptionDefinition<V> {
       helpText: 'Package root to analyze.',
     ),
   ),
+  analysisRoot(
+    StringOption(
+      argName: 'analysis-root',
+      configKey: '/analysis-root',
+      valueHelp: 'path',
+      helpText:
+          'Count references from this whole directory, not just the scanned\n'
+          'package — for a monorepo where sibling packages depend on it by\n'
+          '`path:`. Must contain the scanned path; what is scanned, reported\n'
+          'and removed is unchanged. A pub workspace needs no setting.',
+    ),
+  ),
   public(
     FlagOption(
       argName: 'public',
@@ -437,6 +449,9 @@ Examples:
 
   # Only private declarations, excluding tests, as JSON
   ciach --no-public -e 'test/**' -f json lib/
+
+  # A monorepo package whose callers live in sibling packages
+  ciach pkgs/core --analysis-root .
 
   # Read settings from a config file elsewhere
   ciach --config tool/ciach.yaml
