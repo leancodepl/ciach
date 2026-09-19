@@ -112,6 +112,36 @@ void main() => usedByApp();
     expect(namesOf(result), {'usedByApp', 'deadEverywhere'});
   });
 
+  group('FinderOptions', () {
+    test('makes both paths absolute and normalized', () {
+      final options = FinderOptions(
+        rootPath: 'pkgs/./core',
+        analysisRootPath: 'pkgs/core/..',
+      );
+
+      expect(options.rootPath, p.join(Directory.current.path, 'pkgs', 'core'));
+      expect(options.analysisRootPath, p.join(Directory.current.path, 'pkgs'));
+    });
+
+    test('accepts an analysis root equal to the scanned root', () {
+      expect(
+        () => FinderOptions(rootPath: corePath, analysisRootPath: corePath),
+        returnsNormally,
+      );
+    });
+
+    test('rejects an analysis root that does not contain the scanned root', () {
+      // Beside it, so widening would drop references instead of adding them.
+      expect(
+        () => FinderOptions(
+          rootPath: corePath,
+          analysisRootPath: p.join(repo.path, 'pkgs', 'app'),
+        ),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+  });
+
   test('--remove only touches the scanned package', () async {
     final before = File(appFile).readAsStringSync();
     final result = await run(analysisRoot: repo.path);

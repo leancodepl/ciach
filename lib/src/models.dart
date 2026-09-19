@@ -9,6 +9,7 @@
  */
 
 import 'package:ciach/src/conventions/entry_points.dart';
+import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
 /// A `[start, end)` span within a file, using 0-based line/column positions
@@ -39,9 +40,12 @@ typedef CoupledRemoval = ({
 /// Configuration for a single run of the finder.
 class FinderOptions {
   /// Creates options for analyzing the package rooted at [rootPath].
-  const FinderOptions({
-    required this.rootPath,
-    this.analysisRootPath,
+  ///
+  /// Both paths are made absolute and normalized here, so callers may pass
+  /// either form. Not `const`: that work can't run in a `const` constructor.
+  FinderOptions({
+    required String rootPath,
+    String? analysisRootPath,
     this.includeGlobs = const [],
     this.excludeGlobs = const [],
     this.kinds = defaultKinds,
@@ -56,13 +60,26 @@ class FinderOptions {
     this.concurrency = 16,
     this.dartExecutable,
     this.onProgress,
-  }) : assert(concurrency > 0, 'concurrency must be positive');
+  }) : rootPath = p.normalize(p.absolute(rootPath)),
+       analysisRootPath = analysisRootPath == null
+           ? null
+           : p.normalize(p.absolute(analysisRootPath)),
+       assert(concurrency > 0, 'concurrency must be positive') {
+    final analysisRoot = this.analysisRootPath;
+    assert(
+      analysisRoot == null ||
+          p.equals(analysisRoot, this.rootPath) ||
+          p.isWithin(analysisRoot, this.rootPath),
+      'analysisRootPath must contain rootPath: '
+      '$analysisRoot does not contain ${this.rootPath}',
+    );
+  }
 
-  /// Absolute path to the package root to analyze.
+  /// The package root to analyze, absolute and normalized.
   final String rootPath;
 
-  /// Absolute path to the directory the analysis server is pointed at, for
-  /// references outside [rootPath] — a sibling package depending on it by
+  /// The directory the analysis server is pointed at, absolute and normalized,
+  /// for references outside [rootPath] — a sibling package depending on it by
   /// `path:`. Must contain [rootPath]; `null` (the default) means [rootPath].
   ///
   /// Only reference counting widens: candidates, reported paths and the

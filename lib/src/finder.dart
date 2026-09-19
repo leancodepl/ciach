@@ -101,11 +101,8 @@ class Ciach {
   /// Runs the analysis and returns the declarations that are never referenced.
   Future<FinderResult> run() async {
     final stopwatch = Stopwatch()..start();
-    final rootPath = p.normalize(p.absolute(options.rootPath));
-    final analysisRoot = switch (options.analysisRootPath) {
-      final path? => p.normalize(p.absolute(path)),
-      null => rootPath,
-    };
+    final rootPath = options.rootPath;
+    final analysisRoot = options.analysisRootPath ?? rootPath;
 
     final discovered = discoverDartFilesSplit(options);
     final files = discovered.candidates;
