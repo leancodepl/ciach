@@ -46,17 +46,19 @@ List<String> describeConfigSource(
 /// The `--verbose` rundown of the run's settings: one line per config key, each
 /// naming the layer its value came from.
 ///
-/// [resolved] supplies the values, [configuration] their layers, and
-/// [dartExecutable] the `dart` only the caller can resolve.
+/// [resolved] supplies the values, [configuration] their layers, [options] the
+/// normalized paths the run will use, and [dartExecutable] the `dart` only the
+/// caller can resolve.
 List<String> describeSettings(
   CiachConfiguration configuration,
-  ResolvedOptions resolved, {
+  ResolvedOptions resolved,
+  FinderOptions options, {
   required String dartExecutable,
 }) => [
   'Settings for this run:',
   for (final option in CiachOption.values)
     if (option.configKey case final key?)
-      '  $key: ${_setting(option, resolved, dartExecutable)} (${_source(configuration.valueSourceType(option))})',
+      '  $key: ${_setting(option, resolved, options, dartExecutable)} (${_source(configuration.valueSourceType(option))})',
 ];
 
 /// The value of [option] as the run uses it, with the root made absolute, the
@@ -64,12 +66,12 @@ List<String> describeSettings(
 String _setting(
   CiachOption<dynamic> option,
   ResolvedOptions resolved,
+  FinderOptions options,
   String dartExecutable,
 ) => switch (option) {
-  .path => resolved.absoluteRootPath,
+  .path => options.rootPath,
   // Unset, the analysis root is the scanned root.
-  .analysisRoot =>
-    resolved.absoluteAnalysisRootPath ?? resolved.absoluteRootPath,
+  .analysisRoot => options.analysisRootPath ?? options.rootPath,
   .public => '${resolved.includePublic}',
   .failPublic => '${resolved.failPublic}',
   .generated => '${resolved.includeGenerated}',

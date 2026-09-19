@@ -107,8 +107,7 @@ class Ciach {
     final stopwatch = Stopwatch()..start();
     final rootPath = options.rootPath;
     final analysisRoot = options.analysisRootPath ?? rootPath;
-    if (!p.equals(analysisRoot, rootPath) &&
-        !p.isWithin(analysisRoot, rootPath)) {
+    if (!analysisRootContains(analysisRoot, rootPath)) {
       throw ArgumentError.value(
         options.analysisRootPath,
         'analysisRootPath',

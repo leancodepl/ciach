@@ -25,3 +25,8 @@ String relativeUsagePosix(
 ) => p.isWithin(rootPath, absPath)
     ? relativePosix(absPath, rootPath)
     : relativePosix(absPath, analysisRoot);
+
+/// Whether [analysisRoot] contains [rootPath] — the invariant a widened
+/// analysis root has to meet. Both must be absolute and normalized.
+bool analysisRootContains(String analysisRoot, String rootPath) =>
+    p.equals(analysisRoot, rootPath) || p.isWithin(analysisRoot, rootPath);
