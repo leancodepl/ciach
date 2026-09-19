@@ -126,8 +126,7 @@ Future<int> _run(List<String> arguments) async {
   );
   final rootPath = options.rootPath;
 
-  final analysisRoot = options.analysisRootPath;
-  if (analysisRoot != null) {
+  if (options.analysisRootPath case final analysisRoot?) {
     if (!Directory(analysisRoot).existsSync()) {
       stderr.writeln('Analysis root does not exist: $analysisRoot');
       return 2;

@@ -60,7 +60,8 @@ List<String> discoverDartFiles(FinderOptions options) =>
 /// reference can live in a generated file the user isn't scanning — though
 /// skipped directories (`build/`, `.dart_tool/`, …) are still excluded.
 DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
-  final rootPath = p.normalize(p.absolute(options.rootPath));
+  // Already absolute and normalized: `FinderOptions` is the only way in.
+  final rootPath = options.rootPath;
   final root = Directory(rootPath);
   final context = p.Context(style: p.Style.posix);
 

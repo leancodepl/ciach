@@ -10,6 +10,11 @@
 
 import 'package:path/path.dart' as p;
 
+extension AbsolutePath on String {
+  /// This path made absolute and normalized.
+  String get absoluteNormalized => p.normalize(p.absolute(this));
+}
+
 /// [absPath] expressed relative to [rootPath], with `/` separators — the form
 /// used for a finding's and a coupled removal's `filePath`.
 String relativePosix(String absPath, String rootPath) =>

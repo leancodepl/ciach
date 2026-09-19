@@ -9,7 +9,7 @@
  */
 
 import 'package:ciach/src/conventions/entry_points.dart';
-import 'package:path/path.dart' as p;
+import 'package:ciach/src/paths.dart';
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
 /// A `[start, end)` span within a file, using 0-based line/column positions
@@ -60,10 +60,8 @@ class FinderOptions {
     this.concurrency = 16,
     this.dartExecutable,
     this.onProgress,
-  }) : rootPath = p.normalize(p.absolute(rootPath)),
-       analysisRootPath = analysisRootPath == null
-           ? null
-           : p.normalize(p.absolute(analysisRootPath)),
+  }) : rootPath = rootPath.absoluteNormalized,
+       analysisRootPath = analysisRootPath?.absoluteNormalized,
        assert(concurrency > 0, 'concurrency must be positive');
 
   /// The package root to analyze, absolute and normalized.
