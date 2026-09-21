@@ -13,6 +13,7 @@ import 'dart:io';
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/concurrency.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/reference_kinds.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
@@ -95,9 +96,8 @@ class CrossLibraryReferences {
       for (final loc in perSite[i]) {
         final start = loc.range.start;
         final pos = (SourceIndex.pathOf(loc.uri), start.line, start.character);
-        // A recursive call resolves to its own function; it recovers nothing.
         if (byPosition[pos] case final declaration?
-            when !_isWithin(sites[i], declaration)) {
+            when !_isSelfUse(sites[i], declaration)) {
           usageByDecl.putIfAbsent(pos, () => sites[i]);
         }
       }
@@ -123,11 +123,14 @@ class CrossLibraryReferences {
     );
   }
 
-  static bool _isWithin(_Site site, Candidate candidate) {
-    if (site.uri.toFilePath() != candidate.path) {
+  /// Whether the use at [site] sits inside the very declaration it resolved
+  /// to — a recursive call. [ReferenceClassifier.isSelfReference] discounts
+  /// the same shape in the reference search; a probe must not recover it.
+  static bool _isSelfUse(_Site site, Candidate declaration) {
+    if (site.uri.toFilePath() != declaration.path) {
       return false;
     }
-    final range = candidate.outline.range;
+    final range = declaration.outline.range;
     return range.start.atOrBefore(site.position) &&
         site.position.atOrBefore(range.end);
   }
