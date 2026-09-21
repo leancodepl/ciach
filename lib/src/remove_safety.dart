@@ -21,7 +21,7 @@ typedef SuperclassNeedsArguments = Future<bool> Function(Candidate cls);
 /// (`removalBlocked`) because auto-removing them would break the build.
 ///
 /// * [emptiedEnums] — enums every one of whose values would be removed while
-///   the enum type is still referenced, leaving `enum E {}` (a compile error).
+///   the enum type itself stays, leaving `enum E {}` (a compile error).
 /// * [blockedCtorClasses] — live classes all of whose constructors are dead:
 ///   removing them synthesizes an implicit default constructor that strands
 ///   `final` fields or calls a super constructor that needs arguments.
@@ -46,7 +46,7 @@ class RemoveSafety {
     Map<String, Set<String>> deadClassNames,
     SuperclassNeedsArguments superclassNeedsArguments,
   ) async {
-    final enumTypeHasRef = <DeclKey, bool>{};
+    final enumTypeStays = <DeclKey, bool>{};
     final enumValueTotal = <DeclKey, int>{};
     final enumValueDead = <DeclKey, int>{};
     final enumValuesIterated = <DeclKey>{};
@@ -80,7 +80,7 @@ class RemoveSafety {
           ifAbsent: () => symbol.children?.length ?? 0,
         );
       } else if (symbol.kind == .enum$ && !candidate.isEnumValue) {
-        enumTypeHasRef[candidate.key] = refsByCandidate[i].isNotEmpty;
+        enumTypeStays[candidate.key] = !unused;
         if (refsByCandidate[i].any(sources.isDotValuesRef) ||
             sources.enumIteratesOwnValues(candidate)) {
           enumValuesIterated.add(candidate.key);
@@ -112,7 +112,7 @@ class RemoveSafety {
       }
       // Conservative: if the enum-type candidate is missing we cannot prove the
       // enum is itself being removed, so assume it stays and block.
-      if (enumTypeHasRef[key] ?? true) {
+      if (enumTypeStays[key] ?? true) {
         emptiedEnums.add(key);
       }
     }

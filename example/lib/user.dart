@@ -37,4 +37,8 @@ class UsedClass {
 
   /// Never referenced -> UNUSED (private field).
   final int _unusedField = 0;
+
+  /// Calls only itself -> UNUSED (private method), like `_countdown` in
+  /// greeting.dart.
+  int _depth(int n) => n == 0 ? 0 : _depth(n - 1);
 }

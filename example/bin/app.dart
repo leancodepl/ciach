@@ -19,6 +19,7 @@ void main() {
   print(user.nickname);
   registerHandlers();
   print(usedConstant);
+  print(factorial(5));
   visitCount += 1;
 
   // Dog is instantiated (so both classes are used), but sound() is never

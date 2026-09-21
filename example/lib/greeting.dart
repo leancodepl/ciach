@@ -17,6 +17,13 @@ void danglingFunction() {}
 /// Never referenced anywhere -> UNUSED (private function).
 void _danglingPrivate() {}
 
+/// Referenced from bin/app.dart -> USED, though it also calls itself.
+int factorial(int n) => n <= 1 ? 1 : n * factorial(n - 1);
+
+/// Calls only itself -> UNUSED (private function). The recursive call sits in
+/// its own body, which goes when the function does, so it is no use.
+int _countdown(int n) => n == 0 ? 0 : _countdown(n - 1);
+
 /// Referenced from bin/app.dart -> USED.
 const usedConstant = 'hello';
 

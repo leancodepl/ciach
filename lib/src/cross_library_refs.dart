@@ -13,8 +13,10 @@ import 'dart:io';
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/concurrency.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/reference_kinds.dart';
 import 'package:ciach/src/source_index.dart';
+import 'package:ciach/src/symbols.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
 typedef _Site = ({Uri uri, Position position});
@@ -63,9 +65,10 @@ class CrossLibraryReferences {
       return empty;
     }
 
-    final declarations = <_DeclPosition>{
-      for (final candidate in candidates) _positionOf(candidate),
+    final byPosition = <_DeclPosition, Candidate>{
+      for (final candidate in candidates) _positionOf(candidate): candidate,
     };
+    final declarations = byPosition.keys.toSet();
 
     final sites = [
       for (final path in sources.scannedPaths)
@@ -93,7 +96,8 @@ class CrossLibraryReferences {
       for (final loc in perSite[i]) {
         final start = loc.range.start;
         final pos = (SourceIndex.pathOf(loc.uri), start.line, start.character);
-        if (declarations.contains(pos)) {
+        if (byPosition[pos] case final declaration?
+            when !_isSelfUse(sites[i], declaration)) {
           usageByDecl.putIfAbsent(pos, () => sites[i]);
         }
       }
@@ -117,6 +121,18 @@ class CrossLibraryReferences {
       line: site.position.line,
       character: site.position.character,
     );
+  }
+
+  /// Whether the use at [site] sits inside the very declaration it resolved
+  /// to — a recursive call. [ReferenceClassifier.isSelfReference] discounts
+  /// the same shape in the reference search; a probe must not recover it.
+  static bool _isSelfUse(_Site site, Candidate declaration) {
+    if (site.uri.toFilePath() != declaration.path) {
+      return false;
+    }
+    final range = declaration.outline.range;
+    return range.start.atOrBefore(site.position) &&
+        site.position.atOrBefore(range.end);
   }
 
   static _DeclPosition _positionOf(Candidate candidate) {

@@ -97,6 +97,9 @@ void main() {
     expect(await findUnused(), {
       'danglingFunction',
       '_danglingPrivate',
+      // Recursive, called by nothing else: the call in its own body goes with
+      // it. `factorial` recurses too, but bin/app.dart calls it.
+      '_countdown',
       'unusedConstant',
       'staleCounter',
       '_referencesOnlyInDocs',
@@ -104,6 +107,7 @@ void main() {
       'UsedClass.shout',
       'UsedClass.unusedMethod',
       'UsedClass._unusedField',
+      'UsedClass._depth',
       'UnusedClass',
       'UnusedClass.orphanMethod',
       // A fully dead class is reported as the whole CLASS, not just its
@@ -255,8 +259,10 @@ void main() {
   test('--no-public reports only private declarations', () async {
     expect(await findUnused(includePublic: false), {
       '_danglingPrivate',
+      '_countdown',
       '_referencesOnlyInDocs',
       'UsedClass._unusedField',
+      'UsedClass._depth',
       // Private constructors are private declarations, reported like any other
       // dead code.
       'SoleMarker._',
