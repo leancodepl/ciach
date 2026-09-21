@@ -105,8 +105,8 @@ class ReferenceClassifier {
   /// Whether [loc] is a reference to [candidate] that does not count as a use:
   /// one inside the declaration's own span (body, signature, doc and
   /// annotation lines — text that goes when it does, so a recursive call or
-  /// the unnamed constructor's declaration keeps nothing alive), or, for a
-  /// class, the `State<Foo>` pairing ([FlutterWidgets.isStatePairingReference]).
+  /// the unnamed constructor's declaration keeps nothing alive), or the
+  /// `State<Foo>` pairing ([FlutterWidgets.isStatePairingReference]).
   bool isSelfReference(Candidate candidate, Location loc) {
     if (SourceIndex.pathOf(loc.uri) == candidate.path) {
       final range = candidate.outline.range;
@@ -115,8 +115,7 @@ class ReferenceClassifier {
         return true;
       }
     }
-    return candidate.symbol.kind == .class$ &&
-        _sources.isStatePairingReference(candidate.symbol.name, loc);
+    return _sources.isStatePairingReference(candidate.symbol.name, loc);
   }
 
   /// Whether [candidate] — already classified as unused under
