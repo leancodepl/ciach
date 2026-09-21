@@ -21,8 +21,9 @@ import 'package:pro_lsp/pro_lsp.dart' show Location;
 /// comments, from the references the analysis server reported for it.
 ///
 /// This is the semantic heart of the tool: everything that discounts a
-/// reference (self-references, the `State<Self>` pairing, doc-comment links,
-/// type-pattern matches) lives here, kept apart from the run orchestration.
+/// reference (a declaration's own span, the `State<Self>` pairing, doc-comment
+/// links, type-pattern matches) lives here, kept apart from the run
+/// orchestration.
 class ReferenceClassifier {
   ReferenceClassifier(this._sources, {required this.unusedUnionMembers});
 
@@ -35,13 +36,9 @@ class ReferenceClassifier {
   /// Classifies [candidate] from the [refs] reported for it, consulting
   /// [crossLib] as a secondary check on members that appear unreferenced.
   ///
-  /// Non-class candidates keep the simple rule: any real (non-doc) reference
-  /// means used, only doc-comment links means doc-only, none means unused.
-  ///
-  /// Classes get [_classifyClass], which discounts *self-references* — the
-  /// class's own body, and the `State<Self>` StatefulWidget pairing — so a
-  /// class kept alive only by its own unnamed constructor's declaration (whose
-  /// name coincides with the class) is correctly seen as dead.
+  /// A reference inside the candidate's own span never counts (see
+  /// [isSelfReference]). Of the rest: any real (non-doc) one means used, only
+  /// doc-comment links means doc-only, none means unused.
   RefStatus classify(
     Candidate candidate,
     List<Location> refs,
@@ -51,11 +48,18 @@ class ReferenceClassifier {
     if (candidate.symbol.kind == .class$ || candidate.isExtensionType) {
       return _classifyClass(candidate, refs);
     }
-    if (refs.isEmpty) {
+    final external = externalRefs(candidate, refs);
+    if (external.isEmpty) {
       return crossLib.isRecovered(candidate) ? .used : .unused;
     }
-    return refs.every(_sources.isDocReference) ? .docOnly : .used;
+    return external.every(_sources.isDocReference) ? .docOnly : .used;
   }
+
+  /// [refs] less the ones inside [candidate]'s own span.
+  List<Location> externalRefs(Candidate candidate, List<Location> refs) => [
+    for (final loc in refs)
+      if (!isSelfReference(candidate, loc)) loc,
+  ];
 
   /// Classifies a class by its references, ignoring self-references.
   ///
@@ -69,7 +73,7 @@ class ReferenceClassifier {
     var hasExternalDoc = false;
     var hasPatternMatch = false;
     for (final loc in refs) {
-      if (isSelfClassReference(candidate, loc)) {
+      if (isSelfReference(candidate, loc)) {
         continue;
       }
       if (_sources.isDocReference(loc)) {
@@ -98,26 +102,21 @@ class ReferenceClassifier {
     return hasExternalDoc ? .docOnly : .unused;
   }
 
-  /// Whether [loc] is a reference to [candidate] that does not count as a use.
-  ///
-  /// Two shapes qualify:
-  ///
-  /// 1. A reference inside the class's own source span — its body, signature,
-  ///    or leading doc/annotation lines. This covers the unnamed constructor's
-  ///    declaration, a `State<Foo>` return type on the widget's own
-  ///    `createState`, and any purely-internal self-use.
-  /// 2. A `State<Foo>` type-argument reference anywhere — the StatefulWidget
-  ///    pairing (see [FlutterWidgets.isStatePairingReference]).
-  bool isSelfClassReference(Candidate candidate, Location loc) {
+  /// Whether [loc] is a reference to [candidate] that does not count as a use:
+  /// one inside the declaration's own span (body, signature, doc and
+  /// annotation lines — text that goes when it does, so a recursive call or
+  /// the unnamed constructor's declaration keeps nothing alive), or, for a
+  /// class, the `State<Foo>` pairing ([FlutterWidgets.isStatePairingReference]).
+  bool isSelfReference(Candidate candidate, Location loc) {
     if (SourceIndex.pathOf(loc.uri) == candidate.path) {
-      // A dartdoc link to the class from its own doc comment is a self-reference.
       final range = candidate.outline.range;
       final pos = loc.range.start;
       if (range.start.atOrBefore(pos) && pos.atOrBefore(range.end)) {
         return true;
       }
     }
-    return _sources.isStatePairingReference(candidate.symbol.name, loc);
+    return candidate.symbol.kind == .class$ &&
+        _sources.isStatePairingReference(candidate.symbol.name, loc);
   }
 
   /// Whether [candidate] — already classified as unused under
@@ -127,7 +126,7 @@ class ReferenceClassifier {
   bool isPatternMatchedClass(Candidate candidate, List<Location> refs) =>
       refs.any(
         (loc) =>
-            !isSelfClassReference(candidate, loc) &&
+            !isSelfReference(candidate, loc) &&
             !_sources.isDocReference(loc) &&
             _sources.isPatternRef(loc),
       );

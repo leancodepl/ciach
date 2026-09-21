@@ -385,7 +385,7 @@ class Ciach {
   };
 
   /// One warning per declaration the secondary check kept alive: it had no
-  /// reported references, yet a use resolved back to it.
+  /// reported references outside itself, yet a use resolved back to it.
   List<RecoveredReference> _recoveredWarnings(
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
@@ -396,7 +396,7 @@ class Ciach {
     final warnings = <RecoveredReference>[];
     for (var i = 0; i < candidates.length; i++) {
       final candidate = candidates[i];
-      if (refsByCandidate[i].isNotEmpty ||
+      if (_classifier.externalRefs(candidate, refsByCandidate[i]).isNotEmpty ||
           candidate.symbol.kind == .class$ ||
           candidate.isExtension) {
         continue;
@@ -557,8 +557,8 @@ class Ciach {
     }
   }
 
-  /// Runs the secondary definition check for the candidates whose reference
-  /// query came back empty — the potential false positives.
+  /// Runs the secondary definition check for the candidates with no reference
+  /// outside their own span — the potential false positives.
   Future<CrossLibraryReferences> _recoverCrossLibraryRefs(
     LspClient client,
     List<Candidate> candidates,
@@ -566,7 +566,9 @@ class Ciach {
   ) {
     final emptyRefNames = <String>{
       for (var i = 0; i < candidates.length; i++)
-        if (refsByCandidate[i].isEmpty &&
+        if (_classifier
+                .externalRefs(candidates[i], refsByCandidate[i])
+                .isEmpty &&
             candidates[i].symbol.kind != .class$ &&
             !candidates[i].isExtension) ...[
           _simpleName(candidates[i].symbol.name),

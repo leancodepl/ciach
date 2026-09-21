@@ -1,5 +1,9 @@
 ## Unreleased
 
+- A reference from inside a declaration's own span no longer keeps it alive,
+  for every kind: a function or method called only by itself is now reported.
+  Classes already worked this way.
+  ([#58](https://github.com/leancodepl/ciach/issues/58))
 - `FinderOptions` normalizes `rootPath` and `analysisRootPath`, and a run throws
   an `ArgumentError` when the analysis root doesn't contain the scanned one, so
   a library caller gets the check the CLI already had. The constructor is no
