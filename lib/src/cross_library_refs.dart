@@ -108,6 +108,21 @@ class CrossLibraryReferences {
   bool isRecovered(Candidate candidate) =>
       _usageByDecl.containsKey(_positionOf(candidate));
 
+  CrossLibraryReferences merged(CrossLibraryReferences other) =>
+      other._usageByDecl.isEmpty
+      ? this
+      : CrossLibraryReferences._({...other._usageByDecl, ..._usageByDecl});
+
+  /// Only the recoveries whose usage site (absolute path, position) [keep]
+  /// accepts.
+  CrossLibraryReferences where(bool Function(String path, Position) keep) =>
+      _usageByDecl.isEmpty
+      ? this
+      : CrossLibraryReferences._({
+          for (final MapEntry(key: decl, value: site) in _usageByDecl.entries)
+            if (keep(site.uri.toFilePath(), site.position)) decl: site,
+        });
+
   /// The usage site that recovered [candidate], or `null` if not recovered.
   ({String path, int line, int character})? recoveredUsage(
     Candidate candidate,

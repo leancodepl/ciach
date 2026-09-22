@@ -61,17 +61,26 @@ abstract final class Reporter {
         final hint = decl.hint != null
             ? '  ${_style('(${decl.hint})', _dim, useColor)}'
             : '';
+        final via = decl.onlyReferencedFrom.isEmpty
+            ? ''
+            : '  ${_style('(only referenced from dead ${_referrers(decl.onlyReferencedFrom)})', _dim, useColor)}';
         buffer.writeln(
           '  ${_style(loc, _dim, useColor)}  '
           '${_style(kind, _cyan, useColor)}  '
           '${decl.qualifiedName}  '
           '${_style('($visibility)', _dim, useColor)}'
-          '$blocked$hint',
+          '$blocked$hint$via',
         );
       }
       buffer.writeln();
     }
   }
+
+  /// The first dead referrer, and how many others there are; the full list is
+  /// in the JSON report.
+  static String _referrers(List<String> referrers) => referrers.length == 1
+      ? referrers.single
+      : '${referrers.first} and ${referrers.length - 1} more';
 
   /// A machine-readable JSON report.
   static String json(FinderResult result) {
@@ -123,7 +132,8 @@ abstract final class Reporter {
         message:
             "Unused ${decl.isPrivate ? 'private ' : ''}${decl.kind.label} "
             "'${decl.qualifiedName}'"
-            "${decl.hint != null ? ' — ${decl.hint}' : ''}",
+            "${decl.hint != null ? ' — ${decl.hint}' : ''}"
+            "${decl.onlyReferencedFrom.isEmpty ? '' : ' — only referenced from dead ${_referrers(decl.onlyReferencedFrom)}'}",
       );
     }
     for (final decl in result.docOnly) {
