@@ -162,7 +162,7 @@ class Ciach {
       await _fetch.semanticTokensFor(client, refsByCandidate);
       await _fetch.selectionRanges(client, candidates, refsByCandidate);
 
-      // Phase 3: classify.
+      // Phase 3: classify and, with `transitive`, settle.
       settled = await _settler.settle(
         client,
         candidates,

@@ -79,6 +79,7 @@ String _setting(
   .operators => '${resolved.operators}',
   .unusedUnionMembers => '${resolved.unusedUnionMembers}',
   .reportToJson => '${resolved.reportToJson}',
+  .transitive => '${resolved.transitive}',
   .setExitIfChanged => '${resolved.setExitIfChanged}',
   .remove => '${resolved.remove}',
   .force => '${resolved.force}',
