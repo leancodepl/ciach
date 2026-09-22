@@ -139,6 +139,7 @@ final class Verdict {
     List<CoupledRemoval> coupledRemovals = const [],
     bool removalBlocked = false,
     String? hint,
+    List<String> onlyReferencedFrom = const [],
   }) {
     final symbol = candidate.symbol;
     // An unnamed extension's selection range is its `on` type.
@@ -168,6 +169,7 @@ final class Verdict {
       coupledRemovals: coupledRemovals,
       removalBlocked: removalBlocked,
       hint: hint,
+      onlyReferencedFrom: onlyReferencedFrom,
     );
   }
 

@@ -3,6 +3,7 @@ import 'package:ciach/src/concurrency.dart';
 import 'package:ciach/src/conventions/flutter_widgets.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/cross_library_refs.dart';
+import 'package:ciach/src/dead_spans.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/overrides.dart';
@@ -25,7 +26,11 @@ typedef Settled = ({
 
 /// From references to findings: settles each candidate's verdict — classifies
 /// it, applies the conventions and remove-safety, couples overrides — and
-/// builds the sorted report.
+/// builds the sorted report. With `transitive`, in rounds: each drops the
+/// references inside the previous round's removable findings and classifies
+/// again, until nothing changes. No new reference queries; the cross-library
+/// probe covers only the names a round newly emptied, and override and
+/// superclass lookups are remembered across rounds.
 final class Settler {
   Settler({
     required this.options,
@@ -44,9 +49,19 @@ final class Settler {
   final ReferenceClassifier _classifier;
   final Verdict _verdict;
 
+  /// Already probed by the cross-library recovery.
+  final _probedNames = <String>{};
+
+  /// Override verdicts by candidate index; they don't depend on the round.
+  final _overridesByMember = <int, OverriddenMember>{};
+
+  /// A guard: the deleted text only grows between rounds, so it settles.
+  static const _maxRounds = 16;
+
   void _report(String message) => options.onProgress?.call(message);
 
   /// The findings for [candidates], from the server's [refsByCandidate].
+  /// Round one, with nothing dropped, is the plain result.
   Future<Settled> settle(
     LspClient client,
     List<Candidate> candidates,
@@ -63,22 +78,94 @@ final class Settler {
       rootPath: rootPath,
     );
 
-    // A secondary check that confirms apparently-unreferenced members are
-    // actually unused before they are reported.
-    final crossLib = await _recoverCrossLibraryRefs(
-      client,
-      candidates,
-      refsByCandidate,
+    var deadSpans = DeadSpans.empty;
+    var crossLib = CrossLibraryReferences.empty;
+    Settled settled;
+    for (var round = 1; ; round++) {
+      final liveRefs = _liveRefs(refsByCandidate, deadSpans);
+      crossLib = crossLib.merged(
+        await _recoverCrossLibraryRefs(client, candidates, liveRefs),
+      );
+      settled = await _round(
+        candidates,
+        refsByCandidate,
+        liveRefs,
+        crossLib.where((path, position) => !deadSpans.covers(path, position)),
+        deadSpans,
+        superclasses,
+        overrides,
+        rootPath,
+        analysisRoot,
+      );
+      if (!options.transitive) {
+        break;
+      }
+      final next = DeadSpans.of(settled.unused, rootPath);
+      if (next.sameAs(deadSpans)) {
+        if (round > 1) {
+          _report('Settled after $round round(s).');
+        }
+        break;
+      }
+      if (round == _maxRounds) {
+        _report(
+          'Stopping after $_maxRounds rounds with findings still being '
+          'added; the report is what the last round found.',
+        );
+        break;
+      }
+      _report(
+        'Round ${round + 1}: ${next.length - deadSpans.length} more '
+        'declaration(s) removable, checking what only they referenced…',
+      );
+      deadSpans = next;
+    }
+    return (
+      unused: settled.unused.sorted(compareByLocation),
+      docOnly: settled.docOnly.sorted(compareByLocation),
+      recovered: settled.recovered,
     );
+  }
 
+  /// [refsByCandidate] less the references inside [deadSpans].
+  List<List<Location>> _liveRefs(
+    List<List<Location>> refsByCandidate,
+    DeadSpans deadSpans,
+  ) => deadSpans.isEmpty
+      ? refsByCandidate
+      : [
+          for (final refs in refsByCandidate)
+            [
+              for (final loc in refs)
+                if (!deadSpans.covers(
+                  SourceIndex.pathOf(loc.uri),
+                  loc.range.start,
+                ))
+                  loc,
+            ],
+        ];
+
+  /// One round, from [liveRefs]; [refsByCandidate] is the server's full
+  /// answer, for [_onlyReferencedFrom].
+  Future<Settled> _round(
+    List<Candidate> candidates,
+    List<List<Location>> refsByCandidate,
+    List<List<Location>> liveRefs,
+    CrossLibraryReferences crossLib,
+    DeadSpans deadSpans,
+    SuperclassChecks superclasses,
+    OverrideRemovals overrides,
+    String rootPath,
+    String analysisRoot,
+  ) async {
     final statuses = [
       for (var i = 0; i < candidates.length; i++)
-        _classifier.classify(candidates[i], refsByCandidate[i], crossLib),
+        _classifier.classify(candidates[i], liveRefs[i], crossLib),
     ];
 
     final recovered = _recoveredWarnings(
       candidates,
-      refsByCandidate,
+      liveRefs,
       crossLib,
       rootPath,
       analysisRoot,
@@ -109,7 +196,7 @@ final class Settler {
       _sources,
       candidates,
       statuses,
-      refsByCandidate,
+      liveRefs,
       deadClassNames,
       superclasses.needsConstructorArguments,
     );
@@ -135,7 +222,7 @@ final class Settler {
     final docOnly = <UnusedDeclaration>[];
     for (var i = 0; i < candidates.length; i++) {
       final candidate = candidates[i];
-      final refs = refsByCandidate[i];
+      final refs = liveRefs[i];
       switch (statuses[i]) {
         case .unused:
           if (!reported.contains(i)) {
@@ -153,7 +240,7 @@ final class Settler {
                       candidate,
                       refs,
                       candidates,
-                      refsByCandidate,
+                      liveRefs,
                       rootPath,
                     )
                   : overrides?.removals ?? const [],
@@ -163,6 +250,11 @@ final class Settler {
               hint:
                   _verdict.hintFor(candidate) ??
                   (blockedByOverride ? Verdict.overriddenHint : null),
+              onlyReferencedFrom: _onlyReferencedFrom(
+                candidate,
+                refsByCandidate[i],
+                deadSpans,
+              ),
             ),
           );
         case .docOnly:
@@ -172,11 +264,49 @@ final class Settler {
       }
     }
 
-    return (
-      unused: unused.sorted(compareByLocation),
-      docOnly: docOnly.sorted(compareByLocation),
-      recovered: recovered,
-    );
+    // A finding dead only because its container is goes with the container.
+    if (deadSpans.isNotEmpty) {
+      final removable = DeadSpans.of(unused, rootPath);
+      unused.removeWhere(
+        (finding) =>
+            finding.onlyReferencedFrom.isNotEmpty &&
+            removable.enclosesInAnother(finding, rootPath),
+      );
+    }
+
+    return (unused: unused, docOnly: docOnly, recovered: recovered);
+  }
+
+  /// Every finding whose removal deletes a reference to [candidate], in
+  /// source order, as `qualifiedName (file:line)`. The references come in the
+  /// server's order, so they are sorted; several dead declarations may have
+  /// referenced the same one.
+  List<String> _onlyReferencedFrom(
+    Candidate candidate,
+    List<Location> refs,
+    DeadSpans deadSpans,
+  ) {
+    if (deadSpans.isEmpty) {
+      return const [];
+    }
+    final owners = <UnusedDeclaration>[];
+    for (final loc in refs) {
+      if (_classifier.isSelfReference(candidate, loc)) {
+        continue;
+      }
+      final owner = deadSpans.ownerOf(
+        SourceIndex.pathOf(loc.uri),
+        loc.range.start,
+      );
+      if (owner != null && !owners.any((seen) => identical(seen, owner))) {
+        owners.add(owner);
+      }
+    }
+    owners.sort(compareByLocation);
+    return [
+      for (final owner in owners)
+        '${owner.qualifiedName} (${owner.filePath}:${owner.line})',
+    ];
   }
 
   /// The overrides to delete along with each reported dead member, by
@@ -190,24 +320,27 @@ final class Settler {
       for (final index in reported)
         if (_verdict.canBeOverridden(candidates[index])) index,
     ];
-    if (members.isEmpty) {
-      return const {};
+    final unchecked = members.whereNot(_overridesByMember.containsKey).toList();
+    if (unchecked.isNotEmpty) {
+      _report('Checking ${unchecked.length} dead member(s) for overrides…');
+      final results = await mapPooled(
+        unchecked,
+        options.concurrency,
+        (index) => overrides.of(candidates[index]),
+      );
+      for (var i = 0; i < unchecked.length; i++) {
+        _overridesByMember[unchecked[i]] = results[i];
+      }
     }
-    _report('Checking ${members.length} dead member(s) for overrides…');
-    final results = await mapPooled(
-      members,
-      options.concurrency,
-      (index) => overrides.of(candidates[index]),
-    );
     final byCandidate = <int, OverriddenMember>{};
     var coupled = 0;
     var blocked = 0;
-    for (var i = 0; i < members.length; i++) {
-      final result = results[i];
+    for (final index in members) {
+      final result = _overridesByMember[index]!;
       if (result.removals.isEmpty && !result.blocked) {
         continue;
       }
-      byCandidate[members[i]] = result;
+      byCandidate[index] = result;
       coupled += result.removals.length;
       if (result.blocked) {
         blocked++;
@@ -274,17 +407,16 @@ final class Settler {
   }
 
   /// Runs the secondary definition check for the candidates with no reference
-  /// outside their own span — the potential false positives.
+  /// outside their own span — the potential false positives. A name probed in
+  /// an earlier round is not probed again; the caller filters the sites.
   Future<CrossLibraryReferences> _recoverCrossLibraryRefs(
     LspClient client,
     List<Candidate> candidates,
-    List<List<Location>> refsByCandidate,
+    List<List<Location>> liveRefs,
   ) {
     final emptyRefNames = <String>{
       for (var i = 0; i < candidates.length; i++)
-        if (_classifier
-                .externalRefs(candidates[i], refsByCandidate[i])
-                .isEmpty &&
+        if (_classifier.externalRefs(candidates[i], liveRefs[i]).isEmpty &&
             candidates[i].symbol.kind != .class$ &&
             !candidates[i].isExtension) ...[
           _simpleName(candidates[i].symbol.name),
@@ -293,10 +425,12 @@ final class Settler {
           // (`.new(…)`), so probe for both spellings.
           candidates[i].symbol.declarationName(candidates[i].container),
         ],
-    };
-    if (emptyRefNames.isNotEmpty) {
-      _report('Recovering cross-library references…');
+    }..removeAll(_probedNames);
+    if (emptyRefNames.isEmpty) {
+      return Future.value(CrossLibraryReferences.empty);
     }
+    _probedNames.addAll(emptyRefNames);
+    _report('Recovering cross-library references…');
     return CrossLibraryReferences.resolve(
       client: client,
       sources: _sources,

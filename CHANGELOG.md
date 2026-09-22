@@ -1,5 +1,11 @@
 ## Unreleased
 
+- Add `--transitive` (and `transitive:` in `ciach.yaml`): also report
+  declarations referenced only from other findings, transitively — what a
+  second run after `--remove` would find, in one run and in a plain report,
+  without new reference queries. Each such finding names the findings it hangs
+  on (`onlyReferencedFrom` in `-f json`). Off by default.
+  ([#58](https://github.com/leancodepl/ciach/issues/58))
 - A reference from inside a declaration's own span no longer keeps it alive,
   for every kind: a function or method called only by itself is now reported.
   Classes already worked this way.

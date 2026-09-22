@@ -88,6 +88,7 @@ ciach --verbose                        # explain each step
 | `--[no-]operators` | off | Report operator overloads (`operator +`, `operator ==`, …) too. Off by default — see limitations. |
 | `--[no-]unused-union-members` | off | Also flag a (sealed) supertype member matched only by type patterns, never constructed. Report-only — never touched by `--remove`. |
 | `--[no-]report-tojson` | off | Report an otherwise-unused `toJson()` serialization hook too. Off by default — `jsonEncode` dispatches to it dynamically. |
+| `--[no-]transitive` | off | Also report declarations referenced only from other findings — what a second run after `--remove` would find, in one run. See [Transitively dead code](#transitively-dead-code). |
 | `--set-exit-if-changed` | off | Exit with status `1` when anything is found (for CI). Named after `dart format`. |
 | `--[no-]fail-public` | on | Count unused public declarations toward the exit code (with `--set-exit-if-changed`). `--no-fail-public` reports them but fails only on private findings. |
 | `--remove` | off | Remove unused declarations after reporting them. Prompts for confirmation first. |
@@ -180,6 +181,31 @@ lib/greeting.dart
 These never count toward `--set-exit-if-changed`, are never touched by
 `--remove`, and get a `::notice` rather than a `::warning` in `-f github`. Drop
 the doc link to have one reported as properly unused.
+
+### Transitively dead code
+
+A declaration whose only references sit inside declarations ciach reports is
+dead too — but those references count as uses, so it only surfaces on a second
+run, after the first round was removed. `--transitive` settles that in one run:
+
+```
+lib/report.dart
+  12:6  function  _buildReport   (private)
+  20:6  function  _formatRow     (private)  (only referenced from dead _buildReport (lib/report.dart:12))
+  31:6  function  _pad           (private)  (only referenced from dead _formatRow (lib/report.dart:20))
+```
+
+The text a removal deletes keeps nothing alive, so each round drops the
+references inside the previous round's removable findings and classifies again,
+until nothing changes — on the references already fetched, in a plain report as
+much as with `--remove`. Only what `--remove` would delete counts as gone: a
+[report-only](#removing-declarations) finding keeps what it references. Members
+of a class that dies this way are not reported on their own.
+
+Off by default: a false positive takes everything only it referenced with it.
+Each such finding names the dead declarations it hangs on — all of them in
+`onlyReferencedFrom` (`-f json`), the first plus a count elsewhere.
+A cycle keeps itself alive ([#65](https://github.com/leancodepl/ciach/issues/65)).
 
 ### GitHub Actions
 
@@ -323,6 +349,9 @@ deleting blindly:
 - **A primary constructor shares its class's references**, since a query at the
   header resolves to the class: a never-invoked one only surfaces once the class
   itself is dead.
+- **Code referenced only from dead code** counts as used unless
+  [`--transitive`](#transitively-dead-code) is on, and a cycle of dead
+  declarations counts as used even then.
 - A package that doesn't analyze cleanly (missing `pub get`, errors) yields
   incomplete references.
 

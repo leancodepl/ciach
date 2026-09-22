@@ -7,6 +7,7 @@ import 'package:sample_pkg/scenarios/freezed_unions.dart';
 import 'package:sample_pkg/scenarios/overrides.dart';
 import 'package:sample_pkg/scenarios/overrides_impl.dart';
 import 'package:sample_pkg/scenarios/serialization.dart';
+import 'package:sample_pkg/scenarios/transitive.dart';
 import 'package:sample_pkg/scenarios/unions.dart';
 import 'package:sample_pkg/scenarios/widgets.dart';
 import 'package:sample_pkg/shapes.dart';
@@ -78,4 +79,10 @@ void main() {
 
   // Keeps the serialization types alive without calling their fromJson/toJson.
   print(buildSerializable());
+
+  // Live anchors of the transitive scenario.
+  transitiveAnchor();
+  print(Odometer().live());
+  const Lone? lone = null;
+  print(lone?.arg);
 }
