@@ -17,7 +17,7 @@ import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/reference_kinds.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
+import 'package:pro_lsp/pro_lsp.dart' show Location, LspException, Position;
 
 typedef _Site = ({Uri uri, Position position});
 
@@ -86,7 +86,7 @@ class CrossLibraryReferences {
     final perSite = await mapPooled(sites, concurrency, (site) async {
       try {
         return await client.definition(site.uri, site.position);
-      } on Object {
+      } on LspException {
         return const <Location>[];
       }
     });
