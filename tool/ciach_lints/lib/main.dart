@@ -16,6 +16,15 @@ final class CiachLintsPlugin() extends Plugin {
 
   @override
   void register(PluginRegistry registry) {
-    registry.registerWarningRule(VersionMatchesPubspec());
+    registry
+      ..registerWarningRule(VersionMatchesPubspec())
+      ..registerFixForRule(
+        VersionMatchesPubspec.code,
+        UpdateConstantVersion.new,
+      )
+      ..registerFixForRule(
+        VersionMatchesPubspec.code,
+        UpdatePubspecVersion.new,
+      );
   }
 }
