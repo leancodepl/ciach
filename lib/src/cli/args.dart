@@ -218,10 +218,8 @@ enum CiachOption<V> implements OptionDefinition<V> {
       defaultsTo: false,
       helpText:
           'Also report declarations referenced only from other findings,\n'
-          'transitively — what a second run after --remove would find, in\n'
-          'one run. Report-only findings keep what they reference. Off by\n'
-          'default: a false positive takes everything only it referenced\n'
-          'with it. Each such finding names the dead declarations it hangs on.',
+          'repeating until nothing new is found. Off by default, because one\n'
+          'false positive also flags everything only it referenced.',
     ),
   ),
   reportToJson(

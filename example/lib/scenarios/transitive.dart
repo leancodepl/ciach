@@ -1,6 +1,6 @@
-// Declarations reachable only from dead code. Scanned by its own test, with
-// and without `transitive`. Doc comments use backticks: a `[link]` is a
-// reference.
+// Declarations referenced only from dead code. Scanned by its own test, with
+// and without `transitive`. Doc comments name declarations in backticks, since
+// a `[link]` would count as a reference.
 
 /// Never referenced -> UNUSED either way. Links [_docLinkedFromDead].
 void _deadRoot() {
@@ -10,7 +10,7 @@ void _deadRoot() {
   print(Odometer()._deadReading());
 }
 
-/// Called only by `_deadRoot` -> USED plain, UNUSED with transitive.
+/// Called only by `_deadRoot` -> USED without transitive, UNUSED with it.
 void _onlyFromDeadRoot() => _deeper();
 
 /// Two steps from dead code -> UNUSED with transitive.
@@ -23,12 +23,12 @@ void _secondDeadRoot() => _sharedByDeadRoots();
 /// naming both.
 void _sharedByDeadRoots() {}
 
-/// Linked only from `_deadRoot`'s doc -> DOC-ONLY plain, UNUSED with
-/// transitive.
+/// Linked only from `_deadRoot`'s doc -> DOC-ONLY without transitive, UNUSED
+/// with it.
 void _docLinkedFromDead() {}
 
-/// Used only by `_deadRoot` -> UNUSED with transitive, as the class; members
-/// unreported.
+/// Used only by `_deadRoot` -> UNUSED with transitive, reported as the class
+/// without its members.
 class _DeadHolder {
   _DeadHolder._(this.value);
 

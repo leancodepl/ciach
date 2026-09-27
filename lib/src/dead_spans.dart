@@ -4,23 +4,22 @@ import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show Position;
 
-/// The text a removal deletes: every removable finding's [UnusedDeclaration.fullRange]
-/// and the spans coupled to it. A reference inside keeps nothing alive.
+/// The source `--remove` would delete: each removable finding's
+/// [UnusedDeclaration.fullRange] and its coupled removals. A reference inside
+/// these spans keeps nothing alive.
 ///
-/// A declarator the remover declines to trim out of its statement counts as
-/// gone here too; only a statement it can't parse exposes that.
+/// A field declarator counts as deleted even in the rare statement the remover
+/// can't parse and leaves in place.
 final class DeadSpans {
-  DeadSpans._(this._byPath, this.length);
+  DeadSpans._(this._byPath);
 
   /// The spans of the findings `--remove` would delete, by absolute path.
   factory DeadSpans.of(Iterable<UnusedDeclaration> findings, String rootPath) {
     final byPath = <String, List<_Span>>{};
-    var length = 0;
     for (final finding in findings) {
       if (finding.removalBlocked) {
         continue;
       }
-      length++;
       byPath.putIfAbsent(_absolute(finding.filePath, rootPath), () => []).add((
         range: finding.fullRange,
         owner: finding,
@@ -31,19 +30,22 @@ final class DeadSpans {
         );
       }
     }
-    return DeadSpans._(byPath, length);
+    return DeadSpans._(byPath);
   }
 
-  static final empty = DeadSpans._(const {}, 0);
+  static final empty = DeadSpans._(const {});
 
   final Map<String, List<_Span>> _byPath;
 
-  /// Findings that contributed.
-  final int length;
+  /// How many findings these spans delete.
+  int get length => {
+    for (final spans in _byPath.values)
+      for (final span in spans) span.owner,
+  }.length;
 
-  bool get isEmpty => length == 0;
+  bool get isEmpty => _byPath.isEmpty;
 
-  bool get isNotEmpty => length > 0;
+  bool get isNotEmpty => _byPath.isNotEmpty;
 
   bool covers(String path, Position position) =>
       ownerOf(path, position) != null;
@@ -79,8 +81,9 @@ final class DeadSpans {
     );
   }
 
+  /// Whether [other] deletes the same source.
   bool sameAs(DeadSpans other) {
-    if (length != other.length || _byPath.length != other._byPath.length) {
+    if (_byPath.length != other._byPath.length) {
       return false;
     }
     for (final MapEntry(key: path, value: spans) in _byPath.entries) {

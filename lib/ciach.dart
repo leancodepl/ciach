@@ -34,6 +34,7 @@ export 'src/finder.dart' show Ciach;
 export 'src/models.dart'
     show
         CoupledRemoval,
+        DeadReferrer,
         DeclarationRange,
         DeletedFile,
         FinderOptions,

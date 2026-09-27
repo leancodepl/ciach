@@ -643,9 +643,13 @@ void main() {
     Set<String> names(Iterable<UnusedDeclaration> decls) =>
         decls.map((d) => d.qualifiedName).toSet();
 
-    String asOwner(FinderResult result, String qualified) {
+    DeadReferrer asOwner(FinderResult result, String qualified) {
       final decl = findByQualified(result, qualified)!;
-      return '${decl.qualifiedName} (${decl.filePath}:${decl.line})';
+      return (
+        qualifiedName: decl.qualifiedName,
+        filePath: decl.filePath,
+        line: decl.line,
+      );
     }
 
     test('flag OFF: only what nothing references is reported', () async {
@@ -679,7 +683,7 @@ void main() {
       });
       expect(names(result.docOnly), isEmpty);
 
-      List<String> via(String name) =>
+      List<DeadReferrer> via(String name) =>
           findByQualified(result, name)!.onlyReferencedFrom;
       expect(via('_deadRoot'), isEmpty, reason: 'dead in its own right');
       expect(via('Lone.only'), isEmpty);

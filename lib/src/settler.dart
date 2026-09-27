@@ -26,11 +26,11 @@ typedef Settled = ({
 
 /// From references to findings: settles each candidate's verdict — classifies
 /// it, applies the conventions and remove-safety, couples overrides — and
-/// builds the sorted report. With `transitive`, in rounds: each drops the
-/// references inside the previous round's removable findings and classifies
-/// again, until nothing changes. No new reference queries; the cross-library
-/// probe covers only the names a round newly emptied, and override and
-/// superclass lookups are remembered across rounds.
+/// builds the sorted report. With `transitive`, it repeats this in rounds:
+/// each ignores the references inside the previous round's removable findings,
+/// until a round adds nothing. Rounds reuse the fetched references and cached
+/// override lookups, and probe only the names a round newly leaves
+/// unreferenced.
 final class Settler {
   Settler({
     required this.options,
@@ -49,19 +49,19 @@ final class Settler {
   final ReferenceClassifier _classifier;
   final Verdict _verdict;
 
-  /// Already probed by the cross-library recovery.
+  /// Names the cross-library recovery has already probed.
   final _probedNames = <String>{};
 
-  /// Override verdicts by candidate index; they don't depend on the round.
+  /// Override lookups by candidate index, cached across rounds.
   final _overridesByMember = <int, OverriddenMember>{};
 
-  /// A guard: the deleted text only grows between rounds, so it settles.
+  /// Only a guard: each round deletes more of a finite source than the last,
+  /// so the rounds end on their own.
   static const _maxRounds = 16;
 
   void _report(String message) => options.onProgress?.call(message);
 
   /// The findings for [candidates], from the server's [refsByCandidate].
-  /// Round one, with nothing dropped, is the plain result.
   Future<Settled> settle(
     LspClient client,
     List<Candidate> candidates,
@@ -90,7 +90,7 @@ final class Settler {
         candidates,
         refsByCandidate,
         liveRefs,
-        crossLib.where((path, position) => !deadSpans.covers(path, position)),
+        crossLib.whereNot(deadSpans.covers),
         deadSpans,
         superclasses,
         overrides,
@@ -109,14 +109,13 @@ final class Settler {
       }
       if (round == _maxRounds) {
         _report(
-          'Stopping after $_maxRounds rounds with findings still being '
-          'added; the report is what the last round found.',
+          'Stopping after $_maxRounds rounds; later rounds may find more.',
         );
         break;
       }
       _report(
-        'Round ${round + 1}: ${next.length - deadSpans.length} more '
-        'declaration(s) removable, checking what only they referenced…',
+        'Round ${round + 1}: checking what only the '
+        '${next.length - deadSpans.length} new finding(s) referenced…',
       );
       deadSpans = next;
     }
@@ -145,8 +144,8 @@ final class Settler {
             ],
         ];
 
-  /// One round, from [liveRefs]; [refsByCandidate] is the server's full
-  /// answer, for [_onlyReferencedFrom].
+  /// One round, classifying from [liveRefs]. [refsByCandidate] still holds the
+  /// references into [deadSpans], for [_onlyReferencedFrom].
   Future<Settled> _round(
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
@@ -264,7 +263,8 @@ final class Settler {
       }
     }
 
-    // A finding dead only because its container is goes with the container.
+    // A member reported only because its class died is removed with the class,
+    // so it isn't reported on its own.
     if (deadSpans.isNotEmpty) {
       final removable = DeadSpans.of(unused, rootPath);
       unused.removeWhere(
@@ -277,11 +277,9 @@ final class Settler {
     return (unused: unused, docOnly: docOnly, recovered: recovered);
   }
 
-  /// Every finding whose removal deletes a reference to [candidate], in
-  /// source order, as `qualifiedName (file:line)`. The references come in the
-  /// server's order, so they are sorted; several dead declarations may have
-  /// referenced the same one.
-  List<String> _onlyReferencedFrom(
+  /// The findings in [deadSpans] that contain a reference to [candidate], in
+  /// source order.
+  List<DeadReferrer> _onlyReferencedFrom(
     Candidate candidate,
     List<Location> refs,
     DeadSpans deadSpans,
@@ -305,7 +303,11 @@ final class Settler {
     owners.sort(compareByLocation);
     return [
       for (final owner in owners)
-        '${owner.qualifiedName} (${owner.filePath}:${owner.line})',
+        (
+          qualifiedName: owner.qualifiedName,
+          filePath: owner.filePath,
+          line: owner.line,
+        ),
     ];
   }
 
@@ -407,8 +409,8 @@ final class Settler {
   }
 
   /// Runs the secondary definition check for the candidates with no reference
-  /// outside their own span — the potential false positives. A name probed in
-  /// an earlier round is not probed again; the caller filters the sites.
+  /// outside their own span — the potential false positives. Names probed in an
+  /// earlier round are skipped.
   Future<CrossLibraryReferences> _recoverCrossLibraryRefs(
     LspClient client,
     List<Candidate> candidates,
