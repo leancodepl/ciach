@@ -1,5 +1,8 @@
 ## Unreleased
 
+- Require `glob` 2.2.0. On 2.1.x, `**/flutter_test_config.dart` did not match
+  a `flutter_test_config.dart` at the package root, so its `testExecutable`
+  was reported as unused.
 - `FinderOptions` normalizes `rootPath` and `analysisRootPath`, and a run throws
   an `ArgumentError` when the analysis root doesn't contain the scanned one, so
   a library caller gets the check the CLI already had. The constructor is no
