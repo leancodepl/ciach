@@ -1,1 +1,4 @@
 include: package:leancode_lint/analysis_options.yaml
+
+plugins:
+  leancode_lint: ^27.0.0
