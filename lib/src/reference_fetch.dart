@@ -8,11 +8,11 @@ import 'package:ciach/src/models.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/syntax_rules.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show Location, Position, SelectionRange;
+import 'package:pro_lsp/pro_lsp.dart' show Location, LspException, Position;
 
-/// The server round trips the verdict runs on: every candidate's references,
-/// and the tokens and syntax nodes the structural checks read, cached in the
-/// [SourceIndex].
+/// Requests what the verdict needs from the analysis server: each candidate's
+/// references, plus the semantic tokens and selection ranges the structural
+/// checks read, which it caches in the [SourceIndex].
 final class ReferenceFetch {
   ReferenceFetch({required this.options, required SourceIndex sources})
     : _sources = sources;
@@ -122,16 +122,15 @@ final class ReferenceFetch {
     ) async {
       final MapEntry(key: path, value: positions) = entry;
       final ordered = positions.toList();
-      List<SelectionRange?> ranges;
       try {
-        ranges = await client.selectionRanges(File(path).uri, ordered);
-      } on Object {
-        return; // a position with no answer reads as "not the special shape"
-      }
-      for (var i = 0; i < ordered.length; i++) {
-        if (ranges[i] case final range?) {
-          _sources.cacheSelectionRange(path, ordered[i], range);
+        final ranges = await client.selectionRanges(File(path).uri, ordered);
+        for (var i = 0; i < ordered.length; i++) {
+          if (ranges[i] case final range?) {
+            _sources.cacheSelectionRange(path, ordered[i], range);
+          }
         }
+      } on LspException {
+        // A position with no cached range reads as "not the special shape".
       }
     });
   }
@@ -146,7 +145,7 @@ Future<List<SemanticToken>> semanticTokensOrEmpty(
 ) async {
   try {
     return await client.semanticTokens(File(path).uri, sources.lines(path));
-  } on Object {
+  } on LspException {
     return const [];
   }
 }

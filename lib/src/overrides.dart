@@ -7,7 +7,7 @@ import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:ciach/src/syntax_rules.dart';
 import 'package:pro_lsp/pro_lsp.dart'
-    show Location, Position, SelectionRange, SymbolKind;
+    show Location, LspException, Position, SelectionRange, SymbolKind;
 
 /// The overrides of a dead member: spans to delete with it, or `blocked` when
 /// one of them has to stay.
@@ -58,7 +58,7 @@ final class OverrideRemovals {
         member.uri,
         member.symbol.selectionRange.start,
       );
-    } on Object {
+    } on LspException {
       return _blocked;
     }
     if (overrides.isEmpty) {
@@ -85,12 +85,9 @@ final class OverrideRemovals {
       return null;
     }
     final uri = Uri.parse(location.uri);
-    final Outline outline;
-    try {
-      outline = await _client.outline(uri);
-    } on Object {
-      return null;
-    }
+    // Every scanned file's outline was awaited while collecting candidates, so
+    // this is a cache hit and can't time out.
+    final outline = await _client.outline(uri);
     // The answer points at the override's name: an outline node's element range.
     final start = location.range.start;
     final found = _nodeNamedAt(outline, start);
@@ -108,7 +105,7 @@ final class OverrideRemovals {
     final List<Location> refs;
     try {
       refs = await _client.references(uri, start);
-    } on Object {
+    } on LspException {
       return null;
     }
     // The member is dead, so a reference here is a use this run cannot see.
@@ -134,7 +131,7 @@ final class OverrideRemovals {
     final List<SelectionRange?> ranges;
     try {
       ranges = await _client.selectionRanges(uri, [name]);
-    } on Object {
+    } on LspException {
       return true;
     }
     final innermost = ranges.single;

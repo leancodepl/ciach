@@ -56,8 +56,7 @@ final class CandidateCollector {
     ).wait;
     _sources.cacheSemanticTokens(path, tokens);
     final relativePath = relativePosix(path, rootPath);
-    final out = <Candidate>[];
-    _collect(
+    final candidates = _collect(
       uri,
       path,
       relativePath,
@@ -66,9 +65,8 @@ final class CandidateCollector {
       null,
       false,
       _OutlineIndex(outline),
-      out,
     );
-    return _withoutEntryPointContainers(out, relativePath);
+    return _withoutEntryPointContainers(candidates, relativePath);
   }
 
   /// One line per skipped entry point, except the ubiquitous `main`.
@@ -126,7 +124,7 @@ final class CandidateCollector {
   ///
   /// [parentIsEnum] marks children of an enum declaration so their enum values
   /// are remapped to the `enum-value` kind.
-  void _collect(
+  List<Candidate> _collect(
     Uri uri,
     String path,
     String relativePath,
@@ -135,8 +133,8 @@ final class CandidateCollector {
     Candidate? containerCandidate,
     bool parentIsEnum,
     _OutlineIndex outlines,
-    List<Candidate> out,
   ) {
+    final out = <Candidate>[];
     // A field statement's doc comment, annotations and modifiers sit on its
     // first declarator, so a later one (`b` in `@override final int a, b;`)
     // reads that statement's instead of its own, which are empty.
@@ -178,18 +176,20 @@ final class CandidateCollector {
         out.add(candidate);
       }
       final isTypeLike = typeLikeKinds.contains(symbol.kind);
-      _collect(
-        uri,
-        path,
-        relativePath,
-        symbol.children ?? const [],
-        isTypeLike ? symbol.name : container,
-        isTypeLike ? candidate : containerCandidate,
-        symbol.kind == .enum$,
-        outlines,
-        out,
+      out.addAll(
+        _collect(
+          uri,
+          path,
+          relativePath,
+          symbol.children ?? const [],
+          isTypeLike ? symbol.name : container,
+          isTypeLike ? candidate : containerCandidate,
+          symbol.kind == .enum$,
+          outlines,
+        ),
       );
     }
+    return out;
   }
 
   /// Whether [candidate] should have its references checked.
@@ -217,10 +217,7 @@ final class CandidateCollector {
         reason: rule.reason,
       ));
       if (container != null) {
-        _entryPointContainers.putIfAbsent(
-          DeclKey(relativePath, container),
-          () => rule,
-        );
+        _entryPointContainers[DeclKey(relativePath, container)] ??= rule;
       }
       return false;
     }

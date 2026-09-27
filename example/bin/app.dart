@@ -6,6 +6,7 @@ import 'package:sample_pkg/private_ctors.dart';
 import 'package:sample_pkg/scenarios/freezed_unions.dart';
 import 'package:sample_pkg/scenarios/overrides.dart';
 import 'package:sample_pkg/scenarios/overrides_impl.dart';
+import 'package:sample_pkg/scenarios/self_references.dart';
 import 'package:sample_pkg/scenarios/serialization.dart';
 import 'package:sample_pkg/scenarios/transitive.dart';
 import 'package:sample_pkg/scenarios/unions.dart';
@@ -21,6 +22,7 @@ void main() {
   registerHandlers();
   print(usedConstant);
   print(factorial(5));
+  print(Walker().walk(3));
   visitCount += 1;
 
   // Dog is instantiated (so both classes are used), but sound() is never

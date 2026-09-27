@@ -100,9 +100,6 @@ void main() {
     expect(await findUnused(), {
       'danglingFunction',
       '_danglingPrivate',
-      // Recursive, called by nothing else: the call in its own body goes with
-      // it. `factorial` recurses too, but bin/app.dart calls it.
-      '_countdown',
       'unusedConstant',
       'staleCounter',
       '_referencesOnlyInDocs',
@@ -110,7 +107,6 @@ void main() {
       'UsedClass.shout',
       'UsedClass.unusedMethod',
       'UsedClass._unusedField',
-      'UsedClass._depth',
       'UnusedClass',
       'UnusedClass.orphanMethod',
       // A fully dead class is reported as the whole CLASS, not just its
@@ -262,10 +258,8 @@ void main() {
   test('--no-public reports only private declarations', () async {
     expect(await findUnused(includePublic: false), {
       '_danglingPrivate',
-      '_countdown',
       '_referencesOnlyInDocs',
       'UsedClass._unusedField',
-      'UsedClass._depth',
       // Private constructors are private declarations, reported like any other
       // dead code.
       'SoleMarker._',
@@ -551,6 +545,18 @@ void main() {
       expect(names, isNot(contains('LiveSignal')));
       expect(names, isNot(contains('Signal')));
     });
+  });
+
+  test('a reference from inside its own span keeps nothing alive', () async {
+    // `factorial` and `Walker._step` recurse too, but something else calls
+    // them.
+    expect(
+      await findUnused(
+        include: ['lib/scenarios/self_references.dart'],
+        exclude: const [],
+      ),
+      {'_countdown', 'Walker._depth', 'Chain', 'Chain.next'},
+    );
   });
 
   group('remove-safety guards', () {
