@@ -548,8 +548,9 @@ void main() {
   });
 
   test('a reference from inside its own span keeps nothing alive', () async {
-    // `factorial` and `Walker._step` recurse too, but something else calls
-    // them.
+    // `_countdown` and `Walker._depth` only call themselves, and `Chain` is
+    // named only by its own field. `factorial` and `Walker._step` call
+    // themselves as well, but something else calls them, so they stay.
     expect(
       await findUnused(
         include: ['lib/scenarios/self_references.dart'],
