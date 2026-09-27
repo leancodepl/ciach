@@ -1,0 +1,19 @@
+name: ciach_lints
+description: Analyzer plugin with lint rules specific to the ciach repository.
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+# Must stay resolvable together with leancode_lint's constraints: the analysis
+# server builds both plugins into one package.
+dependencies:
+  analysis_server_plugin: ^0.3.15
+  analyzer: ^14.0.0
+  yaml: ^3.1.3
+
+dev_dependencies:
+  analyzer_testing: ^0.4.2
+  leancode_lint: ^27.0.0
+  test: ^1.31.2
+  test_reflective_loader: ^0.4.0

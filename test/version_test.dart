@@ -16,21 +16,9 @@ import 'dart:io';
 import 'package:ciach/src/version.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-import 'package:yaml/yaml.dart';
 
 void main() {
   final entrypoint = p.join('bin', 'ciach.dart');
-
-  test('ciachVersion matches the pubspec version', () {
-    final pubspec = loadYaml(File('pubspec.yaml').readAsStringSync()) as Map;
-    expect(
-      ciachVersion,
-      pubspec['version'],
-      reason:
-          'A release bumped pubspec.yaml without lib/src/version.dart (or the '
-          'other way around); --version would report the wrong number.',
-    );
-  });
 
   test('--version prints the version and exits 0', () async {
     final result = await Process.run(Platform.resolvedExecutable, [
