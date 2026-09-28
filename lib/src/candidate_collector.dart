@@ -56,6 +56,8 @@ final class CandidateCollector {
     ).wait;
     _sources.cacheSemanticTokens(path, tokens);
     final relativePath = relativePosix(path, rootPath);
+    // The whole walk has to run before the filter: it records the entry-point
+    // containers the filter drops, and a container comes before its members.
     final candidates = _collect(
       uri,
       path,
@@ -65,8 +67,8 @@ final class CandidateCollector {
       null,
       false,
       _OutlineIndex(outline),
-    );
-    return _withoutEntryPointContainers(candidates, relativePath);
+    ).toList();
+    return _withoutEntryPointContainers(candidates, relativePath).toList();
   }
 
   /// One line per skipped entry point, except the ubiquitous `main`.
@@ -91,14 +93,10 @@ final class CandidateCollector {
 
   /// [candidates] less the types a member entry point lives in; see
   /// [_entryPointContainers]. Their other members stay candidates.
-  List<Candidate> _withoutEntryPointContainers(
+  Iterable<Candidate> _withoutEntryPointContainers(
     List<Candidate> candidates,
     String relativePath,
-  ) {
-    if (_entryPointContainers.isEmpty) {
-      return candidates;
-    }
-    final kept = <Candidate>[];
+  ) sync* {
     for (final candidate in candidates) {
       final symbol = candidate.symbol;
       final rule =
@@ -106,7 +104,7 @@ final class CandidateCollector {
           ? _entryPointContainers[DeclKey(relativePath, symbol.name)]
           : null;
       if (rule == null) {
-        kept.add(candidate);
+        yield candidate;
         continue;
       }
       _skippedEntryPoints.add((
@@ -116,7 +114,6 @@ final class CandidateCollector {
         reason: 'declares the entry point ${rule.name}',
       ));
     }
-    return kept;
   }
 
   /// Recursively walks the symbol tree, keeping only symbols worth checking,
@@ -124,7 +121,7 @@ final class CandidateCollector {
   ///
   /// [parentIsEnum] marks children of an enum declaration so their enum values
   /// are remapped to the `enum-value` kind.
-  List<Candidate> _collect(
+  Iterable<Candidate> _collect(
     Uri uri,
     String path,
     String relativePath,
@@ -133,8 +130,7 @@ final class CandidateCollector {
     Candidate? containerCandidate,
     bool parentIsEnum,
     _OutlineIndex outlines,
-  ) {
-    final out = <Candidate>[];
+  ) sync* {
     // A field statement's doc comment, annotations and modifiers sit on its
     // first declarator, so a later one (`b` in `@override final int a, b;`)
     // reads that statement's instead of its own, which are empty.
@@ -173,23 +169,20 @@ final class CandidateCollector {
         ),
       );
       if (_shouldConsider(relativePath, candidate, leadingMetadata)) {
-        out.add(candidate);
+        yield candidate;
       }
       final isTypeLike = typeLikeKinds.contains(symbol.kind);
-      out.addAll(
-        _collect(
-          uri,
-          path,
-          relativePath,
-          symbol.children ?? const [],
-          isTypeLike ? symbol.name : container,
-          isTypeLike ? candidate : containerCandidate,
-          symbol.kind == .enum$,
-          outlines,
-        ),
+      yield* _collect(
+        uri,
+        path,
+        relativePath,
+        symbol.children ?? const [],
+        isTypeLike ? symbol.name : container,
+        isTypeLike ? candidate : containerCandidate,
+        symbol.kind == .enum$,
+        outlines,
       );
     }
-    return out;
   }
 
   /// Whether [candidate] should have its references checked.
