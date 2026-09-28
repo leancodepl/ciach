@@ -59,7 +59,7 @@ final class DeadSpans {
     _Span? outermost;
     for (final span in spans) {
       if (_contains(span.range, position) &&
-          (outermost == null || _startsBefore(span.range, outermost.range))) {
+          (outermost == null || _isOutside(span.range, outermost.range))) {
         outermost = span;
       }
     }
@@ -72,10 +72,7 @@ final class DeadSpans {
     if (spans == null) {
       return false;
     }
-    final start = Position(
-      line: finding.fullRange.startLine,
-      character: finding.fullRange.startColumn,
-    );
+    final start = _start(finding.fullRange);
     return spans.any(
       (span) => !identical(span.owner, finding) && _contains(span.range, start),
     );
@@ -99,15 +96,20 @@ final class DeadSpans {
     return true;
   }
 
-  static bool _contains(DeclarationRange range, Position position) {
-    final start = Position(line: range.startLine, character: range.startColumn);
-    final end = Position(line: range.endLine, character: range.endColumn);
-    return start.atOrBefore(position) && position.atOrBefore(end);
-  }
+  static bool _contains(DeclarationRange range, Position position) =>
+      _start(range).atOrBefore(position) && position.atOrBefore(_end(range));
 
-  static bool _startsBefore(DeclarationRange a, DeclarationRange b) =>
-      a.startLine < b.startLine ||
-      (a.startLine == b.startLine && a.startColumn < b.startColumn);
+  /// Whether [a] is the outer of two spans that both contain a position: it
+  /// starts earlier, or starts at the same place and ends later.
+  static bool _isOutside(DeclarationRange a, DeclarationRange b) =>
+      _start(a).isBefore(_start(b)) ||
+      (_start(a) == _start(b) && _end(b).isBefore(_end(a)));
+
+  static Position _start(DeclarationRange range) =>
+      Position(line: range.startLine, character: range.startColumn);
+
+  static Position _end(DeclarationRange range) =>
+      Position(line: range.endLine, character: range.endColumn);
 
   static String _absolute(String filePath, String rootPath) =>
       p.normalize(p.joinAll([rootPath, ...p.posix.split(filePath)]));
