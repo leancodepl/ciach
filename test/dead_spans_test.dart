@@ -54,4 +54,16 @@ void main() {
       expect(spans.ownerOf('/root/lib/b.dart', inside), isNull);
     });
   });
+
+  group('DeadSpans.sameAs', () {
+    test('compares the ranges, not the findings that own them', () {
+      DeadSpans spans(List<(int, int)> ends) => DeadSpans.of([
+        for (final end in ends) finding('f', (0, 0), end),
+      ], rootPath);
+      expect(spans([(2, 0)]).sameAs(spans([(2, 0)])), isTrue);
+      expect(spans([(2, 0)]).sameAs(spans([(3, 0)])), isFalse);
+      expect(spans([(2, 0)]).sameAs(spans([(2, 0), (3, 0)])), isFalse);
+      expect(spans([(2, 0)]).sameAs(DeadSpans.empty), isFalse);
+    });
+  });
 }

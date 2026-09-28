@@ -79,22 +79,13 @@ final class DeadSpans {
   }
 
   /// Whether [other] deletes the same source.
-  bool sameAs(DeadSpans other) {
-    if (_byPath.length != other._byPath.length) {
-      return false;
-    }
-    for (final MapEntry(key: path, value: spans) in _byPath.entries) {
-      final theirs = other._byPath[path];
-      if (theirs == null ||
-          !const SetEquality<DeclarationRange>().equals(
-            {for (final span in spans) span.range},
-            {for (final span in theirs) span.range},
-          )) {
-        return false;
-      }
-    }
-    return true;
-  }
+  bool sameAs(DeadSpans other) => _sameSource.equals(_byPath, other._byPath);
+
+  /// Compares spans by range alone: each round's findings are new objects, so
+  /// their owners never match.
+  static final _sameSource = MapEquality<String, Iterable<_Span>>(
+    values: UnorderedIterableEquality(EqualityBy((span) => span.range)),
+  );
 
   static bool _contains(DeclarationRange range, Position position) =>
       _start(range).atOrBefore(position) && position.atOrBefore(_end(range));
