@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:path/path.dart' as p;
+import 'package:pro_lsp/pro_lsp.dart' show Position;
 import 'package:test/test.dart';
 
 void main() {
@@ -69,4 +70,106 @@ void main() {
       ),
     );
   });
+
+  // A server that fails `textDocument/references` the way the Dart one does:
+  // a bare error response, then the exception in `window/logMessage`.
+  String failingReferencesServer() {
+    final server = File(p.join(tmp.path, 'server.dart'))
+      ..writeAsStringSync(r'''
+import 'dart:convert';
+import 'dart:io';
+
+void send(Map<String, Object?> message) {
+  final body = utf8.encode(jsonEncode({'jsonrpc': '2.0', ...message}));
+  stdout.add(utf8.encode('Content-Length: ${body.length}\r\n\r\n'));
+  stdout.add(body);
+}
+
+void main() {
+  var buffer = <int>[];
+  stdin.listen((chunk) {
+    buffer.addAll(chunk);
+    while (true) {
+      final text = latin1.decode(buffer);
+      final headerEnd = text.indexOf('\r\n\r\n');
+      if (headerEnd < 0) return;
+      final length = int.parse(
+        RegExp(r'Content-Length: (\d+)').firstMatch(text)!.group(1)!,
+      );
+      final start = headerEnd + 4;
+      if (buffer.length < start + length) return;
+      final message = jsonDecode(
+        utf8.decode(buffer.sublist(start, start + length)),
+      ) as Map<String, Object?>;
+      buffer = buffer.sublist(start + length);
+      final id = message['id'];
+      switch (message['method']) {
+        case 'initialize':
+          send({'id': id, 'result': {'capabilities': <String, Object?>{}}});
+        case 'textDocument/references':
+          const error = 'An error occurred while handling '
+              'textDocument/references request';
+          send({
+            'id': id,
+            'error': {'code': -32001, 'message': error},
+          });
+          send({
+            'method': 'window/logMessage',
+            'params': {
+              'type': 1,
+              'message': '$error: Null check operator used on a null value\n'
+                  '#0      ElementReferencesComputer.compute',
+            },
+          });
+        case 'shutdown':
+          send({'id': id, 'result': null});
+        case 'exit':
+          exit(0);
+      }
+    }
+  });
+}
+''');
+    final script = File(p.join(tmp.path, 'dart'))
+      ..writeAsStringSync(
+        '#!/bin/sh\nexec "${Platform.resolvedExecutable}" "${server.path}"\n',
+      );
+    Process.runSync('chmod', ['+x', script.path]);
+    return script.path;
+  }
+
+  test(
+    'a request the server threw on carries the exception it logged',
+    () async {
+      final client = await LspClient.start(
+        dartExecutable: failingReferencesServer(),
+      );
+      addTearDown(client.dispose);
+      await client.initialize(tmp.uri);
+
+      await expectLater(
+        client.references(
+          tmp.uri.resolve('a.dart'),
+          const Position(line: 0, character: 0),
+        ),
+        throwsA(
+          isA<AnalysisServerException>()
+              .having(
+                (e) => e.message,
+                'message',
+                'An error occurred while handling textDocument/references '
+                    'request',
+              )
+              .having(
+                (e) => e.detail,
+                'detail',
+                allOf(
+                  startsWith('Null check operator used on a null value'),
+                  contains('ElementReferencesComputer.compute'),
+                ),
+              ),
+        ),
+      );
+    },
+  );
 }

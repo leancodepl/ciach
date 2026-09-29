@@ -1,5 +1,10 @@
 ## Unreleased
 
+- When the analysis server throws while answering a request, the error shows
+  the exception and stack trace the server logged, not just "An error occurred
+  while handling textDocument/references request", and names the declaration
+  whose references were being looked up. The `ParallelWaitError:` wrapper is
+  gone from the message.
 - `FinderOptions` normalizes `rootPath` and `analysisRootPath`, and a run throws
   an `ArgumentError` when the analysis root doesn't contain the scanned one, so
   a library caller gets the check the CLI already had. The constructor is no

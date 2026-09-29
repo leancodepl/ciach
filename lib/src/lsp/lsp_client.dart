@@ -57,6 +57,14 @@ class LspClient {
 
   final _outlineWaiters = <String, Completer<Outline>>{};
 
+  /// Errors the server sent via `window/logMessage`, oldest first, at most
+  /// [_maxLoggedErrors] of them.
+  final _loggedErrors = <String>[];
+
+  final _errorLogged = StreamController<void>.broadcast(sync: true);
+
+  static const _maxLoggedErrors = 50;
+
   final _stderrBuffer = StringBuffer();
   bool _shuttingDown = false;
 
@@ -121,6 +129,11 @@ class LspClient {
       const _CustomMethod(_publishOutlineMethod),
       (params, context) async => wrapper._onPublishOutline(params),
     );
+    client.window.onLogMessage((params, context) async {
+      if (params.type == .error) {
+        wrapper._onLoggedError(params.message);
+      }
+    });
 
     return wrapper;
   }
@@ -158,9 +171,23 @@ class LspClient {
 
   /// Runs [request]; if the server died meanwhile, throws its exit code and
   /// stderr instead of `json_rpc_2`'s uninformative "client closed" error.
+  ///
+  /// The Dart server fails a request that threw with a bare "An error occurred
+  /// while handling textDocument/references request" (for instance) and logs
+  /// the exception and its stack separately; that log is attached as an
+  /// [AnalysisServerException].
   Future<T> _guard<T>(Future<T> Function() request) async {
     try {
       return await request();
+    } on lsp.LspException catch (e, st) {
+      if (e.code != lsp.LspErrorCodes.unknownErrorCode) {
+        rethrow;
+      }
+      final logged = await _takeLoggedError(e.message);
+      if (logged == null) {
+        rethrow;
+      }
+      Error.throwWithStackTrace(AnalysisServerException(e.message, logged), st);
     } on Object {
       if (_shuttingDown) {
         rethrow;
@@ -170,6 +197,49 @@ class LspClient {
         throw error;
       }
       rethrow;
+    }
+  }
+
+  void _onLoggedError(String message) {
+    if (_errorLogged.isClosed) {
+      return;
+    }
+    _loggedErrors.add(message);
+    if (_loggedErrors.length > _maxLoggedErrors) {
+      _loggedErrors.removeAt(0);
+    }
+    _errorLogged.add(null);
+  }
+
+  /// What the server logged after failing a request with [message], waiting
+  /// up to [timeout] for it: the log can land after the error response.
+  Future<String?> _takeLoggedError(
+    String message, {
+    Duration timeout = const .new(seconds: 1),
+  }) async {
+    final prefix = '$message: ';
+    String? take() {
+      final index = _loggedErrors.indexWhere((e) => e.startsWith(prefix));
+      return index < 0
+          ? null
+          : _loggedErrors.removeAt(index).substring(prefix.length);
+    }
+
+    final deadline = DateTime.now().add(timeout);
+    while (true) {
+      if (take() case final logged?) {
+        return logged;
+      }
+      final remaining = deadline.difference(DateTime.now());
+      if (remaining <= Duration.zero) {
+        return null;
+      }
+      try {
+        await _errorLogged.stream.first.timeout(remaining);
+      } on Object {
+        // Timed out, or disposed.
+        return take();
+      }
     }
   }
 
@@ -410,7 +480,23 @@ class LspClient {
     if (!exited) {
       _process.kill(.sigkill);
     }
+    await _errorLogged.close();
   }
+}
+
+/// A request the Dart analysis server failed by throwing. [detail] is the
+/// exception and stack trace the server logged for it.
+class AnalysisServerException implements Exception {
+  const AnalysisServerException(this.message, this.detail);
+
+  /// The server's error response, e.g. "An error occurred while handling
+  /// textDocument/references request".
+  final String message;
+
+  final String detail;
+
+  @override
+  String toString() => '$message: $detail';
 }
 
 /// Minimal [lsp.LSPMethod] implementation for a custom (non-spec) method,

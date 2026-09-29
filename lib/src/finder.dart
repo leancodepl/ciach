@@ -448,10 +448,7 @@ class Ciach {
       // The server would answer for an unnamed extension's `on` type.
       final refs = candidate.isUnnamedExtension
           ? const <Location>[]
-          : await client.references(
-              candidate.uri,
-              candidate.symbol.selectionRange.start,
-            );
+          : await _references(client, candidate, rootPath);
       if (remainingPerFile.update(candidate.path, (n) => n - 1) == 0) {
         filesDone++;
         _report(
@@ -461,6 +458,32 @@ class Ciach {
       }
       return refs;
     });
+  }
+
+  /// The references to [candidate]; a failure names the declaration it was
+  /// for.
+  Future<List<Location>> _references(
+    LspClient client,
+    Candidate candidate,
+    String rootPath,
+  ) async {
+    final start = candidate.symbol.selectionRange.start;
+    try {
+      return await client.references(candidate.uri, start);
+    } on Object catch (e, st) {
+      final name = candidate.symbol.declarationName(candidate.container);
+      final qualified = candidate.container == null
+          ? name
+          : '${candidate.container}.$name';
+      Error.throwWithStackTrace(
+        StateError(
+          "Finding references to '$qualified' "
+          '(${relativePosix(candidate.path, rootPath)}:${start.line + 1}:'
+          '${start.character + 1}) failed: $e',
+        ),
+        st,
+      );
+    }
   }
 
   /// Fetches the semantic tokens of every referenced file that has none yet.
