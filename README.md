@@ -106,6 +106,13 @@ ciach --verbose                        # explain each step
 Exit codes: `0` success, `1` unused found with `--set-exit-if-changed`, `2`
 usage or analysis error.
 
+When the analysis server fails on one declaration or file (it throws while
+answering, or times out), the run goes on: whatever it could not check is kept,
+never reported or removed, and listed as a warning on stderr (`problems` in
+`-f json`, `::warning` in `-f github`) with the server's error; `--verbose` adds
+its stack trace. Only a server that exits, or a bug in ciach itself, stops the
+run with exit code `2`.
+
 ### Configuration file
 
 Every option above can live in a `ciach.yaml` in the package root, keyed by its

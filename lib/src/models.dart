@@ -373,6 +373,52 @@ class RecoveredReference {
   };
 }
 
+/// Something a run could not do — one declaration or file whose analysis
+/// failed — and what it did instead. The run itself went on.
+class AnalysisProblem {
+  const AnalysisProblem({
+    required this.summary,
+    required this.cause,
+    required this.filePath,
+    this.line,
+    this.column,
+    this.name,
+    this.detail,
+  });
+
+  /// What could not be done and what the run did instead, e.g. "Could not find
+  /// the references to these declarations; they are kept, not reported."
+  /// Shared by every problem of one kind, so reports can group them.
+  final String summary;
+
+  /// Why, on one line, e.g. the exception the analysis server threw.
+  final String cause;
+
+  /// Where (root-relative `/`-path, one-based line/column, when known).
+  final String filePath;
+  final int? line;
+  final int? column;
+
+  /// The declaration concerned, qualified like `MyClass.myMethod`, if any.
+  final String? name;
+
+  /// Anything longer, such as the analysis server's stack trace.
+  final String? detail;
+
+  /// `path:line:column`, as much of it as is known.
+  String get location => [filePath, ?line, ?column].join(':');
+
+  Map<String, Object?> toJson() => {
+    'summary': summary,
+    'cause': cause,
+    'file': filePath,
+    'line': ?line,
+    'column': ?column,
+    'name': ?name,
+    'detail': ?detail,
+  };
+}
+
 /// The outcome of a finder run.
 class FinderResult {
   /// Creates a result describing a completed finder run.
@@ -383,6 +429,7 @@ class FinderResult {
     required this.declarationsChecked,
     required this.elapsed,
     this.recoveredReferences = const [],
+    this.problems = const [],
   });
 
   /// Declarations with zero references of any kind — the tool's actual
@@ -410,4 +457,9 @@ class FinderResult {
   /// Declarations confirmed used by the secondary definition check despite
   /// having no reported references — surfaced as warnings, not findings.
   final List<RecoveredReference> recoveredReferences;
+
+  /// What the run could not analyze, in the order it happened. Each fell back
+  /// to keeping code rather than reporting it, so a problem never adds a
+  /// finding — but it can hide one.
+  final List<AnalysisProblem> problems;
 }

@@ -1,6 +1,7 @@
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
+import 'package:ciach/src/problems.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
@@ -10,9 +11,16 @@ import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location, Position;
 /// constructor that replaces them calls `super()`, which compiles only if the
 /// superclass's unnamed constructor takes no required arguments.
 final class SuperclassChecks {
-  SuperclassChecks(this._client);
+  SuperclassChecks(this._client, {required ProblemReporter onProblem})
+    : _onProblem = onProblem;
 
   final LspClient _client;
+
+  final ProblemReporter _onProblem;
+
+  static const _unreadSuperclass =
+      'Could not read the superclass constructors of these classes; their dead '
+      'constructors are reported but not removed.';
 
   /// Verdicts by superclass location.
   final _bySuperclass = <String, Future<bool>>{};
@@ -26,7 +34,14 @@ final class SuperclassChecks {
         cls.uri,
         cls.symbol.selectionRange.start,
       );
-    } on Object {
+    } on LspRequestException catch (e) {
+      _onProblem(
+        _unreadSuperclass,
+        e,
+        path: cls.path,
+        position: cls.symbol.selectionRange.start,
+        name: cls.symbol.name,
+      );
       return true;
     }
     if (superclass == null) {
@@ -42,7 +57,13 @@ final class SuperclassChecks {
     final List<DocumentSymbol> symbols;
     try {
       symbols = await _client.documentSymbol(uri);
-    } on Object {
+    } on LspRequestException catch (e) {
+      _onProblem(
+        _unreadSuperclass,
+        e,
+        path: uri.toFilePath(),
+        position: superclass.range.start,
+      );
       return true;
     }
     final declaration = _symbolNamedAt(symbols, superclass.range.start);
@@ -82,7 +103,13 @@ final class SuperclassChecks {
     final List<SemanticToken> tokens;
     try {
       tokens = await _client.semanticTokens(uri, content.split('\n'));
-    } on Object {
+    } on LspRequestException catch (e) {
+      _onProblem(
+        _unreadSuperclass,
+        e,
+        path: uri.toFilePath(),
+        position: ctor.selectionRange.start,
+      );
       return true;
     }
     return tokens

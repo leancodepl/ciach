@@ -1,10 +1,17 @@
 ## Unreleased
 
-- When the analysis server throws while answering a request, the error shows
-  the exception and stack trace the server logged, not just "An error occurred
-  while handling textDocument/references request", and names the declaration
-  whose references were being looked up. The `ParallelWaitError:` wrapper is
-  gone from the message.
+- A request the analysis server fails no longer ends the run. The declaration
+  or file it was about is kept (never reported or removed), and the run lists
+  it as a warning with the server's own error, grouped by what failed and why;
+  `-f json` adds a `problems` array, `-f github` a `::warning` per problem, and
+  `FinderResult.problems` has them for a library caller. Fallbacks that were
+  silent before, such as a failed override or superclass lookup, are listed
+  too.
+- A run that does stop shows what happened, and not a stack trace unless
+  `--verbose`: a server that exited says so with its stderr, a failed
+  `--remove` names the files it had already rewritten, and an error ciach did
+  not expect asks to be reported. `LspRequestException`,
+  `AnalysisServerExitedException` and `RemovalException` are exported.
 - `FinderOptions` normalizes `rootPath` and `analysisRootPath`, and a run throws
   an `ArgumentError` when the analysis root doesn't contain the scanned one, so
   a library caller gets the check the CLI already had. The constructor is no

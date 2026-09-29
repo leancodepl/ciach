@@ -31,8 +31,11 @@ export 'src/conventions/entry_points.dart' show EntryPoint;
 export 'src/dart_executable.dart'
     show DartSdkNotFoundException, findDartExecutable;
 export 'src/finder.dart' show Ciach;
+export 'src/lsp/lsp_client.dart'
+    show AnalysisServerExitedException, LspRequestException;
 export 'src/models.dart'
     show
+        AnalysisProblem,
         CoupledRemoval,
         DeclarationRange,
         DeletedFile,
@@ -42,4 +45,4 @@ export 'src/models.dart'
         RemovalResult,
         SymbolKindLabel,
         UnusedDeclaration;
-export 'src/remover.dart' show removeDeclarations;
+export 'src/remover.dart' show RemovalException, removeDeclarations;

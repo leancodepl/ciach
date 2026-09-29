@@ -3,6 +3,7 @@ import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
+import 'package:ciach/src/problems.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:ciach/src/syntax_rules.dart';
@@ -26,8 +27,10 @@ final class OverrideRemovals {
     this._sources, {
     required Set<String> scannedPaths,
     required String rootPath,
+    required ProblemReporter onProblem,
   }) : _scannedPaths = scannedPaths,
-       _rootPath = rootPath;
+       _rootPath = rootPath,
+       _onProblem = onProblem;
 
   final LspClient _client;
 
@@ -37,6 +40,16 @@ final class OverrideRemovals {
   final Set<String> _scannedPaths;
 
   final String _rootPath;
+
+  final ProblemReporter _onProblem;
+
+  static const _unlistedOverrides =
+      'Could not find the overrides of these dead members; they are reported '
+      'but not removed.';
+
+  static const _uncheckedOverride =
+      'Could not check these overrides of dead members; the members are '
+      'reported but not removed.';
 
   /// The kinds an override is deleted as, mapped to the kind the remover
   /// reads. A `field` goes as a declarator, so it can share a statement.
@@ -58,7 +71,14 @@ final class OverrideRemovals {
         member.uri,
         member.symbol.selectionRange.start,
       );
-    } on Object {
+    } on LspRequestException catch (e) {
+      _onProblem(
+        _unlistedOverrides,
+        e,
+        path: member.path,
+        position: member.symbol.selectionRange.start,
+        name: [?member.container, member.symbol.name].join('.'),
+      );
       return _blocked;
     }
     if (overrides.isEmpty) {
@@ -86,13 +106,14 @@ final class OverrideRemovals {
     }
     final uri = Uri.parse(location.uri);
     final Outline outline;
-    try {
-      outline = await _client.outline(uri);
-    } on Object {
-      return null;
-    }
     // The answer points at the override's name: an outline node's element range.
     final start = location.range.start;
+    try {
+      outline = await _client.outline(uri);
+    } on LspRequestException catch (e) {
+      _onProblem(_uncheckedOverride, e, path: path, position: start);
+      return null;
+    }
     final found = _nodeNamedAt(outline, start);
     final kind = _removableKinds[found?.node.element.kind];
     if (found == null || kind == null) {
@@ -108,7 +129,8 @@ final class OverrideRemovals {
     final List<Location> refs;
     try {
       refs = await _client.references(uri, start);
-    } on Object {
+    } on LspRequestException catch (e) {
+      _onProblem(_uncheckedOverride, e, path: path, position: start);
       return null;
     }
     // The member is dead, so a reference here is a use this run cannot see.
@@ -134,7 +156,8 @@ final class OverrideRemovals {
     final List<SelectionRange?> ranges;
     try {
       ranges = await _client.selectionRanges(uri, [name]);
-    } on Object {
+    } on LspRequestException catch (e) {
+      _onProblem(_uncheckedOverride, e, path: path, position: name);
       return true;
     }
     final innermost = ranges.single;

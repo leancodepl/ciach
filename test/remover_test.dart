@@ -1245,6 +1245,39 @@ void kept() {}
       expect(result.deletedFiles, isEmpty);
     });
   });
+
+  test('a file it cannot rewrite stops it, naming what it already rewrote', () {
+    File(
+      p.join(tempDir.path, 'lib.dart'),
+    ).writeAsStringSync('void a() {}\nvoid b() {}\n');
+    // A directory where the next file should be: reading it fails.
+    Directory(p.join(tempDir.path, 'other.dart')).createSync();
+    const unreadable = UnusedDeclaration(
+      name: 'c',
+      kind: .function,
+      filePath: 'other.dart',
+      line: 1,
+      column: 6,
+      isPrivate: false,
+      range: (startLine: 0, startColumn: 0, endLine: 0, endColumn: 11),
+    );
+
+    expect(
+      () => removeDeclarations([
+        decl(startLine: 0, startColumn: 0, endLine: 0, endColumn: 11),
+        unreadable,
+      ], tempDir.path),
+      throwsA(
+        isA<RemovalException>()
+            .having((e) => e.filePath, 'filePath', 'other.dart')
+            .having((e) => e.changedFiles, 'changedFiles', ['lib.dart']),
+      ),
+    );
+    expect(
+      File(p.join(tempDir.path, 'lib.dart')).readAsStringSync(),
+      'void b() {}\n',
+    );
+  });
 }
 
 /// A cheap brace-balance check so a regression that mangles a removal shows

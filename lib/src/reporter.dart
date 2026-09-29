@@ -87,6 +87,7 @@ abstract final class Reporter {
       'unused': [for (final decl in result.unused) decl.toJson()],
       'docOnly': [for (final decl in result.docOnly) decl.toJson()],
       'warnings': [for (final w in result.recoveredReferences) w.toJson()],
+      'problems': [for (final problem in result.problems) problem.toJson()],
     });
   }
 
@@ -96,6 +97,65 @@ abstract final class Reporter {
     for (final w in result.recoveredReferences) {
       buffer.writeln(
         "warning: '${w.qualifiedName}' (${w.filePath}:${w.line}:${w.column}) ${w.message}",
+      );
+    }
+    return buffer.toString();
+  }
+
+  /// The run's [FinderResult.problems] for stderr (text format), grouped by
+  /// what failed and why, or empty. [verbose] lists every location, with the
+  /// analysis server's stack traces; otherwise each group shows the first
+  /// [maxListed].
+  static String problemsText(
+    FinderResult result, {
+    bool verbose = false,
+    bool useColor = false,
+    int maxListed = 10,
+  }) {
+    final buffer = StringBuffer();
+    var hasDetail = false;
+    for (final MapEntry(key: summary, value: ofSummary)
+        in result.problems.groupListsBy((p) => p.summary).entries) {
+      buffer.writeln('${_style('warning:', _bold, useColor)} $summary');
+      for (final MapEntry(key: cause, value: problems)
+          in ofSummary.groupListsBy((p) => p.cause).entries) {
+        buffer.writeln('  ${_style('Cause:', _bold, useColor)} $cause');
+        final listed = verbose ? problems : problems.take(maxListed);
+        final width = listed.map((p) => p.location.length).max;
+        for (final problem in listed) {
+          final name = problem.name == null ? '' : '  ${problem.name}';
+          buffer.writeln(
+            '    ${_style(problem.location.padRight(width), _dim, useColor)}'
+            '$name',
+          );
+        }
+        if (problems.length > listed.length) {
+          buffer.writeln(
+            _style(
+              '    … and ${problems.length - listed.length} more '
+              '(--verbose lists them all)',
+              _dim,
+              useColor,
+            ),
+          );
+        }
+        final detail = problems.first.detail;
+        hasDetail |= detail != null;
+        if (verbose && detail != null) {
+          buffer
+            ..writeln('  The analysis server logged, for the first:')
+            ..writeln(detail.split('\n').map((line) => '    $line').join('\n'));
+        }
+      }
+    }
+    if (hasDetail && !verbose) {
+      buffer.writeln(
+        _style(
+          'The analysis server threw while answering, which is likely a Dart '
+          'SDK bug; --verbose shows its stack trace.',
+          _dim,
+          useColor,
+        ),
       );
     }
     return buffer.toString();
@@ -147,6 +207,21 @@ abstract final class Reporter {
         level: 'warning',
         title: 'Recovered reference (possible analyzer bug)',
         message: "'${w.qualifiedName}' ${w.message}",
+      );
+    }
+    for (final problem in result.problems) {
+      final file = _escapeProperty(
+        _annotationFile(problem.filePath, pathPrefix),
+      );
+      final position = [
+        if (problem.line case final line?) 'line=$line',
+        if (problem.column case final column?) 'col=$column',
+      ];
+      final name = problem.name == null ? '' : "'${problem.name}': ";
+      buffer.writeln(
+        '::warning '
+        '${['file=$file', ...position, 'title=Could not analyze'].join(',')}'
+        '::${_escapeData('$name${problem.summary} Cause: ${problem.cause}')}',
       );
     }
     return buffer.toString();
@@ -207,20 +282,26 @@ abstract final class Reporter {
     final fileCount = result.unused.map((d) => d.filePath).toSet().length;
     final seconds = (result.elapsed.inMilliseconds / 1000).toStringAsFixed(1);
     final docOnlyCount = result.docOnly.length;
-    final docOnlySuffix = docOnlyCount == 0
-        ? ''
-        : ' $docOnlyCount more referenced only from doc comments.';
+    final problemCount = result.problems.length;
+    final suffix =
+        (docOnlyCount == 0
+            ? ''
+            : ' $docOnlyCount more referenced only from doc comments.') +
+        (problemCount == 0
+            ? ''
+            : ' $problemCount part${problemCount == 1 ? '' : 's'} of the '
+                  'analysis failed — see the warnings.');
     if (count == 0) {
       return 'No unused declarations found '
           '(scanned ${result.filesScanned} files, '
           '${result.declarationsChecked} declarations, ${seconds}s).'
-          '$docOnlySuffix';
+          '$suffix';
     }
     return 'Found $count unused declaration${count == 1 ? '' : 's'} '
         'in $fileCount file${fileCount == 1 ? '' : 's'} '
         '(scanned ${result.filesScanned} files, '
         '${result.declarationsChecked} declarations, ${seconds}s).'
-        '$docOnlySuffix';
+        '$suffix';
   }
 
   // Minimal ANSI styling helpers.

@@ -41,7 +41,7 @@ void main() {
       await expectLater(
         client.initialize(tmp.uri),
         throwsA(
-          isA<StateError>().having(
+          isA<AnalysisServerExitedException>().having(
             (e) => e.message,
             'message',
             allOf(
@@ -62,7 +62,7 @@ void main() {
     await expectLater(
       client.initialize(tmp.uri),
       throwsA(
-        isA<StateError>().having(
+        isA<AnalysisServerExitedException>().having(
           (e) => e.message,
           'message',
           allOf(contains('code 1'), contains('wrote nothing to stderr')),
@@ -153,20 +153,17 @@ void main() {
           const Position(line: 0, character: 0),
         ),
         throwsA(
-          isA<AnalysisServerException>()
+          isA<LspRequestException>()
+              .having((e) => e.method, 'method', 'textDocument/references')
               .having(
                 (e) => e.message,
                 'message',
-                'An error occurred while handling textDocument/references '
-                    'request',
+                'Null check operator used on a null value',
               )
               .having(
                 (e) => e.detail,
                 'detail',
-                allOf(
-                  startsWith('Null check operator used on a null value'),
-                  contains('ElementReferencesComputer.compute'),
-                ),
+                '#0      ElementReferencesComputer.compute',
               ),
         ),
       );

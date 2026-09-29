@@ -14,6 +14,7 @@ import 'package:args/args.dart';
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/args.dart';
 import 'package:ciach/src/cli/config.dart';
+import 'package:ciach/src/cli/errors.dart';
 import 'package:ciach/src/cli/options.dart';
 import 'package:ciach/src/cli/verbose.dart';
 import 'package:ciach/src/paths.dart';
@@ -26,7 +27,19 @@ import 'package:path/path.dart' as p;
 Future<void> main(List<String> arguments) async {
   // Returning an int from `main` does not set the process exit code in Dart,
   // so route the result through the global `exitCode`.
-  exitCode = await _run(arguments);
+  try {
+    exitCode = await _run(arguments);
+  } on Object catch (e, st) {
+    // Only what fails before the options are read lands here.
+    stderr.write(
+      describeFatalError(
+        e,
+        st,
+        verbose: arguments.contains('--verbose') || arguments.contains('-v'),
+      ),
+    );
+    exitCode = 2;
+  }
 }
 
 Future<int> _run(List<String> arguments) async {
@@ -89,6 +102,25 @@ Future<int> _run(List<String> arguments) async {
   }
 
   final log = resolved.verbose ? _VerboseLog() : null;
+  try {
+    return await _analyze(resolved, configuration, config, projectDir, log);
+  } on Object catch (e, st) {
+    if (resolved.showProgress) {
+      stderr.writeln();
+    }
+    stderr.write(describeFatalError(e, st, verbose: resolved.verbose));
+    return 2;
+  }
+}
+
+/// Everything after the options are read: analyze, report, remove.
+Future<int> _analyze(
+  ResolvedOptions resolved,
+  CiachConfiguration configuration,
+  ConfigFile config,
+  String projectDir,
+  _VerboseLog? log,
+) async {
   log?.writeAll(describeConfigSource(config, projectDir: projectDir));
 
   final rootDir = Directory(resolved.rootPath);
@@ -150,18 +182,7 @@ Future<int> _run(List<String> arguments) async {
     ),
   );
 
-  final FinderResult result;
-  try {
-    result = await Ciach(options).run();
-  } on Object catch (e, st) {
-    if (showProgress) {
-      stderr.writeln();
-    }
-    stderr
-      ..writeln('Failed to analyze: $e')
-      ..writeln(st);
-    return 2;
-  }
+  final result = await Ciach(options).run();
 
   if (showProgress) {
     stderr.writeln();
@@ -189,9 +210,17 @@ Future<int> _run(List<String> arguments) async {
       stdout.write(Reporter.github(result, pathPrefix: prefix));
     case _:
       stdout.writeln(Reporter.text(result, useColor: useColor));
-      // Recovery warnings go to stderr so they never corrupt text stdout; the
-      // json and github formats carry them in-band instead.
-      stderr.write(Reporter.warningsText(result));
+      // Warnings go to stderr so they never corrupt text stdout; the json and
+      // github formats carry them in-band instead.
+      stderr
+        ..write(Reporter.warningsText(result))
+        ..write(
+          Reporter.problemsText(
+            result,
+            verbose: resolved.verbose,
+            useColor: useColor && stderr.supportsAnsiEscapes,
+          ),
+        );
   }
 
   if (result.unused.isNotEmpty && resolved.remove) {

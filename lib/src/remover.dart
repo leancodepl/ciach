@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:ciach/src/emptied_files.dart';
 import 'package:ciach/src/models.dart';
+import 'package:ciach/src/paths.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
@@ -68,19 +69,65 @@ RemovalResult removeDeclarations(
   }
 
   final rewritten = <String>{};
+  RemovalException failure(FileSystemException e, String path) =>
+      RemovalException(
+        filePath: relativePosix(path, rootPath),
+        cause: e.osError?.message ?? e.message,
+        changedFiles: [
+          for (final path in rewritten) relativePosix(path, rootPath),
+        ],
+      );
+
   for (final entry in byFile.entries) {
     final file = File(p.joinAll([rootPath, ...p.posix.split(entry.key)]));
-    final content = file.readAsStringSync();
-    final updated = _removeFromContent(content, entry.value);
-    if (updated != content) {
-      file.writeAsStringSync(updated);
-      rewritten.add(p.normalize(file.absolute.path));
+    try {
+      final content = file.readAsStringSync();
+      final updated = _removeFromContent(content, entry.value);
+      if (updated != content) {
+        file.writeAsStringSync(updated);
+        rewritten.add(p.normalize(file.absolute.path));
+      }
+    } on FileSystemException catch (e) {
+      throw failure(e, file.path);
     }
   }
-  return RemovalResult(
-    filesChanged: rewritten.length,
-    deletedFiles: deleteEmptiedFiles(rewritten, rootPath),
-  );
+  final List<DeletedFile> deleted;
+  try {
+    deleted = deleteEmptiedFiles(rewritten, rootPath);
+  } on FileSystemException catch (e) {
+    throw failure(e, e.path ?? rootPath);
+  }
+  return RemovalResult(filesChanged: rewritten.length, deletedFiles: deleted);
+}
+
+/// [removeDeclarations] could not read, write or delete [filePath]. The files
+/// it had already rewritten stay rewritten.
+class RemovalException implements Exception {
+  const RemovalException({
+    required this.filePath,
+    required this.cause,
+    required this.changedFiles,
+  });
+
+  /// The file that failed (root-relative `/`-path).
+  final String filePath;
+
+  /// Why, as the file system put it.
+  final String cause;
+
+  /// The files already rewritten (root-relative `/`-paths).
+  final List<String> changedFiles;
+
+  String get message {
+    final changed = changedFiles.isEmpty
+        ? 'No file was changed.'
+        : 'Already rewritten, so review them before running again: '
+              '${changedFiles.join(', ')}.';
+    return 'Could not remove declarations from $filePath: $cause. $changed';
+  }
+
+  @override
+  String toString() => message;
 }
 
 String _removeFromContent(String content, List<UnusedDeclaration> decls) {

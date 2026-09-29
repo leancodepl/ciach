@@ -13,6 +13,7 @@ import 'dart:io';
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/concurrency.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/problems.dart';
 import 'package:ciach/src/reference_kinds.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
@@ -38,6 +39,10 @@ class CrossLibraryReferences {
 
   static const empty = CrossLibraryReferences._(<_DeclPosition, _Site>{});
 
+  static const _unresolvedSite =
+      'Could not resolve these possible uses of declarations that look unused; '
+      'check the findings before removing them.';
+
   /// Over-inclusive on purpose: the `definition` confirmation, not this set, is
   /// what makes the recovery correct.
   static const _memberTokenTypes = {
@@ -58,6 +63,7 @@ class CrossLibraryReferences {
     required List<Candidate> candidates,
     required Set<String> emptyRefNames,
     required int concurrency,
+    required ProblemReporter onProblem,
   }) async {
     if (emptyRefNames.isEmpty) {
       return empty;
@@ -83,7 +89,13 @@ class CrossLibraryReferences {
     final perSite = await mapPooled(sites, concurrency, (site) async {
       try {
         return await client.definition(site.uri, site.position);
-      } on Object {
+      } on LspRequestException catch (e) {
+        onProblem(
+          _unresolvedSite,
+          e,
+          path: site.uri.toFilePath(),
+          position: site.position,
+        );
         return const <Location>[];
       }
     });

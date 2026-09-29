@@ -25,6 +25,7 @@ import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/overrides.dart';
 import 'package:ciach/src/paths.dart';
+import 'package:ciach/src/problems.dart';
 import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/remove_safety.dart';
 import 'package:ciach/src/source_index.dart';
@@ -66,6 +67,9 @@ class Ciach {
   /// Skipped as entry points this run, for `--verbose`.
   final _skippedEntryPoints = <_SkippedEntryPoint>[];
 
+  /// What this run could not analyze; see [FinderResult.problems].
+  final _problems = <AnalysisProblem>[];
+
   /// Types whose member is an entry point, by `(relative path, type name)`:
   /// the generated call that reaches `MyPlugin.registerWith` names `MyPlugin`
   /// too, so the type is not a candidate either.
@@ -92,11 +96,54 @@ class Ciach {
       'declaring parameter of the primary constructor — removing it changes '
       'the constructor signature at every call site';
 
+  static const _unreadableFile =
+      'Could not read these files; nothing in them is reported.';
+
+  static const _uncollectedFile =
+      'Could not read the declarations in these files; nothing in them is '
+      'reported.';
+
+  static const _uncheckedDeclaration =
+      'Could not find the references to these declarations; they are kept, '
+      'not reported.';
+
+  static const _noSemanticTokens =
+      'Could not read the comments and annotations in these files; a '
+      'declaration there may be kept though unused.';
+
+  static const _noSelectionRanges =
+      'Could not read the syntax around these positions; review the findings '
+      'in these files before removing them.';
+
   static const _overriddenHint =
       'overridden by a declaration --remove will not delete — that override '
       'would be left overriding nothing';
 
   void _report(String message) => options.onProgress?.call(message);
+
+  void _addProblem(AnalysisProblem problem) {
+    _problems.add(problem);
+    _report('Problem at ${problem.location}: ${problem.cause}');
+  }
+
+  /// See [ProblemReporter].
+  void _onProblem(
+    String summary,
+    LspRequestException error, {
+    required String path,
+    Position? position,
+    String? name,
+  }) => _addProblem(
+    AnalysisProblem(
+      summary: summary,
+      cause: error.message,
+      detail: error.detail,
+      filePath: relativePosix(path, options.rootPath),
+      line: position == null ? null : position.line + 1,
+      column: position == null ? null : position.character + 1,
+      name: name,
+    ),
+  );
 
   /// Runs the analysis and returns the declarations that are never referenced.
   ///
@@ -168,8 +215,7 @@ class Ciach {
             ? _collectCandidatesFor(client, path, rootPath)
             : Future.value(const <Candidate>[]),
       );
-      final candidates = [for (final list in perFile) ...list];
-      declarationsChecked = candidates.length;
+      final collected = [for (final list in perFile) ...list];
       _reportSkippedEntryPoints();
 
       // Phase 2: check references for every candidate through a single global
@@ -177,13 +223,24 @@ class Ciach {
       // Progress is reported per file: each file's remaining count is tracked
       // and a line is emitted as soon as its last declaration is checked. Files
       // with no candidates are already counted as done.
-      _report('Checking references for $declarationsChecked declaration(s)…');
-      final refsByCandidate = await _checkReferences(
+      _report('Checking references for ${collected.length} declaration(s)…');
+      final refsOrNull = await _checkReferences(
         client,
-        candidates,
+        collected,
         files.length,
         rootPath,
       );
+      // A declaration whose references could not be found stays out of the
+      // rest of the run, like one that was never a candidate: it is kept.
+      final candidates = <Candidate>[];
+      final refsByCandidate = <List<Location>>[];
+      for (var i = 0; i < collected.length; i++) {
+        if (refsOrNull[i] case final refs?) {
+          candidates.add(collected[i]);
+          refsByCandidate.add(refs);
+        }
+      }
+      declarationsChecked = candidates.length;
 
       await _fetchSemanticTokensFor(client, refsByCandidate);
       await _fetchSelectionRanges(client, candidates, refsByCandidate);
@@ -236,7 +293,10 @@ class Ciach {
         statuses,
         refsByCandidate,
         deadClassNames,
-        SuperclassChecks(client).needsConstructorArguments,
+        SuperclassChecks(
+          client,
+          onProblem: _onProblem,
+        ).needsConstructorArguments,
       );
 
       final reported = <int>{
@@ -315,6 +375,7 @@ class Ciach {
       declarationsChecked: declarationsChecked,
       elapsed: stopwatch.elapsed,
       recoveredReferences: recoveredReferences,
+      problems: List.unmodifiable(_problems),
     );
   }
 
@@ -340,6 +401,7 @@ class Ciach {
       _sources,
       scannedPaths: scannedPaths,
       rootPath: rootPath,
+      onProblem: _onProblem,
     );
     final results = await mapPooled(
       members,
@@ -432,7 +494,7 @@ class Ciach {
 
   /// Queries `textDocument/references` for every candidate through one global
   /// pool, reporting `[done/total]` progress as each file's last query lands.
-  Future<List<List<Location>>> _checkReferences(
+  Future<List<List<Location>?>> _checkReferences(
     LspClient client,
     List<Candidate> candidates,
     int totalFiles,
@@ -448,7 +510,7 @@ class Ciach {
       // The server would answer for an unnamed extension's `on` type.
       final refs = candidate.isUnnamedExtension
           ? const <Location>[]
-          : await _references(client, candidate, rootPath);
+          : await _references(client, candidate);
       if (remainingPerFile.update(candidate.path, (n) => n - 1) == 0) {
         filesDone++;
         _report(
@@ -460,30 +522,30 @@ class Ciach {
     });
   }
 
-  /// The references to [candidate]; a failure names the declaration it was
-  /// for.
-  Future<List<Location>> _references(
+  /// The references to [candidate], or `null` when the server could not find
+  /// them.
+  Future<List<Location>?> _references(
     LspClient client,
     Candidate candidate,
-    String rootPath,
   ) async {
     final start = candidate.symbol.selectionRange.start;
     try {
       return await client.references(candidate.uri, start);
-    } on Object catch (e, st) {
-      final name = candidate.symbol.declarationName(candidate.container);
-      final qualified = candidate.container == null
-          ? name
-          : '${candidate.container}.$name';
-      Error.throwWithStackTrace(
-        StateError(
-          "Finding references to '$qualified' "
-          '(${relativePosix(candidate.path, rootPath)}:${start.line + 1}:'
-          '${start.character + 1}) failed: $e',
-        ),
-        st,
+    } on LspRequestException catch (e) {
+      _onProblem(
+        _uncheckedDeclaration,
+        e,
+        path: candidate.path,
+        position: start,
+        name: _qualifiedName(candidate),
       );
+      return null;
     }
+  }
+
+  static String _qualifiedName(Candidate candidate) {
+    final name = candidate.symbol.declarationName(candidate.container);
+    return candidate.container == null ? name : '${candidate.container}.$name';
   }
 
   /// Fetches the semantic tokens of every referenced file that has none yet.
@@ -556,8 +618,10 @@ class Ciach {
       List<SelectionRange?> ranges;
       try {
         ranges = await client.selectionRanges(File(path).uri, ordered);
-      } on Object {
-        return; // a position with no answer reads as "not the special shape"
+      } on LspRequestException catch (e) {
+        // A position with no answer reads as "not the special shape".
+        _onProblem(_noSelectionRanges, e, path: path, position: ordered.first);
+        return;
       }
       for (var i = 0; i < ordered.length; i++) {
         if (ranges[i] case final range?) {
@@ -575,7 +639,8 @@ class Ciach {
   ) async {
     try {
       return await client.semanticTokens(File(path).uri, _sources.lines(path));
-    } on Object {
+    } on LspRequestException catch (e) {
+      _onProblem(_noSemanticTokens, e, path: path);
       return const [];
     }
   }
@@ -608,6 +673,7 @@ class Ciach {
       candidates: candidates,
       emptyRefNames: emptyRefNames,
       concurrency: options.concurrency,
+      onProblem: _onProblem,
     );
   }
 
@@ -705,8 +771,17 @@ class Ciach {
 
   /// Opens [path] in the server. `false` if the file cannot be read.
   bool _openFile(LspClient client, String path) {
-    final content = SourceIndex.readFile(path);
-    if (content == null) {
+    final String content;
+    try {
+      content = File(path).readAsStringSync();
+    } on FileSystemException catch (e) {
+      _addProblem(
+        AnalysisProblem(
+          summary: _unreadableFile,
+          cause: e.osError?.message ?? e.message,
+          filePath: relativePosix(path, options.rootPath),
+        ),
+      );
       return false;
     }
     client.didOpen(File(path).uri, content);
@@ -741,11 +816,25 @@ class Ciach {
     String rootPath,
   ) async {
     final uri = File(path).uri;
-    final (symbols, outline, tokens) = await (
-      client.documentSymbol(uri),
-      client.outline(uri),
-      _semanticTokensOrEmpty(client, path),
-    ).wait;
+    final pendingSymbols = client.documentSymbol(uri);
+    final pendingOutline = client.outline(uri);
+    final pendingTokens = _semanticTokensOrEmpty(client, path);
+    final List<DocumentSymbol> symbols;
+    final Outline outline;
+    try {
+      symbols = await pendingSymbols;
+      outline = await pendingOutline;
+    } on Object catch (e) {
+      // Whatever the other two do is moot now.
+      pendingOutline.ignore();
+      pendingTokens.ignore();
+      if (e is! LspRequestException) {
+        rethrow;
+      }
+      _onProblem(_uncollectedFile, e, path: path);
+      return const [];
+    }
+    final tokens = await pendingTokens;
     _sources.cacheSemanticTokens(path, tokens);
     final relativePath = relativePosix(path, rootPath);
     final out = <Candidate>[];

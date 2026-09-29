@@ -19,6 +19,7 @@ void main() {
     List<UnusedDeclaration> unused, {
     List<UnusedDeclaration> docOnly = const [],
     List<RecoveredReference> recoveredReferences = const [],
+    List<AnalysisProblem> problems = const [],
   }) => .new(
     unused: unused,
     docOnly: docOnly,
@@ -26,6 +27,7 @@ void main() {
     declarationsChecked: 10,
     elapsed: const .new(seconds: 1),
     recoveredReferences: recoveredReferences,
+    problems: problems,
   );
 
   RecoveredReference warning({
@@ -230,6 +232,114 @@ void main() {
           jsonDecode(Reporter.json(resultWith([decl()])))
               as Map<String, Object?>;
       expect(json['warnings'], isEmpty);
+    });
+  });
+
+  group('problems', () {
+    AnalysisProblem problem({
+      String summary = 'Could not find the references; kept.',
+      String cause = 'Null check operator used on a null value',
+      String filePath = 'lib/a.dart',
+      int? line = 3,
+      int? column = 5,
+      String? name = 'A.foo',
+      String? detail = '#0      Foo.bar',
+    }) => .new(
+      summary: summary,
+      cause: cause,
+      filePath: filePath,
+      line: line,
+      column: column,
+      name: name,
+      detail: detail,
+    );
+
+    test('text groups them by what failed and why', () {
+      final text = Reporter.problemsText(
+        resultWith(
+          const [],
+          problems: [
+            problem(),
+            problem(filePath: 'lib/b.dart', name: 'B.foo'),
+            problem(cause: 'no outline arrived within 120s', detail: null),
+          ],
+        ),
+      );
+      expect(
+        text,
+        'warning: Could not find the references; kept.\n'
+        '  Cause: Null check operator used on a null value\n'
+        '    lib/a.dart:3:5  A.foo\n'
+        '    lib/b.dart:3:5  B.foo\n'
+        '  Cause: no outline arrived within 120s\n'
+        '    lib/a.dart:3:5  A.foo\n'
+        'The analysis server threw while answering, which is likely a Dart '
+        'SDK bug; --verbose shows its stack trace.\n',
+      );
+    });
+
+    test('text lists the first few unless verbose, which adds the stack', () {
+      final result = resultWith(
+        const [],
+        problems: [for (var i = 1; i <= 3; i++) problem(line: i)],
+      );
+      final short = Reporter.problemsText(result, maxListed: 2);
+      expect(short, contains('lib/a.dart:2:5'));
+      expect(short, isNot(contains('lib/a.dart:3:5')));
+      expect(short, contains('… and 1 more (--verbose lists them all)'));
+
+      final verbose = Reporter.problemsText(
+        result,
+        verbose: true,
+        maxListed: 2,
+      );
+      expect(verbose, contains('lib/a.dart:3:5'));
+      expect(verbose, contains('    #0      Foo.bar'));
+      expect(verbose, isNot(contains('--verbose')));
+    });
+
+    test('text is empty without problems, and the summary counts them', () {
+      expect(Reporter.problemsText(resultWith(const [])), isEmpty);
+      expect(
+        Reporter.text(resultWith(const [], problems: [problem()])),
+        endsWith('1 part of the analysis failed — see the warnings.'),
+      );
+    });
+
+    test('json carries them in-band', () {
+      final decoded =
+          jsonDecode(Reporter.json(resultWith(const [], problems: [problem()])))
+              as Map<String, Object?>;
+      expect(decoded['problems'], [
+        {
+          'summary': 'Could not find the references; kept.',
+          'cause': 'Null check operator used on a null value',
+          'file': 'lib/a.dart',
+          'line': 3,
+          'column': 5,
+          'name': 'A.foo',
+          'detail': '#0      Foo.bar',
+        },
+      ]);
+    });
+
+    test('github annotates each, with what position is known', () {
+      final github = Reporter.github(
+        resultWith(
+          const [],
+          problems: [problem(), problem(line: null, column: null, name: null)],
+        ),
+        pathPrefix: 'pkg',
+      );
+      expect(
+        github,
+        '::warning file=pkg/lib/a.dart,line=3,col=5,title=Could not analyze'
+        "::'A.foo': Could not find the references; kept. "
+        'Cause: Null check operator used on a null value\n'
+        '::warning file=pkg/lib/a.dart,title=Could not analyze'
+        '::Could not find the references; kept. '
+        'Cause: Null check operator used on a null value\n',
+      );
     });
   });
 }
