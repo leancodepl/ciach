@@ -818,7 +818,7 @@ class Ciach {
       null,
       null,
       false,
-      _OutlineIndex(outline),
+      .new(outline),
       out,
     );
     return _withoutEntryPointContainers(out, relativePath);

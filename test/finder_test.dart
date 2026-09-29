@@ -283,12 +283,12 @@ void main() {
       final result = await runFinder();
       final enumValues = {
         for (final d in result.unused)
-          if (d.kind == SymbolKind.enumMember) d.qualifiedName,
+          if (d.kind == .enumMember) d.qualifiedName,
       };
       expect(enumValues, {'Direction.south', 'Direction.west'});
       final enumTypes = {
         for (final d in result.unused)
-          if (d.kind == SymbolKind.enum$) d.qualifiedName,
+          if (d.kind == .enum$) d.qualifiedName,
       };
       expect(enumTypes, isNot(contains('Direction.south')));
       expect(enumTypes, isNot(contains('Direction.west')));

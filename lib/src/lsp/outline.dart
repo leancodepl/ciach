@@ -14,7 +14,7 @@ final class Outline {
     required this.children,
   });
 
-  factory Outline.fromJson(Map<String, Object?> json) => Outline(
+  factory Outline.fromJson(Map<String, Object?> json) => .new(
     element: .fromJson(json['element']! as Map<String, Object?>),
     range: .fromJson(json['range']! as Map<String, Object?>),
     // Older servers do not send `codeRange`.
@@ -65,7 +65,7 @@ final class OutlineElement {
     this.returnType,
   });
 
-  factory OutlineElement.fromJson(Map<String, Object?> json) => OutlineElement(
+  factory OutlineElement.fromJson(Map<String, Object?> json) => .new(
     kind: .fromWire(json['kind'] as String? ?? ''),
     name: json['name'] as String? ?? '',
     range: switch (json['range']) {

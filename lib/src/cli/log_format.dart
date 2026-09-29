@@ -18,18 +18,18 @@ final class LogFormatter {
   String line(LogRecord record, Duration elapsed) {
     final message = record.message;
     final text = switch (record.level) {
-      >= Level.SEVERE => switch (record.error) {
+      >= .SEVERE => switch (record.error) {
         final error? => describeFatalError(
           error,
-          record.stackTrace ?? StackTrace.empty,
+          record.stackTrace ?? .empty,
           verbose: verbose,
           style: style,
         ).trimRight(),
         null => '${style.errorLabel('error:')} $message',
       },
-      >= Level.WARNING => '${style.warningLabel('warning:')} $message',
-      >= Level.INFO => message,
-      >= Level.CONFIG => style.configuration(message),
+      >= .WARNING => '${style.warningLabel('warning:')} $message',
+      >= .INFO => message,
+      >= .CONFIG => style.configuration(message),
       _ => style.detail(message),
     };
     return '${verbose ? _prefix(record, elapsed) : ''}$text\n';

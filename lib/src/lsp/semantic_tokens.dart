@@ -17,7 +17,7 @@ final class SemanticTokensLegend {
             'tokenModifiers': final List<Object?> modifiers,
           },
         } =>
-          SemanticTokensLegend(
+          .new(
             tokenTypes: [for (final t in types) '$t'],
             tokenModifiers: [for (final m in modifiers) '$m'],
           ),

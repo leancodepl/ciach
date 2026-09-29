@@ -28,7 +28,7 @@ final class Console {
   }
 
   /// The process's stdio.
-  factory Console.standard() => Console(
+  factory Console.standard() => .new(
     out: io.stdout,
     err: io.stderr,
     outSupportsAnsi: io.stdout.supportsAnsiEscapes,
@@ -123,7 +123,7 @@ final class Console {
     if (record.level >= .WARNING || _formatter.verbose) {
       clearProgress();
       _err.write(_formatter.line(record, _clock.elapsed));
-    } else if (_progress && record.level == Level.INFO) {
+    } else if (_progress && record.level == .INFO) {
       _showProgress(record.message);
     }
   }

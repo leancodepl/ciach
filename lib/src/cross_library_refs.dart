@@ -108,7 +108,7 @@ class CrossLibraryReferences {
         }
       }
     }
-    return CrossLibraryReferences._(usageByDecl);
+    return ._(usageByDecl);
   }
 
   bool isRecovered(Candidate candidate) =>

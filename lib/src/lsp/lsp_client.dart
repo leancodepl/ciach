@@ -468,7 +468,7 @@ class LspClient {
       ),
     );
     if (result == null || result.length != positions.length) {
-      return List.filled(positions.length, null);
+      return .filled(positions.length, null);
     }
     return result;
   }

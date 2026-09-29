@@ -113,7 +113,7 @@ final class _Package {
         }
       }
     }
-    return _Package._(files, libDirByPackage);
+    return ._(files, libDirByPackage);
   }
 
   final Set<String> _files;

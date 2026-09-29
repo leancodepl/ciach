@@ -7,7 +7,7 @@ final class Style {
   const Style({required this.enabled});
 
   /// The style for [stream].
-  factory Style.of(Stdout stream, {bool? color}) => Style(
+  factory Style.of(Stdout stream, {bool? color}) => .new(
     enabled: shouldStyle(
       color: color,
       supportsAnsiEscapes: stream.supportsAnsiEscapes,
