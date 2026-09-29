@@ -20,7 +20,7 @@ final class ProblemCollector {
   final List<AnalysisProblem> _problems = [];
 
   /// The problems, in order.
-  List<AnalysisProblem> get problems => List.unmodifiable(_problems);
+  List<AnalysisProblem> get problems => .unmodifiable(_problems);
 
   static final _key = Object();
 

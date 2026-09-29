@@ -21,7 +21,7 @@ abstract final class Reporter {
   /// [verbose], each problem cause lists at most [maxListed] locations.
   static String text(
     FinderResult result, {
-    Style style = Style.plain,
+    Style style = .plain,
     bool verbose = false,
     int maxListed = 10,
   }) {
@@ -73,7 +73,7 @@ abstract final class Reporter {
     int removed = 0,
     int blocked = 0,
     Iterable<String> notes = const [],
-    Style style = Style.plain,
+    Style style = .plain,
   }) {
     if (removal == null) {
       return style.note('Skipped removal.');

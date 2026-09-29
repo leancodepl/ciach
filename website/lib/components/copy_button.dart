@@ -30,9 +30,9 @@ class CopyButton extends StatefulComponent {
       radius: .circular(8.px),
       cursor: .pointer,
       transition: .combine([
-        Transition('color', duration: 150.ms, curve: .ease),
-        Transition('border-color', duration: 150.ms, curve: .ease),
-        Transition('background-color', duration: 150.ms, curve: .ease),
+        .new('color', duration: 150.ms, curve: .ease),
+        .new('border-color', duration: 150.ms, curve: .ease),
+        .new('background-color', duration: 150.ms, curve: .ease),
       ]),
       alignItems: .center,
       gap: .all(0.4.rem),
@@ -79,7 +79,7 @@ class _CopyButtonState extends State<CopyButton> {
     }
     setState(() => _copied = true);
     _resetTimer?.cancel();
-    _resetTimer = Timer(const Duration(seconds: 2), () {
+    _resetTimer = .new(const .new(seconds: 2), () {
       if (mounted) {
         setState(() => _copied = false);
       }

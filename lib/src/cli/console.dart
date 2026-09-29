@@ -73,14 +73,14 @@ final class Console {
 
   /// The lowest level shown.
   Level get level => _formatter.verbose
-      ? Level.ALL
+      ? .ALL
       : _progress
-      ? Level.INFO
-      : Level.WARNING;
+      ? .INFO
+      : .WARNING;
 
   /// Applies the CLI options. [verbose] overrides [progress].
   void configure({bool? color, bool progress = false, bool verbose = false}) {
-    Style styleFor(bool supportsAnsi) => Style(
+    Style styleFor(bool supportsAnsi) => .new(
       enabled: Style.shouldStyle(
         color: color,
         supportsAnsiEscapes: supportsAnsi,
@@ -88,10 +88,7 @@ final class Console {
       ),
     );
     _outStyle = styleFor(_outSupportsAnsi);
-    _formatter = LogFormatter(
-      style: styleFor(_errSupportsAnsi),
-      verbose: verbose,
-    );
+    _formatter = .new(style: styleFor(_errSupportsAnsi), verbose: verbose);
     _progress = progress && !verbose;
     Logger.root.level = level;
   }
@@ -123,7 +120,7 @@ final class Console {
 
   /// Shows [record] as a line, or on the progress line.
   void log(LogRecord record) {
-    if (record.level >= Level.WARNING || _formatter.verbose) {
+    if (record.level >= .WARNING || _formatter.verbose) {
       clearProgress();
       _err.write(_formatter.line(record, _clock.elapsed));
     } else if (_progress && record.level == Level.INFO) {

@@ -299,7 +299,7 @@ concurrency: 4
     late Directory tempDir;
 
     setUp(() {
-      tempDir = Directory.systemTemp.createTempSync('ciach_config_test_');
+      tempDir = .systemTemp.createTempSync('ciach_config_test_');
     });
 
     tearDown(() {

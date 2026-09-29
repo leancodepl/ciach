@@ -67,7 +67,7 @@ class CiachDemo extends StatelessComponent {
     css('.ciach-before.armed .line.dead::after')
         .styles(raw: {'transform': 'scaleX(0)'}),
     css('.ciach-before.play .line.dead').styles(
-      animation: Animation(
+      animation: .new(
         name: 'dead-fade',
         duration: 500.ms,
         curve: .easeOut,
@@ -76,7 +76,7 @@ class CiachDemo extends StatelessComponent {
       raw: {'animation-delay': 'calc(var(--d, 0) * 140ms + 1.1s)'},
     ),
     css('.ciach-before.play .line.dead::after').styles(
-      animation: Animation(
+      animation: .new(
         name: 'ciach',
         duration: 300.ms,
         curve: .easeOut,
@@ -85,13 +85,13 @@ class CiachDemo extends StatelessComponent {
       raw: {'animation-delay': 'calc(var(--d, 0) * 140ms + 0.4s)'},
     ),
     css.keyframes('ciach', {
-      'to': const Styles(raw: {'transform': 'scaleX(1)'}),
+      'to': const .new(raw: {'transform': 'scaleX(1)'}),
     }),
-    css.keyframes('dead-fade', {'to': const Styles(opacity: 0.45)}),
-    css.media(MediaQuery.all(minWidth: 760.px), [
+    css.keyframes('dead-fade', {'to': const .new(opacity: 0.45)}),
+    css.media(.all(minWidth: 760.px), [
       css('.ciach-grid').styles(raw: {'grid-template-columns': '1fr 1fr'}),
     ]),
-    css.media(const MediaQuery.raw('(prefers-reduced-motion: reduce)'), [
+    css.media(const .raw('(prefers-reduced-motion: reduce)'), [
       css('.ciach-before.armed .line.dead').styles(opacity: 0.45),
       css('.ciach-before.armed .line.dead::after').styles(transform: .none),
     ]),

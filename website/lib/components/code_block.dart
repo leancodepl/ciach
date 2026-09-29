@@ -139,7 +139,7 @@ class CodeBlock extends StatelessComponent {
     // Sequential reveal for animated terminals.
     css('.terminal.animated .line').styles(
       opacity: 0,
-      animation: Animation(
+      animation: .new(
         name: 'reveal',
         duration: 350.ms,
         curve: .easeOut,
@@ -148,10 +148,10 @@ class CodeBlock extends StatelessComponent {
       raw: {'animation-delay': 'calc(var(--i, 0) * 110ms + 250ms)'},
     ),
     css.keyframes('reveal', {
-      'from': Styles(opacity: 0, transform: .translate(x: (-4).px)),
-      'to': const Styles(opacity: 1, transform: .none),
+      'from': .new(opacity: 0, transform: .translate(x: (-4).px)),
+      'to': const .new(opacity: 1, transform: .none),
     }),
-    css.media(const MediaQuery.raw('(prefers-reduced-motion: reduce)'), [
+    css.media(const .raw('(prefers-reduced-motion: reduce)'), [
       css('.terminal.animated .line').styles(opacity: 1),
     ]),
   ];
@@ -239,7 +239,7 @@ class Terminal extends StatelessComponent {
                 if (index > 0) const .text('\n'),
                 span(
                   classes: 'line',
-                  styles: animated ? Styles(raw: {'--i': '$index'}) : null,
+                  styles: animated ? .new(raw: {'--i': '$index'}) : null,
                   line,
                 ),
               ],

@@ -66,7 +66,7 @@ void main() {
         const FileSystemException(
           'Cannot open file',
           'lib/a.dart',
-          OSError('No such file or directory', 2),
+          .new('No such file or directory', 2),
         ),
         stack,
         verbose: false,

@@ -57,7 +57,7 @@ RemovalResult removeDeclarations(
       byFile
           .putIfAbsent(coupled.filePath, () => [])
           .add(
-            UnusedDeclaration(
+            .new(
               name: '',
               kind: coupled.kind,
               filePath: coupled.filePath,
@@ -72,14 +72,11 @@ RemovalResult removeDeclarations(
   }
 
   final rewritten = <String>{};
-  RemovalException failure(FileSystemException e, String path) =>
-      RemovalException(
-        filePath: relativePosix(path, rootPath),
-        cause: e.osError?.message ?? e.message,
-        changedFiles: [
-          for (final path in rewritten) relativePosix(path, rootPath),
-        ],
-      );
+  RemovalException failure(FileSystemException e, String path) => .new(
+    filePath: relativePosix(path, rootPath),
+    cause: e.osError?.message ?? e.message,
+    changedFiles: [for (final path in rewritten) relativePosix(path, rootPath)],
+  );
 
   for (final entry in byFile.entries) {
     final file = File(p.joinAll([rootPath, ...p.posix.split(entry.key)]));
@@ -103,7 +100,7 @@ RemovalResult removeDeclarations(
   } on FileSystemException catch (e) {
     throw failure(e, e.path ?? rootPath);
   }
-  return RemovalResult(filesChanged: rewritten.length, deletedFiles: deleted);
+  return .new(filesChanged: rewritten.length, deletedFiles: deleted);
 }
 
 /// [removeDeclarations] failed on [filePath]; [changedFiles] were already

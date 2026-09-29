@@ -95,7 +95,7 @@ class Faq extends StatelessComponent {
       height: 2.rem,
       border: hairline(border2Color),
       radius: .circular(50.percent),
-      transition: Transition('transform', duration: 200.ms, curve: .ease),
+      transition: .new('transform', duration: 200.ms, curve: .ease),
       flex: .none,
       color: accentColor,
       fontFamily: fontMono,

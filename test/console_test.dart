@@ -8,8 +8,8 @@ void main() {
   late Level rootLevel;
 
   setUp(() {
-    out = StringBuffer();
-    err = StringBuffer();
+    out = .new();
+    err = .new();
     rootLevel = Logger.root.level;
   });
 
@@ -22,7 +22,7 @@ void main() {
     bool interactive = true,
   }) {
     final pending = [...answers];
-    return Console(
+    return .new(
       out: out,
       err: err,
       outSupportsAnsi: ansi,
@@ -33,14 +33,14 @@ void main() {
     );
   }
 
-  LogRecord record(String message, [Level level = Level.INFO]) =>
-      LogRecord(level, message, 'ciach.finder');
+  LogRecord record(String message, [Level level = .INFO]) =>
+      .new(level, message, 'ciach.finder');
 
   test('the result goes to stdout, the log to stderr', () {
     console()
       ..output('findings')
-      ..log(record('broken', Level.SEVERE))
-      ..log(record('odd', Level.WARNING));
+      ..log(record('broken', .SEVERE))
+      ..log(record('odd', .WARNING));
     expect(out.toString(), 'findings\n');
     expect(err.toString(), 'error: broken\nwarning: odd\n');
   });
@@ -48,7 +48,7 @@ void main() {
   test('shows warnings and errors only, until configured otherwise', () {
     final c = console()
       ..log(record('Opening'))
-      ..log(record('detail', Level.FINE));
+      ..log(record('detail', .FINE));
     expect(err.toString(), isEmpty);
     expect(c.level, Level.WARNING);
     expect(Logger.root.level, Level.WARNING);
@@ -87,7 +87,7 @@ void main() {
       console()
         ..configure(progress: true)
         ..log(record(first))
-        ..log(record('detail', Level.FINE))
+        ..log(record('detail', .FINE))
         ..log(record(second))
         ..output('findings');
       expect(

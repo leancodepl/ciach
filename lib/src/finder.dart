@@ -187,7 +187,7 @@ class Ciach {
         options.concurrency,
         (path) => opened.contains(path)
             ? _collectCandidatesFor(client, path, rootPath)
-            : Future.value(const <Candidate>[]),
+            : .value(const <Candidate>[]),
       );
       final collected = [for (final list in perFile) ...list];
       _reportSkippedEntryPoints();
@@ -444,7 +444,7 @@ class Ciach {
       }
       final start = candidate.symbol.selectionRange.start;
       warnings.add(
-        RecoveredReference(
+        .new(
           name: candidate.symbol.declarationName(candidate.container),
           container: candidate.container,
           filePath: relativePosix(candidate.path, rootPath),
@@ -763,7 +763,7 @@ class Ciach {
 
   /// One line per skipped entry point, except the ubiquitous `main`.
   void _reportSkippedEntryPoints() {
-    if (!_log.isLoggable(Level.FINE)) {
+    if (!_log.isLoggable(.FINE)) {
       return;
     }
     _skippedEntryPoints.sort((a, b) {
@@ -951,7 +951,7 @@ class Ciach {
       ));
       if (container != null) {
         _entryPointContainers.putIfAbsent(
-          DeclKey(relativePath, container),
+          .new(relativePath, container),
           () => rule,
         );
       }

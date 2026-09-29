@@ -13,7 +13,7 @@ void main() {
   late String packagePath;
 
   setUp(() {
-    tmp = Directory.systemTemp.createTempSync('ciach_request_failure_');
+    tmp = .systemTemp.createTempSync('ciach_request_failure_');
     packagePath = p.join(tmp.path, 'pkg');
     File(p.join(packagePath, 'pubspec.yaml'))
       ..createSync(recursive: true)

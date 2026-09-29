@@ -47,5 +47,5 @@ String _ciachVersion() {
       return match[1]!;
     }
   }
-  return const String.fromEnvironment('CIACH_VERSION', defaultValue: '0.4.3');
+  return const .fromEnvironment('CIACH_VERSION', defaultValue: '0.4.3');
 }

@@ -70,7 +70,7 @@ class LspClient {
   final _stderrBuffer = StringBuffer();
   bool _shuttingDown = false;
 
-  SemanticTokensLegend _semanticTokensLegend = SemanticTokensLegend.empty;
+  SemanticTokensLegend _semanticTokensLegend = .empty;
 
   /// Everything the server wrote to stderr (useful when things go wrong).
   String get stderr => _stderrBuffer.toString();
@@ -169,9 +169,7 @@ class LspClient {
         ),
       ),
     );
-    _semanticTokensLegend = SemanticTokensLegend.fromCapabilities(
-      result.capabilities.toJson(),
-    );
+    _semanticTokensLegend = .fromCapabilities(result.capabilities.toJson());
   }
 
   /// Runs [request]. Throws [AnalysisServerExitedException] if the server
@@ -236,8 +234,8 @@ class LspClient {
       if (take() case final logged?) {
         return logged;
       }
-      final remaining = deadline.difference(DateTime.now());
-      if (remaining <= Duration.zero) {
+      final remaining = deadline.difference(.now());
+      if (remaining <= .zero) {
         return null;
       }
       try {
@@ -504,8 +502,8 @@ class LspRequestException implements Exception {
   factory LspRequestException.fromLog(String method, String logged) {
     final newline = logged.indexOf('\n');
     return newline < 0
-        ? LspRequestException(method, logged)
-        : LspRequestException(
+        ? .new(method, logged)
+        : .new(
             method,
             logged.substring(0, newline),
             detail: logged.substring(newline + 1).trimRight(),

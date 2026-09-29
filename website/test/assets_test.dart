@@ -69,7 +69,7 @@ void main() {
   late AssetRenderer renderer;
 
   setUpAll(() async {
-    renderer = await AssetRenderer.launch();
+    renderer = await .launch();
   });
 
   tearDownAll(() => renderer.close());

@@ -37,7 +37,7 @@ void main() {
     ..writeAsStringSync(contents);
 
   setUp(() {
-    repo = Directory.systemTemp.createTempSync('ciach_analysis_root_');
+    repo = .systemTemp.createTempSync('ciach_analysis_root_');
     corePath = p.join(repo.path, 'pkgs', 'core');
     appFile = p.join(repo.path, 'pkgs', 'app', 'lib', 'app.dart');
 

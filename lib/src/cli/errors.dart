@@ -12,7 +12,7 @@ String describeFatalError(
   Object error,
   StackTrace stackTrace, {
   required bool verbose,
-  Style style = Style.plain,
+  Style style = .plain,
 }) {
   final (message, detail, isBug) = switch (error) {
     AnalysisServerExitedException(:final message) => (message, null, false),

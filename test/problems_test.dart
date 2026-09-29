@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/problems.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Position;
 import 'package:test/test.dart';
 
 void main() {
@@ -18,12 +17,12 @@ void main() {
     () async {
       final log = ProblemCollector('/pkg');
       await log.collect(() async {
-        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(.zero);
         recordProblem(
           'Could not find the references.',
           failure,
           path: '/pkg/lib/a.dart',
-          position: const Position(line: 2, character: 4),
+          position: const .new(line: 2, character: 4),
           name: 'A.foo',
         );
       });
@@ -55,7 +54,7 @@ void main() {
         const FileSystemException(
           'Cannot open file',
           '/pkg/a.dart',
-          OSError('Permission denied', 13),
+          .new('Permission denied', 13),
         ),
         path: '/pkg/a.dart',
       ),
@@ -68,7 +67,7 @@ void main() {
     () async {
       final records = <LogRecord>[];
       final level = Logger.root.level;
-      Logger.root.level = Level.ALL;
+      Logger.root.level = .ALL;
       final subscription = Logger.root.onRecord.listen(records.add);
       addTearDown(() {
         Logger.root.level = level;

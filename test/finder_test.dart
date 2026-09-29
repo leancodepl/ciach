@@ -741,9 +741,9 @@ void main() {
 
     test('`-k extension-type` selects the extension types on their own, which '
         '`-k extension` does not', () async {
-      expect(await byKind(SymbolKind.struct), {'DeadMeters', 'SelfMeters'});
+      expect(await byKind(.struct), {'DeadMeters', 'SelfMeters'});
       expect(
-        await byKind(SymbolKind.namespace),
+        await byKind(.namespace),
         isNot(contains(anyOf('DeadMeters', 'SelfMeters'))),
       );
     });
@@ -751,7 +751,7 @@ void main() {
     test('`-k extension` alone keeps an extension whose members were never '
         'checked, reporting only a member-less one', () async {
       // Unchecked members can't be proven dead; `Hollow` has none.
-      expect(await byKind(SymbolKind.namespace), {'Hollow'});
+      expect(await byKind(.namespace), {'Hollow'});
     });
 
     test('without extension candidates (`-k method`) the members are reported '
@@ -759,7 +759,7 @@ void main() {
       final result = await runFinder(
         include: extensionFixture,
         exclude: const [],
-        kinds: const {SymbolKind.method},
+        kinds: const {.method},
       );
       expect(result.unused.map((d) => d.qualifiedName).toSet(), {
         'DeadHelpers.first',
@@ -1186,15 +1186,12 @@ void main() {
       () async {
         final result = await runEntryPoints(
           entryPoints: [
-            EntryPoint.fromConfig(
+            .fromConfig(
               'integrationMain',
               files: ['lib/scenarios/entry_points.dart'],
             ),
-            EntryPoint.fromConfig(
-              'Plugin.registerWith',
-              files: ['**/entry_points.dart'],
-            ),
-            EntryPoint.fromConfig('bootstrap'),
+            .fromConfig('Plugin.registerWith', files: ['**/entry_points.dart']),
+            .fromConfig('bootstrap'),
           ],
         );
 
@@ -1213,7 +1210,7 @@ void main() {
       () async {
         final result = await runEntryPoints(
           entryPoints: [
-            EntryPoint.fromConfig('bootstrap', files: ['bin/**']),
+            .fromConfig('bootstrap', files: ['bin/**']),
           ],
         );
         expect(
@@ -1226,7 +1223,7 @@ void main() {
     test('narrates each skipped entry point other than main', () async {
       final lines = <String>[];
       final level = Logger.root.level;
-      Logger.root.level = Level.FINE;
+      Logger.root.level = .FINE;
       final logging = Logger.root.onRecord
           .where((r) => r.loggerName == 'ciach.finder')
           .listen((r) => lines.add(r.message));
@@ -1236,8 +1233,8 @@ void main() {
       });
       await runEntryPoints(
         entryPoints: [
-          EntryPoint.fromConfig('bootstrap'),
-          EntryPoint.fromConfig('Plugin.registerWith'),
+          .fromConfig('bootstrap'),
+          .fromConfig('Plugin.registerWith'),
         ],
       );
 
@@ -1350,7 +1347,7 @@ void main() {
       final result = await runFinder(
         include: ['lib/scenarios/primary_constructors.dart'],
         exclude: const [],
-        kinds: const {SymbolKind.constructor},
+        kinds: const {.constructor},
       );
       final decl = findByQualified(result, 'DeadPoint.new');
       expect(decl, isNotNull, reason: '`DeadPoint` is never constructed');

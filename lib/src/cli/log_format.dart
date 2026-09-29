@@ -4,7 +4,7 @@ import 'package:ciach/src/style.dart';
 
 /// Formats log records for stderr.
 final class LogFormatter {
-  const LogFormatter({this.style = Style.plain, this.verbose = false});
+  const LogFormatter({this.style = .plain, this.verbose = false});
 
   final Style style;
 

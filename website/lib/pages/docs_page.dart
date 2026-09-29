@@ -196,7 +196,7 @@ class DocsPage extends StatelessComponent {
       padding: .symmetric(vertical: 0.4.rem, horizontal: 0.9.rem),
       margin: .only(left: (-1).px),
       border: .only(
-        left: BorderSide(color: const Color('transparent'), width: 2.px),
+        left: .new(color: const .new('transparent'), width: 2.px),
       ),
       color: text2Color,
       fontSize: 0.95.rem,
@@ -219,7 +219,7 @@ class DocsPage extends StatelessComponent {
       letterSpacing: (-0.03).em,
     ),
     css('.docs-head .lead').styles(margin: .only(top: 1.rem)),
-    css.media(MediaQuery.all(minWidth: 960.px), [
+    css.media(.all(minWidth: 960.px), [
       css('.docs')
           .styles(raw: {'grid-template-columns': '220px minmax(0, 1fr)'}),
       css('.docs-nav').styles(
@@ -230,7 +230,7 @@ class DocsPage extends StatelessComponent {
       ),
     ]),
     // On narrow screens the table of contents becomes a compact chip row.
-    css.media(MediaQuery.all(maxWidth: 959.px), [
+    css.media(.all(maxWidth: 959.px), [
       css('.docs-nav .eyebrow, .docs-nav-foot').styles(display: .none),
       css('.docs-nav ul').styles(
         display: .flex,
@@ -301,7 +301,7 @@ class DocsPage extends StatelessComponent {
     css('.mark-yes').styles(color: okColor),
     css('.mark-no').styles(color: mutedColor),
     // Tables stack: one card per row, column names as small labels.
-    css.media(MediaQuery.all(maxWidth: 640.px), [
+    css.media(.all(maxWidth: 640.px), [
       css('.table thead').styles(display: .none),
       css('.table tbody, .table tr, .table th, .table td')
           .styles(display: .block),

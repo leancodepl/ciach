@@ -89,8 +89,8 @@ class OutputFormats extends StatelessComponent {
       radius: .circular(999.px),
       cursor: .pointer,
       transition: .combine([
-        Transition('background-color', duration: 150.ms, curve: .ease),
-        Transition('color', duration: 150.ms, curve: .ease),
+        .new('background-color', duration: 150.ms, curve: .ease),
+        .new('color', duration: 150.ms, curve: .ease),
       ]),
       color: text2Color,
     ),
@@ -108,10 +108,10 @@ class OutputFormats extends StatelessComponent {
         (id) => "#format-$id:focus-visible ~ .tab-list [for='format-$id']",
       ),
     ).styles(
-      outline: Outline(
+      outline: .new(
         color: accentColor,
         style: .solid,
-        width: OutlineWidth(2.px),
+        width: .new(2.px),
         offset: 2.px,
       ),
     ),

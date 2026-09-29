@@ -383,7 +383,7 @@ void main() {
   group('Reporter.removal', () {
     test('says what was removed, left and deleted, with the hints it took', () {
       final text = Reporter.removal(
-        const RemovalResult(
+        const .new(
           filesChanged: 2,
           deletedFiles: [(filePath: 'lib/empty.dart', unlinkedFrom: [])],
         ),

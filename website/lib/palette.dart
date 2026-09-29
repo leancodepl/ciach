@@ -49,11 +49,11 @@ enum Palette {
   static final line = white.alpha(0.12);
   static final lineStrong = white.alpha(0.2);
 
-  Color get color => Color.value(rgb);
+  Color get color => .value(rgb);
 
   /// `#rrggbb`.
   String get hex => color.value;
 
   Color alpha(double alpha) =>
-      Color.rgba(rgb >> 16 & 0xff, rgb >> 8 & 0xff, rgb & 0xff, alpha);
+      .rgba(rgb >> 16 & 0xff, rgb >> 8 & 0xff, rgb & 0xff, alpha);
 }

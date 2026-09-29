@@ -15,17 +15,17 @@ final class Outline {
   });
 
   factory Outline.fromJson(Map<String, Object?> json) => Outline(
-    element: OutlineElement.fromJson(json['element']! as Map<String, Object?>),
-    range: Range.fromJson(json['range']! as Map<String, Object?>),
+    element: .fromJson(json['element']! as Map<String, Object?>),
+    range: .fromJson(json['range']! as Map<String, Object?>),
     // Older servers do not send `codeRange`.
     codeRange: switch (json['codeRange']) {
-      final Map<String, Object?> codeRange => Range.fromJson(codeRange),
-      _ => Range.fromJson(json['range']! as Map<String, Object?>),
+      final Map<String, Object?> codeRange => .fromJson(codeRange),
+      _ => .fromJson(json['range']! as Map<String, Object?>),
     },
     children: [
       if (json['children'] case final List<Object?> children)
         for (final child in children.cast<Map<String, Object?>>())
-          Outline.fromJson(child),
+          .fromJson(child),
     ],
   );
 
@@ -66,10 +66,10 @@ final class OutlineElement {
   });
 
   factory OutlineElement.fromJson(Map<String, Object?> json) => OutlineElement(
-    kind: OutlineKind.fromWire(json['kind'] as String? ?? ''),
+    kind: .fromWire(json['kind'] as String? ?? ''),
     name: json['name'] as String? ?? '',
     range: switch (json['range']) {
-      final Map<String, Object?> range => Range.fromJson(range),
+      final Map<String, Object?> range => .fromJson(range),
       _ => null,
     },
     parameters: json['parameters'] as String?,

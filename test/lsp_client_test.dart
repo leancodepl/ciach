@@ -5,14 +5,13 @@ import 'dart:io';
 
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show Position;
 import 'package:test/test.dart';
 
 void main() {
   late Directory tmp;
 
   setUp(() {
-    tmp = Directory.systemTemp.createTempSync('ciach_lsp_test');
+    tmp = .systemTemp.createTempSync('ciach_lsp_test');
   });
 
   tearDown(() => tmp.deleteSync(recursive: true));
@@ -149,7 +148,7 @@ void main() {
       await expectLater(
         client.references(
           tmp.uri.resolve('a.dart'),
-          const Position(line: 0, character: 0),
+          const .new(line: 0, character: 0),
         ),
         throwsA(
           isA<LspRequestException>()
