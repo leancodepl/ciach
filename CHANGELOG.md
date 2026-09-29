@@ -1,13 +1,10 @@
 ## Unreleased
 
-- **Breaking:** `FinderOptions.onProgress` is removed. ciach logs through
-  `package:logging` under `ciach.*`.
-- A failed analysis server request no longer stops the run. The affected code
-  is kept and listed under "Not analyzed" (`problems` in JSON).
-- Fatal errors print a short message; the stack trace needs `-v`.
-- The text report groups extra findings into sections; stdout carries only the
-  result, stderr only the log.
-- More color, decided per stream; `NO_COLOR` is respected.
+- **Breaking:** `FinderOptions.onProgress` is removed; ciach logs through
+  `package:logging`.
+- A failed analysis server request no longer stops the run: the affected code
+  is kept and listed under "Not analyzed". The result goes to stdout, the log
+  to stderr, with more color.
 - `FinderOptions` normalizes `rootPath` and `analysisRootPath`, and a run throws
   an `ArgumentError` when the analysis root doesn't contain the scanned one, so
   a library caller gets the check the CLI already had. The constructor is no
