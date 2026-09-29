@@ -55,15 +55,15 @@ void main() {
     const verbose = LogFormatter(verbose: true);
     expect(
       verbose.line(record(Level.INFO, 'Opening'), elapsed),
-      '[  1.2s] finder  Opening\n',
+      '[  1.2s] [finder]  Opening\n',
     );
     expect(
       verbose.line(record(Level.FINE, 'Started', logger: 'ciach.lsp'), elapsed),
-      '[  1.2s] lsp     Started\n',
+      '[  1.2s] [lsp]     Started\n',
     );
     expect(
       verbose.line(record(Level.INFO, 'x', logger: 'other'), elapsed),
-      '[  1.2s] other   x\n',
+      '[  1.2s] [other]   x\n',
     );
   });
 

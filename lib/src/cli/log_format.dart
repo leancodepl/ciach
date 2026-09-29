@@ -11,7 +11,8 @@ final class LogFormatter {
   /// Adds a timestamp and logger area, and stack traces to fatal errors.
   final bool verbose;
 
-  static const _areaWidth = 7;
+  /// Fits `[remover]`, the longest area.
+  static const _areaWidth = 9;
 
   /// [record] as a line, newline-terminated.
   String line(LogRecord record, Duration elapsed) {
@@ -42,6 +43,6 @@ final class LogFormatter {
     final name = record.loggerName;
     final area = name.startsWith('ciach.') ? name.substring(6) : name;
     return '${style.detail('[${seconds.padLeft(5)}s]')} '
-        '${style.detail(area.padRight(_areaWidth))} ';
+        '${style.detail('[$area]'.padRight(_areaWidth))} ';
   }
 }

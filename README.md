@@ -146,19 +146,19 @@ combined.
 
 ```console
 $ ciach -v
-[  0.0s] cli     Read config from ciach.yaml.
-[  0.0s] cli       It sets 2 options:
-[  0.0s] cli         public: false
-[  0.0s] cli         exclude: test/**
-[  0.0s] cli     Settings for this run:
-[  0.0s] cli       path: /home/me/pkg (command line)
-[  0.0s] cli       public: false (config file)
-[  0.0s] cli       concurrency: 16 (default)
+[  0.0s] [cli]     Read config from ciach.yaml.
+[  0.0s] [cli]       It sets 2 options:
+[  0.0s] [cli]         public: false
+[  0.0s] [cli]         exclude: test/**
+[  0.0s] [cli]     Settings for this run:
+[  0.0s] [cli]       path: /home/me/pkg (command line)
+[  0.0s] [cli]       public: false (config file)
+[  0.0s] [cli]       concurrency: 16 (default)
 …
-[  0.1s] finder  Starting Dart analysis server…
-[  0.1s] lsp     Started `/sdk/bin/dart language-server` (pid 4242).
-[  0.3s] finder  Collecting declarations from 13 file(s)…
-[  0.5s] cli     Scanned 13 file(s) and checked 44 declaration(s) in 478ms: 4 unused, 1 referenced only from doc comments.
+[  0.1s] [finder]  Starting Dart analysis server…
+[  0.1s] [lsp]     Started `/sdk/bin/dart language-server` (pid 4242).
+[  0.3s] [finder]  Collecting declarations from 13 file(s)…
+[  0.5s] [cli]     Scanned 13 file(s) and checked 44 declaration(s) in 478ms: 4 unused, 1 referenced only from doc comments.
 ```
 
 It all goes to stderr, so `ciach -v -f json | jq` still works. Reach for it when

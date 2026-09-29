@@ -121,7 +121,7 @@ void main() {
         ..log(record('Opening'));
       expect(
         err.toString(),
-        matches(RegExp(r'^\[ +\d+\.\ds\] finder  Opening\n$')),
+        matches(RegExp(r'^\[ +\d+\.\ds\] \[finder\]  Opening\n$')),
       );
     });
   });

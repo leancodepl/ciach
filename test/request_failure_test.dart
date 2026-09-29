@@ -194,7 +194,7 @@ Future<void> main(List<String> args) async {
       expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
       final stderr = result.stderr as String;
       expect(
-        'finder  lib/a.dart:1:6 (brokenLookup): '.allMatches(stderr),
+        '[finder]  lib/a.dart:1:6 (brokenLookup): '.allMatches(stderr),
         hasLength(1),
         reason: stderr,
       );
