@@ -27,10 +27,8 @@ final class OverrideRemovals {
     this._sources, {
     required Set<String> scannedPaths,
     required String rootPath,
-    required ProblemReporter onProblem,
   }) : _scannedPaths = scannedPaths,
-       _rootPath = rootPath,
-       _onProblem = onProblem;
+       _rootPath = rootPath;
 
   final LspClient _client;
 
@@ -40,8 +38,6 @@ final class OverrideRemovals {
   final Set<String> _scannedPaths;
 
   final String _rootPath;
-
-  final ProblemReporter _onProblem;
 
   static const _unlistedOverrides =
       'Could not find the overrides of these dead members; they are reported '
@@ -72,7 +68,7 @@ final class OverrideRemovals {
         member.symbol.selectionRange.start,
       );
     } on LspRequestException catch (e) {
-      _onProblem(
+      reportProblem(
         _unlistedOverrides,
         e,
         path: member.path,
@@ -111,7 +107,7 @@ final class OverrideRemovals {
     try {
       outline = await _client.outline(uri);
     } on LspRequestException catch (e) {
-      _onProblem(_uncheckedOverride, e, path: path, position: start);
+      reportProblem(_uncheckedOverride, e, path: path, position: start);
       return null;
     }
     final found = _nodeNamedAt(outline, start);
@@ -130,7 +126,7 @@ final class OverrideRemovals {
     try {
       refs = await _client.references(uri, start);
     } on LspRequestException catch (e) {
-      _onProblem(_uncheckedOverride, e, path: path, position: start);
+      reportProblem(_uncheckedOverride, e, path: path, position: start);
       return null;
     }
     // The member is dead, so a reference here is a use this run cannot see.
@@ -157,7 +153,7 @@ final class OverrideRemovals {
     try {
       ranges = await _client.selectionRanges(uri, [name]);
     } on LspRequestException catch (e) {
-      _onProblem(_uncheckedOverride, e, path: path, position: name);
+      reportProblem(_uncheckedOverride, e, path: path, position: name);
       return true;
     }
     final innermost = ranges.single;

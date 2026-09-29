@@ -11,12 +11,9 @@ import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location, Position;
 /// constructor that replaces them calls `super()`, which compiles only if the
 /// superclass's unnamed constructor takes no required arguments.
 final class SuperclassChecks {
-  SuperclassChecks(this._client, {required ProblemReporter onProblem})
-    : _onProblem = onProblem;
+  SuperclassChecks(this._client);
 
   final LspClient _client;
-
-  final ProblemReporter _onProblem;
 
   static const _unreadSuperclass =
       'Could not read the superclass constructors of these classes; their dead '
@@ -35,7 +32,7 @@ final class SuperclassChecks {
         cls.symbol.selectionRange.start,
       );
     } on LspRequestException catch (e) {
-      _onProblem(
+      reportProblem(
         _unreadSuperclass,
         e,
         path: cls.path,
@@ -58,7 +55,7 @@ final class SuperclassChecks {
     try {
       symbols = await _client.documentSymbol(uri);
     } on LspRequestException catch (e) {
-      _onProblem(
+      reportProblem(
         _unreadSuperclass,
         e,
         path: uri.toFilePath(),
@@ -104,7 +101,7 @@ final class SuperclassChecks {
     try {
       tokens = await _client.semanticTokens(uri, content.split('\n'));
     } on LspRequestException catch (e) {
-      _onProblem(
+      reportProblem(
         _unreadSuperclass,
         e,
         path: uri.toFilePath(),

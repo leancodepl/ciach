@@ -63,7 +63,6 @@ class CrossLibraryReferences {
     required List<Candidate> candidates,
     required Set<String> emptyRefNames,
     required int concurrency,
-    required ProblemReporter onProblem,
   }) async {
     if (emptyRefNames.isEmpty) {
       return empty;
@@ -90,7 +89,7 @@ class CrossLibraryReferences {
       try {
         return await client.definition(site.uri, site.position);
       } on LspRequestException catch (e) {
-        onProblem(
+        reportProblem(
           _unresolvedSite,
           e,
           path: site.uri.toFilePath(),

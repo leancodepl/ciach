@@ -68,9 +68,6 @@ class Ciach {
   /// Skipped as entry points this run, for `--verbose`.
   final _skippedEntryPoints = <_SkippedEntryPoint>[];
 
-  /// What this run could not analyze; see [FinderResult.problems].
-  final _problems = <AnalysisProblem>[];
-
   /// Types whose member is an entry point, by `(relative path, type name)`:
   /// the generated call that reaches `MyPlugin.registerWith` names `MyPlugin`
   /// too, so the type is not a candidate either.
@@ -120,41 +117,21 @@ class Ciach {
       'overridden by a declaration --remove will not delete — that override '
       'would be left overriding nothing';
 
-  /// What the progress line shows at [Level.INFO] (phases, files done),
-  /// `--verbose` detail at [Level.FINE], and each [AnalysisProblem] at
-  /// [Level.WARNING] as the record's object.
+  /// What the progress line shows at [Level.INFO] (phases, files done), and
+  /// `--verbose` detail at [Level.FINE]. Problems go through [reportProblem].
   static final _log = Logger('ciach.finder');
-
-  void _addProblem(AnalysisProblem problem) {
-    _problems.add(problem);
-    _log.warning(problem);
-  }
-
-  /// See [ProblemReporter].
-  void _onProblem(
-    String summary,
-    LspRequestException error, {
-    required String path,
-    Position? position,
-    String? name,
-  }) => _addProblem(
-    AnalysisProblem(
-      summary: summary,
-      cause: error.message,
-      detail: error.detail,
-      filePath: relativePosix(path, options.rootPath),
-      line: position == null ? null : position.line + 1,
-      column: position == null ? null : position.character + 1,
-      name: name,
-    ),
-  );
 
   /// Runs the analysis and returns the declarations that are never referenced.
   ///
   /// Throws an [ArgumentError] if [FinderOptions.analysisRootPath] does not
   /// contain [FinderOptions.rootPath]; widening to a directory beside the
   /// scanned one would drop references rather than add them.
-  Future<FinderResult> run() async {
+  Future<FinderResult> run() {
+    final problems = ProblemLog(options.rootPath);
+    return problems.collect(() => _run(problems));
+  }
+
+  Future<FinderResult> _run(ProblemLog problems) async {
     final stopwatch = Stopwatch()..start();
     final rootPath = options.rootPath;
     final analysisRoot = options.analysisRootPath ?? rootPath;
@@ -299,10 +276,7 @@ class Ciach {
         statuses,
         refsByCandidate,
         deadClassNames,
-        SuperclassChecks(
-          client,
-          onProblem: _onProblem,
-        ).needsConstructorArguments,
+        SuperclassChecks(client).needsConstructorArguments,
       );
 
       final reported = <int>{
@@ -381,7 +355,7 @@ class Ciach {
       declarationsChecked: declarationsChecked,
       elapsed: stopwatch.elapsed,
       recoveredReferences: recoveredReferences,
-      problems: List.unmodifiable(_problems),
+      problems: problems.problems,
     );
   }
 
@@ -407,7 +381,6 @@ class Ciach {
       _sources,
       scannedPaths: scannedPaths,
       rootPath: rootPath,
-      onProblem: _onProblem,
     );
     final results = await mapPooled(
       members,
@@ -538,7 +511,7 @@ class Ciach {
     try {
       return await client.references(candidate.uri, start);
     } on LspRequestException catch (e) {
-      _onProblem(
+      reportProblem(
         _uncheckedDeclaration,
         e,
         path: candidate.path,
@@ -626,7 +599,12 @@ class Ciach {
         ranges = await client.selectionRanges(File(path).uri, ordered);
       } on LspRequestException catch (e) {
         // A position with no answer reads as "not the special shape".
-        _onProblem(_noSelectionRanges, e, path: path, position: ordered.first);
+        reportProblem(
+          _noSelectionRanges,
+          e,
+          path: path,
+          position: ordered.first,
+        );
         return;
       }
       for (var i = 0; i < ordered.length; i++) {
@@ -646,7 +624,7 @@ class Ciach {
     try {
       return await client.semanticTokens(File(path).uri, _sources.lines(path));
     } on LspRequestException catch (e) {
-      _onProblem(_noSemanticTokens, e, path: path);
+      reportProblem(_noSemanticTokens, e, path: path);
       return const [];
     }
   }
@@ -679,7 +657,6 @@ class Ciach {
       candidates: candidates,
       emptyRefNames: emptyRefNames,
       concurrency: options.concurrency,
-      onProblem: _onProblem,
     );
   }
 
@@ -781,13 +758,7 @@ class Ciach {
     try {
       content = File(path).readAsStringSync();
     } on FileSystemException catch (e) {
-      _addProblem(
-        AnalysisProblem(
-          summary: _unreadableFile,
-          cause: e.osError?.message ?? e.message,
-          filePath: relativePosix(path, options.rootPath),
-        ),
-      );
+      reportProblem(_unreadableFile, e, path: path);
       return false;
     }
     client.didOpen(File(path).uri, content);
@@ -837,7 +808,7 @@ class Ciach {
       if (e is! LspRequestException) {
         rethrow;
       }
-      _onProblem(_uncollectedFile, e, path: path);
+      reportProblem(_uncollectedFile, e, path: path);
       return const [];
     }
     final tokens = await pendingTokens;
