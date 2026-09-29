@@ -92,8 +92,7 @@ void main() {
         ..output('findings');
       expect(
         err.toString(),
-        // The second pads over what is left of the first; clearing it then
-        // only has its own length to blank.
+        // Padding blanks the rest of the longer first line.
         '\r$first'
         '\r$second${' ' * (first.length - second.length)}'
         '\r${' ' * second.length}\r',

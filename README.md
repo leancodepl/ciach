@@ -98,7 +98,7 @@ ciach --verbose                        # explain each step
 | `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
 | `-f, --format <fmt>` | `text` | `text`, `json`, or `github` (GitHub Actions `::warning` annotations). |
 | `-j, --concurrency <n>` | `16` | Reference queries kept in flight against the analysis server. |
-| `--[no-]color` | auto | Colorize the output. Auto-detected for stdout and stderr separately; off when `NO_COLOR` is set. |
+| `--[no-]color` | auto | Colorize the output. Auto-detected per stream; honors `NO_COLOR`. |
 | `--[no-]progress` | auto | Show scan progress on stderr. |
 | `-v, --verbose` | off | Explain what's happening on stderr. See [Verbose mode](#verbose-mode). |
 | `--dart <path>` | auto | Path to the `dart` executable to launch the server with. Defaults to the SDK running ciach, or to `dart` from `PATH` for a compiled binary. |
@@ -106,35 +106,11 @@ ciach --verbose                        # explain each step
 Exit codes: `0` success, `1` unused found with `--set-exit-if-changed`, `2`
 usage or analysis error.
 
-stdout carries the result alone, in the chosen `--format`; everything else —
-progress, `-v` narration, warnings, errors, the `--remove` prompt — goes to
-stderr. The text report lists the findings first, then a section for each kind
-of note on them, and a summary line counting them all:
+The result goes to stdout; progress, `-v` output, warnings, errors and the
+`--remove` prompt go to stderr.
 
-```console
-$ ciach
-lib/greeting.dart
-  15:6  function  danglingFunction  (public)
-
-Referenced only from doc comments (1) · not counted as unused, never removed
-lib/greeting.dart
-  41:6  function  _docOnlyMentioned  (private)
-
-Not analyzed (1) · parts of the analysis failed; each says what ciach did instead
-  Could not find the references to these declarations; they are kept, not reported.
-    type 'ConstructorElementImpl' is not a subtype of type 'InterfaceElement' in type cast
-    lib/canvas_proxy.dart
-      65:11  CanvasProxy.noSuchMethod
-  The analysis server threw while answering (likely a Dart SDK bug); -v shows its stack traces.
-
-Found 1 unused declaration in 1 file (scanned 13 files, 44 declarations, 0.5s) · 1 doc-only · 1 not analyzed
-```
-
-When the analysis server fails on one declaration or file (it throws while
-answering, or times out), the run goes on: whatever it could not check is kept,
-never reported or removed, and listed under "Not analyzed" with the server's
-error (`problems` in `-f json`, `::warning` in `-f github`). Only a server that
-exits, or a bug in ciach itself, stops the run with exit code `2`.
+If the analysis server fails on a declaration or file, the run continues: that
+code is kept and listed under "Not analyzed" (`problems` in JSON).
 
 ### Configuration file
 
@@ -165,11 +141,8 @@ combined.
 
 ### Verbose mode
 
-`-v` shows the whole log on stderr, each line stamped with the elapsed time and
-the part of ciach speaking: the config file read and what it set, every setting
-and the layer it came from, the analysis server starting and stopping, each
-scan phase, each problem as it happens, anything the definition check rescued,
-and what `--remove` touches.
+`-v` prints the whole log on stderr: config, settings, each phase, and what
+`--remove` touches.
 
 ```console
 $ ciach -v
@@ -387,20 +360,9 @@ for (final decl in result.unused) {
 }
 ```
 
-Everything the run finds or could not check is in the `FinderResult`. The run
-also narrates itself through [`package:logging`](https://pub.dev/packages/logging),
-under `ciach.*` loggers, with one meaning per level:
-
-| Level | Means |
-|---|---|
-| `SEVERE` | The command failed (the CLI only; the library throws). |
-| `WARNING` | Needs attention, but is not part of the result. |
-| `INFO` | What the run is doing now: its phases, files done. |
-| `CONFIG` | How the run is set up. |
-| `FINE` and finer | What happened, in detail — each `AnalysisProblem` as it happens, as the record's `object`. |
-
-ciach never prints and never configures the root logger: set
-`Logger.root.level` and listen on `Logger.root.onRecord` to see it.
+ciach logs through [`package:logging`](https://pub.dev/packages/logging) under
+`ciach.*` and never configures the root logger; listen on
+`Logger.root.onRecord` to see it.
 
 ## Development
 

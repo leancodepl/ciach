@@ -7,9 +7,7 @@ import 'package:ciach/src/version.dart';
 
 const _issueTracker = 'https://github.com/leancodepl/ciach/issues';
 
-/// What stops a run, for stderr: what happened and what to do about it. The
-/// stack trace is only shown when [verbose]; an error ciach did not expect
-/// asks to be reported instead.
+/// A fatal [error] for stderr. The stack trace is shown only when [verbose].
 String describeFatalError(
   Object error,
   StackTrace stackTrace, {
@@ -37,17 +35,14 @@ String describeFatalError(
   if (detail != null) {
     buffer.writeln(
       verbose
-          ? 'The analysis server logged:\n${style.detail(detail)}'
-          : style.detail(
-              'The analysis server threw while answering, which is likely a '
-              'Dart SDK bug; --verbose shows its stack trace.',
-            ),
+          ? 'Server stack trace:\n${style.detail(detail)}'
+          : style.detail('Likely a Dart SDK bug; -v shows the stack trace.'),
     );
   }
   if (isBug) {
     buffer.writeln(
-      'This is a bug in ciach $ciachVersion. Please report it at '
-      '$_issueTracker, with the output of the same command run with --verbose.',
+      'This is a bug in ciach $ciachVersion; please report it at '
+      '$_issueTracker with the -v output.',
     );
   }
   if (verbose) {
@@ -55,7 +50,7 @@ String describeFatalError(
       ..writeln()
       ..writeln(style.detail('$stackTrace'.trimRight()));
   } else if (isBug) {
-    buffer.writeln(style.detail('Run with --verbose to see the stack trace.'));
+    buffer.writeln(style.detail('Run with -v for the stack trace.'));
   }
   return buffer.toString();
 }

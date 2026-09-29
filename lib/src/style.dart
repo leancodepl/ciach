@@ -2,16 +2,11 @@ import 'dart:io';
 
 import 'package:ciach/src/log.dart' show Level;
 
-/// ANSI styling for one output stream. Every method returns its text
-/// unchanged when [enabled] is `false`, so rendering code styles
-/// unconditionally.
-///
-/// Each style resets only what it set (`22` for bold and dim, `39` for a
-/// color), so styles nest: `bold(red('x'))`.
+/// ANSI styling for one stream; a no-op when not [enabled]. Styles nest.
 final class Style {
   const Style({required this.enabled});
 
-  /// The style for [stream]; see [shouldStyle].
+  /// The style for [stream].
   factory Style.of(Stdout stream, {bool? color}) => Style(
     enabled: shouldStyle(
       color: color,
@@ -20,9 +15,7 @@ final class Style {
     ),
   );
 
-  /// [color] when given (`--color`/`--no-color`), else whether the stream
-  /// [supportsAnsiEscapes], unless `NO_COLOR` is set in [environment]
-  /// (https://no-color.org).
+  /// [color] if given, else [supportsAnsiEscapes] unless `NO_COLOR` is set.
   static bool shouldStyle({
     required bool? color,
     required bool supportsAnsiEscapes,
@@ -35,8 +28,7 @@ final class Style {
 
   final bool enabled;
 
-  // The palette: every role below is one of these, so a change of color is
-  // a change here.
+  // The palette. Roles below pick from it.
   String _bold(String text) => _wrap(text, 1, 22);
   String _dim(String text) => _wrap(text, 2, 22);
   String _red(String text) => _wrap(text, 31, 39);
@@ -50,28 +42,28 @@ final class Style {
   /// A file header.
   String path(String text) => _bold(text);
 
-  /// A `line:column`, or a `used at …` location.
+  /// A `line:column`.
   String position(String text) => _dim(text);
 
   /// A declaration's kind.
   String kind(String text) => _cyan(text);
 
-  /// Secondary text: visibility, hints, what a section means, timings.
+  /// Secondary text.
   String note(String text) => _dim(text);
 
-  /// Something to look at before trusting or acting on the result.
+  /// Something to double-check.
   String caution(String text) => _yellow(text);
 
-  /// Why something failed: an exception's message.
+  /// An error message.
   String failure(String text) => _red(text);
 
-  /// A section's title, or a question put to the user.
+  /// A title or prompt.
   String heading(String text) => _bold(text);
 
-  /// Something that went as hoped.
+  /// A good outcome.
   String success(String text) => _green(text);
 
-  /// Findings the user asked to hear about.
+  /// The findings count.
   String attention(String text) => _bold(_yellow(text));
 
   // The log.
@@ -82,11 +74,10 @@ final class Style {
   /// The `warning:` label.
   String warningLabel(String text) => _bold(_yellow(text));
 
-  /// A [Level.CONFIG] record: how the run is set up.
+  /// A [Level.CONFIG] record.
   String configuration(String text) => _magenta(text);
 
-  /// A record finer than [Level.CONFIG], a timestamp, a logger's name, or
-  /// the progress line.
+  /// Fine records, timestamps, the progress line.
   String detail(String text) => _dim(text);
 
   String _wrap(String text, int on, int off) =>

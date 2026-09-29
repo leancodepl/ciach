@@ -11,8 +11,7 @@
 import 'dart:async';
 
 /// Runs [fn] over [items] with at most [concurrency] futures in flight,
-/// preserving input order in the returned list. Throws the first error [fn]
-/// throws, once every worker has stopped.
+/// preserving input order in the returned list. Rethrows the first error.
 Future<List<R>> mapPooled<T, R>(
   List<T> items,
   int concurrency,
@@ -32,7 +31,6 @@ Future<List<R>> mapPooled<T, R>(
   }
 
   final workerCount = concurrency < items.length ? concurrency : items.length;
-  // Unlike `.wait`, rethrows the error itself, not a `ParallelWaitError`.
   await Future.wait(List.generate(workerCount, (_) => worker()));
   return results.cast<R>();
 }

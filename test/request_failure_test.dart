@@ -32,10 +32,8 @@ void main() {
 
   tearDown(() => tmp.deleteSync(recursive: true));
 
-  // A `dart` whose language server is the real one, except that it fails
-  // `textDocument/references` at line 1 (one-based): like the Dart server when
-  // it throws — an error response, then the exception in `window/logMessage` —
-  // or, when [die], by exiting.
+  // The real language server, except that references at line 1 fail like the
+  // Dart server's do (or, with [die], the server exits).
   String proxyDart({bool die = false}) {
     final proxy = File(p.join(tmp.path, 'proxy.dart'))
       ..writeAsStringSync('''
@@ -127,7 +125,7 @@ Future<void> main(List<String> args) async {
     final problem = result.problems.single;
     expect(problem.name, 'brokenLookup');
     expect(problem.location, 'lib/a.dart:1:6');
-    expect(problem.summary, contains('Could not find the references'));
+    expect(problem.summary, 'Could not find references; kept.');
     expect(problem.cause, 'Injected failure');
     expect(problem.detail, '#0      injected');
   });
@@ -176,18 +174,17 @@ Future<void> main(List<String> args) async {
           stdout.substring(notAnalyzed),
           allOf(
             contains(
-              '  Could not find the references to these declarations; they '
-              'are kept, not reported.\n'
+              '  Could not find references; kept.\n'
               '    Injected failure\n'
               '    lib/a.dart\n'
               '      1:6  brokenLookup\n',
             ),
-            contains('-v shows its stack traces'),
+            contains('-v shows the stack traces'),
             contains('· 1 not analyzed'),
             isNot(contains('#0')),
           ),
         );
-        // The problem is a result, not a log record: nothing on stderr.
+        // Problems are results, so stderr stays clean.
         expect(result.stderr, isNot(contains('brokenLookup')));
       },
     );

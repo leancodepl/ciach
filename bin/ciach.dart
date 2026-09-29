@@ -27,7 +27,6 @@ import 'package:path/path.dart' as p;
 
 final _log = Logger('ciach.cli');
 
-/// The terminal: the result goes to its stdout, and it shows the log.
 final _console = Console.standard();
 
 Future<void> main(List<String> arguments) async {
@@ -200,8 +199,7 @@ Future<int> _run(List<String> arguments) async {
   return 0;
 }
 
-/// Confirms unless [ResolvedOptions.force], deletes the removable findings
-/// from disk, and reports what it did.
+/// Confirms (unless forced), removes the findings, and reports it.
 void _removeUnused(
   FinderResult result,
   String rootPath,
@@ -235,8 +233,7 @@ void _removeUnused(
     _log.fine('Asking for confirmation; pass --force to skip the prompt.');
     final proceed = _console.confirm(
       'Remove $count unused declaration${count == 1 ? '' : 's'}?',
-      // The chosen --format may not be human-readable; show the findings
-      // again so the question is never a shot in the dark.
+      // Non-text formats aren't readable, so show the findings first.
       preamble: resolved.format == 'text'
           ? null
           : Reporter.text(result, style: _console.errStyle),
@@ -253,7 +250,6 @@ void _removeUnused(
       removal,
       removed: count,
       blocked: blocked,
-      // Removing a declaration takes the report line that carried its hint.
       notes: {
         for (final d in removable)
           if (d.hint case final hint?) '${d.qualifiedName}: $hint',

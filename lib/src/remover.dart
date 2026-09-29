@@ -106,8 +106,8 @@ RemovalResult removeDeclarations(
   return RemovalResult(filesChanged: rewritten.length, deletedFiles: deleted);
 }
 
-/// [removeDeclarations] could not read, write or delete [filePath]. The files
-/// it had already rewritten stay rewritten.
+/// [removeDeclarations] failed on [filePath]; [changedFiles] were already
+/// rewritten.
 class RemovalException implements Exception {
   const RemovalException({
     required this.filePath,
@@ -115,20 +115,17 @@ class RemovalException implements Exception {
     required this.changedFiles,
   });
 
-  /// The file that failed (root-relative `/`-path).
+  /// Root-relative `/`-path.
   final String filePath;
 
-  /// Why, as the file system put it.
   final String cause;
 
-  /// The files already rewritten (root-relative `/`-paths).
   final List<String> changedFiles;
 
   String get message {
     final changed = changedFiles.isEmpty
         ? 'No file was changed.'
-        : 'Already rewritten, so review them before running again: '
-              '${changedFiles.join(', ')}.';
+        : 'Already rewritten: ${changedFiles.join(', ')}.';
     return 'Could not remove declarations from $filePath: $cause. $changed';
   }
 

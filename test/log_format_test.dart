@@ -48,7 +48,7 @@ void main() {
     );
     expect(text, startsWith('error: Internal error: RangeError'));
     expect(text, contains('This is a bug in ciach'));
-    expect(text, endsWith('Run with --verbose to see the stack trace.\n'));
+    expect(text, endsWith('Run with -v for the stack trace.\n'));
   });
 
   test('verbose stamps the time and names the area talking', () {

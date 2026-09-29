@@ -37,7 +37,6 @@ import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart'
     show DocumentSymbol, Location, Position, Range, SelectionRange;
 
-/// Problems are part of the result, so they go through [recordProblem].
 final _log = Logger('ciach.finder');
 
 /// Finds declarations that are never referenced by driving the Dart analysis
@@ -97,24 +96,17 @@ class Ciach {
       'declaring parameter of the primary constructor — removing it changes '
       'the constructor signature at every call site';
 
-  static const _unreadableFile =
-      'Could not read these files; nothing in them is reported.';
+  static const _unreadableFile = 'Could not read these files; skipped.';
 
-  static const _uncollectedFile =
-      'Could not read the declarations in these files; nothing in them is '
-      'reported.';
+  static const _uncollectedFile = 'Could not list declarations; file skipped.';
 
-  static const _uncheckedDeclaration =
-      'Could not find the references to these declarations; they are kept, '
-      'not reported.';
+  static const _uncheckedDeclaration = 'Could not find references; kept.';
 
   static const _noSemanticTokens =
-      'Could not read the comments and annotations in these files; a '
-      'declaration there may be kept though unused.';
+      'Could not read comments and annotations; findings may be missed.';
 
   static const _noSelectionRanges =
-      'Could not read the syntax around these positions; review the findings '
-      'in these files before removing them.';
+      'Could not read the syntax here; review findings before removing.';
 
   static const _overriddenHint =
       'overridden by a declaration --remove will not delete — that override '
@@ -212,8 +204,7 @@ class Ciach {
         files.length,
         rootPath,
       );
-      // A declaration whose references could not be found stays out of the
-      // rest of the run, like one that was never a candidate: it is kept.
+      // Unchecked declarations drop out, so they are kept.
       final candidates = <Candidate>[];
       final refsByCandidate = <List<Location>>[];
       for (var i = 0; i < collected.length; i++) {
@@ -506,8 +497,7 @@ class Ciach {
     });
   }
 
-  /// The references to [candidate], or `null` when the server could not find
-  /// them.
+  /// The references to [candidate]; `null` if the request failed.
   Future<List<Location>?> _references(
     LspClient client,
     Candidate candidate,
@@ -807,7 +797,7 @@ class Ciach {
       symbols = await pendingSymbols;
       outline = await pendingOutline;
     } on Object catch (e) {
-      // Whatever the other two do is moot now.
+      // The other results are no longer needed.
       pendingOutline.ignore();
       pendingTokens.ignore();
       if (e is! LspRequestException) {

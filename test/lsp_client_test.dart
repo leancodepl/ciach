@@ -71,8 +71,7 @@ void main() {
     );
   });
 
-  // A server that fails `textDocument/references` the way the Dart one does:
-  // a bare error response, then the exception in `window/logMessage`.
+  // Fails references like the Dart server: bare error, then a logMessage.
   String failingReferencesServer() {
     final server = File(p.join(tmp.path, 'server.dart'))
       ..writeAsStringSync(r'''

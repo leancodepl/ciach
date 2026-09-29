@@ -17,11 +17,8 @@ import 'package:path/path.dart' as p;
 
 /// Renders a [FinderResult] for humans or machines.
 abstract final class Reporter {
-  /// A grouped, aligned, human-readable report: the findings, then a section
-  /// for each kind of note on them, then a summary line counting them all.
-  ///
-  /// [verbose] lists every problem location, with the analysis server's
-  /// stack trace; otherwise each cause lists its first [maxListed].
+  /// The human-readable report: findings, extra sections, summary. Unless
+  /// [verbose], each problem cause lists at most [maxListed] locations.
   static String text(
     FinderResult result, {
     Style style = Style.plain,
@@ -36,7 +33,7 @@ abstract final class Reporter {
         buffer,
         'Referenced only from doc comments',
         result.docOnly.length,
-        'not counted as unused, never removed',
+        'not counted, never removed',
         style,
       );
       _writeDeclarations(buffer, result.docOnly, style);
@@ -47,8 +44,7 @@ abstract final class Reporter {
         buffer,
         'Recovered references',
         result.recoveredReferences.length,
-        'find-references missed a use the definition check found; kept · '
-            'likely a Dart SDK bug',
+        'missed by find-references; kept',
         style,
         caution: true,
       );
@@ -60,7 +56,7 @@ abstract final class Reporter {
         buffer,
         'Not analyzed',
         result.problems.length,
-        'parts of the analysis failed; each says what ciach did instead',
+        'the analysis failed here',
         style,
         caution: true,
       );
@@ -71,9 +67,7 @@ abstract final class Reporter {
     return buffer.toString();
   }
 
-  /// What `--remove` did: [removed] declarations taken out, [blocked] left
-  /// in place as unsafe, with the [notes] their removed report lines carried.
-  /// A `null` [removal] means the user declined.
+  /// What `--remove` did; `null` [removal] means the user declined.
   static String removal(
     RemovalResult? removal, {
     int removed = 0,
@@ -111,7 +105,7 @@ abstract final class Reporter {
     return buffer.toString();
   }
 
-  /// A section's heading line: its [title] and [count], then what it means.
+  /// A section heading.
   static void _writeHeading(
     StringBuffer buffer,
     String title,
@@ -183,7 +177,7 @@ abstract final class Reporter {
     buffer.writeln();
   }
 
-  /// [problems] by what failed, then why, then where.
+  /// [problems] grouped by summary, cause, then file.
   static void _writeProblems(
     StringBuffer buffer,
     List<AnalysisProblem> problems,
@@ -231,9 +225,7 @@ abstract final class Reporter {
         hasDetail |= detail != null;
         if (verbose && detail != null) {
           buffer
-            ..writeln(
-              style.note('    The analysis server logged, for the first:'),
-            )
+            ..writeln(style.note('    Stack trace of the first:'))
             ..writeln(
               style.note(
                 detail.split('\n').map((line) => '      $line').join('\n'),
@@ -244,10 +236,7 @@ abstract final class Reporter {
     }
     if (hasDetail && !verbose) {
       buffer.writeln(
-        style.note(
-          '  The analysis server threw while answering (likely a Dart SDK '
-          'bug); -v shows its stack traces.',
-        ),
+        style.note('  Likely a Dart SDK bug; -v shows the stack traces.'),
       );
     }
     buffer.writeln();

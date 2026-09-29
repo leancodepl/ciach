@@ -60,8 +60,7 @@ class LspClient {
 
   final _outlineWaiters = <String, Completer<Outline>>{};
 
-  /// Errors the server sent via `window/logMessage`, oldest first, at most
-  /// [_maxLoggedErrors] of them.
+  /// Recent `window/logMessage` errors, oldest first.
   final _loggedErrors = <String>[];
 
   final _errorLogged = StreamController<void>.broadcast(sync: true);
@@ -175,16 +174,9 @@ class LspClient {
     );
   }
 
-  /// Runs [request], the [method] request.
-  ///
-  /// A server that died meanwhile throws its [AnalysisServerExitedException]
-  /// instead of `json_rpc_2`'s uninformative "client closed" error. Any other
-  /// failure is this request's alone: an [LspRequestException].
-  ///
-  /// The Dart server fails a request that threw with a bare "An error occurred
-  /// while handling textDocument/references request" (for instance) and logs
-  /// the exception and its stack separately; that log becomes the
-  /// exception's message and detail.
+  /// Runs [request]. Throws [AnalysisServerExitedException] if the server
+  /// died, else [LspRequestException], filled in from the exception the
+  /// server logs separately from its bare error response.
   Future<T> _guard<T>(String method, Future<T> Function() request) async {
     try {
       return await request();
@@ -225,8 +217,8 @@ class LspClient {
     _errorLogged.add(null);
   }
 
-  /// What the server logged after failing a request with [message], waiting
-  /// up to [timeout] for it: the log can land after the error response.
+  /// The server's log for the failed request [message]; it can arrive after
+  /// the response, so this waits up to [timeout].
   Future<String?> _takeLoggedError(
     String message, {
     Duration timeout = const .new(seconds: 1),
@@ -292,8 +284,7 @@ class LspClient {
     }
   }
 
-  /// The outline of [uri], waiting for it if it has not arrived yet. Throws an
-  /// [LspRequestException] after [timeout].
+  /// The outline of [uri]. Throws [LspRequestException] after [timeout].
   Future<Outline> outline(
     Uri uri, {
     Duration timeout = const .new(minutes: 2),
@@ -505,13 +496,11 @@ class LspClient {
   }
 }
 
-/// One request to the Dart analysis server failed; the server itself is still
-/// running, so the rest of a run can go on without this answer.
+/// One request failed; the server is still running.
 class LspRequestException implements Exception {
   const LspRequestException(this.method, this.message, {this.detail});
 
-  /// Reads the server's log of the exception it threw: the exception on the
-  /// first line, then its stack trace.
+  /// Parses a logged exception: message line, then stack trace.
   factory LspRequestException.fromLog(String method, String logged) {
     final newline = logged.indexOf('\n');
     return newline < 0
@@ -526,18 +515,17 @@ class LspRequestException implements Exception {
   /// The LSP method, e.g. `textDocument/references`.
   final String method;
 
-  /// Why it failed, on one line: the exception the server threw, when it
-  /// logged one.
+  /// Why it failed, on one line.
   final String message;
 
-  /// The server's stack trace, when it logged one.
+  /// The server's stack trace, if logged.
   final String? detail;
 
   @override
   String toString() => 'The Dart analysis server failed $method: $message';
 }
 
-/// The Dart analysis server exited while ciach was still using it.
+/// The analysis server exited unexpectedly.
 class AnalysisServerExitedException implements Exception {
   const AnalysisServerExitedException({
     required this.executable,
@@ -550,7 +538,7 @@ class AnalysisServerExitedException implements Exception {
 
   final int exitCode;
 
-  /// Everything the server wrote to stderr, trimmed.
+  /// The server's stderr, trimmed.
   final String stderr;
 
   String get message =>

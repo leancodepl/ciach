@@ -2,22 +2,18 @@ import 'package:ciach/src/cli/errors.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/style.dart';
 
-/// How a log record reads on stderr: the one place its look is decided. See
-/// `log.dart` for what each level means.
+/// Formats log records for stderr.
 final class LogFormatter {
   const LogFormatter({this.style = Style.plain, this.verbose = false});
 
   final Style style;
 
-  /// Whether lines are stamped with the time and the logger's area, and
-  /// fatal errors come with their stack trace.
+  /// Adds a timestamp and logger area, and stack traces to fatal errors.
   final bool verbose;
 
-  /// Wide enough for every area: `finder`, `lsp`, `remover`, `cli`.
   static const _areaWidth = 7;
 
-  /// [record] as lines that stay, ending with a newline. [elapsed] is the
-  /// time since the run started, for the `--verbose` stamp.
+  /// [record] as a line, newline-terminated.
   String line(LogRecord record, Duration elapsed) {
     final message = record.message;
     final text = switch (record.level) {
@@ -38,7 +34,7 @@ final class LogFormatter {
     return '${verbose ? _prefix(record, elapsed) : ''}$text\n';
   }
 
-  /// A [Level.INFO] record's [message] as the progress line shows it.
+  /// [message] styled for the progress line.
   String progress(String message) => style.detail(message);
 
   String _prefix(LogRecord record, Duration elapsed) {

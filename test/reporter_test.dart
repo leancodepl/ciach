@@ -166,13 +166,10 @@ void main() {
       );
       expect(out, contains('trulyDead'));
       expect(out, contains('onlyLinkedFromDocs'));
-      expect(out, contains('not counted as unused, never removed'));
+      expect(out, contains('not counted, never removed'));
       // The doc-only entry appears after the "not counted..." label, not
       // mixed into the unused listing above it.
-      expect(
-        out.indexOf('not counted as unused'),
-        greaterThan(out.indexOf('trulyDead')),
-      );
+      expect(out.indexOf('not counted'), greaterThan(out.indexOf('trulyDead')));
     });
 
     test(
@@ -306,18 +303,15 @@ void main() {
         '  3:5   function  dangling  (public)\n'
         '  18:5  function  _private  (private)\n'
         '\n'
-        'Referenced only from doc comments (1) · not counted as unused, never '
-        'removed\n'
+        'Referenced only from doc comments (1) · not counted, never removed\n'
         'lib/a.dart\n'
         '  41:5  function  docOnly  (public)\n'
         '\n'
-        'Recovered references (1) · find-references missed a use the '
-        'definition check found; kept · likely a Dart SDK bug\n'
+        'Recovered references (1) · missed by find-references; kept\n'
         'lib/a.dart\n'
         '  4:7  A.baz  used at lib/b.dart:9:2\n'
         '\n'
-        'Not analyzed (2) · parts of the analysis failed; each says what ciach '
-        'did instead\n'
+        'Not analyzed (2) · the analysis failed here\n'
         '  Could not find the references; kept.\n'
         '    Null check operator used on a null value\n'
         '    lib/b.dart\n'
@@ -325,8 +319,7 @@ void main() {
         '  Could not read these files; nothing reported.\n'
         '    Permission denied\n'
         '    lib/secret.dart\n'
-        '  The analysis server threw while answering (likely a Dart SDK bug); '
-        '-v shows its stack traces.\n'
+        '  Likely a Dart SDK bug; -v shows the stack traces.\n'
         '\n'
         'Found 2 unused declarations in 1 file (scanned 3 files, 10 '
         'declarations, 1.0s) · 1 doc-only · 1 recovered · 2 not analyzed',
@@ -352,14 +345,11 @@ void main() {
         expect(short, contains('      2:5  A.foo'));
         expect(short, isNot(contains('      3:5  A.foo')));
         expect(short, contains('    … and 1 more (-v lists them all)'));
-        expect(short, contains('-v shows its stack traces'));
+        expect(short, contains('-v shows the stack traces'));
 
         final verbose = Reporter.text(result, verbose: true, maxListed: 2);
         expect(verbose, contains('      3:5  A.foo'));
-        expect(
-          verbose,
-          contains('    The analysis server logged, for the first:'),
-        );
+        expect(verbose, contains('    Stack trace of the first:'));
         expect(verbose, contains('      #0      Foo.bar'));
         expect(verbose, isNot(contains('-v')));
       },

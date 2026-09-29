@@ -62,8 +62,7 @@ class ResolvedOptions {
   final bool force;
   final String format;
 
-  /// Whether to style the output: `--color`, `--no-color`, or `null` to let
-  /// each stream decide (see `Style.of`).
+  /// `--color`/`--no-color`, or `null` for auto.
   final bool? color;
 
   /// Whether to show scan progress. Always `false` when [verbose] is set, whose
@@ -73,8 +72,7 @@ class ResolvedOptions {
   final int concurrency;
   final String? dartExecutable;
 
-  /// The finder's share of these settings, launching the server with
-  /// [dartExecutable] (else it finds one).
+  /// The finder's options.
   FinderOptions finderOptions({String? dartExecutable}) => .new(
     rootPath: rootPath,
     analysisRootPath: analysisRootPath,
@@ -105,8 +103,8 @@ CiachConfiguration resolveConfiguration(ArgResults args, ConfigFile config) =>
       configBroker: config,
     );
 
-/// The settings of [configuration], with [progressDefault] standing in for
-/// progress nobody asked for either way. Color left unset stays `null`.
+/// The settings of [configuration]; [progressDefault] applies when progress
+/// is unset.
 ResolvedOptions resolveOptions(
   CiachConfiguration configuration, {
   required bool progressDefault,

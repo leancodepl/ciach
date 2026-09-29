@@ -24,7 +24,7 @@ void main() {
     );
   });
 
-  test('a failed request points at --verbose for the server stack', () {
+  test('a failed request points at -v for the server stack', () {
     const error = LspRequestException(
       'initialize',
       'Bad state',
@@ -33,13 +33,12 @@ void main() {
     expect(
       describeFatalError(error, stack, verbose: false),
       'error: The Dart analysis server failed initialize: Bad state.\n'
-      'The analysis server threw while answering, which is likely a Dart SDK '
-      'bug; --verbose shows its stack trace.\n',
+      'Likely a Dart SDK bug; -v shows the stack trace.\n',
     );
     expect(
       describeFatalError(error, stack, verbose: true),
       allOf(
-        contains('The analysis server logged:\n#0      Server.init'),
+        contains('Server stack trace:\n#0      Server.init'),
         endsWith('#0      main (file:///x.dart:1:1)\n'),
       ),
     );
@@ -57,8 +56,7 @@ void main() {
         verbose: false,
       ),
       'error: Could not remove declarations from lib/b.dart: Permission '
-      'denied. Already rewritten, so review them before running again: '
-      'lib/a.dart.\n',
+      'denied. Already rewritten: lib/a.dart.\n',
     );
   });
 
@@ -86,12 +84,12 @@ void main() {
     expect(text, startsWith('error: Internal error: RangeError'));
     expect(text, contains('This is a bug in ciach'));
     expect(text, contains('https://github.com/leancodepl/ciach/issues'));
-    expect(text, endsWith('Run with --verbose to see the stack trace.\n'));
+    expect(text, endsWith('Run with -v for the stack trace.\n'));
     expect(text, isNot(contains('#0')));
 
     expect(
       describeFatalError(RangeError('x'), stack, verbose: true),
-      allOf(contains('#0      main'), isNot(contains('Run with --verbose'))),
+      allOf(contains('#0      main'), isNot(contains('Run with -v'))),
     );
   });
 }

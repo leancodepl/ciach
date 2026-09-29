@@ -40,12 +40,10 @@ final class OverrideRemovals {
   final String _rootPath;
 
   static const _unlistedOverrides =
-      'Could not find the overrides of these dead members; they are reported '
-      'but not removed.';
+      'Could not find overrides; reported, not removed.';
 
   static const _uncheckedOverride =
-      'Could not check these overrides of dead members; the members are '
-      'reported but not removed.';
+      'Could not check an override; reported, not removed.';
 
   /// The kinds an override is deleted as, mapped to the kind the remover
   /// reads. A `field` goes as a declarator, so it can share a statement.

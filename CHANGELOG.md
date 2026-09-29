@@ -1,38 +1,13 @@
 ## Unreleased
 
-- **Breaking:** `FinderOptions.onProgress` is gone. ciach narrates through
-  `package:logging`, under `ciach.*` loggers (`finder`, `lsp`, `remover`,
-  `cli`), with one meaning per level: `INFO` for what the run is doing,
-  `CONFIG` for how it is set up, `FINE` and finer for detail, `WARNING` for
-  what needs attention outside the result, `SEVERE` for a command that failed.
-  Library code never prints and never configures `Logger.root`; listen on
-  `Logger.root.onRecord` where `onProgress` was passed.
-- The CLI keeps two channels apart: the result on stdout, the log on stderr.
-  The text report is laid out in sections — the findings, then "Referenced
-  only from doc comments", "Recovered references" and "Not analyzed", each
-  with a count and what it means — and its summary line counts them all.
-  Recovered references and analysis problems used to be loose warnings on
-  stderr. `-v` shows every log record, stamped with the time and the part of
-  ciach speaking. `--remove`'s prompt moves to stderr, and its "Nothing
-  removed" and "Refusing to remove" become warnings there.
-- A request the analysis server fails no longer ends the run. The declaration
-  or file it was about is kept (never reported or removed) and listed under
-  "Not analyzed" with the server's own error, grouped by what failed and why;
-  `-f json` adds a `problems` array, `-f github` a `::warning` per problem,
-  and `FinderResult.problems` has them for a library caller. Fallbacks that
-  were silent before, such as a failed override or superclass lookup, are
-  listed too.
-- A run that does stop says what happened, without a stack trace unless
-  `-v`: a server that exited, with its stderr; a failed `--remove`, with the
-  files it had already rewritten; an error ciach did not expect, with a
-  request to report it. `LspRequestException`,
-  `AnalysisServerExitedException` and `RemovalException` are exported.
-- Color goes beyond the findings list: error and warning labels, each log
-  level, the section headings, a problem's cause, the summary and
-  `--remove`'s outcome. It is decided for stdout and stderr separately, and
-  `NO_COLOR` turns it off; `--color`/`--no-color` still force it. The
-  progress line shows only what the run is doing, is cut to the terminal's
-  width, and is cleared rather than left behind.
+- **Breaking:** `FinderOptions.onProgress` is removed. ciach logs through
+  `package:logging` under `ciach.*`.
+- A failed analysis server request no longer stops the run. The affected code
+  is kept and listed under "Not analyzed" (`problems` in JSON).
+- Fatal errors print a short message; the stack trace needs `-v`.
+- The text report groups extra findings into sections; stdout carries only the
+  result, stderr only the log.
+- More color, decided per stream; `NO_COLOR` is respected.
 - `FinderOptions` normalizes `rootPath` and `analysisRootPath`, and a run throws
   an `ArgumentError` when the analysis root doesn't contain the scanned one, so
   a library caller gets the check the CLI already had. The constructor is no

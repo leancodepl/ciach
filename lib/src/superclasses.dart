@@ -16,8 +16,7 @@ final class SuperclassChecks {
   final LspClient _client;
 
   static const _unreadSuperclass =
-      'Could not read the superclass constructors of these classes; their dead '
-      'constructors are reported but not removed.';
+      'Could not read the superclass; constructors reported, not removed.';
 
   /// Verdicts by superclass location.
   final _bySuperclass = <String, Future<bool>>{};

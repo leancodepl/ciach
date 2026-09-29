@@ -40,8 +40,7 @@ class CrossLibraryReferences {
   static const empty = CrossLibraryReferences._(<_DeclPosition, _Site>{});
 
   static const _unresolvedSite =
-      'Could not resolve these possible uses of declarations that look unused; '
-      'check the findings before removing them.';
+      'Could not resolve a possible use; check findings before removing.';
 
   /// Over-inclusive on purpose: the `definition` confirmation, not this set, is
   /// what makes the recovery correct.
