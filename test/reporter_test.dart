@@ -12,6 +12,7 @@ import 'dart:convert';
 
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/reporter.dart';
+import 'package:ciach/src/style.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -341,5 +342,31 @@ void main() {
         'Cause: Null check operator used on a null value\n',
       );
     });
+  });
+
+  test('text styles the summary when asked to', () {
+    const style = Style(enabled: true);
+    expect(
+      Reporter.text(resultWith(const []), style: style),
+      startsWith(
+        '\x1b[32mNo unused declarations found\x1b[39m \x1b[2m(scanned',
+      ),
+    );
+    expect(
+      Reporter.problemsText(
+        resultWith(
+          const [],
+          problems: [
+            const AnalysisProblem(
+              summary: 'Could not read.',
+              cause: 'Gone',
+              filePath: 'lib/a.dart',
+            ),
+          ],
+        ),
+        style: style,
+      ),
+      startsWith('\x1b[1m\x1b[33mwarning:\x1b[39m\x1b[22m Could not read.'),
+    );
   });
 }

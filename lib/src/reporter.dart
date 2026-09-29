@@ -11,29 +11,28 @@
 import 'dart:convert';
 
 import 'package:ciach/src/models.dart';
+import 'package:ciach/src/style.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
 /// Renders a [FinderResult] for humans or machines.
 abstract final class Reporter {
   /// A grouped, aligned, human-readable report.
-  static String text(FinderResult result, {bool useColor = false}) {
+  static String text(FinderResult result, {Style style = Style.plain}) {
     final buffer = StringBuffer();
-    _writeGroup(buffer, result.unused, useColor);
+    _writeGroup(buffer, result.unused, style);
 
     if (result.docOnly.isNotEmpty) {
       buffer.writeln(
-        _style(
+        style.hint(
           'Referenced only from doc comments — not counted as unused, '
           'never removed:',
-          _dim,
-          useColor,
         ),
       );
-      _writeGroup(buffer, result.docOnly, useColor);
+      _writeGroup(buffer, result.docOnly, style);
     }
 
-    buffer.write(_summary(result));
+    buffer.write(_summary(result, style));
     return buffer.toString();
   }
 
@@ -41,11 +40,11 @@ abstract final class Reporter {
   static void _writeGroup(
     StringBuffer buffer,
     List<UnusedDeclaration> decls,
-    bool useColor,
+    Style style,
   ) {
     for (final MapEntry(key: file, value: fileDecls)
         in decls.groupListsBy((d) => d.filePath).entries) {
-      buffer.writeln(_style(file, _bold, useColor));
+      buffer.writeln(style.bold(file));
 
       // Column widths for tidy alignment (each group is non-empty).
       final locWidth = fileDecls.map((d) => '${d.line}:${d.column}'.length).max;
@@ -56,16 +55,16 @@ abstract final class Reporter {
         final kind = decl.kind.label.padRight(kindWidth);
         final visibility = decl.isPrivate ? 'private' : 'public';
         final blocked = decl.removalBlocked
-            ? '  ${_style('(unsafe to auto-remove — remove manually)', _dim, useColor)}'
+            ? '  ${style.yellow('(unsafe to auto-remove — remove manually)')}'
             : '';
         final hint = decl.hint != null
-            ? '  ${_style('(${decl.hint})', _dim, useColor)}'
+            ? '  ${style.hint('(${decl.hint})')}'
             : '';
         buffer.writeln(
-          '  ${_style(loc, _dim, useColor)}  '
-          '${_style(kind, _cyan, useColor)}  '
+          '  ${style.hint(loc)}  '
+          '${style.cyan(kind)}  '
           '${decl.qualifiedName}  '
-          '${_style('($visibility)', _dim, useColor)}'
+          '${style.hint('($visibility)')}'
           '$blocked$hint',
         );
       }
@@ -92,11 +91,12 @@ abstract final class Reporter {
   }
 
   /// Recovery warnings for stderr (text format), one per line, or empty.
-  static String warningsText(FinderResult result) {
+  static String warningsText(FinderResult result, {Style style = Style.plain}) {
     final buffer = StringBuffer();
     for (final w in result.recoveredReferences) {
       buffer.writeln(
-        "warning: '${w.qualifiedName}' (${w.filePath}:${w.line}:${w.column}) ${w.message}",
+        "${style.warning('warning:')} '${w.qualifiedName}' "
+        "${style.hint('(${w.filePath}:${w.line}:${w.column})')} ${w.message}",
       );
     }
     return buffer.toString();
@@ -109,33 +109,31 @@ abstract final class Reporter {
   static String problemsText(
     FinderResult result, {
     bool verbose = false,
-    bool useColor = false,
+    Style style = Style.plain,
     int maxListed = 10,
   }) {
     final buffer = StringBuffer();
     var hasDetail = false;
     for (final MapEntry(key: summary, value: ofSummary)
         in result.problems.groupListsBy((p) => p.summary).entries) {
-      buffer.writeln('${_style('warning:', _bold, useColor)} $summary');
+      buffer.writeln('${style.warning('warning:')} $summary');
       for (final MapEntry(key: cause, value: problems)
           in ofSummary.groupListsBy((p) => p.cause).entries) {
-        buffer.writeln('  ${_style('Cause:', _bold, useColor)} $cause');
+        buffer.writeln('  ${style.bold('Cause:')} $cause');
         final listed = verbose ? problems : problems.take(maxListed);
         final width = listed.map((p) => p.location.length).max;
         for (final problem in listed) {
           final name = problem.name == null ? '' : '  ${problem.name}';
           buffer.writeln(
-            '    ${_style(problem.location.padRight(width), _dim, useColor)}'
+            '    ${style.hint(problem.location.padRight(width))}'
             '$name',
           );
         }
         if (problems.length > listed.length) {
           buffer.writeln(
-            _style(
+            style.hint(
               '    … and ${problems.length - listed.length} more '
               '(--verbose lists them all)',
-              _dim,
-              useColor,
             ),
           );
         }
@@ -150,11 +148,9 @@ abstract final class Reporter {
     }
     if (hasDetail && !verbose) {
       buffer.writeln(
-        _style(
+        style.hint(
           'The analysis server threw while answering, which is likely a Dart '
           'SDK bug; --verbose shows its stack trace.',
-          _dim,
-          useColor,
         ),
       );
     }
@@ -277,38 +273,29 @@ abstract final class Reporter {
   static String _escapeProperty(String value) =>
       _escapeData(value).replaceAll(':', '%3A').replaceAll(',', '%2C');
 
-  static String _summary(FinderResult result) {
+  static String _summary(FinderResult result, Style style) {
     final count = result.unused.length;
     final fileCount = result.unused.map((d) => d.filePath).toSet().length;
     final seconds = (result.elapsed.inMilliseconds / 1000).toStringAsFixed(1);
     final docOnlyCount = result.docOnly.length;
     final problemCount = result.problems.length;
-    final suffix =
-        (docOnlyCount == 0
-            ? ''
-            : ' $docOnlyCount more referenced only from doc comments.') +
-        (problemCount == 0
-            ? ''
-            : ' $problemCount part${problemCount == 1 ? '' : 's'} of the '
-                  'analysis failed — see the warnings.');
-    if (count == 0) {
-      return 'No unused declarations found '
-          '(scanned ${result.filesScanned} files, '
-          '${result.declarationsChecked} declarations, ${seconds}s).'
-          '$suffix';
-    }
-    return 'Found $count unused declaration${count == 1 ? '' : 's'} '
-        'in $fileCount file${fileCount == 1 ? '' : 's'} '
-        '(scanned ${result.filesScanned} files, '
-        '${result.declarationsChecked} declarations, ${seconds}s).'
-        '$suffix';
+    final scanned = style.hint(
+      '(scanned ${result.filesScanned} files, '
+      '${result.declarationsChecked} declarations, ${seconds}s).',
+    );
+    final headline = count == 0
+        ? style.success('No unused declarations found')
+        : style.bold(
+            'Found $count unused declaration${count == 1 ? '' : 's'} '
+            'in $fileCount file${fileCount == 1 ? '' : 's'}',
+          );
+    final docOnly = docOnlyCount == 0
+        ? ''
+        : ' $docOnlyCount more referenced only from doc comments.';
+    final problems = problemCount == 0
+        ? ''
+        : ' ${style.yellow('$problemCount part${problemCount == 1 ? '' : 's'} of '
+          'the analysis failed — see the warnings.')}';
+    return '$headline $scanned$docOnly$problems';
   }
-
-  // Minimal ANSI styling helpers.
-  static const _bold = '1';
-  static const _dim = '2';
-  static const _cyan = '36';
-
-  static String _style(String text, String code, bool useColor) =>
-      useColor ? '\x1b[${code}m$text\x1b[0m' : text;
 }

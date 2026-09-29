@@ -98,7 +98,7 @@ ciach --verbose                        # explain each step
 | `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
 | `-f, --format <fmt>` | `text` | `text`, `json`, or `github` (GitHub Actions `::warning` annotations). |
 | `-j, --concurrency <n>` | `16` | Reference queries kept in flight against the analysis server. |
-| `--[no-]color` | auto | Colorize text output. |
+| `--[no-]color` | auto | Colorize the output. Auto-detected for stdout and stderr separately; off when `NO_COLOR` is set. |
 | `--[no-]progress` | auto | Show scan progress on stderr. |
 | `-v, --verbose` | off | Explain what's happening on stderr. See [Verbose mode](#verbose-mode). |
 | `--dart <path>` | auto | Path to the `dart` executable to launch the server with. Defaults to the SDK running ciach, or to `dart` from `PATH` for a compiled binary. |
@@ -157,7 +157,7 @@ $ ciach -v
 [  0.0s]   public: false (config file)
 [  0.0s]   exclude: test/** (config file)
 [  0.0s]   concurrency: 16 (default)
-[  0.0s]   color: true (auto-detected)
+[  0.0s]   color: auto (auto-detected)
 …
 [  0.1s] Starting Dart analysis server…
 [  0.3s] Collecting declarations from 13 file(s)…
@@ -362,6 +362,12 @@ for (final decl in result.unused) {
   print('${decl.filePath}:${decl.line} ${decl.qualifiedName}');
 }
 ```
+
+The run narrates itself through [`package:logging`](https://pub.dev/packages/logging)
+under `ciach.*` loggers: `INFO` for its phases, `FINE` for detail, and a
+`WARNING` for each `AnalysisProblem` (the record's `object`). ciach never
+prints; listen on `Logger.root.onRecord` and set `Logger.root.level` to see
+them.
 
 ## Development
 

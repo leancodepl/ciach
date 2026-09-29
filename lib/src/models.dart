@@ -59,7 +59,6 @@ class FinderOptions {
     this.entryPoints = const [],
     this.concurrency = 16,
     this.dartExecutable,
-    this.onProgress,
   }) : rootPath = rootPath.absoluteNormalized,
        analysisRootPath = analysisRootPath?.absoluteNormalized,
        assert(concurrency > 0, 'concurrency must be positive');
@@ -149,9 +148,6 @@ class FinderOptions {
   /// Defaults to the SDK running this tool, or to `dart` from `PATH` when this
   /// is a compiled binary; see `findDartExecutable`.
   final String? dartExecutable;
-
-  /// Optional progress callback, invoked with a human-readable status line.
-  final void Function(String message)? onProgress;
 
   /// The declaration kinds reported by default. Deliberately excludes
   /// [SymbolKind.typeParameter] (always "used" within its scope) and the
@@ -407,6 +403,10 @@ class AnalysisProblem {
 
   /// `path:line:column`, as much of it as is known.
   String get location => [filePath, ?line, ?column].join(':');
+
+  @override
+  String toString() =>
+      '$location${name == null ? '' : ' ($name)'}: $summary Cause: $cause';
 
   Map<String, Object?> toJson() => {
     'summary': summary,

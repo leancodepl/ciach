@@ -16,22 +16,15 @@ void main() {
   ResolvedOptions resolveWith(
     List<String> arguments,
     ConfigFile config, {
-    required bool colorDefault,
     required bool progressDefault,
   }) => resolveOptions(
     resolveConfiguration(parser.parse(arguments), config),
-    colorDefault: colorDefault,
     progressDefault: progressDefault,
   );
 
-  /// As above, with both auto-detected settings off.
+  /// As above, with progress off unless asked for.
   ResolvedOptions resolve(List<String> arguments, [ConfigFile? config]) =>
-      resolveWith(
-        arguments,
-        config ?? const .empty(),
-        colorDefault: false,
-        progressDefault: false,
-      );
+      resolveWith(arguments, config ?? const .empty(), progressDefault: false);
 
   /// What a config [source] alone resolves to.
   ResolvedOptions resolveFile(String source) =>
@@ -94,7 +87,7 @@ dart: /sdk/bin/dart
       expect(resolved.additionalGeneratedSuffixes, ['.gc.dart']);
       expect(resolved.kinds, <SymbolKind>{.class$, .function});
       expect(resolved.format, 'github');
-      expect(resolved.useColor, isTrue);
+      expect(resolved.color, isTrue);
       expect(resolved.showProgress, isTrue);
       expect(resolved.concurrency, 4);
       expect(resolved.dartExecutable, '/sdk/bin/dart');
@@ -476,7 +469,7 @@ dart: /sdk/bin/dart
       expect(resolved.includePublic, isTrue);
       expect(resolved.includeGenerated, isFalse);
       expect(resolved.format, 'github');
-      expect(resolved.useColor, isTrue);
+      expect(resolved.color, isTrue);
       expect(resolved.showProgress, isTrue);
       expect(resolved.concurrency, 2);
       expect(resolved.dartExecutable, '/other/dart');
@@ -521,31 +514,25 @@ dart: /sdk/bin/dart
     });
 
     test('auto-detected color and progress are the last resort', () {
-      final auto = resolveWith(
-        const [],
-        const .empty(),
-        colorDefault: true,
-        progressDefault: true,
-      );
-      expect(auto.useColor, isTrue);
+      final auto = resolveWith(const [], const .empty(), progressDefault: true);
+      // Each stream decides for itself.
+      expect(auto.color, isNull);
       expect(auto.showProgress, isTrue);
 
       final fromConfig = resolveWith(
         const [],
         .parse('color: false\nprogress: false', origin: 'c.yaml'),
-        colorDefault: true,
         progressDefault: true,
       );
-      expect(fromConfig.useColor, isFalse);
+      expect(fromConfig.color, isFalse);
       expect(fromConfig.showProgress, isFalse);
 
       final fromArgs = resolveWith(
         const ['--no-color', '--no-progress'],
         .parse('color: true\nprogress: true', origin: 'c.yaml'),
-        colorDefault: true,
         progressDefault: true,
       );
-      expect(fromArgs.useColor, isFalse);
+      expect(fromArgs.color, isFalse);
       expect(fromArgs.showProgress, isFalse);
     });
 
@@ -567,7 +554,6 @@ dart: /sdk/bin/dart
         resolveWith(
           const ['--verbose', '--progress'],
           const .empty(),
-          colorDefault: false,
           progressDefault: true,
         ).showProgress,
         isFalse,
@@ -576,7 +562,6 @@ dart: /sdk/bin/dart
         resolveWith(
           const [],
           .parse('verbose: true\nprogress: true', origin: 'c.yaml'),
-          colorDefault: false,
           progressDefault: true,
         ).showProgress,
         isFalse,
@@ -585,7 +570,6 @@ dart: /sdk/bin/dart
         resolveWith(
           const ['--progress'],
           .parse('verbose: true', origin: 'c.yaml'),
-          colorDefault: false,
           progressDefault: false,
         ).showProgress,
         isFalse,
@@ -650,7 +634,6 @@ dart: /sdk/bin/dart
       expect(options.excludeGlobs, ['test/**']);
       expect(options.entryPoints.map((e) => '$e'), ['bootstrap']);
       expect(options.concurrency, 4);
-      expect(options.onProgress, isNull);
     });
   });
 }

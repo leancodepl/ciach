@@ -26,7 +26,7 @@ class ResolvedOptions {
     required this.remove,
     required this.force,
     required this.format,
-    required this.useColor,
+    required this.color,
     required this.showProgress,
     required this.verbose,
     required this.concurrency,
@@ -61,7 +61,10 @@ class ResolvedOptions {
   final bool remove;
   final bool force;
   final String format;
-  final bool useColor;
+
+  /// Whether to style the output: `--color`, `--no-color`, or `null` to let
+  /// each stream decide (see `Style.of`).
+  final bool? color;
 
   /// Whether to show scan progress. Always `false` when [verbose] is set, whose
   /// durable lines the overwriting progress line would fight with.
@@ -70,12 +73,9 @@ class ResolvedOptions {
   final int concurrency;
   final String? dartExecutable;
 
-  /// The finder's share of these settings, reporting progress to [onProgress]
-  /// and launching the server with [dartExecutable] (else it finds one).
-  FinderOptions finderOptions({
-    String? dartExecutable,
-    void Function(String message)? onProgress,
-  }) => .new(
+  /// The finder's share of these settings, launching the server with
+  /// [dartExecutable] (else it finds one).
+  FinderOptions finderOptions({String? dartExecutable}) => .new(
     rootPath: rootPath,
     analysisRootPath: analysisRootPath,
     includeGlobs: includeGlobs,
@@ -91,7 +91,6 @@ class ResolvedOptions {
     entryPoints: entryPoints,
     concurrency: concurrency,
     dartExecutable: dartExecutable ?? this.dartExecutable,
-    onProgress: onProgress,
   );
 }
 
@@ -106,11 +105,10 @@ CiachConfiguration resolveConfiguration(ArgResults args, ConfigFile config) =>
       configBroker: config,
     );
 
-/// The settings of [configuration], with [colorDefault] and [progressDefault]
-/// standing in for the two nobody asked for either way.
+/// The settings of [configuration], with [progressDefault] standing in for
+/// progress nobody asked for either way. Color left unset stays `null`.
 ResolvedOptions resolveOptions(
   CiachConfiguration configuration, {
-  required bool colorDefault,
   required bool progressDefault,
 }) {
   final verbose = configuration.value(CiachOption.verbose);
@@ -137,7 +135,7 @@ ResolvedOptions resolveOptions(
     remove: configuration.value(CiachOption.remove),
     force: configuration.value(CiachOption.force),
     format: configuration.value(CiachOption.format),
-    useColor: configuration.optionalValue(CiachOption.color) ?? colorDefault,
+    color: configuration.optionalValue(CiachOption.color),
     showProgress:
         !verbose &&
         (configuration.optionalValue(CiachOption.progress) ?? progressDefault),

@@ -17,6 +17,7 @@ import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/finder.dart';
 import 'package:ciach/src/models.dart';
 import 'package:collection/collection.dart';
+import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 import 'package:test/test.dart';
@@ -51,7 +52,6 @@ void main() {
     List<String> exclude = const ['lib/scenarios/**'],
     List<String> include = const [],
     List<EntryPoint> entryPoints = const [],
-    void Function(String message)? onProgress,
   }) => Ciach(
     .new(
       rootPath: fixturePath,
@@ -62,7 +62,6 @@ void main() {
       excludeGlobs: exclude,
       includeGlobs: include,
       entryPoints: entryPoints,
-      onProgress: onProgress,
     ),
   ).run();
 
@@ -1152,7 +1151,6 @@ void main() {
   group('entry points', () {
     Future<FinderResult> runEntryPoints({
       List<EntryPoint> entryPoints = const [],
-      void Function(String message)? onProgress,
     }) => runFinder(
       include: [
         'lib/scenarios/entry_points.dart',
@@ -1161,7 +1159,6 @@ void main() {
       ],
       exclude: const [],
       entryPoints: entryPoints,
-      onProgress: onProgress,
     );
 
     /// `path:qualifiedName`, since the fixture has two `testExecutable`s.
@@ -1228,12 +1225,20 @@ void main() {
 
     test('narrates each skipped entry point other than main', () async {
       final lines = <String>[];
+      final level = Logger.root.level;
+      Logger.root.level = Level.FINE;
+      final logging = Logger.root.onRecord
+          .where((r) => r.loggerName == 'ciach.finder')
+          .listen((r) => lines.add(r.message));
+      addTearDown(() {
+        Logger.root.level = level;
+        return logging.cancel();
+      });
       await runEntryPoints(
         entryPoints: [
           EntryPoint.fromConfig('bootstrap'),
           EntryPoint.fromConfig('Plugin.registerWith'),
         ],
-        onProgress: lines.add,
       );
 
       final skipped = lines.where((l) => l.startsWith('Skipped ')).toList();

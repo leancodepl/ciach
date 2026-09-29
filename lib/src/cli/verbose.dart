@@ -88,7 +88,10 @@ String _setting(
   .entryPoints => _value(resolved.entryPoints),
   .kinds => _kinds(resolved.kinds),
   .format => resolved.format,
-  .color => '${resolved.useColor}',
+  .color => switch (resolved.color) {
+    null => 'auto',
+    final color => '$color',
+  },
   .progress => '${resolved.showProgress}',
   .verbose => '${resolved.verbose}',
   .concurrency => '${resolved.concurrency}',

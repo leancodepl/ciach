@@ -1,5 +1,18 @@
 ## Unreleased
 
+- **Breaking:** `FinderOptions.onProgress` is gone. The finder logs through
+  `package:logging` instead, under `ciach.*` loggers: `INFO` for its phases
+  and files done, `FINE` for detail, and a `WARNING` carrying each
+  `AnalysisProblem` as the record's object. Listen on `Logger.root.onRecord`
+  where `onProgress` was passed.
+- The CLI styles more than the findings list: `error:` and `warning:` labels,
+  the summary line, `--remove`'s outcome and prompt, locations and hints.
+  Color is decided for stdout and stderr separately, so `ciach | less` still
+  gets a colored progress line and warnings, and `NO_COLOR` turns it off.
+  `--color`/`--no-color` still force it either way.
+- The progress line shows the phases and files done only, is cut to the
+  terminal's width so it never wraps, and is cleared rather than left behind
+  when the run ends or anything else is printed.
 - A request the analysis server fails no longer ends the run. The declaration
   or file it was about is kept (never reported or removed), and the run lists
   it as a warning with the server's own error, grouped by what failed and why;

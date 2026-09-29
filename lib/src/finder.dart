@@ -32,6 +32,7 @@ import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/superclasses.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:ciach/src/syntax_rules.dart';
+import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart'
     show DocumentSymbol, Location, Position, Range, SelectionRange;
@@ -119,11 +120,14 @@ class Ciach {
       'overridden by a declaration --remove will not delete — that override '
       'would be left overriding nothing';
 
-  void _report(String message) => options.onProgress?.call(message);
+  /// What the progress line shows at [Level.INFO] (phases, files done),
+  /// `--verbose` detail at [Level.FINE], and each [AnalysisProblem] at
+  /// [Level.WARNING] as the record's object.
+  static final _log = Logger('ciach.finder');
 
   void _addProblem(AnalysisProblem problem) {
     _problems.add(problem);
-    _report('Problem at ${problem.location}: ${problem.cause}');
+    _log.warning(problem);
   }
 
   /// See [ProblemReporter].
@@ -164,7 +168,7 @@ class Ciach {
 
     final discovered = discoverDartFilesSplit(options);
     final files = discovered.candidates;
-    _report('Discovered ${files.length} Dart file(s) to scan.');
+    _log.info('Discovered ${files.length} Dart file(s) to scan.');
 
     if (files.isEmpty) {
       return .new(
@@ -176,7 +180,7 @@ class Ciach {
       );
     }
 
-    _report('Starting Dart analysis server…');
+    _log.info('Starting Dart analysis server…');
     final client = await LspClient.start(
       dartExecutable: options.dartExecutable,
     );
@@ -188,26 +192,28 @@ class Ciach {
 
     try {
       if (analysisRoot != rootPath) {
-        _report(
+        _log.info(
           'Analyzing within $analysisRoot: references outside the scanned '
           'package count.',
         );
       }
       await client.initialize(Directory(analysisRoot).uri);
-      _report('Waiting for initial analysis to complete…');
+      _log.info('Waiting for initial analysis to complete…');
       await client.waitForAnalysisComplete();
 
       // Phase 0: open every file first, so the server analyzes them in one
       // pass and keeps them resident. Generated files are opened so references
       // into them resolve, but no candidates are collected from them.
-      _report('Opening ${files.length + discovered.warmOnly.length} file(s)…');
+      _log.info(
+        'Opening ${files.length + discovered.warmOnly.length} file(s)…',
+      );
       final opened = <String>{
         for (final path in [...discovered.warmOnly, ...files])
           if (_openFile(client, path)) path,
       };
 
       // Phase 1: collect candidate declarations, concurrently.
-      _report('Collecting declarations from ${files.length} file(s)…');
+      _log.info('Collecting declarations from ${files.length} file(s)…');
       final perFile = await mapPooled(
         files,
         options.concurrency,
@@ -223,7 +229,7 @@ class Ciach {
       // Progress is reported per file: each file's remaining count is tracked
       // and a line is emitted as soon as its last declaration is checked. Files
       // with no candidates are already counted as done.
-      _report('Checking references for ${collected.length} declaration(s)…');
+      _log.info('Checking references for ${collected.length} declaration(s)…');
       final refsOrNull = await _checkReferences(
         client,
         collected,
@@ -395,7 +401,7 @@ class Ciach {
     if (members.isEmpty) {
       return const {};
     }
-    _report('Checking ${members.length} dead member(s) for overrides…');
+    _log.info('Checking ${members.length} dead member(s) for overrides…');
     final overrides = OverrideRemovals(
       client,
       _sources,
@@ -423,12 +429,12 @@ class Ciach {
       }
     }
     if (coupled > 0) {
-      _report(
+      _log.fine(
         'Coupling $coupled override(s) to the dead member(s) they implement.',
       );
     }
     if (blocked > 0) {
-      _report(
+      _log.fine(
         '$blocked dead member(s) are overridden where --remove cannot '
         'follow; left in place.',
       );
@@ -513,7 +519,7 @@ class Ciach {
           : await _references(client, candidate);
       if (remainingPerFile.update(candidate.path, (n) => n - 1) == 0) {
         filesDone++;
-        _report(
+        _log.info(
           '[$filesDone/$totalFiles] '
           '${p.relative(candidate.path, from: rootPath)}',
         );
@@ -562,7 +568,7 @@ class Ciach {
     if (paths.isEmpty) {
       return;
     }
-    _report('Fetching tokens for ${paths.length} referenced file(s)…');
+    _log.info('Fetching tokens for ${paths.length} referenced file(s)…');
     await mapPooled(paths.toList(), options.concurrency, (path) async {
       _sources.cacheSemanticTokens(
         path,
@@ -609,7 +615,7 @@ class Ciach {
     if (positionsByPath.isEmpty) {
       return;
     }
-    _report('Fetching syntax nodes in ${positionsByPath.length} file(s)…');
+    _log.info('Fetching syntax nodes in ${positionsByPath.length} file(s)…');
     await mapPooled(positionsByPath.entries.toList(), options.concurrency, (
       entry,
     ) async {
@@ -665,7 +671,7 @@ class Ciach {
         ],
     };
     if (emptyRefNames.isNotEmpty) {
-      _report('Recovering cross-library references…');
+      _log.info('Recovering cross-library references…');
     }
     return CrossLibraryReferences.resolve(
       client: client,
@@ -791,7 +797,7 @@ class Ciach {
 
   /// One line per skipped entry point, except the ubiquitous `main`.
   void _reportSkippedEntryPoints() {
-    if (options.onProgress == null) {
+    if (!_log.isLoggable(Level.FINE)) {
       return;
     }
     _skippedEntryPoints.sort((a, b) {
@@ -802,7 +808,7 @@ class Ciach {
       if (skipped.name == 'main') {
         continue;
       }
-      _report(
+      _log.fine(
         'Skipped ${skipped.path}:${skipped.line} ${skipped.name}: '
         '${skipped.reason}.',
       );
@@ -905,7 +911,7 @@ class Ciach {
     for (final symbol in symbols) {
       final outline = outlines[symbol];
       if (outline == null) {
-        _report(
+        _log.fine(
           'Skipped $relativePath:${symbol.selectionRange.start.line + 1} '
           "${symbol.name}: the analysis server's outline has no entry for it.",
         );
