@@ -55,6 +55,13 @@ final class Settler {
   /// Override lookups by candidate index, cached across rounds.
   final _overridesByMember = <int, OverriddenMember>{};
 
+  /// Candidates an earlier round found removable. A group guard (every value
+  /// of an enum, every constructor of a class) doesn't block them later: the
+  /// members that joined the group since stay blocked, so the group isn't
+  /// emptied, and removing these alone was safe. Otherwise blocking one would
+  /// revive what only it referenced, unblock it, and so on every other round.
+  final _removableBefore = <int>{};
+
   /// Only a guard: each round deletes more of a finite source than the last,
   /// so the rounds end on their own.
   static const _maxRounds = 16;
@@ -114,8 +121,8 @@ final class Settler {
         break;
       }
       _report(
-        'Round ${round + 1}: checking what only the '
-        '${next.length - deadSpans.length} new finding(s) referenced…',
+        'Round ${round + 1}: checking what only the ${next.length} removable '
+        'finding(s) referenced…',
       );
       deadSpans = next;
     }
@@ -230,32 +237,39 @@ final class Settler {
           final isClass = candidate.symbol.kind == .class$;
           final overrides = overridden[i];
           final blockedByOverride = overrides?.blocked ?? false;
-          unused.add(
-            _verdict.finding(
+          final finding = _verdict.finding(
+            candidate,
+            rootPath,
+            coupledRemovals: isClass
+                ? _sources.pairedStateRemovals(
+                    candidate,
+                    refs,
+                    candidates,
+                    liveRefs,
+                    rootPath,
+                  )
+                : overrides?.removals ?? const [],
+            removalBlocked:
+                _verdict.isRemovalBlocked(
+                  candidate,
+                  refs,
+                  safety,
+                  groupGuards: !_removableBefore.contains(i),
+                ) ||
+                blockedByOverride,
+            hint:
+                _verdict.hintFor(candidate) ??
+                (blockedByOverride ? Verdict.overriddenHint : null),
+            onlyReferencedFrom: _onlyReferencedFrom(
               candidate,
-              rootPath,
-              coupledRemovals: isClass
-                  ? _sources.pairedStateRemovals(
-                      candidate,
-                      refs,
-                      candidates,
-                      liveRefs,
-                      rootPath,
-                    )
-                  : overrides?.removals ?? const [],
-              removalBlocked:
-                  _verdict.isRemovalBlocked(candidate, refs, safety) ||
-                  blockedByOverride,
-              hint:
-                  _verdict.hintFor(candidate) ??
-                  (blockedByOverride ? Verdict.overriddenHint : null),
-              onlyReferencedFrom: _onlyReferencedFrom(
-                candidate,
-                refsByCandidate[i],
-                deadSpans,
-              ),
+              refsByCandidate[i],
+              deadSpans,
             ),
           );
+          unused.add(finding);
+          if (!finding.removalBlocked) {
+            _removableBefore.add(i);
+          }
         case .docOnly:
           docOnly.add(_verdict.finding(candidate, rootPath));
         case .used:

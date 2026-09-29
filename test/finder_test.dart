@@ -659,6 +659,7 @@ void main() {
         '_deadRoot',
         '_secondDeadRoot',
         'Lone.only',
+        'Token.fromJson',
       });
       expect(names(result.docOnly), {'_docLinkedFromDead'});
       expect(
@@ -681,6 +682,8 @@ void main() {
         '_DeadHolder',
         'Odometer._deadReading',
         'Odometer._scale',
+        'Token.fromJson',
+        'Token.new',
       });
       expect(names(result.docOnly), isEmpty);
 
@@ -702,6 +705,28 @@ void main() {
         asOwner(result, '_deadRoot'),
         asOwner(result, '_secondDeadRoot'),
       ]);
+    });
+
+    test('flag ON: a finding a group guard would block later stays '
+        'removable, and the rounds settle', () async {
+      final messages = <String>[];
+      final result = await runFinder(
+        include: fixture,
+        exclude: const [],
+        transitive: true,
+        onProgress: messages.add,
+      );
+      expect(messages, isNot(contains(startsWith('Stopping after'))));
+      // Removable in round one, while `Token.new` was still used.
+      expect(
+        findByQualified(result, 'Token.fromJson')!.removalBlocked,
+        isFalse,
+      );
+      // Dead once `fromJson` is, but the last constructor of a live class with
+      // a final field, so it stays.
+      final ctor = findByQualified(result, 'Token.new')!;
+      expect(ctor.removalBlocked, isTrue);
+      expect(ctor.onlyReferencedFrom, [asOwner(result, 'Token.fromJson')]);
     });
 
     test("flag ON: a dead class's members go with it, unreported", () async {

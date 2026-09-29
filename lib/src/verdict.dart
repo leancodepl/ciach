@@ -94,19 +94,25 @@ final class Verdict {
   ///
   /// Each is surfaced so a human can act on it, but the remover leaves it — and
   /// anything coupled to it — entirely alone.
+  ///
+  /// Without [groupGuards], the two guards that block a whole group (every
+  /// value of an enum, every constructor of a class) are skipped.
   bool isRemovalBlocked(
     Candidate candidate,
     List<Location> refs,
-    RemoveSafety safety,
-  ) {
+    RemoveSafety safety, {
+    bool groupGuards = true,
+  }) {
     final containerKey = candidate.containerKey;
     return (candidate.symbol.kind == .class$ &&
             options.unusedUnionMembers &&
             _classifier.isPatternMatchedClass(candidate, refs)) ||
-        (candidate.isEnumValue &&
+        (groupGuards &&
+            candidate.isEnumValue &&
             containerKey != null &&
             safety.emptiedEnums.contains(containerKey)) ||
-        (candidate.symbol.kind == .constructor &&
+        (groupGuards &&
+            candidate.symbol.kind == .constructor &&
             containerKey != null &&
             safety.blockedCtorClasses.contains(containerKey)) ||
         _isHeaderDeclaration(candidate);

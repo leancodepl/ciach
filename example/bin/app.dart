@@ -87,4 +87,6 @@ void main() {
   print(Odometer().live());
   const Lone? lone = null;
   print(lone?.arg);
+  const Token? token = null;
+  print(token?.value);
 }

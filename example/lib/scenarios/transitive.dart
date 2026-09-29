@@ -75,3 +75,16 @@ enum Lone {
 
 /// Referenced only by report-only `Lone.only` -> USED either way.
 const int _loneArg = 7;
+
+/// Referenced as a type from bin/app.dart -> USED; it keeps its final field, so
+/// its last constructor can't be removed.
+class Token {
+  /// Called only by `Token.fromJson` -> UNUSED with transitive, but it is the
+  /// last constructor, so report-only.
+  Token(this.value);
+
+  /// Never called -> UNUSED either way, and removable: `Token.new` stays.
+  Token.fromJson(Object json) : this(json as String);
+
+  final String value;
+}
