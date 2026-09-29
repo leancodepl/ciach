@@ -106,12 +106,35 @@ ciach --verbose                        # explain each step
 Exit codes: `0` success, `1` unused found with `--set-exit-if-changed`, `2`
 usage or analysis error.
 
+stdout carries the result alone, in the chosen `--format`; everything else —
+progress, `-v` narration, warnings, errors, the `--remove` prompt — goes to
+stderr. The text report lists the findings first, then a section for each kind
+of note on them, and a summary line counting them all:
+
+```console
+$ ciach
+lib/greeting.dart
+  15:6  function  danglingFunction  (public)
+
+Referenced only from doc comments (1) · not counted as unused, never removed
+lib/greeting.dart
+  41:6  function  _docOnlyMentioned  (private)
+
+Not analyzed (1) · parts of the analysis failed; each says what ciach did instead
+  Could not find the references to these declarations; they are kept, not reported.
+    type 'ConstructorElementImpl' is not a subtype of type 'InterfaceElement' in type cast
+    lib/canvas_proxy.dart
+      65:11  CanvasProxy.noSuchMethod
+  The analysis server threw while answering (likely a Dart SDK bug); -v shows its stack traces.
+
+Found 1 unused declaration in 1 file (scanned 13 files, 44 declarations, 0.5s) · 1 doc-only · 1 not analyzed
+```
+
 When the analysis server fails on one declaration or file (it throws while
 answering, or times out), the run goes on: whatever it could not check is kept,
-never reported or removed, and listed as a warning on stderr (`problems` in
-`-f json`, `::warning` in `-f github`) with the server's error; `--verbose` adds
-its stack trace. Only a server that exits, or a bug in ciach itself, stops the
-run with exit code `2`.
+never reported or removed, and listed under "Not analyzed" with the server's
+error (`problems` in `-f json`, `::warning` in `-f github`). Only a server that
+exits, or a bug in ciach itself, stops the run with exit code `2`.
 
 ### Configuration file
 
@@ -142,26 +165,27 @@ combined.
 
 ### Verbose mode
 
-`-v` narrates the run on stderr, with elapsed times: the config file read and
-what it set, every setting and the layer it came from, each scan phase, anything
-the definition check rescued, and what `--remove` touches.
+`-v` shows the whole log on stderr, each line stamped with the elapsed time and
+the part of ciach speaking: the config file read and what it set, every setting
+and the layer it came from, the analysis server starting and stopping, each
+scan phase, each problem as it happens, anything the definition check rescued,
+and what `--remove` touches.
 
 ```console
 $ ciach -v
-[  0.0s] Read config from ciach.yaml.
-[  0.0s]   It sets 2 options:
-[  0.0s]     public: false
-[  0.0s]     exclude: test/**
-[  0.0s] Settings for this run:
-[  0.0s]   path: /home/me/pkg (command line)
-[  0.0s]   public: false (config file)
-[  0.0s]   exclude: test/** (config file)
-[  0.0s]   concurrency: 16 (default)
-[  0.0s]   color: auto (auto-detected)
+[  0.0s] cli     Read config from ciach.yaml.
+[  0.0s] cli       It sets 2 options:
+[  0.0s] cli         public: false
+[  0.0s] cli         exclude: test/**
+[  0.0s] cli     Settings for this run:
+[  0.0s] cli       path: /home/me/pkg (command line)
+[  0.0s] cli       public: false (config file)
+[  0.0s] cli       concurrency: 16 (default)
 …
-[  0.1s] Starting Dart analysis server…
-[  0.3s] Collecting declarations from 13 file(s)…
-[  0.5s] Scanned 13 file(s) and checked 44 declaration(s) in 478ms: 4 unused, 1 referenced only from doc comments.
+[  0.1s] finder  Starting Dart analysis server…
+[  0.1s] lsp     Started `/sdk/bin/dart language-server` (pid 4242).
+[  0.3s] finder  Collecting declarations from 13 file(s)…
+[  0.5s] cli     Scanned 13 file(s) and checked 44 declaration(s) in 478ms: 4 unused, 1 referenced only from doc comments.
 ```
 
 It all goes to stderr, so `ciach -v -f json | jq` still works. Reach for it when
@@ -363,11 +387,20 @@ for (final decl in result.unused) {
 }
 ```
 
-The run narrates itself through [`package:logging`](https://pub.dev/packages/logging)
-under `ciach.*` loggers: `INFO` for its phases, `FINE` for detail, and a
-`WARNING` for each `AnalysisProblem` (the record's `object`). ciach never
-prints; listen on `Logger.root.onRecord` and set `Logger.root.level` to see
-them.
+Everything the run finds or could not check is in the `FinderResult`. The run
+also narrates itself through [`package:logging`](https://pub.dev/packages/logging),
+under `ciach.*` loggers, with one meaning per level:
+
+| Level | Means |
+|---|---|
+| `SEVERE` | The command failed (the CLI only; the library throws). |
+| `WARNING` | Needs attention, but is not part of the result. |
+| `INFO` | What the run is doing now: its phases, files done. |
+| `CONFIG` | How the run is set up. |
+| `FINE` and finer | What happened, in detail — each `AnalysisProblem` as it happens, as the record's `object`. |
+
+ciach never prints and never configures the root logger: set
+`Logger.root.level` and listen on `Logger.root.onRecord` to see it.
 
 ## Development
 

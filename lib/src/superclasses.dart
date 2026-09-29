@@ -32,7 +32,7 @@ final class SuperclassChecks {
         cls.symbol.selectionRange.start,
       );
     } on LspRequestException catch (e) {
-      reportProblem(
+      recordProblem(
         _unreadSuperclass,
         e,
         path: cls.path,
@@ -55,7 +55,7 @@ final class SuperclassChecks {
     try {
       symbols = await _client.documentSymbol(uri);
     } on LspRequestException catch (e) {
-      reportProblem(
+      recordProblem(
         _unreadSuperclass,
         e,
         path: uri.toFilePath(),
@@ -101,7 +101,7 @@ final class SuperclassChecks {
     try {
       tokens = await _client.semanticTokens(uri, content.split('\n'));
     } on LspRequestException catch (e) {
-      reportProblem(
+      recordProblem(
         _unreadSuperclass,
         e,
         path: uri.toFilePath(),

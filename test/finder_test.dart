@@ -15,9 +15,9 @@ import 'dart:io';
 
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/finder.dart';
+import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
 import 'package:collection/collection.dart';
-import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 import 'package:test/test.dart';

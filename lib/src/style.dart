@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:ciach/src/log.dart' show Level;
+
 /// ANSI styling for one output stream. Every method returns its text
 /// unchanged when [enabled] is `false`, so rendering code styles
 /// unconditionally.
@@ -33,24 +35,59 @@ final class Style {
 
   final bool enabled;
 
-  String bold(String text) => _wrap(text, 1, 22);
-  String dim(String text) => _wrap(text, 2, 22);
-  String red(String text) => _wrap(text, 31, 39);
-  String green(String text) => _wrap(text, 32, 39);
-  String yellow(String text) => _wrap(text, 33, 39);
-  String cyan(String text) => _wrap(text, 36, 39);
+  // The palette: every role below is one of these, so a change of color is
+  // a change here.
+  String _bold(String text) => _wrap(text, 1, 22);
+  String _dim(String text) => _wrap(text, 2, 22);
+  String _red(String text) => _wrap(text, 31, 39);
+  String _green(String text) => _wrap(text, 32, 39);
+  String _yellow(String text) => _wrap(text, 33, 39);
+  String _magenta(String text) => _wrap(text, 35, 39);
+  String _cyan(String text) => _wrap(text, 36, 39);
 
-  /// An `error:` label, or anything that stopped the run.
-  String error(String text) => bold(red(text));
+  // The report.
 
-  /// A `warning:` label, or anything the user should look at.
-  String warning(String text) => bold(yellow(text));
+  /// A file header.
+  String path(String text) => _bold(text);
+
+  /// A `line:column`, or a `used at …` location.
+  String position(String text) => _dim(text);
+
+  /// A declaration's kind.
+  String kind(String text) => _cyan(text);
+
+  /// Secondary text: visibility, hints, what a section means, timings.
+  String note(String text) => _dim(text);
+
+  /// Something to look at before trusting or acting on the result.
+  String caution(String text) => _yellow(text);
+
+  /// Why something failed: an exception's message.
+  String failure(String text) => _red(text);
+
+  /// A section's title, or a question put to the user.
+  String heading(String text) => _bold(text);
 
   /// Something that went as hoped.
-  String success(String text) => green(text);
+  String success(String text) => _green(text);
 
-  /// Secondary text: locations, hints, timings.
-  String hint(String text) => dim(text);
+  /// Findings the user asked to hear about.
+  String attention(String text) => _bold(_yellow(text));
+
+  // The log.
+
+  /// The `error:` label.
+  String errorLabel(String text) => _bold(_red(text));
+
+  /// The `warning:` label.
+  String warningLabel(String text) => _bold(_yellow(text));
+
+  /// A [Level.CONFIG] record: how the run is set up.
+  String configuration(String text) => _magenta(text);
+
+  /// A record finer than [Level.CONFIG], a timestamp, a logger's name, or
+  /// the progress line.
+  String detail(String text) => _dim(text);
 
   String _wrap(String text, int on, int off) =>
       enabled && text.isNotEmpty ? '\x1b[${on}m$text\x1b[${off}m' : text;

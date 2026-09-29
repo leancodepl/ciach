@@ -68,7 +68,7 @@ final class OverrideRemovals {
         member.symbol.selectionRange.start,
       );
     } on LspRequestException catch (e) {
-      reportProblem(
+      recordProblem(
         _unlistedOverrides,
         e,
         path: member.path,
@@ -107,7 +107,7 @@ final class OverrideRemovals {
     try {
       outline = await _client.outline(uri);
     } on LspRequestException catch (e) {
-      reportProblem(_uncheckedOverride, e, path: path, position: start);
+      recordProblem(_uncheckedOverride, e, path: path, position: start);
       return null;
     }
     final found = _nodeNamedAt(outline, start);
@@ -126,7 +126,7 @@ final class OverrideRemovals {
     try {
       refs = await _client.references(uri, start);
     } on LspRequestException catch (e) {
-      reportProblem(_uncheckedOverride, e, path: path, position: start);
+      recordProblem(_uncheckedOverride, e, path: path, position: start);
       return null;
     }
     // The member is dead, so a reference here is a use this run cannot see.
@@ -153,7 +153,7 @@ final class OverrideRemovals {
     try {
       ranges = await _client.selectionRanges(uri, [name]);
     } on LspRequestException catch (e) {
-      reportProblem(_uncheckedOverride, e, path: path, position: name);
+      recordProblem(_uncheckedOverride, e, path: path, position: name);
       return true;
     }
     final innermost = ranges.single;

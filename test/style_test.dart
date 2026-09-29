@@ -5,21 +5,21 @@ void main() {
   const on = Style(enabled: true);
 
   test('plain leaves text alone', () {
-    expect(Style.plain.error('error:'), 'error:');
-    expect(Style.plain.hint('x'), 'x');
+    expect(Style.plain.errorLabel('error:'), 'error:');
+    expect(Style.plain.note('x'), 'x');
   });
 
-  test('styles reset only what they set, so they nest', () {
-    expect(on.bold('x'), '\x1b[1mx\x1b[22m');
-    expect(on.error('x'), '\x1b[1m\x1b[31mx\x1b[39m\x1b[22m');
+  test('roles reset only what they set, so they nest', () {
+    expect(on.path('x'), '\x1b[1mx\x1b[22m');
+    expect(on.errorLabel('x'), '\x1b[1m\x1b[31mx\x1b[39m\x1b[22m');
     expect(
-      on.hint('a ${on.cyan('b')} c'),
+      on.note('a ${on.kind('b')} c'),
       '\x1b[2ma \x1b[36mb\x1b[39m c\x1b[22m',
     );
   });
 
   test('empty text gets no escapes', () {
-    expect(on.bold(''), '');
+    expect(on.heading(''), '');
   });
 
   group('shouldStyle', () {

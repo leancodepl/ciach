@@ -51,6 +51,24 @@ void main() {
     usageColumn: usageColumn,
   );
 
+  AnalysisProblem problem({
+    String summary = 'Could not find the references; kept.',
+    String cause = 'Null check operator used on a null value',
+    String filePath = 'lib/a.dart',
+    int? line = 3,
+    int? column = 5,
+    String? name = 'A.foo',
+    String? detail = '#0      Foo.bar',
+  }) => .new(
+    summary: summary,
+    cause: cause,
+    filePath: filePath,
+    line: line,
+    column: column,
+    name: name,
+    detail: detail,
+  );
+
   UnusedDeclaration decl({
     String name = 'foo',
     SymbolKind kind = .function,
@@ -166,22 +184,6 @@ void main() {
     );
   });
 
-  group('Reporter.warningsText', () {
-    test('emits one warning line per recovered reference', () {
-      final out = Reporter.warningsText(
-        resultWith(const [], recoveredReferences: [warning()]),
-      );
-      final lines = out.trimRight().split('\n');
-      expect(lines, hasLength(1));
-      expect(lines.single, startsWith("warning: 'A.baz' (lib/a.dart:4:7) "));
-      expect(lines.single, contains('used at lib/b.dart:9:2'));
-    });
-
-    test('is empty when there are no recovered references', () {
-      expect(Reporter.warningsText(resultWith([decl()])), isEmpty);
-    });
-  });
-
   group('Reporter.json', () {
     test('reports unused and docOnly as separate arrays', () {
       final json =
@@ -237,76 +239,6 @@ void main() {
   });
 
   group('problems', () {
-    AnalysisProblem problem({
-      String summary = 'Could not find the references; kept.',
-      String cause = 'Null check operator used on a null value',
-      String filePath = 'lib/a.dart',
-      int? line = 3,
-      int? column = 5,
-      String? name = 'A.foo',
-      String? detail = '#0      Foo.bar',
-    }) => .new(
-      summary: summary,
-      cause: cause,
-      filePath: filePath,
-      line: line,
-      column: column,
-      name: name,
-      detail: detail,
-    );
-
-    test('text groups them by what failed and why', () {
-      final text = Reporter.problemsText(
-        resultWith(
-          const [],
-          problems: [
-            problem(),
-            problem(filePath: 'lib/b.dart', name: 'B.foo'),
-            problem(cause: 'no outline arrived within 120s', detail: null),
-          ],
-        ),
-      );
-      expect(
-        text,
-        'warning: Could not find the references; kept.\n'
-        '  Cause: Null check operator used on a null value\n'
-        '    lib/a.dart:3:5  A.foo\n'
-        '    lib/b.dart:3:5  B.foo\n'
-        '  Cause: no outline arrived within 120s\n'
-        '    lib/a.dart:3:5  A.foo\n'
-        'The analysis server threw while answering, which is likely a Dart '
-        'SDK bug; --verbose shows its stack trace.\n',
-      );
-    });
-
-    test('text lists the first few unless verbose, which adds the stack', () {
-      final result = resultWith(
-        const [],
-        problems: [for (var i = 1; i <= 3; i++) problem(line: i)],
-      );
-      final short = Reporter.problemsText(result, maxListed: 2);
-      expect(short, contains('lib/a.dart:2:5'));
-      expect(short, isNot(contains('lib/a.dart:3:5')));
-      expect(short, contains('… and 1 more (--verbose lists them all)'));
-
-      final verbose = Reporter.problemsText(
-        result,
-        verbose: true,
-        maxListed: 2,
-      );
-      expect(verbose, contains('lib/a.dart:3:5'));
-      expect(verbose, contains('    #0      Foo.bar'));
-      expect(verbose, isNot(contains('--verbose')));
-    });
-
-    test('text is empty without problems, and the summary counts them', () {
-      expect(Reporter.problemsText(resultWith(const [])), isEmpty);
-      expect(
-        Reporter.text(resultWith(const [], problems: [problem()])),
-        endsWith('1 part of the analysis failed — see the warnings.'),
-      );
-    });
-
     test('json carries them in-band', () {
       final decoded =
           jsonDecode(Reporter.json(resultWith(const [], problems: [problem()])))
@@ -344,29 +276,142 @@ void main() {
     });
   });
 
-  test('text styles the summary when asked to', () {
-    const style = Style(enabled: true);
-    expect(
-      Reporter.text(resultWith(const []), style: style),
-      startsWith(
-        '\x1b[32mNo unused declarations found\x1b[39m \x1b[2m(scanned',
-      ),
-    );
-    expect(
-      Reporter.problemsText(
+  group('Reporter.text sections', () {
+    test('lays out every section below the findings, and counts them', () {
+      final text = Reporter.text(
         resultWith(
-          const [],
+          [
+            decl(name: 'dangling'),
+            decl(name: '_private', line: 18, isPrivate: true),
+          ],
+          docOnly: [decl(name: 'docOnly', line: 41)],
+          recoveredReferences: [warning()],
           problems: [
-            const AnalysisProblem(
-              summary: 'Could not read.',
-              cause: 'Gone',
-              filePath: 'lib/a.dart',
+            problem(filePath: 'lib/b.dart', line: 65, column: 11),
+            problem(
+              summary: 'Could not read these files; nothing reported.',
+              cause: 'Permission denied',
+              filePath: 'lib/secret.dart',
+              line: null,
+              column: null,
+              name: null,
+              detail: null,
             ),
           ],
         ),
-        style: style,
-      ),
-      startsWith('\x1b[1m\x1b[33mwarning:\x1b[39m\x1b[22m Could not read.'),
+      );
+      expect(
+        text,
+        'lib/a.dart\n'
+        '  3:5   function  dangling  (public)\n'
+        '  18:5  function  _private  (private)\n'
+        '\n'
+        'Referenced only from doc comments (1) · not counted as unused, never '
+        'removed\n'
+        'lib/a.dart\n'
+        '  41:5  function  docOnly  (public)\n'
+        '\n'
+        'Recovered references (1) · find-references missed a use the '
+        'definition check found; kept · likely a Dart SDK bug\n'
+        'lib/a.dart\n'
+        '  4:7  A.baz  used at lib/b.dart:9:2\n'
+        '\n'
+        'Not analyzed (2) · parts of the analysis failed; each says what ciach '
+        'did instead\n'
+        '  Could not find the references; kept.\n'
+        '    Null check operator used on a null value\n'
+        '    lib/b.dart\n'
+        '      65:11  A.foo\n'
+        '  Could not read these files; nothing reported.\n'
+        '    Permission denied\n'
+        '    lib/secret.dart\n'
+        '  The analysis server threw while answering (likely a Dart SDK bug); '
+        '-v shows its stack traces.\n'
+        '\n'
+        'Found 2 unused declarations in 1 file (scanned 3 files, 10 '
+        'declarations, 1.0s) · 1 doc-only · 1 recovered · 2 not analyzed',
+      );
+    });
+
+    test('leaves out the sections with nothing in them', () {
+      final text = Reporter.text(resultWith(const []));
+      expect(
+        text,
+        'No unused declarations found (scanned 3 files, 10 declarations, 1.0s)',
+      );
+    });
+
+    test(
+      'lists the first few of a cause unless verbose, which adds the stack',
+      () {
+        final result = resultWith(
+          const [],
+          problems: [for (var i = 1; i <= 3; i++) problem(line: i)],
+        );
+        final short = Reporter.text(result, maxListed: 2);
+        expect(short, contains('      2:5  A.foo'));
+        expect(short, isNot(contains('      3:5  A.foo')));
+        expect(short, contains('    … and 1 more (-v lists them all)'));
+        expect(short, contains('-v shows its stack traces'));
+
+        final verbose = Reporter.text(result, verbose: true, maxListed: 2);
+        expect(verbose, contains('      3:5  A.foo'));
+        expect(
+          verbose,
+          contains('    The analysis server logged, for the first:'),
+        );
+        expect(verbose, contains('      #0      Foo.bar'));
+        expect(verbose, isNot(contains('-v')));
+      },
     );
+
+    test('colors by role', () {
+      const style = Style(enabled: true);
+      expect(
+        Reporter.text(resultWith(const []), style: style),
+        startsWith(
+          '\x1b[32mNo unused declarations found\x1b[39m \x1b[2m(scanned',
+        ),
+      );
+      final text = Reporter.text(
+        resultWith([decl()], problems: [problem()]),
+        style: style,
+      );
+      // A caution heading, a failure's cause, the findings as attention.
+      expect(text, contains('\x1b[33m\x1b[1mNot analyzed (1)\x1b[22m\x1b[39m'));
+      expect(
+        text,
+        contains('\x1b[31mNull check operator used on a null value\x1b[39m'),
+      );
+      expect(
+        text,
+        contains('\x1b[1m\x1b[33mFound 1 unused declaration in 1 file'),
+      );
+    });
+  });
+
+  group('Reporter.removal', () {
+    test('says what was removed, left and deleted, with the hints it took', () {
+      final text = Reporter.removal(
+        const RemovalResult(
+          filesChanged: 2,
+          deletedFiles: [(filePath: 'lib/empty.dart', unlinkedFrom: [])],
+        ),
+        removed: 3,
+        blocked: 1,
+        notes: ['Foo._: prefer `abstract final class`'],
+      );
+      expect(
+        text,
+        'Removed 3 unused declarations from 2 files. 1 left in place — unsafe '
+        'to auto-remove. Deleted 1 now-empty file: lib/empty.dart. '
+        "Run 'dart format' to tidy up spacing.\n"
+        'Note: Foo._: prefer `abstract final class`',
+      );
+    });
+
+    test('says so when the user declined', () {
+      expect(Reporter.removal(null), 'Skipped removal.');
+    });
   });
 }

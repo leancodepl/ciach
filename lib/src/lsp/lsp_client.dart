@@ -13,6 +13,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:ciach/src/dart_executable.dart';
+import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/version.dart';
@@ -29,6 +30,8 @@ const _publishOutlineMethod = 'dart/textDocument/publishOutline';
 
 /// The Dart-specific "go to super" request.
 const _superMethod = 'dart/textDocument/super';
+
+final _log = Logger('ciach.lsp');
 
 /// A session with the Dart analysis server, spoken over LSP via `pro_lsp`.
 ///
@@ -88,6 +91,7 @@ class LspClient {
       '--client-id=ciach',
       '--client-version=$ciachVersion',
     ], runInShell: executableNeedsShell(executable));
+    _log.fine('Started `$executable language-server` (pid ${process.pid}).');
 
     final channel = StreamChannel<List<int>>(process.stdout, process.stdin);
     final client = lsp.LspClient.fromChannel(channel);
@@ -104,7 +108,9 @@ class LspClient {
       final code = await process.exitCode;
       // Can land before the last of stderr does.
       await stderrDrained;
-      if (!wrapper._shuttingDown) {
+      if (wrapper._shuttingDown) {
+        _log.fine('The analysis server exited with code $code.');
+      } else {
         final error = AnalysisServerExitedException(
           executable: executable,
           exitCode: code,

@@ -32,12 +32,13 @@ String describeFatalError(
     ),
     _ => ('Internal error: $error', null, true),
   };
-  final buffer = StringBuffer()..writeln('${style.error('error:')} $message');
+  final buffer = StringBuffer()
+    ..writeln('${style.errorLabel('error:')} $message');
   if (detail != null) {
     buffer.writeln(
       verbose
-          ? 'The analysis server logged:\n${style.hint(detail)}'
-          : style.hint(
+          ? 'The analysis server logged:\n${style.detail(detail)}'
+          : style.detail(
               'The analysis server threw while answering, which is likely a '
               'Dart SDK bug; --verbose shows its stack trace.',
             ),
@@ -52,9 +53,9 @@ String describeFatalError(
   if (verbose) {
     buffer
       ..writeln()
-      ..writeln(style.hint('$stackTrace'.trimRight()));
+      ..writeln(style.detail('$stackTrace'.trimRight()));
   } else if (isBug) {
-    buffer.writeln(style.hint('Run with --verbose to see the stack trace.'));
+    buffer.writeln(style.detail('Run with --verbose to see the stack trace.'));
   }
   return buffer.toString();
 }

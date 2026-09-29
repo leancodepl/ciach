@@ -1,11 +1,14 @@
 import 'dart:io';
 
 import 'package:ciach/src/emptied_files.dart';
+import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
+
+final _log = Logger('ciach.remover');
 
 /// Symbol kinds whose [DeclarationRange] covers only the declarator (name and
 /// initializer), not the shared `final`/`const`/type prefix or the
@@ -86,6 +89,9 @@ RemovalResult removeDeclarations(
       if (updated != content) {
         file.writeAsStringSync(updated);
         rewritten.add(p.normalize(file.absolute.path));
+        _log.fine(
+          'Rewrote ${entry.key}: removed ${entry.value.length} declaration(s).',
+        );
       }
     } on FileSystemException catch (e) {
       throw failure(e, file.path);

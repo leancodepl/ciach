@@ -2,10 +2,13 @@ import 'dart:io';
 
 import 'package:ciach/src/comment_stripping.dart';
 import 'package:ciach/src/file_discovery.dart';
+import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
+
+final _log = Logger('ciach.remover');
 
 /// Deletes the [rewritten] files (absolute paths) left with only
 /// `library`/`import`/`part of` lines, dropping the directives naming them
@@ -44,13 +47,19 @@ List<DeletedFile> deleteEmptiedFiles(Set<String> rewritten, String rootPath) {
       }
       package.delete(path);
       pending.remove(path);
-      deleted.add((
+      final file = (
         filePath: relativePosix(path, root),
         unlinkedFrom: [
           for (final importer in links.keys.sorted())
             relativePosix(importer, root),
         ],
-      ));
+      );
+      deleted.add(file);
+      _log.fine(
+        file.unlinkedFrom.isEmpty
+            ? 'Deleted ${file.filePath}: nothing left but library/import/part-of lines.'
+            : 'Deleted ${file.filePath}: nothing left but library/import/part-of lines. Dropped the directives naming it from ${file.unlinkedFrom.join(', ')}.',
+      );
       progressed = true;
     }
   }

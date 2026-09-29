@@ -17,34 +17,124 @@ import 'package:path/path.dart' as p;
 
 /// Renders a [FinderResult] for humans or machines.
 abstract final class Reporter {
-  /// A grouped, aligned, human-readable report.
-  static String text(FinderResult result, {Style style = Style.plain}) {
+  /// A grouped, aligned, human-readable report: the findings, then a section
+  /// for each kind of note on them, then a summary line counting them all.
+  ///
+  /// [verbose] lists every problem location, with the analysis server's
+  /// stack trace; otherwise each cause lists its first [maxListed].
+  static String text(
+    FinderResult result, {
+    Style style = Style.plain,
+    bool verbose = false,
+    int maxListed = 10,
+  }) {
     final buffer = StringBuffer();
-    _writeGroup(buffer, result.unused, style);
+    _writeDeclarations(buffer, result.unused, style);
 
     if (result.docOnly.isNotEmpty) {
-      buffer.writeln(
-        style.hint(
-          'Referenced only from doc comments — not counted as unused, '
-          'never removed:',
-        ),
+      _writeHeading(
+        buffer,
+        'Referenced only from doc comments',
+        result.docOnly.length,
+        'not counted as unused, never removed',
+        style,
       );
-      _writeGroup(buffer, result.docOnly, style);
+      _writeDeclarations(buffer, result.docOnly, style);
+    }
+
+    if (result.recoveredReferences.isNotEmpty) {
+      _writeHeading(
+        buffer,
+        'Recovered references',
+        result.recoveredReferences.length,
+        'find-references missed a use the definition check found; kept · '
+            'likely a Dart SDK bug',
+        style,
+        caution: true,
+      );
+      _writeRecovered(buffer, result.recoveredReferences, style);
+    }
+
+    if (result.problems.isNotEmpty) {
+      _writeHeading(
+        buffer,
+        'Not analyzed',
+        result.problems.length,
+        'parts of the analysis failed; each says what ciach did instead',
+        style,
+        caution: true,
+      );
+      _writeProblems(buffer, result.problems, style, verbose, maxListed);
     }
 
     buffer.write(_summary(result, style));
     return buffer.toString();
   }
 
+  /// What `--remove` did: [removed] declarations taken out, [blocked] left
+  /// in place as unsafe, with the [notes] their removed report lines carried.
+  /// A `null` [removal] means the user declined.
+  static String removal(
+    RemovalResult? removal, {
+    int removed = 0,
+    int blocked = 0,
+    Iterable<String> notes = const [],
+    Style style = Style.plain,
+  }) {
+    if (removal == null) {
+      return style.note('Skipped removal.');
+    }
+    String plural(int n, String word) => '$n $word${n == 1 ? '' : 's'}';
+    final files = removal.filesChanged;
+    final deleted = removal.deletedFiles;
+    final buffer = StringBuffer(
+      style.success(
+        'Removed ${plural(removed, 'unused declaration')} from '
+        '${plural(files, 'file')}.',
+      ),
+    );
+    if (blocked > 0) {
+      buffer.write(
+        ' ${style.caution('$blocked left in place — unsafe to auto-remove.')}',
+      );
+    }
+    if (deleted.isNotEmpty) {
+      buffer.write(
+        ' Deleted ${plural(deleted.length, 'now-empty file')}: '
+        '${deleted.map((d) => d.filePath).join(', ')}.',
+      );
+    }
+    buffer.write(" ${style.note("Run 'dart format' to tidy up spacing.")}");
+    for (final note in notes) {
+      buffer.write('\n${style.heading('Note:')} $note');
+    }
+    return buffer.toString();
+  }
+
+  /// A section's heading line: its [title] and [count], then what it means.
+  static void _writeHeading(
+    StringBuffer buffer,
+    String title,
+    int count,
+    String meaning,
+    Style style, {
+    bool caution = false,
+  }) {
+    final heading = style.heading('$title ($count)');
+    buffer.writeln(
+      '${caution ? style.caution(heading) : heading} ${style.note('· $meaning')}',
+    );
+  }
+
   /// Writes one file-grouped, aligned block of [decls] to [buffer].
-  static void _writeGroup(
+  static void _writeDeclarations(
     StringBuffer buffer,
     List<UnusedDeclaration> decls,
     Style style,
   ) {
     for (final MapEntry(key: file, value: fileDecls)
         in decls.groupListsBy((d) => d.filePath).entries) {
-      buffer.writeln(style.bold(file));
+      buffer.writeln(style.path(file));
 
       // Column widths for tidy alignment (each group is non-empty).
       final locWidth = fileDecls.map((d) => '${d.line}:${d.column}'.length).max;
@@ -55,21 +145,112 @@ abstract final class Reporter {
         final kind = decl.kind.label.padRight(kindWidth);
         final visibility = decl.isPrivate ? 'private' : 'public';
         final blocked = decl.removalBlocked
-            ? '  ${style.yellow('(unsafe to auto-remove — remove manually)')}'
+            ? '  ${style.caution('(unsafe to auto-remove — remove manually)')}'
             : '';
         final hint = decl.hint != null
-            ? '  ${style.hint('(${decl.hint})')}'
+            ? '  ${style.note('(${decl.hint})')}'
             : '';
         buffer.writeln(
-          '  ${style.hint(loc)}  '
-          '${style.cyan(kind)}  '
+          '  ${style.position(loc)}  '
+          '${style.kind(kind)}  '
           '${decl.qualifiedName}  '
-          '${style.hint('($visibility)')}'
+          '${style.note('($visibility)')}'
           '$blocked$hint',
         );
       }
       buffer.writeln();
     }
+  }
+
+  static void _writeRecovered(
+    StringBuffer buffer,
+    List<RecoveredReference> recovered,
+    Style style,
+  ) {
+    for (final MapEntry(key: file, value: inFile)
+        in recovered.groupListsBy((r) => r.filePath).entries) {
+      buffer.writeln(style.path(file));
+      final locWidth = inFile.map((r) => '${r.line}:${r.column}'.length).max;
+      for (final r in inFile) {
+        final loc = '${r.line}:${r.column}'.padRight(locWidth);
+        buffer.writeln(
+          '  ${style.position(loc)}  ${r.qualifiedName}  '
+          '${style.position('used at ${r.usageFilePath}:${r.usageLine}:'
+          '${r.usageColumn}')}',
+        );
+      }
+    }
+    buffer.writeln();
+  }
+
+  /// [problems] by what failed, then why, then where.
+  static void _writeProblems(
+    StringBuffer buffer,
+    List<AnalysisProblem> problems,
+    Style style,
+    bool verbose,
+    int maxListed,
+  ) {
+    var hasDetail = false;
+    for (final MapEntry(key: summary, value: ofSummary)
+        in problems.groupListsBy((p) => p.summary).entries) {
+      buffer.writeln('  $summary');
+      for (final MapEntry(key: cause, value: ofCause)
+          in ofSummary.groupListsBy((p) => p.cause).entries) {
+        buffer.writeln('    ${style.failure(cause)}');
+        final listed = verbose ? ofCause : ofCause.take(maxListed).toList();
+        for (final MapEntry(key: file, value: inFile)
+            in listed.groupListsBy((p) => p.filePath).entries) {
+          buffer.writeln('    ${style.path(file)}');
+          final rows = [
+            for (final p in inFile)
+              if (p.line != null) p,
+          ];
+          if (rows.isEmpty) {
+            continue;
+          }
+          final locWidth = rows
+              .map((p) => '${p.line}:${p.column ?? 1}'.length)
+              .max;
+          for (final p in rows) {
+            final loc = '${p.line}:${p.column ?? 1}'.padRight(locWidth);
+            buffer.writeln(
+              '      ${style.position(loc)}${p.name == null ? '' : '  ${p.name}'}',
+            );
+          }
+        }
+        if (ofCause.length > listed.length) {
+          buffer.writeln(
+            style.note(
+              '    … and ${ofCause.length - listed.length} more '
+              '(-v lists them all)',
+            ),
+          );
+        }
+        final detail = ofCause.first.detail;
+        hasDetail |= detail != null;
+        if (verbose && detail != null) {
+          buffer
+            ..writeln(
+              style.note('    The analysis server logged, for the first:'),
+            )
+            ..writeln(
+              style.note(
+                detail.split('\n').map((line) => '      $line').join('\n'),
+              ),
+            );
+        }
+      }
+    }
+    if (hasDetail && !verbose) {
+      buffer.writeln(
+        style.note(
+          '  The analysis server threw while answering (likely a Dart SDK '
+          'bug); -v shows its stack traces.',
+        ),
+      );
+    }
+    buffer.writeln();
   }
 
   /// A machine-readable JSON report.
@@ -88,73 +269,6 @@ abstract final class Reporter {
       'warnings': [for (final w in result.recoveredReferences) w.toJson()],
       'problems': [for (final problem in result.problems) problem.toJson()],
     });
-  }
-
-  /// Recovery warnings for stderr (text format), one per line, or empty.
-  static String warningsText(FinderResult result, {Style style = Style.plain}) {
-    final buffer = StringBuffer();
-    for (final w in result.recoveredReferences) {
-      buffer.writeln(
-        "${style.warning('warning:')} '${w.qualifiedName}' "
-        "${style.hint('(${w.filePath}:${w.line}:${w.column})')} ${w.message}",
-      );
-    }
-    return buffer.toString();
-  }
-
-  /// The run's [FinderResult.problems] for stderr (text format), grouped by
-  /// what failed and why, or empty. [verbose] lists every location, with the
-  /// analysis server's stack traces; otherwise each group shows the first
-  /// [maxListed].
-  static String problemsText(
-    FinderResult result, {
-    bool verbose = false,
-    Style style = Style.plain,
-    int maxListed = 10,
-  }) {
-    final buffer = StringBuffer();
-    var hasDetail = false;
-    for (final MapEntry(key: summary, value: ofSummary)
-        in result.problems.groupListsBy((p) => p.summary).entries) {
-      buffer.writeln('${style.warning('warning:')} $summary');
-      for (final MapEntry(key: cause, value: problems)
-          in ofSummary.groupListsBy((p) => p.cause).entries) {
-        buffer.writeln('  ${style.bold('Cause:')} $cause');
-        final listed = verbose ? problems : problems.take(maxListed);
-        final width = listed.map((p) => p.location.length).max;
-        for (final problem in listed) {
-          final name = problem.name == null ? '' : '  ${problem.name}';
-          buffer.writeln(
-            '    ${style.hint(problem.location.padRight(width))}'
-            '$name',
-          );
-        }
-        if (problems.length > listed.length) {
-          buffer.writeln(
-            style.hint(
-              '    … and ${problems.length - listed.length} more '
-              '(--verbose lists them all)',
-            ),
-          );
-        }
-        final detail = problems.first.detail;
-        hasDetail |= detail != null;
-        if (verbose && detail != null) {
-          buffer
-            ..writeln('  The analysis server logged, for the first:')
-            ..writeln(detail.split('\n').map((line) => '    $line').join('\n'));
-        }
-      }
-    }
-    if (hasDetail && !verbose) {
-      buffer.writeln(
-        style.hint(
-          'The analysis server threw while answering, which is likely a Dart '
-          'SDK bug; --verbose shows its stack trace.',
-        ),
-      );
-    }
-    return buffer.toString();
   }
 
   /// [GitHub Actions workflow commands][] — one `::warning` annotation per
@@ -274,28 +388,27 @@ abstract final class Reporter {
       _escapeData(value).replaceAll(':', '%3A').replaceAll(',', '%2C');
 
   static String _summary(FinderResult result, Style style) {
+    String plural(int n, String word) => '$n $word${n == 1 ? '' : 's'}';
     final count = result.unused.length;
     final fileCount = result.unused.map((d) => d.filePath).toSet().length;
     final seconds = (result.elapsed.inMilliseconds / 1000).toStringAsFixed(1);
-    final docOnlyCount = result.docOnly.length;
-    final problemCount = result.problems.length;
-    final scanned = style.hint(
-      '(scanned ${result.filesScanned} files, '
-      '${result.declarationsChecked} declarations, ${seconds}s).',
-    );
     final headline = count == 0
         ? style.success('No unused declarations found')
-        : style.bold(
-            'Found $count unused declaration${count == 1 ? '' : 's'} '
-            'in $fileCount file${fileCount == 1 ? '' : 's'}',
+        : style.attention(
+            'Found ${plural(count, 'unused declaration')} in '
+            '${plural(fileCount, 'file')}',
           );
-    final docOnly = docOnlyCount == 0
-        ? ''
-        : ' $docOnlyCount more referenced only from doc comments.';
-    final problems = problemCount == 0
-        ? ''
-        : ' ${style.yellow('$problemCount part${problemCount == 1 ? '' : 's'} of '
-          'the analysis failed — see the warnings.')}';
-    return '$headline $scanned$docOnly$problems';
+    final scanned = style.note(
+      '(scanned ${plural(result.filesScanned, 'file')}, '
+      '${plural(result.declarationsChecked, 'declaration')}, ${seconds}s)',
+    );
+    final sections = [
+      if (result.docOnly.isNotEmpty) '${result.docOnly.length} doc-only',
+      if (result.recoveredReferences.isNotEmpty)
+        style.caution('${result.recoveredReferences.length} recovered'),
+      if (result.problems.isNotEmpty)
+        style.caution('${result.problems.length} not analyzed'),
+    ];
+    return ['$headline $scanned', ...sections].join(style.note(' · '));
   }
 }

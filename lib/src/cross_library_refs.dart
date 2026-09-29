@@ -89,7 +89,7 @@ class CrossLibraryReferences {
       try {
         return await client.definition(site.uri, site.position);
       } on LspRequestException catch (e) {
-        reportProblem(
+        recordProblem(
           _unresolvedSite,
           e,
           path: site.uri.toFilePath(),

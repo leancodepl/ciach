@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:ciach/ciach.dart';
+import 'package:ciach/src/log.dart';
 import 'package:ciach/src/problems.dart';
-import 'package:logging/logging.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position;
 import 'package:test/test.dart';
 
@@ -16,10 +16,10 @@ void main() {
   test(
     'a run collects what it reports, however deep, relative to its root',
     () async {
-      final log = ProblemLog('/pkg');
+      final log = ProblemCollector('/pkg');
       await log.collect(() async {
         await Future<void>.delayed(Duration.zero);
-        reportProblem(
+        recordProblem(
           'Could not find the references.',
           failure,
           path: '/pkg/lib/a.dart',
@@ -37,20 +37,20 @@ void main() {
   );
 
   test('runs side by side keep their own', () async {
-    final a = ProblemLog('/a');
-    final b = ProblemLog('/b');
+    final a = ProblemCollector('/a');
+    final b = ProblemCollector('/b');
     await Future.wait([
-      a.collect(() async => reportProblem('A', failure, path: '/a/x.dart')),
-      b.collect(() async => reportProblem('B', failure, path: '/b/y.dart')),
+      a.collect(() async => recordProblem('A', failure, path: '/a/x.dart')),
+      b.collect(() async => recordProblem('B', failure, path: '/b/y.dart')),
     ]);
     expect(a.problems.map((p) => p.summary), ['A']);
     expect(b.problems.map((p) => p.summary), ['B']);
   });
 
   test('a file system error reads as what the OS said', () async {
-    final log = ProblemLog('/pkg');
+    final log = ProblemCollector('/pkg');
     await log.collect(
-      () async => reportProblem(
+      () async => recordProblem(
         'Could not read.',
         const FileSystemException(
           'Cannot open file',
@@ -64,18 +64,23 @@ void main() {
   });
 
   test(
-    'each is logged as a warning carrying it; outside a run, only that',
+    'each is narrated at FINE, carrying it; outside a run, only that',
     () async {
       final records = <LogRecord>[];
+      final level = Logger.root.level;
+      Logger.root.level = Level.ALL;
       final subscription = Logger.root.onRecord.listen(records.add);
-      addTearDown(subscription.cancel);
+      addTearDown(() {
+        Logger.root.level = level;
+        return subscription.cancel();
+      });
 
-      reportProblem('Lost.', failure, path: '/pkg/lib/a.dart');
+      recordProblem('Lost.', failure, path: '/pkg/lib/a.dart');
       await pumpEventQueue();
 
       final record = records.single;
-      expect(record.level, Level.WARNING);
-      expect(record.loggerName, 'ciach.problems');
+      expect(record.level, Level.FINE);
+      expect(record.loggerName, 'ciach.finder');
       expect(
         record.object,
         isA<AnalysisProblem>().having(

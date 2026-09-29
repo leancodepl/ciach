@@ -157,23 +157,51 @@ Future<void> main(List<String> args) async {
           ...args,
         ]);
 
-    test('warns about the declaration and exits as usual', () async {
-      final result = await runCli(proxyDart(), ['--set-exit-if-changed']);
-      expect(result.exitCode, 1, reason: '${result.stdout}\n${result.stderr}');
-      expect(result.stdout, contains('reallyUnused'));
-      expect(result.stdout, isNot(contains('brokenLookup')));
-      expect(
-        result.stderr,
-        allOf(
-          contains(
-            'warning: Could not find the references to these declarations',
+    test(
+      'reports the declaration as not analyzed and exits as usual',
+      () async {
+        final result = await runCli(proxyDart(), ['--set-exit-if-changed']);
+        expect(
+          result.exitCode,
+          1,
+          reason: '${result.stdout}\n${result.stderr}',
+        );
+        final stdout = result.stdout as String;
+        final notAnalyzed = stdout.indexOf('Not analyzed (1)');
+        expect(notAnalyzed, isNonNegative, reason: stdout);
+        final findings = stdout.substring(0, notAnalyzed);
+        expect(findings, contains('reallyUnused'));
+        expect(findings, isNot(contains('brokenLookup')));
+        expect(
+          stdout.substring(notAnalyzed),
+          allOf(
+            contains(
+              '  Could not find the references to these declarations; they '
+              'are kept, not reported.\n'
+              '    Injected failure\n'
+              '    lib/a.dart\n'
+              '      1:6  brokenLookup\n',
+            ),
+            contains('-v shows its stack traces'),
+            contains('· 1 not analyzed'),
+            isNot(contains('#0')),
           ),
-          contains('Cause: Injected failure'),
-          contains('lib/a.dart:1:6  brokenLookup'),
-          contains('--verbose shows its stack trace'),
-          isNot(contains('#0')),
-        ),
+        );
+        // The problem is a result, not a log record: nothing on stderr.
+        expect(result.stderr, isNot(contains('brokenLookup')));
+      },
+    );
+
+    test('with -v, narrates the problem once as it happens', () async {
+      final result = await runCli(proxyDart(), ['-v']);
+      expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+      final stderr = result.stderr as String;
+      expect(
+        'finder  lib/a.dart:1:6 (brokenLookup): '.allMatches(stderr),
+        hasLength(1),
+        reason: stderr,
       );
+      expect(result.stdout, contains('      #0      injected'));
     });
 
     test('says the server died, without a stack trace', () async {

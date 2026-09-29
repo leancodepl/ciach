@@ -19,6 +19,7 @@ import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/conventions/serialization.dart';
 import 'package:ciach/src/cross_library_refs.dart';
 import 'package:ciach/src/file_discovery.dart';
+import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
@@ -32,10 +33,12 @@ import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/superclasses.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:ciach/src/syntax_rules.dart';
-import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart'
     show DocumentSymbol, Location, Position, Range, SelectionRange;
+
+/// Problems are part of the result, so they go through [recordProblem].
+final _log = Logger('ciach.finder');
 
 /// Finds declarations that are never referenced by driving the Dart analysis
 /// server over LSP.
@@ -117,21 +120,17 @@ class Ciach {
       'overridden by a declaration --remove will not delete — that override '
       'would be left overriding nothing';
 
-  /// What the progress line shows at [Level.INFO] (phases, files done), and
-  /// `--verbose` detail at [Level.FINE]. Problems go through [reportProblem].
-  static final _log = Logger('ciach.finder');
-
   /// Runs the analysis and returns the declarations that are never referenced.
   ///
   /// Throws an [ArgumentError] if [FinderOptions.analysisRootPath] does not
   /// contain [FinderOptions.rootPath]; widening to a directory beside the
   /// scanned one would drop references rather than add them.
   Future<FinderResult> run() {
-    final problems = ProblemLog(options.rootPath);
+    final problems = ProblemCollector(options.rootPath);
     return problems.collect(() => _run(problems));
   }
 
-  Future<FinderResult> _run(ProblemLog problems) async {
+  Future<FinderResult> _run(ProblemCollector problems) async {
     final stopwatch = Stopwatch()..start();
     final rootPath = options.rootPath;
     final analysisRoot = options.analysisRootPath ?? rootPath;
@@ -169,7 +168,7 @@ class Ciach {
 
     try {
       if (analysisRoot != rootPath) {
-        _log.info(
+        _log.config(
           'Analyzing within $analysisRoot: references outside the scanned '
           'package count.',
         );
@@ -248,6 +247,12 @@ class Ciach {
         rootPath,
         analysisRoot,
       );
+      if (recoveredReferences.isNotEmpty) {
+        _log.fine(
+          'Kept ${recoveredReferences.length} declaration(s) the reference '
+          'search called unused: the definition check found a use for each.',
+        );
+      }
 
       // A deser-only union arm reads zero references but is a live serialization
       // member.
@@ -511,7 +516,7 @@ class Ciach {
     try {
       return await client.references(candidate.uri, start);
     } on LspRequestException catch (e) {
-      reportProblem(
+      recordProblem(
         _uncheckedDeclaration,
         e,
         path: candidate.path,
@@ -599,7 +604,7 @@ class Ciach {
         ranges = await client.selectionRanges(File(path).uri, ordered);
       } on LspRequestException catch (e) {
         // A position with no answer reads as "not the special shape".
-        reportProblem(
+        recordProblem(
           _noSelectionRanges,
           e,
           path: path,
@@ -624,7 +629,7 @@ class Ciach {
     try {
       return await client.semanticTokens(File(path).uri, _sources.lines(path));
     } on LspRequestException catch (e) {
-      reportProblem(_noSemanticTokens, e, path: path);
+      recordProblem(_noSemanticTokens, e, path: path);
       return const [];
     }
   }
@@ -758,7 +763,7 @@ class Ciach {
     try {
       content = File(path).readAsStringSync();
     } on FileSystemException catch (e) {
-      reportProblem(_unreadableFile, e, path: path);
+      recordProblem(_unreadableFile, e, path: path);
       return false;
     }
     client.didOpen(File(path).uri, content);
@@ -808,7 +813,7 @@ class Ciach {
       if (e is! LspRequestException) {
         rethrow;
       }
-      reportProblem(_uncollectedFile, e, path: path);
+      recordProblem(_uncollectedFile, e, path: path);
       return const [];
     }
     final tokens = await pendingTokens;
