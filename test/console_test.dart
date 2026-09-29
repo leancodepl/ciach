@@ -1,3 +1,4 @@
+import 'package:ciach/ciach.dart' show AnalysisProblem;
 import 'package:ciach/src/cli/console.dart';
 import 'package:ciach/src/style.dart';
 import 'package:logging/logging.dart';
@@ -29,18 +30,57 @@ void main() {
   LogRecord record(String message, [Level level = Level.INFO]) =>
       LogRecord(level, message, 'ciach.finder');
 
-  test('the report goes to stdout, everything else to stderr', () {
+  test('the report goes to stdout, the log to stderr', () {
     console()
       ..report('findings\n')
-      ..error('broken')
-      ..warning('odd');
+      ..log(record('broken', Level.SEVERE))
+      ..log(record('odd', Level.WARNING));
     expect(out.toString(), 'findings\n');
     expect(err.toString(), 'error: broken\nwarning: odd\n');
   });
 
   test('labels are styled on a stream that takes it', () {
-    console(style: const Style(enabled: true)).error('broken');
+    console(
+      style: const Style(enabled: true),
+    ).log(record('broken', Level.SEVERE));
     expect(err.toString(), '\x1b[1m\x1b[31merror:\x1b[39m\x1b[22m broken\n');
+  });
+
+  test('a severe record carrying an error says all there is about it', () {
+    console().log(
+      LogRecord(
+        Level.SEVERE,
+        'The run stopped.',
+        'ciach.cli',
+        RangeError('Index out of range'),
+        StackTrace.empty,
+      ),
+    );
+    expect(err.toString(), startsWith('error: Internal error: RangeError'));
+    expect(err.toString(), contains('This is a bug in ciach'));
+  });
+
+  test('an analysis problem is left to the report, unless verbose', () {
+    const problem = AnalysisProblem(
+      summary: 'Could not read.',
+      cause: 'Gone',
+      filePath: 'lib/a.dart',
+    );
+    LogRecord problemRecord() => LogRecord(
+      Level.WARNING,
+      '$problem',
+      'ciach.problems',
+      null,
+      null,
+      null,
+      problem,
+    );
+
+    console().log(problemRecord());
+    expect(err.toString(), isEmpty);
+
+    console(verbose: true).log(problemRecord());
+    expect(err.toString(), contains('warning: lib/a.dart: Could not read.'));
   });
 
   group('progress', () {
@@ -70,10 +110,8 @@ void main() {
       expect(err.toString(), endsWith('\r\x1b[2K'));
     });
 
-    test('leaves detail to --verbose, and warnings to the report', () {
-      console(progress: true)
-        ..log(record('detail', Level.FINE))
-        ..log(record('problem', Level.WARNING));
+    test('leaves detail to --verbose', () {
+      console(progress: true).log(record('detail', Level.FINE));
       expect(err.toString(), isEmpty);
     });
 
@@ -86,10 +124,12 @@ void main() {
   test('verbose stamps every record, warnings included', () {
     console(verbose: true)
       ..log(record('Opening'))
-      ..log(record('problem', Level.WARNING));
+      ..log(record('odd', Level.WARNING));
     expect(
       err.toString(),
-      matches(RegExp(r'^\[ +\d+\.\ds\] Opening\n\[ +\d+\.\ds\] problem\n$')),
+      matches(
+        RegExp(r'^\[ +\d+\.\ds\] Opening\n\[ +\d+\.\ds\] warning: odd\n$'),
+      ),
     );
   });
 
@@ -98,21 +138,9 @@ void main() {
     expect(err.toString(), isEmpty);
   });
 
-  test('listens to the level it shows, under the logger it is given', () async {
-    final level = Logger.root.level;
-    addTearDown(() => Logger.root.level = level);
-    final subscription = console(verbose: true).listen(Logger('ciach'));
-    addTearDown(subscription.cancel);
-
-    Logger('ciach.finder').fine('mine');
-    Logger('other').info('not mine');
-    Logger('ciach.finder').finer('too fine');
-    await pumpEventQueue();
-
-    expect(
-      err.toString(),
-      allOf(contains('mine'), isNot(contains('not mine'))),
-    );
-    expect(err.toString(), isNot(contains('too fine')));
+  test('asks for the records it shows', () {
+    expect(console().level, Level.WARNING);
+    expect(console(progress: true).level, Level.INFO);
+    expect(console(verbose: true).level, Level.FINE);
   });
 }

@@ -9,7 +9,8 @@
   the summary line, `--remove`'s outcome and prompt, locations and hints.
   Color is decided for stdout and stderr separately, so `ciach | less` still
   gets a colored progress line and warnings, and `NO_COLOR` turns it off.
-  `--color`/`--no-color` still force it either way.
+  `--color`/`--no-color` still force it either way. `--remove`'s "Nothing
+  removed" and "Refusing to remove" are now warnings on stderr, not stdout.
 - The progress line shows the phases and files done only, is cut to the
   terminal's width so it never wraps, and is cleared rather than left behind
   when the run ends or anything else is printed.

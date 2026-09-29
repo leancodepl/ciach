@@ -1,15 +1,17 @@
-import 'dart:async';
 import 'dart:io' as io;
 
+import 'package:ciach/src/cli/errors.dart';
+import 'package:ciach/src/models.dart';
 import 'package:ciach/src/style.dart';
 import 'package:logging/logging.dart';
 
 /// Everything the CLI writes to the terminal.
 ///
-/// stdout carries the report alone, so `-f json` stays machine-readable.
-/// Everything else goes to stderr: the progress line, `--verbose` narration,
-/// warnings and errors. Each stream has its own [Style], since one can be a
-/// terminal while the other is piped.
+/// stdout carries the command's output alone ([report]), so `-f json` stays
+/// machine-readable. Everything else is a log record, shown on stderr by
+/// [log]: errors, warnings, the progress line and `--verbose` narration. Each
+/// stream has its own [Style], since one can be a terminal while the other
+/// is piped.
 final class Console {
   Console({
     required StringSink out,
@@ -76,13 +78,6 @@ final class Console {
   /// Writes a line to stderr.
   void line([String text = '']) => write('$text\n');
 
-  /// An `error:` line on stderr.
-  void error(String message) => line('${errStyle.error('error:')} $message');
-
-  /// A `warning:` line on stderr.
-  void warning(String message) =>
-      line('${errStyle.warning('warning:')} $message');
-
   /// A `--verbose` line; nothing otherwise.
   void trace(String message) {
     if (verbose) {
@@ -90,39 +85,44 @@ final class Console {
     }
   }
 
-  /// Shows [record] as the configuration asks: every record when [verbose],
-  /// else [Level.INFO] records on the progress line. Finer records are
-  /// `--verbose` detail; warnings are left to the report, which groups them.
+  /// The least a record needs to be shown; set [Logger.root]'s level to it.
+  Level get level => verbose
+      ? Level.FINE
+      : progress
+      ? Level.INFO
+      : Level.WARNING;
+
+  /// Shows [record] on stderr:
+  ///
+  /// - [Level.SEVERE] as an `error:` line, or, when it carries an error, as
+  ///   everything [describeFatalError] has to say about it;
+  /// - [Level.WARNING] as a `warning:` line, except an [AnalysisProblem],
+  ///   which the report groups with the rest (shown here only when
+  ///   [verbose]);
+  /// - [Level.INFO] on the progress line, or as a [verbose] line;
+  /// - anything finer as a [verbose] line only.
   void log(LogRecord record) {
-    if (verbose) {
-      final message = switch (record.level) {
-        >= Level.SEVERE => errStyle.error(record.message),
-        >= Level.WARNING => errStyle.yellow(record.message),
-        _ => record.message,
-      };
-      line('${_stamp()} $message');
-    } else if (progress && record.level == Level.INFO) {
+    final level = record.level;
+    final stamp = verbose ? '${_stamp()} ' : '';
+    if (level >= Level.SEVERE) {
+      write(switch (record.error) {
+        final error? => describeFatalError(
+          error,
+          record.stackTrace ?? StackTrace.empty,
+          verbose: verbose,
+          style: errStyle,
+        ),
+        null => '${errStyle.error('error:')} ${record.message}\n',
+      });
+    } else if (level >= Level.WARNING) {
+      if (record.object is! AnalysisProblem || verbose) {
+        line('$stamp${errStyle.warning('warning:')} ${record.message}');
+      }
+    } else if (verbose) {
+      line('$stamp${record.message}');
+    } else if (progress && level == Level.INFO) {
       _showProgress(record.message);
     }
-  }
-
-  /// Routes the records of [logger] and its children to [log], at the level
-  /// this console shows. Cancel the subscription when the run is done.
-  StreamSubscription<LogRecord> listen([Logger? logger]) {
-    Logger.root.level = verbose
-        ? Level.FINE
-        : progress
-        ? Level.INFO
-        : Level.WARNING;
-    final name = logger?.fullName;
-    return Logger.root.onRecord
-        .where(
-          (r) =>
-              name == null ||
-              r.loggerName == name ||
-              r.loggerName.startsWith('$name.'),
-        )
-        .listen(log);
   }
 
   /// Clears the progress line, if one is showing.

@@ -26,8 +26,13 @@ import 'package:config/config.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 
-/// The CLI's own `--verbose` narration; the library's comes from `ciach.*`.
+/// The CLI's own errors, warnings and narration; the library's come from the
+/// other `ciach.*` loggers. All of it reaches the terminal through [_console].
 final _log = Logger('ciach.cli');
+
+/// Where the command's output goes, and what shows the log. Styled where the
+/// terminal takes it until the options say otherwise.
+var _console = Console.standard();
 
 Future<void> main(List<String> arguments) async {
   // Returning an int from `main` does not set the process exit code in Dart,
@@ -35,14 +40,14 @@ Future<void> main(List<String> arguments) async {
   try {
     exitCode = await _run(arguments);
   } on Object catch (e, st) {
-    // Only what fails before the options are read lands here.
-    final console = Console.standard();
-    console.write(
+    // Only what escapes [_run]'s own handling lands here, once the log is no
+    // longer listened to.
+    _console.write(
       describeFatalError(
         e,
         st,
         verbose: arguments.contains('--verbose') || arguments.contains('-v'),
-        style: console.errStyle,
+        style: _console.errStyle,
       ),
     );
     exitCode = 2;
@@ -50,35 +55,44 @@ Future<void> main(List<String> arguments) async {
 }
 
 Future<int> _run(List<String> arguments) async {
-  // Until the options say otherwise: styled where the terminal takes it.
-  var console = Console.standard();
+  Logger.root.level = _console.level;
+  final logging = Logger.root.onRecord.listen((r) => _console.log(r));
+  try {
+    return await _runLogged(arguments);
+  } finally {
+    await logging.cancel();
+    _console.clearProgress();
+  }
+}
+
+Future<int> _runLogged(List<String> arguments) async {
   final parser = buildParser();
 
   final ArgResults args;
   try {
     args = parser.parse(arguments);
   } on FormatException catch (e) {
-    console
-      ..error(e.message)
+    _log.severe(e.message);
+    _console
       ..line()
       ..line(usage(parser));
     return 2;
   }
 
   if (args.flag('help')) {
-    console.report('${usage(parser)}\n');
+    _console.report('${usage(parser)}\n');
     return 0;
   }
 
   if (args.flag('version')) {
-    console.report('ciach $ciachVersion\n');
+    _console.report('ciach $ciachVersion\n');
     return 0;
   }
 
   final ignoreConfig = args.flag('no-config');
   final explicitConfig = args.option('config');
   if (ignoreConfig && explicitConfig != null) {
-    console.error('--config cannot be combined with --no-config.');
+    _log.severe('--config cannot be combined with --no-config.');
     return 2;
   }
 
@@ -102,40 +116,29 @@ Future<int> _run(List<String> arguments) async {
       progressDefault: stderr.hasTerminal,
     );
   } on UsageException catch (e) {
-    console.error(e.message);
+    _log.severe(e.message);
     return 2;
   } on FormatException catch (e) {
-    console.error(e.message);
+    _log.severe(e.message);
     return 2;
   }
 
-  console = Console.standard(
+  _console = Console.standard(
     color: resolved.color,
     progress: resolved.showProgress,
     verbose: resolved.verbose,
   );
-  final logging = console.listen();
+  Logger.root.level = _console.level;
   try {
-    return await _analyze(console, resolved, configuration, config, projectDir);
+    return await _analyze(resolved, configuration, config, projectDir);
   } on Object catch (e, st) {
-    console.write(
-      describeFatalError(
-        e,
-        st,
-        verbose: resolved.verbose,
-        style: console.errStyle,
-      ),
-    );
+    _log.severe('The run stopped.', e, st);
     return 2;
-  } finally {
-    await logging.cancel();
-    console.clearProgress();
   }
 }
 
 /// Everything after the options are read: analyze, report, remove.
 Future<int> _analyze(
-  Console console,
   ResolvedOptions resolved,
   CiachConfiguration configuration,
   ConfigFile config,
@@ -145,12 +148,12 @@ Future<int> _analyze(
 
   final rootDir = Directory(resolved.rootPath);
   if (!rootDir.existsSync()) {
-    console.error('Path does not exist: ${resolved.rootPath}');
+    _log.severe('Path does not exist: ${resolved.rootPath}');
     return 2;
   }
 
   if (resolved.force && !resolved.remove) {
-    console.error(
+    _log.severe(
       'Skipping the removal prompt only makes sense when removing: --force (or `force: true`) requires --remove (or `remove: true`).',
     );
     return 2;
@@ -163,7 +166,7 @@ Future<int> _analyze(
   try {
     dartExecutable = findDartExecutable(explicit: resolved.dartExecutable);
   } on DartSdkNotFoundException catch (e) {
-    console.error(e.message);
+    _log.severe(e.message);
     return 2;
   }
 
@@ -174,13 +177,13 @@ Future<int> _analyze(
 
   if (options.analysisRootPath case final analysisRoot?) {
     if (!Directory(analysisRoot).existsSync()) {
-      console.error('Analysis root does not exist: $analysisRoot');
+      _log.severe('Analysis root does not exist: $analysisRoot');
       return 2;
     }
     // A root beside or below the scanned package would drop references, not
     // add them.
     if (!analysisRootContains(analysisRoot, rootPath)) {
-      console.error(
+      _log.severe(
         'The analysis root must contain the analyzed path: $analysisRoot does not contain $rootPath.',
       );
       return 2;
@@ -207,7 +210,7 @@ Future<int> _analyze(
 
   switch (format) {
     case 'json':
-      console.report('${Reporter.json(result)}\n');
+      _console.report('${Reporter.json(result)}\n');
     case 'github':
       // GitHub resolves annotation paths from the repo root, so prepend the
       // scan root's path from here.
@@ -215,24 +218,24 @@ Future<int> _analyze(
           .split(p.relative(rootPath, from: Directory.current.path))
           .join('/');
       _log.fine("Prefixing annotation paths with '$prefix/'.");
-      console.report(Reporter.github(result, pathPrefix: prefix));
+      _console.report(Reporter.github(result, pathPrefix: prefix));
     case _:
-      console
-        ..report('${Reporter.text(result, style: console.outStyle)}\n')
+      _console
+        ..report('${Reporter.text(result, style: _console.outStyle)}\n')
         // Warnings go to stderr so they never corrupt text stdout; the json
         // and github formats carry them in-band instead.
-        ..write(Reporter.warningsText(result, style: console.errStyle))
+        ..write(Reporter.warningsText(result, style: _console.errStyle))
         ..write(
           Reporter.problemsText(
             result,
             verbose: resolved.verbose,
-            style: console.errStyle,
+            style: _console.errStyle,
           ),
         );
   }
 
   if (result.unused.isNotEmpty && resolved.remove) {
-    await _removeUnused(console, result, rootPath, resolved);
+    await _removeUnused(result, rootPath, resolved);
   } else if (result.unused.isNotEmpty) {
     _log.fine('Leaving the findings in place; --remove was not given.');
   }
@@ -252,12 +255,11 @@ Future<int> _analyze(
 /// Reports what would be removed, confirms unless [ResolvedOptions.force], and
 /// deletes the declarations from disk.
 Future<void> _removeUnused(
-  Console console,
   FinderResult result,
   String rootPath,
   ResolvedOptions resolved,
 ) async {
-  final style = console.outStyle;
+  final style = _console.outStyle;
 
   // Report-only findings are left in place, so counting them would promise an
   // edit that never happens.
@@ -271,9 +273,9 @@ Future<void> _removeUnused(
     );
   }
   if (count == 0) {
-    console.report(
-      '${style.yellow('Nothing removed: all $blocked finding${blocked == 1 ? ' is' : 's are'} '
-      'unsafe to auto-remove — remove them manually.')}\n',
+    _log.warning(
+      'Nothing removed: all $blocked finding${blocked == 1 ? ' is' : 's are'} '
+      'unsafe to auto-remove — remove them manually.',
     );
     return;
   }
@@ -284,15 +286,15 @@ Future<void> _removeUnused(
     // The chosen --format may not be human-readable; show the findings
     // again so the confirmation prompt is never a shot in the dark.
     if (resolved.format != 'text') {
-      console.line(Reporter.text(result, style: console.errStyle));
+      _console.line(Reporter.text(result, style: _console.errStyle));
     }
     if (!stdin.hasTerminal) {
-      console.report(
-        '${style.yellow('Refusing to remove declarations without a terminal to confirm on; pass --force to remove without asking.')}\n',
+      _log.warning(
+        'Refusing to remove declarations without a terminal to confirm on; pass --force to remove without asking.',
       );
       return;
     }
-    console.report(
+    _console.report(
       style.bold('Remove $count unused declaration$plural? [y/N] '),
     );
     proceed = switch (stdin.readLineSync()?.trim().toLowerCase()) {
@@ -302,7 +304,7 @@ Future<void> _removeUnused(
   }
 
   if (!proceed) {
-    console.report('${style.hint('Skipped removal.')}\n');
+    _console.report('${style.hint('Skipped removal.')}\n');
     return;
   }
 
@@ -324,7 +326,7 @@ Future<void> _removeUnused(
   final emptied = deleted.isEmpty
       ? ''
       : " Deleted ${deleted.length} now-empty file${deleted.length == 1 ? '' : 's'}: ${deleted.map((d) => d.filePath).join(', ')}.";
-  console.report(
+  _console.report(
     "${style.success("Removed $count unused declaration$plural from $filesChanged file${filesChanged == 1 ? '' : 's'}.")}$left$emptied ${style.hint("Run 'dart format' to tidy up spacing.")}\n",
   );
   for (final file in deleted) {
@@ -341,6 +343,6 @@ Future<void> _removeUnused(
       .map((d) => '${d.qualifiedName}: ${d.hint}')
       .toSet();
   for (final note in removedHints) {
-    console.report('${style.bold('Note:')} $note\n');
+    _console.report('${style.bold('Note:')} $note\n');
   }
 }
