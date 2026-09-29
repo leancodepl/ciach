@@ -1,5 +1,11 @@
 ## Unreleased
 
+- Add `--generated-glob <glob>` (and `generated-glob:` in `ciach.yaml`): treat
+  matching files as generated, so their references count but nothing in them
+  is reported or removed. For output a suffix can't pick out, like
+  `flutter gen-l10n`'s `lib/l10n/**`, which has neither a suffix nor the
+  banner. Unlike `--exclude`, the files are still opened.
+  ([#76](https://github.com/leancodepl/ciach/pull/76))
 - `FinderOptions` normalizes `rootPath` and `analysisRootPath`, and a run throws
   an `ArgumentError` when the analysis root doesn't contain the scanned one, so
   a library caller gets the check the CLI already had. The constructor is no

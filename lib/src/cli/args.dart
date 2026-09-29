@@ -288,6 +288,19 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'Ignored when --generated is set.',
     ),
   ),
+  generatedGlob(
+    MultiStringOption.noSplit(
+      argName: 'generated-glob',
+      configKey: '/generated-glob',
+      defaultsTo: [],
+      valueHelp: 'glob',
+      helpText:
+          'Glob, relative to the root, of files to treat as generated: their\n'
+          'references count, but nothing in them is reported or edited, e.g.\n'
+          "--generated-glob 'lib/l10n/**'. --exclude drops files entirely\n"
+          'instead. Repeatable. Ignored when --generated is set.',
+    ),
+  ),
   // Config file only: a map has no command-line spelling.
   entryPoints(
     EntryPointsOption(
