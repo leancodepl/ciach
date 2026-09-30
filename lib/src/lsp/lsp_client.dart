@@ -13,6 +13,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:ciach/src/dart_executable.dart';
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/version.dart';
@@ -407,17 +408,6 @@ class LspClient {
       await _process.exitCode.timeout(const .new(seconds: 5));
     } on Object {
       _process.kill(.sigkill);
-    }
-  }
-}
-
-extension on Future<void> {
-  /// Completes when this future does, discarding any error it completes with.
-  Future<void> ignoringErrors() async {
-    try {
-      await this;
-    } on Object {
-      // Deliberately ignored.
     }
   }
 }
