@@ -60,6 +60,8 @@ include:
   - 'lib/**'
 generated-suffix:
   - .gc.dart
+generated-glob:
+  - 'lib/l10n/**'
 entry-points:
   - name: registerWith
     glob: 'lib/**_plugin.dart'
@@ -94,6 +96,7 @@ dart: /sdk/bin/dart
         'Harness.start in test/a.dart or test/b.dart',
       ]);
       expect(resolved.additionalGeneratedSuffixes, ['.gc.dart']);
+      expect(resolved.additionalGeneratedGlobs, ['lib/l10n/**']);
       expect(resolved.kinds, <SymbolKind>{.class$, .function});
       expect(resolved.format, 'github');
       expect(resolved.useColor, isTrue);
@@ -277,6 +280,8 @@ concurrency: 4
         'lib/**',
         '--generated-suffix',
         '.gc.dart',
+        '--generated-glob',
+        'lib/l10n/**',
         '-k',
         'class',
         '-f',
@@ -442,6 +447,7 @@ concurrency: 4
       expect(resolved.includeGlobs, isEmpty);
       expect(resolved.excludeGlobs, isEmpty);
       expect(resolved.additionalGeneratedSuffixes, isEmpty);
+      expect(resolved.additionalGeneratedGlobs, isEmpty);
       expect(resolved.kinds, FinderOptions.defaultKinds);
       expect(resolved.format, 'text');
       expect(resolved.verbose, isFalse);
@@ -507,10 +513,18 @@ dart: /sdk/bin/dart
         '.gc.dart',
         '--generated-suffix',
         '.pb.dart',
+        '--generated-glob',
+        'lib/l10n/**',
+        '--generated-glob',
+        'third_party/**',
       ]);
 
       expect(resolved.excludeGlobs, ['test/**', 'tool/**']);
       expect(resolved.additionalGeneratedSuffixes, ['.gc.dart', '.pb.dart']);
+      expect(resolved.additionalGeneratedGlobs, [
+        'lib/l10n/**',
+        'third_party/**',
+      ]);
     });
 
     test('explicitly passing a flag at its default value still wins', () {

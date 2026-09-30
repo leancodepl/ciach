@@ -71,6 +71,10 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
   final excludeGlobs = [
     for (final pattern in options.excludeGlobs) Glob(pattern, context: context),
   ];
+  final generatedGlobs = [
+    for (final pattern in options.additionalGeneratedGlobs)
+      Glob(pattern, context: context),
+  ];
 
   final candidates = <String>[];
   final warmOnly = <String>[];
@@ -89,7 +93,12 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
       continue;
     }
     if (!options.includeGenerated &&
-        _isGenerated(entity, relative, options.additionalGeneratedSuffixes)) {
+        (generatedGlobs.any((glob) => glob.matches(relative)) ||
+            _isGenerated(
+              entity,
+              relative,
+              options.additionalGeneratedSuffixes,
+            ))) {
       warmOnly.add(absolute);
       continue;
     }
