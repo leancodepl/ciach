@@ -1,11 +1,7 @@
 ## Unreleased
 
-- Couple a dead member's overrides without asking the server for each one's
-  references: it answers a member's whole override family with the same ones,
-  so the member being dead covers them. A project with many overrides of dead
-  members runs much faster (lichess-org/mobile: 3.4 h to 12 min), and
-  `--transitive` no longer blocks a member whose references all lie in dead
-  code just because it is overridden.
+- Checking a dead member's overrides is much faster: they share its
+  references, so they are no longer queried one by one.
   ([#77](https://github.com/leancodepl/ciach/pull/77))
 - Add `--transitive` (and `transitive:` in `ciach.yaml`): also report
   declarations referenced only from other findings, which used to take another
