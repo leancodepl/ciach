@@ -4,6 +4,9 @@ import 'package:ciach_website/components/section.dart';
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import 'package:jaspr_class_scope/jaspr_class_scope.dart';
+
+part 'features.scopes.dart';
 
 class _Feature {
   const _Feature(this.icon, this.title, this.body);
@@ -50,26 +53,40 @@ const _features = [
   ),
 ];
 
+@scopedCss
 class Features extends StatelessComponent {
   const Features({super.key});
 
+  static const _class = _$FeaturesScope;
+
+  static final _grid = _class('grid');
+  static final _feature = _class('feature');
+  static final _icon = _class('icon');
+
   @css
   static List<StyleRule> get styles => [
-    css('.feature-grid').styles(
-      display: .grid,
-      gap: .all(1.rem),
-      raw: {
-        'grid-template-columns':
-            'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
-      },
-    ),
-    css('.feature')
-        .styles(display: .flex, flexDirection: .column, gap: .all(0.6.rem)),
-    css('.feature:hover').styles(
-      transform: .translate(y: (-2).px),
-      raw: {'border-color': 'var(--border-2)'},
-    ),
-    css('.feature-icon').styles(
+    css(_grid.selector, [
+      css('&').styles(
+        display: .grid,
+        gap: .all(1.rem),
+        raw: {
+          'grid-template-columns':
+              'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
+        },
+      ),
+      shrinkableChildren(),
+    ]),
+    css(_feature.selector, [
+      css('&')
+          .styles(display: .flex, flexDirection: .column, gap: .all(0.6.rem)),
+      css('&:hover').styles(
+        transform: .translate(y: (-2).px),
+        raw: {'border-color': 'var(--border-2)'},
+      ),
+      css('& h3').styles(margin: .zero),
+      css('& p').styles(raw: {'flex': '1'}),
+    ]),
+    css(_icon.selector).styles(
       display: .inlineGrid,
       width: 42.px,
       height: 42.px,
@@ -80,8 +97,6 @@ class Features extends StatelessComponent {
       backgroundColor: accentSoftColor,
       raw: {'place-items': 'center'},
     ),
-    css('.feature h3').styles(margin: .zero),
-    css('.feature p').styles(raw: {'flex': '1'}),
   ];
 
   @override
@@ -91,10 +106,10 @@ class Features extends StatelessComponent {
       eyebrow: 'Features',
       heading: 'Sharp, and careful about it.',
       children: [
-        ul(classes: 'feature-grid', [
+        ul(classes: _grid.name, [
           for (final feature in _features)
-            Card(classes: 'feature', listItem: true, [
-              span(classes: 'feature-icon', [feature.icon.build(size: 22)]),
+            Card(classes: _feature, listItem: true, [
+              span(classes: _icon.name, [feature.icon.build(size: 22)]),
               h3([.text(feature.title)]),
               p(rich(feature.body)),
             ]),

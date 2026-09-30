@@ -321,6 +321,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.23.4"
+  jaspr_class_scope:
+    dependency: "direct main"
+    description:
+      name: jaspr_class_scope
+      sha256: e82a24f096e626a9acbf112b1f6f6d3aa45bf80e75aac16d382516833099a6e7
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.1"
+  jaspr_class_scope_builder:
+    dependency: "direct dev"
+    description:
+      name: jaspr_class_scope_builder
+      sha256: b1fe58ff87fb953224030901746d1cafb03f8668e416a4f551ec186a89569aa3
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.0"
   jaspr_router:
     dependency: "direct main"
     description:

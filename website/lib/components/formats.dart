@@ -4,6 +4,9 @@ import 'package:ciach_website/highlight.dart';
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import 'package:jaspr_class_scope/jaspr_class_scope.dart';
+
+part 'formats.scopes.dart';
 
 const _textOutput = '''
 lib/orphans.dart
@@ -62,13 +65,26 @@ const _formats = [
 
 /// Output-format switcher built from radio inputs and CSS alone, so all three
 /// samples are in the HTML for crawlers and the page needs no script for it.
+@scopedCss
 class OutputFormats extends StatelessComponent {
   const OutputFormats({super.key});
 
+  static const _class = _$OutputFormatsScope;
+
+  static final _tabs = _class('tabs');
+  static final _input = _class('input');
+  static final _list = _class('list');
+  static final _tab = _class('tab');
+  static final _panels = _class('panels');
+  static final _panel = _class('panel');
+
+  /// The panel of the format [id], on top of [_panel].
+  static ClassName _panelFor(String id) => _class('panel-$id');
+
   @css
   static List<StyleRule> get styles => [
-    css('.tabs').styles(position: const .relative()),
-    css('.tab-input').styles(
+    css(_tabs.selector).styles(position: const .relative()),
+    css(_input.selector).styles(
       position: const .absolute(),
       width: 1.px,
       height: 1.px,
@@ -77,7 +93,7 @@ class OutputFormats extends StatelessComponent {
       overflow: .hidden,
       raw: {'clip': 'rect(0 0 0 0)'},
     ),
-    css('.tab-list').styles(
+    css(_list.selector).styles(
       display: .inlineFlex,
       padding: .all(0.3.rem),
       margin: .only(bottom: 1.25.rem),
@@ -86,28 +102,40 @@ class OutputFormats extends StatelessComponent {
       gap: .all(0.25.rem),
       backgroundColor: surfaceColor,
     ),
-    css('.tab').styles(
-      padding: .symmetric(vertical: 0.5.rem, horizontal: 1.rem),
-      radius: .circular(999.px),
-      cursor: .pointer,
-      transition: .combine([
-        .new('background-color', duration: 150.ms, curve: .ease),
-        .new('color', duration: 150.ms, curve: .ease),
-      ]),
-      color: text2Color,
-    ),
-    css('.tab code').styles(fontSize: 0.85.rem),
-    css('.tab:hover').styles(color: textColor),
-    css('.tab-panel').styles(display: .none),
+    css(_tab.selector, [
+      css('&').styles(
+        padding: .symmetric(vertical: 0.5.rem, horizontal: 1.rem),
+        radius: .circular(999.px),
+        cursor: .pointer,
+        transition: .combine([
+          .new('background-color', duration: 150.ms, curve: .ease),
+          .new('color', duration: 150.ms, curve: .ease),
+        ]),
+        color: text2Color,
+      ),
+      css('& code').styles(fontSize: 0.85.rem),
+      css('&:hover').styles(color: textColor),
+    ]),
+    // A panel may hold a wide code sample, which scrolls instead.
+    css(_panel.selector).styles(display: .none, minWidth: .zero),
     // The checked radio selects its tab and panel, so the tabs need no script.
     css(
-      _selectors((id) => "#format-$id:checked ~ .tab-list [for='format-$id']"),
+      _selectors(
+        (id) => "#format-$id:checked ~ ${_list.selector} [for='format-$id']",
+      ),
     ).styles(color: accentInkColor, backgroundColor: accentColor),
-    css(_selectors((id) => '#format-$id:checked ~ .tab-panels .tab-panel-$id'))
-        .styles(display: .block),
     css(
       _selectors(
-        (id) => "#format-$id:focus-visible ~ .tab-list [for='format-$id']",
+        (id) =>
+            '#format-$id:checked ~ ${_panels.selector} '
+            '${_panelFor(id).selector}',
+      ),
+    ).styles(display: .block),
+    css(
+      _selectors(
+        (id) =>
+            '#format-$id:focus-visible ~ ${_list.selector} '
+            "[for='format-$id']",
       ),
     ).styles(
       outline: .new(
@@ -130,17 +158,17 @@ class OutputFormats extends StatelessComponent {
       heading: 'Speaks human, machine and GitHub.',
       lead: 'Pick the format with `-f`. Exit codes are the same in every one.',
       children: [
-        div(classes: 'tabs', [
+        div(classes: _tabs.name, [
           for (final (index, format) in _formats.indexed)
             input(
               type: .radio,
               name: 'format',
               id: 'format-${format.id}',
-              classes: 'tab-input',
+              classes: _input.name,
               checked: index == 0 ? true : null,
             ),
           div(
-            classes: 'tab-list',
+            classes: _list.name,
             // The switch is radio inputs with labels, which is what assistive
             // technology already sees; a tablist would promise tab roles the
             // labels do not have.
@@ -148,7 +176,7 @@ class OutputFormats extends StatelessComponent {
             [
               for (final format in _formats)
                 label(
-                  classes: 'tab',
+                  classes: _tab.name,
                   attributes: {'for': 'format-${format.id}'},
                   [
                     code([.text('-f ${format.id}')]),
@@ -156,9 +184,9 @@ class OutputFormats extends StatelessComponent {
                 ),
             ],
           ),
-          div(classes: 'tab-panels', [
+          div(classes: _panels.name, [
             for (final format in _formats)
-              div(classes: 'tab-panel tab-panel-${format.id}', [
+              div(classes: (_panel + _panelFor(format.id)).name, [
                 CodeBlock(
                   source: format.output,
                   language: format.language,

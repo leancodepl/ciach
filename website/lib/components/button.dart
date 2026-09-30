@@ -3,6 +3,9 @@ import 'package:ciach_website/palette.dart';
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import 'package:jaspr_class_scope/jaspr_class_scope.dart';
+
+part 'button.scopes.dart';
 
 /// How a [Button] is filled.
 enum ButtonVariant {
@@ -15,6 +18,7 @@ enum ButtonVariant {
 
 /// A pill-shaped call to action that links somewhere. [external] links open
 /// in a new tab.
+@scopedCss
 class Button extends StatelessComponent {
   const Button(
     this.children, {
@@ -29,46 +33,61 @@ class Button extends StatelessComponent {
   final ButtonVariant variant;
   final bool external;
 
+  static const _class = _$ButtonScope;
+
+  static final _root = _class.root;
+  static final _primary = _class('primary');
+  static final _secondary = _class('secondary');
+
   @css
   static List<StyleRule> get styles => [
-    css('.button').styles(
-      display: .inlineFlex,
-      padding: .symmetric(vertical: 0.75.rem, horizontal: 1.2.rem),
-      border: hairline(const .new('transparent')),
-      radius: .circular(999.px),
-      cursor: .pointer,
-      transition: .combine([
-        .new('transform', duration: 150.ms, curve: .ease),
-        .new('background-color', duration: 150.ms, curve: .ease),
-        .new('border-color', duration: 150.ms, curve: .ease),
-        .new('color', duration: 150.ms, curve: .ease),
-      ]),
-      alignItems: .center,
-      gap: .all(0.5.rem),
-      fontSize: 0.95.rem,
-      fontWeight: .w600,
-      lineHeight: const .expression('1'),
-      whiteSpace: .noWrap,
-    ),
-    css('.button:hover').styles(transform: .translate(y: (-1).px)),
-    css('.button-primary')
-        .styles(color: accentInkColor, backgroundColor: accentColor),
-    css('.button-primary:hover').styles(
-      color: accentInkColor,
-      backgroundColor: Palette.ctaYellowLight.color,
-    ),
-    css('.button-secondary').styles(
-      color: textColor,
-      backgroundColor: surfaceColor,
-      raw: {'border-color': 'var(--border-2)'},
-    ),
-    css('.button-secondary:hover')
-        .styles(color: textColor, raw: {'border-color': 'var(--accent)'}),
+    css(_root.selector, [
+      css('&').styles(
+        display: .inlineFlex,
+        padding: .symmetric(vertical: 0.75.rem, horizontal: 1.2.rem),
+        border: hairline(const .new('transparent')),
+        radius: .circular(999.px),
+        cursor: .pointer,
+        transition: .combine([
+          .new('transform', duration: 150.ms, curve: .ease),
+          .new('background-color', duration: 150.ms, curve: .ease),
+          .new('border-color', duration: 150.ms, curve: .ease),
+          .new('color', duration: 150.ms, curve: .ease),
+        ]),
+        alignItems: .center,
+        gap: .all(0.5.rem),
+        fontSize: 0.95.rem,
+        fontWeight: .w600,
+        lineHeight: const .expression('1'),
+        whiteSpace: .noWrap,
+      ),
+      css('&:hover').styles(transform: .translate(y: (-1).px)),
+    ]),
+    css(_primary.selector, [
+      css('&').styles(color: accentInkColor, backgroundColor: accentColor),
+      css('&:hover').styles(
+        color: accentInkColor,
+        backgroundColor: Palette.ctaYellowLight.color,
+      ),
+    ]),
+    css(_secondary.selector, [
+      css('&').styles(
+        color: textColor,
+        backgroundColor: surfaceColor,
+        raw: {'border-color': 'var(--border-2)'},
+      ),
+      css('&:hover')
+          .styles(color: textColor, raw: {'border-color': 'var(--accent)'}),
+    ]),
   ];
 
   @override
   Component build(BuildContext context) {
-    final classes = 'button button-${variant.name}';
+    final variantClass = switch (variant) {
+      .primary => _primary,
+      .secondary => _secondary,
+    };
+    final classes = (_root + variantClass).name;
     if (external) {
       return externalLink(href, classes: classes, children);
     }

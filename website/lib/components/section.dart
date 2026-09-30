@@ -1,12 +1,16 @@
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import 'package:jaspr_class_scope/jaspr_class_scope.dart';
+
+part 'section.scopes.dart';
 
 /// A landing-page section with the shared eyebrow / heading / lead header.
 ///
 /// Every section gets an `id` for in-page anchors and an `aria-labelledby`
 /// pointing at its heading, so the outline reads well for crawlers and screen
 /// readers alike.
+@scopedCss
 class Section extends StatelessComponent {
   const Section({
     required this.id,
@@ -23,90 +27,30 @@ class Section extends StatelessComponent {
   final String heading;
   final String? lead;
   final List<Component> children;
-  final String? classes;
+  final ClassName? classes;
+
+  static const _class = _$SectionScope;
+
+  static final _root = _class.root;
+  static final _head = _class('head');
 
   @css
   static List<StyleRule> get styles => [
-    css('.section').styles(
-      padding: const .symmetric(
-        vertical: .expression('clamp(4rem, 8vw, 7rem)'),
-        horizontal: .zero,
+    css(_root.selector, [
+      css('&').styles(
+        padding: const .symmetric(
+          vertical: .expression('clamp(4rem, 8vw, 7rem)'),
+          horizontal: .zero,
+        ),
+        border: .only(top: hairlineSide(borderColor)),
       ),
-      border: .only(top: hairlineSide(borderColor)),
-    ),
-    css('.section-head').styles(
+      css('& h2')
+          .styles(fontSize: const .expression('clamp(1.9rem, 3.6vw, 2.75rem)')),
+    ]),
+    css(_head.selector).styles(
       maxWidth: 44.rem,
       margin: .only(bottom: 3.rem),
     ),
-    css('.section-head.center')
-        .styles(textAlign: .center, raw: {'margin-inline': 'auto'}),
-    css('.eyebrow').styles(
-      display: .inlineFlex,
-      margin: .only(bottom: 1.rem),
-      alignItems: .center,
-      gap: .all(0.5.rem),
-      color: accentColor,
-      fontFamily: fontMono,
-      fontSize: 0.8.rem,
-      fontWeight: .w600,
-      textTransform: .upperCase,
-      letterSpacing: 0.08.em,
-    ),
-    css('.eyebrow::before').styles(
-      content: '',
-      width: 1.5.rem,
-      height: 2.px,
-      backgroundColor: accentColor,
-    ),
-    css('.section h2')
-        .styles(fontSize: const .expression('clamp(1.9rem, 3.6vw, 2.75rem)')),
-    css('.lead').styles(
-      margin: .only(top: 1.rem),
-      color: text2Color,
-      fontSize: 1.125.rem,
-    ),
-    css('.section-more').styles(
-      margin: .only(top: 1.5.rem),
-      fontWeight: .w500,
-    ),
-    css('.section-more a, .note a').styles(
-      color: accentColor,
-      textDecoration: underlined,
-      raw: {'text-underline-offset': '0.15em'},
-    ),
-    css('.note').styles(
-      margin: .only(top: 1.rem),
-      color: text2Color,
-      fontSize: 0.95.rem,
-    ),
-    css('.checklist').styles(display: .grid, gap: .all(0.6.rem)),
-    css('.checklist li').styles(
-      position: const .relative(),
-      padding: .only(left: 1.6.rem),
-      color: text2Color,
-    ),
-    css('.checklist li::before').styles(
-      content: '',
-      position: .absolute(top: 0.7.em, left: .zero),
-      width: 0.9.rem,
-      height: 2.px,
-      backgroundColor: accentColor,
-    ),
-    css('.doc-section').styles(
-      display: .grid,
-      padding: .only(top: 3.5.rem),
-      margin: .only(top: 3.5.rem),
-      border: .only(top: hairlineSide(borderColor)),
-      gap: .all(1.75.rem),
-    ),
-    css('.doc-section h2')
-        .styles(fontSize: const .expression('clamp(1.6rem, 2.6vw, 2rem)')),
-    css('.doc-section h3').styles(
-      margin: .only(top: 1.rem),
-      fontSize: 1.15.rem,
-    ),
-    css('.doc-section p')
-        .styles(color: text2Color, lineHeight: const .expression('1.7')),
   ];
 
   @override
@@ -114,14 +58,14 @@ class Section extends StatelessComponent {
     final headingId = '$id-heading';
     return section(
       id: id,
-      classes: ['section', ?classes].join(' '),
+      classes: (_root + classes).name,
       attributes: {'aria-labelledby': headingId},
       [
-        div(classes: 'container', [
-          header(classes: 'section-head', [
-            p(classes: 'eyebrow', [.text(eyebrow)]),
+        div(classes: Utility.container.name, [
+          header(classes: _head.name, [
+            p(classes: Prose.eyebrow.name, [.text(eyebrow)]),
             h2(id: headingId, [.text(heading)]),
-            if (lead case final lead?) p(classes: 'lead', rich(lead)),
+            if (lead case final lead?) p(classes: Prose.lead.name, rich(lead)),
           ]),
           ...children,
         ]),
@@ -131,6 +75,7 @@ class Section extends StatelessComponent {
 }
 
 /// A docs-page section: a linkable heading followed by its content.
+@scopedCss
 class DocSection extends StatelessComponent {
   const DocSection({
     required this.id,
@@ -143,12 +88,38 @@ class DocSection extends StatelessComponent {
   final String heading;
   final List<Component> children;
 
+  static const _class = _$DocSectionScope;
+
+  static final _root = _class.root;
+
+  @css
+  static List<StyleRule> get styles => [
+    css(_root.selector, [
+      css('&').styles(
+        display: .grid,
+        padding: .only(top: 3.5.rem),
+        margin: .only(top: 3.5.rem),
+        border: .only(top: hairlineSide(borderColor)),
+        gap: .all(1.75.rem),
+      ),
+      shrinkableChildren(),
+      css('& h2')
+          .styles(fontSize: const .expression('clamp(1.6rem, 2.6vw, 2rem)')),
+      css('& h3').styles(
+        margin: .only(top: 1.rem),
+        fontSize: 1.15.rem,
+      ),
+      css('& p')
+          .styles(color: text2Color, lineHeight: const .expression('1.7')),
+    ]),
+  ];
+
   @override
   Component build(BuildContext context) {
     final headingId = '$id-heading';
     return section(
       id: id,
-      classes: 'doc-section',
+      classes: _root.name,
       attributes: {'aria-labelledby': headingId},
       [
         h2(id: headingId, [.text(heading)]),
@@ -156,6 +127,88 @@ class DocSection extends StatelessComponent {
       ],
     );
   }
+}
+
+/// Classes for running text, shared by the landing page's sections and the
+/// docs.
+@scopedCss
+abstract final class Prose {
+  static const _class = _$ProseScope;
+
+  /// The small accented label above a heading.
+  static final eyebrow = _class('eyebrow');
+
+  /// The paragraph that introduces a section or page.
+  static final lead = _class('lead');
+
+  /// The paragraph that links on from a section.
+  static final more = _class('more');
+
+  /// A side remark under a table or sample.
+  static final note = _class('note');
+
+  /// A list whose items are marked with a dash in the accent color.
+  static final checklist = _class('checklist');
+
+  @css
+  static List<StyleRule> get styles => [
+    css(eyebrow.selector, [
+      css('&').styles(
+        display: .inlineFlex,
+        margin: .only(bottom: 1.rem),
+        alignItems: .center,
+        gap: .all(0.5.rem),
+        color: accentColor,
+        fontFamily: fontMono,
+        fontSize: 0.8.rem,
+        fontWeight: .w600,
+        textTransform: .upperCase,
+        letterSpacing: 0.08.em,
+      ),
+      css('&::before').styles(
+        content: '',
+        width: 1.5.rem,
+        height: 2.px,
+        backgroundColor: accentColor,
+      ),
+    ]),
+    css(lead.selector).styles(
+      margin: .only(top: 1.rem),
+      color: text2Color,
+      fontSize: 1.125.rem,
+    ),
+    css(more.selector).styles(
+      margin: .only(top: 1.5.rem),
+      fontWeight: .w500,
+    ),
+    css('${more.selector} a, ${note.selector} a').styles(
+      color: accentColor,
+      textDecoration: underlined,
+      raw: {'text-underline-offset': '0.15em'},
+    ),
+    css(note.selector).styles(
+      margin: .only(top: 1.rem),
+      color: text2Color,
+      fontSize: 0.95.rem,
+    ),
+    css(checklist.selector, [
+      css('&').styles(display: .grid, gap: .all(0.6.rem)),
+      css('& li', [
+        css('&').styles(
+          position: const .relative(),
+          padding: .only(left: 1.6.rem),
+          color: text2Color,
+        ),
+        css('&::before').styles(
+          content: '',
+          position: .absolute(top: 0.7.em, left: .zero),
+          width: 0.9.rem,
+          height: 2.px,
+          backgroundColor: accentColor,
+        ),
+      ]),
+    ]),
+  ];
 }
 
 /// Renders [text], turning each backtick-quoted span into an inline code

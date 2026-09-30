@@ -1,66 +1,92 @@
 import 'package:ciach_website/components/button.dart';
+import 'package:ciach_website/components/hero.dart';
 import 'package:ciach_website/components/icons.dart';
 import 'package:ciach_website/components/section.dart';
 import 'package:ciach_website/site.dart';
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import 'package:jaspr_class_scope/jaspr_class_scope.dart';
 
+part 'footer.scopes.dart';
+
+@scopedCss
 class SiteFooter extends StatelessComponent {
   const SiteFooter({required this.version, super.key});
 
   final String version;
 
+  static const _class = _$SiteFooterScope;
+
+  static final _root = _class.root;
+  static final _cta = _class('cta');
+  static final _ctaInner = _class('cta-inner');
+  static final _grid = _class('grid');
+  static final _brand = _class('brand');
+  static final _bottom = _class('bottom');
+
   @css
   static List<StyleRule> get styles => [
-    css('.site-footer').styles(
+    css(_root.selector).styles(
       border: .only(top: hairlineSide(borderColor)),
       backgroundColor: bg2Color,
     ),
-    css('.cta').styles(
-      padding: const .symmetric(
-        vertical: .expression('clamp(4rem, 8vw, 6rem)'),
-        horizontal: .zero,
+    css(_cta.selector, [
+      css('&').styles(
+        padding: const .symmetric(
+          vertical: .expression('clamp(4rem, 8vw, 6rem)'),
+          horizontal: .zero,
+        ),
+        border: .only(bottom: hairlineSide(borderColor)),
+        raw: {
+          'background':
+              'radial-gradient(50% 60% at 50% 100%, '
+              '${accentAlpha(0.12).value}, transparent 70%), var(--bg-2)',
+        },
       ),
-      border: .only(bottom: hairlineSide(borderColor)),
-      raw: {
-        'background':
-            'radial-gradient(50% 60% at 50% 100%, ${accentAlpha(0.12).value}, '
-            'transparent 70%), var(--bg-2)',
-      },
-    ),
-    css('.cta-inner').styles(maxWidth: 40.rem, textAlign: .center),
-    css('.cta h2')
-        .styles(fontSize: const .expression('clamp(1.9rem, 3.6vw, 2.75rem)')),
-    css('.cta p').styles(
-      margin: .only(top: 1.rem),
-      color: text2Color,
-      fontSize: 1.1.rem,
-    ),
-    css('.footer-grid').styles(
-      display: .grid,
-      padding: .symmetric(vertical: 3.5.rem, horizontal: .zero),
-      gap: .all(2.5.rem),
-    ),
-    css('.footer-grid h3').styles(
-      margin: .only(bottom: 0.9.rem),
-      color: mutedColor,
-      fontFamily: fontMono,
-      fontSize: 0.75.rem,
-      fontWeight: .w600,
-      textTransform: .upperCase,
-      letterSpacing: 0.08.em,
-    ),
-    css('.footer-grid ul').styles(display: .grid, gap: .all(0.5.rem)),
-    css('.footer-grid li a').styles(color: text2Color),
-    css('.footer-grid li a:hover').styles(color: accentColor),
-    css('.footer-brand p').styles(
+      css('& h2')
+          .styles(fontSize: const .expression('clamp(1.9rem, 3.6vw, 2.75rem)')),
+      css('& p').styles(
+        margin: .only(top: 1.rem),
+        color: text2Color,
+        fontSize: 1.1.rem,
+      ),
+    ]),
+    css(_ctaInner.selector).styles(maxWidth: 40.rem, textAlign: .center),
+    css(_grid.selector, [
+      css('&').styles(
+        display: .grid,
+        padding: .symmetric(vertical: 3.5.rem, horizontal: .zero),
+        gap: .all(2.5.rem),
+      ),
+      css('& h3').styles(
+        margin: .only(bottom: 0.9.rem),
+        color: mutedColor,
+        fontFamily: fontMono,
+        fontSize: 0.75.rem,
+        fontWeight: .w600,
+        textTransform: .upperCase,
+        letterSpacing: 0.08.em,
+      ),
+      css('& ul').styles(display: .grid, gap: .all(0.5.rem)),
+      css('& li a', [
+        css('&').styles(color: text2Color),
+        css('&:hover').styles(color: accentColor),
+      ]),
+      css.media(.all(minWidth: 760.px), [
+        css('&').styles(raw: {'grid-template-columns': '1fr 1fr'}),
+      ]),
+      css.media(.all(minWidth: 1000.px), [
+        css('&').styles(raw: {'grid-template-columns': '1.6fr 1fr 1fr 1.4fr'}),
+      ]),
+    ]),
+    css('${_brand.selector} p').styles(
       maxWidth: 24.rem,
       margin: .only(top: 1.rem),
       color: text2Color,
       fontSize: 0.95.rem,
     ),
-    css('.footer-bottom').styles(
+    css(_bottom.selector).styles(
       display: .flex,
       padding: .only(top: 1.5.rem, bottom: 2.rem),
       border: .only(top: hairlineSide(borderColor)),
@@ -70,32 +96,25 @@ class SiteFooter extends StatelessComponent {
       color: mutedColor,
       fontSize: 0.85.rem,
     ),
-    css('.footer-bottom a, .footer-brand p a').styles(
+    css('${_bottom.selector} a, ${_brand.selector} p a').styles(
       color: text2Color,
       textDecoration: underlined,
       raw: {'text-underline-offset': '0.15em'},
     ),
-    css.media(.all(minWidth: 760.px), [
-      css('.footer-grid').styles(raw: {'grid-template-columns': '1fr 1fr'}),
-    ]),
-    css.media(.all(minWidth: 1000.px), [
-      css('.footer-grid')
-          .styles(raw: {'grid-template-columns': '1.6fr 1fr 1fr 1.4fr'}),
-    ]),
   ];
 
   @override
   Component build(BuildContext context) {
-    return footer(classes: 'site-footer', [
+    return footer(classes: _root.name, [
       section(
-        classes: 'cta',
+        classes: _cta.name,
         attributes: const {'aria-labelledby': 'cta-heading'},
         [
-          div(classes: 'container cta-inner', [
+          div(classes: (Utility.container + _ctaInner).name, [
             const h2(id: 'cta-heading', [
               .text('Ready to make the first ciach?'),
             ]),
-            div(classes: 'hero-actions center', [
+            div(classes: (Hero.actions + Hero.center).name, [
               Button(href: pubUrl, external: true, [
                 const .text('Get it on pub.dev'),
                 Icon.external.build(size: 18),
@@ -108,8 +127,8 @@ class SiteFooter extends StatelessComponent {
           ]),
         ],
       ),
-      div(classes: 'container footer-grid', [
-        div(classes: 'footer-brand', [
+      div(classes: (Utility.container + _grid).name, [
+        div(classes: _brand.name, [
           logo(),
           p([
             const .text('Dead code detector for Dart and Flutter. '),
@@ -182,7 +201,7 @@ class SiteFooter extends StatelessComponent {
           ],
         ),
       ]),
-      div(classes: 'container footer-bottom', [
+      div(classes: (Utility.container + _bottom).name, [
         p([
           const .text('© 2026 '),
           externalLink(leancodeUrl, [const .text('LeanCode')]),

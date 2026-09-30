@@ -17,9 +17,11 @@ import 'package:ciach_website/components/features.dart' as _features;
 import 'package:ciach_website/components/footer.dart' as _footer;
 import 'package:ciach_website/components/formats.dart' as _formats;
 import 'package:ciach_website/components/hero.dart' as _hero;
+import 'package:ciach_website/components/icons.dart' as _icons;
 import 'package:ciach_website/components/nav_bar.dart' as _nav_bar;
 import 'package:ciach_website/components/pill.dart' as _pill;
 import 'package:ciach_website/components/section.dart' as _section;
+import 'package:ciach_website/components/shell.dart' as _shell;
 import 'package:ciach_website/pages/docs_page.dart' as _docs_page;
 import 'package:ciach_website/styles.dart' as _styles;
 
@@ -67,9 +69,13 @@ ServerOptions get defaultServerOptions => ServerOptions(
     ..._footer.SiteFooter.styles,
     ..._formats.OutputFormats.styles,
     ..._hero.Hero.styles,
+    ..._icons.Logo.styles,
     ..._nav_bar.NavBar.styles,
     ..._pill.Pill.styles,
+    ..._section.DocSection.styles,
+    ..._section.Prose.styles,
     ..._section.Section.styles,
+    ..._shell.PageShell.styles,
     ..._docs_page.DocsPage.styles,
   ],
 );

@@ -4,8 +4,11 @@ import 'package:ciach_website/components/icons.dart';
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import 'package:jaspr_class_scope/jaspr_class_scope.dart';
 import 'package:universal_web/js_interop.dart';
 import 'package:universal_web/web.dart' as web;
+
+part 'copy_button.scopes.dart';
 
 /// Copies [text] to the clipboard.
 ///
@@ -13,6 +16,7 @@ import 'package:universal_web/web.dart' as web;
 /// as a plain button and hydrated on the client, so the page stays useful with
 /// JavaScript disabled and the shipped script stays tiny.
 @client
+@scopedCss
 class CopyButton extends StatefulComponent {
   const CopyButton({required this.text, this.label, super.key});
 
@@ -21,34 +25,47 @@ class CopyButton extends StatefulComponent {
   /// Visible label. Omit for an icon-only button.
   final String? label;
 
+  static const _class = _$CopyButtonScope;
+
+  static final _root = _class.root;
+  static final _iconOnly = _class('icon-only');
+  static final _icon = _class('icon');
+  static final _idle = _class('idle');
+  static final _done = _class('done');
+  static final _isCopied = _class('is-copied');
+  static final _label = _class('label');
+
   @css
   static List<StyleRule> get styles => [
-    css('.copy-button').styles(
-      display: .inlineFlex,
-      padding: .symmetric(vertical: 0.4.rem, horizontal: 0.7.rem),
-      border: hairline(border2Color),
-      radius: .circular(8.px),
-      cursor: .pointer,
-      transition: .combine([
-        .new('color', duration: 150.ms, curve: .ease),
-        .new('border-color', duration: 150.ms, curve: .ease),
-        .new('background-color', duration: 150.ms, curve: .ease),
-      ]),
-      alignItems: .center,
-      gap: .all(0.4.rem),
-      color: text2Color,
-      backgroundColor: surfaceColor,
-      raw: {'font': '600 0.78rem/1 var(--font-sans)'},
-    ),
-    css('.copy-button:hover')
-        .styles(color: textColor, raw: {'border-color': 'var(--accent)'}),
-    css('.copy-button-icon').styles(padding: .all(0.4.rem)),
-    css('.copy-icon').styles(display: .inlineFlex),
-    css('.copy-icon-done').styles(display: .none, color: okColor),
-    css('.is-copied')
-        .styles(color: okColor, raw: {'border-color': 'var(--ok)'}),
-    css('.is-copied .copy-icon-idle').styles(display: .none),
-    css('.is-copied .copy-icon-done').styles(display: .inlineFlex),
+    css(_root.selector, [
+      css('&').styles(
+        display: .inlineFlex,
+        padding: .symmetric(vertical: 0.4.rem, horizontal: 0.7.rem),
+        border: hairline(border2Color),
+        radius: .circular(8.px),
+        cursor: .pointer,
+        transition: .combine([
+          .new('color', duration: 150.ms, curve: .ease),
+          .new('border-color', duration: 150.ms, curve: .ease),
+          .new('background-color', duration: 150.ms, curve: .ease),
+        ]),
+        alignItems: .center,
+        gap: .all(0.4.rem),
+        color: text2Color,
+        backgroundColor: surfaceColor,
+        raw: {'font': '600 0.78rem/1 var(--font-sans)'},
+      ),
+      css('&:hover')
+          .styles(color: textColor, raw: {'border-color': 'var(--accent)'}),
+    ]),
+    css(_iconOnly.selector).styles(padding: .all(0.4.rem)),
+    css(_icon.selector).styles(display: .inlineFlex),
+    css(_done.selector).styles(display: .none, color: okColor),
+    css(_isCopied.selector, [
+      css('&').styles(color: okColor, raw: {'border-color': 'var(--ok)'}),
+      css('& ${_idle.selector}').styles(display: .none),
+      css('& ${_done.selector}').styles(display: .inlineFlex),
+    ]),
   ];
 
   @override
@@ -91,9 +108,9 @@ class _CopyButtonState extends State<CopyButton> {
     final label = component.label;
     return button(
       classes: [
-        'copy-button',
-        if (label == null) 'copy-button-icon',
-        if (_copied) 'is-copied',
+        CopyButton._root.name,
+        if (label == null) CopyButton._iconOnly.name,
+        if (_copied) CopyButton._isCopied.name,
       ].join(' '),
       attributes: const {
         'type': 'button',
@@ -103,10 +120,16 @@ class _CopyButtonState extends State<CopyButton> {
       },
       onClick: _copy,
       [
-        span(classes: 'copy-icon copy-icon-idle', [Icon.copy.build(size: 16)]),
-        span(classes: 'copy-icon copy-icon-done', [Icon.check.build(size: 16)]),
+        span(classes: (CopyButton._icon + CopyButton._idle).name, [
+          Icon.copy.build(size: 16),
+        ]),
+        span(classes: (CopyButton._icon + CopyButton._done).name, [
+          Icon.check.build(size: 16),
+        ]),
         if (label != null)
-          span(classes: 'copy-label', [.text(_copied ? 'Copied!' : label)]),
+          span(classes: CopyButton._label.name, [
+            .text(_copied ? 'Copied!' : label),
+          ]),
       ],
     );
   }

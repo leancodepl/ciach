@@ -8,6 +8,9 @@ import 'package:ciach_website/site.dart';
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import 'package:jaspr_class_scope/jaspr_class_scope.dart';
+
+part 'docs_page.scopes.dart';
 
 const _usage = r'''
 $ dart pub global activate ciach
@@ -161,178 +164,234 @@ const _reportOnly = [
   'A primary constructor or its declaring parameters.',
 ];
 
-Component _mark(bool yes) => yes
-    ? const span(
-        classes: 'mark mark-yes',
-        attributes: {'aria-label': 'yes'},
-        [.text('✓')],
+Component _markOf(bool yes) => yes
+    ? span(
+        classes: (DocsPage._mark + DocsPage._yes).name,
+        attributes: const {'aria-label': 'yes'},
+        const [.text('✓')],
       )
-    : const span(
-        classes: 'mark mark-no',
-        attributes: {'aria-label': 'no'},
-        [.text('—')],
+    : span(
+        classes: (DocsPage._mark + DocsPage._no).name,
+        attributes: const {'aria-label': 'no'},
+        const [.text('—')],
       );
 
 /// Everything past the landing page, on one page with a sticky table of
 /// contents. The README on GitHub stays the exhaustive reference.
+@scopedCss
 class DocsPage extends StatelessComponent {
   const DocsPage({required this.version, super.key});
 
   final String version;
 
+  static const _class = _$DocsPageScope;
+
+  static final _docs = _class('docs');
+  static final _nav = _class('nav');
+  static final _navFoot = _class('nav-foot');
+  static final _body = _class('body');
+  static final _head = _class('head');
+  static final _tableWrap = _class('table-wrap');
+  static final _table = _class('table');
+  static final _compare = _class('compare');
+  static final _flag = _class('flag');
+  static final _mark = _class('mark');
+  static final _yes = _class('yes');
+  static final _no = _class('no');
+
   @css
   static List<StyleRule> get styles => [
     ..._tableStyles,
-    css('.docs').styles(
-      display: .grid,
-      padding: const .only(
-        top: .expression('clamp(2.5rem, 6vw, 4.5rem)'),
-        bottom: .expression('clamp(3rem, 8vw, 6rem)'),
-      ),
-      gap: .all(2.5.rem),
-    ),
-    css('.docs-nav ul').styles(
-      display: .grid,
-      border: .only(left: hairlineSide(borderColor)),
-      gap: .all(0.15.rem),
-    ),
-    css('.docs-nav li a').styles(
-      display: .block,
-      padding: .symmetric(vertical: 0.4.rem, horizontal: 0.9.rem),
-      margin: .only(left: (-1).px),
-      border: .only(
-        left: .new(color: const .new('transparent'), width: 2.px),
-      ),
-      color: text2Color,
-      fontSize: 0.95.rem,
-    ),
-    css('.docs-nav li a:hover, .docs-nav li a.is-active')
-        .styles(color: textColor, raw: {'border-left-color': 'var(--accent)'}),
-    css('.docs-nav-foot').styles(
-      margin: .only(top: 1.25.rem),
-      fontSize: 0.9.rem,
-    ),
-    css('.docs-nav-foot a').styles(
-      color: accentColor,
-      textDecoration: underlined,
-      raw: {'text-underline-offset': '0.15em'},
-    ),
-    css('.docs-body').styles(maxWidth: 52.rem),
-    css('.docs-head h1').styles(
-      fontSize: const .expression('clamp(2.2rem, 4vw, 3rem)'),
-      fontWeight: .w700,
-      letterSpacing: (-0.03).em,
-    ),
-    css('.docs-head .lead').styles(margin: .only(top: 1.rem)),
-    css.media(.all(minWidth: 960.px), [
-      css('.docs')
-          .styles(raw: {'grid-template-columns': '220px minmax(0, 1fr)'}),
-      css('.docs-nav').styles(
-        position: const .sticky(
-          top: .expression('calc(var(--header-h) + 2rem)'),
+    css(_docs.selector, [
+      css('&').styles(
+        display: .grid,
+        padding: const .only(
+          top: .expression('clamp(2.5rem, 6vw, 4.5rem)'),
+          bottom: .expression('clamp(3rem, 8vw, 6rem)'),
         ),
-        alignSelf: .start,
+        gap: .all(2.5.rem),
       ),
+      shrinkableChildren(),
+      css.media(_wide, [
+        css('&').styles(raw: {'grid-template-columns': '220px minmax(0, 1fr)'}),
+      ]),
     ]),
-    // On narrow screens the table of contents becomes a compact chip row.
-    css.media(.all(maxWidth: 959.px), [
-      css('.docs-nav .eyebrow, .docs-nav-foot').styles(display: .none),
-      css('.docs-nav ul').styles(
-        display: .flex,
-        flexWrap: .wrap,
-        gap: .all(0.4.rem),
-        raw: {'border-left': '0'},
+    // The table of contents: a sticky column beside the text on wide screens,
+    // a compact chip row above it on narrow ones.
+    css(_nav.selector, [
+      css('& ul', [
+        css('&').styles(
+          display: .grid,
+          border: .only(left: hairlineSide(borderColor)),
+          gap: .all(0.15.rem),
+        ),
+        css.media(_narrow, [
+          css('&').styles(
+            display: .flex,
+            flexWrap: .wrap,
+            gap: .all(0.4.rem),
+            raw: {'border-left': '0'},
+          ),
+        ]),
+      ]),
+      css('& li a', [
+        css('&').styles(
+          display: .block,
+          padding: .symmetric(vertical: 0.4.rem, horizontal: 0.9.rem),
+          margin: .only(left: (-1).px),
+          border: .only(
+            left: .new(color: const .new('transparent'), width: 2.px),
+          ),
+          color: text2Color,
+          fontSize: 0.95.rem,
+        ),
+        css(
+          '&:hover, &${DocsToc.active.selector}',
+        ).styles(color: textColor, raw: {'border-left-color': 'var(--accent)'}),
+        css.media(_narrow, [
+          css('&').styles(
+            padding: .symmetric(vertical: 0.35.rem, horizontal: 0.75.rem),
+            margin: .zero,
+            border: hairline(border2Color),
+            radius: .circular(999.px),
+            fontSize: 0.85.rem,
+          ),
+          css('&:hover, &${DocsToc.active.selector}')
+              .styles(raw: {'border-color': 'var(--accent)'}),
+        ]),
+      ]),
+      css.media(_wide, [
+        css('&').styles(
+          position: const .sticky(
+            top: .expression('calc(var(--header-h) + 2rem)'),
+          ),
+          alignSelf: .start,
+        ),
+      ]),
+      css.media(_narrow, [
+        css('& ${Prose.eyebrow.selector}').styles(display: .none),
+      ]),
+    ]),
+    css(_navFoot.selector, [
+      css('&').styles(
+        margin: .only(top: 1.25.rem),
+        fontSize: 0.9.rem,
       ),
-      css('.docs-nav li a').styles(
-        padding: .symmetric(vertical: 0.35.rem, horizontal: 0.75.rem),
-        margin: .zero,
-        border: hairline(border2Color),
-        radius: .circular(999.px),
-        fontSize: 0.85.rem,
+      css('& a').styles(
+        color: accentColor,
+        textDecoration: underlined,
+        raw: {'text-underline-offset': '0.15em'},
       ),
-      css('.docs-nav li a:hover, .docs-nav li a.is-active')
-          .styles(raw: {'border-color': 'var(--accent)'}),
+      css.media(_narrow, [css('&').styles(display: .none)]),
+    ]),
+    css(_body.selector).styles(maxWidth: 52.rem),
+    css(_head.selector, [
+      css('& h1').styles(
+        fontSize: const .expression('clamp(2.2rem, 4vw, 3rem)'),
+        fontWeight: .w700,
+        letterSpacing: (-0.03).em,
+      ),
+      css('& ${Prose.lead.selector}').styles(margin: .only(top: 1.rem)),
     ]),
   ];
 
+  /// Where the table of contents sits beside the text, and where it moves
+  /// above it.
+  static final _wide = MediaQuery.all(minWidth: 960.px);
+  static final _narrow = MediaQuery.all(maxWidth: 959.px);
+
   static List<StyleRule> get _tableStyles => [
-    css('.table-wrap').styles(
+    css(_tableWrap.selector).styles(
       border: hairline(borderColor),
       radius: const .circular(radius),
       overflow: const .only(x: .auto),
       backgroundColor: surfaceColor,
     ),
-    css('.table').styles(
-      width: 100.percent,
-      fontSize: 0.95.rem,
-      raw: {'border-collapse': 'collapse'},
-    ),
-    css('.table th, .table td').styles(
-      padding: .symmetric(vertical: 0.9.rem, horizontal: 1.1.rem),
-      border: .only(bottom: hairlineSide(borderColor)),
-      textAlign: .left,
-      raw: {'vertical-align': 'top'},
-    ),
-    css('.table thead th').styles(
-      color: mutedColor,
-      fontFamily: fontMono,
-      fontSize: 0.75.rem,
-      fontWeight: .w600,
-      textTransform: .upperCase,
-      letterSpacing: 0.08.em,
-      backgroundColor: surface2Color,
-    ),
-    css('.table tbody tr:last-child th, .table tbody tr:last-child td')
-        .styles(raw: {'border-bottom': '0'}),
-    css('.table tbody th').styles(fontWeight: .w500),
-    // Flag and name columns hug their chips so the prose column gets the room.
-    css('.table:not(.table-compare) tbody th').styles(width: 1.percent),
-    css('.table tbody th code').styles(whiteSpace: .noWrap),
-    css('.table td').styles(color: text2Color),
-    css('.table code.flag').styles(
-      color: accentColor,
-      whiteSpace: .noWrap,
-      raw: {'border-color': accentAlpha(0.3).value},
-    ),
-    css(".table-compare th[scope='row']")
-        .styles(color: text2Color, whiteSpace: .normal),
-    css('.table-compare thead th')
-        .styles(textAlign: .center, whiteSpace: .noWrap),
-    css('.table-compare thead th:first-child').styles(textAlign: .left),
-    css('.table-compare thead code')
-        .styles(textTransform: .none, letterSpacing: .zero),
-    css('.table-compare td').styles(width: 8.rem, textAlign: .center),
-    css('.mark').styles(fontWeight: .w700),
-    css('.mark-yes').styles(color: okColor),
-    css('.mark-no').styles(color: mutedColor),
-    // Tables stack: one card per row, column names as small labels.
-    css.media(.all(maxWidth: 640.px), [
-      css('.table thead').styles(display: .none),
-      css('.table tbody, .table tr, .table th, .table td')
-          .styles(display: .block),
-      css('.table tr').styles(
+    css(_table.selector, [
+      css('&').styles(
+        width: 100.percent,
+        fontSize: 0.95.rem,
+        raw: {'border-collapse': 'collapse'},
+      ),
+      css('& th, & td').styles(
         padding: .symmetric(vertical: 0.9.rem, horizontal: 1.1.rem),
         border: .only(bottom: hairlineSide(borderColor)),
+        textAlign: .left,
+        raw: {'vertical-align': 'top'},
       ),
-      css('.table tbody tr:last-child').styles(raw: {'border-bottom': '0'}),
-      css('.table th, .table td').styles(padding: .zero, raw: {'border': '0'}),
-      css('.table tbody th').styles(
-        margin: .only(bottom: 0.5.rem),
-        whiteSpace: .normal,
-      ),
-      css('.table td + td').styles(margin: .only(top: 0.5.rem)),
-      css('.table td[data-label]::before').styles(
+      css('& thead th').styles(
         color: mutedColor,
         fontFamily: fontMono,
-        fontSize: 0.7.rem,
+        fontSize: 0.75.rem,
         fontWeight: .w600,
         textTransform: .upperCase,
         letterSpacing: 0.08.em,
-        raw: {'content': "attr(data-label) ': '"},
+        backgroundColor: surface2Color,
       ),
-      css('.table-compare td').styles(width: .auto, textAlign: .left),
+      css('& tbody', [
+        css('& tr:last-child th, & tr:last-child td')
+            .styles(raw: {'border-bottom': '0'}),
+        css('& th', [
+          css('&').styles(fontWeight: .w500),
+          css('& code').styles(whiteSpace: .noWrap),
+        ]),
+      ]),
+      // Flag and name columns hug their chips so the prose column gets the
+      // room.
+      css('&:not(${_compare.selector}) tbody th').styles(width: 1.percent),
+      css('& td').styles(color: text2Color),
+      css('& code${_flag.selector}').styles(
+        color: accentColor,
+        whiteSpace: .noWrap,
+        raw: {'border-color': accentAlpha(0.3).value},
+      ),
+      // Tables stack: one card per row, column names as small labels.
+      css.media(_stacked, [
+        css('& thead').styles(display: .none),
+        css('& tbody, & tr, & th, & td').styles(display: .block),
+        css('& tr').styles(
+          padding: .symmetric(vertical: 0.9.rem, horizontal: 1.1.rem),
+          border: .only(bottom: hairlineSide(borderColor)),
+        ),
+        css('& tbody tr:last-child').styles(raw: {'border-bottom': '0'}),
+        css('& th, & td').styles(padding: .zero, raw: {'border': '0'}),
+        css('& tbody th').styles(
+          margin: .only(bottom: 0.5.rem),
+          whiteSpace: .normal,
+        ),
+        css('& td + td').styles(margin: .only(top: 0.5.rem)),
+        css('& td[data-label]::before').styles(
+          color: mutedColor,
+          fontFamily: fontMono,
+          fontSize: 0.7.rem,
+          fontWeight: .w600,
+          textTransform: .upperCase,
+          letterSpacing: 0.08.em,
+          raw: {'content': "attr(data-label) ': '"},
+        ),
+      ]),
     ]),
+    css(_compare.selector, [
+      css("& th[scope='row']").styles(color: text2Color, whiteSpace: .normal),
+      css('& thead', [
+        css('& th', [
+          css('&').styles(textAlign: .center, whiteSpace: .noWrap),
+          css('&:first-child').styles(textAlign: .left),
+        ]),
+        css('& code').styles(textTransform: .none, letterSpacing: .zero),
+      ]),
+      css('& td', [
+        css('&').styles(width: 8.rem, textAlign: .center),
+        css.media(_stacked, [css('&').styles(width: .auto, textAlign: .left)]),
+      ]),
+    ]),
+    css(_mark.selector).styles(fontWeight: .w700),
+    css(_yes.selector).styles(color: okColor),
+    css(_no.selector).styles(color: mutedColor),
   ];
+
+  /// Where tables stack into one card per row.
+  static final _stacked = MediaQuery.all(maxWidth: 640.px);
 
   @override
   Component build(BuildContext context) {
@@ -349,28 +408,28 @@ class DocsPage extends StatelessComponent {
           path: 'docs',
           structuredData: [faqStructuredData()],
         ),
-        div(classes: 'container docs', [
+        div(classes: (Utility.container + _docs).name, [
           nav(
-            classes: 'docs-nav',
+            classes: _nav.name,
             attributes: const {'aria-label': 'On this page'},
             [
-              const p(classes: 'eyebrow', [.text('Docs')]),
+              p(classes: Prose.eyebrow.name, const [.text('Docs')]),
               DocsToc(
                 path: '/docs',
                 ids: [for (final (id, _) in _toc) id],
                 labels: [for (final (_, label) in _toc) label],
               ),
-              p(classes: 'docs-nav-foot', [
+              p(classes: _navFoot.name, [
                 externalLink(readmeUrl, [
                   const .text('Full README on GitHub →'),
                 ]),
               ]),
             ],
           ),
-          div(classes: 'docs-body', [
-            const header(classes: 'docs-head', [
-              h1([.text('Docs')]),
-              p(classes: 'lead', [
+          div(classes: _body.name, [
+            header(classes: _head.name, [
+              const h1([.text('Docs')]),
+              p(classes: Prose.lead.name, const [
                 .text(
                   'Install, configure and run ciach, and read its findings '
                   'with confidence.',
@@ -407,8 +466,8 @@ class DocsPage extends StatelessComponent {
               id: 'options',
               heading: 'Options',
               children: [
-                div(classes: 'table-wrap', [
-                  table(classes: 'table', [
+                div(classes: _tableWrap.name, [
+                  table(classes: _table.name, [
                     const thead([
                       tr([
                         th(attributes: {'scope': 'col'}, [.text('Flag')]),
@@ -438,7 +497,7 @@ class DocsPage extends StatelessComponent {
                     ]),
                   ]),
                 ]),
-                p(classes: 'note', [
+                p(classes: Prose.note.name, [
                   const .text('Exit codes: 0 clean, 1 findings with '),
                   const code([.text('--set-exit-if-changed')]),
                   const .text(', 2 usage or analysis error. '),
@@ -508,8 +567,8 @@ class DocsPage extends StatelessComponent {
                     'stops.',
                   ),
                 ]),
-                div(classes: 'table-wrap', [
-                  table(classes: 'table table-compare', [
+                div(classes: _tableWrap.name, [
+                  table(classes: (_table + _compare).name, [
                     const thead([
                       tr([
                         th(attributes: {'scope': 'col'}, [.text('')]),
@@ -536,11 +595,11 @@ class DocsPage extends StatelessComponent {
                           ),
                           td(
                             attributes: const {'data-label': 'dart analyze'},
-                            [_mark(analyzer)],
+                            [_markOf(analyzer)],
                           ),
                           td(
                             attributes: const {'data-label': 'ciach'},
-                            [_mark(ciach)],
+                            [_markOf(ciach)],
                           ),
                         ]),
                     ]),
@@ -584,7 +643,7 @@ class DocsPage extends StatelessComponent {
                   ),
                 ]),
                 const h3([.text('Report-only: removal would not compile')]),
-                ul(classes: 'checklist', [
+                ul(classes: Prose.checklist.name, [
                   for (final item in _reportOnly) li(rich(item)),
                 ]),
               ],
@@ -599,8 +658,8 @@ class DocsPage extends StatelessComponent {
                     'flag opts back in at that cost.',
                   ),
                 ]),
-                div(classes: 'table-wrap', [
-                  table(classes: 'table', [
+                div(classes: _tableWrap.name, [
+                  table(classes: _table.name, [
                     const thead([
                       tr([
                         th(attributes: {'scope': 'col'}, [.text('Skipped')]),
@@ -622,9 +681,11 @@ class DocsPage extends StatelessComponent {
                             attributes: const {'data-label': 'Opt back in'},
                             [
                               if (flag != null)
-                                code(classes: 'flag', [.text(flag)])
+                                code(classes: _flag.name, [.text(flag)])
                               else
-                                const span(classes: 'muted', [.text('—')]),
+                                span(classes: Utility.muted.name, const [
+                                  .text('—'),
+                                ]),
                             ],
                           ),
                         ]),
@@ -646,7 +707,7 @@ class DocsPage extends StatelessComponent {
                   copyText: '',
                 ),
                 const h3([.text('Limitations')]),
-                ul(classes: 'checklist', [
+                ul(classes: Prose.checklist.name, [
                   li(
                     rich(
                       'A library package’s public API is legitimately unused '
