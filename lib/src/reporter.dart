@@ -55,22 +55,38 @@ abstract final class Reporter {
         final loc = '${decl.line}:${decl.column}'.padRight(locWidth);
         final kind = decl.kind.label.padRight(kindWidth);
         final visibility = decl.isPrivate ? 'private' : 'public';
-        final blocked = decl.removalBlocked
-            ? '  ${_style('(unsafe to auto-remove — remove manually)', _dim, useColor)}'
-            : '';
-        final hint = decl.hint != null
-            ? '  ${_style('(${decl.hint})', _dim, useColor)}'
-            : '';
-        buffer.writeln(
-          '  ${_style(loc, _dim, useColor)}  '
-          '${_style(kind, _cyan, useColor)}  '
-          '${decl.qualifiedName}  '
-          '${_style('($visibility)', _dim, useColor)}'
-          '$blocked$hint',
-        );
+        final columns = [
+          _style(loc, _dim, useColor),
+          _style(kind, _cyan, useColor),
+          decl.qualifiedName,
+          _style('($visibility)', _dim, useColor),
+          for (final note in _notes(decl)) _style('($note)', _dim, useColor),
+        ];
+        buffer.writeln('  ${columns.join('  ')}');
       }
       buffer.writeln();
     }
+  }
+
+  /// What the text report adds in parentheses after a finding.
+  static List<String> _notes(UnusedDeclaration decl) => [
+    if (decl.removalBlocked) 'unsafe to auto-remove — remove manually',
+    ?decl.hint,
+    ?_onlyReferencedFrom(decl),
+  ];
+
+  /// The first finding [decl] is only referenced from, and how many others
+  /// there are; the JSON report lists them all.
+  static String? _onlyReferencedFrom(UnusedDeclaration decl) {
+    final referrers = decl.onlyReferencedFrom;
+    if (referrers.isEmpty) {
+      return null;
+    }
+    final (:qualifiedName, :filePath, :line) = referrers.first;
+    final others = referrers.length > 1
+        ? ' and ${referrers.length - 1} more'
+        : '';
+    return 'only referenced from dead $qualifiedName ($filePath:$line)$others';
   }
 
   /// A machine-readable JSON report.
@@ -120,10 +136,11 @@ abstract final class Reporter {
         pathPrefix,
         level: 'warning',
         title: 'Unused declaration',
-        message:
-            "Unused ${decl.isPrivate ? 'private ' : ''}${decl.kind.label} "
-            "'${decl.qualifiedName}'"
-            "${decl.hint != null ? ' — ${decl.hint}' : ''}",
+        message: [
+          "Unused ${decl.isPrivate ? 'private ' : ''}${decl.kind.label} '${decl.qualifiedName}'",
+          ?decl.hint,
+          ?_onlyReferencedFrom(decl),
+        ].join(' — '),
       );
     }
     for (final decl in result.docOnly) {
