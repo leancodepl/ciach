@@ -1,5 +1,12 @@
 ## Unreleased
 
+- **Breaking:** `FinderOptions.onProgress` is removed; ciach logs through
+  `package:logging`.
+  ([#78](https://github.com/leancodepl/ciach/pull/78))
+- A failed analysis server request no longer stops the run: the affected code
+  is kept and listed under "Not analyzed". The result goes to stdout, the log
+  to stderr, with more color.
+  ([#78](https://github.com/leancodepl/ciach/pull/78))
 - Add `--generated-glob <glob>` (and `generated-glob:` in `ciach.yaml`): treat
   matching files as generated, so their references count but nothing in them
   is reported or removed. For output a suffix can't pick out, like

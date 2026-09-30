@@ -33,7 +33,7 @@ const _docOnly = '''
 lib/greeting.dart
   15:6  function  danglingFunction  (public)
 
-Referenced only from doc comments — not counted as unused, never removed:
+Referenced only from doc comments (1) · not counted, never removed
 lib/greeting.dart
   40:6  function  docOnlyMentioned  (public)''';
 
@@ -92,6 +92,10 @@ const _options = [
         'package. What is scanned and removed is unchanged.',
   ),
   (
+    '--transitive',
+    'Also report what only other findings reference, in the same run.',
+  ),
+  (
     '--overrides, --operators, --generated, --report-tojson',
     'Opt back into a '
         'category skipped by default.',
@@ -138,7 +142,8 @@ const _skips = [
   ),
   (
     'Generated files',
-    'By filename and the `GENERATED CODE` banner; still opened for analysis.',
+    'By filename, the `GENERATED CODE` banner and `--generated-glob`; still '
+        'opened for analysis.',
     '--generated',
   ),
   (
@@ -196,7 +201,7 @@ class DocsPage extends StatelessComponent {
       padding: .symmetric(vertical: 0.4.rem, horizontal: 0.9.rem),
       margin: .only(left: (-1).px),
       border: .only(
-        left: BorderSide(color: const Color('transparent'), width: 2.px),
+        left: .new(color: const .new('transparent'), width: 2.px),
       ),
       color: text2Color,
       fontSize: 0.95.rem,
@@ -219,7 +224,7 @@ class DocsPage extends StatelessComponent {
       letterSpacing: (-0.03).em,
     ),
     css('.docs-head .lead').styles(margin: .only(top: 1.rem)),
-    css.media(MediaQuery.all(minWidth: 960.px), [
+    css.media(.all(minWidth: 960.px), [
       css('.docs')
           .styles(raw: {'grid-template-columns': '220px minmax(0, 1fr)'}),
       css('.docs-nav').styles(
@@ -230,7 +235,7 @@ class DocsPage extends StatelessComponent {
       ),
     ]),
     // On narrow screens the table of contents becomes a compact chip row.
-    css.media(MediaQuery.all(maxWidth: 959.px), [
+    css.media(.all(maxWidth: 959.px), [
       css('.docs-nav .eyebrow, .docs-nav-foot').styles(display: .none),
       css('.docs-nav ul').styles(
         display: .flex,
@@ -301,7 +306,7 @@ class DocsPage extends StatelessComponent {
     css('.mark-yes').styles(color: okColor),
     css('.mark-no').styles(color: mutedColor),
     // Tables stack: one card per row, column names as small labels.
-    css.media(MediaQuery.all(maxWidth: 640.px), [
+    css.media(.all(maxWidth: 640.px), [
       css('.table thead').styles(display: .none),
       css('.table tbody, .table tr, .table th, .table td')
           .styles(display: .block),
@@ -683,8 +688,11 @@ class DocsPage extends StatelessComponent {
                   .text(
                     '. Options mirror the flags; the result carries every '
                     'finding with file, line, kind and qualified name, and '
-                    'doc-only findings in their own list.',
+                    'doc-only findings in their own list. The run logs '
+                    'through ',
                   ),
+                  code([.text('package:logging')]),
+                  .text('.'),
                 ]),
                 CodeBlock(
                   source: _library,

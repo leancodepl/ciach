@@ -46,10 +46,10 @@ Color accentAlpha(double alpha) => Palette.ctaYellow.alpha(alpha);
 const underlined = TextDecoration(line: .underline);
 
 /// A 1px solid border in [color].
-Border hairline(Color color) => Border.all(color: color, width: 1.px);
+Border hairline(Color color) => .all(color: color, width: 1.px);
 
 /// One side of a [hairline], for `Border.only`.
-BorderSide hairlineSide(Color color) => BorderSide(color: color, width: 1.px);
+BorderSide hairlineSide(Color color) => .new(color: color, width: 1.px);
 
 /// Everything the page needs before any component draws: tokens, the reset,
 /// typography and utilities.
@@ -134,10 +134,10 @@ List<StyleRule> get _reset => [
   css('a:hover').styles(color: accentColor),
   css(':focus-visible').styles(
     radius: .circular(4.px),
-    outline: Outline(
+    outline: .new(
       color: accentColor,
       style: .solid,
-      width: OutlineWidth(2.px),
+      width: .new(2.px),
       offset: 3.px,
     ),
   ),
@@ -187,10 +187,10 @@ List<StyleRule> get _utilities => [
   ),
   css('.skip-link').styles(
     position: .fixed(top: 12.px, left: 12.px),
-    zIndex: const ZIndex(100),
+    zIndex: const .new(100),
     padding: .symmetric(vertical: 0.6.rem, horizontal: 1.rem),
     radius: const .circular(radiusSm),
-    transition: Transition('transform', duration: 200.ms, curve: .ease),
+    transition: .new('transform', duration: 200.ms, curve: .ease),
     transform: .translate(y: (-200).percent),
     color: accentInkColor,
     fontWeight: .w600,
@@ -200,14 +200,12 @@ List<StyleRule> get _utilities => [
   css('.accent').styles(color: accentColor),
   css('.muted').styles(color: mutedColor),
   css('.hide-sm').styles(display: .inline),
-  css.media(MediaQuery.all(maxWidth: 540.px), [
-    css('.hide-sm').styles(display: .none),
-  ]),
+  css.media(.all(maxWidth: 540.px), [css('.hide-sm').styles(display: .none)]),
 ];
 
 // Motion is a garnish here; readers who asked for less of it get none.
 List<StyleRule> get _motion => [
-  css.media(const MediaQuery.raw('(prefers-reduced-motion: reduce)'), [
+  css.media(const .raw('(prefers-reduced-motion: reduce)'), [
     css('html').styles(raw: {'scroll-behavior': 'auto'}),
     css('*, *::before, *::after').styles(
       raw: {

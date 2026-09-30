@@ -6,15 +6,10 @@ void main() {
   /// A symbol as the server reports it; the shape is irrelevant to the rules.
   DocumentSymbol symbol(String name, {SymbolKind kind = .function}) {
     const range = Range(
-      start: Position(line: 0, character: 0),
-      end: Position(line: 0, character: 0),
+      start: .new(line: 0, character: 0),
+      end: .new(line: 0, character: 0),
     );
-    return DocumentSymbol(
-      name: name,
-      kind: kind,
-      range: range,
-      selectionRange: range,
-    );
+    return .new(name: name, kind: kind, range: range, selectionRange: range);
   }
 
   group('EntryPoint.fromConfig', () {
@@ -168,7 +163,7 @@ void main() {
 
   test('a project rule is consulted after the built-in ones', () {
     final rules = EntryPoints([
-      EntryPoint.fromConfig('main', files: ['tool/**']),
+      .fromConfig('main', files: ['tool/**']),
     ]);
 
     expect(
@@ -178,7 +173,7 @@ void main() {
     expect(rules.match('lib/a.dart', symbol('serve'), null), isNull);
     expect(
       EntryPoints([
-        EntryPoint.fromConfig('serve'),
+        .fromConfig('serve'),
       ]).match('lib/a.dart', symbol('serve'), null)?.reason,
       contains('entry-points'),
     );

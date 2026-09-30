@@ -2,13 +2,27 @@ import 'dart:io';
 
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/concurrency.dart';
+import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/models.dart';
+import 'package:ciach/src/plural.dart';
+import 'package:ciach/src/problems.dart';
 import 'package:ciach/src/source_index.dart';
+import 'package:ciach/src/symbols.dart';
 import 'package:ciach/src/syntax_rules.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show Location, LspException, Position;
+import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
+
+final _log = Logger('ciach.finder');
+
+const _uncheckedDeclaration = 'Could not find references; kept.';
+
+const _noSemanticTokens =
+    'Could not read comments and annotations; findings may be missed.';
+
+const _noSelectionRanges =
+    'Could not read the syntax here; review findings before removing.';
 
 /// Requests what the verdict needs from the analysis server: each candidate's
 /// references, plus the semantic tokens and selection ranges the structural
@@ -20,39 +34,69 @@ final class ReferenceFetch {
   final FinderOptions options;
   final SourceIndex _sources;
 
-  void _report(String message) => options.onProgress?.call(message);
-
   /// Queries `textDocument/references` for every candidate through one global
   /// pool, reporting `[done/total]` progress as each file's last query lands.
-  Future<List<List<Location>>> references(
+  /// A candidate whose request failed is left out, so it is never reported.
+  Future<({List<Candidate> checked, List<List<Location>> refs})> references(
     LspClient client,
     List<Candidate> candidates, {
     required int totalFiles,
     required String rootPath,
-  }) {
+  }) async {
     final remainingPerFile = <String, int>{};
     for (final candidate in candidates) {
       remainingPerFile.update(candidate.path, (n) => n + 1, ifAbsent: () => 1);
     }
     var filesDone = totalFiles - remainingPerFile.length;
 
-    return mapPooled(candidates, options.concurrency, (candidate) async {
+    final fetched = await mapPooled(candidates, options.concurrency, (
+      candidate,
+    ) async {
       // The server would answer for an unnamed extension's `on` type.
       final refs = candidate.isUnnamedExtension
           ? const <Location>[]
-          : await client.references(
-              candidate.uri,
-              candidate.symbol.selectionRange.start,
-            );
+          : await _referencesOf(client, candidate);
       if (remainingPerFile.update(candidate.path, (n) => n - 1) == 0) {
         filesDone++;
-        _report(
+        _log.info(
           '[$filesDone/$totalFiles] '
           '${p.relative(candidate.path, from: rootPath)}',
         );
       }
       return refs;
     });
+
+    final checked = <Candidate>[];
+    final refs = <List<Location>>[];
+    for (final (i, candidateRefs) in fetched.indexed) {
+      if (candidateRefs != null) {
+        checked.add(candidates[i]);
+        refs.add(candidateRefs);
+      }
+    }
+    return (checked: checked, refs: refs);
+  }
+
+  Future<List<Location>?> _referencesOf(
+    LspClient client,
+    Candidate candidate,
+  ) async {
+    final start = candidate.symbol.selectionRange.start;
+    try {
+      return await client.references(candidate.uri, start);
+    } on LspRequestException catch (e) {
+      final name = candidate.symbol.declarationName(candidate.container);
+      recordProblem(
+        _uncheckedDeclaration,
+        e,
+        path: candidate.path,
+        position: start,
+        name: candidate.container == null
+            ? name
+            : '${candidate.container}.$name',
+      );
+      return null;
+    }
   }
 
   /// Fetches the semantic tokens of every referenced file that has none yet.
@@ -69,7 +113,9 @@ final class ReferenceFetch {
     if (paths.isEmpty) {
       return;
     }
-    _report('Fetching tokens for ${paths.length} referenced file(s)…');
+    _log.info(
+      'Fetching tokens for ${plural(paths.length, 'referenced file', 'referenced files')}…',
+    );
     await mapPooled(paths.toList(), options.concurrency, (path) async {
       _sources.cacheSemanticTokens(
         path,
@@ -116,7 +162,9 @@ final class ReferenceFetch {
     if (positionsByPath.isEmpty) {
       return;
     }
-    _report('Fetching syntax nodes in ${positionsByPath.length} file(s)…');
+    _log.info(
+      'Fetching syntax nodes in ${plural(positionsByPath.length, 'file', 'files')}…',
+    );
     await mapPooled(positionsByPath.entries.toList(), options.concurrency, (
       entry,
     ) async {
@@ -129,8 +177,14 @@ final class ReferenceFetch {
             _sources.cacheSelectionRange(path, ordered[i], range);
           }
         }
-      } on LspException {
+      } on LspRequestException catch (e) {
         // A position with no cached range reads as "not the special shape".
+        recordProblem(
+          _noSelectionRanges,
+          e,
+          path: path,
+          position: ordered.first,
+        );
       }
     });
   }
@@ -145,7 +199,8 @@ Future<List<SemanticToken>> semanticTokensOrEmpty(
 ) async {
   try {
     return await client.semanticTokens(File(path).uri, sources.lines(path));
-  } on LspException {
+  } on LspRequestException catch (e) {
+    recordProblem(_noSemanticTokens, e, path: path);
     return const [];
   }
 }

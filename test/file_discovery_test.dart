@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:ciach/src/file_discovery.dart';
-import 'package:ciach/src/models.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -9,7 +8,7 @@ void main() {
   late Directory tempDir;
 
   setUp(() {
-    tempDir = Directory.systemTemp.createTempSync('ciach_discovery_test_');
+    tempDir = .systemTemp.createTempSync('ciach_discovery_test_');
   });
 
   tearDown(() {
@@ -37,9 +36,7 @@ void main() {
       '// GENERATED CODE - DO NOT MODIFY BY HAND\nclass Mapper {}',
     );
 
-    final result = discoverDartFilesSplit(
-      FinderOptions(rootPath: tempDir.path),
-    );
+    final result = discoverDartFilesSplit(.new(rootPath: tempDir.path));
 
     // The `.g.dart` and banner-marked files are excluded from candidates…
     expect(rel(result.candidates), {'lib/model.dart'});
@@ -54,10 +51,7 @@ void main() {
     write('lib/model.g.dart', '// generated\nclass ModelGen {}');
 
     final result = discoverDartFilesSplit(
-      FinderOptions(
-        rootPath: tempDir.path,
-        includeGlobs: const ['lib/model.dart'],
-      ),
+      .new(rootPath: tempDir.path, includeGlobs: const ['lib/model.dart']),
     );
 
     expect(rel(result.candidates), {'lib/model.dart'});
@@ -71,7 +65,7 @@ void main() {
     write('lib/model.g.dart', '// generated\nclass ModelGen {}');
 
     final result = discoverDartFilesSplit(
-      FinderOptions(rootPath: tempDir.path, includeGenerated: true),
+      .new(rootPath: tempDir.path, includeGenerated: true),
     );
 
     expect(rel(result.candidates), {'lib/model.dart', 'lib/model.g.dart'});
@@ -84,9 +78,7 @@ void main() {
     write('lib/embed.gc.dart', 'class Embed {}');
 
     // Without the option, the custom-suffix file is an ordinary candidate.
-    final withoutOption = discoverDartFilesSplit(
-      FinderOptions(rootPath: tempDir.path),
-    );
+    final withoutOption = discoverDartFilesSplit(.new(rootPath: tempDir.path));
     expect(rel(withoutOption.candidates), {
       'lib/model.dart',
       'lib/embed.gc.dart',
@@ -95,7 +87,7 @@ void main() {
 
     // With the suffix configured, it's excluded from candidates but warmed.
     final withOption = discoverDartFilesSplit(
-      FinderOptions(
+      .new(
         rootPath: tempDir.path,
         additionalGeneratedSuffixes: const ['.gc.dart'],
       ),
@@ -113,7 +105,7 @@ void main() {
     write('lib/src/status_l10n.dart', 'String status() => "";');
 
     final result = discoverDartFilesSplit(
-      FinderOptions(
+      .new(
         rootPath: tempDir.path,
         additionalGeneratedGlobs: const ['lib/l10n/**'],
       ),
@@ -128,10 +120,7 @@ void main() {
     });
 
     final excluded = discoverDartFilesSplit(
-      FinderOptions(
-        rootPath: tempDir.path,
-        excludeGlobs: const ['lib/l10n/**'],
-      ),
+      .new(rootPath: tempDir.path, excludeGlobs: const ['lib/l10n/**']),
     );
     expect(rel(excluded.candidates), {
       'lib/model.dart',
@@ -141,7 +130,7 @@ void main() {
 
     // --generated scans them like any other file.
     final scanned = discoverDartFilesSplit(
-      FinderOptions(
+      .new(
         rootPath: tempDir.path,
         includeGenerated: true,
         additionalGeneratedGlobs: const ['lib/l10n/**'],
@@ -156,9 +145,7 @@ void main() {
     write('build/gen.g.dart', '// generated\nclass Gen {}');
     write('.dart_tool/tool.g.dart', '// generated\nclass Tool {}');
 
-    final result = discoverDartFilesSplit(
-      FinderOptions(rootPath: tempDir.path),
-    );
+    final result = discoverDartFilesSplit(.new(rootPath: tempDir.path));
 
     expect(rel(result.candidates), {'lib/model.dart'});
     expect(result.warmOnly, isEmpty);

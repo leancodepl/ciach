@@ -1,11 +1,11 @@
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
+import 'package:ciach/src/problems.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart'
-    show DocumentSymbol, Location, LspException, Position;
+import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location, Position;
 
 /// Whether a class can lose all of its constructors. The implicit default
 /// constructor that replaces them calls `super()`, which compiles only if the
@@ -14,6 +14,9 @@ final class SuperclassChecks {
   SuperclassChecks(this._client);
 
   final LspClient _client;
+
+  static const _unreadSuperclass =
+      'Could not read the superclass; constructors reported, not removed.';
 
   /// Verdicts by superclass location.
   final _bySuperclass = <String, Future<bool>>{};
@@ -27,7 +30,14 @@ final class SuperclassChecks {
         cls.uri,
         cls.symbol.selectionRange.start,
       );
-    } on LspException {
+    } on LspRequestException catch (e) {
+      recordProblem(
+        _unreadSuperclass,
+        e,
+        path: cls.path,
+        position: cls.symbol.selectionRange.start,
+        name: cls.symbol.name,
+      );
       return true;
     }
     if (superclass == null) {
@@ -43,7 +53,13 @@ final class SuperclassChecks {
     final List<DocumentSymbol> symbols;
     try {
       symbols = await _client.documentSymbol(uri);
-    } on LspException {
+    } on LspRequestException catch (e) {
+      recordProblem(
+        _unreadSuperclass,
+        e,
+        path: uri.toFilePath(),
+        position: superclass.range.start,
+      );
       return true;
     }
     final declaration = _symbolNamedAt(symbols, superclass.range.start);
@@ -83,7 +99,13 @@ final class SuperclassChecks {
     final List<SemanticToken> tokens;
     try {
       tokens = await _client.semanticTokens(uri, content.split('\n'));
-    } on LspException {
+    } on LspRequestException catch (e) {
+      recordProblem(
+        _unreadSuperclass,
+        e,
+        path: uri.toFilePath(),
+        position: ctor.selectionRange.start,
+      );
       return true;
     }
     return tokens

@@ -33,7 +33,7 @@ class _DemoTriggerState extends State<DemoTrigger> {
       return;
     }
     target.classList.add('armed');
-    _observer = web.IntersectionObserver(
+    _observer = .new(
       ((
             JSArray<web.IntersectionObserverEntry> entries,
             web.IntersectionObserver _,
@@ -47,7 +47,7 @@ class _DemoTriggerState extends State<DemoTrigger> {
             }
           })
           .toJS,
-      web.IntersectionObserverInit(threshold: 0.35.toJS),
+      .new(threshold: 0.35.toJS),
     )..observe(target);
   }
 
