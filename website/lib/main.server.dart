@@ -28,7 +28,7 @@ Future<void> main() async {
 }
 
 /// The ciach version, read from the package's own pubspec so the site can
-/// never announce a stale number. Falls back to a build-time define.
+/// never announce a stale number.
 String _ciachVersion() {
   for (final candidate in ['../pubspec.yaml', 'pubspec.yaml']) {
     final file = File(candidate);
@@ -47,5 +47,5 @@ String _ciachVersion() {
       return match[1]!;
     }
   }
-  return const .fromEnvironment('CIACH_VERSION', defaultValue: '0.4.3');
+  throw StateError('No ciach pubspec.yaml found; build from the repository.');
 }
