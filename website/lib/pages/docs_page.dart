@@ -8,6 +8,9 @@ import 'package:ciach_website/site.dart';
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import 'package:jaspr_class_scope/jaspr_class_scope.dart';
+
+part 'docs_page.scopes.dart';
 
 const _usage = r'''
 $ dart pub global activate ciach
@@ -156,29 +159,45 @@ const _reportOnly = [
   'A primary constructor or its declaring parameters.',
 ];
 
-Component _mark(bool yes) => yes
-    ? const span(
-        classes: 'mark mark-yes',
-        attributes: {'aria-label': 'yes'},
-        [.text('✓')],
+Component _markOf(bool yes) => yes
+    ? span(
+        classes: (DocsPage._mark + DocsPage._yes).name,
+        attributes: const {'aria-label': 'yes'},
+        const [.text('✓')],
       )
-    : const span(
-        classes: 'mark mark-no',
-        attributes: {'aria-label': 'no'},
-        [.text('—')],
+    : span(
+        classes: (DocsPage._mark + DocsPage._no).name,
+        attributes: const {'aria-label': 'no'},
+        const [.text('—')],
       );
 
 /// Everything past the landing page, on one page with a sticky table of
 /// contents. The README on GitHub stays the exhaustive reference.
+@scopedCss
 class DocsPage extends StatelessComponent {
   const DocsPage({required this.version, super.key});
 
   final String version;
 
+  static const _class = _$DocsPageScope;
+
+  static final _docs = _class('docs');
+  static final _nav = _class('nav');
+  static final _navFoot = _class('nav-foot');
+  static final _body = _class('body');
+  static final _head = _class('head');
+  static final _tableWrap = _class('table-wrap');
+  static final _table = _class('table');
+  static final _compare = _class('compare');
+  static final _flag = _class('flag');
+  static final _mark = _class('mark');
+  static final _yes = _class('yes');
+  static final _no = _class('no');
+
   @css
   static List<StyleRule> get styles => [
     ..._tableStyles,
-    css('.docs', [
+    css(_docs.selector, [
       css('&').styles(
         display: .grid,
         padding: const .only(
@@ -187,13 +206,14 @@ class DocsPage extends StatelessComponent {
         ),
         gap: .all(2.5.rem),
       ),
+      shrinkableChildren(),
       css.media(_wide, [
         css('&').styles(raw: {'grid-template-columns': '220px minmax(0, 1fr)'}),
       ]),
     ]),
     // The table of contents: a sticky column beside the text on wide screens,
     // a compact chip row above it on narrow ones.
-    css('.docs-nav', [
+    css(_nav.selector, [
       css('& ul', [
         css('&').styles(
           display: .grid,
@@ -221,7 +241,7 @@ class DocsPage extends StatelessComponent {
           fontSize: 0.95.rem,
         ),
         css(
-          '&:hover, &.is-active',
+          '&:hover, &${DocsToc.active.selector}',
         ).styles(color: textColor, raw: {'border-left-color': 'var(--accent)'}),
         css.media(_narrow, [
           css('&').styles(
@@ -231,7 +251,7 @@ class DocsPage extends StatelessComponent {
             radius: .circular(999.px),
             fontSize: 0.85.rem,
           ),
-          css('&:hover, &.is-active')
+          css('&:hover, &${DocsToc.active.selector}')
               .styles(raw: {'border-color': 'var(--accent)'}),
         ]),
       ]),
@@ -243,9 +263,11 @@ class DocsPage extends StatelessComponent {
           alignSelf: .start,
         ),
       ]),
-      css.media(_narrow, [css('& .eyebrow').styles(display: .none)]),
+      css.media(_narrow, [
+        css('& ${Prose.eyebrow.selector}').styles(display: .none),
+      ]),
     ]),
-    css('.docs-nav-foot', [
+    css(_navFoot.selector, [
       css('&').styles(
         margin: .only(top: 1.25.rem),
         fontSize: 0.9.rem,
@@ -257,14 +279,14 @@ class DocsPage extends StatelessComponent {
       ),
       css.media(_narrow, [css('&').styles(display: .none)]),
     ]),
-    css('.docs-body').styles(maxWidth: 52.rem),
-    css('.docs-head', [
+    css(_body.selector).styles(maxWidth: 52.rem),
+    css(_head.selector, [
       css('& h1').styles(
         fontSize: const .expression('clamp(2.2rem, 4vw, 3rem)'),
         fontWeight: .w700,
         letterSpacing: (-0.03).em,
       ),
-      css('& .lead').styles(margin: .only(top: 1.rem)),
+      css('& ${Prose.lead.selector}').styles(margin: .only(top: 1.rem)),
     ]),
   ];
 
@@ -274,13 +296,13 @@ class DocsPage extends StatelessComponent {
   static final _narrow = MediaQuery.all(maxWidth: 959.px);
 
   static List<StyleRule> get _tableStyles => [
-    css('.table-wrap').styles(
+    css(_tableWrap.selector).styles(
       border: hairline(borderColor),
       radius: const .circular(radius),
       overflow: const .only(x: .auto),
       backgroundColor: surfaceColor,
     ),
-    css('.table', [
+    css(_table.selector, [
       css('&').styles(
         width: 100.percent,
         fontSize: 0.95.rem,
@@ -311,9 +333,9 @@ class DocsPage extends StatelessComponent {
       ]),
       // Flag and name columns hug their chips so the prose column gets the
       // room.
-      css('&:not(.table-compare) tbody th').styles(width: 1.percent),
+      css('&:not(${_compare.selector}) tbody th').styles(width: 1.percent),
       css('& td').styles(color: text2Color),
-      css('& code.flag').styles(
+      css('& code${_flag.selector}').styles(
         color: accentColor,
         whiteSpace: .noWrap,
         raw: {'border-color': accentAlpha(0.3).value},
@@ -344,7 +366,7 @@ class DocsPage extends StatelessComponent {
         ),
       ]),
     ]),
-    css('.table-compare', [
+    css(_compare.selector, [
       css("& th[scope='row']").styles(color: text2Color, whiteSpace: .normal),
       css('& thead', [
         css('& th', [
@@ -358,9 +380,9 @@ class DocsPage extends StatelessComponent {
         css.media(_stacked, [css('&').styles(width: .auto, textAlign: .left)]),
       ]),
     ]),
-    css('.mark').styles(fontWeight: .w700),
-    css('.mark-yes').styles(color: okColor),
-    css('.mark-no').styles(color: mutedColor),
+    css(_mark.selector).styles(fontWeight: .w700),
+    css(_yes.selector).styles(color: okColor),
+    css(_no.selector).styles(color: mutedColor),
   ];
 
   /// Where tables stack into one card per row.
@@ -381,28 +403,28 @@ class DocsPage extends StatelessComponent {
           path: 'docs',
           structuredData: [faqStructuredData()],
         ),
-        div(classes: 'container docs', [
+        div(classes: (Utility.container + _docs).name, [
           nav(
-            classes: 'docs-nav',
+            classes: _nav.name,
             attributes: const {'aria-label': 'On this page'},
             [
-              const p(classes: 'eyebrow', [.text('Docs')]),
+              p(classes: Prose.eyebrow.name, const [.text('Docs')]),
               DocsToc(
                 path: '/docs',
                 ids: [for (final (id, _) in _toc) id],
                 labels: [for (final (_, label) in _toc) label],
               ),
-              p(classes: 'docs-nav-foot', [
+              p(classes: _navFoot.name, [
                 externalLink(readmeUrl, [
                   const .text('Full README on GitHub →'),
                 ]),
               ]),
             ],
           ),
-          div(classes: 'docs-body', [
-            const header(classes: 'docs-head', [
-              h1([.text('Docs')]),
-              p(classes: 'lead', [
+          div(classes: _body.name, [
+            header(classes: _head.name, [
+              const h1([.text('Docs')]),
+              p(classes: Prose.lead.name, const [
                 .text(
                   'Install, configure and run ciach, and read its findings '
                   'with confidence.',
@@ -439,8 +461,8 @@ class DocsPage extends StatelessComponent {
               id: 'options',
               heading: 'Options',
               children: [
-                div(classes: 'table-wrap', [
-                  table(classes: 'table', [
+                div(classes: _tableWrap.name, [
+                  table(classes: _table.name, [
                     const thead([
                       tr([
                         th(attributes: {'scope': 'col'}, [.text('Flag')]),
@@ -470,7 +492,7 @@ class DocsPage extends StatelessComponent {
                     ]),
                   ]),
                 ]),
-                p(classes: 'note', [
+                p(classes: Prose.note.name, [
                   const .text('Exit codes: 0 clean, 1 findings with '),
                   const code([.text('--set-exit-if-changed')]),
                   const .text(', 2 usage or analysis error. '),
@@ -540,8 +562,8 @@ class DocsPage extends StatelessComponent {
                     'stops.',
                   ),
                 ]),
-                div(classes: 'table-wrap', [
-                  table(classes: 'table table-compare', [
+                div(classes: _tableWrap.name, [
+                  table(classes: (_table + _compare).name, [
                     const thead([
                       tr([
                         th(attributes: {'scope': 'col'}, [.text('')]),
@@ -568,11 +590,11 @@ class DocsPage extends StatelessComponent {
                           ),
                           td(
                             attributes: const {'data-label': 'dart analyze'},
-                            [_mark(analyzer)],
+                            [_markOf(analyzer)],
                           ),
                           td(
                             attributes: const {'data-label': 'ciach'},
-                            [_mark(ciach)],
+                            [_markOf(ciach)],
                           ),
                         ]),
                     ]),
@@ -616,7 +638,7 @@ class DocsPage extends StatelessComponent {
                   ),
                 ]),
                 const h3([.text('Report-only: removal would not compile')]),
-                ul(classes: 'checklist', [
+                ul(classes: Prose.checklist.name, [
                   for (final item in _reportOnly) li(rich(item)),
                 ]),
               ],
@@ -631,8 +653,8 @@ class DocsPage extends StatelessComponent {
                     'flag opts back in at that cost.',
                   ),
                 ]),
-                div(classes: 'table-wrap', [
-                  table(classes: 'table', [
+                div(classes: _tableWrap.name, [
+                  table(classes: _table.name, [
                     const thead([
                       tr([
                         th(attributes: {'scope': 'col'}, [.text('Skipped')]),
@@ -654,9 +676,11 @@ class DocsPage extends StatelessComponent {
                             attributes: const {'data-label': 'Opt back in'},
                             [
                               if (flag != null)
-                                code(classes: 'flag', [.text(flag)])
+                                code(classes: _flag.name, [.text(flag)])
                               else
-                                const span(classes: 'muted', [.text('—')]),
+                                span(classes: Utility.muted.name, const [
+                                  .text('—'),
+                                ]),
                             ],
                           ),
                         ]),
@@ -678,7 +702,7 @@ class DocsPage extends StatelessComponent {
                   copyText: '',
                 ),
                 const h3([.text('Limitations')]),
-                ul(classes: 'checklist', [
+                ul(classes: Prose.checklist.name, [
                   li(
                     rich(
                       'A library package’s public API is legitimately unused '

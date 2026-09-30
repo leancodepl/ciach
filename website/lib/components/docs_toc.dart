@@ -1,7 +1,10 @@
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import 'package:jaspr_class_scope/jaspr_class_scope.dart';
 import 'package:universal_web/js_interop.dart';
 import 'package:universal_web/web.dart' as web;
+
+part 'docs_toc.scopes.dart';
 
 /// The docs table of contents.
 ///
@@ -10,6 +13,7 @@ import 'package:universal_web/web.dart' as web;
 /// Links carry the page path, because the document's `<base href>` would
 /// otherwise resolve a bare `#fragment` against the site root.
 @client
+@scopedCss
 class DocsToc extends StatefulComponent {
   const DocsToc({
     required this.path,
@@ -26,6 +30,11 @@ class DocsToc extends StatefulComponent {
 
   /// Link labels, parallel to [ids].
   final List<String> labels;
+
+  static const _class = _$DocsTocScope;
+
+  /// The link to the section in view; the docs page styles it.
+  static final active = _class('active');
 
   @override
   State<DocsToc> createState() => _DocsTocState();
@@ -111,7 +120,7 @@ class _DocsTocState extends State<DocsToc> {
         li([
           a(
             href: '${component.path}#$id',
-            classes: id == _active ? 'is-active' : null,
+            classes: id == _active ? DocsToc.active.name : null,
             attributes: id == _active ? const {'aria-current': 'true'} : null,
             [.text(component.labels[index])],
           ),

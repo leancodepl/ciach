@@ -1,9 +1,13 @@
 import 'package:ciach_website/components/code_block.dart';
 import 'package:ciach_website/components/demo_trigger.dart';
 import 'package:ciach_website/components/section.dart';
+import 'package:ciach_website/highlight.dart';
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import 'package:jaspr_class_scope/jaspr_class_scope.dart';
+
+part 'ciach_demo.scopes.dart';
 
 const _before = '''
 /// Referenced from bin/app.dart.
@@ -39,22 +43,34 @@ Removed 4 unused declarations from 1 file.''';
 
 /// The `--remove` walkthrough: the file with its dead code struck out as the
 /// block scrolls into view, next to the command that did it.
+@scopedCss
 class CiachDemo extends StatelessComponent {
   const CiachDemo({super.key});
 
+  static const _class = _$CiachDemoScope;
+
+  static final _grid = _class('grid');
+  static final _sample = _class('sample');
+  static final _terminal = _class('terminal');
+
+  /// A dead line of the sample.
+  static final _deadLine = Highlight.line + Highlight.dead;
+
   @css
   static List<StyleRule> get styles => [
-    css('.ciach-grid', [
+    css(_grid.selector, [
       css('&').styles(display: .grid, alignItems: .start, gap: .all(1.25.rem)),
+      shrinkableChildren(),
       css.media(MediaQuery.all(minWidth: 760.px), [
         css('&').styles(raw: {'grid-template-columns': '1fr 1fr'}),
       ]),
     ]),
     // Dead lines: struck and faded. Without JavaScript that is the resting
-    // state; with it, `.armed` hides the strike until the block scrolls into
-    // view and `.play` runs the animation once, one line after another.
-    css('.ciach-before', [
-      css('& .line.dead', [
+    // state; with it, [DemoTrigger.armed] hides the strike until the block
+    // scrolls into view and [DemoTrigger.play] runs the animation once, one
+    // line after another.
+    css(_sample.selector, [
+      css('& ${_deadLine.selector}', [
         css('&').styles(
           position: const .relative(),
           // Size to the text so the strike covers the code, not the whole
@@ -75,7 +91,7 @@ class CiachDemo extends StatelessComponent {
           raw: {'transform-origin': 'left center'},
         ),
       ]),
-      css('&.armed .line.dead', [
+      css('&${DemoTrigger.armed.selector} ${_deadLine.selector}', [
         css('&').styles(opacity: 1),
         css('&::after').styles(raw: {'transform': 'scaleX(0)'}),
         css.media(reducedMotion, [
@@ -83,7 +99,7 @@ class CiachDemo extends StatelessComponent {
           css('&::after').styles(transform: .none),
         ]),
       ]),
-      css('&.play .line.dead', [
+      css('&${DemoTrigger.play.selector} ${_deadLine.selector}', [
         css('&').styles(
           animation: Animation(
             name: 'dead-fade',
@@ -112,7 +128,7 @@ class CiachDemo extends StatelessComponent {
 
   @override
   Component build(BuildContext context) {
-    return const Section(
+    return Section(
       id: 'remove',
       eyebrow: '--remove',
       heading: 'Report it. Or ciach it.',
@@ -120,8 +136,8 @@ class CiachDemo extends StatelessComponent {
           'One flag deletes what was found, doc comments included, after '
           'showing the list and asking first.',
       children: [
-        div(classes: 'ciach-grid', [
-          div(id: 'remove-demo', classes: 'ciach-before', [
+        div(classes: _grid.name, [
+          div(id: 'remove-demo', classes: _sample.name, const [
             CodeBlock(
               source: _before,
               language: .dart,
@@ -130,12 +146,12 @@ class CiachDemo extends StatelessComponent {
               copyText: '',
             ),
           ]),
-          div(classes: 'ciach-terminal', [
+          div(classes: _terminal.name, const [
             Terminal(transcript: _removeTranscript, title: 'ciach --remove'),
           ]),
         ]),
-        DemoTrigger(targetId: 'remove-demo'),
-        p(classes: 'section-more', [
+        const DemoTrigger(targetId: 'remove-demo'),
+        p(classes: Prose.more.name, const [
           a(href: '/docs#removing', [
             .text('What --remove refuses to touch →'),
           ]),

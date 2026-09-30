@@ -3,8 +3,12 @@ import 'package:ciach_website/highlight.dart';
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import 'package:jaspr_class_scope/jaspr_class_scope.dart';
+
+part 'code_block.scopes.dart';
 
 /// A highlighted, copyable code sample in a window-like frame.
+@scopedCss
 class CodeBlock extends StatelessComponent {
   const CodeBlock({
     required this.source,
@@ -32,9 +36,20 @@ class CodeBlock extends StatelessComponent {
   final bool lineNumbers;
   final String? classes;
 
+  static const _class = _$CodeBlockScope;
+
+  // The frame, shared with [Terminal].
+  static final _block = _class('block');
+  static final _bar = _class('bar');
+  static final _dots = _class('dots');
+  static final _title = _class('title');
+  static final _terminal = _class('terminal');
+  static final _animated = _class('animated');
+  static final _numbered = _class('numbered');
+
   @css
   static List<StyleRule> get styles => [
-    css('.code-block', [
+    css(_block.selector, [
       css('&').styles(
         minWidth: .zero,
         margin: .zero,
@@ -63,7 +78,7 @@ class CodeBlock extends StatelessComponent {
       ),
       css('& code').styles(display: .block, minWidth: .maxContent),
     ]),
-    css('.code-bar').styles(
+    css(_bar.selector).styles(
       display: .flex,
       minHeight: 2.6.rem,
       padding: .only(
@@ -77,7 +92,7 @@ class CodeBlock extends StatelessComponent {
       gap: .all(0.75.rem),
       backgroundColor: surface2Color,
     ),
-    css('.code-dots', [
+    css(_dots.selector, [
       css('&').styles(display: .inlineFlex, gap: .all(0.4.rem)),
       css('& span', [
         css('&').styles(
@@ -89,7 +104,7 @@ class CodeBlock extends StatelessComponent {
         css('&:first-child').styles(backgroundColor: accentColor),
       ]),
     ]),
-    css('.code-title').styles(
+    css(_title.selector).styles(
       minWidth: .zero,
       overflow: .hidden,
       color: mutedColor,
@@ -100,35 +115,42 @@ class CodeBlock extends StatelessComponent {
       whiteSpace: .noWrap,
       raw: {'flex': '1'},
     ),
-    css('.line').styles(display: .inlineBlock, minWidth: 100.percent),
+    css(Highlight.line.selector)
+        .styles(display: .inlineBlock, minWidth: 100.percent),
     // Token colors, shared by the TextMate scopes and ciach's own output.
-    css('.tk-keyword').styles(color: const .variable('--tk-keyword')),
-    css('.tk-type').styles(color: const .variable('--tk-type')),
-    css('.tk-string').styles(color: const .variable('--tk-string')),
-    css('.tk-number').styles(color: const .variable('--tk-number')),
-    css('.tk-comment').styles(color: const .variable('--tk-comment')),
-    css('.tk-annotation').styles(color: const .variable('--tk-annotation')),
-    css('.tk-function').styles(color: const .variable('--tk-function')),
-    css('.tk-key').styles(color: const .variable('--tk-type')),
-    css('.tk-kind').styles(color: const .variable('--tk-keyword')),
-    css('.tk-vis').styles(color: const .variable('--tk-comment')),
-    css('.tk-hint').styles(color: const .variable('--tk-number')),
-    css('.tk-ask').styles(color: const .variable('--tk-annotation')),
-    css('.tk-doc')
+    css(Highlight.keyword.selector)
+        .styles(color: const .variable('--tk-keyword')),
+    css(Highlight.type.selector).styles(color: const .variable('--tk-type')),
+    css(Highlight.string.selector)
+        .styles(color: const .variable('--tk-string')),
+    css(Highlight.number.selector)
+        .styles(color: const .variable('--tk-number')),
+    css(Highlight.comment.selector)
+        .styles(color: const .variable('--tk-comment')),
+    css(Highlight.annotation.selector)
+        .styles(color: const .variable('--tk-annotation')),
+    css(Highlight.function.selector)
+        .styles(color: const .variable('--tk-function')),
+    css(Highlight.key.selector).styles(color: const .variable('--tk-type')),
+    css(Highlight.kind.selector).styles(color: const .variable('--tk-keyword')),
+    css(Highlight.hint.selector).styles(color: const .variable('--tk-number')),
+    css(Highlight.ask.selector)
+        .styles(color: const .variable('--tk-annotation')),
+    css(Highlight.doc.selector)
         .styles(color: const .variable('--tk-comment'), fontStyle: .italic),
-    css('.tk-flag').styles(color: accentColor),
-    css('.tk-prompt')
+    css(Highlight.flag.selector).styles(color: accentColor),
+    css(Highlight.prompt.selector)
         .styles(userSelect: .none, color: accentColor, fontWeight: .w600),
-    css('.tk-command').styles(color: textColor, fontWeight: .w600),
-    css('.tk-path')
+    css(Highlight.command.selector).styles(color: textColor, fontWeight: .w600),
+    css(Highlight.path.selector)
         .styles(color: const .variable('--tk-annotation'), fontWeight: .w600),
-    css('.tk-name').styles(color: textColor),
-    css('.tk-summary').styles(color: okColor, fontWeight: .w600),
-    css('.tk-punct, .tk-operator')
+    css(Highlight.name.selector).styles(color: textColor),
+    css(Highlight.summary.selector).styles(color: okColor, fontWeight: .w600),
+    css('${Highlight.punct.selector}, ${Highlight.operator.selector}')
         .styles(color: const .variable('--tk-function')),
     // Transcripts wrap like a real terminal; code blocks keep scrolling because
     // indentation there carries meaning.
-    css('.terminal', [
+    css(_terminal.selector, [
       css('& pre').styles(
         color: text2Color,
         whiteSpace: .preWrap,
@@ -136,7 +158,7 @@ class CodeBlock extends StatelessComponent {
       ),
       css('& code').styles(minWidth: .zero),
       // Wrapped continuations hang under the line's first character.
-      css('& .line').styles(
+      css('& ${Highlight.line.selector}').styles(
         display: .inlineBlock,
         width: 100.percent,
         minWidth: .zero,
@@ -144,7 +166,7 @@ class CodeBlock extends StatelessComponent {
         textIndent: const .expression('-2.5ch'),
       ),
       // Sequential reveal for animated terminals.
-      css('&.animated .line', [
+      css('&${_animated.selector} ${Highlight.line.selector}', [
         css('&').styles(
           opacity: 0,
           animation: Animation(
@@ -169,23 +191,23 @@ class CodeBlock extends StatelessComponent {
     final copy = copyText ?? source;
     return figure(
       classes: [
-        'code-block',
+        _block.name,
         // Console output wraps like a terminal; real code scrolls.
-        if (language == .console) 'terminal',
-        if (lineNumbers) 'numbered',
+        if (language == .console) _terminal.name,
+        if (lineNumbers) _numbered.name,
         ?classes,
       ].join(' '),
       [
-        div(classes: 'code-bar', [
-          const span(
-            classes: 'code-dots',
-            attributes: {'aria-hidden': 'true'},
-            [span([]), span([]), span([])],
+        div(classes: _bar.name, [
+          span(
+            classes: _dots.name,
+            attributes: const {'aria-hidden': 'true'},
+            const [span([]), span([]), span([])],
           ),
           if (title case final title?)
-            figcaption(classes: 'code-title', [.text(title)])
+            figcaption(classes: _title.name, [.text(title)])
           else
-            const span(classes: 'code-title', []),
+            span(classes: _title.name, const []),
           if (copy.isNotEmpty) CopyButton(text: copy),
         ]),
         pre(
@@ -223,17 +245,19 @@ class Terminal extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     return figure(
-      classes: animated
-          ? 'code-block terminal animated'
-          : 'code-block terminal',
+      classes: [
+        CodeBlock._block.name,
+        CodeBlock._terminal.name,
+        if (animated) CodeBlock._animated.name,
+      ].join(' '),
       [
-        div(classes: 'code-bar', [
-          const span(
-            classes: 'code-dots',
-            attributes: {'aria-hidden': 'true'},
-            [span([]), span([]), span([])],
+        div(classes: CodeBlock._bar.name, [
+          span(
+            classes: CodeBlock._dots.name,
+            attributes: const {'aria-hidden': 'true'},
+            const [span([]), span([]), span([])],
           ),
-          figcaption(classes: 'code-title', [.text(title)]),
+          figcaption(classes: CodeBlock._title.name, [.text(title)]),
           if (copyText.isNotEmpty) CopyButton(text: copyText),
         ]),
         pre(
@@ -246,7 +270,7 @@ class Terminal extends StatelessComponent {
               ).indexed) ...[
                 if (index > 0) const .text('\n'),
                 span(
-                  classes: 'line',
+                  classes: Highlight.line.name,
                   styles: animated ? Styles(raw: {'--i': '$index'}) : null,
                   line,
                 ),

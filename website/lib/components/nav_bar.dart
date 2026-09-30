@@ -6,18 +6,30 @@ import 'package:ciach_website/site.dart';
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import 'package:jaspr_class_scope/jaspr_class_scope.dart';
+
+part 'nav_bar.scopes.dart';
 
 /// The site header: the brand on the left, and on the right the three places
 /// a visitor can go from any page. Every item is a real link; in-page
 /// sections are reached by scrolling.
+@scopedCss
 class NavBar extends StatelessComponent {
   const NavBar({required this.page, super.key});
 
   final SitePage page;
 
+  static const _class = _$NavBarScope;
+
+  static final _header = _class('header');
+  static final _nav = _class('nav');
+  static final _brand = _class('brand');
+  static final _links = _class('links');
+  static final _active = _class('active');
+
   @css
   static List<StyleRule> get styles => [
-    css('.site-header').styles(
+    css(_header.selector).styles(
       position: const .sticky(top: .zero),
       zIndex: const ZIndex(50),
       height: headerHeight,
@@ -26,7 +38,7 @@ class NavBar extends StatelessComponent {
       backgroundColor: Palette.black.alpha(0.75),
       raw: {'-webkit-backdrop-filter': 'saturate(140%) blur(14px)'},
     ),
-    css('.nav', [
+    css(_nav.selector, [
       css('&').styles(
         display: .flex,
         height: 100.percent,
@@ -38,31 +50,9 @@ class NavBar extends StatelessComponent {
         css('&').styles(gap: .all(0.5.rem)),
       ]),
     ]),
-    css('.brand')
+    css(_brand.selector)
         .styles(display: .inlineFlex, alignItems: .center, color: textColor),
-    css('.logo').styles(
-      display: .inlineFlex,
-      alignItems: .center,
-      gap: .all(0.5.rem),
-      fontSize: 1.25.rem,
-      fontWeight: .w700,
-      letterSpacing: (-0.03).em,
-    ),
-    css('.logo-mark').styles(
-      display: .inlineGrid,
-      width: 32.px,
-      height: 32.px,
-      radius: .circular(9.px),
-      color: accentInkColor,
-      backgroundColor: accentColor,
-      raw: {'place-items': 'center'},
-    ),
-    css('.logo-large', [
-      css('&').styles(fontSize: 1.6.rem),
-      css('& .logo-mark')
-          .styles(width: 44.px, height: 44.px, radius: .circular(12.px)),
-    ]),
-    css('.nav-links', [
+    css(_links.selector, [
       css('&').styles(display: .flex, alignItems: .center, gap: .all(0.25.rem)),
       css('& a', [
         css('&').styles(
@@ -76,9 +66,9 @@ class NavBar extends StatelessComponent {
           fontWeight: .w500,
         ),
         css('& svg').styles(color: mutedColor),
-        css('&:hover, &.is-active')
+        css('&:hover, &${_active.selector}')
             .styles(color: textColor, backgroundColor: surfaceColor),
-        css('&.is-active svg').styles(color: accentColor),
+        css('&${_active.selector} svg').styles(color: accentColor),
         css.media(MediaQuery.all(maxWidth: 540.px), [
           css('&').styles(
             padding: .symmetric(vertical: 0.5.rem, horizontal: 0.6.rem),
@@ -95,22 +85,22 @@ class NavBar extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     final onDocs = page == .docs;
-    return header(classes: 'site-header', [
+    return header(classes: _header.name, [
       nav(
-        classes: 'container nav',
+        classes: (Utility.container + _nav).name,
         attributes: const {'aria-label': 'Primary'},
         [
           a(
             href: '/',
-            classes: 'brand',
+            classes: _brand.name,
             attributes: const {'aria-label': 'ciach home'},
             [logo()],
           ),
-          ul(classes: 'nav-links', [
+          ul(classes: _links.name, [
             li([
               a(
                 href: '/docs',
-                classes: onDocs ? 'is-active' : null,
+                classes: onDocs ? _active.name : null,
                 attributes: onDocs ? const {'aria-current': 'page'} : null,
                 [Icon.book.build(size: 18), const .text('Docs')],
               ),
@@ -124,7 +114,7 @@ class NavBar extends StatelessComponent {
             li([
               externalLink(repoUrl, label: 'ciach on GitHub', [
                 Icon.github.build(size: 18),
-                const span(classes: 'hide-sm', [.text('GitHub')]),
+                span(classes: Utility.hideSm.name, const [.text('GitHub')]),
               ]),
             ]),
           ]),

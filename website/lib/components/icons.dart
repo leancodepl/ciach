@@ -1,6 +1,10 @@
 import 'package:ciach_website/palette.dart';
+import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import 'package:jaspr_class_scope/jaspr_class_scope.dart';
+
+part 'icons.scopes.dart';
 
 /// Inline SVG icons, drawn with Jaspr's typed SVG components so they hydrate
 /// cleanly inside client components too.
@@ -81,10 +85,47 @@ String faviconSvg({int size = 64, int radius = 14}) =>
 
 /// The ciach word mark: the logo icon next to the package name.
 Component logo({bool large = false}) => span(
-  classes: large ? 'logo logo-large' : 'logo',
+  classes: (large ? Logo.logo + Logo.large : Logo.logo).name,
   attributes: const {'aria-hidden': 'true'},
   [
-    span(classes: 'logo-mark', [Icon.ciach.build(size: large ? 28 : 20)]),
-    const span(classes: 'logo-text', [.text('ciach')]),
+    span(classes: Logo.mark.name, [Icon.ciach.build(size: large ? 28 : 20)]),
+    span(classes: Logo._text.name, const [.text('ciach')]),
   ],
 );
+
+/// The classes of [logo]. The social card resizes it.
+@scopedCss
+abstract final class Logo {
+  static const _class = _$LogoScope;
+
+  static final logo = _class('logo');
+  static final mark = _class('mark');
+  static final large = _class('large');
+  static final _text = _class('text');
+
+  @css
+  static List<StyleRule> get styles => [
+    css(logo.selector).styles(
+      display: .inlineFlex,
+      alignItems: .center,
+      gap: .all(0.5.rem),
+      fontSize: 1.25.rem,
+      fontWeight: .w700,
+      letterSpacing: (-0.03).em,
+    ),
+    css(mark.selector).styles(
+      display: .inlineGrid,
+      width: 32.px,
+      height: 32.px,
+      radius: .circular(9.px),
+      color: accentInkColor,
+      backgroundColor: accentColor,
+      raw: {'place-items': 'center'},
+    ),
+    css(large.selector, [
+      css('&').styles(fontSize: 1.6.rem),
+      css('& ${mark.selector}')
+          .styles(width: 44.px, height: 44.px, radius: .circular(12.px)),
+    ]),
+  ];
+}

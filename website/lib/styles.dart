@@ -1,11 +1,13 @@
 /// Design tokens and the site-wide rules: the reset, typography and shared
 /// utilities. Everything else lives next to the component it styles, in `@css`
-/// getters; Jaspr collects all of them into one stylesheet, global rules
-/// first, and inlines it into every page.
+/// getters, under class names scoped to that component; Jaspr collects all of
+/// them into one stylesheet, global rules first, and inlines it into every
+/// page.
 library;
 
 import 'package:ciach_website/palette.dart';
 import 'package:jaspr/dom.dart';
+import 'package:jaspr_class_scope/jaspr_class_scope.dart';
 
 // ---------- Tokens ----------
 //
@@ -47,6 +49,11 @@ const underlined = TextDecoration(line: .underline);
 
 /// Matches readers who asked the system for less motion.
 const reducedMotion = MediaQuery.raw('(prefers-reduced-motion: reduce)');
+
+/// Lets the children of a grid or flex container shrink below their content,
+/// for a nested `css()` rule. They may hold wide code samples, which should
+/// scroll instead of stretching the page.
+StyleRule shrinkableChildren() => css('& > *').styles(minWidth: .zero);
 
 /// A 1px solid border in [color].
 Border hairline(Color color) => Border.all(color: color, width: 1.px);
@@ -171,18 +178,31 @@ List<StyleRule> get _reset => [
   ),
 ];
 
+/// Site-wide utility classes. Every component may use them, so they render as
+/// written instead of being scoped to one.
+abstract final class Utility {
+  /// Centers the content in a column of at most `--container`.
+  static const container = ClassName.shared('container');
+
+  /// Hides an element from sight but not from screen readers.
+  static const srOnly = ClassName.shared('sr-only');
+
+  /// Draws text in the accent color.
+  static const accent = ClassName.shared('accent');
+
+  /// Draws text in the muted color.
+  static const muted = ClassName.shared('muted');
+
+  /// Hides inline text on narrow screens.
+  static const hideSm = ClassName.shared('hide-sm');
+}
+
 List<StyleRule> get _utilities => [
-  css('.container').styles(
+  css(Utility.container.selector).styles(
     width: const .expression('min(100% - 2.5rem, var(--container))'),
     raw: {'margin-inline': 'auto'},
   ),
-  // Grid and flex children may hold wide code samples; let them shrink and
-  // scroll instead of stretching the page.
-  css(
-    '.hero-grid > *, .hero-copy > *, .ciach-grid > *, .feature-grid > *, '
-    '.docs > *, .doc-section > *, .tab-panel, .card',
-  ).styles(minWidth: .zero),
-  css('.sr-only').styles(
+  css(Utility.srOnly.selector).styles(
     width: 1.px,
     height: 1.px,
     padding: .zero,
@@ -195,23 +215,9 @@ List<StyleRule> get _utilities => [
       'border': '0',
     },
   ),
-  css('.skip-link', [
-    css('&').styles(
-      position: .fixed(top: 12.px, left: 12.px),
-      zIndex: const ZIndex(100),
-      padding: .symmetric(vertical: 0.6.rem, horizontal: 1.rem),
-      radius: const .circular(radiusSm),
-      transition: Transition('transform', duration: 200.ms, curve: .ease),
-      transform: .translate(y: (-200).percent),
-      color: accentInkColor,
-      fontWeight: .w600,
-      backgroundColor: accentColor,
-    ),
-    css('&:focus').styles(transform: const .translate(y: .zero)),
-  ]),
-  css('.accent').styles(color: accentColor),
-  css('.muted').styles(color: mutedColor),
-  css('.hide-sm', [
+  css(Utility.accent.selector).styles(color: accentColor),
+  css(Utility.muted.selector).styles(color: mutedColor),
+  css(Utility.hideSm.selector, [
     css('&').styles(display: .inline),
     css.media(MediaQuery.all(maxWidth: 540.px), [
       css('&').styles(display: .none),

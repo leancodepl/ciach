@@ -2,6 +2,9 @@ import 'package:ciach_website/components/section.dart';
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import 'package:jaspr_class_scope/jaspr_class_scope.dart';
+
+part 'faq.scopes.dart';
 
 class FaqEntry {
   const FaqEntry(this.question, this.answer);
@@ -48,16 +51,22 @@ const faqEntries = [
 ];
 
 /// FAQ as `<details>` disclosures: no script, every answer in the HTML.
+@scopedCss
 class Faq extends StatelessComponent {
   const Faq({super.key});
 
+  static const _class = _$FaqScope;
+
+  static final _list = _class('list');
+  static final _item = _class('item');
+
   @css
   static List<StyleRule> get styles => [
-    css('.faq-list').styles(
+    css(_list.selector).styles(
       maxWidth: 52.rem,
       border: .only(top: hairlineSide(borderColor)),
     ),
-    css('.faq-item', [
+    css(_item.selector, [
       css('&').styles(
         border: .only(bottom: hairlineSide(borderColor)),
         // Lets block-size animate to `auto`, so the answer slides open and
@@ -117,10 +126,10 @@ class Faq extends StatelessComponent {
 
   @override
   Component build(BuildContext context) {
-    return div(classes: 'faq-list', [
+    return div(classes: _list.name, [
       for (final (index, entry) in faqEntries.indexed)
         details(
-          classes: 'faq-item',
+          classes: _item.name,
           attributes: {'name': 'faq', if (index == 0) 'open': ''},
           [
             summary([h3(rich(entry.question))]),

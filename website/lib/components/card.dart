@@ -1,9 +1,13 @@
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import 'package:jaspr_class_scope/jaspr_class_scope.dart';
+
+part 'card.scopes.dart';
 
 /// A bordered surface with padding. [classes] adds the caller's own hooks;
 /// [listItem] renders an `li` for cards that sit in a list.
+@scopedCss
 class Card extends StatelessComponent {
   const Card(this.children, {this.classes, this.listItem = false, super.key});
 
@@ -11,10 +15,16 @@ class Card extends StatelessComponent {
   final String? classes;
   final bool listItem;
 
+  static const _class = _$CardScope;
+
+  static final _card = _class('card');
+
   @css
   static List<StyleRule> get styles => [
-    css('.card', [
+    css(_card.selector, [
       css('&').styles(
+        // It sits in grids, and may hold wide code samples.
+        minWidth: .zero,
         padding: .all(1.5.rem),
         border: hairline(borderColor),
         radius: const .circular(radius),
@@ -34,7 +44,7 @@ class Card extends StatelessComponent {
 
   @override
   Component build(BuildContext context) {
-    final allClasses = classes == null ? 'card' : 'card $classes';
+    final allClasses = [_card.name, ?classes].join(' ');
     if (listItem) {
       return li(classes: allClasses, children);
     }
