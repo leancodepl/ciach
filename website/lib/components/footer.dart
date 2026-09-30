@@ -75,10 +75,10 @@ class SiteFooter extends StatelessComponent {
       textDecoration: underlined,
       raw: {'text-underline-offset': '0.15em'},
     ),
-    css.media(MediaQuery.all(minWidth: 760.px), [
+    css.media(.all(minWidth: 760.px), [
       css('.footer-grid').styles(raw: {'grid-template-columns': '1fr 1fr'}),
     ]),
-    css.media(MediaQuery.all(minWidth: 1000.px), [
+    css.media(.all(minWidth: 1000.px), [
       css('.footer-grid')
           .styles(raw: {'grid-template-columns': '1.6fr 1fr 1fr 1.4fr'}),
     ]),

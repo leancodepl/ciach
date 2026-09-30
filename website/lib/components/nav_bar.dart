@@ -19,7 +19,7 @@ class NavBar extends StatelessComponent {
   static List<StyleRule> get styles => [
     css('.site-header').styles(
       position: const .sticky(top: .zero),
-      zIndex: const ZIndex(50),
+      zIndex: const .new(50),
       height: headerHeight,
       border: .only(bottom: hairlineSide(borderColor)),
       backdropFilter: .list([const .saturate(1.4), .blur(14.px)]),
@@ -71,7 +71,7 @@ class NavBar extends StatelessComponent {
     css('.nav-links a:hover, .nav-links a.is-active')
         .styles(color: textColor, backgroundColor: surfaceColor),
     css('.nav-links a.is-active svg').styles(color: accentColor),
-    css.media(MediaQuery.all(maxWidth: 540.px), [
+    css.media(.all(maxWidth: 540.px), [
       css('.nav').styles(gap: .all(0.5.rem)),
       css('.nav-links a').styles(
         padding: .symmetric(vertical: 0.5.rem, horizontal: 0.6.rem),

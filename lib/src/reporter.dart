@@ -11,41 +11,124 @@
 import 'dart:convert';
 
 import 'package:ciach/src/models.dart';
+import 'package:ciach/src/plural.dart';
+import 'package:ciach/src/style.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
 /// Renders a [FinderResult] for humans or machines.
 abstract final class Reporter {
-  /// A grouped, aligned, human-readable report.
-  static String text(FinderResult result, {bool useColor = false}) {
+  /// The human-readable report: findings, extra sections, summary. Unless
+  /// [verbose], each problem cause lists at most [maxListed] locations.
+  static String text(
+    FinderResult result, {
+    Style style = .plain,
+    bool verbose = false,
+    int maxListed = 10,
+  }) {
     final buffer = StringBuffer();
-    _writeGroup(buffer, result.unused, useColor);
+    _writeDeclarations(buffer, result.unused, style);
 
     if (result.docOnly.isNotEmpty) {
-      buffer.writeln(
-        _style(
-          'Referenced only from doc comments — not counted as unused, '
-          'never removed:',
-          _dim,
-          useColor,
-        ),
+      _writeHeading(
+        buffer,
+        'Referenced only from doc comments',
+        result.docOnly.length,
+        'not counted, never removed',
+        style,
       );
-      _writeGroup(buffer, result.docOnly, useColor);
+      _writeDeclarations(buffer, result.docOnly, style);
     }
 
-    buffer.write(_summary(result));
+    if (result.recoveredReferences.isNotEmpty) {
+      _writeHeading(
+        buffer,
+        'Recovered references',
+        result.recoveredReferences.length,
+        'missed by find-references; kept',
+        style,
+        caution: true,
+      );
+      _writeRecovered(buffer, result.recoveredReferences, style);
+    }
+
+    if (result.problems.isNotEmpty) {
+      _writeHeading(
+        buffer,
+        'Not analyzed',
+        result.problems.length,
+        'the analysis failed here',
+        style,
+        caution: true,
+      );
+      _writeProblems(buffer, result.problems, style, verbose, maxListed);
+    }
+
+    buffer.write(_summary(result, style));
     return buffer.toString();
   }
 
+  /// What `--remove` did; `null` [removal] means the user declined.
+  static String removal(
+    RemovalResult? removal, {
+    int removed = 0,
+    int blocked = 0,
+    Iterable<String> notes = const [],
+    Style style = .plain,
+  }) {
+    if (removal == null) {
+      return style.note('Skipped removal.');
+    }
+    final files = removal.filesChanged;
+    final deleted = removal.deletedFiles;
+    final buffer = StringBuffer(
+      style.success(
+        'Removed ${plural(removed, 'unused declaration', 'unused declarations')} from '
+        '${plural(files, 'file', 'files')}.',
+      ),
+    );
+    if (blocked > 0) {
+      buffer.write(
+        ' ${style.caution('$blocked left in place — unsafe to auto-remove.')}',
+      );
+    }
+    if (deleted.isNotEmpty) {
+      buffer.write(
+        ' Deleted ${plural(deleted.length, 'now-empty file', 'now-empty files')}: '
+        '${deleted.map((d) => d.filePath).join(', ')}.',
+      );
+    }
+    buffer.write(" ${style.note("Run 'dart format' to tidy up spacing.")}");
+    for (final note in notes) {
+      buffer.write('\n${style.heading('Note:')} $note');
+    }
+    return buffer.toString();
+  }
+
+  /// A section heading.
+  static void _writeHeading(
+    StringBuffer buffer,
+    String title,
+    int count,
+    String meaning,
+    Style style, {
+    bool caution = false,
+  }) {
+    final heading = style.heading('$title ($count)');
+    buffer.writeln(
+      '${caution ? style.caution(heading) : heading} ${style.note('· $meaning')}',
+    );
+  }
+
   /// Writes one file-grouped, aligned block of [decls] to [buffer].
-  static void _writeGroup(
+  static void _writeDeclarations(
     StringBuffer buffer,
     List<UnusedDeclaration> decls,
-    bool useColor,
+    Style style,
   ) {
     for (final MapEntry(key: file, value: fileDecls)
         in decls.groupListsBy((d) => d.filePath).entries) {
-      buffer.writeln(_style(file, _bold, useColor));
+      buffer.writeln(style.path(file));
 
       // Column widths for tidy alignment (each group is non-empty).
       final locWidth = fileDecls.map((d) => '${d.line}:${d.column}'.length).max;
@@ -56,11 +139,11 @@ abstract final class Reporter {
         final kind = decl.kind.label.padRight(kindWidth);
         final visibility = decl.isPrivate ? 'private' : 'public';
         final columns = [
-          _style(loc, _dim, useColor),
-          _style(kind, _cyan, useColor),
+          style.position(loc),
+          style.kind(kind),
           decl.qualifiedName,
-          _style('($visibility)', _dim, useColor),
-          for (final note in _notes(decl)) _style('($note)', _dim, useColor),
+          style.note('($visibility)'),
+          ..._notes(decl, style),
         ];
         buffer.writeln('  ${columns.join('  ')}');
       }
@@ -68,11 +151,99 @@ abstract final class Reporter {
     }
   }
 
+  static void _writeRecovered(
+    StringBuffer buffer,
+    List<RecoveredReference> recovered,
+    Style style,
+  ) {
+    for (final MapEntry(key: file, value: inFile)
+        in recovered.groupListsBy((r) => r.filePath).entries) {
+      buffer.writeln(style.path(file));
+      final locWidth = inFile.map((r) => '${r.line}:${r.column}'.length).max;
+      for (final r in inFile) {
+        final loc = '${r.line}:${r.column}'.padRight(locWidth);
+        buffer.writeln(
+          '  ${style.position(loc)}  ${r.qualifiedName}  '
+          '${style.position('used at ${r.usageFilePath}:${r.usageLine}:'
+          '${r.usageColumn}')}',
+        );
+      }
+      buffer.writeln();
+    }
+  }
+
+  /// [problems] grouped by summary, cause, then file.
+  static void _writeProblems(
+    StringBuffer buffer,
+    List<AnalysisProblem> problems,
+    Style style,
+    bool verbose,
+    int maxListed,
+  ) {
+    var hasDetail = false;
+    for (final MapEntry(key: summary, value: ofSummary)
+        in problems.groupListsBy((p) => p.summary).entries) {
+      buffer.writeln('  $summary');
+      for (final MapEntry(key: cause, value: ofCause)
+          in ofSummary.groupListsBy((p) => p.cause).entries) {
+        buffer.writeln('    ${style.failure(cause)}');
+        final listed = verbose ? ofCause : ofCause.take(maxListed).toList();
+        for (final MapEntry(key: file, value: inFile)
+            in listed.groupListsBy((p) => p.filePath).entries) {
+          buffer.writeln('    ${style.path(file)}');
+          final rows = [
+            for (final p in inFile)
+              if (p.line != null) p,
+          ];
+          if (rows.isEmpty) {
+            continue;
+          }
+          final locWidth = rows
+              .map((p) => '${p.line}:${p.column ?? 1}'.length)
+              .max;
+          for (final p in rows) {
+            final loc = '${p.line}:${p.column ?? 1}'.padRight(locWidth);
+            buffer.writeln(
+              '      ${style.position(loc)}${p.name == null ? '' : '  ${p.name}'}',
+            );
+          }
+        }
+        if (ofCause.length > listed.length) {
+          buffer.writeln(
+            style.note(
+              '    … and ${ofCause.length - listed.length} more '
+              '(-v lists them all)',
+            ),
+          );
+        }
+        final detail = ofCause.first.detail;
+        hasDetail |= detail != null;
+        if (verbose && detail != null) {
+          buffer
+            ..writeln(style.note('    Stack trace of the first:'))
+            ..writeln(
+              style.note(
+                detail.split('\n').map((line) => '      $line').join('\n'),
+              ),
+            );
+        }
+      }
+    }
+    if (hasDetail && !verbose) {
+      buffer.writeln(
+        style.note('  Likely a Dart SDK bug; -v shows the stack traces.'),
+      );
+    }
+    buffer.writeln();
+  }
+
   /// What the text report adds in parentheses after a finding.
-  static List<String> _notes(UnusedDeclaration decl) => [
-    if (decl.removalBlocked) 'unsafe to auto-remove — remove manually',
-    ?decl.hint,
-    ?_onlyReferencedFrom(decl),
+  static List<String> _notes(UnusedDeclaration decl, Style style) => [
+    if (decl.removalBlocked)
+      style.caution('(unsafe to auto-remove — remove manually)'),
+    if (decl.hint case final hint?) style.note('($hint)'),
+    if (_onlyReferencedFrom(decl) case final referrers?)
+      style.note('($referrers)'),
   ];
 
   /// The first finding [decl] is only referenced from, and how many others
@@ -103,18 +274,8 @@ abstract final class Reporter {
       'unused': [for (final decl in result.unused) decl.toJson()],
       'docOnly': [for (final decl in result.docOnly) decl.toJson()],
       'warnings': [for (final w in result.recoveredReferences) w.toJson()],
+      'problems': [for (final problem in result.problems) problem.toJson()],
     });
-  }
-
-  /// Recovery warnings for stderr (text format), one per line, or empty.
-  static String warningsText(FinderResult result) {
-    final buffer = StringBuffer();
-    for (final w in result.recoveredReferences) {
-      buffer.writeln(
-        "warning: '${w.qualifiedName}' (${w.filePath}:${w.line}:${w.column}) ${w.message}",
-      );
-    }
-    return buffer.toString();
   }
 
   /// [GitHub Actions workflow commands][] — one `::warning` annotation per
@@ -164,6 +325,21 @@ abstract final class Reporter {
         level: 'warning',
         title: 'Recovered reference (possible analyzer bug)',
         message: "'${w.qualifiedName}' ${w.message}",
+      );
+    }
+    for (final problem in result.problems) {
+      final file = _escapeProperty(
+        _annotationFile(problem.filePath, pathPrefix),
+      );
+      final position = [
+        if (problem.line case final line?) 'line=$line',
+        if (problem.column case final column?) 'col=$column',
+      ];
+      final name = problem.name == null ? '' : "'${problem.name}': ";
+      buffer.writeln(
+        '::warning '
+        '${['file=$file', ...position, 'title=Could not analyze'].join(',')}'
+        '::${_escapeData('$name${problem.summary} Cause: ${problem.cause}')}',
       );
     }
     return buffer.toString();
@@ -219,32 +395,27 @@ abstract final class Reporter {
   static String _escapeProperty(String value) =>
       _escapeData(value).replaceAll(':', '%3A').replaceAll(',', '%2C');
 
-  static String _summary(FinderResult result) {
+  static String _summary(FinderResult result, Style style) {
     final count = result.unused.length;
     final fileCount = result.unused.map((d) => d.filePath).toSet().length;
     final seconds = (result.elapsed.inMilliseconds / 1000).toStringAsFixed(1);
-    final docOnlyCount = result.docOnly.length;
-    final docOnlySuffix = docOnlyCount == 0
-        ? ''
-        : ' $docOnlyCount more referenced only from doc comments.';
-    if (count == 0) {
-      return 'No unused declarations found '
-          '(scanned ${result.filesScanned} files, '
-          '${result.declarationsChecked} declarations, ${seconds}s).'
-          '$docOnlySuffix';
-    }
-    return 'Found $count unused declaration${count == 1 ? '' : 's'} '
-        'in $fileCount file${fileCount == 1 ? '' : 's'} '
-        '(scanned ${result.filesScanned} files, '
-        '${result.declarationsChecked} declarations, ${seconds}s).'
-        '$docOnlySuffix';
+    final headline = count == 0
+        ? style.success('No unused declarations found')
+        : style.attention(
+            'Found ${plural(count, 'unused declaration', 'unused declarations')} in '
+            '${plural(fileCount, 'file', 'files')}',
+          );
+    final scanned = style.note(
+      '(scanned ${plural(result.filesScanned, 'file', 'files')}, '
+      '${plural(result.declarationsChecked, 'declaration', 'declarations')}, ${seconds}s)',
+    );
+    final sections = [
+      if (result.docOnly.isNotEmpty) '${result.docOnly.length} doc-only',
+      if (result.recoveredReferences.isNotEmpty)
+        style.caution('${result.recoveredReferences.length} recovered'),
+      if (result.problems.isNotEmpty)
+        style.caution('${result.problems.length} not analyzed'),
+    ];
+    return ['$headline $scanned', ...sections].join(style.note(' · '));
   }
-
-  // Minimal ANSI styling helpers.
-  static const _bold = '1';
-  static const _dim = '2';
-  static const _cyan = '36';
-
-  static String _style(String text, String code, bool useColor) =>
-      useColor ? '\x1b[${code}m$text\x1b[0m' : text;
 }

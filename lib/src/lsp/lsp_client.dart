@@ -14,6 +14,7 @@ import 'dart:io';
 
 import 'package:ciach/src/dart_executable.dart';
 import 'package:ciach/src/extensions.dart';
+import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/version.dart';
@@ -30,6 +31,8 @@ const _publishOutlineMethod = 'dart/textDocument/publishOutline';
 
 /// The Dart-specific "go to super" request.
 const _superMethod = 'dart/textDocument/super';
+
+final _log = Logger('ciach.lsp');
 
 /// A session with the Dart analysis server, spoken over LSP via `pro_lsp`.
 ///
@@ -49,7 +52,7 @@ class LspClient {
   final _exited = Completer<void>();
 
   /// Set when the server dies outside [dispose].
-  StateError? _exitError;
+  AnalysisServerExitedException? _exitError;
 
   /// Completers waiting for the server to become idle.
   final _idleWaiters = <Completer<void>>[];
@@ -58,10 +61,17 @@ class LspClient {
 
   final _outlineWaiters = <String, Completer<Outline>>{};
 
+  /// Recent `window/logMessage` errors, oldest first.
+  final _loggedErrors = <String>[];
+
+  final _errorLogged = StreamController<void>.broadcast(sync: true);
+
+  static const _maxLoggedErrors = 50;
+
   final _stderrBuffer = StringBuffer();
   bool _shuttingDown = false;
 
-  SemanticTokensLegend _semanticTokensLegend = SemanticTokensLegend.empty;
+  SemanticTokensLegend _semanticTokensLegend = .empty;
 
   /// Everything the server wrote to stderr (useful when things go wrong).
   String get stderr => _stderrBuffer.toString();
@@ -81,6 +91,7 @@ class LspClient {
       '--client-id=ciach',
       '--client-version=$ciachVersion',
     ], runInShell: executableNeedsShell(executable));
+    _log.fine('Started `$executable language-server` (pid ${process.pid}).');
 
     final channel = StreamChannel<List<int>>(process.stdout, process.stdin);
     final client = lsp.LspClient.fromChannel(channel);
@@ -97,12 +108,14 @@ class LspClient {
       final code = await process.exitCode;
       // Can land before the last of stderr does.
       await stderrDrained;
-      if (!wrapper._shuttingDown) {
-        final stderr = wrapper.stderr.trim();
-        final error = StateError(
-          'The Dart analysis server (`$executable language-server`) exited '
-          'unexpectedly with code $code.\n'
-          '${stderr.isEmpty ? 'It wrote nothing to stderr.' : 'Its stderr:\n$stderr'}',
+      // Only an exit ciach didn't ask for is an error.
+      if (wrapper._shuttingDown) {
+        _log.fine('The analysis server exited with code $code.');
+      } else {
+        final error = AnalysisServerExitedException(
+          executable: executable,
+          exitCode: code,
+          stderr: wrapper.stderr.trim(),
         );
         wrapper
           .._exitError = error
@@ -122,6 +135,11 @@ class LspClient {
       const _CustomMethod(_publishOutlineMethod),
       (params, context) async => wrapper._onPublishOutline(params),
     );
+    client.window.onLogMessage((params, context) async {
+      if (params.type == .error) {
+        wrapper._onLoggedError(params.message);
+      }
+    });
 
     return wrapper;
   }
@@ -130,6 +148,7 @@ class LspClient {
   Future<void> initialize(Uri rootUri) async {
     final uri = rootUri.toString();
     final result = await _guard(
+      lsp.RequestMethod.initialize.value,
       () => _client.start(
         clientInfo: const .new(name: 'ciach', version: ciachVersion),
         rootUri: uri,
@@ -152,25 +171,81 @@ class LspClient {
         ),
       ),
     );
-    _semanticTokensLegend = SemanticTokensLegend.fromCapabilities(
-      result.capabilities.toJson(),
-    );
+    _semanticTokensLegend = .fromCapabilities(result.capabilities.toJson());
   }
 
-  /// Runs [request]; if the server died meanwhile, throws its exit code and
-  /// stderr instead of `json_rpc_2`'s uninformative "client closed" error.
-  Future<T> _guard<T>(Future<T> Function() request) async {
+  /// Runs [request]. Throws [AnalysisServerExitedException] if the server
+  /// died, else [LspRequestException], filled in from the exception the
+  /// server logs separately from its bare error response.
+  Future<T> _guard<T>(String method, Future<T> Function() request) async {
     try {
       return await request();
-    } on Object {
+    } on Object catch (e, st) {
       if (_shuttingDown) {
         rethrow;
       }
-      await _exited.future.timeout(const .new(seconds: 1)).ignoringErrors();
+      if (e is! lsp.LspException) {
+        await _exited.future.timeout(const .new(seconds: 1)).ignoringErrors();
+      }
       if (_exitError case final error?) {
         throw error;
       }
-      rethrow;
+      final failure = switch (e) {
+        lsp.LspException(code: lsp.LspErrorCodes.unknownErrorCode) =>
+          switch (await _takeLoggedError(e.message)) {
+            final logged? => LspRequestException.fromLog(method, logged),
+            null => LspRequestException(method, e.message),
+          },
+        lsp.LspException() => LspRequestException(
+          method,
+          '${e.message} (error ${e.code})',
+        ),
+        _ => LspRequestException(method, '$e'),
+      };
+      Error.throwWithStackTrace(failure, st);
+    }
+  }
+
+  void _onLoggedError(String message) {
+    if (_errorLogged.isClosed) {
+      return;
+    }
+    _loggedErrors.add(message);
+    if (_loggedErrors.length > _maxLoggedErrors) {
+      _loggedErrors.removeAt(0);
+    }
+    _errorLogged.add(null);
+  }
+
+  /// The server's log for the failed request [message]; it can arrive after
+  /// the response, so this waits up to [timeout].
+  Future<String?> _takeLoggedError(
+    String message, {
+    Duration timeout = const .new(seconds: 1),
+  }) async {
+    final prefix = '$message: ';
+    String? take() {
+      final index = _loggedErrors.indexWhere((e) => e.startsWith(prefix));
+      return index < 0
+          ? null
+          : _loggedErrors.removeAt(index).substring(prefix.length);
+    }
+
+    final deadline = DateTime.now().add(timeout);
+    while (true) {
+      if (take() case final logged?) {
+        return logged;
+      }
+      final remaining = deadline.difference(.now());
+      if (remaining <= .zero) {
+        return null;
+      }
+      try {
+        await _errorLogged.stream.first.timeout(remaining);
+      } on Object {
+        // Timed out, or disposed.
+        return take();
+      }
     }
   }
 
@@ -209,8 +284,7 @@ class LspClient {
     }
   }
 
-  /// The outline of [uri], waiting for it if it has not arrived yet. Throws a
-  /// [StateError] after [timeout].
+  /// The outline of [uri]. Throws [LspRequestException] after [timeout].
   Future<Outline> outline(
     Uri uri, {
     Duration timeout = const .new(minutes: 2),
@@ -227,9 +301,9 @@ class LspClient {
       return await completer.future.timeout(timeout);
     } on TimeoutException {
       _outlineWaiters.remove(key);
-      throw StateError(
-        'The Dart analysis server published no outline for $key within '
-        '${timeout.inSeconds}s.',
+      throw LspRequestException(
+        _publishOutlineMethod,
+        'no outline arrived within ${timeout.inSeconds}s',
       );
     }
   }
@@ -272,6 +346,7 @@ class LspClient {
   /// `DocumentSymbol[]` variant (never flat `SymbolInformation`).
   Future<List<lsp.DocumentSymbol>> documentSymbol(Uri uri) async {
     final result = await _guard(
+      lsp.RequestMethod.documentSymbol.value,
       () => _client.server.textDocument.documentSymbol(
         .new(textDocument: .new(uri: uri.toString())),
       ),
@@ -292,6 +367,7 @@ class LspClient {
     bool includeDeclaration = false,
   }) async {
     final result = await _guard(
+      lsp.RequestMethod.references.value,
       () => _client.server.textDocument.references(
         .new(
           textDocument: .new(uri: uri.toString()),
@@ -307,6 +383,7 @@ class LspClient {
   /// via `textDocument/definition` (forward resolution).
   Future<List<lsp.Location>> definition(Uri uri, lsp.Position position) async {
     final result = await _guard(
+      lsp.RequestMethod.definition.value,
       () => _client.server.textDocument.definition(
         .new(
           textDocument: .new(uri: uri.toString()),
@@ -324,6 +401,7 @@ class LspClient {
     List<String> lines,
   ) async {
     final result = await _guard(
+      lsp.RequestMethod.full.value,
       () => _client.server.textDocument.semanticTokensFull(
         .new(textDocument: .new(uri: uri.toString())),
       ),
@@ -339,6 +417,7 @@ class LspClient {
   /// [position] in [uri]. `null` when there is none.
   Future<lsp.Location?> superOf(Uri uri, lsp.Position position) async {
     final result = await _guard(
+      _superMethod,
       () => _client.connection.sendCustomRequest(
         _superMethod,
         lsp.TextDocumentPositionParams(
@@ -360,6 +439,7 @@ class LspClient {
     lsp.Position position,
   ) async {
     final result = await _guard(
+      lsp.RequestMethod.implementation.value,
       () => _client.server.textDocument.implementation(
         .new(
           textDocument: .new(uri: uri.toString()),
@@ -381,6 +461,7 @@ class LspClient {
       return const [];
     }
     final result = await _guard(
+      lsp.RequestMethod.selectionRange.value,
       () => _client.server.textDocument.selectionRange(
         .new(
           textDocument: .new(uri: uri.toString()),
@@ -389,7 +470,7 @@ class LspClient {
       ),
     );
     if (result == null || result.length != positions.length) {
-      return List.filled(positions.length, null);
+      return .filled(positions.length, null);
     }
     return result;
   }
@@ -409,7 +490,62 @@ class LspClient {
     } on Object {
       _process.kill(.sigkill);
     }
+    await _errorLogged.close();
   }
+}
+
+/// One request failed; the server is still running.
+class LspRequestException implements Exception {
+  const LspRequestException(this.method, this.message, {this.detail});
+
+  /// Parses a logged exception: message line, then stack trace.
+  factory LspRequestException.fromLog(String method, String logged) {
+    final newline = logged.indexOf('\n');
+    return newline < 0
+        ? .new(method, logged)
+        : .new(
+            method,
+            logged.substring(0, newline),
+            detail: logged.substring(newline + 1).trimRight(),
+          );
+  }
+
+  /// The LSP method, e.g. `textDocument/references`.
+  final String method;
+
+  /// Why it failed, on one line.
+  final String message;
+
+  /// The server's stack trace, if logged.
+  final String? detail;
+
+  @override
+  String toString() => 'The Dart analysis server failed $method: $message';
+}
+
+/// The analysis server exited unexpectedly.
+class AnalysisServerExitedException implements Exception {
+  const AnalysisServerExitedException({
+    required this.executable,
+    required this.exitCode,
+    required this.stderr,
+  });
+
+  /// The `dart` the server was launched with.
+  final String executable;
+
+  final int exitCode;
+
+  /// The server's stderr, trimmed.
+  final String stderr;
+
+  String get message =>
+      'The Dart analysis server (`$executable language-server`) exited '
+      'unexpectedly with code $exitCode.\n'
+      '${stderr.isEmpty ? 'It wrote nothing to stderr.' : 'Its stderr:\n$stderr'}';
+
+  @override
+  String toString() => message;
 }
 
 /// Minimal [lsp.LSPMethod] implementation for a custom (non-spec) method,

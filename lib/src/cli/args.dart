@@ -359,7 +359,8 @@ enum CiachOption<V> implements OptionDefinition<V> {
       argName: 'color',
       configKey: '/color',
       helpText:
-          'Colorize text output. Defaults to auto-detecting the terminal.',
+          'Colorize the output. Defaults to auto-detection per stream;\n'
+          'honors NO_COLOR.',
     ),
   ),
   progress(

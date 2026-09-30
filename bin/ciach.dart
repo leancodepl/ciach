@@ -14,19 +14,33 @@ import 'package:args/args.dart';
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/args.dart';
 import 'package:ciach/src/cli/config.dart';
+import 'package:ciach/src/cli/console.dart';
 import 'package:ciach/src/cli/options.dart';
 import 'package:ciach/src/cli/verbose.dart';
+import 'package:ciach/src/log.dart';
 import 'package:ciach/src/paths.dart';
+import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/reporter.dart';
 import 'package:ciach/src/version.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
 import 'package:path/path.dart' as p;
 
+final _log = Logger('ciach.cli');
+
+final _console = Console.standard();
+
 Future<void> main(List<String> arguments) async {
-  // Returning an int from `main` does not set the process exit code in Dart,
-  // so route the result through the global `exitCode`.
-  exitCode = await _run(arguments);
+  final logging = _console.attach();
+  try {
+    exitCode = await _run(arguments);
+  } on Object catch (e, st) {
+    _log.severe('ciach stopped.', e, st);
+    exitCode = 2;
+  } finally {
+    await logging.cancel();
+    _console.clearProgress();
+  }
 }
 
 Future<int> _run(List<String> arguments) async {
@@ -36,27 +50,24 @@ Future<int> _run(List<String> arguments) async {
   try {
     args = parser.parse(arguments);
   } on FormatException catch (e) {
-    stderr
-      ..writeln(e.message)
-      ..writeln()
-      ..writeln(usage(parser));
+    _log.severe('${e.message}\n\n${usage(parser)}');
     return 2;
   }
 
   if (args.flag('help')) {
-    stdout.writeln(usage(parser));
+    _console.output(usage(parser));
     return 0;
   }
 
   if (args.flag('version')) {
-    stdout.writeln('ciach $ciachVersion');
+    _console.output('ciach $ciachVersion');
     return 0;
   }
 
   final ignoreConfig = args.flag('no-config');
   final explicitConfig = args.option('config');
   if (ignoreConfig && explicitConfig != null) {
-    stderr.writeln('--config cannot be combined with --no-config.');
+    _log.severe('--config cannot be combined with --no-config.');
     return 2;
   }
 
@@ -76,128 +87,112 @@ Future<int> _run(List<String> arguments) async {
     configuration = resolveConfiguration(args, config);
     resolved = resolveOptions(
       configuration,
-      colorDefault: stdout.supportsAnsiEscapes,
       // Progress goes to stderr, so default it on only for a terminal.
-      progressDefault: stderr.hasTerminal,
+      progressDefault: _console.errIsTerminal,
     );
   } on UsageException catch (e) {
-    stderr.writeln(e.message);
+    _log.severe(e.message);
     return 2;
   } on FormatException catch (e) {
-    stderr.writeln(e.message);
+    _log.severe(e.message);
     return 2;
   }
 
-  final log = resolved.verbose ? _VerboseLog() : null;
-  log?.writeAll(describeConfigSource(config, projectDir: projectDir));
+  _console.configure(
+    color: resolved.color,
+    progress: resolved.showProgress,
+    verbose: resolved.verbose,
+  );
+  describeConfigSource(config, projectDir: projectDir).forEach(_log.config);
 
   final rootDir = Directory(resolved.rootPath);
   if (!rootDir.existsSync()) {
-    stderr.writeln('Path does not exist: ${resolved.rootPath}');
+    _log.severe('Path does not exist: ${resolved.rootPath}');
     return 2;
   }
 
   if (resolved.force && !resolved.remove) {
-    stderr.writeln(
+    _log.severe(
       'Skipping the removal prompt only makes sense when removing: --force (or `force: true`) requires --remove (or `remove: true`).',
     );
     return 2;
   }
-
-  final format = resolved.format;
-  final useColor = resolved.useColor;
-  final showProgress = resolved.showProgress;
 
   // Up front: a missing SDK fails fast, and verbose shows the real `dart`.
   final String dartExecutable;
   try {
     dartExecutable = findDartExecutable(explicit: resolved.dartExecutable);
   } on DartSdkNotFoundException catch (e) {
-    stderr.writeln(e.message);
+    _log.severe(e.message);
     return 2;
   }
 
   // Built here so the checks below, --verbose and the run all read the same
   // normalized paths.
-  final options = resolved.finderOptions(
-    dartExecutable: dartExecutable,
-    // Verbose keeps every phase line; progress overwrites one in place.
-    onProgress: log?.write ?? (showProgress ? _ProgressPrinter().update : null),
-  );
+  final options = resolved.finderOptions(dartExecutable: dartExecutable);
   final rootPath = options.rootPath;
 
   if (options.analysisRootPath case final analysisRoot?) {
     if (!Directory(analysisRoot).existsSync()) {
-      stderr.writeln('Analysis root does not exist: $analysisRoot');
+      _log.severe('Analysis root does not exist: $analysisRoot');
       return 2;
     }
     // A root beside or below the scanned package would drop references, not
     // add them.
     if (!analysisRootContains(analysisRoot, rootPath)) {
-      stderr.writeln(
+      _log.severe(
         'The analysis root must contain the analyzed path: $analysisRoot does not contain $rootPath.',
       );
       return 2;
     }
   }
 
-  log?.writeAll(
-    describeSettings(
-      configuration,
-      resolved,
-      options,
-      dartExecutable: dartExecutable,
-    ),
+  describeSettings(
+    configuration,
+    resolved,
+    options,
+    dartExecutable: dartExecutable,
+  ).forEach(_log.config);
+
+  final result = await Ciach(options).run();
+  final counts = [
+    '${result.unused.length} unused',
+    '${result.docOnly.length} referenced only from doc comments',
+    if (result.recoveredReferences.isNotEmpty)
+      '${result.recoveredReferences.length} recovered',
+    if (result.problems.isNotEmpty) '${result.problems.length} not analyzed',
+  ];
+  _log.fine(
+    'Scanned ${plural(result.filesScanned, 'file', 'files')} and checked '
+    '${plural(result.declarationsChecked, 'declaration', 'declarations')} in '
+    '${result.elapsed.inMilliseconds}ms: ${counts.join(', ')}.',
   );
 
-  final FinderResult result;
-  try {
-    result = await Ciach(options).run();
-  } on Object catch (e, st) {
-    if (showProgress) {
-      stderr.writeln();
-    }
-    stderr
-      ..writeln('Failed to analyze: $e')
-      ..writeln(st);
-    return 2;
-  }
-
-  if (showProgress) {
-    stderr.writeln();
-  }
-
-  log?.write(
-    'Scanned ${result.filesScanned} file(s) and checked ${result.declarationsChecked} declaration(s) in ${result.elapsed.inMilliseconds}ms: ${result.unused.length} unused, ${result.docOnly.length} referenced only from doc comments.',
-  );
-  if (result.recoveredReferences.isNotEmpty) {
-    log?.write(
-      'Kept ${result.recoveredReferences.length} declaration(s) the reference search called unused: the definition check found a use for each.',
-    );
-  }
-
-  switch (format) {
+  switch (resolved.format) {
     case 'json':
-      stdout.writeln(Reporter.json(result));
+      _console.output(Reporter.json(result));
     case 'github':
       // GitHub resolves annotation paths from the repo root, so prepend the
       // scan root's path from here.
       final prefix = p
           .split(p.relative(rootPath, from: Directory.current.path))
           .join('/');
-      log?.write("Prefixing annotation paths with '$prefix/'.");
-      stdout.write(Reporter.github(result, pathPrefix: prefix));
+      _log.config("Prefixing annotation paths with '$prefix/'.");
+      _console.output(Reporter.github(result, pathPrefix: prefix));
     case _:
-      stdout.writeln(Reporter.text(result, useColor: useColor));
-      // Recovery warnings go to stderr so they never corrupt text stdout; the
-      // json and github formats carry them in-band instead.
-      stderr.write(Reporter.warningsText(result));
+      _console.output(
+        Reporter.text(
+          result,
+          style: _console.outStyle,
+          verbose: resolved.verbose,
+        ),
+      );
   }
 
   if (result.unused.isNotEmpty && resolved.remove) {
-    await _removeUnused(result, rootPath, resolved, format, useColor, log);
+    _removeUnused(result, rootPath, resolved);
   } else if (result.unused.isNotEmpty) {
-    log?.write('Leaving the findings in place; --remove was not given.');
+    _log.fine('Leaving the findings in place; --remove was not given.');
   }
 
   if (resolved.setExitIfChanged) {
@@ -212,123 +207,65 @@ Future<int> _run(List<String> arguments) async {
   return 0;
 }
 
-/// Reports what would be removed, confirms unless [ResolvedOptions.force], and
-/// deletes the declarations from disk.
-Future<void> _removeUnused(
+/// Confirms (unless forced), removes the findings, and reports it.
+void _removeUnused(
   FinderResult result,
   String rootPath,
   ResolvedOptions resolved,
-  String format,
-  bool useColor,
-  _VerboseLog? log,
-) async {
+) {
   // Report-only findings are left in place, so counting them would promise an
   // edit that never happens.
-  final count = result.unused.whereNot((d) => d.removalBlocked).length;
-  final plural = count == 1 ? '' : 's';
-
+  final removable = result.unused.whereNot((d) => d.removalBlocked).toList();
+  final count = removable.length;
   final blocked = result.unused.length - count;
   if (blocked > 0) {
-    log?.write(
-      'Skipping $blocked of ${result.unused.length} finding(s): removing them safely would need a source rewrite (see --unused-union-members and remove safety).',
+    _log.fine(
+      'Skipping $blocked of ${plural(result.unused.length, 'finding', 'findings')}: removing them safely would need a source rewrite (see --unused-union-members and remove safety).',
     );
   }
   if (count == 0) {
-    stdout.writeln(
-      'Nothing removed: all $blocked finding${blocked == 1 ? ' is' : 's are'} '
-      'unsafe to auto-remove — remove them manually.',
+    _log.warning(
+      blocked == 1
+          ? 'Nothing removed: the finding is unsafe to auto-remove — remove '
+                'it manually.'
+          : 'Nothing removed: all $blocked findings are unsafe to auto-remove '
+                '— remove them manually.',
     );
     return;
   }
 
-  var proceed = resolved.force;
-  if (!proceed) {
-    log?.write('Asking for confirmation; pass --force to skip the prompt.');
-    // The chosen --format may not be human-readable; show the findings
-    // again so the confirmation prompt is never a shot in the dark.
-    if (format != 'text') {
-      stderr.writeln(Reporter.text(result, useColor: useColor));
-    }
-    if (!stdin.hasTerminal) {
-      stdout.writeln(
+  if (!resolved.force) {
+    if (!_console.interactive) {
+      _log.warning(
         'Refusing to remove declarations without a terminal to confirm on; pass --force to remove without asking.',
       );
       return;
     }
-    stdout.write('Remove $count unused declaration$plural? [y/N] ');
-    proceed = switch (stdin.readLineSync()?.trim().toLowerCase()) {
-      'y' || 'yes' => true,
-      _ => false,
-    };
-  }
-
-  if (!proceed) {
-    stdout.writeln('Skipped removal.');
-    return;
-  }
-
-  if (log != null) {
-    final byFile = result.unused
-        .whereNot((d) => d.removalBlocked)
-        .groupFoldBy<String, int>((d) => d.filePath, (n, _) => (n ?? 0) + 1);
-    for (final entry in byFile.entries) {
-      log.write('Rewriting ${entry.key} (${entry.value} declaration(s)).');
+    _log.fine('Asking for confirmation; pass --force to skip the prompt.');
+    final proceed = _console.confirm(
+      'Remove ${plural(count, 'unused declaration', 'unused declarations')}?',
+      // Non-text formats aren't readable, so show the findings first.
+      preamble: resolved.format == 'text'
+          ? null
+          : Reporter.text(result, style: _console.errStyle),
+    );
+    if (!proceed) {
+      _console.output(Reporter.removal(null, style: _console.outStyle));
+      return;
     }
   }
 
   final removal = removeDeclarations(result.unused, rootPath);
-  final filesChanged = removal.filesChanged;
-  final left = blocked > 0
-      ? ' $blocked left in place — unsafe to auto-remove.'
-      : '';
-  final deleted = removal.deletedFiles;
-  final emptied = deleted.isEmpty
-      ? ''
-      : " Deleted ${deleted.length} now-empty file${deleted.length == 1 ? '' : 's'}: ${deleted.map((d) => d.filePath).join(', ')}.";
-  stdout.writeln(
-    "Removed $count unused declaration$plural from $filesChanged file${filesChanged == 1 ? '' : 's'}.$left$emptied Run 'dart format' to tidy up spacing.",
+  _console.output(
+    Reporter.removal(
+      removal,
+      removed: count,
+      blocked: blocked,
+      notes: {
+        for (final d in removable)
+          if (d.hint case final hint?) '${d.qualifiedName}: $hint',
+      },
+      style: _console.outStyle,
+    ),
   );
-  for (final file in deleted) {
-    log?.write(
-      file.unlinkedFrom.isEmpty
-          ? 'Deleted ${file.filePath}: nothing left but library/import/part-of lines.'
-          : 'Deleted ${file.filePath}: nothing left but library/import/part-of lines. Dropped the directives naming it from ${file.unlinkedFrom.join(', ')}.',
-    );
-  }
-  // Repeat any advisory hints: removing a declaration takes the reported line
-  // that carried its hint with it.
-  final removedHints = result.unused
-      .where((d) => !d.removalBlocked && d.hint != null)
-      .map((d) => '${d.qualifiedName}: ${d.hint}')
-      .toSet();
-  for (final note in removedHints) {
-    stdout.writeln('Note: $note');
-  }
-}
-
-/// Prints `--verbose` narration to stderr — not stdout, so `-f json` stays
-/// machine-readable — one line per message, stamped with the elapsed time.
-class _VerboseLog {
-  final _stopwatch = Stopwatch()..start();
-
-  /// Writes one stamped line.
-  void write(String message) {
-    final seconds = (_stopwatch.elapsedMilliseconds / 1000).toStringAsFixed(1);
-    stderr.writeln('[${seconds.padLeft(5)}s] $message');
-  }
-
-  /// Writes a line per message.
-  void writeAll(Iterable<String> messages) => messages.forEach(write);
-}
-
-/// Prints single-line, overwriting progress to stderr.
-class _ProgressPrinter {
-  int _lastLength = 0;
-
-  void update(String message) {
-    // Pad to overwrite any longer previous line, then return the cursor.
-    final padded = message.padRight(_lastLength);
-    _lastLength = message.length;
-    stderr.write('\r$padded');
-  }
 }

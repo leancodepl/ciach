@@ -26,7 +26,7 @@ void main() {
       expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
     }
 
-    tmp = Directory.systemTemp.createTempSync('ciach_compiled_test');
+    tmp = .systemTemp.createTempSync('ciach_compiled_test');
     binary = p.join(tmp.path, Platform.isWindows ? 'ciach.exe' : 'ciach');
     final compile = await Process.run(Platform.resolvedExecutable, [
       'compile',

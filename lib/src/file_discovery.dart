@@ -63,7 +63,7 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
   // Already absolute and normalized: `FinderOptions` is the only way in.
   final rootPath = options.rootPath;
   final root = Directory(rootPath);
-  final context = p.Context(style: p.Style.posix);
+  final context = p.Context(style: .posix);
 
   final includeGlobs = [
     for (final pattern in options.includeGlobs) Glob(pattern, context: context),

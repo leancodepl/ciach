@@ -13,11 +13,12 @@ import 'dart:io';
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/concurrency.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/problems.dart';
 import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/reference_kinds.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location, LspException, Position;
+import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
 typedef _Site = ({Uri uri, Position position});
 
@@ -39,6 +40,9 @@ class CrossLibraryReferences {
   final Map<_DeclPosition, _Site> _usageByDecl;
 
   static const empty = CrossLibraryReferences._(<_DeclPosition, _Site>{});
+
+  static const _unresolvedSite =
+      'Could not resolve a possible use; check findings before removing.';
 
   /// Over-inclusive on purpose: the `definition` confirmation, not this set, is
   /// what makes the recovery correct.
@@ -86,7 +90,13 @@ class CrossLibraryReferences {
     final perSite = await mapPooled(sites, concurrency, (site) async {
       try {
         return await client.definition(site.uri, site.position);
-      } on LspException {
+      } on LspRequestException catch (e) {
+        recordProblem(
+          _unresolvedSite,
+          e,
+          path: site.uri.toFilePath(),
+          position: site.position,
+        );
         return const <Location>[];
       }
     });
@@ -116,7 +126,7 @@ class CrossLibraryReferences {
       usageByDecl: usageByDecl,
       concurrency: concurrency,
     );
-    return CrossLibraryReferences._(usageByDecl);
+    return ._(usageByDecl);
   }
 
   /// A use resolving to an override keeps the member it overrides alive.
@@ -143,7 +153,14 @@ class CrossLibraryReferences {
           member.uri,
           member.symbol.selectionRange.start,
         );
-      } on LspException {
+      } on LspRequestException catch (e) {
+        recordProblem(
+          _unresolvedSite,
+          e,
+          path: member.path,
+          position: member.symbol.selectionRange.start,
+          name: member.symbol.name,
+        );
         return const <Location>[];
       }
     });

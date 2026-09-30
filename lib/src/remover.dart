@@ -1,10 +1,15 @@
 import 'dart:io';
 
 import 'package:ciach/src/emptied_files.dart';
+import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
+import 'package:ciach/src/paths.dart';
+import 'package:ciach/src/plural.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
+
+final _log = Logger('ciach.remover');
 
 /// Symbol kinds whose [DeclarationRange] covers only the declarator (name and
 /// initializer), not the shared `final`/`const`/type prefix or the
@@ -53,7 +58,7 @@ RemovalResult removeDeclarations(
       byFile
           .putIfAbsent(coupled.filePath, () => [])
           .add(
-            UnusedDeclaration(
+            .new(
               name: '',
               kind: coupled.kind,
               filePath: coupled.filePath,
@@ -68,19 +73,63 @@ RemovalResult removeDeclarations(
   }
 
   final rewritten = <String>{};
+  RemovalException failure(FileSystemException e, String path) => .new(
+    filePath: relativePosix(path, rootPath),
+    cause: e.osError?.message ?? e.message,
+    changedFiles: [for (final path in rewritten) relativePosix(path, rootPath)],
+  );
+
   for (final entry in byFile.entries) {
     final file = File(p.joinAll([rootPath, ...p.posix.split(entry.key)]));
-    final content = file.readAsStringSync();
-    final updated = _removeFromContent(content, entry.value);
-    if (updated != content) {
-      file.writeAsStringSync(updated);
-      rewritten.add(p.normalize(file.absolute.path));
+    try {
+      final content = file.readAsStringSync();
+      final updated = _removeFromContent(content, entry.value);
+      if (updated != content) {
+        file.writeAsStringSync(updated);
+        rewritten.add(p.normalize(file.absolute.path));
+        _log.fine(
+          'Rewrote ${entry.key}: removed ${plural(entry.value.length, 'declaration', 'declarations')}.',
+        );
+      }
+    } on FileSystemException catch (e) {
+      throw failure(e, file.path);
     }
   }
-  return RemovalResult(
-    filesChanged: rewritten.length,
-    deletedFiles: deleteEmptiedFiles(rewritten, rootPath),
-  );
+  try {
+    return .new(
+      filesChanged: rewritten.length,
+      deletedFiles: deleteEmptiedFiles(rewritten, rootPath),
+    );
+  } on FileSystemException catch (e) {
+    throw failure(e, e.path ?? rootPath);
+  }
+}
+
+/// [removeDeclarations] failed on [filePath]; [changedFiles] were already
+/// rewritten.
+class RemovalException implements Exception {
+  const RemovalException({
+    required this.filePath,
+    required this.cause,
+    required this.changedFiles,
+  });
+
+  /// Root-relative `/`-path.
+  final String filePath;
+
+  final String cause;
+
+  final List<String> changedFiles;
+
+  String get message {
+    final changed = changedFiles.isEmpty
+        ? 'No file was changed.'
+        : 'Already rewritten: ${changedFiles.join(', ')}.';
+    return 'Could not remove declarations from $filePath: $cause. $changed';
+  }
+
+  @override
+  String toString() => message;
 }
 
 String _removeFromContent(String content, List<UnusedDeclaration> decls) {

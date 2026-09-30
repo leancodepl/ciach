@@ -17,7 +17,7 @@ final class SemanticTokensLegend {
             'tokenModifiers': final List<Object?> modifiers,
           },
         } =>
-          SemanticTokensLegend(
+          .new(
             tokenTypes: [for (final t in types) '$t'],
             tokenModifiers: [for (final m in modifiers) '$m'],
           ),
@@ -51,7 +51,7 @@ final class SemanticToken {
 
   final String text;
 
-  Position get start => Position(line: line, character: character);
+  Position get start => .new(line: line, character: character);
 
   int get end => character + length;
 
@@ -95,7 +95,7 @@ List<SemanticToken> decodeSemanticTokens(
       continue;
     }
     tokens.add(
-      SemanticToken(
+      .new(
         line: line,
         character: character,
         length: length,
@@ -130,7 +130,7 @@ extension SemanticTokenLookup on List<SemanticToken> {
 
   /// The first token on [line].
   SemanticToken? firstOnLine(int line) {
-    final i = firstIndexAtOrAfter(Position(line: line, character: 0));
+    final i = firstIndexAtOrAfter(.new(line: line, character: 0));
     return i < length && this[i].line == line ? this[i] : null;
   }
 

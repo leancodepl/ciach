@@ -93,11 +93,7 @@ void main() {
         parser.parse(arguments),
         const .empty(),
       );
-      final resolved = resolveOptions(
-        configuration,
-        colorDefault: false,
-        progressDefault: false,
-      );
+      final resolved = resolveOptions(configuration, progressDefault: false);
       return describeSettings(
         configuration,
         resolved,
@@ -140,11 +136,7 @@ void main() {
           origin: 'c.yaml',
         ),
       );
-      final resolved = resolveOptions(
-        configuration,
-        colorDefault: false,
-        progressDefault: false,
-      );
+      final resolved = resolveOptions(configuration, progressDefault: false);
       final lines = describeSettings(
         configuration,
         resolved,
@@ -160,7 +152,7 @@ void main() {
         contains('  entry-points: registerWith in lib/** (config file)'),
       );
       expect(lines, contains('  concurrency: 16 (default)'));
-      expect(lines, contains('  color: false (auto-detected)'));
+      expect(lines, contains('  color: auto (auto-detected)'));
     });
 
     test('marks an empty list rather than printing nothing', () {

@@ -1,5 +1,12 @@
 ## Unreleased
 
+- **Breaking:** `FinderOptions.onProgress` is removed; ciach logs through
+  `package:logging`.
+  ([#78](https://github.com/leancodepl/ciach/pull/78))
+- A failed analysis server request no longer stops the run: the affected code
+  is kept and listed under "Not analyzed". The result goes to stdout, the log
+  to stderr, with more color.
+  ([#78](https://github.com/leancodepl/ciach/pull/78))
 - Require `glob` 2.2.0. On 2.1.x, `**/flutter_test_config.dart` did not match
   a `flutter_test_config.dart` at the package root, so its `testExecutable`
   was reported as unused.
