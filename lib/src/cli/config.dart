@@ -54,7 +54,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     if (unknown.isNotEmpty) {
       final valid = (configKeys.toList()..sort()).join(', ');
       throw FormatException(
-        '$origin: unknown ${pluralWord(unknown.length, 'option')} ${unknown.map((key) => "'$key'").join(', ')}. Valid options: $valid.',
+        '$origin: unknown ${pluralWord(unknown.length, 'option', 'options')} ${unknown.map((key) => "'$key'").join(', ')}. Valid options: $valid.',
       );
     }
 

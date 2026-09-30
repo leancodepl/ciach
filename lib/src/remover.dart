@@ -88,7 +88,7 @@ RemovalResult removeDeclarations(
         file.writeAsStringSync(updated);
         rewritten.add(p.normalize(file.absolute.path));
         _log.fine(
-          'Rewrote ${entry.key}: removed ${plural(entry.value.length, 'declaration')}.',
+          'Rewrote ${entry.key}: removed ${plural(entry.value.length, 'declaration', 'declarations')}.',
         );
       }
     } on FileSystemException catch (e) {

@@ -114,7 +114,7 @@ final class ReferenceFetch {
       return;
     }
     _log.info(
-      'Fetching tokens for ${plural(paths.length, 'referenced file')}…',
+      'Fetching tokens for ${plural(paths.length, 'referenced file', 'referenced files')}…',
     );
     await mapPooled(paths.toList(), options.concurrency, (path) async {
       _sources.cacheSemanticTokens(
@@ -163,7 +163,7 @@ final class ReferenceFetch {
       return;
     }
     _log.info(
-      'Fetching syntax nodes in ${plural(positionsByPath.length, 'file')}…',
+      'Fetching syntax nodes in ${plural(positionsByPath.length, 'file', 'files')}…',
     );
     await mapPooled(positionsByPath.entries.toList(), options.concurrency, (
       entry,

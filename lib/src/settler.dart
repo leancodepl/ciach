@@ -112,7 +112,7 @@ final class Settler {
       final next = DeadSpans.of(settled.unused, rootPath);
       if (next.sameAs(deadSpans)) {
         if (round > 1) {
-          _log.fine('Settled after ${plural(round, 'round')}.');
+          _log.fine('Settled after ${plural(round, 'round', 'rounds')}.');
         }
         break;
       }
@@ -124,13 +124,13 @@ final class Settler {
       }
       _log.info(
         'Round ${round + 1}: checking what only the '
-        '${plural(next.length, 'removable finding')} referenced…',
+        '${plural(next.length, 'removable finding', 'removable findings')} referenced…',
       );
       deadSpans = next;
     }
     if (settled.recovered.isNotEmpty) {
       _log.fine(
-        'Kept ${plural(settled.recovered.length, 'declaration')} the reference '
+        'Kept ${plural(settled.recovered.length, 'declaration', 'declarations')} the reference '
         'search called unused: the definition check found a use for each.',
       );
     }
@@ -347,7 +347,7 @@ final class Settler {
     final unchecked = members.whereNot(_overridesByMember.containsKey).toList();
     if (unchecked.isNotEmpty) {
       _log.info(
-        'Checking ${plural(unchecked.length, 'dead member')} for overrides…',
+        'Checking ${plural(unchecked.length, 'dead member', 'dead members')} for overrides…',
       );
       final results = await mapPooled(
         unchecked,
@@ -378,13 +378,13 @@ final class Settler {
     }
     if (coupled > 0) {
       _log.fine(
-        'Coupling ${plural(coupled, 'override')} to '
-        '${plural(couplingMembers, 'dead member')}.',
+        'Coupling ${plural(coupled, 'override', 'overrides')} to '
+        '${plural(couplingMembers, 'dead member', 'dead members')}.',
       );
     }
     if (blocked > 0) {
       _log.fine(
-        '${plural(blocked, 'dead member')} ${pluralWord(blocked, 'is', 'are')} '
+        '${plural(blocked, 'dead member', 'dead members')} ${pluralWord(blocked, 'is', 'are')} '
         'overridden where --remove cannot follow; left in place.',
       );
     }

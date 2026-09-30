@@ -37,7 +37,7 @@ List<String> describeConfigSource(
     if (settings.isEmpty)
       '  It sets nothing; using command-line arguments and built-in defaults.'
     else ...[
-      '  It sets ${plural(settings.length, 'option')}:',
+      '  It sets ${plural(settings.length, 'option', 'options')}:',
       for (final entry in settings.entries)
         '    ${entry.key}: ${_value(entry.value)}',
     ],

@@ -83,8 +83,8 @@ abstract final class Reporter {
     final deleted = removal.deletedFiles;
     final buffer = StringBuffer(
       style.success(
-        'Removed ${plural(removed, 'unused declaration')} from '
-        '${plural(files, 'file')}.',
+        'Removed ${plural(removed, 'unused declaration', 'unused declarations')} from '
+        '${plural(files, 'file', 'files')}.',
       ),
     );
     if (blocked > 0) {
@@ -94,7 +94,7 @@ abstract final class Reporter {
     }
     if (deleted.isNotEmpty) {
       buffer.write(
-        ' Deleted ${plural(deleted.length, 'now-empty file')}: '
+        ' Deleted ${plural(deleted.length, 'now-empty file', 'now-empty files')}: '
         '${deleted.map((d) => d.filePath).join(', ')}.',
       );
     }
@@ -402,12 +402,12 @@ abstract final class Reporter {
     final headline = count == 0
         ? style.success('No unused declarations found')
         : style.attention(
-            'Found ${plural(count, 'unused declaration')} in '
-            '${plural(fileCount, 'file')}',
+            'Found ${plural(count, 'unused declaration', 'unused declarations')} in '
+            '${plural(fileCount, 'file', 'files')}',
           );
     final scanned = style.note(
-      '(scanned ${plural(result.filesScanned, 'file')}, '
-      '${plural(result.declarationsChecked, 'declaration')}, ${seconds}s)',
+      '(scanned ${plural(result.filesScanned, 'file', 'files')}, '
+      '${plural(result.declarationsChecked, 'declaration', 'declarations')}, ${seconds}s)',
     );
     final sections = [
       if (result.docOnly.isNotEmpty) '${result.docOnly.length} doc-only',

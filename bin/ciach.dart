@@ -163,8 +163,8 @@ Future<int> _run(List<String> arguments) async {
     if (result.problems.isNotEmpty) '${result.problems.length} not analyzed',
   ];
   _log.fine(
-    'Scanned ${plural(result.filesScanned, 'file')} and checked '
-    '${plural(result.declarationsChecked, 'declaration')} in '
+    'Scanned ${plural(result.filesScanned, 'file', 'files')} and checked '
+    '${plural(result.declarationsChecked, 'declaration', 'declarations')} in '
     '${result.elapsed.inMilliseconds}ms: ${counts.join(', ')}.',
   );
 
@@ -220,7 +220,7 @@ void _removeUnused(
   final blocked = result.unused.length - count;
   if (blocked > 0) {
     _log.fine(
-      'Skipping $blocked of ${plural(result.unused.length, 'finding')}: removing them safely would need a source rewrite (see --unused-union-members and remove safety).',
+      'Skipping $blocked of ${plural(result.unused.length, 'finding', 'findings')}: removing them safely would need a source rewrite (see --unused-union-members and remove safety).',
     );
   }
   if (count == 0) {
@@ -243,7 +243,7 @@ void _removeUnused(
     }
     _log.fine('Asking for confirmation; pass --force to skip the prompt.');
     final proceed = _console.confirm(
-      'Remove ${plural(count, 'unused declaration')}?',
+      'Remove ${plural(count, 'unused declaration', 'unused declarations')}?',
       // Non-text formats aren't readable, so show the findings first.
       preamble: resolved.format == 'text'
           ? null
