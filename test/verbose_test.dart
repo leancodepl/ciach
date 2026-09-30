@@ -169,6 +169,7 @@ void main() {
       expect(lines, contains('  exclude: (none) (default)'));
       expect(lines, contains('  include: (none) (default)'));
       expect(lines, contains('  generated-suffix: (none) (default)'));
+      expect(lines, contains('  generated-glob: (none) (default)'));
       expect(lines, contains('  entry-points: (none) (default)'));
     });
 

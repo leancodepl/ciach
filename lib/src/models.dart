@@ -52,6 +52,7 @@ class FinderOptions {
     this.includePublic = true,
     this.includeGenerated = false,
     this.additionalGeneratedSuffixes = const [],
+    this.additionalGeneratedGlobs = const [],
     this.skipOverrides = true,
     this.skipOperators = true,
     this.unusedUnionMembers = false,
@@ -99,6 +100,13 @@ class FinderOptions {
   /// custom suffix. Matched with `endsWith`, so include the leading dot and
   /// `.dart` (e.g. `.gc.dart`). Ignored when [includeGenerated] is set.
   final List<String> additionalGeneratedSuffixes;
+
+  /// Globs, relative to [rootPath], of more files to treat as generated: read
+  /// for references, never reported or edited. For output a suffix can't pick
+  /// out, like `flutter gen-l10n`'s `lib/l10n/**`, or code that isn't generated
+  /// but is kept as is, like a vendored copy. Ignored when [includeGenerated]
+  /// is set.
+  final List<String> additionalGeneratedGlobs;
 
   /// Whether to skip declarations annotated with `@override` (they are usually
   /// reached polymorphically, which a plain reference search can miss).

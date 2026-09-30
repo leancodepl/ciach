@@ -93,9 +93,10 @@ ciach --verbose                        # explain each step
 | `--[no-]fail-public` | on | Count unused public declarations toward the exit code (with `--set-exit-if-changed`). `--no-fail-public` reports them but fails only on private findings. |
 | `--remove` | off | Remove unused declarations after reporting them. Prompts for confirmation first. |
 | `--force` | off | Skip the confirmation prompt for `--remove`. Requires `--remove`. |
-| `-e, --exclude <glob>` | — | Skip files matching the glob (repeatable). |
+| `-e, --exclude <glob>` | — | Skip files matching the glob (repeatable). They are not opened, so a declaration used only from them is reported; see `--generated-glob`. |
 | `-i, --include <glob>` | — | Only scan files matching the glob (repeatable). |
 | `--generated-suffix <suffix>` | — | Extra filename suffix (with leading dot) to treat as generated and skip, on top of the built-in set; repeatable. Ignored when `--generated` is set. |
+| `--generated-glob <glob>` | — | Treat files matching the glob as generated: their references count, but nothing in them is reported or removed. For output without a suffix or banner, like `flutter gen-l10n`'s (`'lib/l10n/**'`), or code kept as is, like a vendored copy. Repeatable; ignored when `--generated` is set. |
 | `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
 | `-f, --format <fmt>` | `text` | `text`, `json`, or `github` (GitHub Actions `::warning` annotations). |
 | `-j, --concurrency <n>` | `16` | Reference queries kept in flight against the analysis server. |
@@ -280,7 +281,7 @@ that cost.
 | Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--operators` |
 | `call` methods | implicit-call syntax (`obj(…)`) is unresolvable the same way | — |
 | `@pragma('vm:entry-point')` | reachable from native code or reflection | — |
-| Generated files | by filename convention and the `GENERATED CODE - DO NOT MODIFY BY HAND` banner. Still opened during analysis, so a declaration used only from a `.g.dart` isn't misreported | `--generated` |
+| Generated files | by filename convention, the `GENERATED CODE - DO NOT MODIFY BY HAND` banner, and `--generated-suffix` / `--generated-glob`. Still opened during analysis, so a declaration used only from a `.g.dart` isn't misreported | `--generated` |
 | `toJson()` | `jsonEncode(obj)` calls it by dynamic dispatch, leaving no source-level reference | `--report-tojson` |
 | Type parameters | always "used" within their scope | — |
 | dartdoc `[Xxx]` links | not a code reference; reported as [doc-only](#doc-only-findings) instead of hidden | — |
