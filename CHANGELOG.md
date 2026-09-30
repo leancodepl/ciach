@@ -1,5 +1,8 @@
 ## Unreleased
 
+- A member used only through an override, from a file that doesn't import the
+  member's library, is no longer reported (nor deleted with `--remove`).
+  ([#78](https://github.com/leancodepl/ciach/pull/78))
 - Checking a dead member's overrides is much faster: they share its
   references, so they are no longer queried one by one.
   ([#77](https://github.com/leancodepl/ciach/pull/77))

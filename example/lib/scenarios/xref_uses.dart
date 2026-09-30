@@ -9,6 +9,11 @@ String describeShape(XrefState state) => switch (state) {
   _ => 'other',
 };
 
+String describeSurface(Object surface) => switch (surface) {
+  XrefGlossy(glossy: true) => 'glossy',
+  _ => 'other',
+};
+
 class Emitter {
   Emitter(this._analytics);
   final XrefAnalytics _analytics;

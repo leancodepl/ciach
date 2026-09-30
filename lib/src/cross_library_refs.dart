@@ -92,18 +92,86 @@ class CrossLibraryReferences {
     });
 
     final usageByDecl = <_DeclPosition, _Site>{};
+    // Uses that resolve to a declaration that is not a candidate, such as an
+    // override of one, by the name spelled at the use.
+    final elsewhere = <String, Map<_DeclPosition, _Site>>{};
     for (var i = 0; i < sites.length; i++) {
+      final site = (uri: sites[i].uri, position: sites[i].position);
       for (final loc in perSite[i]) {
         final start = loc.range.start;
         final pos = (SourceIndex.pathOf(loc.uri), start.line, start.character);
-        if (byPosition[pos] case final declaration?
-            when !_isSelfUse(sites[i], declaration)) {
-          usageByDecl.putIfAbsent(pos, () => sites[i]);
+        if (byPosition[pos] case final declaration?) {
+          if (!_isSelfUse(site, declaration)) {
+            usageByDecl.putIfAbsent(pos, () => site);
+          }
+        } else if (pos != _positionOfSite(site)) {
+          // A non-candidate declaration's own name resolves to itself.
+          elsewhere
+              .putIfAbsent(sites[i].name, () => {})
+              .putIfAbsent(pos, () => site);
         }
       }
     }
+    await _recoverThroughOverrides(
+      client: client,
+      candidates: candidates,
+      elsewhere: elsewhere,
+      usageByDecl: usageByDecl,
+      concurrency: concurrency,
+    );
     return CrossLibraryReferences._(usageByDecl);
   }
+
+  /// A use typed as an override resolves to the override, which is not a
+  /// candidate, while the member it overrides can get no references at all
+  /// (the same SDK gap, and the server answers a member for its whole override
+  /// family). Such a use keeps the member alive: it is found among the
+  /// member's implementations.
+  static Future<void> _recoverThroughOverrides({
+    required LspClient client,
+    required List<Candidate> candidates,
+    required Map<String, Map<_DeclPosition, _Site>> elsewhere,
+    required Map<_DeclPosition, _Site> usageByDecl,
+    required int concurrency,
+  }) async {
+    final members = [
+      for (final candidate in candidates)
+        if (candidate.container != null &&
+            elsewhere.containsKey(_simpleName(candidate.symbol.name)) &&
+            !usageByDecl.containsKey(_positionOf(candidate)))
+          candidate,
+    ];
+    if (members.isEmpty) {
+      return;
+    }
+    final perMember = await mapPooled(members, concurrency, (member) async {
+      try {
+        return await client.implementations(
+          member.uri,
+          member.symbol.selectionRange.start,
+        );
+      } on LspException {
+        return const <Location>[];
+      }
+    });
+    for (var i = 0; i < members.length; i++) {
+      final uses = elsewhere[_simpleName(members[i].symbol.name)]!;
+      for (final loc in perMember[i]) {
+        final start = loc.range.start;
+        final pos = (SourceIndex.pathOf(loc.uri), start.line, start.character);
+        if (uses[pos] case final site?) {
+          usageByDecl.putIfAbsent(_positionOf(members[i]), () => site);
+          break;
+        }
+      }
+    }
+  }
+
+  static _DeclPosition _positionOfSite(_Site site) =>
+      (site.uri.toFilePath(), site.position.line, site.position.character);
+
+  static String _simpleName(String name) =>
+      name.contains('.') ? name.split('.').last : name;
 
   bool isRecovered(Candidate candidate) =>
       _usageByDecl.containsKey(_positionOf(candidate));
@@ -153,7 +221,7 @@ class CrossLibraryReferences {
     return (candidate.path, start.line, start.character);
   }
 
-  static Iterable<_Site> _collectSites({
+  static Iterable<({Uri uri, Position position, String name})> _collectSites({
     required SourceIndex sources,
     required String path,
     required Set<String> names,
@@ -167,7 +235,7 @@ class CrossLibraryReferences {
             names.contains(token.text) &&
             !declarations.contains((path, token.line, token.character)) &&
             !sources.isDocLine(path, token.line)) {
-          yield (uri: uri, position: token.start);
+          yield (uri: uri, position: token.start, name: token.text);
         }
       }
     }

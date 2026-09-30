@@ -1104,6 +1104,7 @@ void main() {
         'lib/scenarios/xref_event.dart',
         'lib/scenarios/xref_analytics.dart',
         'lib/scenarios/xref_uses.dart',
+        'lib/scenarios/xref_surface.dart',
       ],
       exclude: const [],
     );
@@ -1131,6 +1132,18 @@ void main() {
         expect(await runXref(), isNot(contains('XrefEvent.signOut')));
       },
     );
+
+    test('a member used only through an override from a file that does not '
+        'import it is not flagged', () async {
+      final result = await runXrefResult();
+      final names = result.unused.map((d) => d.qualifiedName).toSet();
+      expect(names, isNot(contains('XrefSurface.glossy')));
+      expect(names, contains('XrefSurface.matte'));
+      final glossy = result.recoveredReferences.firstWhere(
+        (w) => w.qualifiedName == 'XrefSurface.glossy',
+      );
+      expect(glossy.usageFilePath, endsWith('xref_uses.dart'));
+    });
 
     test('a normally-referenced enum value is not flagged', () async {
       expect(await runXref(), isNot(contains('XrefEvent.signIn')));

@@ -1,6 +1,8 @@
 // Recovery fixture. Expected findings are asserted by test/finder_test.dart;
 // keep in sync.
 
+import 'package:sample_pkg/scenarios/xref_surface.dart';
+
 sealed class XrefState {}
 
 final class XrefLoadedState extends XrefState {
@@ -25,3 +27,11 @@ String describeLocal(XrefState state) => switch (state) {
   XrefLoadedState(localFlag: true) => 'local',
   _ => 'other',
 };
+
+final class XrefGlossy extends XrefSurface {
+  @override
+  bool get glossy => true;
+
+  @override
+  bool get matte => false;
+}
