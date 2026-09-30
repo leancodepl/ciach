@@ -156,12 +156,17 @@ Future<int> _run(List<String> arguments) async {
   ).forEach(_log.config);
 
   final result = await Ciach(options).run();
-  final recovered = result.recoveredReferences.length;
-  final notAnalyzed = result.problems.length;
+  final counts = [
+    '${result.unused.length} unused',
+    '${result.docOnly.length} referenced only from doc comments',
+    if (result.recoveredReferences.isNotEmpty)
+      '${result.recoveredReferences.length} recovered',
+    if (result.problems.isNotEmpty) '${result.problems.length} not analyzed',
+  ];
   _log.fine(
-    'Scanned ${result.filesScanned} file(s) and checked ${result.declarationsChecked} declaration(s) in ${result.elapsed.inMilliseconds}ms: ${result.unused.length} unused, ${result.docOnly.length} referenced only from doc comments'
-    '${recovered > 0 ? ', $recovered recovered' : ''}'
-    '${notAnalyzed > 0 ? ', $notAnalyzed not analyzed' : ''}.',
+    'Scanned ${result.filesScanned} file(s) and checked '
+    '${result.declarationsChecked} declaration(s) in '
+    '${result.elapsed.inMilliseconds}ms: ${counts.join(', ')}.',
   );
 
   switch (resolved.format) {
