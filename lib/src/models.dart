@@ -56,6 +56,7 @@ class FinderOptions {
     this.skipOperators = true,
     this.unusedUnionMembers = false,
     this.reportToJson = false,
+    this.transitive = false,
     this.entryPoints = const [],
     this.concurrency = 16,
     this.dartExecutable,
@@ -136,6 +137,13 @@ class FinderOptions {
   /// and would flag a live serializer. Enable to audit genuinely-dead `toJson`s.
   final bool reportToJson;
 
+  /// Whether to also report declarations referenced only from findings
+  /// `--remove` would delete, repeating until nothing new is found. Off by
+  /// default, because one false positive also flags everything only it
+  /// referenced. Dead declarations that reference each other in a cycle are
+  /// not found (https://github.com/leancodepl/ciach/issues/65).
+  final bool transitive;
+
   /// The project's own entry points, on top of [EntryPoint.builtIn]. A match
   /// is never a candidate, so it is neither reported nor removed.
   final List<EntryPoint> entryPoints;
@@ -214,6 +222,7 @@ class UnusedDeclaration {
     this.coupledRemovals = const [],
     this.removalBlocked = false,
     this.hint,
+    this.onlyReferencedFrom = const [],
   }) : fullRange = fullRange ?? range;
 
   /// Simple (unqualified) name of the declaration.
@@ -287,6 +296,11 @@ class UnusedDeclaration {
   /// idiomatic way to make a static-only class non-instantiable.
   final String? hint;
 
+  /// With [FinderOptions.transitive], the findings that held this
+  /// declaration's only references, in source order. Empty when nothing
+  /// referenced it at all.
+  final List<DeadReferrer> onlyReferencedFrom;
+
   /// Fully qualified display name, e.g. `MyClass.myMethod`.
   String get qualifiedName => container == null ? name : '$container.$name';
 
@@ -301,8 +315,21 @@ class UnusedDeclaration {
     'isPrivate': isPrivate,
     'container': ?container,
     'hint': ?hint,
+    if (onlyReferencedFrom.isNotEmpty)
+      'onlyReferencedFrom': [
+        for (final referrer in onlyReferencedFrom)
+          {
+            'qualifiedName': referrer.qualifiedName,
+            'file': referrer.filePath,
+            'line': referrer.line,
+          },
+      ],
   };
 }
+
+/// A finding that references another one: its qualified name, its file
+/// (root-relative, `/`-separated) and its one-based line.
+typedef DeadReferrer = ({String qualifiedName, String filePath, int line});
 
 /// A file `--remove` deleted, and the files unlinked from it. Root-relative
 /// `/`-paths.
