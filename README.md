@@ -360,9 +360,9 @@ for (final decl in result.unused) {
 }
 ```
 
-ciach logs through [`package:logging`](https://pub.dev/packages/logging) under
-`ciach.*` and never configures the root logger; listen on
-`Logger.root.onRecord` to see it.
+ciach logs through [`package:logging`](https://pub.dev/packages/logging), with
+loggers such as `ciach.finder` and `ciach.lsp`. It never configures the root
+logger; listen on `Logger.root.onRecord` to see the records.
 
 ## Development
 

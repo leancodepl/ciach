@@ -684,8 +684,10 @@ class DocsPage extends StatelessComponent {
                     '. Options mirror the flags; the result carries every '
                     'finding with file, line, kind and qualified name, and '
                     'doc-only findings in their own list. The run logs '
-                    'through package:logging under ciach.*.',
+                    'through ',
                   ),
+                  code([.text('package:logging')]),
+                  .text('.'),
                 ]),
                 CodeBlock(
                   source: _library,
