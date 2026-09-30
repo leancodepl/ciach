@@ -105,9 +105,7 @@ class CrossLibraryReferences {
           }
         } else if (pos != _positionOfSite(site)) {
           // Skip a declaration's own name.
-          elsewhere
-              .putIfAbsent(sites[i].name, () => {})
-              .putIfAbsent(pos, () => site);
+          elsewhere.putIfAbsent(sites[i].name, () => {})[pos] ??= site;
         }
       }
     }
