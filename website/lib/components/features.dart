@@ -108,7 +108,7 @@ class Features extends StatelessComponent {
       children: [
         ul(classes: _grid.name, [
           for (final feature in _features)
-            Card(classes: _feature.name, listItem: true, [
+            Card(classes: _feature, listItem: true, [
               span(classes: _icon.name, [feature.icon.build(size: 22)]),
               h3([.text(feature.title)]),
               p(rich(feature.body)),

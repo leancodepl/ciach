@@ -12,7 +12,7 @@ class Card extends StatelessComponent {
   const Card(this.children, {this.classes, this.listItem = false, super.key});
 
   final List<Component> children;
-  final String? classes;
+  final ClassName? classes;
   final bool listItem;
 
   static const _class = _$CardScope;
@@ -44,7 +44,10 @@ class Card extends StatelessComponent {
 
   @override
   Component build(BuildContext context) {
-    final allClasses = [_card.name, ?classes].join(' ');
+    final allClasses = switch (classes) {
+      null => _card,
+      final classes => _card + classes,
+    }.name;
     if (listItem) {
       return li(classes: allClasses, children);
     }

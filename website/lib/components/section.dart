@@ -27,7 +27,7 @@ class Section extends StatelessComponent {
   final String heading;
   final String? lead;
   final List<Component> children;
-  final String? classes;
+  final ClassName? classes;
 
   static const _class = _$SectionScope;
 
@@ -58,7 +58,10 @@ class Section extends StatelessComponent {
     final headingId = '$id-heading';
     return section(
       id: id,
-      classes: [_section.name, ?classes].join(' '),
+      classes: switch (classes) {
+        null => _section,
+        final classes => _section + classes,
+      }.name,
       attributes: {'aria-labelledby': headingId},
       [
         div(classes: Utility.container.name, [

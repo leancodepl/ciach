@@ -34,7 +34,7 @@ class CodeBlock extends StatelessComponent {
   /// 1-based lines to render struck through as dead code.
   final Set<int> deadLines;
   final bool lineNumbers;
-  final String? classes;
+  final ClassName? classes;
 
   static const _class = _$CodeBlockScope;
 
@@ -195,7 +195,7 @@ class CodeBlock extends StatelessComponent {
         // Console output wraps like a terminal; real code scrolls.
         if (language == .console) _terminal.name,
         if (lineNumbers) _numbered.name,
-        ?classes,
+        ?classes?.name,
       ].join(' '),
       [
         div(classes: _bar.name, [
