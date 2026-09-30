@@ -33,7 +33,7 @@ lib/greeting.dart
   16:7  class     UnusedClass  (public)
   17:8  method    UnusedClass.orphanMethod  (public)
 
-Found 4 unused declarations in 1 file (scanned 1 file, 8 declarations, 0.4s).
+Found 4 unused declarations in 1 file (scanned 1 file, 8 declarations, 0.4s)
 Remove 4 unused declarations? [y/N] y
 Removed 4 unused declarations from 1 file.''';
 
@@ -46,7 +46,7 @@ class CiachDemo extends StatelessComponent {
   static List<StyleRule> get styles => [
     css('.ciach-grid', [
       css('&').styles(display: .grid, alignItems: .start, gap: .all(1.25.rem)),
-      css.media(MediaQuery.all(minWidth: 760.px), [
+      css.media(.all(minWidth: 760.px), [
         css('&').styles(raw: {'grid-template-columns': '1fr 1fr'}),
       ]),
     ]),
@@ -85,7 +85,7 @@ class CiachDemo extends StatelessComponent {
       ]),
       css('&.play .line.dead', [
         css('&').styles(
-          animation: Animation(
+          animation: .new(
             name: 'dead-fade',
             duration: 500.ms,
             curve: .easeOut,
@@ -94,7 +94,7 @@ class CiachDemo extends StatelessComponent {
           raw: {'animation-delay': 'calc(var(--d, 0) * 140ms + 1.1s)'},
         ),
         css('&::after').styles(
-          animation: Animation(
+          animation: .new(
             name: 'ciach',
             duration: 300.ms,
             curve: .easeOut,
@@ -105,9 +105,9 @@ class CiachDemo extends StatelessComponent {
       ]),
     ]),
     css.keyframes('ciach', {
-      'to': const Styles(raw: {'transform': 'scaleX(1)'}),
+      'to': const .new(raw: {'transform': 'scaleX(1)'}),
     }),
-    css.keyframes('dead-fade', {'to': const Styles(opacity: 0.45)}),
+    css.keyframes('dead-fade', {'to': const .new(opacity: 0.45)}),
   ];
 
   @override

@@ -100,13 +100,19 @@ ciach --verbose                        # explain each step
 | `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
 | `-f, --format <fmt>` | `text` | `text`, `json`, or `github` (GitHub Actions `::warning` annotations). |
 | `-j, --concurrency <n>` | `16` | Reference queries kept in flight against the analysis server. |
-| `--[no-]color` | auto | Colorize text output. |
+| `--[no-]color` | auto | Colorize the output. Auto-detected per stream; honors `NO_COLOR`. |
 | `--[no-]progress` | auto | Show scan progress on stderr. |
 | `-v, --verbose` | off | Explain what's happening on stderr. See [Verbose mode](#verbose-mode). |
 | `--dart <path>` | auto | Path to the `dart` executable to launch the server with. Defaults to the SDK running ciach, or to `dart` from `PATH` for a compiled binary. |
 
 Exit codes: `0` success, `1` unused found with `--set-exit-if-changed`, `2`
 usage or analysis error.
+
+The result goes to stdout; progress, `-v` output, warnings, errors and the
+`--remove` prompt go to stderr.
+
+If the analysis server fails on a declaration or file, the run continues: that
+code is kept and listed under "Not analyzed" (`problems` in JSON).
 
 ### Configuration file
 
@@ -137,26 +143,24 @@ combined.
 
 ### Verbose mode
 
-`-v` narrates the run on stderr, with elapsed times: the config file read and
-what it set, every setting and the layer it came from, each scan phase, anything
-the definition check rescued, and what `--remove` touches.
+`-v` prints the whole log on stderr: config, settings, each phase, and what
+`--remove` touches.
 
 ```console
 $ ciach -v
-[  0.0s] Read config from ciach.yaml.
-[  0.0s]   It sets 2 options:
-[  0.0s]     public: false
-[  0.0s]     exclude: test/**
-[  0.0s] Settings for this run:
-[  0.0s]   path: /home/me/pkg (command line)
-[  0.0s]   public: false (config file)
-[  0.0s]   exclude: test/** (config file)
-[  0.0s]   concurrency: 16 (default)
-[  0.0s]   color: true (auto-detected)
+[  0.0s] [cli]     Read config from ciach.yaml.
+[  0.0s] [cli]       It sets 2 options:
+[  0.0s] [cli]         public: false
+[  0.0s] [cli]         exclude: test/**
+[  0.0s] [cli]     Settings for this run:
+[  0.0s] [cli]       path: /home/me/pkg (command line)
+[  0.0s] [cli]       public: false (config file)
+[  0.0s] [cli]       concurrency: 16 (default)
 …
-[  0.1s] Starting Dart analysis server…
-[  0.3s] Collecting declarations from 13 file(s)…
-[  0.5s] Scanned 13 file(s) and checked 44 declaration(s) in 478ms: 4 unused, 1 referenced only from doc comments.
+[  0.1s] [finder]  Starting Dart analysis server…
+[  0.1s] [lsp]     Started `/sdk/bin/dart language-server` (pid 4242).
+[  0.3s] [finder]  Collecting declarations from 13 file(s)…
+[  0.5s] [cli]     Scanned 13 file(s) and checked 44 declaration(s) in 478ms: 4 unused, 1 referenced only from doc comments.
 ```
 
 It all goes to stderr, so `ciach -v -f json | jq` still works. Reach for it when
@@ -385,6 +389,10 @@ for (final decl in result.unused) {
   print('${decl.filePath}:${decl.line} ${decl.qualifiedName}');
 }
 ```
+
+ciach logs through [`package:logging`](https://pub.dev/packages/logging), with
+loggers such as `ciach.finder` and `ciach.lsp`. It never configures the root
+logger; listen on `Logger.root.onRecord` to see the records.
 
 ## Development
 

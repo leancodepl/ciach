@@ -3,11 +3,12 @@ import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
+import 'package:ciach/src/problems.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:ciach/src/syntax_rules.dart';
 import 'package:pro_lsp/pro_lsp.dart'
-    show Location, LspException, Position, SelectionRange, SymbolKind;
+    show Location, Position, SelectionRange, SymbolKind;
 
 /// The overrides of a dead member: spans to delete with it, or `blocked` when
 /// one of them has to stay.
@@ -38,6 +39,12 @@ final class OverrideRemovals {
 
   final String _rootPath;
 
+  static const _unlistedOverrides =
+      'Could not find overrides; reported, not removed.';
+
+  static const _uncheckedOverride =
+      'Could not check an override; reported, not removed.';
+
   /// The kinds an override is deleted as, mapped to the kind the remover
   /// reads. A `field` goes as a declarator, so it can share a statement.
   static const _removableKinds = <OutlineKind, SymbolKind>{
@@ -58,7 +65,14 @@ final class OverrideRemovals {
         member.uri,
         member.symbol.selectionRange.start,
       );
-    } on LspException {
+    } on LspRequestException catch (e) {
+      recordProblem(
+        _unlistedOverrides,
+        e,
+        path: member.path,
+        position: member.symbol.selectionRange.start,
+        name: [?member.container, member.symbol.name].join('.'),
+      );
       return _blocked;
     }
     if (overrides.isEmpty) {
@@ -124,7 +138,8 @@ final class OverrideRemovals {
     final List<SelectionRange?> ranges;
     try {
       ranges = await _client.selectionRanges(uri, [name]);
-    } on LspException {
+    } on LspRequestException catch (e) {
+      recordProblem(_uncheckedOverride, e, path: path, position: name);
       return true;
     }
     final innermost = ranges.single;

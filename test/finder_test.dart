@@ -15,6 +15,7 @@ import 'dart:io';
 
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/finder.dart';
+import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/remover.dart';
 import 'package:collection/collection.dart';
@@ -53,7 +54,6 @@ void main() {
     List<String> include = const [],
     List<EntryPoint> entryPoints = const [],
     bool transitive = false,
-    void Function(String message)? onProgress,
   }) => Ciach(
     .new(
       rootPath: fixturePath,
@@ -65,7 +65,6 @@ void main() {
       includeGlobs: include,
       entryPoints: entryPoints,
       transitive: transitive,
-      onProgress: onProgress,
     ),
   ).run();
 
@@ -287,12 +286,12 @@ void main() {
       final result = await runFinder();
       final enumValues = {
         for (final d in result.unused)
-          if (d.kind == SymbolKind.enumMember) d.qualifiedName,
+          if (d.kind == .enumMember) d.qualifiedName,
       };
       expect(enumValues, {'Direction.south', 'Direction.west'});
       final enumTypes = {
         for (final d in result.unused)
-          if (d.kind == SymbolKind.enum$) d.qualifiedName,
+          if (d.kind == .enum$) d.qualifiedName,
       };
       expect(enumTypes, isNot(contains('Direction.south')));
       expect(enumTypes, isNot(contains('Direction.west')));
@@ -718,11 +717,14 @@ void main() {
     test('flag ON: a finding a group guard would block later stays '
         'removable, and the rounds settle', () async {
       final messages = <String>[];
+      final logging = Logger.root.onRecord
+          .where((r) => r.loggerName == 'ciach.finder')
+          .listen((r) => messages.add(r.message));
+      addTearDown(logging.cancel);
       final result = await runFinder(
         include: fixture,
         exclude: const [],
         transitive: true,
-        onProgress: messages.add,
       );
       expect(messages, isNot(contains(startsWith('Stopping after'))));
       // Removable in round one, while `Token.new` was still used.
@@ -914,9 +916,9 @@ void main() {
 
     test('`-k extension-type` selects the extension types on their own, which '
         '`-k extension` does not', () async {
-      expect(await byKind(SymbolKind.struct), {'DeadMeters', 'SelfMeters'});
+      expect(await byKind(.struct), {'DeadMeters', 'SelfMeters'});
       expect(
-        await byKind(SymbolKind.namespace),
+        await byKind(.namespace),
         isNot(contains(anyOf('DeadMeters', 'SelfMeters'))),
       );
     });
@@ -924,7 +926,7 @@ void main() {
     test('`-k extension` alone keeps an extension whose members were never '
         'checked, reporting only a member-less one', () async {
       // Unchecked members can't be proven dead; `Hollow` has none.
-      expect(await byKind(SymbolKind.namespace), {'Hollow'});
+      expect(await byKind(.namespace), {'Hollow'});
     });
 
     test('without extension candidates (`-k method`) the members are reported '
@@ -932,7 +934,7 @@ void main() {
       final result = await runFinder(
         include: extensionFixture,
         exclude: const [],
-        kinds: const {SymbolKind.method},
+        kinds: const {.method},
       );
       expect(result.unused.map((d) => d.qualifiedName).toSet(), {
         'DeadHelpers.first',
@@ -1337,7 +1339,6 @@ void main() {
   group('entry points', () {
     Future<FinderResult> runEntryPoints({
       List<EntryPoint> entryPoints = const [],
-      void Function(String message)? onProgress,
     }) => runFinder(
       include: [
         'lib/scenarios/entry_points.dart',
@@ -1346,7 +1347,6 @@ void main() {
       ],
       exclude: const [],
       entryPoints: entryPoints,
-      onProgress: onProgress,
     );
 
     /// `path:qualifiedName`, since the fixture has two `testExecutable`s.
@@ -1374,15 +1374,12 @@ void main() {
       () async {
         final result = await runEntryPoints(
           entryPoints: [
-            EntryPoint.fromConfig(
+            .fromConfig(
               'integrationMain',
               files: ['lib/scenarios/entry_points.dart'],
             ),
-            EntryPoint.fromConfig(
-              'Plugin.registerWith',
-              files: ['**/entry_points.dart'],
-            ),
-            EntryPoint.fromConfig('bootstrap'),
+            .fromConfig('Plugin.registerWith', files: ['**/entry_points.dart']),
+            .fromConfig('bootstrap'),
           ],
         );
 
@@ -1401,7 +1398,7 @@ void main() {
       () async {
         final result = await runEntryPoints(
           entryPoints: [
-            EntryPoint.fromConfig('bootstrap', files: ['bin/**']),
+            .fromConfig('bootstrap', files: ['bin/**']),
           ],
         );
         expect(
@@ -1413,12 +1410,20 @@ void main() {
 
     test('narrates each skipped entry point other than main', () async {
       final lines = <String>[];
+      final level = Logger.root.level;
+      Logger.root.level = .FINE;
+      final logging = Logger.root.onRecord
+          .where((r) => r.loggerName == 'ciach.finder')
+          .listen((r) => lines.add(r.message));
+      addTearDown(() {
+        Logger.root.level = level;
+        return logging.cancel();
+      });
       await runEntryPoints(
         entryPoints: [
-          EntryPoint.fromConfig('bootstrap'),
-          EntryPoint.fromConfig('Plugin.registerWith'),
+          .fromConfig('bootstrap'),
+          .fromConfig('Plugin.registerWith'),
         ],
-        onProgress: lines.add,
       );
 
       final skipped = lines.where((l) => l.startsWith('Skipped ')).toList();
@@ -1530,7 +1535,7 @@ void main() {
       final result = await runFinder(
         include: ['lib/scenarios/primary_constructors.dart'],
         exclude: const [],
-        kinds: const {SymbolKind.constructor},
+        kinds: const {.constructor},
       );
       final decl = findByQualified(result, 'DeadPoint.new');
       expect(decl, isNotNull, reason: '`DeadPoint` is never constructed');

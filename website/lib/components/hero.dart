@@ -19,7 +19,7 @@ lib/orphans.dart
   22:7  class        FullyDeadClass  (public)
   31:3  constructor  ReferencedAsTypeOnly.new  (public)
 
-Found 5 unused declarations in 2 files (scanned 13 files, 44 declarations, 0.5s).''';
+Found 5 unused declarations in 2 files (scanned 13 files, 44 declarations, 0.5s)''';
 
 class Hero extends StatelessComponent {
   const Hero({required this.version, super.key});
@@ -47,7 +47,7 @@ class Hero extends StatelessComponent {
     ]),
     css('.hero-bg').styles(
       position: const .absolute(),
-      zIndex: const ZIndex(-1),
+      zIndex: const .new(-1),
       raw: {
         'inset': '0',
         'background':
@@ -64,7 +64,7 @@ class Hero extends StatelessComponent {
     ),
     css('.hero-grid', [
       css('&').styles(display: .grid, alignItems: .center, gap: .all(3.rem)),
-      css.media(MediaQuery.all(minWidth: 1000.px), [
+      css.media(.all(minWidth: 1000.px), [
         css('&').styles(raw: {'grid-template-columns': '1.05fr 1fr'}),
       ]),
     ]),
@@ -86,7 +86,7 @@ class Hero extends StatelessComponent {
         padding: .only(left: 1.rem),
         margin: .only(top: 1.25.rem),
         border: .only(
-          left: BorderSide(color: accentColor, width: 2.px),
+          left: .new(color: accentColor, width: 2.px),
         ),
         color: mutedColor,
         fontSize: 0.95.rem,
@@ -98,10 +98,10 @@ class Hero extends StatelessComponent {
     css('.ipa').styles(
       color: text2Color,
       fontFamily: const .list([
-        FontFamily('Noto Sans'),
-        FontFamily('DejaVu Sans'),
-        FontFamily('Segoe UI'),
-        FontFamily('Helvetica Neue'),
+        .new('Noto Sans'),
+        .new('DejaVu Sans'),
+        .new('Segoe UI'),
+        .new('Helvetica Neue'),
         FontFamilies.arial,
         FontFamilies.systemUi,
         FontFamilies.sansSerif,
@@ -133,7 +133,7 @@ class Hero extends StatelessComponent {
         whiteSpace: .noWrap,
         raw: {'flex': '1'},
       ),
-      css.media(MediaQuery.all(maxWidth: 540.px), [
+      css.media(.all(maxWidth: 540.px), [
         css('&').styles(flexWrap: .wrap),
         css('& code').styles(order: -1, raw: {'flex-basis': '100%'}),
         css('& .tk-prompt').styles(display: .none),

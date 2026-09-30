@@ -24,7 +24,7 @@ class Pill extends StatelessComponent {
       color: text2Color,
       fontSize: 0.8.rem,
       fontWeight: .w500,
-      backgroundColor: const Color.rgba(255, 255, 255, 0.02),
+      backgroundColor: const .rgba(255, 255, 255, 0.02),
     ),
     css('.pill-accent', [
       css('&').styles(

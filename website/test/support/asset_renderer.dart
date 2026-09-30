@@ -3,7 +3,6 @@
 library;
 
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:ciach_website/components/icons.dart';
@@ -89,10 +88,10 @@ class AssetRenderer {
 
     final page = await _browser.newPage();
     try {
-      await page.setViewport(DeviceViewport(width: width, height: height));
+      await page.setViewport(.new(width: width, height: height));
       await page.goto(
         'http://${_server.address.host}:${_server.port}/component.html',
-        wait: Until.load,
+        wait: .load,
       );
       await page.evaluate<void>('() => document.fonts.ready');
       // document.fonts.check() is vacuously true when no face matches, so look
@@ -109,7 +108,7 @@ class AssetRenderer {
           );
         }
       }
-      return await page.screenshot(clip: math.Rectangle(0, 0, width, height));
+      return await page.screenshot(clip: .new(0, 0, width, height));
     } finally {
       await page.close();
     }
@@ -121,7 +120,7 @@ class AssetRenderer {
     final response = request.response;
     final path = request.uri.path;
     if (path == '/component.html' && _page != null) {
-      response.headers.contentType = ContentType.html;
+      response.headers.contentType = .html;
       response.add(_page!);
     } else {
       final file = File(p.join('web', p.normalize(path.substring(1))));
@@ -155,7 +154,7 @@ class AssetRenderer {
   }) async {
     final page = await _browser.newPage();
     try {
-      await page.setViewport(DeviceViewport(width: width, height: height));
+      await page.setViewport(.new(width: width, height: height));
       await page.setContent(
         '<!doctype html><style>html,body{margin:0;background:'
         '${transparent ? 'transparent' : Palette.black.hex}}'
@@ -163,7 +162,7 @@ class AssetRenderer {
         '$html',
       );
       return await page.screenshot(
-        clip: math.Rectangle(0, 0, width, height),
+        clip: .new(0, 0, width, height),
         omitBackground: transparent,
       );
     } finally {

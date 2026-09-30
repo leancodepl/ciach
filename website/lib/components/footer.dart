@@ -59,10 +59,10 @@ class SiteFooter extends StatelessComponent {
         css('&').styles(color: text2Color),
         css('&:hover').styles(color: accentColor),
       ]),
-      css.media(MediaQuery.all(minWidth: 760.px), [
+      css.media(.all(minWidth: 760.px), [
         css('&').styles(raw: {'grid-template-columns': '1fr 1fr'}),
       ]),
-      css.media(MediaQuery.all(minWidth: 1000.px), [
+      css.media(.all(minWidth: 1000.px), [
         css('&').styles(raw: {'grid-template-columns': '1.6fr 1fr 1fr 1.4fr'}),
       ]),
     ]),

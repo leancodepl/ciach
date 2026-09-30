@@ -3,15 +3,21 @@ import 'dart:io';
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/freezed.dart';
+import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
+import 'package:ciach/src/problems.dart';
 import 'package:ciach/src/reference_fetch.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Range;
+
+final _log = Logger('ciach.finder');
+
+const _uncollectedFile = 'Could not list declarations; file skipped.';
 
 /// Which declarations get their references checked: every document symbol
 /// of a scanned file, less the kinds, visibilities, entry points and
@@ -40,8 +46,6 @@ final class CandidateCollector {
   /// too, so the type is not a candidate either.
   final _entryPointContainers = <DeclKey, EntryPoint>{};
 
-  void _report(String message) => options.onProgress?.call(message);
-
   /// The declarations of the open file [path] worth checking.
   Future<List<Candidate>> collect(
     LspClient client,
@@ -49,12 +53,25 @@ final class CandidateCollector {
     String rootPath,
   ) async {
     final uri = File(path).uri;
-    final (symbols, outline, tokens) = await (
-      client.documentSymbol(uri),
-      client.outline(uri),
-      semanticTokensOrEmpty(client, _sources, path),
-    ).wait;
-    _sources.cacheSemanticTokens(path, tokens);
+    final pendingSymbols = client.documentSymbol(uri);
+    final pendingOutline = client.outline(uri);
+    final pendingTokens = semanticTokensOrEmpty(client, _sources, path);
+    final List<DocumentSymbol> symbols;
+    final Outline outline;
+    try {
+      symbols = await pendingSymbols;
+      outline = await pendingOutline;
+    } on Object catch (e) {
+      // The other results are no longer needed.
+      pendingOutline.ignore();
+      pendingTokens.ignore();
+      if (e is! LspRequestException) {
+        rethrow;
+      }
+      recordProblem(_uncollectedFile, e, path: path);
+      return const [];
+    }
+    _sources.cacheSemanticTokens(path, await pendingTokens);
     final relativePath = relativePosix(path, rootPath);
     // The whole walk has to run before the filter: it records the entry-point
     // containers the filter drops, and a container comes before its members.
@@ -73,7 +90,7 @@ final class CandidateCollector {
 
   /// One line per skipped entry point, except the ubiquitous `main`.
   void reportSkipped() {
-    if (options.onProgress == null) {
+    if (!_log.isLoggable(.FINE)) {
       return;
     }
     _skippedEntryPoints.sort((a, b) {
@@ -84,7 +101,7 @@ final class CandidateCollector {
       if (skipped.name == 'main') {
         continue;
       }
-      _report(
+      _log.fine(
         'Skipped ${skipped.path}:${skipped.line} ${skipped.name}: '
         '${skipped.reason}.',
       );
@@ -138,7 +155,7 @@ final class CandidateCollector {
     for (final symbol in symbols) {
       final outline = outlines[symbol];
       if (outline == null) {
-        _report(
+        _log.fine(
           'Skipped $relativePath:${symbol.selectionRange.start.line + 1} '
           "${symbol.name}: the analysis server's outline has no entry for it.",
         );

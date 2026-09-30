@@ -4,10 +4,12 @@ import 'package:ciach/src/conventions/flutter_widgets.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/cross_library_refs.dart';
 import 'package:ciach/src/dead_spans.dart';
+import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/overrides.dart';
 import 'package:ciach/src/paths.dart';
+import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/remove_safety.dart';
 import 'package:ciach/src/source_index.dart';
@@ -16,6 +18,8 @@ import 'package:ciach/src/symbols.dart';
 import 'package:ciach/src/verdict.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location;
+
+final _log = Logger('ciach.finder');
 
 /// What a run reports, sorted by location.
 typedef Settled = ({
@@ -66,8 +70,6 @@ final class Settler {
   /// so the rounds end on their own.
   static const _maxRounds = 16;
 
-  void _report(String message) => options.onProgress?.call(message);
-
   /// The findings for [candidates], from the server's [refsByCandidate].
   Future<Settled> settle(
     LspClient client,
@@ -110,21 +112,27 @@ final class Settler {
       final next = DeadSpans.of(settled.unused, rootPath);
       if (next.sameAs(deadSpans)) {
         if (round > 1) {
-          _report('Settled after $round round(s).');
+          _log.fine('Settled after ${plural(round, 'round', 'rounds')}.');
         }
         break;
       }
       if (round == _maxRounds) {
-        _report(
+        _log.warning(
           'Stopping after $_maxRounds rounds; later rounds may find more.',
         );
         break;
       }
-      _report(
-        'Round ${round + 1}: checking what only the ${next.length} removable '
-        'finding(s) referenced…',
+      _log.info(
+        'Round ${round + 1}: checking what only the '
+        '${plural(next.length, 'removable finding', 'removable findings')} referenced…',
       );
       deadSpans = next;
+    }
+    if (settled.recovered.isNotEmpty) {
+      _log.fine(
+        'Kept ${plural(settled.recovered.length, 'declaration', 'declarations')} the reference '
+        'search called unused: the definition check found a use for each.',
+      );
     }
     return (
       unused: settled.unused.sorted(compareByLocation),
@@ -338,7 +346,9 @@ final class Settler {
     ];
     final unchecked = members.whereNot(_overridesByMember.containsKey).toList();
     if (unchecked.isNotEmpty) {
-      _report('Checking ${unchecked.length} dead member(s) for overrides…');
+      _log.info(
+        'Checking ${plural(unchecked.length, 'dead member', 'dead members')} for overrides…',
+      );
       final results = await mapPooled(
         unchecked,
         options.concurrency,
@@ -350,6 +360,7 @@ final class Settler {
     }
     final byCandidate = <int, OverriddenMember>{};
     var coupled = 0;
+    var couplingMembers = 0;
     var blocked = 0;
     for (final index in members) {
       final result = _overridesByMember[index]!;
@@ -358,19 +369,23 @@ final class Settler {
       }
       byCandidate[index] = result;
       coupled += result.removals.length;
+      if (result.removals.isNotEmpty) {
+        couplingMembers++;
+      }
       if (result.blocked) {
         blocked++;
       }
     }
     if (coupled > 0) {
-      _report(
-        'Coupling $coupled override(s) to the dead member(s) they implement.',
+      _log.fine(
+        'Coupling ${plural(coupled, 'override', 'overrides')} to '
+        '${plural(couplingMembers, 'dead member', 'dead members')}.',
       );
     }
     if (blocked > 0) {
-      _report(
-        '$blocked dead member(s) are overridden where --remove cannot '
-        'follow; left in place.',
+      _log.fine(
+        '${plural(blocked, 'dead member', 'dead members')} ${pluralWord(blocked, 'is', 'are')} '
+        'overridden where --remove cannot follow; left in place.',
       );
     }
     return byCandidate;
@@ -443,10 +458,10 @@ final class Settler {
         ],
     }..removeAll(_probedNames);
     if (emptyRefNames.isEmpty) {
-      return Future.value(CrossLibraryReferences.empty);
+      return .value(.empty);
     }
     _probedNames.addAll(emptyRefNames);
-    _report('Recovering cross-library references…');
+    _log.info('Recovering cross-library references…');
     return CrossLibraryReferences.resolve(
       client: client,
       sources: _sources,

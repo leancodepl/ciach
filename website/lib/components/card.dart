@@ -19,8 +19,8 @@ class Card extends StatelessComponent {
         border: hairline(borderColor),
         radius: const .circular(radius),
         transition: .combine([
-          Transition('border-color', duration: 200.ms, curve: .ease),
-          Transition('transform', duration: 200.ms, curve: .ease),
+          .new('border-color', duration: 200.ms, curve: .ease),
+          .new('transform', duration: 200.ms, curve: .ease),
         ]),
         backgroundColor: surfaceColor,
       ),

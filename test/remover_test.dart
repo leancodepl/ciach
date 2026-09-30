@@ -8,7 +8,7 @@ void main() {
   late Directory tempDir;
 
   setUp(() {
-    tempDir = Directory.systemTemp.createTempSync('ciach_remover_test_');
+    tempDir = .systemTemp.createTempSync('ciach_remover_test_');
   });
 
   tearDown(() {
@@ -629,7 +629,7 @@ class Pair {
     // `left = 1` is line 1, cols 12..20; `right = 2` cols 22..31.
     const right = UnusedDeclaration(
       name: 'right',
-      kind: SymbolKind.field,
+      kind: .field,
       filePath: 'lib.dart',
       line: 2,
       column: 23,
@@ -640,14 +640,14 @@ class Pair {
         // The same declarator, coupled to the member it overrides.
         (
           filePath: 'lib.dart',
-          kind: SymbolKind.field,
+          kind: .field,
           range: (startLine: 1, startColumn: 22, endLine: 1, endColumn: 31),
           fullRange: (startLine: 1, startColumn: 22, endLine: 1, endColumn: 31),
         ),
         // And the statement's other declarator.
         (
           filePath: 'lib.dart',
-          kind: SymbolKind.field,
+          kind: .field,
           range: (startLine: 1, startColumn: 12, endLine: 1, endColumn: 20),
           fullRange: (startLine: 1, startColumn: 2, endLine: 1, endColumn: 20),
         ),
@@ -678,7 +678,7 @@ class Mixed implements Halved {
       // and the statement it starts begins at col 2.
       const member = UnusedDeclaration(
         name: 'dead',
-        kind: SymbolKind.property,
+        kind: .property,
         filePath: 'lib.dart',
         line: 2,
         column: 11,
@@ -687,7 +687,7 @@ class Mixed implements Halved {
         coupledRemovals: [
           (
             filePath: 'lib.dart',
-            kind: SymbolKind.field,
+            kind: .field,
             range: (startLine: 5, startColumn: 12, endLine: 5, endColumn: 20),
             fullRange: (
               startLine: 5,
@@ -732,7 +732,7 @@ class Kept {}
       // `class _DeadWidgetState ... {}` is line 6, cols 0..51.
       const widget = UnusedDeclaration(
         name: 'DeadWidget',
-        kind: SymbolKind.class$,
+        kind: .class$,
         filePath: 'lib.dart',
         line: 1,
         column: 7,
@@ -741,7 +741,7 @@ class Kept {}
         coupledRemovals: [
           (
             filePath: 'lib.dart',
-            kind: SymbolKind.class$,
+            kind: .class$,
             range: (startLine: 6, startColumn: 0, endLine: 6, endColumn: 51),
             fullRange: (
               startLine: 6,
@@ -779,7 +779,7 @@ String describe(S s) => switch (s) {
 ''';
     const dead = UnusedDeclaration(
       name: 'Dead',
-      kind: SymbolKind.class$,
+      kind: .class$,
       filePath: 'lib.dart',
       line: 5,
       column: 7,
@@ -791,7 +791,7 @@ String describe(S s) => switch (s) {
       coupledRemovals: [
         (
           filePath: 'lib.dart',
-          kind: SymbolKind.class$,
+          kind: .class$,
           range: (startLine: 8, startColumn: 2, endLine: 9, endColumn: 0),
           fullRange: (startLine: 8, startColumn: 2, endLine: 9, endColumn: 0),
         ),
@@ -820,7 +820,7 @@ Status? statusHolder;
       // `only` is line index 1, columns 2..6.
       const blockedValue = UnusedDeclaration(
         name: 'only',
-        kind: SymbolKind.enum$,
+        kind: .enum$,
         filePath: 'lib.dart',
         line: 2,
         column: 3,
@@ -854,7 +854,7 @@ Holder? holderRef;
       // `const Holder(this.label);` is line index 1, columns 2..27.
       const blockedCtor = UnusedDeclaration(
         name: 'new',
-        kind: SymbolKind.constructor,
+        kind: .constructor,
         filePath: 'lib.dart',
         line: 2,
         column: 3,
@@ -1056,7 +1056,7 @@ export 'package:pkg/other.dart' show Kept;
 class DeadClass {}
 ''');
       final result = removeDeclarations([
-        const UnusedDeclaration(
+        const .new(
           name: 'DeadClass',
           kind: .class$,
           filePath: 'lib/dead.dart',
@@ -1244,6 +1244,39 @@ void kept() {}
       expect(result.filesChanged, 0);
       expect(result.deletedFiles, isEmpty);
     });
+  });
+
+  test('a file it cannot rewrite stops it, naming what it already rewrote', () {
+    File(
+      p.join(tempDir.path, 'lib.dart'),
+    ).writeAsStringSync('void a() {}\nvoid b() {}\n');
+    // A directory where the next file should be: reading it fails.
+    Directory(p.join(tempDir.path, 'other.dart')).createSync();
+    const unreadable = UnusedDeclaration(
+      name: 'c',
+      kind: .function,
+      filePath: 'other.dart',
+      line: 1,
+      column: 6,
+      isPrivate: false,
+      range: (startLine: 0, startColumn: 0, endLine: 0, endColumn: 11),
+    );
+
+    expect(
+      () => removeDeclarations([
+        decl(startLine: 0, startColumn: 0, endLine: 0, endColumn: 11),
+        unreadable,
+      ], tempDir.path),
+      throwsA(
+        isA<RemovalException>()
+            .having((e) => e.filePath, 'filePath', 'other.dart')
+            .having((e) => e.changedFiles, 'changedFiles', ['lib.dart']),
+      ),
+    );
+    expect(
+      File(p.join(tempDir.path, 'lib.dart')).readAsStringSync(),
+      'void b() {}\n',
+    );
   });
 }
 

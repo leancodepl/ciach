@@ -61,7 +61,6 @@ class FinderOptions {
     this.entryPoints = const [],
     this.concurrency = 16,
     this.dartExecutable,
-    this.onProgress,
   }) : rootPath = rootPath.absoluteNormalized,
        analysisRootPath = analysisRootPath?.absoluteNormalized,
        assert(concurrency > 0, 'concurrency must be positive');
@@ -165,9 +164,6 @@ class FinderOptions {
   /// Defaults to the SDK running this tool, or to `dart` from `PATH` when this
   /// is a compiled binary; see `findDartExecutable`.
   final String? dartExecutable;
-
-  /// Optional progress callback, invoked with a human-readable status line.
-  final void Function(String message)? onProgress;
 
   /// The declaration kinds reported by default. Deliberately excludes
   /// [SymbolKind.typeParameter] (always "used" within its scope) and the
@@ -408,6 +404,54 @@ class RecoveredReference {
   };
 }
 
+/// A declaration or file whose analysis failed; the run went on without it.
+class AnalysisProblem {
+  const AnalysisProblem({
+    required this.summary,
+    required this.cause,
+    required this.filePath,
+    this.line,
+    this.column,
+    this.name,
+    this.detail,
+  });
+
+  /// What failed and the fallback, e.g. "Could not find references; kept."
+  /// Shared by problems of one kind.
+  final String summary;
+
+  /// The error, on one line.
+  final String cause;
+
+  /// Root-relative `/`-path; one-based line and column, when known.
+  final String filePath;
+  final int? line;
+  final int? column;
+
+  /// The declaration, e.g. `MyClass.myMethod`.
+  final String? name;
+
+  /// The server's stack trace, if any.
+  final String? detail;
+
+  /// `path:line:column`, as far as known.
+  String get location => [filePath, ?line, ?column].join(':');
+
+  @override
+  String toString() =>
+      '$location${name == null ? '' : ' ($name)'}: $summary Cause: $cause';
+
+  Map<String, Object?> toJson() => {
+    'summary': summary,
+    'cause': cause,
+    'file': filePath,
+    'line': ?line,
+    'column': ?column,
+    'name': ?name,
+    'detail': ?detail,
+  };
+}
+
 /// The outcome of a finder run.
 class FinderResult {
   /// Creates a result describing a completed finder run.
@@ -418,6 +462,7 @@ class FinderResult {
     required this.declarationsChecked,
     required this.elapsed,
     this.recoveredReferences = const [],
+    this.problems = const [],
   });
 
   /// Declarations with zero references of any kind — the tool's actual
@@ -445,4 +490,8 @@ class FinderResult {
   /// Declarations confirmed used by the secondary definition check despite
   /// having no reported references — surfaced as warnings, not findings.
   final List<RecoveredReference> recoveredReferences;
+
+  /// What the run could not analyze. Affected code is kept, so a problem can
+  /// hide a finding but never adds one.
+  final List<AnalysisProblem> problems;
 }

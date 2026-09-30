@@ -81,12 +81,12 @@ final class Candidate {
   bool get isExtensionMember => containerSymbol?.kind == .namespace;
 
   /// This candidate's own `(path, name)` key.
-  DeclKey get key => DeclKey(path, symbol.name);
+  DeclKey get key => .new(path, symbol.name);
 
   /// The `(path, container)` key of this candidate's enclosing declaration,
   /// or `null` when it has no container.
   DeclKey? get containerKey => switch (container) {
-    final c? => DeclKey(path, c),
+    final c? => .new(path, c),
     null => null,
   };
 }

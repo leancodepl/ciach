@@ -18,7 +18,7 @@ final class EntryPoint {
   /// A glob that does not parse throws the glob package's [FormatException],
   /// whose `source` is the glob.
   EntryPoint({required this.name, required this.reason, this.files = const []})
-    : _globs = [for (final file in files) Glob(file, context: _posix)];
+    : _globs = [for (final file in files) .new(file, context: _posix)];
 
   /// A rule from the `entry-points` config key.
   ///
@@ -36,14 +36,14 @@ final class EntryPoint {
         "'$name' is not a declaration name; expected an identifier such as 'registerWith' or 'MyPlugin.registerWith'.",
       );
     }
-    return EntryPoint(
+    return .new(
       name: name,
       files: files,
       reason: 'listed under `entry-points` in the config file',
     );
   }
 
-  static final _posix = p.Context(style: p.Style.posix);
+  static final _posix = p.Context(style: .posix);
   static final _qualifiedName = RegExp(
     r'^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)?$',
   );
@@ -62,10 +62,10 @@ final class EntryPoint {
 
   /// The conventions applied on every run.
   static final builtIn = <EntryPoint>[
-    EntryPoint(name: 'main', reason: 'the program entry point'),
+    .new(name: 'main', reason: 'the program entry point'),
     // `flutter test` generates an in-memory bootstrap that imports the nearest
     // `flutter_test_config.dart` and calls `testExecutable(testMain)`.
-    EntryPoint(
+    .new(
       name: 'testExecutable',
       files: const ['**/flutter_test_config.dart'],
       reason: 'called by the `flutter test` bootstrap',
