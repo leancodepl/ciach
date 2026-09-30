@@ -32,8 +32,6 @@ final _console = Console.standard();
 Future<void> main(List<String> arguments) async {
   final logging = _console.attach();
   try {
-    // Returning an int from `main` does not set the process exit code in
-    // Dart, so route the result through the global `exitCode`.
     exitCode = await _run(arguments);
   } on Object catch (e, st) {
     _log.severe('ciach stopped.', e, st);

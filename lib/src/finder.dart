@@ -26,7 +26,6 @@ import 'package:ciach/src/reference_fetch.dart';
 import 'package:ciach/src/settler.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/verdict.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location;
 
 final _log = Logger('ciach.finder');
 
@@ -170,15 +169,8 @@ class Ciach {
         totalFiles: files.length,
         rootPath: rootPath,
       );
-      // Unchecked declarations drop out, so they are kept.
-      final candidates = <Candidate>[];
-      final refsByCandidate = <List<Location>>[];
-      for (var i = 0; i < collected.length; i++) {
-        if (fetched[i] case final refs?) {
-          candidates.add(collected[i]);
-          refsByCandidate.add(refs);
-        }
-      }
+      final candidates = fetched.checked;
+      final refsByCandidate = fetched.refs;
       declarationsChecked = candidates.length;
       await _fetch.semanticTokensFor(client, refsByCandidate);
       await _fetch.selectionRanges(client, candidates, refsByCandidate);

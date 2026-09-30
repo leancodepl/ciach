@@ -35,20 +35,22 @@ final class ReferenceFetch {
 
   /// Queries `textDocument/references` for every candidate through one global
   /// pool, reporting `[done/total]` progress as each file's last query lands.
-  /// A candidate whose request failed gets `null`.
-  Future<List<List<Location>?>> references(
+  /// A candidate whose request failed is left out, so it is never reported.
+  Future<({List<Candidate> checked, List<List<Location>> refs})> references(
     LspClient client,
     List<Candidate> candidates, {
     required int totalFiles,
     required String rootPath,
-  }) {
+  }) async {
     final remainingPerFile = <String, int>{};
     for (final candidate in candidates) {
       remainingPerFile.update(candidate.path, (n) => n + 1, ifAbsent: () => 1);
     }
     var filesDone = totalFiles - remainingPerFile.length;
 
-    return mapPooled(candidates, options.concurrency, (candidate) async {
+    final fetched = await mapPooled(candidates, options.concurrency, (
+      candidate,
+    ) async {
       // The server would answer for an unnamed extension's `on` type.
       final refs = candidate.isUnnamedExtension
           ? const <Location>[]
@@ -62,6 +64,16 @@ final class ReferenceFetch {
       }
       return refs;
     });
+
+    final checked = <Candidate>[];
+    final refs = <List<Location>>[];
+    for (final (i, candidateRefs) in fetched.indexed) {
+      if (candidateRefs != null) {
+        checked.add(candidates[i]);
+        refs.add(candidateRefs);
+      }
+    }
+    return (checked: checked, refs: refs);
   }
 
   Future<List<Location>?> _referencesOf(

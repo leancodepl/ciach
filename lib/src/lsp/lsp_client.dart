@@ -107,6 +107,7 @@ class LspClient {
       final code = await process.exitCode;
       // Can land before the last of stderr does.
       await stderrDrained;
+      // Only an exit ciach didn't ask for is an error.
       if (wrapper._shuttingDown) {
         _log.fine('The analysis server exited with code $code.');
       } else {
@@ -146,7 +147,7 @@ class LspClient {
   Future<void> initialize(Uri rootUri) async {
     final uri = rootUri.toString();
     final result = await _guard(
-      'initialize',
+      lsp.RequestMethod.initialize.value,
       () => _client.start(
         clientInfo: const .new(name: 'ciach', version: ciachVersion),
         rootUri: uri,
@@ -344,7 +345,7 @@ class LspClient {
   /// `DocumentSymbol[]` variant (never flat `SymbolInformation`).
   Future<List<lsp.DocumentSymbol>> documentSymbol(Uri uri) async {
     final result = await _guard(
-      'textDocument/documentSymbol',
+      lsp.RequestMethod.documentSymbol.value,
       () => _client.server.textDocument.documentSymbol(
         .new(textDocument: .new(uri: uri.toString())),
       ),
@@ -365,7 +366,7 @@ class LspClient {
     bool includeDeclaration = false,
   }) async {
     final result = await _guard(
-      'textDocument/references',
+      lsp.RequestMethod.references.value,
       () => _client.server.textDocument.references(
         .new(
           textDocument: .new(uri: uri.toString()),
@@ -381,7 +382,7 @@ class LspClient {
   /// via `textDocument/definition` (forward resolution).
   Future<List<lsp.Location>> definition(Uri uri, lsp.Position position) async {
     final result = await _guard(
-      'textDocument/definition',
+      lsp.RequestMethod.definition.value,
       () => _client.server.textDocument.definition(
         .new(
           textDocument: .new(uri: uri.toString()),
@@ -399,7 +400,7 @@ class LspClient {
     List<String> lines,
   ) async {
     final result = await _guard(
-      'textDocument/semanticTokens/full',
+      lsp.RequestMethod.full.value,
       () => _client.server.textDocument.semanticTokensFull(
         .new(textDocument: .new(uri: uri.toString())),
       ),
@@ -437,7 +438,7 @@ class LspClient {
     lsp.Position position,
   ) async {
     final result = await _guard(
-      'textDocument/implementation',
+      lsp.RequestMethod.implementation.value,
       () => _client.server.textDocument.implementation(
         .new(
           textDocument: .new(uri: uri.toString()),
@@ -459,7 +460,7 @@ class LspClient {
       return const [];
     }
     final result = await _guard(
-      'textDocument/selectionRange',
+      lsp.RequestMethod.selectionRange.value,
       () => _client.server.textDocument.selectionRange(
         .new(
           textDocument: .new(uri: uri.toString()),
