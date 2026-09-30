@@ -13,7 +13,7 @@ import 'package:jaspr_class_scope/jaspr_class_scope.dart';
 part 'docs_page.scopes.dart';
 
 const _usage = r'''
-$ dart pub global activate ciach
+$ dart install ciach
 $ ciach                                  # current package
 $ ciach path/to/package                  # another package
 $ ciach --no-public -f json              # private-only, as JSON
@@ -441,16 +441,19 @@ class DocsPage extends StatelessComponent {
               heading: 'Install',
               children: [
                 p([
-                  .text('Globally, for a '),
+                  .text('Globally, as a native '),
                   code([.text('ciach')]),
                   .text(
-                    ' command everywhere, or as a dev dependency that pins the '
-                    'version for the team and CI (then prefix commands with ',
+                    ' binary you can run from anywhere, or as a dev dependency '
+                    'that pins the version for the team and CI (then prefix '
+                    'commands with ',
                   ),
                   code([.text('dart run')]),
+                  .text('). '),
+                  code([.text(pubGlobalCommand)]),
                   .text(
-                    '). Requires Dart 3.10+ and analyzes with the SDK it runs '
-                    'with.',
+                    ' still works too. Requires Dart 3.10+ and analyzes with '
+                    'the SDK it runs with.',
                   ),
                 ]),
                 CodeBlock(

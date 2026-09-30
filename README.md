@@ -33,20 +33,20 @@ the noise a knife makes right before something falls off.
 
 ## Installation
 
-Install it globally for a `ciach` command everywhere, in `~/.pub-cache/bin`:
-
-```bash
-dart pub global activate ciach
-```
-
-Or, on a recent SDK, as a compiled binary:
+Install it globally, as a native `ciach` binary you can run from anywhere:
 
 ```bash
 dart install ciach
 ```
 
-A compiled `ciach` runs the analysis server with the `dart` on your `PATH` (an
-fvm or Flutter `dart` works too); `--dart <path>` picks a different one.
+`dart install` (Dart 3.10+) prints where the binary went; make sure that
+directory is on your `PATH`. Run the same command again to update, and
+`dart uninstall ciach` to remove it. A compiled `ciach` runs the analysis
+server with the `dart` on your `PATH` (an fvm or Flutter `dart` works too);
+`--dart <path>` picks a different one.
+
+`dart pub global activate ciach` still works too, for a JIT-compiled `ciach` in
+`~/.pub-cache/bin`.
 
 Or add it as a dev dependency, which pins the version for the team and CI:
 
@@ -372,8 +372,8 @@ The lever is how much you ask for. `--no-public` is by far the cheapest mode:
 private declarations are library-scoped, so each query searches one library
 instead of the whole workspace, and it surfaces the highest-confidence dead code
 anyway. `--include`/`--exclude` narrow the scan while still counting references
-from everywhere. `dart pub global activate` compiles ahead of time, so there's no
-JIT warmup per run.
+from everywhere. A `dart install`ed ciach is a native binary, so there's no JIT
+warmup per run.
 
 ## Library usage
 
