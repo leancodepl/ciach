@@ -7,3 +7,6 @@ pubspec.lock
 
 # The landing page is not part of the published package.
 website/
+
+# Repository-only analyzer plugin.
+tool/

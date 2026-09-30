@@ -13,6 +13,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:ciach/src/dart_executable.dart';
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
@@ -100,9 +101,9 @@ class LspClient {
         .transform(utf8.decoder)
         .listen(wrapper._stderrBuffer.write, onError: (_) {})
         .asFuture<void>()
-        .catchError((_) {});
+        .ignoringErrors();
     // A dead server's stdin fails with a broken pipe; the exit report covers it.
-    unawaited(process.stdin.done.catchError((_) {}));
+    process.stdin.done.ignore();
     unawaited(() async {
       final code = await process.exitCode;
       // Can land before the last of stderr does.
@@ -184,7 +185,7 @@ class LspClient {
         rethrow;
       }
       if (e is! lsp.LspException) {
-        await _exited.future.timeout(const .new(seconds: 1)).catchError((_) {});
+        await _exited.future.timeout(const .new(seconds: 1)).ignoringErrors();
       }
       if (_exitError case final error?) {
         throw error;
@@ -483,12 +484,10 @@ class LspClient {
     } on Object {
       // Best effort — fall through to closing and killing the process.
     }
-    await _client.close().catchError((_) {});
-    final exited = await _process.exitCode
-        .timeout(const .new(seconds: 5))
-        .then((_) => true)
-        .catchError((_) => false);
-    if (!exited) {
+    await _client.close().ignoringErrors();
+    try {
+      await _process.exitCode.timeout(const .new(seconds: 5));
+    } on Object {
       _process.kill(.sigkill);
     }
     await _errorLogged.close();

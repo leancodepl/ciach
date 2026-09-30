@@ -15,3 +15,14 @@ extension StringExtensions on String {
         final index => index,
       };
 }
+
+extension FutureExtensions on Future<void> {
+  /// Completes when this future does, discarding any error it completes with.
+  Future<void> ignoringErrors() async {
+    try {
+      await this;
+    } on Object {
+      // Deliberately ignored.
+    }
+  }
+}

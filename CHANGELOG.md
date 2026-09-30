@@ -7,6 +7,10 @@
   is kept and listed under "Not analyzed". The result goes to stdout, the log
   to stderr, with more color.
   ([#78](https://github.com/leancodepl/ciach/pull/78))
+- Require `glob` 2.2.0. On 2.1.x, `**/flutter_test_config.dart` did not match
+  a `flutter_test_config.dart` at the package root, so its `testExecutable`
+  was reported as unused.
+  ([#75](https://github.com/leancodepl/ciach/pull/75))
 - Add `--generated-glob <glob>` (and `generated-glob:` in `ciach.yaml`): treat
   matching files as generated, so their references count but nothing in them
   is reported or removed. For output a suffix can't pick out, like
