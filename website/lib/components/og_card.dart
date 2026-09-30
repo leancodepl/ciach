@@ -29,7 +29,7 @@ class OgCard extends StatelessComponent {
 
   static const _class = _$OgCardScope;
 
-  static final _card = _class('card');
+  static final _root = _class.root;
   static final _foot = _class('foot');
   static final _by = _class('by');
 
@@ -37,7 +37,7 @@ class OgCard extends StatelessComponent {
   /// the site's own rules. Rendered after them, so equal-specificity rules
   /// such as the large logo's mark lose to the card's.
   static List<StyleRule> get styles => [
-    css(_card.selector, [
+    css(_root.selector, [
       css('&').styles(
         position: const .relative(),
         width: width.px,
@@ -50,7 +50,7 @@ class OgCard extends StatelessComponent {
       ),
       css('& ${Hero.bg.selector}')
           .styles(raw: {'mask-image': 'none', '-webkit-mask-image': 'none'}),
-      css('& ${Logo.logo.selector}').styles(fontSize: 2.1.rem),
+      css('& ${Logo.root.selector}').styles(fontSize: 2.1.rem),
       css('& ${Logo.mark.selector}', [
         css('&').styles(width: 56.px, height: 56.px, radius: .circular(15.px)),
         css('& svg').styles(width: 30.px, height: 30.px),
@@ -59,7 +59,7 @@ class OgCard extends StatelessComponent {
         margin: .only(top: 34.px, bottom: .zero),
         gap: .all(0.6.rem),
       ),
-      css('& ${Pill.pill.selector}').styles(
+      css('& ${Pill.root.selector}').styles(
         padding: .symmetric(vertical: 0.4.rem, horizontal: 0.95.rem),
         fontSize: 1.05.rem,
       ),
@@ -105,7 +105,7 @@ class OgCard extends StatelessComponent {
   Component build(BuildContext context) {
     return .fragment([
       Style(styles: styles),
-      div(classes: _card.name, [
+      div(classes: _root.name, [
         div(
           classes: Hero.bg.name,
           attributes: const {'aria-hidden': 'true'},

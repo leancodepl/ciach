@@ -19,12 +19,12 @@ class Pill extends StatelessComponent {
   static const _class = _$PillScope;
 
   /// Every pill; the social card resizes them.
-  static final pill = _class('pill');
+  static final root = _class.root;
   static final _accent = _class('accent');
 
   @css
   static List<StyleRule> get styles => [
-    css(pill.selector).styles(
+    css(root.selector).styles(
       display: .inlineFlex,
       padding: .symmetric(vertical: 0.3.rem, horizontal: 0.7.rem),
       border: hairline(border2Color),
@@ -48,7 +48,7 @@ class Pill extends StatelessComponent {
 
   @override
   Component build(BuildContext context) {
-    final classes = (accent ? pill + _accent : pill).name;
+    final classes = (accent ? root + _accent : root).name;
     if (href case final href?) {
       return externalLink(href, classes: classes, [.text(text)]);
     }

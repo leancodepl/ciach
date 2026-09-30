@@ -21,7 +21,7 @@ class NavBar extends StatelessComponent {
 
   static const _class = _$NavBarScope;
 
-  static final _header = _class('header');
+  static final _root = _class.root;
   static final _nav = _class('nav');
   static final _brand = _class('brand');
   static final _links = _class('links');
@@ -29,7 +29,7 @@ class NavBar extends StatelessComponent {
 
   @css
   static List<StyleRule> get styles => [
-    css(_header.selector).styles(
+    css(_root.selector).styles(
       position: const .sticky(top: .zero),
       zIndex: const .new(50),
       height: headerHeight,
@@ -83,7 +83,7 @@ class NavBar extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     final onDocs = page == .docs;
-    return header(classes: _header.name, [
+    return header(classes: _root.name, [
       nav(
         classes: (Utility.container + _nav).name,
         attributes: const {'aria-label': 'Primary'},

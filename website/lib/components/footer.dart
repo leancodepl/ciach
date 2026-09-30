@@ -18,7 +18,7 @@ class SiteFooter extends StatelessComponent {
 
   static const _class = _$SiteFooterScope;
 
-  static final _footer = _class('footer');
+  static final _root = _class.root;
   static final _cta = _class('cta');
   static final _ctaInner = _class('cta-inner');
   static final _grid = _class('grid');
@@ -27,7 +27,7 @@ class SiteFooter extends StatelessComponent {
 
   @css
   static List<StyleRule> get styles => [
-    css(_footer.selector).styles(
+    css(_root.selector).styles(
       border: .only(top: hairlineSide(borderColor)),
       backgroundColor: bg2Color,
     ),
@@ -105,7 +105,7 @@ class SiteFooter extends StatelessComponent {
 
   @override
   Component build(BuildContext context) {
-    return footer(classes: _footer.name, [
+    return footer(classes: _root.name, [
       section(
         classes: _cta.name,
         attributes: const {'aria-labelledby': 'cta-heading'},

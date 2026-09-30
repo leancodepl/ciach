@@ -27,7 +27,7 @@ class CopyButton extends StatefulComponent {
 
   static const _class = _$CopyButtonScope;
 
-  static final _button = _class('button');
+  static final _root = _class.root;
   static final _iconOnly = _class('icon-only');
   static final _icon = _class('icon');
   static final _idle = _class('idle');
@@ -37,7 +37,7 @@ class CopyButton extends StatefulComponent {
 
   @css
   static List<StyleRule> get styles => [
-    css(_button.selector, [
+    css(_root.selector, [
       css('&').styles(
         display: .inlineFlex,
         padding: .symmetric(vertical: 0.4.rem, horizontal: 0.7.rem),
@@ -108,7 +108,7 @@ class _CopyButtonState extends State<CopyButton> {
     final label = component.label;
     return button(
       classes: [
-        CopyButton._button.name,
+        CopyButton._root.name,
         if (label == null) CopyButton._iconOnly.name,
         if (_copied) CopyButton._isCopied.name,
       ].join(' '),

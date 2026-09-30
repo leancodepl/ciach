@@ -17,11 +17,11 @@ class Card extends StatelessComponent {
 
   static const _class = _$CardScope;
 
-  static final _card = _class('card');
+  static final _root = _class.root;
 
   @css
   static List<StyleRule> get styles => [
-    css(_card.selector, [
+    css(_root.selector, [
       css('&').styles(
         // It sits in grids, and may hold wide code samples.
         minWidth: .zero,
@@ -44,10 +44,7 @@ class Card extends StatelessComponent {
 
   @override
   Component build(BuildContext context) {
-    final allClasses = switch (classes) {
-      null => _card,
-      final classes => _card + classes,
-    }.name;
+    final allClasses = (_root + classes).name;
     if (listItem) {
       return li(classes: allClasses, children);
     }

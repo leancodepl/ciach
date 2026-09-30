@@ -57,12 +57,12 @@ class Faq extends StatelessComponent {
 
   static const _class = _$FaqScope;
 
-  static final _list = _class('list');
+  static final _root = _class.root;
   static final _item = _class('item');
 
   @css
   static List<StyleRule> get styles => [
-    css(_list.selector).styles(
+    css(_root.selector).styles(
       maxWidth: 52.rem,
       border: .only(top: hairlineSide(borderColor)),
     ),
@@ -126,7 +126,7 @@ class Faq extends StatelessComponent {
 
   @override
   Component build(BuildContext context) {
-    return div(classes: _list.name, [
+    return div(classes: _root.name, [
       for (final (index, entry) in faqEntries.indexed)
         details(
           classes: _item.name,

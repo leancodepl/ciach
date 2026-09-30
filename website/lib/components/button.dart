@@ -35,13 +35,13 @@ class Button extends StatelessComponent {
 
   static const _class = _$ButtonScope;
 
-  static final _button = _class('button');
+  static final _root = _class.root;
   static final _primary = _class('primary');
   static final _secondary = _class('secondary');
 
   @css
   static List<StyleRule> get styles => [
-    css(_button.selector, [
+    css(_root.selector, [
       css('&').styles(
         display: .inlineFlex,
         padding: .symmetric(vertical: 0.75.rem, horizontal: 1.2.rem),
@@ -87,7 +87,7 @@ class Button extends StatelessComponent {
       .primary => _primary,
       .secondary => _secondary,
     };
-    final classes = (_button + variantClass).name;
+    final classes = (_root + variantClass).name;
     if (external) {
       return externalLink(href, classes: classes, children);
     }

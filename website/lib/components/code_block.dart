@@ -39,7 +39,7 @@ class CodeBlock extends StatelessComponent {
   static const _class = _$CodeBlockScope;
 
   // The frame, shared with [Terminal].
-  static final _block = _class('block');
+  static final _root = _class.root;
   static final _bar = _class('bar');
   static final _dots = _class('dots');
   static final _title = _class('title');
@@ -49,7 +49,7 @@ class CodeBlock extends StatelessComponent {
 
   @css
   static List<StyleRule> get styles => [
-    css(_block.selector, [
+    css(_root.selector, [
       css('&').styles(
         minWidth: .zero,
         margin: .zero,
@@ -191,7 +191,7 @@ class CodeBlock extends StatelessComponent {
     final copy = copyText ?? source;
     return figure(
       classes: [
-        _block.name,
+        _root.name,
         // Console output wraps like a terminal; real code scrolls.
         if (language == .console) _terminal.name,
         if (lineNumbers) _numbered.name,
@@ -246,7 +246,7 @@ class Terminal extends StatelessComponent {
   Component build(BuildContext context) {
     return figure(
       classes: [
-        CodeBlock._block.name,
+        CodeBlock._root.name,
         CodeBlock._terminal.name,
         if (animated) CodeBlock._animated.name,
       ].join(' '),

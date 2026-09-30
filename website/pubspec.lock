@@ -325,10 +325,10 @@ packages:
     dependency: "direct main"
     description:
       name: jaspr_class_scope
-      sha256: "8714085bbb61fa824bdab2f802136f585f637824cad298f6d6a795bf0605fc1d"
+      sha256: e82a24f096e626a9acbf112b1f6f6d3aa45bf80e75aac16d382516833099a6e7
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0"
+    version: "0.1.1"
   jaspr_class_scope_builder:
     dependency: "direct dev"
     description:

@@ -33,7 +33,7 @@ class Hero extends StatelessComponent {
 
   static const _class = _$HeroScope;
 
-  static final _hero = _class('hero');
+  static final _root = _class.root;
   static final _grid = _class('grid');
   static final _copy = _class('copy');
   static final _pronounce = _class('pronounce');
@@ -63,7 +63,7 @@ class Hero extends StatelessComponent {
 
   @css
   static List<StyleRule> get styles => [
-    css(_hero.selector, [
+    css(_root.selector, [
       css('&').styles(
         position: const .relative(),
         padding: .only(
@@ -192,7 +192,7 @@ class Hero extends StatelessComponent {
   Component build(BuildContext context) {
     return section(
       id: 'top',
-      classes: _hero.name,
+      classes: _root.name,
       attributes: const {'aria-labelledby': 'hero-heading'},
       [
         div(

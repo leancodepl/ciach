@@ -85,7 +85,7 @@ String faviconSvg({int size = 64, int radius = 14}) =>
 
 /// The ciach word mark: the logo icon next to the package name.
 Component logo({bool large = false}) => span(
-  classes: (large ? Logo.logo + Logo.large : Logo.logo).name,
+  classes: (large ? Logo.root + Logo.large : Logo.root).name,
   attributes: const {'aria-hidden': 'true'},
   [
     span(classes: Logo.mark.name, [Icon.ciach.build(size: large ? 28 : 20)]),
@@ -98,14 +98,14 @@ Component logo({bool large = false}) => span(
 abstract final class Logo {
   static const _class = _$LogoScope;
 
-  static final logo = _class('logo');
+  static final root = _class.root;
   static final mark = _class('mark');
   static final large = _class('large');
   static final _text = _class('text');
 
   @css
   static List<StyleRule> get styles => [
-    css(logo.selector).styles(
+    css(root.selector).styles(
       display: .inlineFlex,
       alignItems: .center,
       gap: .all(0.5.rem),

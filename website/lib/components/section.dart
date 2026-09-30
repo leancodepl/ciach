@@ -31,12 +31,12 @@ class Section extends StatelessComponent {
 
   static const _class = _$SectionScope;
 
-  static final _section = _class('section');
+  static final _root = _class.root;
   static final _head = _class('head');
 
   @css
   static List<StyleRule> get styles => [
-    css(_section.selector, [
+    css(_root.selector, [
       css('&').styles(
         padding: const .symmetric(
           vertical: .expression('clamp(4rem, 8vw, 7rem)'),
@@ -58,10 +58,7 @@ class Section extends StatelessComponent {
     final headingId = '$id-heading';
     return section(
       id: id,
-      classes: switch (classes) {
-        null => _section,
-        final classes => _section + classes,
-      }.name,
+      classes: (_root + classes).name,
       attributes: {'aria-labelledby': headingId},
       [
         div(classes: Utility.container.name, [
@@ -93,11 +90,11 @@ class DocSection extends StatelessComponent {
 
   static const _class = _$DocSectionScope;
 
-  static final _section = _class('section');
+  static final _root = _class.root;
 
   @css
   static List<StyleRule> get styles => [
-    css(_section.selector, [
+    css(_root.selector, [
       css('&').styles(
         display: .grid,
         padding: .only(top: 3.5.rem),
@@ -122,7 +119,7 @@ class DocSection extends StatelessComponent {
     final headingId = '$id-heading';
     return section(
       id: id,
-      classes: _section.name,
+      classes: _root.name,
       attributes: {'aria-labelledby': headingId},
       [
         h2(id: headingId, [.text(heading)]),
