@@ -6,6 +6,21 @@
   `flutter gen-l10n`'s `lib/l10n/**`, which has neither a suffix nor the
   banner. Unlike `--exclude`, the files are still opened.
   ([#76](https://github.com/leancodepl/ciach/pull/76))
+- A member used only through an override, from a file that doesn't import the
+  member's library, is no longer reported (nor deleted with `--remove`).
+  ([#79](https://github.com/leancodepl/ciach/pull/79))
+- Checking a dead member's overrides is much faster: they share its
+  references, so they are no longer queried one by one.
+  ([#77](https://github.com/leancodepl/ciach/pull/77))
+- Add `--transitive` (and `transitive:` in `ciach.yaml`): also report
+  declarations referenced only from other findings, which used to take another
+  run after `--remove`. Each one names the findings that reference it
+  (`onlyReferencedFrom` in `-f json`). Off by default.
+  ([#72](https://github.com/leancodepl/ciach/pull/72))
+- A reference from inside a declaration's own span no longer keeps it alive,
+  for every kind: a function or method called only by itself is now reported.
+  Classes already worked this way.
+  ([#67](https://github.com/leancodepl/ciach/pull/67))
 - `FinderOptions` normalizes `rootPath` and `analysisRootPath`, and a run throws
   an `ArgumentError` when the analysis root doesn't contain the scanned one, so
   a library caller gets the check the CLI already had. The constructor is no

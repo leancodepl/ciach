@@ -145,7 +145,7 @@ String _readPrefix(File file, int maxChars) {
     return content.length <= maxChars
         ? content
         : content.substring(0, maxChars);
-  } on Object {
+  } on FileSystemException {
     return '';
   }
 }

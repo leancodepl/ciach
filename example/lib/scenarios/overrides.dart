@@ -79,6 +79,18 @@ class Mixed implements Halved {
   final int dead = 1, live = 2;
 }
 
+/// Kept alive as the supertype of `Tap`.
+abstract class Faucet {
+  /// Only called through `Tap` -> USED: the server reports a call to an
+  /// override as a reference to the member it overrides, and back.
+  void drip();
+}
+
+class Tap implements Faucet {
+  @override
+  void drip() {}
+}
+
 /// Kept alive as the supertype of `Spigot` in overrides_impl.dart.
 abstract class Valve {
   /// Never called -> UNUSED. Coupled to the `Spigot.close` override when

@@ -4,7 +4,8 @@ import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location, Position;
+import 'package:pro_lsp/pro_lsp.dart'
+    show DocumentSymbol, Location, LspException, Position;
 
 /// Whether a class can lose all of its constructors. The implicit default
 /// constructor that replaces them calls `super()`, which compiles only if the
@@ -26,7 +27,7 @@ final class SuperclassChecks {
         cls.uri,
         cls.symbol.selectionRange.start,
       );
-    } on Object {
+    } on LspException {
       return true;
     }
     if (superclass == null) {
@@ -42,7 +43,7 @@ final class SuperclassChecks {
     final List<DocumentSymbol> symbols;
     try {
       symbols = await _client.documentSymbol(uri);
-    } on Object {
+    } on LspException {
       return true;
     }
     final declaration = _symbolNamedAt(symbols, superclass.range.start);
@@ -82,7 +83,7 @@ final class SuperclassChecks {
     final List<SemanticToken> tokens;
     try {
       tokens = await _client.semanticTokens(uri, content.split('\n'));
-    } on Object {
+    } on LspException {
       return true;
     }
     return tokens
