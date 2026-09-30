@@ -76,7 +76,7 @@ abstract final class Highlight {
 /// empty. Its text style is required but never rendered.
 final _theme = sh.HighlighterTheme.fromConfiguration(
   '{"settings": []}',
-  sh.TextStyle(foreground: const sh.Color(0)),
+  .new(foreground: const .new(0)),
 );
 
 final _highlighters = <Language, sh.Highlighter>{};
@@ -130,7 +130,7 @@ List<Component> highlight(
         // stagger the strike-through animation.
         span(
           classes: (Highlight.line + Highlight.dead).name,
-          styles: Styles(raw: {'--d': '${dead++}'}),
+          styles: .new(raw: {'--d': '${dead++}'}),
           line,
         )
       else
@@ -144,7 +144,7 @@ List<Component> highlight(
 List<List<Component>> highlightLines(String source, Language language) {
   final highlighter = _highlighters.putIfAbsent(
     language,
-    () => sh.Highlighter(language: language.name, theme: _theme),
+    () => .new(language: language.name, theme: _theme),
   );
   final lines = <List<Component>>[<Component>[]];
   for (final (text, className) in _flatten(highlighter.highlight(source))) {

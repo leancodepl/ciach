@@ -56,10 +56,10 @@ const reducedMotion = MediaQuery.raw('(prefers-reduced-motion: reduce)');
 StyleRule shrinkableChildren() => css('& > *').styles(minWidth: .zero);
 
 /// A 1px solid border in [color].
-Border hairline(Color color) => Border.all(color: color, width: 1.px);
+Border hairline(Color color) => .all(color: color, width: 1.px);
 
 /// One side of a [hairline], for `Border.only`.
-BorderSide hairlineSide(Color color) => BorderSide(color: color, width: 1.px);
+BorderSide hairlineSide(Color color) => .new(color: color, width: 1.px);
 
 /// Everything the page needs before any component draws: tokens, the reset,
 /// typography and utilities.
@@ -151,10 +151,10 @@ List<StyleRule> get _reset => [
   ]),
   css(':focus-visible').styles(
     radius: .circular(4.px),
-    outline: Outline(
+    outline: .new(
       color: accentColor,
       style: .solid,
-      width: OutlineWidth(2.px),
+      width: .new(2.px),
       offset: 3.px,
     ),
   ),
@@ -219,9 +219,7 @@ List<StyleRule> get _utilities => [
   css(Utility.muted.selector).styles(color: mutedColor),
   css(Utility.hideSm.selector, [
     css('&').styles(display: .inline),
-    css.media(MediaQuery.all(maxWidth: 540.px), [
-      css('&').styles(display: .none),
-    ]),
+    css.media(.all(maxWidth: 540.px), [css('&').styles(display: .none)]),
   ]),
 ];
 

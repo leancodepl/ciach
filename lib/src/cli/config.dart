@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:ciach/src/cli/args.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
+import 'package:ciach/src/plural.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
 import 'package:path/path.dart' as p;
@@ -33,7 +34,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
   factory ConfigFile.parse(String source, {required String origin}) {
     final Object? document;
     try {
-      document = loadYaml(source, sourceUrl: Uri.file(origin));
+      document = loadYaml(source, sourceUrl: .file(origin));
     } on YamlException catch (e) {
       throw FormatException('$origin: not valid YAML: ${e.message}');
     }
@@ -53,7 +54,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     if (unknown.isNotEmpty) {
       final valid = (configKeys.toList()..sort()).join(', ');
       throw FormatException(
-        '$origin: unknown option${unknown.length == 1 ? '' : 's'} ${unknown.map((key) => "'$key'").join(', ')}. Valid options: $valid.',
+        '$origin: unknown ${pluralWord(unknown.length, 'option', 'options')} ${unknown.map((key) => "'$key'").join(', ')}. Valid options: $valid.',
       );
     }
 
@@ -237,7 +238,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
       final other => _wrong('$at.glob', 'a glob or a list of globs', other),
     };
     try {
-      return EntryPoint.fromConfig(name, files: files);
+      return .fromConfig(name, files: files);
     } on FormatException catch (e) {
       // The glob package's error carries the glob as its source; name it.
       final about = e.source is String ? "glob '${e.source}': " : '';

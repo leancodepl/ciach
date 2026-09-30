@@ -16,14 +16,21 @@ import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/concurrency.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/file_discovery.dart';
+import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
+import 'package:ciach/src/plural.dart';
+import 'package:ciach/src/problems.dart';
 import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/reference_fetch.dart';
 import 'package:ciach/src/settler.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/verdict.dart';
+
+final _log = Logger('ciach.finder');
+
+const _unreadableFile = 'Could not read these files; skipped.';
 
 /// Finds declarations that are never referenced by driving the Dart analysis
 /// server over LSP.
@@ -77,14 +84,17 @@ class Ciach {
     ),
   );
 
-  void _report(String message) => options.onProgress?.call(message);
-
   /// Runs the analysis and returns the declarations that are never referenced.
   ///
   /// Throws an [ArgumentError] if [FinderOptions.analysisRootPath] does not
   /// contain [FinderOptions.rootPath]; widening to a directory beside the
   /// scanned one would drop references rather than add them.
-  Future<FinderResult> run() async {
+  Future<FinderResult> run() {
+    final problems = ProblemCollector(options.rootPath);
+    return problems.collect(() => _run(problems));
+  }
+
+  Future<FinderResult> _run(ProblemCollector problems) async {
     final stopwatch = Stopwatch()..start();
     final rootPath = options.rootPath;
     final analysisRoot = options.analysisRootPath ?? rootPath;
@@ -98,7 +108,9 @@ class Ciach {
 
     final discovered = discoverDartFilesSplit(options);
     final files = discovered.candidates;
-    _report('Discovered ${files.length} Dart file(s) to scan.');
+    _log.info(
+      'Discovered ${plural(files.length, 'Dart file', 'Dart files')} to scan.',
+    );
 
     if (files.isEmpty) {
       return .new(
@@ -110,7 +122,7 @@ class Ciach {
       );
     }
 
-    _report('Starting Dart analysis server…');
+    _log.info('Starting Dart analysis server…');
     final client = await LspClient.start(
       dartExecutable: options.dartExecutable,
     );
@@ -119,46 +131,54 @@ class Ciach {
     final int declarationsChecked;
     try {
       if (analysisRoot != rootPath) {
-        _report(
+        _log.config(
           'Analyzing within $analysisRoot: references outside the scanned '
           'package count.',
         );
       }
       await client.initialize(Directory(analysisRoot).uri);
-      _report('Waiting for initial analysis to complete…');
+      _log.info('Waiting for initial analysis to complete…');
       await client.waitForAnalysisComplete();
 
       // Phase 0: open every file first, so the server analyzes them in one
       // pass and keeps them resident. Generated files are opened so references
       // into them resolve, but no candidates are collected from them.
-      _report('Opening ${files.length + discovered.warmOnly.length} file(s)…');
+      _log.info(
+        'Opening ${plural(files.length + discovered.warmOnly.length, 'file', 'files')}…',
+      );
       final opened = <String>{
         for (final path in [...discovered.warmOnly, ...files])
           if (_openFile(client, path)) path,
       };
 
       // Phase 1: collect candidate declarations, concurrently.
-      _report('Collecting declarations from ${files.length} file(s)…');
+      _log.info(
+        'Collecting declarations from ${plural(files.length, 'file', 'files')}…',
+      );
       final perFile = await mapPooled(
         files,
         options.concurrency,
         (path) => opened.contains(path)
             ? _collector.collect(client, path, rootPath)
-            : Future.value(const <Candidate>[]),
+            : .value(const <Candidate>[]),
       );
-      final candidates = [for (final list in perFile) ...list];
-      declarationsChecked = candidates.length;
+      final collected = [for (final list in perFile) ...list];
       _collector.reportSkipped();
 
       // Phase 2: check references for every candidate through a single global
       // pool, so the server stays saturated instead of stalling between files.
-      _report('Checking references for $declarationsChecked declaration(s)…');
-      final refsByCandidate = await _fetch.references(
+      _log.info(
+        'Checking references for ${plural(collected.length, 'declaration', 'declarations')}…',
+      );
+      final fetched = await _fetch.references(
         client,
-        candidates,
+        collected,
         totalFiles: files.length,
         rootPath: rootPath,
       );
+      final candidates = fetched.checked;
+      final refsByCandidate = fetched.refs;
+      declarationsChecked = candidates.length;
       await _fetch.semanticTokensFor(client, refsByCandidate);
       await _fetch.selectionRanges(client, candidates, refsByCandidate);
 
@@ -183,13 +203,17 @@ class Ciach {
       declarationsChecked: declarationsChecked,
       elapsed: stopwatch.elapsed,
       recoveredReferences: settled.recovered,
+      problems: problems.problems,
     );
   }
 
   /// Opens [path] in the server. `false` if the file cannot be read.
   bool _openFile(LspClient client, String path) {
-    final content = SourceIndex.readFile(path);
-    if (content == null) {
+    final String content;
+    try {
+      content = File(path).readAsStringSync();
+    } on FileSystemException catch (e) {
+      recordProblem(_unreadableFile, e, path: path);
       return false;
     }
     client.didOpen(File(path).uri, content);

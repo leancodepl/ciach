@@ -38,7 +38,7 @@ class FreezedUnions {
           (t) =>
               t.isAnnotationNamed('freezed') || t.isAnnotationNamed('Freezed'),
         )) {
-      _annotatedClasses.add(DeclKey(path, symbol.name));
+      _annotatedClasses.add(.new(path, symbol.name));
     }
   }
 

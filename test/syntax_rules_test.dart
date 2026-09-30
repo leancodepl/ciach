@@ -18,9 +18,9 @@ void main() {
   late SourceIndex sources;
 
   setUp(() {
-    tempDir = Directory.systemTemp.createTempSync('ciach_syntax_test_');
+    tempDir = .systemTemp.createTempSync('ciach_syntax_test_');
     path = p.join(tempDir.path, 'a.dart');
-    sources = SourceIndex();
+    sources = .new();
   });
 
   tearDown(() {
@@ -28,16 +28,16 @@ void main() {
   });
 
   Position at(int line, int character) =>
-      Position(line: line, character: character);
+      .new(line: line, character: character);
 
   Range range(int l1, int c1, int l2, int c2) =>
-      Range(start: at(l1, c1), end: at(l2, c2));
+      .new(start: at(l1, c1), end: at(l2, c2));
 
   /// A chain of nodes, innermost first.
   SelectionRange chain(List<Range> ranges) {
     SelectionRange? node;
     for (final r in ranges.reversed) {
-      node = SelectionRange(range: r, parent: node);
+      node = .new(range: r, parent: node);
     }
     return node!;
   }
@@ -48,7 +48,7 @@ void main() {
     String text,
     String type, {
     Set<String> modifiers = const {},
-  }) => SemanticToken(
+  }) => .new(
     line: line,
     character: character,
     length: text.length,
@@ -72,9 +72,9 @@ void main() {
     }
   }
 
-  Location ref(int line, int character, int length) => Location(
+  Location ref(int line, int character, int length) => .new(
     uri: File(path).uri.toString(),
-    range: Range(start: at(line, character), end: at(line, character + length)),
+    range: .new(start: at(line, character), end: at(line, character + length)),
   );
 
   group('isPatternRef', () {
@@ -164,16 +164,16 @@ enum Color {
     Candidate enumCandidate() {
       final symbol = DocumentSymbol(
         name: 'Color',
-        kind: SymbolKind.enum$,
+        kind: .enum$,
         range: range(0, 0, 4, 1),
         selectionRange: range(0, 5, 0, 10),
       );
-      return Candidate(
+      return .new(
         uri: File(path).uri,
         path: path,
         symbol: symbol,
-        outline: Outline(
-          element: const OutlineElement(kind: .enum$, name: 'Color'),
+        outline: .new(
+          element: const .new(kind: .enum$, name: 'Color'),
           range: range(0, 0, 4, 1),
           codeRange: range(0, 0, 4, 1),
           children: const [],
@@ -252,17 +252,17 @@ class Foo {
       Range codeRange,
       Range nameRange, {
       Range? fullRange,
-    }) => Candidate(
+    }) => .new(
       uri: File(path).uri,
       path: path,
-      symbol: DocumentSymbol(
+      symbol: .new(
         name: name,
-        kind: SymbolKind.constructor,
+        kind: .constructor,
         range: codeRange,
         selectionRange: nameRange,
       ),
-      outline: Outline(
-        element: OutlineElement(kind: .constructor, name: name),
+      outline: .new(
+        element: .new(kind: .constructor, name: name),
         range: fullRange ?? codeRange,
         codeRange: codeRange,
         children: const [],
@@ -302,7 +302,7 @@ class Point(var int x) {
 ''';
     final classRange = range(0, 0, 2, 1);
     final classOutline = Outline(
-      element: const OutlineElement(kind: .class$, name: 'Point'),
+      element: const .new(kind: .class$, name: 'Point'),
       range: classRange,
       codeRange: classRange,
       children: const [],
@@ -319,34 +319,33 @@ class Point(var int x) {
       at(1, 10): chain([range(1, 2, 1, 19), range(0, 23, 2, 1), classRange]),
     };
 
-    Candidate member(String name, SymbolKind kind, Range nameRange) =>
-        Candidate(
-          uri: File(path).uri,
-          path: path,
-          symbol: DocumentSymbol(
-            name: name,
-            kind: kind,
-            range: nameRange,
-            selectionRange: nameRange,
-          ),
-          outline: Outline(
-            element: OutlineElement(kind: .field, name: name),
-            range: nameRange,
-            codeRange: nameRange,
-            children: const [],
-          ),
-          container: 'Point',
-          containerOutline: classOutline,
-          isEnumValue: false,
-          isPreventInstantiationCtor: false,
-        );
+    Candidate member(String name, SymbolKind kind, Range nameRange) => .new(
+      uri: File(path).uri,
+      path: path,
+      symbol: .new(
+        name: name,
+        kind: kind,
+        range: nameRange,
+        selectionRange: nameRange,
+      ),
+      outline: .new(
+        element: .new(kind: .field, name: name),
+        range: nameRange,
+        codeRange: nameRange,
+        children: const [],
+      ),
+      container: 'Point',
+      containerOutline: classOutline,
+      isEnumValue: false,
+      isPreventInstantiationCtor: false,
+    );
 
     setUp(() => load(source, const [], nodes));
 
     test('a declaring parameter is in the header', () {
       expect(
         sources.isDeclaredInTypeHeader(
-          member('x', SymbolKind.field, range(0, 20, 0, 21)),
+          member('x', .field, range(0, 20, 0, 21)),
         ),
         isTrue,
       );
@@ -355,13 +354,13 @@ class Point(var int x) {
     test('a body member is not, nor is one without nodes', () {
       expect(
         sources.isDeclaredInTypeHeader(
-          member('sum', SymbolKind.property, range(1, 10, 1, 13)),
+          member('sum', .property, range(1, 10, 1, 13)),
         ),
         isFalse,
       );
       expect(
         sources.isDeclaredInTypeHeader(
-          member('other', SymbolKind.property, range(1, 14, 1, 15)),
+          member('other', .property, range(1, 14, 1, 15)),
         ),
         isFalse,
       );

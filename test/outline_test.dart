@@ -81,7 +81,7 @@ void main() {
 
   group('OutlineElement.isUnnamedExtension', () {
     OutlineElement element(String kind, String name) =>
-        OutlineElement(kind: OutlineKind.fromWire(kind), name: name);
+        .new(kind: .fromWire(kind), name: name);
 
     test('recognizes the name the server synthesizes', () {
       expect(

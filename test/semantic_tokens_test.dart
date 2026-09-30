@@ -5,7 +5,7 @@ import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/reference_kinds.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show Location, Position, Range;
+import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 import 'package:test/test.dart';
 
 /// The legend the Dart server sends.
@@ -120,15 +120,15 @@ void f() {}
       expect(tokens.firstOnLine(1)?.text, '@');
       expect(tokens.firstOnLine(7), isNull);
       expect(
-        tokens.startingAt(const Position(line: 0, character: 13))?.text,
+        tokens.startingAt(const .new(line: 0, character: 13))?.text,
         'Foo',
       );
-      expect(tokens.startingAt(const Position(line: 0, character: 14)), isNull);
+      expect(tokens.startingAt(const .new(line: 0, character: 14)), isNull);
       expect(
         tokens
             .between(
-              const Position(line: 0, character: 0),
-              const Position(line: 2, character: 0),
+              const .new(line: 0, character: 0),
+              const .new(line: 2, character: 0),
             )
             .map((t) => t.text),
         ['/// Doc for [', 'Foo', '].', '@', 'override'],
@@ -142,10 +142,10 @@ void f() {}
     late SourceIndex sources;
 
     setUp(() {
-      tempDir = Directory.systemTemp.createTempSync('ciach_tokens_test_');
+      tempDir = .systemTemp.createTempSync('ciach_tokens_test_');
       path = p.join(tempDir.path, 'a.dart');
       File(path).writeAsStringSync(source);
-      sources = SourceIndex()
+      sources = .new()
         ..cacheLines(path, lines)
         ..cacheSemanticTokens(path, decodeSemanticTokens(data, legend, lines));
     });
@@ -154,11 +154,11 @@ void f() {}
       tempDir.deleteSync(recursive: true);
     });
 
-    Location at(int line, int character) => Location(
+    Location at(int line, int character) => .new(
       uri: File(path).uri.toString(),
-      range: Range(
-        start: Position(line: line, character: character),
-        end: Position(line: line, character: character + 1),
+      range: .new(
+        start: .new(line: line, character: character),
+        end: .new(line: line, character: character + 1),
       ),
     );
 
@@ -172,11 +172,11 @@ void f() {}
       File(other).writeAsStringSync('/// [Foo]\n');
       expect(
         sources.isDocReference(
-          Location(
+          .new(
             uri: File(other).uri.toString(),
-            range: const Range(
-              start: Position(line: 0, character: 5),
-              end: Position(line: 0, character: 8),
+            range: const .new(
+              start: .new(line: 0, character: 5),
+              end: .new(line: 0, character: 8),
             ),
           ),
         ),

@@ -15,7 +15,7 @@ lib/orphans.dart
   22:7  class        FullyDeadClass  (public)
   31:3  constructor  ReferencedAsTypeOnly.new  (public)
 
-Found 4 unused declarations in 1 file (scanned 1 file, 6 declarations, 0.7s).''';
+Found 4 unused declarations in 1 file (scanned 1 file, 6 declarations, 0.7s)''';
 
 const _jsonOutput = '''
 {
@@ -37,7 +37,9 @@ const _jsonOutput = '''
       "isPrivate": false
     }
   ],
-  "docOnly": []
+  "docOnly": [],
+  "warnings": [],
+  "problems": []
 }''';
 
 const _githubOutput = '''
@@ -106,8 +108,8 @@ class OutputFormats extends StatelessComponent {
         radius: .circular(999.px),
         cursor: .pointer,
         transition: .combine([
-          Transition('background-color', duration: 150.ms, curve: .ease),
-          Transition('color', duration: 150.ms, curve: .ease),
+          .new('background-color', duration: 150.ms, curve: .ease),
+          .new('color', duration: 150.ms, curve: .ease),
         ]),
         color: text2Color,
       ),
@@ -136,10 +138,10 @@ class OutputFormats extends StatelessComponent {
             "[for='format-$id']",
       ),
     ).styles(
-      outline: Outline(
+      outline: .new(
         color: accentColor,
         style: .solid,
-        width: OutlineWidth(2.px),
+        width: .new(2.px),
         offset: 2.px,
       ),
     ),
