@@ -92,6 +92,10 @@ const _options = [
         'package. What is scanned and removed is unchanged.',
   ),
   (
+    '--transitive',
+    'Also report what only other findings reference, in the same run.',
+  ),
+  (
     '--overrides, --operators, --generated, --report-tojson',
     'Opt back into a '
         'category skipped by default.',

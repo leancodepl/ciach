@@ -192,6 +192,29 @@ void main() {
       expect(out, contains('  3:5  function  foo  (public)\n'));
     });
 
+    test('separates recovered references by file, like findings', () {
+      final out = Reporter.text(
+        resultWith(
+          const [],
+          recoveredReferences: [
+            warning(),
+            warning(name: 'qux', filePath: 'lib/c.dart', line: 12),
+          ],
+        ),
+      );
+      expect(
+        out,
+        contains(
+          'lib/a.dart\n'
+          '  4:7  A.baz  used at lib/b.dart:9:2\n'
+          '\n'
+          'lib/c.dart\n'
+          '  12:7  A.qux  used at lib/b.dart:9:2\n'
+          '\n',
+        ),
+      );
+    });
+
     test('lists doc-only findings in a separate, labeled section', () {
       final out = Reporter.text(
         resultWith(

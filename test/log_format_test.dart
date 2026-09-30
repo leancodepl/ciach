@@ -66,6 +66,16 @@ void main() {
     );
   });
 
+  test('verbose lines up continuation lines under the message', () {
+    const verbose = LogFormatter(verbose: true);
+    expect(
+      verbose.line(record(.WARNING, 'first\n\nsecond'), elapsed),
+      '[  1.2s] [finder]  warning: first\n'
+      '\n'
+      '                   second\n',
+    );
+  });
+
   test('the progress line is dim', () {
     expect(styled.progress('Opening'), '\x1b[2mOpening\x1b[22m');
   });

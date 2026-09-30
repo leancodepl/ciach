@@ -168,8 +168,8 @@ abstract final class Reporter {
           '${r.usageColumn}')}',
         );
       }
+      buffer.writeln();
     }
-    buffer.writeln();
   }
 
   /// [problems] grouped by summary, cause, then file.

@@ -14,6 +14,9 @@ final class LogFormatter {
   /// Fits `[remover]`, the longest area.
   static const _areaWidth = 9;
 
+  /// The visible width of [_prefix]: `[  1.2s] [finder]  `.
+  static const _prefixWidth = 8 + 1 + _areaWidth + 1;
+
   /// [record] as a line, newline-terminated.
   String line(LogRecord record, Duration elapsed) {
     final message = record.message;
@@ -32,7 +35,17 @@ final class LogFormatter {
       >= .CONFIG => style.configuration(message),
       _ => style.detail(message),
     };
-    return '${verbose ? _prefix(record, elapsed) : ''}$text\n';
+    if (!verbose) {
+      return '$text\n';
+    }
+    // Continuation lines start under the message, not the timestamp.
+    final [first, ...rest] = text.split('\n');
+    final indent = ' ' * _prefixWidth;
+    return [
+      '${_prefix(record, elapsed)}$first',
+      for (final line in rest)
+        if (line.isEmpty) line else '$indent$line',
+    ].map((line) => '$line\n').join();
   }
 
   /// [message] styled for the progress line.
