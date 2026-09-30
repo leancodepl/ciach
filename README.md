@@ -39,11 +39,8 @@ Install it globally, as a native `ciach` binary you can run from anywhere:
 dart install ciach
 ```
 
-`dart install` (Dart 3.10+) prints where the binary went; make sure that
-directory is on your `PATH`. Run the same command again to update, and
-`dart uninstall ciach` to remove it. A compiled `ciach` runs the analysis
-server with the `dart` on your `PATH` (an fvm or Flutter `dart` works too);
-`--dart <path>` picks a different one.
+A compiled `ciach` runs the analysis server with the `dart` on your `PATH` (an
+fvm or Flutter `dart` works too); `--dart <path>` picks a different one.
 
 `dart pub global activate ciach` still works too, for a JIT-compiled `ciach` in
 `~/.pub-cache/bin`.
