@@ -17,6 +17,7 @@ import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/finder.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
+import 'package:ciach/src/remover.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
@@ -52,6 +53,7 @@ void main() {
     List<String> exclude = const ['lib/scenarios/**'],
     List<String> include = const [],
     List<EntryPoint> entryPoints = const [],
+    bool transitive = false,
   }) => Ciach(
     .new(
       rootPath: fixturePath,
@@ -62,6 +64,7 @@ void main() {
       excludeGlobs: exclude,
       includeGlobs: include,
       entryPoints: entryPoints,
+      transitive: transitive,
     ),
   ).run();
 
@@ -381,6 +384,14 @@ void main() {
       expect(names, isNot(contains('Turbine.prime')));
     });
 
+    test('a call to an override keeps the member it overrides', () async {
+      // Why an override needs no reference check of its own: the server
+      // answers every member of an override family with the same references.
+      final names = (await runOverrides()).unused.map((d) => d.qualifiedName);
+      expect(names, isNot(contains('Faucet.drip')));
+      expect(names, isNot(contains('Tap.drip')));
+    });
+
     test('couples an override that lives in another file', () async {
       final close = finding(await runOverrides(), 'Valve.close');
       expect(close.removalBlocked, isFalse);
@@ -543,6 +554,19 @@ void main() {
     });
   });
 
+  test('a reference from inside its own span keeps nothing alive', () async {
+    // `_countdown` and `Walker._depth` only call themselves, and `Chain` is
+    // named only by its own field. `factorial` and `Walker._step` call
+    // themselves as well, but something else calls them, so they stay.
+    expect(
+      await findUnused(
+        include: ['lib/scenarios/self_references.dart'],
+        exclude: const [],
+      ),
+      {'_countdown', 'Walker._depth', 'Chain', 'Chain.next'},
+    );
+  });
+
   group('remove-safety guards', () {
     // Scan only the guard fixture; its declarations are self-contained (kept
     // alive by in-file type references), so no cross-file setup is needed.
@@ -614,6 +638,157 @@ void main() {
           isFalse,
           reason: 'no final fields and no super forwarding',
         );
+      },
+    );
+  });
+
+  group('transitive (opt-in --transitive)', () {
+    const fixture = ['lib/scenarios/transitive.dart'];
+
+    Future<FinderResult> runTransitive({bool transitive = true}) =>
+        runFinder(include: fixture, exclude: const [], transitive: transitive);
+
+    Set<String> names(Iterable<UnusedDeclaration> decls) =>
+        decls.map((d) => d.qualifiedName).toSet();
+
+    DeadReferrer asOwner(FinderResult result, String qualified) {
+      final decl = findByQualified(result, qualified)!;
+      return (
+        qualifiedName: decl.qualifiedName,
+        filePath: decl.filePath,
+        line: decl.line,
+      );
+    }
+
+    test('flag OFF: only what nothing references is reported', () async {
+      final result = await runTransitive(transitive: false);
+      expect(names(result.unused), {
+        '_deadRoot',
+        '_secondDeadRoot',
+        'Lone.only',
+        'Token.fromJson',
+      });
+      expect(names(result.docOnly), {'_docLinkedFromDead'});
+      expect(
+        result.unused.map((d) => d.onlyReferencedFrom),
+        everyElement(isEmpty),
+      );
+    });
+
+    test('flag ON: what only dead code referenced is reported too, each '
+        'naming the finding it hangs on', () async {
+      final result = await runTransitive();
+      expect(names(result.unused), {
+        '_deadRoot',
+        '_secondDeadRoot',
+        'Lone.only',
+        '_onlyFromDeadRoot',
+        '_deeper',
+        '_sharedByDeadRoots',
+        '_docLinkedFromDead',
+        '_DeadHolder',
+        'Odometer._deadReading',
+        'Odometer._scale',
+        'Token.fromJson',
+        'Token.new',
+      });
+      expect(names(result.docOnly), isEmpty);
+
+      List<DeadReferrer> via(String name) =>
+          findByQualified(result, name)!.onlyReferencedFrom;
+      expect(via('_deadRoot'), isEmpty, reason: 'dead in its own right');
+      expect(via('Lone.only'), isEmpty);
+      expect(via('_onlyFromDeadRoot'), [asOwner(result, '_deadRoot')]);
+      expect(via('_deeper'), [asOwner(result, '_onlyFromDeadRoot')]);
+      expect(via('_docLinkedFromDead'), [asOwner(result, '_deadRoot')]);
+      expect(via('_DeadHolder'), [asOwner(result, '_deadRoot')]);
+      expect(via('Odometer._deadReading'), [asOwner(result, '_deadRoot')]);
+      expect(via('Odometer._scale'), [
+        asOwner(result, 'Odometer._deadReading'),
+      ]);
+      // Referenced from two dead declarations: both are named, in source
+      // order, not just whichever reference the server reported first.
+      expect(via('_sharedByDeadRoots'), [
+        asOwner(result, '_deadRoot'),
+        asOwner(result, '_secondDeadRoot'),
+      ]);
+    });
+
+    test('flag ON: a finding a group guard would block later stays '
+        'removable, and the rounds settle', () async {
+      final messages = <String>[];
+      final logging = Logger.root.onRecord
+          .where((r) => r.loggerName == 'ciach.finder')
+          .listen((r) => messages.add(r.message));
+      addTearDown(logging.cancel);
+      final result = await runFinder(
+        include: fixture,
+        exclude: const [],
+        transitive: true,
+      );
+      expect(messages, isNot(contains(startsWith('Stopping after'))));
+      // Removable in round one, while `Token.new` was still used.
+      expect(
+        findByQualified(result, 'Token.fromJson')!.removalBlocked,
+        isFalse,
+      );
+      // Dead once `fromJson` is, but the last constructor of a live class with
+      // a final field, so it stays.
+      final ctor = findByQualified(result, 'Token.new')!;
+      expect(ctor.removalBlocked, isTrue);
+      expect(ctor.onlyReferencedFrom, [asOwner(result, 'Token.fromJson')]);
+    });
+
+    test("flag ON: a dead class's members go with it, unreported", () async {
+      final result = await runTransitive();
+      final holder = findByQualified(result, '_DeadHolder');
+      expect(holder, isNotNull);
+      expect(holder!.kind, SymbolKind.class$);
+      expect(holder.removalBlocked, isFalse);
+      for (final member in ['_', 'make', 'value', '_seed']) {
+        expect(
+          findByQualified(result, '_DeadHolder.$member'),
+          isNull,
+          reason: '$member is removed with the class',
+        );
+      }
+    });
+
+    test('flag ON: a report-only finding stays, and keeps what it alone '
+        'references', () async {
+      final result = await runTransitive();
+      final only = findByQualified(result, 'Lone.only');
+      expect(only, isNotNull);
+      expect(only!.removalBlocked, isTrue, reason: 'would empty the enum');
+      expect(findByQualified(result, '_loneArg'), isNull);
+    });
+
+    test('flag ON: a cycle keeps itself alive, and a live anchor keeps its '
+        'chain', () async {
+      final result = await runTransitive();
+      expect(findByQualified(result, '_ping'), isNull);
+      expect(findByQualified(result, '_pong'), isNull);
+      expect(findByQualified(result, 'transitiveAnchor'), isNull);
+      expect(findByQualified(result, '_usedByLive'), isNull);
+    });
+
+    test(
+      'flag ON: after --remove, a second run has nothing left to remove',
+      () async {
+        final copy = Directory.systemTemp.createTempSync('ciach_transitive_');
+        addTearDown(() => copy.deleteSync(recursive: true));
+        copyTree(Directory(fixturePath), copy);
+        Future<FinderResult> run() => Ciach(
+          .new(rootPath: copy.path, includeGlobs: fixture, transitive: true),
+        ).run();
+
+        final first = await run();
+        expect(first.unused.where((d) => !d.removalBlocked), isNotEmpty);
+        removeDeclarations(first.unused, copy.path);
+
+        final second = await run();
+        expect(names(second.unused.where((d) => !d.removalBlocked)), isEmpty);
+        expect(names(second.docOnly), isEmpty);
       },
     );
   });
@@ -931,6 +1106,7 @@ void main() {
         'lib/scenarios/xref_event.dart',
         'lib/scenarios/xref_analytics.dart',
         'lib/scenarios/xref_uses.dart',
+        'lib/scenarios/xref_surface.dart',
       ],
       exclude: const [],
     );
@@ -958,6 +1134,18 @@ void main() {
         expect(await runXref(), isNot(contains('XrefEvent.signOut')));
       },
     );
+
+    test('a member used only through an override from a file that does not '
+        'import it is not flagged', () async {
+      final result = await runXrefResult();
+      final names = result.unused.map((d) => d.qualifiedName).toSet();
+      expect(names, isNot(contains('XrefSurface.glossy')));
+      expect(names, contains('XrefSurface.matte'));
+      final glossy = result.recoveredReferences.firstWhere(
+        (w) => w.qualifiedName == 'XrefSurface.glossy',
+      );
+      expect(glossy.usageFilePath, endsWith('xref_uses.dart'));
+    });
 
     test('a normally-referenced enum value is not flagged', () async {
       expect(await runXref(), isNot(contains('XrefEvent.signIn')));
@@ -1445,4 +1633,18 @@ void main() {
       expect(names, isNot(contains('liveByRealPragma')));
     });
   });
+}
+
+/// Copies [from] into [to], `.dart_tool` included.
+void copyTree(Directory from, Directory to) {
+  for (final entity in from.listSync(recursive: true, followLinks: false)) {
+    final relative = p.relative(entity.path, from: from.path);
+    final target = p.join(to.path, relative);
+    if (entity is Directory) {
+      Directory(target).createSync(recursive: true);
+    } else if (entity is File) {
+      File(target).parent.createSync(recursive: true);
+      entity.copySync(target);
+    }
+  }
 }

@@ -6,7 +6,9 @@ import 'package:sample_pkg/private_ctors.dart';
 import 'package:sample_pkg/scenarios/freezed_unions.dart';
 import 'package:sample_pkg/scenarios/overrides.dart';
 import 'package:sample_pkg/scenarios/overrides_impl.dart';
+import 'package:sample_pkg/scenarios/self_references.dart';
 import 'package:sample_pkg/scenarios/serialization.dart';
+import 'package:sample_pkg/scenarios/transitive.dart';
 import 'package:sample_pkg/scenarios/unions.dart';
 import 'package:sample_pkg/scenarios/widgets.dart';
 import 'package:sample_pkg/shapes.dart';
@@ -19,6 +21,8 @@ void main() {
   print(user.nickname);
   registerHandlers();
   print(usedConstant);
+  print(factorial(5));
+  print(Walker().walk(3));
   visitCount += 1;
 
   // Dog is instantiated (so both classes are used), but sound() is never
@@ -37,10 +41,11 @@ void main() {
   print(const LiveWidget());
 
   // Keeps the override-scenario types alive, so only their members are dead:
-  // `start()` is called through Pump, `prime()` never is, and `Mixed.live` is
-  // read while `Mixed.dead` is not.
+  // `start()` is called through Pump, `prime()` never is, `drip()` only
+  // through Tap, and `Mixed.live` is read while `Mixed.dead` is not.
   final Pump pump = Turbine();
   pump.start();
+  Tap().drip();
   print([Dial(), Spigot(), const Meter(1), Pair()]);
   print(Mixed().live);
 
@@ -77,4 +82,12 @@ void main() {
 
   // Keeps the serialization types alive without calling their fromJson/toJson.
   print(buildSerializable());
+
+  // Live anchors of the transitive scenario.
+  transitiveAnchor();
+  print(Odometer().live());
+  const Lone? lone = null;
+  print(lone?.arg);
+  const Token? token = null;
+  print(token?.value);
 }

@@ -211,6 +211,17 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'a type pattern keeps the class alive.',
     ),
   ),
+  transitive(
+    FlagOption(
+      argName: 'transitive',
+      configKey: '/transitive',
+      defaultsTo: false,
+      helpText:
+          'Also report declarations referenced only from other findings,\n'
+          'repeating until nothing new is found. Off by default, because one\n'
+          'false positive also flags everything only it referenced.',
+    ),
+  ),
   reportToJson(
     FlagOption(
       argName: 'report-tojson',

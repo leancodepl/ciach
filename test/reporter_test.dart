@@ -77,6 +77,9 @@ void main() {
     int column = 5,
     bool isPrivate = false,
     String? container,
+    bool removalBlocked = false,
+    String? hint,
+    List<DeadReferrer> onlyReferencedFrom = const [],
   }) => .new(
     name: name,
     kind: kind,
@@ -85,6 +88,9 @@ void main() {
     column: column,
     isPrivate: isPrivate,
     container: container,
+    removalBlocked: removalBlocked,
+    hint: hint,
+    onlyReferencedFrom: onlyReferencedFrom,
     range: (
       startLine: line - 1,
       startColumn: column - 1,
@@ -156,7 +162,36 @@ void main() {
     });
   });
 
+  const root = (qualifiedName: '_root', filePath: 'lib/a.dart', line: 1);
+  const other = (qualifiedName: '_other', filePath: 'lib/b.dart', line: 7);
+
   group('Reporter.text', () {
+    test('separates columns and notes with two spaces', () {
+      final out = Reporter.text(
+        resultWith([
+          decl(
+            removalBlocked: true,
+            hint: 'a hint',
+            onlyReferencedFrom: [root, other],
+          ),
+        ]),
+      );
+      expect(
+        out,
+        contains(
+          '  3:5  function  foo  (public)'
+          '  (unsafe to auto-remove — remove manually)'
+          '  (a hint)'
+          '  (only referenced from dead _root (lib/a.dart:1) and 1 more)\n',
+        ),
+      );
+    });
+
+    test('adds nothing after the visibility of a plain finding', () {
+      final out = Reporter.text(resultWith([decl()]));
+      expect(out, contains('  3:5  function  foo  (public)\n'));
+    });
+
     test('lists doc-only findings in a separate, labeled section', () {
       final out = Reporter.text(
         resultWith(
@@ -179,6 +214,38 @@ void main() {
         expect(out, isNot(contains('doc comment')));
       },
     );
+  });
+
+  test('Reporter.github joins the hint and the dead referrer with dashes', () {
+    final out = Reporter.github(
+      resultWith([
+        decl(hint: 'a hint', onlyReferencedFrom: [root]),
+      ]),
+    );
+    expect(
+      out,
+      contains(
+        "::Unused function 'foo' — a hint — "
+        'only referenced from dead _root (lib/a.dart:1)',
+      ),
+    );
+  });
+
+  test('Reporter.json lists every dead referrer', () {
+    final json =
+        jsonDecode(
+              Reporter.json(
+                resultWith([
+                  decl(onlyReferencedFrom: [root, other]),
+                ]),
+              ),
+            )
+            as Map<String, Object?>;
+    final unused = json['unused']! as List<Object?>;
+    expect((unused.single! as Map)['onlyReferencedFrom'], [
+      {'qualifiedName': '_root', 'file': 'lib/a.dart', 'line': 1},
+      {'qualifiedName': '_other', 'file': 'lib/b.dart', 'line': 7},
+    ]);
   });
 
   group('Reporter.json', () {

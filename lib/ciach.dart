@@ -37,6 +37,7 @@ export 'src/models.dart'
     show
         AnalysisProblem,
         CoupledRemoval,
+        DeadReferrer,
         DeclarationRange,
         DeletedFile,
         FinderOptions,

@@ -35,7 +35,7 @@ class SourceIndex {
   static String? readFile(String path) {
     try {
       return File(path).readAsStringSync();
-    } on Object {
+    } on FileSystemException {
       return null;
     }
   }

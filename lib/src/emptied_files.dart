@@ -127,7 +127,7 @@ final class _Package {
     String? read;
     try {
       read = File(path).readAsStringSync();
-    } on Object {
+    } on FileSystemException {
       read = null;
     }
     return _contents[path] = read;
@@ -250,7 +250,7 @@ String? _pubspecName(String pubspecPath) {
     return _pubspecNameLine
         .firstMatch(File(pubspecPath).readAsStringSync())
         ?.group(1);
-  } on Object {
+  } on FileSystemException {
     return null;
   }
 }
