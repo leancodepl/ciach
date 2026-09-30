@@ -1,11 +1,9 @@
-// Recovery fixture: members used only through an override. Expected findings
-// are asserted by test/finder_test.dart; keep in sync.
+// Recovery fixture, asserted by test/finder_test.dart.
 
 abstract class XrefSurface {
-  // Used only through `XrefGlossy` from a file that doesn't import this one
-  // -> confirmed used, NOT flagged.
+  // Used only via `XrefGlossy` in xref_uses.dart -> NOT flagged.
   bool get glossy;
 
-  // Only overridden, never used -> flagged.
+  // Never used -> flagged.
   bool get matte;
 }

@@ -92,8 +92,7 @@ class CrossLibraryReferences {
     });
 
     final usageByDecl = <_DeclPosition, _Site>{};
-    // Uses that resolve to a declaration that is not a candidate, such as an
-    // override of one, by the name spelled at the use.
+    // Uses resolving to a non-candidate (e.g. an override), by name.
     final elsewhere = <String, Map<_DeclPosition, _Site>>{};
     for (var i = 0; i < sites.length; i++) {
       final site = (uri: sites[i].uri, position: sites[i].position);
@@ -105,7 +104,7 @@ class CrossLibraryReferences {
             usageByDecl.putIfAbsent(pos, () => site);
           }
         } else if (pos != _positionOfSite(site)) {
-          // A non-candidate declaration's own name resolves to itself.
+          // Skip a declaration's own name.
           elsewhere
               .putIfAbsent(sites[i].name, () => {})
               .putIfAbsent(pos, () => site);
@@ -122,11 +121,7 @@ class CrossLibraryReferences {
     return CrossLibraryReferences._(usageByDecl);
   }
 
-  /// A use typed as an override resolves to the override, which is not a
-  /// candidate, while the member it overrides can get no references at all
-  /// (the same SDK gap, and the server answers a member for its whole override
-  /// family). Such a use keeps the member alive: it is found among the
-  /// member's implementations.
+  /// A use resolving to an override keeps the member it overrides alive.
   static Future<void> _recoverThroughOverrides({
     required LspClient client,
     required List<Candidate> candidates,
