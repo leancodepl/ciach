@@ -33,7 +33,7 @@ const _docOnly = '''
 lib/greeting.dart
   15:6  function  danglingFunction  (public)
 
-Referenced only from doc comments — not counted as unused, never removed:
+Referenced only from doc comments (1) · not counted, never removed
 lib/greeting.dart
   40:6  function  docOnlyMentioned  (public)''';
 
@@ -683,7 +683,8 @@ class DocsPage extends StatelessComponent {
                   .text(
                     '. Options mirror the flags; the result carries every '
                     'finding with file, line, kind and qualified name, and '
-                    'doc-only findings in their own list.',
+                    'doc-only findings in their own list. The run logs '
+                    'through package:logging under ciach.*.',
                   ),
                 ]),
                 CodeBlock(

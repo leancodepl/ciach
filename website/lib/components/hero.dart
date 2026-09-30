@@ -19,7 +19,7 @@ lib/orphans.dart
   22:7  class        FullyDeadClass  (public)
   31:3  constructor  ReferencedAsTypeOnly.new  (public)
 
-Found 5 unused declarations in 2 files (scanned 13 files, 44 declarations, 0.5s).''';
+Found 5 unused declarations in 2 files (scanned 13 files, 44 declarations, 0.5s)''';
 
 class Hero extends StatelessComponent {
   const Hero({required this.version, super.key});

@@ -12,7 +12,7 @@ lib/orphans.dart
   22:7  class        FullyDeadClass  (public)
   31:3  constructor  ReferencedAsTypeOnly.new  (public)
 
-Found 4 unused declarations in 1 file (scanned 1 file, 6 declarations, 0.7s).''';
+Found 4 unused declarations in 1 file (scanned 1 file, 6 declarations, 0.7s)''';
 
 const _jsonOutput = '''
 {
@@ -34,7 +34,9 @@ const _jsonOutput = '''
       "isPrivate": false
     }
   ],
-  "docOnly": []
+  "docOnly": [],
+  "warnings": [],
+  "problems": []
 }''';
 
 const _githubOutput = '''

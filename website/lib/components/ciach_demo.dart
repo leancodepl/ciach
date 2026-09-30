@@ -33,7 +33,7 @@ lib/greeting.dart
   16:7  class     UnusedClass  (public)
   17:8  method    UnusedClass.orphanMethod  (public)
 
-Found 4 unused declarations in 1 file (scanned 1 file, 8 declarations, 0.4s).
+Found 4 unused declarations in 1 file (scanned 1 file, 8 declarations, 0.4s)
 Remove 4 unused declarations? [y/N] y
 Removed 4 unused declarations from 1 file.''';
 
