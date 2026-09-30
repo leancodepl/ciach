@@ -9,6 +9,7 @@ import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/overrides.dart';
 import 'package:ciach/src/paths.dart';
+import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/remove_safety.dart';
 import 'package:ciach/src/source_index.dart';
@@ -111,7 +112,7 @@ final class Settler {
       final next = DeadSpans.of(settled.unused, rootPath);
       if (next.sameAs(deadSpans)) {
         if (round > 1) {
-          _log.fine('Settled after $round round(s).');
+          _log.fine('Settled after ${plural(round, 'round')}.');
         }
         break;
       }
@@ -122,14 +123,14 @@ final class Settler {
         break;
       }
       _log.info(
-        'Round ${round + 1}: checking what only the ${next.length} removable '
-        'finding(s) referenced…',
+        'Round ${round + 1}: checking what only the '
+        '${plural(next.length, 'removable finding')} referenced…',
       );
       deadSpans = next;
     }
     if (settled.recovered.isNotEmpty) {
       _log.fine(
-        'Kept ${settled.recovered.length} declaration(s) the reference '
+        'Kept ${plural(settled.recovered.length, 'declaration')} the reference '
         'search called unused: the definition check found a use for each.',
       );
     }
@@ -345,7 +346,9 @@ final class Settler {
     ];
     final unchecked = members.whereNot(_overridesByMember.containsKey).toList();
     if (unchecked.isNotEmpty) {
-      _log.info('Checking ${unchecked.length} dead member(s) for overrides…');
+      _log.info(
+        'Checking ${plural(unchecked.length, 'dead member')} for overrides…',
+      );
       final results = await mapPooled(
         unchecked,
         options.concurrency,
@@ -357,6 +360,7 @@ final class Settler {
     }
     final byCandidate = <int, OverriddenMember>{};
     var coupled = 0;
+    var couplingMembers = 0;
     var blocked = 0;
     for (final index in members) {
       final result = _overridesByMember[index]!;
@@ -365,19 +369,23 @@ final class Settler {
       }
       byCandidate[index] = result;
       coupled += result.removals.length;
+      if (result.removals.isNotEmpty) {
+        couplingMembers++;
+      }
       if (result.blocked) {
         blocked++;
       }
     }
     if (coupled > 0) {
       _log.fine(
-        'Coupling $coupled override(s) to the dead member(s) they implement.',
+        'Coupling ${plural(coupled, 'override')} to '
+        '${plural(couplingMembers, 'dead member')}.',
       );
     }
     if (blocked > 0) {
       _log.fine(
-        '$blocked dead member(s) are overridden where --remove cannot '
-        'follow; left in place.',
+        '${plural(blocked, 'dead member')} ${pluralWord(blocked, 'is', 'are')} '
+        'overridden where --remove cannot follow; left in place.',
       );
     }
     return byCandidate;

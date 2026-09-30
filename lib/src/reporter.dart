@@ -11,6 +11,7 @@
 import 'dart:convert';
 
 import 'package:ciach/src/models.dart';
+import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/style.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
@@ -78,7 +79,6 @@ abstract final class Reporter {
     if (removal == null) {
       return style.note('Skipped removal.');
     }
-    String plural(int n, String word) => '$n $word${n == 1 ? '' : 's'}';
     final files = removal.filesChanged;
     final deleted = removal.deletedFiles;
     final buffer = StringBuffer(
@@ -396,7 +396,6 @@ abstract final class Reporter {
       _escapeData(value).replaceAll(':', '%3A').replaceAll(',', '%2C');
 
   static String _summary(FinderResult result, Style style) {
-    String plural(int n, String word) => '$n $word${n == 1 ? '' : 's'}';
     final count = result.unused.length;
     final fileCount = result.unused.map((d) => d.filePath).toSet().length;
     final seconds = (result.elapsed.inMilliseconds / 1000).toStringAsFixed(1);

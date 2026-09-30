@@ -19,6 +19,7 @@ import 'package:ciach/src/cli/options.dart';
 import 'package:ciach/src/cli/verbose.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/paths.dart';
+import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/reporter.dart';
 import 'package:ciach/src/version.dart';
 import 'package:collection/collection.dart';
@@ -162,8 +163,8 @@ Future<int> _run(List<String> arguments) async {
     if (result.problems.isNotEmpty) '${result.problems.length} not analyzed',
   ];
   _log.fine(
-    'Scanned ${result.filesScanned} file(s) and checked '
-    '${result.declarationsChecked} declaration(s) in '
+    'Scanned ${plural(result.filesScanned, 'file')} and checked '
+    '${plural(result.declarationsChecked, 'declaration')} in '
     '${result.elapsed.inMilliseconds}ms: ${counts.join(', ')}.',
   );
 
@@ -219,13 +220,16 @@ void _removeUnused(
   final blocked = result.unused.length - count;
   if (blocked > 0) {
     _log.fine(
-      'Skipping $blocked of ${result.unused.length} finding(s): removing them safely would need a source rewrite (see --unused-union-members and remove safety).',
+      'Skipping $blocked of ${plural(result.unused.length, 'finding')}: removing them safely would need a source rewrite (see --unused-union-members and remove safety).',
     );
   }
   if (count == 0) {
     _log.warning(
-      'Nothing removed: all $blocked finding${blocked == 1 ? ' is' : 's are'} '
-      'unsafe to auto-remove — remove them manually.',
+      blocked == 1
+          ? 'Nothing removed: the finding is unsafe to auto-remove — remove '
+                'it manually.'
+          : 'Nothing removed: all $blocked findings are unsafe to auto-remove '
+                '— remove them manually.',
     );
     return;
   }
@@ -239,7 +243,7 @@ void _removeUnused(
     }
     _log.fine('Asking for confirmation; pass --force to skip the prompt.');
     final proceed = _console.confirm(
-      'Remove $count unused declaration${count == 1 ? '' : 's'}?',
+      'Remove ${plural(count, 'unused declaration')}?',
       // Non-text formats aren't readable, so show the findings first.
       preamble: resolved.format == 'text'
           ? null

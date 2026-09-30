@@ -6,6 +6,7 @@ import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/models.dart';
+import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/problems.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
@@ -112,7 +113,9 @@ final class ReferenceFetch {
     if (paths.isEmpty) {
       return;
     }
-    _log.info('Fetching tokens for ${paths.length} referenced file(s)…');
+    _log.info(
+      'Fetching tokens for ${plural(paths.length, 'referenced file')}…',
+    );
     await mapPooled(paths.toList(), options.concurrency, (path) async {
       _sources.cacheSemanticTokens(
         path,
@@ -159,7 +162,9 @@ final class ReferenceFetch {
     if (positionsByPath.isEmpty) {
       return;
     }
-    _log.info('Fetching syntax nodes in ${positionsByPath.length} file(s)…');
+    _log.info(
+      'Fetching syntax nodes in ${plural(positionsByPath.length, 'file')}…',
+    );
     await mapPooled(positionsByPath.entries.toList(), options.concurrency, (
       entry,
     ) async {

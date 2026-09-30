@@ -20,6 +20,7 @@ import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
+import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/problems.dart';
 import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/reference_fetch.dart';
@@ -107,7 +108,7 @@ class Ciach {
 
     final discovered = discoverDartFilesSplit(options);
     final files = discovered.candidates;
-    _log.info('Discovered ${files.length} Dart file(s) to scan.');
+    _log.info('Discovered ${plural(files.length, 'Dart file')} to scan.');
 
     if (files.isEmpty) {
       return .new(
@@ -141,7 +142,7 @@ class Ciach {
       // pass and keeps them resident. Generated files are opened so references
       // into them resolve, but no candidates are collected from them.
       _log.info(
-        'Opening ${files.length + discovered.warmOnly.length} file(s)…',
+        'Opening ${plural(files.length + discovered.warmOnly.length, 'file')}…',
       );
       final opened = <String>{
         for (final path in [...discovered.warmOnly, ...files])
@@ -149,7 +150,9 @@ class Ciach {
       };
 
       // Phase 1: collect candidate declarations, concurrently.
-      _log.info('Collecting declarations from ${files.length} file(s)…');
+      _log.info(
+        'Collecting declarations from ${plural(files.length, 'file')}…',
+      );
       final perFile = await mapPooled(
         files,
         options.concurrency,
@@ -162,7 +165,9 @@ class Ciach {
 
       // Phase 2: check references for every candidate through a single global
       // pool, so the server stays saturated instead of stalling between files.
-      _log.info('Checking references for ${collected.length} declaration(s)…');
+      _log.info(
+        'Checking references for ${plural(collected.length, 'declaration')}…',
+      );
       final fetched = await _fetch.references(
         client,
         collected,

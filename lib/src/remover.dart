@@ -4,6 +4,7 @@ import 'package:ciach/src/emptied_files.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
+import 'package:ciach/src/plural.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
@@ -87,7 +88,7 @@ RemovalResult removeDeclarations(
         file.writeAsStringSync(updated);
         rewritten.add(p.normalize(file.absolute.path));
         _log.fine(
-          'Rewrote ${entry.key}: removed ${entry.value.length} declaration(s).',
+          'Rewrote ${entry.key}: removed ${plural(entry.value.length, 'declaration')}.',
         );
       }
     } on FileSystemException catch (e) {

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:ciach/src/cli/args.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
+import 'package:ciach/src/plural.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
 import 'package:path/path.dart' as p;
@@ -53,7 +54,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     if (unknown.isNotEmpty) {
       final valid = (configKeys.toList()..sort()).join(', ');
       throw FormatException(
-        '$origin: unknown option${unknown.length == 1 ? '' : 's'} ${unknown.map((key) => "'$key'").join(', ')}. Valid options: $valid.',
+        '$origin: unknown ${pluralWord(unknown.length, 'option')} ${unknown.map((key) => "'$key'").join(', ')}. Valid options: $valid.',
       );
     }
 

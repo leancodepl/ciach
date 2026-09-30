@@ -2,6 +2,7 @@ import 'package:ciach/src/cli/args.dart';
 import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/options.dart';
 import 'package:ciach/src/models.dart';
+import 'package:ciach/src/plural.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
@@ -36,7 +37,7 @@ List<String> describeConfigSource(
     if (settings.isEmpty)
       '  It sets nothing; using command-line arguments and built-in defaults.'
     else ...[
-      '  It sets ${settings.length} option${settings.length == 1 ? '' : 's'}:',
+      '  It sets ${plural(settings.length, 'option')}:',
       for (final entry in settings.entries)
         '    ${entry.key}: ${_value(entry.value)}',
     ],
