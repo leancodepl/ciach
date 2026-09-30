@@ -42,9 +42,6 @@ dart install ciach
 A compiled `ciach` runs the analysis server with the `dart` on your `PATH` (an
 fvm or Flutter `dart` works too); `--dart <path>` picks a different one.
 
-`dart pub global activate ciach` still works too, for a JIT-compiled `ciach` in
-`~/.pub-cache/bin`.
-
 Or add it as a dev dependency, which pins the version for the team and CI:
 
 ```bash

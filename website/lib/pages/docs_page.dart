@@ -449,11 +449,9 @@ class DocsPage extends StatelessComponent {
                     'commands with ',
                   ),
                   code([.text('dart run')]),
-                  .text('). '),
-                  code([.text(pubGlobalCommand)]),
                   .text(
-                    ' still works too. Requires Dart 3.10+ and analyzes with '
-                    'the SDK it runs with.',
+                    '). Requires Dart 3.10+ and analyzes with the SDK it runs '
+                    'with.',
                   ),
                 ]),
                 CodeBlock(
