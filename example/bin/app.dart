@@ -41,10 +41,11 @@ void main() {
   print(const LiveWidget());
 
   // Keeps the override-scenario types alive, so only their members are dead:
-  // `start()` is called through Pump, `prime()` never is, and `Mixed.live` is
-  // read while `Mixed.dead` is not.
+  // `start()` is called through Pump, `prime()` never is, `drip()` only
+  // through Tap, and `Mixed.live` is read while `Mixed.dead` is not.
   final Pump pump = Turbine();
   pump.start();
+  Tap().drip();
   print([Dial(), Spigot(), const Meter(1), Pair()]);
   print(Mixed().live);
 

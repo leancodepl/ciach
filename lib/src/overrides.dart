@@ -77,8 +77,8 @@ final class OverrideRemovals {
   }
 
   /// The span to delete for the override at [location], or `null` when it has
-  /// to stay: an unscanned file, a declaration that cannot be read, a kind this
-  /// tool won't delete, or a reference of its own.
+  /// to stay: an unscanned file, a declaration that cannot be read, or a kind
+  /// this tool won't delete.
   Future<CoupledRemoval?> _removalFor(Location location) async {
     final path = SourceIndex.pathOf(location.uri);
     if (!_scannedPaths.contains(path)) {
@@ -102,16 +102,9 @@ final class OverrideRemovals {
         await _isDeclaringParameter(uri, path, found.parent, start)) {
       return null;
     }
-    final List<Location> refs;
-    try {
-      refs = await _client.references(uri, start);
-    } on LspException {
-      return null;
-    }
-    // The member is dead, so a reference here is a use this run cannot see.
-    if (refs.isNotEmpty) {
-      return null;
-    }
+    // No reference to check: the server answers a member's references for
+    // its whole family of overrides, so the member being dead means none of
+    // them is referenced either.
     return (
       filePath: relativePosix(path, _rootPath),
       kind: kind,

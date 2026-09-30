@@ -385,6 +385,14 @@ void main() {
       expect(names, isNot(contains('Turbine.prime')));
     });
 
+    test('a call to an override keeps the member it overrides', () async {
+      // Why an override needs no reference check of its own: the server
+      // answers every member of an override family with the same references.
+      final names = (await runOverrides()).unused.map((d) => d.qualifiedName);
+      expect(names, isNot(contains('Faucet.drip')));
+      expect(names, isNot(contains('Tap.drip')));
+    });
+
     test('couples an override that lives in another file', () async {
       final close = finding(await runOverrides(), 'Valve.close');
       expect(close.removalBlocked, isFalse);
