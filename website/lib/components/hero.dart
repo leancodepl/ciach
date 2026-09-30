@@ -28,15 +28,23 @@ class Hero extends StatelessComponent {
 
   @css
   static List<StyleRule> get styles => [
-    css('.hero').styles(
-      position: const .relative(),
-      padding: .only(
-        top: const .expression('clamp(3.5rem, 9vw, 7rem)'),
-        bottom: 3.rem,
+    css('.hero', [
+      css('&').styles(
+        position: const .relative(),
+        padding: .only(
+          top: const .expression('clamp(3.5rem, 9vw, 7rem)'),
+          bottom: 3.rem,
+        ),
+        overflow: .hidden,
+        raw: {'isolation': 'isolate'},
       ),
-      overflow: .hidden,
-      raw: {'isolation': 'isolate'},
-    ),
+      css('& h1').styles(
+        fontSize: const .expression('clamp(2.5rem, 5.6vw, 4.25rem)'),
+        fontWeight: .w700,
+        letterSpacing: (-0.035).em,
+        lineHeight: const .expression('1.02'),
+      ),
+    ]),
     css('.hero-bg').styles(
       position: const .absolute(),
       zIndex: const ZIndex(-1),
@@ -54,19 +62,17 @@ class Hero extends StatelessComponent {
             'linear-gradient(to bottom, #000 30%, transparent 100%)',
       },
     ),
-    css('.hero-grid')
-        .styles(display: .grid, alignItems: .center, gap: .all(3.rem)),
+    css('.hero-grid', [
+      css('&').styles(display: .grid, alignItems: .center, gap: .all(3.rem)),
+      css.media(MediaQuery.all(minWidth: 1000.px), [
+        css('&').styles(raw: {'grid-template-columns': '1.05fr 1fr'}),
+      ]),
+    ]),
     css('.hero-badges').styles(
       display: .flex,
       margin: .only(bottom: 1.5.rem),
       flexWrap: .wrap,
       gap: .all(0.5.rem),
-    ),
-    css('.hero h1').styles(
-      fontSize: const .expression('clamp(2.5rem, 5.6vw, 4.25rem)'),
-      fontWeight: .w700,
-      letterSpacing: (-0.035).em,
-      lineHeight: const .expression('1.02'),
     ),
     css('.hero-lead').styles(
       maxWidth: 38.rem,
@@ -74,17 +80,19 @@ class Hero extends StatelessComponent {
       color: text2Color,
       fontSize: const .expression('clamp(1.1rem, 1.6vw, 1.3rem)'),
     ),
-    css('.pronounce').styles(
-      maxWidth: 38.rem,
-      padding: .only(left: 1.rem),
-      margin: .only(top: 1.25.rem),
-      border: .only(
-        left: BorderSide(color: accentColor, width: 2.px),
+    css('.pronounce', [
+      css('&').styles(
+        maxWidth: 38.rem,
+        padding: .only(left: 1.rem),
+        margin: .only(top: 1.25.rem),
+        border: .only(
+          left: BorderSide(color: accentColor, width: 2.px),
+        ),
+        color: mutedColor,
+        fontSize: 0.95.rem,
       ),
-      color: mutedColor,
-      fontSize: 0.95.rem,
-    ),
-    css('.pronounce em').styles(color: textColor, fontStyle: .italic),
+      css('& em').styles(color: textColor, fontStyle: .italic),
+    ]),
     // IPA glyphs: skip the mono stack, which lacks them on Android, and
     // prefer fonts that ship the IPA block before the generic fallback.
     css('.ipa').styles(
@@ -101,46 +109,46 @@ class Hero extends StatelessComponent {
       fontSize: 0.95.em,
     ),
     css('.install').styles(margin: .only(top: 2.rem)),
-    css('.install-command').styles(
-      display: .flex,
-      maxWidth: 34.rem,
-      padding: .only(
-        top: 0.5.rem,
-        right: 0.5.rem,
-        bottom: 0.5.rem,
-        left: 1.rem,
+    css('.install-command', [
+      css('&').styles(
+        display: .flex,
+        maxWidth: 34.rem,
+        padding: .only(
+          top: 0.5.rem,
+          right: 0.5.rem,
+          bottom: 0.5.rem,
+          left: 1.rem,
+        ),
+        border: hairline(border2Color),
+        radius: const .circular(radius),
+        alignItems: .center,
+        gap: .all(0.75.rem),
+        backgroundColor: surfaceColor,
+        raw: {'box-shadow': shadow},
       ),
-      border: hairline(border2Color),
-      radius: const .circular(radius),
-      alignItems: .center,
-      gap: .all(0.75.rem),
-      backgroundColor: surfaceColor,
-      raw: {'box-shadow': shadow},
-    ),
-    css('.install-command code').styles(
-      minWidth: .zero,
-      overflow: const .only(x: .auto),
-      fontSize: 0.95.rem,
-      whiteSpace: .noWrap,
-      raw: {'flex': '1'},
-    ),
-    css('.hero-actions').styles(
-      display: .flex,
-      margin: .only(top: 1.75.rem),
-      flexWrap: .wrap,
-      gap: .all(0.75.rem),
-    ),
-    css('.hero-actions.center').styles(justifyContent: .center),
+      css('& code').styles(
+        minWidth: .zero,
+        overflow: const .only(x: .auto),
+        fontSize: 0.95.rem,
+        whiteSpace: .noWrap,
+        raw: {'flex': '1'},
+      ),
+      css.media(MediaQuery.all(maxWidth: 540.px), [
+        css('&').styles(flexWrap: .wrap),
+        css('& code').styles(order: -1, raw: {'flex-basis': '100%'}),
+        css('& .tk-prompt').styles(display: .none),
+      ]),
+    ]),
+    css('.hero-actions', [
+      css('&').styles(
+        display: .flex,
+        margin: .only(top: 1.75.rem),
+        flexWrap: .wrap,
+        gap: .all(0.75.rem),
+      ),
+      css('&.center').styles(justifyContent: .center),
+    ]),
     css('.hero-demo').styles(minWidth: .zero),
-    css.media(MediaQuery.all(minWidth: 1000.px), [
-      css('.hero-grid').styles(raw: {'grid-template-columns': '1.05fr 1fr'}),
-    ]),
-    css.media(MediaQuery.all(maxWidth: 540.px), [
-      css('.install-command').styles(flexWrap: .wrap),
-      css('.install-command code')
-          .styles(order: -1, raw: {'flex-basis': '100%'}),
-      css('.install-command .tk-prompt').styles(display: .none),
-    ]),
   ];
 
   @override

@@ -34,15 +34,35 @@ class CodeBlock extends StatelessComponent {
 
   @css
   static List<StyleRule> get styles => [
-    css('.code-block').styles(
-      minWidth: .zero,
-      margin: .zero,
-      border: hairline(borderColor),
-      radius: const .circular(radius),
-      overflow: .hidden,
-      backgroundColor: surfaceColor,
-      raw: {'box-shadow': shadow},
-    ),
+    css('.code-block', [
+      css('&').styles(
+        minWidth: .zero,
+        margin: .zero,
+        border: hairline(borderColor),
+        radius: const .circular(radius),
+        overflow: .hidden,
+        backgroundColor: surfaceColor,
+        raw: {'box-shadow': shadow},
+      ),
+      css('& pre').styles(
+        padding: .only(
+          top: 1.rem,
+          right: 1.1.rem,
+          bottom: 1.1.rem,
+          left: 1.1.rem,
+        ),
+        margin: .zero,
+        overflow: .auto,
+        fontSize: 0.8125.rem,
+        lineHeight: const .expression('1.65'),
+        raw: {
+          'tab-size': '2',
+          'scrollbar-width': 'thin',
+          'scrollbar-color': 'var(--border-2) transparent',
+        },
+      ),
+      css('& code').styles(display: .block, minWidth: .maxContent),
+    ]),
     css('.code-bar').styles(
       display: .flex,
       minHeight: 2.6.rem,
@@ -57,14 +77,18 @@ class CodeBlock extends StatelessComponent {
       gap: .all(0.75.rem),
       backgroundColor: surface2Color,
     ),
-    css('.code-dots').styles(display: .inlineFlex, gap: .all(0.4.rem)),
-    css('.code-dots span').styles(
-      width: 10.px,
-      height: 10.px,
-      radius: .circular(50.percent),
-      backgroundColor: border2Color,
-    ),
-    css('.code-dots span:first-child').styles(backgroundColor: accentColor),
+    css('.code-dots', [
+      css('&').styles(display: .inlineFlex, gap: .all(0.4.rem)),
+      css('& span', [
+        css('&').styles(
+          width: 10.px,
+          height: 10.px,
+          radius: .circular(50.percent),
+          backgroundColor: border2Color,
+        ),
+        css('&:first-child').styles(backgroundColor: accentColor),
+      ]),
+    ]),
     css('.code-title').styles(
       minWidth: .zero,
       overflow: .hidden,
@@ -76,24 +100,6 @@ class CodeBlock extends StatelessComponent {
       whiteSpace: .noWrap,
       raw: {'flex': '1'},
     ),
-    css('.code-block pre').styles(
-      padding: .only(
-        top: 1.rem,
-        right: 1.1.rem,
-        bottom: 1.1.rem,
-        left: 1.1.rem,
-      ),
-      margin: .zero,
-      overflow: .auto,
-      fontSize: 0.8125.rem,
-      lineHeight: const .expression('1.65'),
-      raw: {
-        'tab-size': '2',
-        'scrollbar-width': 'thin',
-        'scrollbar-color': 'var(--border-2) transparent',
-      },
-    ),
-    css('.code-block code').styles(display: .block, minWidth: .maxContent),
     css('.line').styles(display: .inlineBlock, minWidth: 100.percent),
     // Token colors, shared by the TextMate scopes and ciach's own output.
     css('.tk-keyword').styles(color: const .variable('--tk-keyword')),
@@ -122,38 +128,40 @@ class CodeBlock extends StatelessComponent {
         .styles(color: const .variable('--tk-function')),
     // Transcripts wrap like a real terminal; code blocks keep scrolling because
     // indentation there carries meaning.
-    css('.terminal pre').styles(
-      color: text2Color,
-      whiteSpace: .preWrap,
-      raw: {'overflow-wrap': 'anywhere'},
-    ),
-    css('.terminal code').styles(minWidth: .zero),
-    // Wrapped continuations hang under the line's first character.
-    css('.terminal .line').styles(
-      display: .inlineBlock,
-      width: 100.percent,
-      minWidth: .zero,
-      padding: const .only(left: .expression('2.5ch')),
-      textIndent: const .expression('-2.5ch'),
-    ),
-    // Sequential reveal for animated terminals.
-    css('.terminal.animated .line').styles(
-      opacity: 0,
-      animation: Animation(
-        name: 'reveal',
-        duration: 350.ms,
-        curve: .easeOut,
-        fillMode: .forwards,
+    css('.terminal', [
+      css('& pre').styles(
+        color: text2Color,
+        whiteSpace: .preWrap,
+        raw: {'overflow-wrap': 'anywhere'},
       ),
-      raw: {'animation-delay': 'calc(var(--i, 0) * 110ms + 250ms)'},
-    ),
+      css('& code').styles(minWidth: .zero),
+      // Wrapped continuations hang under the line's first character.
+      css('& .line').styles(
+        display: .inlineBlock,
+        width: 100.percent,
+        minWidth: .zero,
+        padding: const .only(left: .expression('2.5ch')),
+        textIndent: const .expression('-2.5ch'),
+      ),
+      // Sequential reveal for animated terminals.
+      css('&.animated .line', [
+        css('&').styles(
+          opacity: 0,
+          animation: Animation(
+            name: 'reveal',
+            duration: 350.ms,
+            curve: .easeOut,
+            fillMode: .forwards,
+          ),
+          raw: {'animation-delay': 'calc(var(--i, 0) * 110ms + 250ms)'},
+        ),
+        css.media(reducedMotion, [css('&').styles(opacity: 1)]),
+      ]),
+    ]),
     css.keyframes('reveal', {
       'from': Styles(opacity: 0, transform: .translate(x: (-4).px)),
       'to': const Styles(opacity: 1, transform: .none),
     }),
-    css.media(const MediaQuery.raw('(prefers-reduced-motion: reduce)'), [
-      css('.terminal.animated .line').styles(opacity: 1),
-    ]),
   ];
 
   @override

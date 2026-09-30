@@ -25,64 +25,68 @@ class OgCard extends StatelessComponent {
   /// the site's own rules. Rendered after them, so equal-specificity rules
   /// such as `.logo-large .logo-mark` lose to the card's.
   static List<StyleRule> get styles => [
-    css('.og-card').styles(
-      position: const .relative(),
-      width: width.px,
-      height: height.px,
-      padding: .symmetric(vertical: 60.px, horizontal: 80.px),
-      boxSizing: .borderBox,
-      overflow: .hidden,
-      backgroundColor: bgColor,
-      raw: {'isolation': 'isolate'},
-    ),
-    css('.og-card .hero-bg')
-        .styles(raw: {'mask-image': 'none', '-webkit-mask-image': 'none'}),
-    css('.og-card .logo').styles(fontSize: 2.1.rem),
-    css('.og-card .logo-mark')
-        .styles(width: 56.px, height: 56.px, radius: .circular(15.px)),
-    css('.og-card .logo-mark svg').styles(width: 30.px, height: 30.px),
-    css('.og-card .hero-badges').styles(
-      margin: .only(top: 34.px, bottom: .zero),
-      gap: .all(0.6.rem),
-    ),
-    css('.og-card .pill').styles(
-      padding: .symmetric(vertical: 0.4.rem, horizontal: 0.95.rem),
-      fontSize: 1.05.rem,
-    ),
-    css('.og-card h1').styles(
-      margin: .only(top: 18.px),
-      color: textColor,
-      fontSize: 80.px,
-      fontWeight: .w700,
-      letterSpacing: (-0.035).em,
-      lineHeight: const .expression('1.02'),
-    ),
-    css('.og-card .hero-lead').styles(
-      maxWidth: 60.rem,
-      margin: .only(top: 26.px),
-      fontSize: 1.9.rem,
-      lineHeight: const .expression('1.3'),
-    ),
-    css('.og-card .og-foot').styles(
-      display: .flex,
-      position: .absolute(left: 80.px, bottom: 60.px, right: 80.px),
-      justifyContent: .spaceBetween,
-      alignItems: .center,
-    ),
-    css('.og-card .install-command').styles(
-      padding: .only(
-        top: 0.9.rem,
-        right: 1.6.rem,
-        bottom: 0.9.rem,
-        left: 1.4.rem,
+    css('.og-card', [
+      css('&').styles(
+        position: const .relative(),
+        width: width.px,
+        height: height.px,
+        padding: .symmetric(vertical: 60.px, horizontal: 80.px),
+        boxSizing: .borderBox,
+        overflow: .hidden,
+        backgroundColor: bgColor,
+        raw: {'isolation': 'isolate'},
       ),
-      gap: .all(1.rem),
-      raw: {'max-width': 'none'},
-    ),
-    css('.og-card .install-command code')
-        .styles(overflow: .visible, fontSize: 1.55.rem),
-    css('.og-card .tk-prompt').styles(fontSize: 1.55.rem),
-    css('.og-card .og-by').styles(color: mutedColor, fontSize: 1.35.rem),
+      css('& .hero-bg')
+          .styles(raw: {'mask-image': 'none', '-webkit-mask-image': 'none'}),
+      css('& .logo').styles(fontSize: 2.1.rem),
+      css('& .logo-mark', [
+        css('&').styles(width: 56.px, height: 56.px, radius: .circular(15.px)),
+        css('& svg').styles(width: 30.px, height: 30.px),
+      ]),
+      css('& .hero-badges').styles(
+        margin: .only(top: 34.px, bottom: .zero),
+        gap: .all(0.6.rem),
+      ),
+      css('& .pill').styles(
+        padding: .symmetric(vertical: 0.4.rem, horizontal: 0.95.rem),
+        fontSize: 1.05.rem,
+      ),
+      css('& h1').styles(
+        margin: .only(top: 18.px),
+        color: textColor,
+        fontSize: 80.px,
+        fontWeight: .w700,
+        letterSpacing: (-0.035).em,
+        lineHeight: const .expression('1.02'),
+      ),
+      css('& .hero-lead').styles(
+        maxWidth: 60.rem,
+        margin: .only(top: 26.px),
+        fontSize: 1.9.rem,
+        lineHeight: const .expression('1.3'),
+      ),
+      css('& .og-foot').styles(
+        display: .flex,
+        position: .absolute(left: 80.px, bottom: 60.px, right: 80.px),
+        justifyContent: .spaceBetween,
+        alignItems: .center,
+      ),
+      css('& .install-command', [
+        css('&').styles(
+          padding: .only(
+            top: 0.9.rem,
+            right: 1.6.rem,
+            bottom: 0.9.rem,
+            left: 1.4.rem,
+          ),
+          gap: .all(1.rem),
+          raw: {'max-width': 'none'},
+        ),
+        css('& code').styles(overflow: .visible, fontSize: 1.55.rem),
+      ]),
+      css('& .tk-prompt').styles(fontSize: 1.55.rem),
+      css('& .og-by').styles(color: mutedColor, fontSize: 1.35.rem),
+    ]),
   ];
 
   @override

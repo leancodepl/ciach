@@ -13,21 +13,23 @@ class Card extends StatelessComponent {
 
   @css
   static List<StyleRule> get styles => [
-    css('.card').styles(
-      padding: .all(1.5.rem),
-      border: hairline(borderColor),
-      radius: const .circular(radius),
-      transition: .combine([
-        Transition('border-color', duration: 200.ms, curve: .ease),
-        Transition('transform', duration: 200.ms, curve: .ease),
-      ]),
-      backgroundColor: surfaceColor,
-    ),
-    css('.card h3').styles(
-      margin: .only(bottom: 0.6.rem),
-      fontSize: 1.2.rem,
-    ),
-    css('.card p').styles(color: text2Color, fontSize: 0.98.rem),
+    css('.card', [
+      css('&').styles(
+        padding: .all(1.5.rem),
+        border: hairline(borderColor),
+        radius: const .circular(radius),
+        transition: .combine([
+          Transition('border-color', duration: 200.ms, curve: .ease),
+          Transition('transform', duration: 200.ms, curve: .ease),
+        ]),
+        backgroundColor: surfaceColor,
+      ),
+      css('& h3').styles(
+        margin: .only(bottom: 0.6.rem),
+        fontSize: 1.2.rem,
+      ),
+      css('& p').styles(color: text2Color, fontSize: 0.98.rem),
+    ]),
   ];
 
   @override

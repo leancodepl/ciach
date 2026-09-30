@@ -44,57 +44,70 @@ class CiachDemo extends StatelessComponent {
 
   @css
   static List<StyleRule> get styles => [
-    css('.ciach-grid')
-        .styles(display: .grid, alignItems: .start, gap: .all(1.25.rem)),
+    css('.ciach-grid', [
+      css('&').styles(display: .grid, alignItems: .start, gap: .all(1.25.rem)),
+      css.media(MediaQuery.all(minWidth: 760.px), [
+        css('&').styles(raw: {'grid-template-columns': '1fr 1fr'}),
+      ]),
+    ]),
     // Dead lines: struck and faded. Without JavaScript that is the resting
     // state; with it, `.armed` hides the strike until the block scrolls into
     // view and `.play` runs the animation once, one line after another.
-    css('.ciach-before .line.dead').styles(
-      position: const .relative(),
-      // Size to the text so the strike covers the code, not the whole block.
-      minWidth: .zero,
-      opacity: 0.45,
-    ),
-    css('.ciach-before .line.dead::after').styles(
-      content: '',
-      position: .absolute(top: 50.percent, left: (-0.15).em, right: (-0.15).em),
-      height: 2.px,
-      pointerEvents: .none,
-      backgroundColor: dangerColor,
-      raw: {'transform-origin': 'left center'},
-    ),
-    css('.ciach-before.armed .line.dead').styles(opacity: 1),
-    css('.ciach-before.armed .line.dead::after')
-        .styles(raw: {'transform': 'scaleX(0)'}),
-    css('.ciach-before.play .line.dead').styles(
-      animation: Animation(
-        name: 'dead-fade',
-        duration: 500.ms,
-        curve: .easeOut,
-        fillMode: .forwards,
-      ),
-      raw: {'animation-delay': 'calc(var(--d, 0) * 140ms + 1.1s)'},
-    ),
-    css('.ciach-before.play .line.dead::after').styles(
-      animation: Animation(
-        name: 'ciach',
-        duration: 300.ms,
-        curve: .easeOut,
-        fillMode: .forwards,
-      ),
-      raw: {'animation-delay': 'calc(var(--d, 0) * 140ms + 0.4s)'},
-    ),
+    css('.ciach-before', [
+      css('& .line.dead', [
+        css('&').styles(
+          position: const .relative(),
+          // Size to the text so the strike covers the code, not the whole
+          // block.
+          minWidth: .zero,
+          opacity: 0.45,
+        ),
+        css('&::after').styles(
+          content: '',
+          position: .absolute(
+            top: 50.percent,
+            left: (-0.15).em,
+            right: (-0.15).em,
+          ),
+          height: 2.px,
+          pointerEvents: .none,
+          backgroundColor: dangerColor,
+          raw: {'transform-origin': 'left center'},
+        ),
+      ]),
+      css('&.armed .line.dead', [
+        css('&').styles(opacity: 1),
+        css('&::after').styles(raw: {'transform': 'scaleX(0)'}),
+        css.media(reducedMotion, [
+          css('&').styles(opacity: 0.45),
+          css('&::after').styles(transform: .none),
+        ]),
+      ]),
+      css('&.play .line.dead', [
+        css('&').styles(
+          animation: Animation(
+            name: 'dead-fade',
+            duration: 500.ms,
+            curve: .easeOut,
+            fillMode: .forwards,
+          ),
+          raw: {'animation-delay': 'calc(var(--d, 0) * 140ms + 1.1s)'},
+        ),
+        css('&::after').styles(
+          animation: Animation(
+            name: 'ciach',
+            duration: 300.ms,
+            curve: .easeOut,
+            fillMode: .forwards,
+          ),
+          raw: {'animation-delay': 'calc(var(--d, 0) * 140ms + 0.4s)'},
+        ),
+      ]),
+    ]),
     css.keyframes('ciach', {
       'to': const Styles(raw: {'transform': 'scaleX(1)'}),
     }),
     css.keyframes('dead-fade', {'to': const Styles(opacity: 0.45)}),
-    css.media(MediaQuery.all(minWidth: 760.px), [
-      css('.ciach-grid').styles(raw: {'grid-template-columns': '1fr 1fr'}),
-    ]),
-    css.media(const MediaQuery.raw('(prefers-reduced-motion: reduce)'), [
-      css('.ciach-before.armed .line.dead').styles(opacity: 0.45),
-      css('.ciach-before.armed .line.dead::after').styles(transform: .none),
-    ]),
   ];
 
   @override

@@ -84,18 +84,20 @@ class OutputFormats extends StatelessComponent {
       gap: .all(0.25.rem),
       backgroundColor: surfaceColor,
     ),
-    css('.tab').styles(
-      padding: .symmetric(vertical: 0.5.rem, horizontal: 1.rem),
-      radius: .circular(999.px),
-      cursor: .pointer,
-      transition: .combine([
-        Transition('background-color', duration: 150.ms, curve: .ease),
-        Transition('color', duration: 150.ms, curve: .ease),
-      ]),
-      color: text2Color,
-    ),
-    css('.tab code').styles(fontSize: 0.85.rem),
-    css('.tab:hover').styles(color: textColor),
+    css('.tab', [
+      css('&').styles(
+        padding: .symmetric(vertical: 0.5.rem, horizontal: 1.rem),
+        radius: .circular(999.px),
+        cursor: .pointer,
+        transition: .combine([
+          Transition('background-color', duration: 150.ms, curve: .ease),
+          Transition('color', duration: 150.ms, curve: .ease),
+        ]),
+        color: text2Color,
+      ),
+      css('& code').styles(fontSize: 0.85.rem),
+      css('&:hover').styles(color: textColor),
+    ]),
     css('.tab-panel').styles(display: .none),
     // The checked radio selects its tab and panel, so the tabs need no script.
     css(

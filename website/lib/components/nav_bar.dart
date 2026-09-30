@@ -26,13 +26,18 @@ class NavBar extends StatelessComponent {
       backgroundColor: Palette.black.alpha(0.75),
       raw: {'-webkit-backdrop-filter': 'saturate(140%) blur(14px)'},
     ),
-    css('.nav').styles(
-      display: .flex,
-      height: 100.percent,
-      justifyContent: .spaceBetween,
-      alignItems: .center,
-      gap: .all(1.rem),
-    ),
+    css('.nav', [
+      css('&').styles(
+        display: .flex,
+        height: 100.percent,
+        justifyContent: .spaceBetween,
+        alignItems: .center,
+        gap: .all(1.rem),
+      ),
+      css.media(MediaQuery.all(maxWidth: 540.px), [
+        css('&').styles(gap: .all(0.5.rem)),
+      ]),
+    ]),
     css('.brand')
         .styles(display: .inlineFlex, alignItems: .center, color: textColor),
     css('.logo').styles(
@@ -52,34 +57,38 @@ class NavBar extends StatelessComponent {
       backgroundColor: accentColor,
       raw: {'place-items': 'center'},
     ),
-    css('.logo-large').styles(fontSize: 1.6.rem),
-    css('.logo-large .logo-mark')
-        .styles(width: 44.px, height: 44.px, radius: .circular(12.px)),
-    css('.nav-links')
-        .styles(display: .flex, alignItems: .center, gap: .all(0.25.rem)),
-    css('.nav-links a').styles(
-      display: .inlineFlex,
-      padding: .symmetric(vertical: 0.5.rem, horizontal: 0.85.rem),
-      radius: .circular(999.px),
-      alignItems: .center,
-      gap: .all(0.45.rem),
-      color: text2Color,
-      fontSize: 0.95.rem,
-      fontWeight: .w500,
-    ),
-    css('.nav-links a svg').styles(color: mutedColor),
-    css('.nav-links a:hover, .nav-links a.is-active')
-        .styles(color: textColor, backgroundColor: surfaceColor),
-    css('.nav-links a.is-active svg').styles(color: accentColor),
-    css.media(MediaQuery.all(maxWidth: 540.px), [
-      css('.nav').styles(gap: .all(0.5.rem)),
-      css('.nav-links a').styles(
-        padding: .symmetric(vertical: 0.5.rem, horizontal: 0.6.rem),
-        gap: .all(0.35.rem),
-        fontSize: 0.9.rem,
-      ),
-      css('.nav-links a svg').styles(display: .none),
-      css('.nav-links a[aria-label] svg').styles(display: .block),
+    css('.logo-large', [
+      css('&').styles(fontSize: 1.6.rem),
+      css('& .logo-mark')
+          .styles(width: 44.px, height: 44.px, radius: .circular(12.px)),
+    ]),
+    css('.nav-links', [
+      css('&').styles(display: .flex, alignItems: .center, gap: .all(0.25.rem)),
+      css('& a', [
+        css('&').styles(
+          display: .inlineFlex,
+          padding: .symmetric(vertical: 0.5.rem, horizontal: 0.85.rem),
+          radius: .circular(999.px),
+          alignItems: .center,
+          gap: .all(0.45.rem),
+          color: text2Color,
+          fontSize: 0.95.rem,
+          fontWeight: .w500,
+        ),
+        css('& svg').styles(color: mutedColor),
+        css('&:hover, &.is-active')
+            .styles(color: textColor, backgroundColor: surfaceColor),
+        css('&.is-active svg').styles(color: accentColor),
+        css.media(MediaQuery.all(maxWidth: 540.px), [
+          css('&').styles(
+            padding: .symmetric(vertical: 0.5.rem, horizontal: 0.6.rem),
+            gap: .all(0.35.rem),
+            fontSize: 0.9.rem,
+          ),
+          css('& svg').styles(display: .none),
+          css('&[aria-label] svg').styles(display: .block),
+        ]),
+      ]),
     ]),
   ];
 

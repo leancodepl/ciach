@@ -63,12 +63,16 @@ class Features extends StatelessComponent {
             'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
       },
     ),
-    css('.feature')
-        .styles(display: .flex, flexDirection: .column, gap: .all(0.6.rem)),
-    css('.feature:hover').styles(
-      transform: .translate(y: (-2).px),
-      raw: {'border-color': 'var(--border-2)'},
-    ),
+    css('.feature', [
+      css('&')
+          .styles(display: .flex, flexDirection: .column, gap: .all(0.6.rem)),
+      css('&:hover').styles(
+        transform: .translate(y: (-2).px),
+        raw: {'border-color': 'var(--border-2)'},
+      ),
+      css('& h3').styles(margin: .zero),
+      css('& p').styles(raw: {'flex': '1'}),
+    ]),
     css('.feature-icon').styles(
       display: .inlineGrid,
       width: 42.px,
@@ -80,8 +84,6 @@ class Features extends StatelessComponent {
       backgroundColor: accentSoftColor,
       raw: {'place-items': 'center'},
     ),
-    css('.feature h3').styles(margin: .zero),
-    css('.feature p').styles(raw: {'flex': '1'}),
   ];
 
   @override

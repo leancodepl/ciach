@@ -26,12 +26,14 @@ class Pill extends StatelessComponent {
       fontWeight: .w500,
       backgroundColor: const Color.rgba(255, 255, 255, 0.02),
     ),
-    css('.pill-accent').styles(
-      color: accentColor,
-      backgroundColor: accentSoftColor,
-      raw: {'border-color': accentAlpha(0.4).value},
-    ),
-    css('.pill-accent:hover').styles(raw: {'border-color': 'var(--accent)'}),
+    css('.pill-accent', [
+      css('&').styles(
+        color: accentColor,
+        backgroundColor: accentSoftColor,
+        raw: {'border-color': accentAlpha(0.4).value},
+      ),
+      css('&:hover').styles(raw: {'border-color': 'var(--accent)'}),
+    ]),
   ];
 
   @override

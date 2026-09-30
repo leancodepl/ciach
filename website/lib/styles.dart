@@ -45,6 +45,9 @@ Color accentAlpha(double alpha) => Palette.ctaYellow.alpha(alpha);
 /// Marks a link inside running text by more than its color.
 const underlined = TextDecoration(line: .underline);
 
+/// Matches readers who asked the system for less motion.
+const reducedMotion = MediaQuery.raw('(prefers-reduced-motion: reduce)');
+
 /// A 1px solid border in [color].
 Border hairline(Color color) => Border.all(color: color, width: 1.px);
 
@@ -103,13 +106,18 @@ List<StyleRule> get _tokens => [
 
 List<StyleRule> get _reset => [
   css('*, *::before, *::after').styles(boxSizing: .borderBox),
-  css('html').styles(
-    raw: {
-      'scroll-behavior': 'smooth',
-      'scroll-padding-top': 'calc(var(--header-h) + 16px)',
-      '-webkit-text-size-adjust': '100%',
-    },
-  ),
+  css('html', [
+    css('&').styles(
+      raw: {
+        'scroll-behavior': 'smooth',
+        'scroll-padding-top': 'calc(var(--header-h) + 16px)',
+        '-webkit-text-size-adjust': '100%',
+      },
+    ),
+    css.media(reducedMotion, [
+      css('&').styles(raw: {'scroll-behavior': 'auto'}),
+    ]),
+  ]),
   css('body').styles(
     margin: .zero,
     color: textColor,
@@ -130,8 +138,10 @@ List<StyleRule> get _reset => [
     raw: {'text-wrap': 'balance'},
   ),
   css('p').styles(margin: .zero),
-  css('a').styles(color: .inherit, textDecoration: .none),
-  css('a:hover').styles(color: accentColor),
+  css('a', [
+    css('&').styles(color: .inherit, textDecoration: .none),
+    css('&:hover').styles(color: accentColor),
+  ]),
   css(':focus-visible').styles(
     radius: .circular(4.px),
     outline: Outline(
@@ -185,30 +195,33 @@ List<StyleRule> get _utilities => [
       'border': '0',
     },
   ),
-  css('.skip-link').styles(
-    position: .fixed(top: 12.px, left: 12.px),
-    zIndex: const ZIndex(100),
-    padding: .symmetric(vertical: 0.6.rem, horizontal: 1.rem),
-    radius: const .circular(radiusSm),
-    transition: Transition('transform', duration: 200.ms, curve: .ease),
-    transform: .translate(y: (-200).percent),
-    color: accentInkColor,
-    fontWeight: .w600,
-    backgroundColor: accentColor,
-  ),
-  css('.skip-link:focus').styles(transform: const .translate(y: .zero)),
+  css('.skip-link', [
+    css('&').styles(
+      position: .fixed(top: 12.px, left: 12.px),
+      zIndex: const ZIndex(100),
+      padding: .symmetric(vertical: 0.6.rem, horizontal: 1.rem),
+      radius: const .circular(radiusSm),
+      transition: Transition('transform', duration: 200.ms, curve: .ease),
+      transform: .translate(y: (-200).percent),
+      color: accentInkColor,
+      fontWeight: .w600,
+      backgroundColor: accentColor,
+    ),
+    css('&:focus').styles(transform: const .translate(y: .zero)),
+  ]),
   css('.accent').styles(color: accentColor),
   css('.muted').styles(color: mutedColor),
-  css('.hide-sm').styles(display: .inline),
-  css.media(MediaQuery.all(maxWidth: 540.px), [
-    css('.hide-sm').styles(display: .none),
+  css('.hide-sm', [
+    css('&').styles(display: .inline),
+    css.media(MediaQuery.all(maxWidth: 540.px), [
+      css('&').styles(display: .none),
+    ]),
   ]),
 ];
 
 // Motion is a garnish here; readers who asked for less of it get none.
 List<StyleRule> get _motion => [
-  css.media(const MediaQuery.raw('(prefers-reduced-motion: reduce)'), [
-    css('html').styles(raw: {'scroll-behavior': 'auto'}),
+  css.media(reducedMotion, [
     css('*, *::before, *::after').styles(
       raw: {
         'animation-duration': '0.01ms !important',

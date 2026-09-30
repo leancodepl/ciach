@@ -31,39 +31,44 @@ class Button extends StatelessComponent {
 
   @css
   static List<StyleRule> get styles => [
-    css('.button').styles(
-      display: .inlineFlex,
-      padding: .symmetric(vertical: 0.75.rem, horizontal: 1.2.rem),
-      border: hairline(const Color('transparent')),
-      radius: .circular(999.px),
-      cursor: .pointer,
-      transition: .combine([
-        Transition('transform', duration: 150.ms, curve: .ease),
-        Transition('background-color', duration: 150.ms, curve: .ease),
-        Transition('border-color', duration: 150.ms, curve: .ease),
-        Transition('color', duration: 150.ms, curve: .ease),
-      ]),
-      alignItems: .center,
-      gap: .all(0.5.rem),
-      fontSize: 0.95.rem,
-      fontWeight: .w600,
-      lineHeight: const .expression('1'),
-      whiteSpace: .noWrap,
-    ),
-    css('.button:hover').styles(transform: .translate(y: (-1).px)),
-    css('.button-primary')
-        .styles(color: accentInkColor, backgroundColor: accentColor),
-    css('.button-primary:hover').styles(
-      color: accentInkColor,
-      backgroundColor: Palette.ctaYellowLight.color,
-    ),
-    css('.button-secondary').styles(
-      color: textColor,
-      backgroundColor: surfaceColor,
-      raw: {'border-color': 'var(--border-2)'},
-    ),
-    css('.button-secondary:hover')
-        .styles(color: textColor, raw: {'border-color': 'var(--accent)'}),
+    css('.button', [
+      css('&').styles(
+        display: .inlineFlex,
+        padding: .symmetric(vertical: 0.75.rem, horizontal: 1.2.rem),
+        border: hairline(const Color('transparent')),
+        radius: .circular(999.px),
+        cursor: .pointer,
+        transition: .combine([
+          Transition('transform', duration: 150.ms, curve: .ease),
+          Transition('background-color', duration: 150.ms, curve: .ease),
+          Transition('border-color', duration: 150.ms, curve: .ease),
+          Transition('color', duration: 150.ms, curve: .ease),
+        ]),
+        alignItems: .center,
+        gap: .all(0.5.rem),
+        fontSize: 0.95.rem,
+        fontWeight: .w600,
+        lineHeight: const .expression('1'),
+        whiteSpace: .noWrap,
+      ),
+      css('&:hover').styles(transform: .translate(y: (-1).px)),
+    ]),
+    css('.button-primary', [
+      css('&').styles(color: accentInkColor, backgroundColor: accentColor),
+      css('&:hover').styles(
+        color: accentInkColor,
+        backgroundColor: Palette.ctaYellowLight.color,
+      ),
+    ]),
+    css('.button-secondary', [
+      css('&').styles(
+        color: textColor,
+        backgroundColor: surfaceColor,
+        raw: {'border-color': 'var(--border-2)'},
+      ),
+      css('&:hover')
+          .styles(color: textColor, raw: {'border-color': 'var(--accent)'}),
+    ]),
   ];
 
   @override
