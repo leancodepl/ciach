@@ -96,6 +96,50 @@ void main() {
     expect(rel(withOption.warmOnly), {'lib/embed.gc.dart'});
   });
 
+  test('a file matching additionalGeneratedGlobs is warmed, not scanned, and '
+      'unlike an excluded one still opened', () {
+    write('lib/model.dart', 'class Model {}');
+    write('lib/l10n/l10n.dart', 'abstract class AppLocalizations {}');
+    write('lib/l10n/l10n_pl.dart', 'class AppLocalizationsPl {}');
+    // Its name ends like a gen-l10n file's, but it is hand-written.
+    write('lib/src/status_l10n.dart', 'String status() => "";');
+
+    final result = discoverDartFilesSplit(
+      .new(
+        rootPath: tempDir.path,
+        additionalGeneratedGlobs: const ['lib/l10n/**'],
+      ),
+    );
+    expect(rel(result.candidates), {
+      'lib/model.dart',
+      'lib/src/status_l10n.dart',
+    });
+    expect(rel(result.warmOnly), {
+      'lib/l10n/l10n.dart',
+      'lib/l10n/l10n_pl.dart',
+    });
+
+    final excluded = discoverDartFilesSplit(
+      .new(rootPath: tempDir.path, excludeGlobs: const ['lib/l10n/**']),
+    );
+    expect(rel(excluded.candidates), {
+      'lib/model.dart',
+      'lib/src/status_l10n.dart',
+    });
+    expect(excluded.warmOnly, isEmpty);
+
+    // --generated scans them like any other file.
+    final scanned = discoverDartFilesSplit(
+      .new(
+        rootPath: tempDir.path,
+        includeGenerated: true,
+        additionalGeneratedGlobs: const ['lib/l10n/**'],
+      ),
+    );
+    expect(scanned.candidates, hasLength(4));
+    expect(scanned.warmOnly, isEmpty);
+  });
+
   test('generated files inside skipped dirs are excluded from both sets', () {
     write('lib/model.dart', 'class Model {}');
     write('build/gen.g.dart', '// generated\nclass Gen {}');

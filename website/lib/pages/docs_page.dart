@@ -142,7 +142,8 @@ const _skips = [
   ),
   (
     'Generated files',
-    'By filename and the `GENERATED CODE` banner; still opened for analysis.',
+    'By filename, the `GENERATED CODE` banner and `--generated-glob`; still '
+        'opened for analysis.',
     '--generated',
   ),
   (

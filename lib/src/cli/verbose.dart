@@ -86,6 +86,7 @@ String _setting(
   .exclude => _value(resolved.excludeGlobs),
   .include => _value(resolved.includeGlobs),
   .generatedSuffix => _value(resolved.additionalGeneratedSuffixes),
+  .generatedGlob => _value(resolved.additionalGeneratedGlobs),
   .entryPoints => _value(resolved.entryPoints),
   .kinds => _kinds(resolved.kinds),
   .format => resolved.format,

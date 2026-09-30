@@ -7,6 +7,12 @@
   is kept and listed under "Not analyzed". The result goes to stdout, the log
   to stderr, with more color.
   ([#78](https://github.com/leancodepl/ciach/pull/78))
+- Add `--generated-glob <glob>` (and `generated-glob:` in `ciach.yaml`): treat
+  matching files as generated, so their references count but nothing in them
+  is reported or removed. For output a suffix can't pick out, like
+  `flutter gen-l10n`'s `lib/l10n/**`, which has neither a suffix nor the
+  banner. Unlike `--exclude`, the files are still opened.
+  ([#76](https://github.com/leancodepl/ciach/pull/76))
 - A member used only through an override, from a file that doesn't import the
   member's library, is no longer reported (nor deleted with `--remove`).
   ([#79](https://github.com/leancodepl/ciach/pull/79))
