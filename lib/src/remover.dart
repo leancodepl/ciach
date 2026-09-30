@@ -94,13 +94,14 @@ RemovalResult removeDeclarations(
       throw failure(e, file.path);
     }
   }
-  final List<DeletedFile> deleted;
   try {
-    deleted = deleteEmptiedFiles(rewritten, rootPath);
+    return .new(
+      filesChanged: rewritten.length,
+      deletedFiles: deleteEmptiedFiles(rewritten, rootPath),
+    );
   } on FileSystemException catch (e) {
     throw failure(e, e.path ?? rootPath);
   }
-  return .new(filesChanged: rewritten.length, deletedFiles: deleted);
 }
 
 /// [removeDeclarations] failed on [filePath]; [changedFiles] were already
