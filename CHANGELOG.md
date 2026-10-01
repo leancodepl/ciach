@@ -1,11 +1,7 @@
 ## Unreleased
 
-- Add `--no-exported` (and `exported: false` in `ciach.yaml`): leave out only
-  the package's public API, meaning the libraries under `lib/` outside
-  `lib/src/` and whatever they export (through `show`/`hide`), while still
-  reporting public declarations no other package can import, such as an
-  unexported `lib/src/` class or a public member of a private type. For library
-  packages, where `--no-public` hid those too.
+- Add `--no-exported` (`exported: false`): skip only declarations other
+  packages can import.
 
 ## 0.6.0
 
