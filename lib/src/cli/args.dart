@@ -153,6 +153,18 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'highest-confidence dead code.',
     ),
   ),
+  exported(
+    FlagOption(
+      argName: 'exported',
+      configKey: '/exported',
+      defaultsTo: true,
+      helpText:
+          'Report unused public declarations of the package API too: those\n'
+          'of a library under lib/ outside lib/src/, and whatever such a\n'
+          'library exports. Disable, for a library package, to still report\n'
+          'public declarations no other package can import.',
+    ),
+  ),
   failPublic(
     FlagOption(
       argName: 'fail-public',

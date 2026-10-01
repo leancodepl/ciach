@@ -74,6 +74,7 @@ String _setting(
   // Unset, the analysis root is the scanned root.
   .analysisRoot => options.analysisRootPath ?? options.rootPath,
   .public => '${resolved.includePublic}',
+  .exported => '${resolved.includeExported}',
   .failPublic => '${resolved.failPublic}',
   .generated => '${resolved.includeGenerated}',
   .overrides => '${resolved.overrides}',
