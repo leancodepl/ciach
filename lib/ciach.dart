@@ -28,6 +28,7 @@ library;
 export 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
 export 'src/conventions/entry_points.dart' show EntryPoint;
+export 'src/conventions/project_conventions.dart' show ProjectConventions;
 export 'src/dart_executable.dart'
     show DartSdkNotFoundException, findDartExecutable;
 export 'src/finder.dart' show Ciach;

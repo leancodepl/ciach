@@ -3,7 +3,7 @@ library;
 
 import 'dart:io';
 
-import 'package:ciach/src/finder.dart';
+import 'package:ciach/ciach.dart';
 import 'package:ciach/src/log.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -132,8 +132,18 @@ Object run(Object handler, Object ip, int port) => handler;
 
   tearDown(() => package.deleteSync(recursive: true));
 
+  FinderOptions detected() {
+    final conventions = ProjectConventions.read(package.path);
+    return .new(
+      rootPath: package.path,
+      entryPoints: conventions.entryPoints,
+      additionalGeneratedGlobs: conventions.generatedGlobs,
+      serverpodEndpoints: conventions.serverpod,
+    );
+  }
+
   test('declarations the project config names are not reported', () async {
-    final result = await Ciach(.new(rootPath: package.path)).run();
+    final result = await Ciach(detected()).run();
 
     expect(
       {for (final d in result.unused) '${d.filePath}:${d.qualifiedName}'},
@@ -151,10 +161,8 @@ Object run(Object handler, Object ip, int port) => handler;
     );
   });
 
-  test('--no-project-config reads none of it', () async {
-    final result = await Ciach(
-      .new(rootPath: package.path, readProjectConfig: false),
-    ).run();
+  test('without them, it is all reported', () async {
+    final result = await Ciach(.new(rootPath: package.path)).run();
     final unused = {
       for (final d in result.unused) '${d.filePath}:${d.qualifiedName}',
     };
@@ -185,7 +193,7 @@ Object run(Object handler, Object ip, int port) => handler;
       return logging.cancel();
     });
 
-    await Ciach(.new(rootPath: package.path)).run();
+    await Ciach(detected()).run();
 
     const builder =
         'Entry point from the project config: stampBuilder in lib/builder.dart '

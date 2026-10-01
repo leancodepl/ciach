@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/freezed.dart';
-import 'package:ciach/src/conventions/project_conventions.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
@@ -28,10 +27,8 @@ final class CandidateCollector {
     required this.options,
     required SourceIndex sources,
     required FreezedUnions freezed,
-    ProjectConventions conventions = ProjectConventions.none,
   }) : _sources = sources,
-       _freezed = freezed,
-       _conventions = conventions;
+       _freezed = freezed;
 
   final FinderOptions options;
   final SourceIndex _sources;
@@ -39,12 +36,7 @@ final class CandidateCollector {
   /// Freezed-union tracking, fed as candidates are collected.
   final FreezedUnions _freezed;
 
-  final ProjectConventions _conventions;
-
-  late final _entryPoints = EntryPoints([
-    ...options.entryPoints,
-    ..._conventions.entryPoints,
-  ]);
+  late final _entryPoints = EntryPoints(options.entryPoints);
 
   /// Skipped as entry points this run, for `--verbose`.
   final _skippedEntryPoints = <_SkippedEntryPoint>[];
@@ -232,7 +224,7 @@ final class CandidateCollector {
     if (leadingMetadata.any((t) => t.isAnnotationNamed('reflectiveTest'))) {
       return .reflectiveTest;
     }
-    if (_conventions.serverpod &&
+    if (options.serverpodEndpoints &&
         candidate.symbol.kind == .class$ &&
         _extendsEndpoint(candidate)) {
       return .serverpodEndpoint;

@@ -657,6 +657,51 @@ dart: /sdk/bin/dart
       expect(options.concurrency, 4);
     });
   });
+
+  group('project config', () {
+    late Directory package;
+
+    setUp(() {
+      package = .systemTemp.createTempSync('ciach_config_project_');
+      File(p.join(package.path, 'pubspec.yaml')).writeAsStringSync('''
+name: server
+dependencies:
+  dart_frog: any
+  serverpod: any
+''');
+      File(p.join(package.path, 'l10n.yaml')).writeAsStringSync('');
+    });
+
+    tearDown(() => package.deleteSync(recursive: true));
+
+    test('is merged into the finder options', () {
+      final options = resolve(
+        [package.path, '--generated-glob', 'gen/**'],
+        .parse('entry-points: [{name: bootstrap}]', origin: 'ciach.yaml'),
+      ).finderOptions();
+
+      expect(
+        options.entryPoints.map((e) => e.name),
+        containsAllInOrder(['bootstrap', 'onRequest']),
+      );
+      expect(options.additionalGeneratedGlobs, [
+        'gen/**',
+        'lib/l10n/app_localizations{,_*}.dart',
+      ]);
+      expect(options.serverpodEndpoints, isTrue);
+    });
+
+    test('--no-project-config reads none of it', () {
+      final options = resolve([
+        package.path,
+        '--no-project-config',
+      ]).finderOptions();
+
+      expect(options.entryPoints, isEmpty);
+      expect(options.additionalGeneratedGlobs, isEmpty);
+      expect(options.serverpodEndpoints, isFalse);
+    });
+  });
 }
 
 /// A [UsageException] whose message matches [message].

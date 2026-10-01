@@ -2,6 +2,7 @@ import 'package:args/args.dart';
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/args.dart';
 import 'package:ciach/src/cli/config.dart';
+import 'package:ciach/src/paths.dart';
 import 'package:config/config.dart';
 
 /// A resolved [Configuration] in the types the rest of the tool works in: kind
@@ -78,27 +79,35 @@ class ResolvedOptions {
   final int concurrency;
   final String? dartExecutable;
 
-  /// The finder's options.
-  FinderOptions finderOptions({String? dartExecutable}) => .new(
-    rootPath: rootPath,
-    analysisRootPath: analysisRootPath,
-    includeGlobs: includeGlobs,
-    excludeGlobs: excludeGlobs,
-    additionalGeneratedSuffixes: additionalGeneratedSuffixes,
-    additionalGeneratedGlobs: additionalGeneratedGlobs,
-    kinds: kinds,
-    includePublic: includePublic,
-    includeGenerated: includeGenerated,
-    readProjectConfig: projectConfig,
-    skipOverrides: !overrides,
-    skipOperators: !operators,
-    unusedUnionMembers: unusedUnionMembers,
-    reportToJson: reportToJson,
-    transitive: transitive,
-    entryPoints: entryPoints,
-    concurrency: concurrency,
-    dartExecutable: dartExecutable ?? this.dartExecutable,
-  );
+  /// The finder's options, with what [projectConfig] reads merged in.
+  FinderOptions finderOptions({String? dartExecutable}) {
+    final detected = projectConfig
+        ? ProjectConventions.read(rootPath.absoluteNormalized)
+        : ProjectConventions.none;
+    return .new(
+      rootPath: rootPath,
+      analysisRootPath: analysisRootPath,
+      includeGlobs: includeGlobs,
+      excludeGlobs: excludeGlobs,
+      additionalGeneratedSuffixes: additionalGeneratedSuffixes,
+      additionalGeneratedGlobs: [
+        ...additionalGeneratedGlobs,
+        ...detected.generatedGlobs,
+      ],
+      kinds: kinds,
+      includePublic: includePublic,
+      includeGenerated: includeGenerated,
+      skipOverrides: !overrides,
+      skipOperators: !operators,
+      unusedUnionMembers: unusedUnionMembers,
+      reportToJson: reportToJson,
+      transitive: transitive,
+      entryPoints: [...entryPoints, ...detected.entryPoints],
+      serverpodEndpoints: detected.serverpod,
+      concurrency: concurrency,
+      dartExecutable: dartExecutable ?? this.dartExecutable,
+    );
+  }
 }
 
 /// Resolves every [CiachOption] from [args] and [config], the command line

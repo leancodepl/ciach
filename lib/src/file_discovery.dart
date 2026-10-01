@@ -61,10 +61,7 @@ List<String> discoverDartFiles(FinderOptions options) =>
 /// The warm-only set is deliberately not filtered by include/exclude globs — a
 /// reference can live in a generated file the user isn't scanning — though
 /// skipped directories (`build/`, `.dart_tool/`, …) are still excluded.
-DiscoveredDartFiles discoverDartFilesSplit(
-  FinderOptions options, {
-  List<String> configuredGeneratedGlobs = const [],
-}) {
+DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
   // Already absolute and normalized: `FinderOptions` is the only way in.
   final rootPath = options.rootPath;
   final root = Directory(rootPath);
@@ -77,10 +74,7 @@ DiscoveredDartFiles discoverDartFilesSplit(
     for (final pattern in options.excludeGlobs) Glob(pattern, context: context),
   ];
   final generatedGlobs = [
-    for (final pattern in [
-      ...options.additionalGeneratedGlobs,
-      ...configuredGeneratedGlobs,
-    ])
+    for (final pattern in options.additionalGeneratedGlobs)
       Glob(pattern, context: context),
   ];
 

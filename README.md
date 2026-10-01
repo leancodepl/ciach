@@ -403,6 +403,10 @@ for (final decl in result.unused) {
 }
 ```
 
+`FinderOptions` doesn't read the project config; pass what
+`ProjectConventions.read(root)` returns into `entryPoints`,
+`additionalGeneratedGlobs` and `serverpodEndpoints`.
+
 ciach logs through [`package:logging`](https://pub.dev/packages/logging), with
 loggers such as `ciach.finder` and `ciach.lsp`. It never configures the root
 logger; listen on `Logger.root.onRecord` to see the records.

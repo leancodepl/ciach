@@ -15,7 +15,6 @@ import 'package:ciach/src/candidate_collector.dart';
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/concurrency.dart';
 import 'package:ciach/src/conventions/freezed.dart';
-import 'package:ciach/src/conventions/project_conventions.dart';
 import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
@@ -65,15 +64,10 @@ class Ciach {
     unusedUnionMembers: options.unusedUnionMembers,
   );
 
-  late final _conventions = options.readProjectConfig
-      ? ProjectConventions.read(options.rootPath)
-      : ProjectConventions.none;
-
   late final _collector = CandidateCollector(
     options: options,
     sources: _sources,
     freezed: _freezed,
-    conventions: _conventions,
   );
 
   late final _fetch = ReferenceFetch(options: options, sources: _sources);
@@ -112,10 +106,7 @@ class Ciach {
       );
     }
 
-    final discovered = discoverDartFilesSplit(
-      options,
-      configuredGeneratedGlobs: _conventions.generatedGlobs,
-    );
+    final discovered = discoverDartFilesSplit(options);
     final files = discovered.candidates;
     _log.info(
       'Discovered ${plural(files.length, 'Dart file', 'Dart files')} to scan.',

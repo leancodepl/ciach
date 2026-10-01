@@ -151,19 +151,6 @@ void main() {
     expect(result.warmOnly, isEmpty);
   });
 
-  test('configured generated globs are warmed, not scanned', () {
-    write('lib/model.dart', 'class Model {}');
-    write('lib/generated/model.g.dart', 'class ModelGen {}');
-
-    final result = discoverDartFilesSplit(
-      .new(rootPath: tempDir.path),
-      configuredGeneratedGlobs: const ['lib/generated/**'],
-    );
-
-    expect(rel(result.candidates), {'lib/model.dart'});
-    expect(rel(result.warmOnly), {'lib/generated/model.g.dart'});
-  });
-
   group('isGeneratedBanner', () {
     test('recognizes how each generator words it', () {
       for (final banner in [
