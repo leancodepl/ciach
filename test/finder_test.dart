@@ -54,7 +54,7 @@ void main() {
     List<String> include = const [],
     List<EntryPoint> entryPoints = const [],
     bool transitive = false,
-    bool reachability = false,
+    bool deadCycles = false,
   }) => Ciach(
     .new(
       rootPath: fixturePath,
@@ -66,7 +66,7 @@ void main() {
       includeGlobs: include,
       entryPoints: entryPoints,
       transitive: transitive,
-      reachability: reachability,
+      deadCycles: deadCycles,
     ),
   ).run();
 
@@ -347,6 +347,21 @@ void main() {
         expect(widget.coupledRemovals, isNotEmpty);
       },
     );
+
+    for (final deadCycles in [false, true]) {
+      test('a dead widget whose State is used elsewhere is report-only '
+          '(deadCycles: $deadCycles)', () async {
+        final result = await runFinder(
+          include: ['lib/scenarios/widgets.dart'],
+          exclude: const [],
+          deadCycles: deadCycles,
+        );
+        final widget = findByQualified(result, 'KeyedWidget')!;
+        expect(widget.removalBlocked, isTrue);
+        expect(widget.coupledRemovals, isEmpty);
+        expect(findByQualified(result, '_KeyedWidgetState'), isNull);
+      });
+    }
 
     test(
       'never flags a live widget-style class or the State stand-in',
@@ -795,11 +810,11 @@ void main() {
     );
   });
 
-  group('reachability (opt-in --reachability)', () {
+  group('dead cycles (opt-in --dead-cycles)', () {
     const fixture = ['lib/scenarios/transitive.dart'];
 
-    Future<FinderResult> runReachability() =>
-        runFinder(include: fixture, exclude: const [], reachability: true);
+    Future<FinderResult> runDeadCycles() =>
+        runFinder(include: fixture, exclude: const [], deadCycles: true);
 
     Set<String> names(Iterable<UnusedDeclaration> decls) =>
         decls.map((d) => d.qualifiedName).toSet();
@@ -810,7 +825,7 @@ void main() {
         exclude: const [],
         transitive: true,
       );
-      final result = await runReachability();
+      final result = await runDeadCycles();
       expect(names(result.unused), {
         ...names(transitive.unused),
         '_ping',
@@ -822,7 +837,7 @@ void main() {
     });
 
     test('each member of a dead cycle names the others', () async {
-      final result = await runReachability();
+      final result = await runDeadCycles();
       DeadReferrer asOwner(String qualified) {
         final decl = findByQualified(result, qualified)!;
         return (
@@ -844,7 +859,7 @@ void main() {
 
     test('a cycle entered from live code stays, and so do report-only '
         "findings' references", () async {
-      final result = await runReachability();
+      final result = await runDeadCycles();
       for (final name in [
         'transitiveAnchor',
         '_usedByLive',
@@ -859,11 +874,11 @@ void main() {
     });
 
     test('after --remove, a second run has nothing left to remove', () async {
-      final copy = Directory.systemTemp.createTempSync('ciach_reachability_');
+      final copy = Directory.systemTemp.createTempSync('ciach_dead_cycles_');
       addTearDown(() => copy.deleteSync(recursive: true));
       copyTree(Directory(fixturePath), copy);
       Future<FinderResult> run() => Ciach(
-        .new(rootPath: copy.path, includeGlobs: fixture, reachability: true),
+        .new(rootPath: copy.path, includeGlobs: fixture, deadCycles: true),
       ).run();
 
       final first = await run();
@@ -1274,16 +1289,16 @@ void main() {
     });
   });
 
-  test('reachability: a recovered member with a dead and a live use stays '
+  test('dead cycles: a recovered member with a dead and a live use stays '
       'used', () async {
     final result = await runFinder(
       include: const [
         'lib/scenarios/xref_shapes.dart',
         'lib/scenarios/xref_surface.dart',
-        'lib/scenarios/xref_reachability.dart',
+        'lib/scenarios/xref_dead_cycles.dart',
       ],
       exclude: const [],
-      reachability: true,
+      deadCycles: true,
     );
     final names = result.unused.map((d) => d.qualifiedName).toSet();
     expect(names, contains('_deadReady'));

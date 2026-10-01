@@ -60,13 +60,14 @@ extension FlutterWidgets on SourceIndex {
   /// The extra spans to remove alongside a dead [widget] class: the paired
   /// private `State<Widget>` subclass, when there is exactly one and it is used
   /// only from within the widget (via `createState`). Returns an empty list for
-  /// a plain class, or a StatefulWidget whose State is referenced elsewhere.
+  /// a plain class.
   ///
   /// Removing the widget on its own would leave
   /// `class _S extends State<Widget>` referring to a now-deleted type — a build
   /// break — so the State is coupled to the widget's removal, but it is not
-  /// itself reported.
-  List<CoupledRemoval> pairedStateRemovals(
+  /// itself reported. A State that can't be coupled (used elsewhere) makes
+  /// the widget `blocked`.
+  ({List<CoupledRemoval> removals, bool blocked}) pairedStateRemovals(
     Candidate widget,
     List<Location> widgetRefs,
     List<Candidate> candidates,
@@ -74,6 +75,7 @@ extension FlutterWidgets on SourceIndex {
     String rootPath,
   ) {
     final out = <CoupledRemoval>[];
+    var blocked = false;
     for (final loc in widgetRefs) {
       if (!isStatePairingReference(widget.symbol.name, loc) ||
           SourceIndex.pathOf(loc.uri) != widget.path) {
@@ -85,6 +87,7 @@ extension FlutterWidgets on SourceIndex {
       if (loc.range.start.within(widget.symbol)) {
         continue;
       }
+      var coupled = false;
       for (var j = 0; j < candidates.length; j++) {
         final state = candidates[j];
         if (state.symbol.kind != .class$ ||
@@ -104,11 +107,13 @@ extension FlutterWidgets on SourceIndex {
             range: state.outline.codeRange.toDeclarationRange,
             fullRange: state.outline.range.toDeclarationRange,
           ));
+          coupled = true;
         }
         break;
       }
+      blocked |= !coupled;
     }
-    return out;
+    return (removals: out, blocked: blocked);
   }
 
   /// Whether every *code* reference in [refs] lies within [enclosing] in [path]

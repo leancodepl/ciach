@@ -91,13 +91,13 @@ final class Settler {
     );
 
     var crossLib = CrossLibraryReferences.empty;
-    var deadSpans = options.reachability
+    var deadSpans = options.deadCycles
         ? _sweep(candidates, refsByCandidate, .empty, [
             for (var i = 0; i < candidates.length; i++)
               _finding(i, _verdict.finding(candidates[i], rootPath)),
           ], rootPath)
         : DeadSpans.empty;
-    if (options.reachability) {
+    if (options.deadCycles) {
       _log.info(
         'Round 1: checking the '
         '${plural(deadSpans.length, 'declaration', 'declarations')} no live '
@@ -121,10 +121,10 @@ final class Settler {
         rootPath,
         analysisRoot,
       );
-      if (!options.transitive && !options.reachability) {
+      if (!options.transitive && !options.deadCycles) {
         break;
       }
-      final next = options.reachability
+      final next = options.deadCycles
           ? _sweep(
               candidates,
               refsByCandidate,
@@ -318,18 +318,21 @@ final class Settler {
           final isClass = candidate.symbol.kind == .class$;
           final overrides = overridden[i];
           final blockedByOverride = overrides?.blocked ?? false;
+          final pairedState = isClass
+              ? _sources.pairedStateRemovals(
+                  candidate,
+                  refs,
+                  candidates,
+                  liveRefs,
+                  rootPath,
+                )
+              : null;
+          final blockedByState = pairedState?.blocked ?? false;
           final finding = _verdict.finding(
             candidate,
             rootPath,
-            coupledRemovals: isClass
-                ? _sources.pairedStateRemovals(
-                    candidate,
-                    refs,
-                    candidates,
-                    liveRefs,
-                    rootPath,
-                  )
-                : overrides?.removals ?? const [],
+            coupledRemovals:
+                pairedState?.removals ?? overrides?.removals ?? const [],
             removalBlocked:
                 _verdict.isRemovalBlocked(
                   candidate,
@@ -337,10 +340,12 @@ final class Settler {
                   safety,
                   groupGuards: !_removableBefore.contains(i),
                 ) ||
-                blockedByOverride,
+                blockedByOverride ||
+                blockedByState,
             hint:
                 _verdict.hintFor(candidate) ??
-                (blockedByOverride ? Verdict.overriddenHint : null),
+                (blockedByOverride ? Verdict.overriddenHint : null) ??
+                (blockedByState ? Verdict.pairedStateHint : null),
             onlyReferencedFrom: _onlyReferencedFrom(
               candidate,
               refsByCandidate[i],

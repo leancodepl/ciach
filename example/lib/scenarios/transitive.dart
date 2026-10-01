@@ -60,7 +60,7 @@ class Odometer {
   int live() => 1;
 }
 
-/// Dead cycle -> UNUSED only with reachability.
+/// Dead cycle -> UNUSED only with dead cycles.
 void _ping() => _pong();
 
 void _pong() => _ping();
@@ -70,7 +70,7 @@ void _liveCycle() => _liveCycleBack();
 
 void _liveCycleBack() => _liveCycle();
 
-/// Dead class cycle -> UNUSED only with reachability, without members.
+/// Dead class cycle -> UNUSED only with dead cycles, without members.
 class _Chicken {
   _Egg lay() => _Egg()..hatch();
 }

@@ -83,7 +83,7 @@ ciach --verbose                        # explain each step
 | `--[no-]unused-union-members` | off | Also flag a (sealed) supertype member matched only by type patterns, never constructed. Report-only — never touched by `--remove`. |
 | `--[no-]report-tojson` | off | Report an otherwise-unused `toJson()` serialization hook too. Off by default — `jsonEncode` dispatches to it dynamically. |
 | `--[no-]transitive` | off | Also report declarations referenced only from other findings. See [Transitively dead code](#transitively-dead-code). |
-| `--[no-]reachability` | off | `--transitive` plus dead cycles. See [Dead cycles](#dead-cycles). |
+| `--[no-]dead-cycles` | off | `--transitive` plus dead cycles. See [Dead cycles](#dead-cycles). |
 | `--set-exit-if-changed` | off | Exit with status `1` when anything is found (for CI). Named after `dart format`. |
 | `--[no-]fail-public` | on | Count unused public declarations toward the exit code (with `--set-exit-if-changed`). `--no-fail-public` reports them but fails only on private findings. |
 | `--remove` | off | Remove unused declarations after reporting them. Prompts for confirmation first. |
@@ -204,12 +204,12 @@ reported without its members.
 It's off by default because one false positive also flags everything only it
 referenced. `-f json` lists every finding a declaration depends on in
 `onlyReferencedFrom`; the other formats show the first and a count. Dead
-cycles need [`--reachability`](#dead-cycles).
+cycles need [`--dead-cycles`](#dead-cycles).
 
 ### Dead cycles
 
 Declarations that only reference each other keep each other alive under
-`--transitive`. `--reachability` reports them:
+`--transitive`. `--dead-cycles` reports them:
 
 ```
 lib/report.dart
@@ -368,7 +368,7 @@ deleting blindly:
   itself is dead.
 - **Code referenced only from dead code** is reported only with
   [`--transitive`](#transitively-dead-code), and a cycle of dead declarations
-  only with [`--reachability`](#dead-cycles).
+  only with [`--dead-cycles`](#dead-cycles).
 - A package that doesn't analyze cleanly (missing `pub get`, errors) yields
   incomplete references.
 

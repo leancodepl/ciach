@@ -35,3 +35,19 @@ class _DeadStatefulWidgetState extends State<DeadStatefulWidget> {}
 class LiveWidget {
   const LiveWidget();
 }
+
+/// Stand-in for Flutter's `GlobalKey<T>`.
+class GlobalKey<T> {}
+
+/// Never constructed, but its State is named by a live key -> reported, but
+/// report-only: removing it would leave `State<KeyedWidget>` dangling.
+class KeyedWidget {
+  const KeyedWidget();
+
+  State<KeyedWidget> createState() => _KeyedWidgetState();
+}
+
+class _KeyedWidgetState extends State<KeyedWidget> {}
+
+/// Read from bin/app.dart -> USED, and so is `_KeyedWidgetState`.
+final Object keyedWidgetKey = GlobalKey<_KeyedWidgetState>();

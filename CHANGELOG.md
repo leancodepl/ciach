@@ -1,8 +1,11 @@
 ## Unreleased
 
-- Add `--reachability` (and `reachability:` in `ciach.yaml`): also report
+- Add `--dead-cycles` (and `dead-cycles:` in `ciach.yaml`): also report
   dead cycles, which `--transitive` misses. Off by default.
   ([#65](https://github.com/leancodepl/ciach/issues/65))
+- A dead `StatefulWidget` whose `State` is used elsewhere (say, by a
+  `GlobalKey`) is report-only: `--remove` deleted the widget and left
+  `State<Widget>` naming a missing type.
 - Recommend `dart install ciach` over `dart pub global activate` in the README
   and on the website.
 - **Breaking:** `FinderOptions.onProgress` is removed; ciach logs through

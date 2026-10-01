@@ -99,7 +99,7 @@ const _options = [
     'Also report what only other findings reference, in the same run.',
   ),
   (
-    '--reachability',
+    '--dead-cycles',
     'Also report dead cycles.',
   ),
   (

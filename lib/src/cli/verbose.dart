@@ -81,7 +81,7 @@ String _setting(
   .unusedUnionMembers => '${resolved.unusedUnionMembers}',
   .reportToJson => '${resolved.reportToJson}',
   .transitive => '${resolved.transitive}',
-  .reachability => '${resolved.reachability}',
+  .deadCycles => '${resolved.deadCycles}',
   .setExitIfChanged => '${resolved.setExitIfChanged}',
   .remove => '${resolved.remove}',
   .force => '${resolved.force}',

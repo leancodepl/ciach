@@ -222,10 +222,10 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'false positive also flags everything only it referenced.',
     ),
   ),
-  reachability(
+  deadCycles(
     FlagOption(
-      argName: 'reachability',
-      configKey: '/reachability',
+      argName: 'dead-cycles',
+      configKey: '/dead-cycles',
       defaultsTo: false,
       helpText:
           '--transitive plus dead cycles: report whatever no live code\n'
