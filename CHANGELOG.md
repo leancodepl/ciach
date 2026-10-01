@@ -1,10 +1,10 @@
-## Unreleased
+## 0.6.0
 
-- Recommend `dart install ciach` over `dart pub global activate` in the README
-  and on the website.
 - **Breaking:** `FinderOptions.onProgress` is removed; ciach logs through
   `package:logging`.
   ([#78](https://github.com/leancodepl/ciach/pull/78))
+- Recommend `dart install ciach` over `dart pub global activate` in the README
+  and on the website.
 - A failed analysis server request no longer stops the run: the affected code
   is kept and listed under "Not analyzed". The result goes to stdout, the log
   to stderr, with more color.
