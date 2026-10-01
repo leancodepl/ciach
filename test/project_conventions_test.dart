@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:ciach/src/conventions/build_runner.dart';
 import 'package:ciach/src/conventions/project_conventions.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;

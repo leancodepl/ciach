@@ -1,0 +1,12 @@
+import 'package:ciach/src/conventions/entry_points.dart';
+import 'package:ciach/src/conventions/project_files.dart';
+
+Iterable<EntryPoint> customLintEntryPoints(Pubspec pubspec) sync* {
+  if (pubspec.dependencies.contains('custom_lint_builder')) {
+    if (pubspec.name case final name?) {
+      yield* configRule('createPlugin', [
+        'lib/$name.dart',
+      ], 'the custom_lint plugin entry point');
+    }
+  }
+}

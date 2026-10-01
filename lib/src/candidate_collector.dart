@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/freezed.dart';
+import 'package:ciach/src/conventions/js_interop.dart';
+import 'package:ciach/src/conventions/test_reflective_loader.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
@@ -215,10 +217,10 @@ final class CandidateCollector {
   }
 
   _ExportedMembers? _exportedMembers(Iterable<SemanticToken> leadingMetadata) {
-    if (leadingMetadata.any((t) => t.isAnnotationNamed('JSExport'))) {
+    if (isJsExported(leadingMetadata)) {
       return .jsExport;
     }
-    if (leadingMetadata.any((t) => t.isAnnotationNamed('reflectiveTest'))) {
+    if (isReflectiveTest(leadingMetadata)) {
       return .reflectiveTest;
     }
     return null;
@@ -246,11 +248,6 @@ final class CandidateCollector {
     r'^\s*(?:<[^<>]*>)?\s*extends\s+([A-Za-z_$][\w$]*)',
   );
 
-  /// test_reflective_loader's prefixes.
-  static final _reflectiveTestMethod = RegExp(
-    r'^(?:(?:solo_)?test_|(?:solo_)?fail_|skip_test_)|^(?:setUp|tearDown)(?:Class)?$',
-  );
-
   String? _calledFromOutside(
     Candidate candidate,
     Iterable<SemanticToken> leadingMetadata,
@@ -258,8 +255,7 @@ final class CandidateCollector {
     _ExportedMembers? ownExports,
   ) {
     final symbol = candidate.symbol;
-    if (ownExports == .jsExport ||
-        leadingMetadata.any((t) => t.isAnnotationNamed('JSExport'))) {
+    if (ownExports == .jsExport || isJsExported(leadingMetadata)) {
       return 'exported to JavaScript by `@JSExport`';
     }
     if (isPrivateName(symbol.name) || symbol.kind == .constructor) {
@@ -268,8 +264,7 @@ final class CandidateCollector {
     return switch (containerExports) {
       .jsExport => 'exported to JavaScript by `@JSExport` on its class',
       .reflectiveTest
-          when symbol.kind == .method &&
-              _reflectiveTestMethod.hasMatch(symbol.name) =>
+          when symbol.kind == .method && isReflectiveTestMethod(symbol.name) =>
         'run by `defineReflectiveTests`',
       _ => null,
     };
