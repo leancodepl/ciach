@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:ciach/src/comment_stripping.dart';
 import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/paths.dart';
+import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
 /// Declarations importable by other packages, read from directives only.
@@ -228,19 +229,15 @@ final class _Combinator {
         : ._(shown.difference(hidden), const {});
   }
 
+  static const _sets = SetEquality<String>();
+
   @override
   bool operator ==(Object other) =>
       other is _Combinator &&
-      _sameSet(shown, other.shown) &&
-      _sameSet(hidden, other.hidden);
+      _sets.equals(shown, other.shown) &&
+      _sets.equals(hidden, other.hidden);
 
   @override
-  int get hashCode => Object.hash(
-    shown == null ? null : Object.hashAllUnordered(shown!),
-    Object.hashAllUnordered(hidden),
-  );
-
-  static bool _sameSet(Set<String>? a, Set<String>? b) => a == null || b == null
-      ? a == b
-      : a.length == b.length && a.containsAll(b);
+  int get hashCode =>
+      Object.hash(shown == null ? null : _sets.hash(shown), _sets.hash(hidden));
 }
