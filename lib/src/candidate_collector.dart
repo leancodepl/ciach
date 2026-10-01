@@ -104,6 +104,15 @@ final class CandidateCollector {
     return api;
   }
 
+  // An instance of any type can leak through an inferred public signature.
+  bool _reachableFromOutside(Candidate candidate, PublicApi api) {
+    if (candidate.container case final container?) {
+      return !candidate.isExtensionMember ||
+          (!isPrivateName(container) && api.exposes(candidate.path, container));
+    }
+    return api.exposes(candidate.path, candidate.symbol.name);
+  }
+
   /// One line per skipped entry point, except the ubiquitous `main`.
   void reportSkipped() {
     if (!_log.isLoggable(.FINE)) {
@@ -256,8 +265,8 @@ final class CandidateCollector {
       if (!options.includePublic) {
         return false;
       }
-      if (_publicApi?.exposes(candidate.path, container ?? symbol.name) ??
-          false) {
+      if (_publicApi case final api?
+          when _reachableFromOutside(candidate, api)) {
         return false;
       }
     }
