@@ -45,5 +45,5 @@ const leancodePackagesUrl =
     'https://pub.dev/packages?q=publisher%3Aleancode.co&sort=downloads';
 const patrolUrl = 'https://patrol.leancode.co/?$_utm';
 
-const installCommand = 'dart pub global activate ciach';
+const installCommand = 'dart install ciach';
 const devDependencyCommand = 'dart pub add --dev ciach';
