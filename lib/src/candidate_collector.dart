@@ -40,7 +40,6 @@ final class CandidateCollector {
 
   late final _entryPoints = EntryPoints(options.entryPoints);
 
-  /// What other packages can import, when exported declarations are left out.
   late final PublicApi? _publicApi = options.includeExported
       ? null
       : _scanPublicApi();
@@ -257,7 +256,6 @@ final class CandidateCollector {
       if (!options.includePublic) {
         return false;
       }
-      // A member is as visible as its type; a constructor names it too.
       if (_publicApi?.exposes(candidate.path, container ?? symbol.name) ??
           false) {
         return false;

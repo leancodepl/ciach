@@ -5,17 +5,10 @@ import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:path/path.dart' as p;
 
-/// What another package can import from this one: every library under `lib/`
-/// outside `lib/src/`, plus whatever those `export`, through `show`/`hide`.
-///
-/// Read from the directives alone, so a type that leaks through a public
-/// signature without being exported (a `lib/src/` class an exported function
-/// returns) does not count, and neither do its members.
+/// Declarations importable by other packages, read from directives only.
 final class PublicApi {
   PublicApi._(this._libraryOf, this._visible);
 
-  /// Scans the `lib/` directory of the package at [rootPath], absolute and
-  /// normalized.
   factory PublicApi.scan(String rootPath) {
     final libDir = p.join(rootPath, 'lib');
     final package = pubspecName(p.join(rootPath, 'pubspec.yaml'));
@@ -40,7 +33,6 @@ final class PublicApi {
       }
     }
 
-    // A part, nested ones included, belongs to the library that owns it.
     final libraryOf = <String, String>{};
     void own(String library, String file) {
       for (final part in libraries[file]?.parts ?? const <String>[]) {
@@ -73,7 +65,6 @@ final class PublicApi {
         continue;
       }
       seen.add(combinator);
-      // Exports written in a part are the owning library's.
       for (final file in [
         library,
         for (final MapEntry(key: part, value: owner) in libraryOf.entries)
@@ -95,16 +86,12 @@ final class PublicApi {
   final Map<String, String> _libraryOf;
   final Map<String, List<_Combinator>> _visible;
 
-  /// The libraries another package can see some of.
   int get libraryCount => _visible.length;
 
-  /// Whether another package can name the top-level declaration [name] of the
-  /// file at [path], absolute and normalized.
   bool exposes(String path, String name) =>
       _visible[_libraryOf[path] ?? path]?.any((c) => c.admits(name)) ?? false;
 }
 
-/// The `name:` of the pubspec at [pubspecPath], or `null` if it can't be read.
 String? pubspecName(String pubspecPath) {
   try {
     return _pubspecNameLine
@@ -117,7 +104,6 @@ String? pubspecName(String pubspecPath) {
 
 final _pubspecNameLine = RegExp(r'^name:\s*([A-Za-z0-9_]+)', multiLine: true);
 
-/// An `export` or `part` directive, through its `;`.
 final _directive = RegExp(
   r'''^[ \t]*(export|part)\s+((?:of\b)?[^;]*);''',
   multiLine: true,
@@ -126,7 +112,6 @@ final _directive = RegExp(
 final _uriLiteral = RegExp(r'''r?(['"])([^'"\n]*)\1''');
 final _word = RegExp(r'[A-Za-z_$][A-Za-z0-9_$]*');
 
-/// The `export` and `part` directives of one file.
 final class _Directives {
   _Directives(this.exports, this.parts, {required this.isPart});
 
@@ -151,7 +136,6 @@ final class _Directives {
         }
         continue;
       }
-      // Every branch of a conditional export may be the one compiled.
       final uris = _uriLiteral.allMatches(body).toList();
       if (uris.isEmpty) {
         continue;
@@ -170,10 +154,8 @@ final class _Directives {
   final List<_Export> exports;
   final List<String> parts;
 
-  /// Whether this file is a `part of` another.
   final bool isPart;
 
-  /// [uri] as an absolute path, or `null` for another package's or the SDK's.
   static String? _resolve(
     String uri,
     String from,
@@ -197,14 +179,11 @@ final class _Directives {
 
 typedef _Export = ({List<String> targets, _Combinator combinator});
 
-/// The names an export lets through: only [shown] (all when `null`), less
-/// [hidden].
 final class _Combinator {
   const _Combinator.all() : shown = null, hidden = const {};
 
   _Combinator._(this.shown, this.hidden);
 
-  /// The `show`/`hide` clauses in [text], applied in order.
   factory _Combinator.parse(String text) {
     var combinator = const _Combinator.all();
     String? clause;
@@ -236,7 +215,6 @@ final class _Combinator {
   bool admits(String name) =>
       (shown?.contains(name) ?? true) && !hidden.contains(name);
 
-  /// The names that pass this, then [outer].
   _Combinator then(_Combinator outer) {
     final hidden = {...this.hidden, ...outer.hidden};
     final shown = switch ((this.shown, outer.shown)) {

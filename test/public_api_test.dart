@@ -153,7 +153,6 @@ void cliHelper() {}
     }
 
     final everything = await unused(includeExported: true);
-    // `Api` itself is named by the `show`, which counts as a reference.
     expect(everything, {
       'publicTopLevel',
       'Api.exportedMember',
