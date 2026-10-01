@@ -318,9 +318,10 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/entry-points',
       helpText:
           'Declarations a tool calls from generated code, so never reported:\n'
-          'rules with a `name` (`myBuilder`, `MyPlugin.registerWith`) and an\n'
+          'rules with a `name` (`bootstrap`, `MyHost.callback`) and an\n'
           'optional `glob` (one, or a list) for the files. Built in: `main`,\n'
-          'and `testExecutable` in a flutter_test_config.dart.',
+          '`testExecutable` in a flutter_test_config.dart, and what\n'
+          'pubspec.yaml and build.yaml declare.',
     ),
   ),
   kinds(
@@ -461,10 +462,10 @@ Config file:
     exclude:
       - 'test/**'
     entry-points:
-      - name: MyPlugin.registerWith   # the generated plugin registrant
-        glob: 'lib/my_plugin.dart'
-      - name: myBuilder               # a build.yaml builder factory
-        glob: 'lib/builder.dart'
+      - name: bootstrap               # an isolate entry point
+        glob: 'lib/src/isolate.dart'
+      - name: MyHost.callback         # a member, called from native code
+        glob: 'lib/my_host.dart'
     kinds: [class, function]
     format: json
 

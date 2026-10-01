@@ -20,12 +20,17 @@ final class EntryPoint {
   EntryPoint({required this.name, required this.reason, this.files = const []})
     : _globs = [for (final file in files) .new(file, context: _posix)];
 
-  /// A rule from the `entry-points` config key.
+  /// A rule from the `entry-points` config key, or from another file of the
+  /// project's configuration, which [reason] names.
   ///
   /// Throws a [FormatException] for a [name] that is not an identifier
   /// (optionally `Container.member`); the constructor throws for a glob that
   /// does not parse.
-  factory EntryPoint.fromConfig(String name, {List<String> files = const []}) {
+  factory EntryPoint.fromConfig(
+    String name, {
+    List<String> files = const [],
+    String reason = 'listed under `entry-points` in the config file',
+  }) {
     if (name.contains('<')) {
       throw FormatException(
         "'$name': type parameters are not part of a declaration name; write `MyClass.member`, not `MyClass<T>.member`.",
@@ -36,11 +41,7 @@ final class EntryPoint {
         "'$name' is not a declaration name; expected an identifier such as 'registerWith' or 'MyPlugin.registerWith'.",
       );
     }
-    return .new(
-      name: name,
-      files: files,
-      reason: 'listed under `entry-points` in the config file',
-    );
+    return .new(name: name, files: files, reason: reason);
   }
 
   static final _posix = p.Context(style: .posix);

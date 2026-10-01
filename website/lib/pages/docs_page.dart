@@ -119,8 +119,13 @@ const _skips = [
   ('main', 'The entry point is never unused.', null),
   (
     'testExecutable in flutter_test_config.dart',
-    'Called by the `flutter test` bootstrap; `entry-points:` in ciach.yaml '
-        'adds more.',
+    'Called by the `flutter test` bootstrap.',
+    null,
+  ),
+  (
+    'Entry points the project config names',
+    'build.yaml builder factories, pubspec.yaml plugin classes, dart_frog '
+        'routes, Serverpod endpoints; `entry-points:` in ciach.yaml adds more.',
     null,
   ),
   (
@@ -139,14 +144,14 @@ const _skips = [
     null,
   ),
   (
-    "@pragma('vm:entry-point')",
-    'Reachable from native code or reflection.',
+    "@pragma('vm:entry-point'), @JSExport, @reflectiveTest",
+    'Reachable from native code, reflection or JavaScript.',
     null,
   ),
   (
     'Generated files',
-    'By filename, the `GENERATED CODE` banner and `--generated-glob`; still '
-        'opened for analysis.',
+    'By filename, a generated-code banner, build.yaml, l10n.yaml and '
+        '`--generated-glob`; still opened for analysis.',
     '--generated',
   ),
   (
@@ -726,9 +731,9 @@ class DocsPage extends StatelessComponent {
                   ),
                   li(
                     rich(
-                      'Entry points other than `main` and `flutter test`’s '
-                      '`testExecutable` need listing under `entry-points` in '
-                      "ciach.yaml or `@pragma('vm:entry-point')`.",
+                      'Entry points the project config does not name need '
+                      'listing under `entry-points` in ciach.yaml or '
+                      "`@pragma('vm:entry-point')`.",
                     ),
                   ),
                   li(

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/freezed.dart';
+import 'package:ciach/src/conventions/project_conventions.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
@@ -27,8 +28,10 @@ final class CandidateCollector {
     required this.options,
     required SourceIndex sources,
     required FreezedUnions freezed,
+    ProjectConventions conventions = ProjectConventions.none,
   }) : _sources = sources,
-       _freezed = freezed;
+       _freezed = freezed,
+       _conventions = conventions;
 
   final FinderOptions options;
   final SourceIndex _sources;
@@ -36,7 +39,13 @@ final class CandidateCollector {
   /// Freezed-union tracking, fed as candidates are collected.
   final FreezedUnions _freezed;
 
-  late final _entryPoints = EntryPoints(options.entryPoints);
+  /// What the package's configuration files declare.
+  final ProjectConventions _conventions;
+
+  late final _entryPoints = EntryPoints([
+    ...options.entryPoints,
+    ..._conventions.entryPoints,
+  ]);
 
   /// Skipped as entry points this run, for `--verbose`.
   final _skippedEntryPoints = <_SkippedEntryPoint>[];
@@ -80,6 +89,7 @@ final class CandidateCollector {
       path,
       relativePath,
       symbols,
+      null,
       null,
       null,
       false,
@@ -137,7 +147,8 @@ final class CandidateCollector {
   /// and records the enclosing type name as their container.
   ///
   /// [parentIsEnum] marks children of an enum declaration so their enum values
-  /// are remapped to the `enum-value` kind.
+  /// are remapped to the `enum-value` kind; [containerExports] says which of
+  /// the container's members code outside Dart calls.
   Iterable<Candidate> _collect(
     Uri uri,
     String path,
@@ -145,6 +156,7 @@ final class CandidateCollector {
     List<DocumentSymbol> symbols,
     String? container,
     Candidate? containerCandidate,
+    _ExportedMembers? containerExports,
     bool parentIsEnum,
     _OutlineIndex outlines,
   ) sync* {
@@ -185,10 +197,19 @@ final class CandidateCollector {
           symbols,
         ),
       );
-      if (_shouldConsider(relativePath, candidate, leadingMetadata)) {
+      final isTypeLike = typeLikeKinds.contains(symbol.kind);
+      final exports = isTypeLike
+          ? _exportedMembers(candidate, leadingMetadata)
+          : containerExports;
+      if (_shouldConsider(
+        relativePath,
+        candidate,
+        leadingMetadata,
+        containerExports: containerExports,
+        ownExports: isTypeLike ? exports : null,
+      )) {
         yield candidate;
       }
-      final isTypeLike = typeLikeKinds.contains(symbol.kind);
       yield* _collect(
         uri,
         path,
@@ -196,18 +217,102 @@ final class CandidateCollector {
         symbol.children ?? const [],
         isTypeLike ? symbol.name : container,
         isTypeLike ? candidate : containerCandidate,
+        exports,
         symbol.kind == .enum$,
         outlines,
       );
     }
   }
 
+  /// Which members of the type [candidate] code outside Dart calls, by its
+  /// annotations or its superclass.
+  _ExportedMembers? _exportedMembers(
+    Candidate candidate,
+    Iterable<SemanticToken> leadingMetadata,
+  ) {
+    if (leadingMetadata.any((t) => t.isAnnotationNamed('JSExport'))) {
+      return .jsExport;
+    }
+    if (leadingMetadata.any((t) => t.isAnnotationNamed('reflectiveTest'))) {
+      return .reflectiveTest;
+    }
+    if (_conventions.serverpod &&
+        candidate.symbol.kind == .class$ &&
+        _extendsEndpoint(candidate)) {
+      return .serverpodEndpoint;
+    }
+    return null;
+  }
+
+  /// Whether the class [candidate]'s header reads `extends Endpoint`. A
+  /// subclass of a subclass of `Endpoint` is not recognized.
+  bool _extendsEndpoint(Candidate candidate) {
+    final start = _sources.offsetOf(
+      candidate.path,
+      candidate.symbol.selectionRange.end,
+    );
+    final end = _sources.offsetOf(candidate.path, candidate.symbol.range.end);
+    if (start == null || end == null) {
+      return false;
+    }
+    final rest = _sources.content(candidate.path).substring(start, end);
+    final brace = rest.indexOf('{');
+    return _extendsEndpointHeader.hasMatch(
+      brace < 0 ? rest : rest.substring(0, brace),
+    );
+  }
+
+  /// A class header after its name: type parameters without nested ones,
+  /// then the superclass.
+  static final _extendsEndpointHeader = RegExp(
+    r'^\s*(?:<[^<>]*>)?\s*extends\s+Endpoint\b',
+  );
+
+  /// The methods test_reflective_loader runs, by name, in a
+  /// `@reflectiveTest` class.
+  static final _reflectiveTestMethod = RegExp(
+    r'^(?:(?:solo_)?test_|(?:solo_)?fail_|skip_test_)|^(?:setUp|tearDown)(?:Class)?$',
+  );
+
+  /// Why [candidate] is called from outside Dart source, given its own and
+  /// its container's exports, or `null`.
+  String? _calledFromOutside(
+    Candidate candidate,
+    Iterable<SemanticToken> leadingMetadata,
+    _ExportedMembers? containerExports,
+    _ExportedMembers? ownExports,
+  ) {
+    final symbol = candidate.symbol;
+    if (ownExports == .serverpodEndpoint) {
+      return 'a Serverpod endpoint, constructed by the generated dispatcher';
+    }
+    if (ownExports == .jsExport ||
+        leadingMetadata.any((t) => t.isAnnotationNamed('JSExport'))) {
+      return 'exported to JavaScript by `@JSExport`';
+    }
+    if (isPrivateName(symbol.name) || symbol.kind == .constructor) {
+      return null;
+    }
+    return switch (containerExports) {
+      .jsExport => 'exported to JavaScript by `@JSExport` on its class',
+      .serverpodEndpoint when symbol.kind == .method =>
+        'a Serverpod endpoint method, called by the generated dispatcher',
+      .reflectiveTest
+          when symbol.kind == .method &&
+              _reflectiveTestMethod.hasMatch(symbol.name) =>
+        'run by `defineReflectiveTests`',
+      _ => null,
+    };
+  }
+
   /// Whether [candidate] should have its references checked.
   bool _shouldConsider(
     String relativePath,
     Candidate candidate,
-    Iterable<SemanticToken> leadingMetadata,
-  ) {
+    Iterable<SemanticToken> leadingMetadata, {
+    required _ExportedMembers? containerExports,
+    required _ExportedMembers? ownExports,
+  }) {
     final symbol = candidate.symbol;
     final container = candidate.container;
     if (!options.kinds.contains(
@@ -229,6 +334,23 @@ final class CandidateCollector {
       if (container != null) {
         _entryPointContainers[DeclKey(relativePath, container)] ??= rule;
       }
+      return false;
+    }
+    if (_calledFromOutside(
+          candidate,
+          leadingMetadata,
+          containerExports,
+          ownExports,
+        )
+        case final reason?) {
+      _skippedEntryPoints.add((
+        path: relativePath,
+        line: symbol.selectionRange.start.line + 1,
+        name: container == null
+            ? symbol.declarationName(container)
+            : '$container.${symbol.declarationName(container)}',
+        reason: reason,
+      ));
       return false;
     }
     if (symbol.kind == .namespace &&
@@ -264,6 +386,21 @@ final class CandidateCollector {
     }
     return true;
   }
+}
+
+/// Members of a type that code outside Dart source calls.
+enum _ExportedMembers {
+  /// `@JSExport` on the class: `createJSInteropWrapper` exposes its public
+  /// members to JavaScript.
+  jsExport,
+
+  /// A Serverpod `Endpoint` subclass: the generated dispatcher calls its
+  /// public methods.
+  serverpodEndpoint,
+
+  /// A `@reflectiveTest` class: test_reflective_loader runs its `test_…`
+  /// methods, found by mirrors.
+  reflectiveTest,
 }
 
 /// A skipped entry point: root-relative POSIX path, one-based line, the name

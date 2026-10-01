@@ -90,7 +90,7 @@ ciach --verbose                        # explain each step
 | `-e, --exclude <glob>` | — | Skip files matching the glob (repeatable). They are not opened, so a declaration used only from them is reported; see `--generated-glob`. |
 | `-i, --include <glob>` | — | Only scan files matching the glob (repeatable). |
 | `--generated-suffix <suffix>` | — | Extra filename suffix (with leading dot) to treat as generated and skip, on top of the built-in set; repeatable. Ignored when `--generated` is set. |
-| `--generated-glob <glob>` | — | Treat files matching the glob as generated: their references count, but nothing in them is reported or removed. For output without a suffix or banner, like `flutter gen-l10n`'s (`'lib/l10n/**'`), or code kept as is, like a vendored copy. Repeatable; ignored when `--generated` is set. |
+| `--generated-glob <glob>` | — | Treat files matching the glob as generated: their references count, but nothing in them is reported or removed. For output without a suffix or banner that the [project config](#generated-files-from-the-project-config) doesn't declare either, or code kept as is, like a vendored copy. Repeatable; ignored when `--generated` is set. |
 | `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
 | `-f, --format <fmt>` | `text` | `text`, `json`, or `github` (GitHub Actions `::warning` annotations). |
 | `-j, --concurrency <n>` | `16` | Reference queries kept in flight against the analysis server. |
@@ -121,8 +121,8 @@ kinds: [class, function, method]
 format: github
 set-exit-if-changed: true
 entry-points:                     # file-only; see Entry points below
-  - name: MyPlugin.registerWith
-    glob: 'lib/my_plugin.dart'
+  - name: bootstrap
+    glob: 'lib/src/isolate.dart'
 ```
 
 Command line beats config file beats default, even when the flag matches the
@@ -274,12 +274,15 @@ that cost.
 | Skipped | Why | Flag |
 | --- | --- | --- |
 | `main` | the entry point is never unused | — |
-| `testExecutable` in a `flutter_test_config.dart` | called by the `flutter test` bootstrap | [`entry-points:`](#entry-points) adds more |
+| `testExecutable` in a `flutter_test_config.dart` | called by the `flutter test` bootstrap | — |
+| Entry points the [project config](#entry-points) names | called from code a tool generates | [`entry-points:`](#entry-points) adds more |
 | `@override` members — never reported, but removed with a dead member | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses, so none of them are findings. One that overrides a dead member is dead too, so `--remove` [takes both](#removing-declarations) | `--overrides` |
 | Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--operators` |
 | `call` methods | implicit-call syntax (`obj(…)`) is unresolvable the same way | — |
 | `@pragma('vm:entry-point')` | reachable from native code or reflection | — |
-| Generated files | by filename convention, the `GENERATED CODE - DO NOT MODIFY BY HAND` banner, and `--generated-suffix` / `--generated-glob`. Still opened during analysis, so a declaration used only from a `.g.dart` isn't misreported | `--generated` |
+| `@JSExport`, and the public members of a `@JSExport` class | reachable from JavaScript | — |
+| `test_…`, `solo_test_…`, `fail_…`, `skip_test_…`, `setUp` and `tearDown` methods of a `@reflectiveTest` class | run by test_reflective_loader through mirrors | — |
+| Generated files | by filename convention, a generated-code banner (`GENERATED CODE - DO NOT MODIFY BY HAND`, protoc's, Serverpod's, …), what the [project config](#generated-files-from-the-project-config) declares, and `--generated-suffix` / `--generated-glob`. Still opened during analysis, so a declaration used only from a `.g.dart` isn't misreported | `--generated` |
 | `toJson()` | `jsonEncode(obj)` calls it by dynamic dispatch, leaving no source-level reference | `--report-tojson` |
 | Type parameters | always "used" within their scope | — |
 | dartdoc `[Xxx]` links | not a code reference; reported as [doc-only](#doc-only-findings) instead of hidden | — |
@@ -295,21 +298,48 @@ Some declarations are only ever called from code a tool generates: `flutter
 test` runs `testExecutable` from the nearest `flutter_test_config.dart`,
 flutter_tools calls `MyPlugin.registerWith()` on the plugin class named in
 `pubspec.yaml`. Nothing in the package references them, so they would read as
-dead. ciach knows `main` and `testExecutable`; a project lists its own under
-`entry-points:` in `ciach.yaml`:
+dead. ciach knows `main` and `testExecutable`, and reads the rest from the
+package's own config:
+
+| Declared by | Entry point |
+| --- | --- |
+| `build.yaml` `builders:` / `post_process_builders:` | each of `builder_factories` (or `builder_factory`), in the file `import:` names |
+| `pubspec.yaml` `flutter: plugin: platforms:` | `X.registerWith` for each `dartPluginClass`, and the web `pluginClass` |
+| a `dart_frog` dependency | `onRequest` in `routes/**`, `middleware` in a `_middleware.dart`, `init` and `run` in `main.dart` |
+| a `serverpod` dependency | a class that `extends Endpoint`, and its public methods |
+| an `analysis_server_plugin` dependency | `plugin` in `lib/main.dart` |
+| a `custom_lint_builder` dependency | `createPlugin` in `lib/<package>.dart` |
+
+A Serverpod endpoint has to extend `Endpoint` directly; one extending another
+endpoint class isn't recognized. A project lists its own under `entry-points:`
+in `ciach.yaml`:
 
 ```yaml
 entry-points:
   - name: MyPlugin.registerWith   # a member: `Type.member`, no type parameters
     glob: 'lib/my_plugin.dart'    # one glob or a list; omit for any file
-  - name: myBuilder               # a build.yaml builder factory
-    glob: 'lib/builder.dart'
+  - name: bootstrap               # a top-level declaration
+    glob: 'lib/src/isolate.dart'
 ```
 
 A matching declaration is neither reported nor removed, whatever its signature.
 A member rule also keeps its type, while the type's other members are still
-checked. `-v` names each skipped entry point. This setting has no command-line
-form.
+checked. `-v` lists the rules read from the project config and names each
+skipped entry point. This setting has no command-line form.
+
+### Generated files from the project config
+
+Besides the built-in suffixes and banners, ciach treats as generated:
+
+- the Dart output, from `build_extensions`, of every `build_to: source`
+  builder that build_runner applies to the package — by `auto_apply`, the
+  package's `targets:`, or another builder's `applies_builders` — whether the
+  package's own `build.yaml` or a resolved dependency's defines it, so a
+  generator's custom suffix needs no `--generated-suffix`;
+- `build_extensions` given as a builder option in the package's `targets:`
+  (`lib/generated/{{}}.g.dart`);
+- the files `flutter gen-l10n` writes, from `l10n.yaml`'s `output-dir` (or
+  `arb-dir`) and `output-localization-file`.
 
 ### Monorepos
 
@@ -342,9 +372,9 @@ deleting blindly:
   sibling package; a published package's consumers stay invisible.
 - **Reflection, dynamic invocation, and names referenced only from generated
   code you excluded** are invisible to a reference search.
-- **Entry points other than `main` and `testExecutable`** (plugin registrants,
-  isolate entry points) need listing under [`entry-points`](#entry-points) or
-  `@pragma('vm:entry-point')`.
+- **Entry points the project config doesn't name** (isolate entry points,
+  callbacks a native host looks up) need listing under
+  [`entry-points`](#entry-points) or `@pragma('vm:entry-point')`.
 - **A primary constructor shares its class's references**, since a query at the
   header resolves to the class: a never-invoked one only surfaces once the class
   itself is dead.
