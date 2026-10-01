@@ -54,6 +54,7 @@ void main() {
     List<String> include = const [],
     List<EntryPoint> entryPoints = const [],
     bool transitive = false,
+    bool deadCycles = true,
   }) => Ciach(
     .new(
       rootPath: fixturePath,
@@ -65,6 +66,7 @@ void main() {
       includeGlobs: include,
       entryPoints: entryPoints,
       transitive: transitive,
+      deadCycles: deadCycles,
     ),
   ).run();
 
@@ -345,6 +347,21 @@ void main() {
         expect(widget.coupledRemovals, isNotEmpty);
       },
     );
+
+    for (final transitive in [false, true]) {
+      test('a dead widget whose State is used elsewhere is report-only '
+          '(transitive: $transitive)', () async {
+        final result = await runFinder(
+          include: ['lib/scenarios/widgets.dart'],
+          exclude: const [],
+          transitive: transitive,
+        );
+        final widget = findByQualified(result, 'KeyedWidget')!;
+        expect(widget.removalBlocked, isTrue);
+        expect(widget.coupledRemovals, isEmpty);
+        expect(findByQualified(result, '_KeyedWidgetState'), isNull);
+      });
+    }
 
     test(
       'never flags a live widget-style class or the State stand-in',
@@ -642,11 +659,15 @@ void main() {
     );
   });
 
-  group('transitive (opt-in --transitive)', () {
+  group('transitive rounds (--transitive --no-dead-cycles)', () {
     const fixture = ['lib/scenarios/transitive.dart'];
 
-    Future<FinderResult> runTransitive({bool transitive = true}) =>
-        runFinder(include: fixture, exclude: const [], transitive: transitive);
+    Future<FinderResult> runTransitive({bool transitive = true}) => runFinder(
+      include: fixture,
+      exclude: const [],
+      transitive: transitive,
+      deadCycles: false,
+    );
 
     Set<String> names(Iterable<UnusedDeclaration> decls) =>
         decls.map((d) => d.qualifiedName).toSet();
@@ -725,6 +746,7 @@ void main() {
         include: fixture,
         exclude: const [],
         transitive: true,
+        deadCycles: false,
       );
       expect(messages, isNot(contains(startsWith('Stopping after'))));
       // Removable in round one, while `Token.new` was still used.
@@ -779,7 +801,12 @@ void main() {
         addTearDown(() => copy.deleteSync(recursive: true));
         copyTree(Directory(fixturePath), copy);
         Future<FinderResult> run() => Ciach(
-          .new(rootPath: copy.path, includeGlobs: fixture, transitive: true),
+          .new(
+            rootPath: copy.path,
+            includeGlobs: fixture,
+            transitive: true,
+            deadCycles: false,
+          ),
         ).run();
 
         final first = await run();
@@ -791,6 +818,88 @@ void main() {
         expect(names(second.docOnly), isEmpty);
       },
     );
+  });
+
+  group('dead cycles (--transitive, on by default)', () {
+    const fixture = ['lib/scenarios/transitive.dart'];
+
+    Future<FinderResult> runDeadCycles() =>
+        runFinder(include: fixture, exclude: const [], transitive: true);
+
+    Set<String> names(Iterable<UnusedDeclaration> decls) =>
+        decls.map((d) => d.qualifiedName).toSet();
+
+    test('reports what --no-dead-cycles does, plus the dead cycles', () async {
+      final transitive = await runFinder(
+        include: fixture,
+        exclude: const [],
+        transitive: true,
+        deadCycles: false,
+      );
+      final result = await runDeadCycles();
+      expect(names(result.unused), {
+        ...names(transitive.unused),
+        '_ping',
+        '_pong',
+        '_Chicken',
+        '_Egg',
+      });
+      expect(names(result.docOnly), isEmpty);
+    });
+
+    test('each member of a dead cycle names the others', () async {
+      final result = await runDeadCycles();
+      DeadReferrer asOwner(String qualified) {
+        final decl = findByQualified(result, qualified)!;
+        return (
+          qualifiedName: decl.qualifiedName,
+          filePath: decl.filePath,
+          line: decl.line,
+        );
+      }
+
+      List<DeadReferrer> via(String name) =>
+          findByQualified(result, name)!.onlyReferencedFrom;
+      expect(via('_ping'), [asOwner('_pong')]);
+      expect(via('_pong'), [asOwner('_ping')]);
+      expect(via('_Chicken'), [asOwner('_Egg')]);
+      expect(via('_Egg'), [asOwner('_Chicken')]);
+      expect(findByQualified(result, '_Chicken.lay'), isNull);
+      expect(findByQualified(result, '_Egg.hatch'), isNull);
+    });
+
+    test('a cycle entered from live code stays, and so do report-only '
+        "findings' references", () async {
+      final result = await runDeadCycles();
+      for (final name in [
+        'transitiveAnchor',
+        '_usedByLive',
+        '_liveCycle',
+        '_liveCycleBack',
+        '_loneArg',
+      ]) {
+        expect(findByQualified(result, name), isNull, reason: name);
+      }
+      expect(findByQualified(result, 'Lone.only')!.removalBlocked, isTrue);
+      expect(findByQualified(result, 'Token.new')!.removalBlocked, isTrue);
+    });
+
+    test('after --remove, a second run has nothing left to remove', () async {
+      final copy = Directory.systemTemp.createTempSync('ciach_dead_cycles_');
+      addTearDown(() => copy.deleteSync(recursive: true));
+      copyTree(Directory(fixturePath), copy);
+      Future<FinderResult> run() => Ciach(
+        .new(rootPath: copy.path, includeGlobs: fixture, transitive: true),
+      ).run();
+
+      final first = await run();
+      expect(names(first.unused), containsAll(['_ping', '_Chicken']));
+      removeDeclarations(first.unused, copy.path);
+
+      final second = await run();
+      expect(names(second.unused.where((d) => !d.removalBlocked)), isEmpty);
+      expect(names(second.docOnly), isEmpty);
+    });
   });
 
   const extensionFixture = [
@@ -1189,6 +1298,23 @@ void main() {
       expect(signOut.usageFilePath, endsWith('xref_uses.dart'));
       expect(signOut.message, contains('likely a Dart SDK find-references'));
     });
+  });
+
+  test('dead cycles: a recovered member with a dead and a live use stays '
+      'used', () async {
+    final result = await runFinder(
+      include: const [
+        'lib/scenarios/xref_shapes.dart',
+        'lib/scenarios/xref_surface.dart',
+        'lib/scenarios/xref_dead_cycles.dart',
+      ],
+      exclude: const [],
+      transitive: true,
+    );
+    final names = result.unused.map((d) => d.qualifiedName).toSet();
+    expect(names, contains('_deadReady'));
+    expect(names, isNot(contains('XrefLoadedState.ready')));
+    expect(names, isNot(contains('liveReady')));
   });
 
   group('same-simple-name collision recovery', () {

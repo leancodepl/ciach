@@ -39,6 +39,10 @@ final class Verdict {
       'declaring parameter of the primary constructor — removing it changes '
       'the constructor signature at every call site';
 
+  static const pairedStateHint =
+      'its State class is used elsewhere, so it would be left extending '
+      'State of a removed widget';
+
   static const overriddenHint =
       'overridden by a declaration --remove will not delete — that override '
       'would be left overriding nothing';

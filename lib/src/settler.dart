@@ -10,6 +10,7 @@ import 'package:ciach/src/models.dart';
 import 'package:ciach/src/overrides.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/plural.dart';
+import 'package:ciach/src/reachability.dart';
 import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/remove_safety.dart';
 import 'package:ciach/src/source_index.dart';
@@ -17,7 +18,7 @@ import 'package:ciach/src/superclasses.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:ciach/src/verdict.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location;
+import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
 final _log = Logger('ciach.finder');
 
@@ -56,6 +57,8 @@ final class Settler {
   /// Names the cross-library recovery has already probed.
   final _probedNames = <String>{};
 
+  final _candidateOf = Map<UnusedDeclaration, int>.identity();
+
   /// Override lookups by candidate index, cached across rounds.
   final _overridesByMember = <int, OverriddenMember>{};
 
@@ -87,8 +90,21 @@ final class Settler {
       rootPath: rootPath,
     );
 
-    var deadSpans = DeadSpans.empty;
+    final sweep = options.transitive && options.deadCycles;
     var crossLib = CrossLibraryReferences.empty;
+    var deadSpans = sweep
+        ? _sweep(candidates, refsByCandidate, .empty, [
+            for (var i = 0; i < candidates.length; i++)
+              _finding(i, _verdict.finding(candidates[i], rootPath)),
+          ], rootPath)
+        : DeadSpans.empty;
+    if (sweep) {
+      _log.info(
+        'Round 1: checking the '
+        '${plural(deadSpans.length, 'declaration', 'declarations')} no live '
+        'code reaches…',
+      );
+    }
     Settled settled;
     for (var round = 1; ; round++) {
       final liveRefs = _liveRefs(refsByCandidate, deadSpans);
@@ -109,7 +125,15 @@ final class Settler {
       if (!options.transitive) {
         break;
       }
-      final next = DeadSpans.of(settled.unused, rootPath);
+      final next = sweep
+          ? _sweep(
+              candidates,
+              refsByCandidate,
+              crossLib,
+              settled.unused,
+              rootPath,
+            )
+          : DeadSpans.of(settled.unused, rootPath);
       if (next.sameAs(deadSpans)) {
         if (round > 1) {
           _log.fine('Settled after ${plural(round, 'round', 'rounds')}.');
@@ -139,6 +163,56 @@ final class Settler {
       docOnly: settled.docOnly.sorted(compareByLocation),
       recovered: settled.recovered,
     );
+  }
+
+  /// The removable [findings] no live reference reaches. [crossLib] sites
+  /// count as references.
+  DeadSpans _sweep(
+    List<Candidate> candidates,
+    List<List<Location>> refsByCandidate,
+    CrossLibraryReferences crossLib,
+    List<UnusedDeclaration> findings,
+    String rootPath,
+  ) {
+    final spans = DeadSpans.of(findings, rootPath);
+    final nodes = {
+      for (final finding in findings)
+        if (!finding.removalBlocked) _candidateOf[finding]!,
+    };
+    Iterable<int> enclosers(String path, Position position) => [
+      for (final owner in spans.ownersOf(path, position)) _candidateOf[owner]!,
+    ];
+    final uses = [
+      for (final i in nodes) ...[
+        for (final loc in refsByCandidate[i])
+          if (_classifier.classify(candidates[i], [loc], .empty) == .used)
+            (
+              target: i,
+              enclosers: enclosers(
+                SourceIndex.pathOf(loc.uri),
+                loc.range.start,
+              ),
+            ),
+        for (final usage in crossLib.recoveredUsages(candidates[i]))
+          (
+            target: i,
+            enclosers: enclosers(
+              usage.path,
+              Position(line: usage.line, character: usage.character),
+            ),
+          ),
+      ],
+    ];
+    final dead = unreached(nodes, uses);
+    return DeadSpans.of([
+      for (final finding in findings)
+        if (dead.contains(_candidateOf[finding])) finding,
+    ], rootPath);
+  }
+
+  UnusedDeclaration _finding(int index, UnusedDeclaration finding) {
+    _candidateOf[finding] = index;
+    return finding;
   }
 
   /// [refsByCandidate] less the references inside [deadSpans].
@@ -245,18 +319,21 @@ final class Settler {
           final isClass = candidate.symbol.kind == .class$;
           final overrides = overridden[i];
           final blockedByOverride = overrides?.blocked ?? false;
+          final pairedState = isClass
+              ? _sources.pairedStateRemovals(
+                  candidate,
+                  refs,
+                  candidates,
+                  liveRefs,
+                  rootPath,
+                )
+              : null;
+          final blockedByState = pairedState?.blocked ?? false;
           final finding = _verdict.finding(
             candidate,
             rootPath,
-            coupledRemovals: isClass
-                ? _sources.pairedStateRemovals(
-                    candidate,
-                    refs,
-                    candidates,
-                    liveRefs,
-                    rootPath,
-                  )
-                : overrides?.removals ?? const [],
+            coupledRemovals:
+                pairedState?.removals ?? overrides?.removals ?? const [],
             removalBlocked:
                 _verdict.isRemovalBlocked(
                   candidate,
@@ -264,17 +341,19 @@ final class Settler {
                   safety,
                   groupGuards: !_removableBefore.contains(i),
                 ) ||
-                blockedByOverride,
+                blockedByOverride ||
+                blockedByState,
             hint:
                 _verdict.hintFor(candidate) ??
-                (blockedByOverride ? Verdict.overriddenHint : null),
+                (blockedByOverride ? Verdict.overriddenHint : null) ??
+                (blockedByState ? Verdict.pairedStateHint : null),
             onlyReferencedFrom: _onlyReferencedFrom(
               candidate,
               refsByCandidate[i],
               deadSpans,
             ),
           );
-          unused.add(finding);
+          unused.add(_finding(i, finding));
           if (!finding.removalBlocked) {
             _removableBefore.add(i);
           }

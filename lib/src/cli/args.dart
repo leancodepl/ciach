@@ -222,6 +222,16 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'false positive also flags everything only it referenced.',
     ),
   ),
+  deadCycles(
+    FlagOption(
+      argName: 'dead-cycles',
+      configKey: '/dead-cycles',
+      defaultsTo: true,
+      helpText:
+          'With --transitive, also report cycles of dead declarations that\n'
+          'only reference each other. Ignored without --transitive.',
+    ),
+  ),
   reportToJson(
     FlagOption(
       argName: 'report-tojson',

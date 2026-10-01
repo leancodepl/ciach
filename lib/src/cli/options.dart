@@ -23,6 +23,7 @@ class ResolvedOptions {
     required this.unusedUnionMembers,
     required this.reportToJson,
     required this.transitive,
+    required this.deadCycles,
     required this.entryPoints,
     required this.setExitIfChanged,
     required this.remove,
@@ -58,6 +59,7 @@ class ResolvedOptions {
   final bool unusedUnionMembers;
   final bool reportToJson;
   final bool transitive;
+  final bool deadCycles;
 
   /// The project's own entry points, from `entry-points` in the config file.
   final List<EntryPoint> entryPoints;
@@ -92,6 +94,7 @@ class ResolvedOptions {
     unusedUnionMembers: unusedUnionMembers,
     reportToJson: reportToJson,
     transitive: transitive,
+    deadCycles: deadCycles,
     entryPoints: entryPoints,
     concurrency: concurrency,
     dartExecutable: dartExecutable ?? this.dartExecutable,
@@ -136,6 +139,7 @@ ResolvedOptions resolveOptions(
     unusedUnionMembers: configuration.value(CiachOption.unusedUnionMembers),
     reportToJson: configuration.value(CiachOption.reportToJson),
     transitive: configuration.value(CiachOption.transitive),
+    deadCycles: configuration.value(CiachOption.deadCycles),
     entryPoints: configuration.value(CiachOption.entryPoints),
     setExitIfChanged: configuration.value(CiachOption.setExitIfChanged),
     remove: configuration.value(CiachOption.remove),

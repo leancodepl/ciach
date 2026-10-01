@@ -11,6 +11,8 @@ import 'package:sample_pkg/scenarios/serialization.dart';
 import 'package:sample_pkg/scenarios/transitive.dart';
 import 'package:sample_pkg/scenarios/unions.dart';
 import 'package:sample_pkg/scenarios/widgets.dart';
+import 'package:sample_pkg/scenarios/xref_dead_cycles.dart';
+import 'package:sample_pkg/scenarios/xref_shapes.dart';
 import 'package:sample_pkg/shapes.dart';
 import 'package:sample_pkg/user.dart';
 
@@ -39,6 +41,7 @@ void main() {
 
   // Constructs LiveWidget -> a real, external use, so it is never flagged.
   print(const LiveWidget());
+  print(keyedWidgetKey);
 
   // Keeps the override-scenario types alive, so only their members are dead:
   // `start()` is called through Pump, `prime()` never is, `drip()` only
@@ -85,6 +88,7 @@ void main() {
 
   // Live anchors of the transitive scenario.
   transitiveAnchor();
+  print(liveReady(XrefLoadedState(active: true)));
   print(Odometer().live());
   const Lone? lone = null;
   print(lone?.arg);

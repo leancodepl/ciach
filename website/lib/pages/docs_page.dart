@@ -96,7 +96,7 @@ const _options = [
   ),
   (
     '--transitive',
-    'Also report what only other findings reference, in the same run.',
+    'Also report what only other findings reference, and dead cycles.',
   ),
   (
     '--overrides, --operators, --generated, --report-tojson',

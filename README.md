@@ -83,6 +83,7 @@ ciach --verbose                        # explain each step
 | `--[no-]unused-union-members` | off | Also flag a (sealed) supertype member matched only by type patterns, never constructed. Report-only — never touched by `--remove`. |
 | `--[no-]report-tojson` | off | Report an otherwise-unused `toJson()` serialization hook too. Off by default — `jsonEncode` dispatches to it dynamically. |
 | `--[no-]transitive` | off | Also report declarations referenced only from other findings. See [Transitively dead code](#transitively-dead-code). |
+| `--[no-]dead-cycles` | on | With `--transitive`, also report dead cycles. See [Dead cycles](#dead-cycles). |
 | `--set-exit-if-changed` | off | Exit with status `1` when anything is found (for CI). Named after `dart format`. |
 | `--[no-]fail-public` | on | Count unused public declarations toward the exit code (with `--set-exit-if-changed`). `--no-fail-public` reports them but fails only on private findings. |
 | `--remove` | off | Remove unused declarations after reporting them. Prompts for confirmation first. |
@@ -202,9 +203,22 @@ reported without its members.
 
 It's off by default because one false positive also flags everything only it
 referenced. `-f json` lists every finding a declaration depends on in
-`onlyReferencedFrom`; the other formats show the first and a count. Dead
-declarations that reference each other in a cycle are not found
-([#65](https://github.com/leancodepl/ciach/issues/65)).
+`onlyReferencedFrom`; the other formats show the first and a count.
+
+### Dead cycles
+
+`--transitive` also reports declarations that only reference each other:
+
+```
+lib/report.dart
+  40:6  function  _ping  (private)  (only referenced from dead _pong (lib/report.dart:42))
+  42:6  function  _pong  (private)  (only referenced from dead _ping (lib/report.dart:40))
+```
+
+Everything checked starts dead; only references from live code revive it.
+Unchecked code is live: entry points, generated and excluded files,
+`@override` members, public declarations under `--no-public`.
+`--no-dead-cycles` leaves cycles alone.
 
 ### GitHub Actions
 
@@ -348,9 +362,9 @@ deleting blindly:
 - **A primary constructor shares its class's references**, since a query at the
   header resolves to the class: a never-invoked one only surfaces once the class
   itself is dead.
-- **Code referenced only from dead code** is reported only with
-  [`--transitive`](#transitively-dead-code), and a cycle of dead declarations
-  not even then.
+- **Code referenced only from dead code**, or in a
+  [dead cycle](#dead-cycles), is reported only with
+  [`--transitive`](#transitively-dead-code).
 - A package that doesn't analyze cleanly (missing `pub get`, errors) yields
   incomplete references.
 
