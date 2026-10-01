@@ -336,13 +336,20 @@ command-line form.
 
 ### Supported versions
 
-| Tool | Tested with | Notes |
+Minimums are from each tool's changelog or git history.
+
+| Tool | From | Tested with |
 | --- | --- | --- |
-| build_runner `build.yaml` | build_runner 2.15–2.16, build 4.0, source_gen 4.3, freezed 4.0, json_serializable 6.14, jaspr_class_scope_builder 0.1 | `{{capture}}` extensions need build ≥ 2.1, `^` without a capture ≥ 2.3 |
-| Flutter `pubspec.yaml` plugins, `l10n.yaml` | Flutter 3.47 | `platforms:` plugin format only |
-| analysis_server_plugin | 0.3 | |
-| test_reflective_loader | 0.4 | |
-| dart_frog, Serverpod, custom_lint | — | from their documented conventions, not tested against a project |
+| `build.yaml` | build_config 0.2.5 (`applies_builders`, `post_process_builders`); `auto_apply_builders` 0.4.2; `{{capture}}` extensions build 2.1, `^` without a capture build 2.3 | build_runner 2.15–2.16, build 4.0, jaspr_class_scope_builder 0.1 |
+| `build_extensions` option | source_gen 1.1 (`combining_builder`), 1.2 (`PartBuilder`); freezed 1.0.1 | source_gen 4.3, freezed 4.0, json_serializable 6.14 |
+| `l10n.yaml` | Flutter 1.20; `output-dir` 1.22. A `synthetic-package` writes under `.dart_tool/`, so nothing is detected | Flutter 3.47 |
+| `pubspec.yaml` plugins | Flutter 1.17 (`platforms:`, web `pluginClass`/`fileName`); `dartPluginClass` 2.5; `dartFileName` 3.27 | Flutter 3.47 |
+| dart_frog | dart_frog_cli 0.0.2-dev.12 (`run` in `main.dart`); `init` 0.3.4 | — |
+| Serverpod | 0.8.0 | — |
+| analysis_server_plugin | 0.2.0 | 0.3 |
+| custom_lint | custom_lint_builder 0.1.0 | — |
+| test_reflective_loader | 0.0.1; `skip_test_` 0.1.9, `setUpClass` 0.4.0 | 0.4 |
+| `@JSExport` | `package:js` 0.6.6, `dart:js_interop` | — |
 
 ### Monorepos
 

@@ -102,19 +102,26 @@ Iterable<_Builder> _appliedBuilders(
     }
   }
 
-  if (rootBuildYaml?['targets'] case final Map<Object?, Object?> targets) {
+  if (rootBuildYaml?['targets'] case final Map<Object?, Object?> targets
+      when targets.isNotEmpty) {
+    // `auto_apply_builders: false` (build_config 0.4.2) leaves only the
+    // builders a target configures; every target has to opt out.
+    if (targets.values.every(
+      (target) => target is Map && target['auto_apply_builders'] == false,
+    )) {
+      applied.clear();
+    }
     for (final target in targets.values) {
       if (target case {'builders': final Map<Object?, Object?> builders}) {
         for (final MapEntry(:key, value: config) in builders.entries) {
           if (key is! String) {
             continue;
           }
-          final builder = _builderKey(key, rootName);
-          switch (config) {
-            case {'enabled': false}:
-              applied.remove(builder);
-            case {'enabled': true} || {'generate_for': _} || {'options': _}:
-              applied.add(builder);
+          // Any configuration enables a builder (build_config 0.2.1).
+          if (config case {'enabled': false}) {
+            applied.remove(_builderKey(key, rootName));
+          } else {
+            applied.add(_builderKey(key, rootName));
           }
         }
       }

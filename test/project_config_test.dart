@@ -186,6 +186,18 @@ builders:
         expect(config.entryPoints, isEmpty);
       });
 
+      test('none by auto_apply when the targets opt out', () {
+        write('build.yaml', r'''
+targets:
+  $default:
+    auto_apply_builders: false
+    builders:
+      gen|opt_in:
+''');
+
+        expect(read().generatedGlobs, ['**.opt_in.dart']);
+      });
+
       test('dependents only for a direct dependency', () {
         write('pubspec.yaml', 'name: app\ndependencies: {other: any}\n');
 
