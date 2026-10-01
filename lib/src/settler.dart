@@ -57,7 +57,6 @@ final class Settler {
   /// Names the cross-library recovery has already probed.
   final _probedNames = <String>{};
 
-  /// The candidate index of each finding, for the reachability sweep.
   final _candidateOf = Map<UnusedDeclaration, int>.identity();
 
   /// Override lookups by candidate index, cached across rounds.
@@ -165,11 +164,8 @@ final class Settler {
     );
   }
 
-  /// The removable [findings] no live code reaches, as [DeadSpans]: their
-  /// own spans are dead to begin with, and a reference from outside every
-  /// dead span — or one [crossLib] recovered there — revives what it uses,
-  /// which revives what that one uses, and so on (see [unreached]). What is
-  /// left includes cycles, whose members reference only each other.
+  /// The removable [findings] no live reference reaches. [crossLib] sites
+  /// count as references.
   DeadSpans _sweep(
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
@@ -188,8 +184,6 @@ final class Settler {
     final uses = [
       for (final i in nodes) ...[
         for (final loc in refsByCandidate[i])
-          // Judged one by one, as the round would judge it if it were the
-          // only reference left.
           if (_classifier.classify(candidates[i], [loc], .empty) == .used)
             (
               target: i,
@@ -215,7 +209,6 @@ final class Settler {
     ], rootPath);
   }
 
-  /// Records that [finding] reports the candidate at [index].
   UnusedDeclaration _finding(int index, UnusedDeclaration finding) {
     _candidateOf[finding] = index;
     return finding;

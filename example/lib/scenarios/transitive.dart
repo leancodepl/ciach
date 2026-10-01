@@ -60,20 +60,17 @@ class Odometer {
   int live() => 1;
 }
 
-/// A cycle with `_pong` -> USED even with transitive, UNUSED with
-/// reachability.
+/// Dead cycle -> UNUSED only with reachability.
 void _ping() => _pong();
 
 void _pong() => _ping();
 
-/// A cycle with `_liveCycleBack`, entered from live `transitiveAnchor` ->
-/// USED either way.
+/// Cycle entered from `transitiveAnchor` -> USED.
 void _liveCycle() => _liveCycleBack();
 
 void _liveCycleBack() => _liveCycle();
 
-/// Two classes that only reference each other -> USED even with transitive,
-/// UNUSED with reachability, each reported without its members.
+/// Dead class cycle -> UNUSED only with reachability, without members.
 class _Chicken {
   _Egg lay() => _Egg()..hatch();
 }

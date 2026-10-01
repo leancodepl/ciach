@@ -66,7 +66,7 @@ final class DeadSpans {
     return outermost?.owner;
   }
 
-  /// Every finding whose removal deletes [position] in [path], each once.
+  /// Every finding whose removal deletes [position] in [path].
   Iterable<UnusedDeclaration> ownersOf(String path, Position position) => {
     for (final span in _byPath[path] ?? const <_Span>[])
       if (_contains(span.range, position)) span.owner,

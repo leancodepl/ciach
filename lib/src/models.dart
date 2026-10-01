@@ -152,12 +152,8 @@ class FinderOptions {
   /// not found; [reachability] finds them.
   final bool transitive;
 
-  /// Whether to report every declaration no live code reaches, dead cycles
-  /// included: each candidate starts dead, and only a reference from code
-  /// that is not a candidate (or from one proven live) keeps one alive. Finds
-  /// everything [transitive] does and more, so it implies it. Off by default:
-  /// with [includePublic], a library's whole unused public surface can go in
-  /// one cascade.
+  /// Whether to report what no live code reaches, dead cycles included.
+  /// Implies [transitive].
   final bool reachability;
 
   /// The project's own entry points, on top of [EntryPoint.builtIn]. A match

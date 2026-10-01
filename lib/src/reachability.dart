@@ -1,16 +1,8 @@
-/// One use of a declaration: of `target`, from a site that only survives if
-/// every one of its `enclosers` does. No enclosers is a use from live code.
+/// A use of `target` that is live once all `enclosers` are; none = a root.
 typedef Use = ({int target, Iterable<int> enclosers});
 
-/// The [nodes] no live code reaches: the sweep of a mark-and-sweep over the
-/// reference graph.
-///
-/// Every node starts dead. A use with no enclosers marks its target live, and
-/// a node marked live frees the uses it encloses; a use whose enclosers are
-/// all live marks its target live in turn. Unlike deleting what nothing
-/// references, round after round, this also sweeps a cycle: its members only
-/// reach each other, so none is ever marked. Linear in the uses and their
-/// enclosers, and independent of their order.
+/// The [nodes] no root reaches through [uses]; unlike the `transitive`
+/// rounds, this includes cycles.
 Set<int> unreached(Set<int> nodes, Iterable<Use> uses) {
   final live = <int>{};
   final queue = <int>[];
@@ -20,8 +12,6 @@ Set<int> unreached(Set<int> nodes, Iterable<Use> uses) {
     }
   }
 
-  // Per use, how many of its enclosers are still dead; per node, the uses it
-  // encloses.
   final targets = <int>[];
   final deadEnclosers = <int>[];
   final enclosed = <int, List<int>>{};
