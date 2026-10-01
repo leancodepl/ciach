@@ -228,10 +228,8 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/reachability',
       defaultsTo: false,
       helpText:
-          'Report every declaration no live code reaches, including cycles\n'
-          'of dead declarations that only reference each other. Implies\n'
-          '--transitive. Off by default: with --public, a whole unused public\n'
-          'API can be reported at once.',
+          '--transitive plus dead cycles: report whatever no live code\n'
+          'reaches.',
     ),
   ),
   reportToJson(

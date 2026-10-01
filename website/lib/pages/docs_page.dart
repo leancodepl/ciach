@@ -100,7 +100,7 @@ const _options = [
   ),
   (
     '--reachability',
-    'Report everything no live code reaches, dead cycles included.',
+    'Also report dead cycles.',
   ),
   (
     '--overrides, --operators, --generated, --report-tojson',

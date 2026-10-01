@@ -1,9 +1,7 @@
 ## Unreleased
 
-- Add `--reachability` (and `reachability:` in `ciach.yaml`): report every
-  declaration no live code reaches, including cycles of dead declarations that
-  only reference each other, which `--transitive` can't find. Implies
-  `--transitive`. Off by default.
+- Add `--reachability` (and `reachability:` in `ciach.yaml`): also report
+  dead cycles, which `--transitive` misses. Off by default.
   ([#65](https://github.com/leancodepl/ciach/issues/65))
 - Recommend `dart install ciach` over `dart pub global activate` in the README
   and on the website.
