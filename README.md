@@ -334,6 +334,16 @@ command-line form.
 - `flutter gen-l10n` output, from `l10n.yaml`; `--unused-translations` scans
   the template file.
 
+### Supported versions
+
+| Tool | Tested with | Notes |
+| --- | --- | --- |
+| build_runner `build.yaml` | build_runner 2.15–2.16, build 4.0, source_gen 4.3, freezed 4.0, json_serializable 6.14, jaspr_class_scope_builder 0.1 | `{{capture}}` extensions need build ≥ 2.1, `^` without a capture ≥ 2.3 |
+| Flutter `pubspec.yaml` plugins, `l10n.yaml` | Flutter 3.47 | `platforms:` plugin format only |
+| analysis_server_plugin | 0.3 | |
+| test_reflective_loader | 0.4 | |
+| dart_frog, Serverpod, custom_lint | — | from their documented conventions, not tested against a project |
+
 ### Monorepos
 
 In a monorepo where sibling packages depend on this one by `path:`, their calls
