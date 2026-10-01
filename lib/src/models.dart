@@ -50,6 +50,7 @@ class FinderOptions {
     this.excludeGlobs = const [],
     this.kinds = defaultKinds,
     this.includePublic = true,
+    this.includeExported = true,
     this.includeGenerated = false,
     this.additionalGeneratedSuffixes = const [],
     this.additionalGeneratedGlobs = const [],
@@ -91,6 +92,14 @@ class FinderOptions {
   /// Whether to report public declarations (those not starting with `_`).
   /// Private declarations are always reported when unused.
   final bool includePublic;
+
+  /// Whether to report public declarations another package can see: those of
+  /// a library under `lib/` outside `lib/src/`, and whatever such a library
+  /// exports. Off, a public declaration is still reported when nothing outside
+  /// the package can name it — one in `lib/src/` no public library exports, in
+  /// `bin/` or `test/`, or a member of a type that isn't exported. Has no
+  /// effect without [includePublic].
+  final bool includeExported;
 
   /// Whether to scan generated files (`*.g.dart`, `*.freezed.dart`, …).
   final bool includeGenerated;

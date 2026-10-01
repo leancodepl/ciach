@@ -9,7 +9,9 @@ import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
+import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/problems.dart';
+import 'package:ciach/src/public_api.dart';
 import 'package:ciach/src/reference_fetch.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
@@ -37,6 +39,11 @@ final class CandidateCollector {
   final FreezedUnions _freezed;
 
   late final _entryPoints = EntryPoints(options.entryPoints);
+
+  /// What other packages can import, when exported declarations are left out.
+  late final PublicApi? _publicApi = options.includeExported
+      ? null
+      : _scanPublicApi();
 
   /// Skipped as entry points this run, for `--verbose`.
   final _skippedEntryPoints = <_SkippedEntryPoint>[];
@@ -86,6 +93,16 @@ final class CandidateCollector {
       _OutlineIndex(outline),
     ).toList();
     return _withoutEntryPointContainers(candidates, relativePath).toList();
+  }
+
+  PublicApi _scanPublicApi() {
+    final api = PublicApi.scan(options.rootPath);
+    _log.config(
+      'Leaving out the public API of '
+      '${plural(api.libraryCount, 'library', 'libraries')} other packages can '
+      'import.',
+    );
+    return api;
   }
 
   /// One line per skipped entry point, except the ubiquitous `main`.
@@ -236,8 +253,15 @@ final class CandidateCollector {
         !candidate.isExtensionType) {
       return false;
     }
-    if (!isPrivateName(symbol.name) && !options.includePublic) {
-      return false;
+    if (!isPrivateName(symbol.name)) {
+      if (!options.includePublic) {
+        return false;
+      }
+      // A member is as visible as its type; a constructor names it too.
+      if (_publicApi?.exposes(candidate.path, container ?? symbol.name) ??
+          false) {
+        return false;
+      }
     }
     if (options.skipOperators && symbol.isOperator) {
       return false;

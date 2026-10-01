@@ -33,8 +33,10 @@ const faqEntries = [
   ),
   FaqEntry(
     'My library’s public API is reported as unused.',
-    'That is expected from inside the package. Use `--no-public` to report '
-        'only private declarations, or keep public findings visible but out '
+    'That is expected from inside the package. Use `--no-exported` to leave '
+        'out what other packages can import while still reporting public code '
+        'only `lib/src/` sees, `--no-public` to report only private '
+        'declarations, or keep public findings visible but out '
         'of the exit code with `--set-exit-if-changed` `--no-fail-public`.',
   ),
   FaqEntry(

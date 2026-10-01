@@ -7,6 +7,8 @@
   `GlobalKey`) is report-only: `--remove` deleted the widget and left
   `State<Widget>` naming a missing type. A `State` in another file is now
   removed with its widget, instead of being left behind the same way.
+- Add `--no-exported` (`exported: false`): skip only declarations other
+  packages can import. ([#85](https://github.com/leancodepl/ciach/pull/85))
 
 ## 0.6.0
 

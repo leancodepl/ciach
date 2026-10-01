@@ -5,6 +5,7 @@ import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
+import 'package:ciach/src/public_api.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
@@ -108,7 +109,7 @@ final class _Package {
       if (name.endsWith('.dart')) {
         files.add(absolute);
       } else if (name == 'pubspec.yaml') {
-        if (_pubspecName(absolute) case final package?) {
+        if (pubspecName(absolute) case final package?) {
           libDirByPackage[package] = p.join(p.dirname(absolute), 'lib');
         }
       }
@@ -240,18 +241,6 @@ final class _Package {
     File(path).deleteSync();
     _files.remove(path);
     _contents[path] = null;
-  }
-}
-
-final _pubspecNameLine = RegExp(r'^name:\s*([A-Za-z0-9_]+)', multiLine: true);
-
-String? _pubspecName(String pubspecPath) {
-  try {
-    return _pubspecNameLine
-        .firstMatch(File(pubspecPath).readAsStringSync())
-        ?.group(1);
-  } on FileSystemException {
-    return null;
   }
 }
 

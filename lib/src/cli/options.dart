@@ -16,6 +16,7 @@ class ResolvedOptions {
     required this.additionalGeneratedGlobs,
     required this.kinds,
     required this.includePublic,
+    required this.includeExported,
     required this.failPublic,
     required this.includeGenerated,
     required this.overrides,
@@ -48,6 +49,7 @@ class ResolvedOptions {
   final List<String> additionalGeneratedGlobs;
   final Set<SymbolKind> kinds;
   final bool includePublic;
+  final bool includeExported;
   final bool failPublic;
   final bool includeGenerated;
 
@@ -88,6 +90,7 @@ class ResolvedOptions {
     additionalGeneratedGlobs: additionalGeneratedGlobs,
     kinds: kinds,
     includePublic: includePublic,
+    includeExported: includeExported,
     includeGenerated: includeGenerated,
     skipOverrides: !overrides,
     skipOperators: !operators,
@@ -132,6 +135,7 @@ ResolvedOptions resolveOptions(
     // Already validated by the option; this only converts the names.
     kinds: parseKinds(configuration.value(CiachOption.kinds)),
     includePublic: configuration.value(CiachOption.public),
+    includeExported: configuration.value(CiachOption.exported),
     failPublic: configuration.value(CiachOption.failPublic),
     includeGenerated: configuration.value(CiachOption.generated),
     overrides: configuration.value(CiachOption.overrides),
