@@ -230,10 +230,18 @@ targets:
 arb-dir: lib/l10n
 output-dir: lib/src/gen/
 output-localization-file: l10n.dart
+template-arb-file: app_pl.arb
 ''');
 
-      final globs = read().generatedGlobs;
-      expect(globs, ['lib/src/gen/l10n{,_*}.dart']);
+      final config = read();
+      final globs = config.generatedGlobs;
+      expect(globs, ['lib/src/gen/l10n_*.dart', 'lib/src/gen/l10n.dart']);
+      expect(config.translations, [
+        (dartFile: 'lib/src/gen/l10n.dart', arbFile: 'lib/l10n/app_pl.arb'),
+      ]);
+      expect(config.generatedGlobsExceptTranslations, [
+        'lib/src/gen/l10n_*.dart',
+      ]);
       expect(generated(globs, 'lib/src/gen/l10n.dart'), isTrue);
       expect(generated(globs, 'lib/src/gen/l10n_pt_BR.dart'), isTrue);
       expect(generated(globs, 'lib/src/gen/strings.dart'), isFalse);
@@ -241,15 +249,24 @@ output-localization-file: l10n.dart
 
     test('defaults to app_localizations.dart in the arb-dir', () {
       write('l10n.yaml', 'arb-dir: lib/i18n\n');
-      expect(read().generatedGlobs, ['lib/i18n/app_localizations{,_*}.dart']);
+      expect(read().generatedGlobs, [
+        'lib/i18n/app_localizations_*.dart',
+        'lib/i18n/app_localizations.dart',
+      ]);
 
       write('l10n.yaml', '');
-      expect(read().generatedGlobs, ['lib/l10n/app_localizations{,_*}.dart']);
+      expect(read().translations, [
+        (
+          dartFile: 'lib/l10n/app_localizations.dart',
+          arbFile: 'lib/l10n/app_en.arb',
+        ),
+      ]);
     });
 
     test('a synthetic package writes nothing to the source tree', () {
       write('l10n.yaml', 'synthetic-package: true\n');
       expect(read().generatedGlobs, isEmpty);
+      expect(read().translations, isEmpty);
     });
   });
 

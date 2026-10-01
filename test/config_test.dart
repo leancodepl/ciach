@@ -39,6 +39,7 @@ analysis-root: .
 public: false
 generated: true
 project-config: false
+unused-translations: true
 overrides: true
 operators: true
 unused-union-members: true
@@ -75,6 +76,7 @@ dart: /sdk/bin/dart
       expect(resolved.includePublic, isFalse);
       expect(resolved.includeGenerated, isTrue);
       expect(resolved.projectConfig, isFalse);
+      expect(resolved.unusedTranslations, isTrue);
       expect(resolved.overrides, isTrue);
       expect(resolved.operators, isTrue);
       expect(resolved.unusedUnionMembers, isTrue);
@@ -263,6 +265,7 @@ concurrency: 4
         '--public',
         '--generated',
         '--project-config',
+        '--unused-translations',
         '--overrides',
         '--operators',
         '--unused-union-members',
@@ -433,6 +436,7 @@ concurrency: 4
       expect(resolved.includePublic, isTrue);
       expect(resolved.includeGenerated, isFalse);
       expect(resolved.projectConfig, isTrue);
+      expect(resolved.unusedTranslations, isFalse);
       expect(resolved.overrides, isFalse);
       expect(resolved.operators, isFalse);
       expect(resolved.unusedUnionMembers, isFalse);
@@ -686,7 +690,8 @@ dependencies:
       );
       expect(options.additionalGeneratedGlobs, [
         'gen/**',
-        'lib/l10n/app_localizations{,_*}.dart',
+        'lib/l10n/app_localizations_*.dart',
+        'lib/l10n/app_localizations.dart',
       ]);
     });
 

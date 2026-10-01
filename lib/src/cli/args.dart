@@ -183,6 +183,16 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'build.yaml and l10n.yaml.',
     ),
   ),
+  unusedTranslations(
+    FlagOption(
+      argName: 'unused-translations',
+      configKey: '/unused-translations',
+      defaultsTo: false,
+      helpText:
+          'Report unused gen-l10n messages, as report-only: remove them from\n'
+          'the template ARB file. Off by default.',
+    ),
+  ),
   overrides(
     FlagOption(
       argName: 'overrides',

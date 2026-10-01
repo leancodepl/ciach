@@ -3,7 +3,6 @@ import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/options.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/plural.dart';
-import 'package:ciach/src/project_config/project_config.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
@@ -60,14 +59,18 @@ List<String> describeSettings(
   'Settings for this run:',
   for (final option in CiachOption.values)
     if (option.configKey case final key?)
-      '  $key: ${_setting(option, resolved, options, dartExecutable)} (${_source(configuration.valueSourceType(option))})${_detected(option, resolved.detected)}',
+      '  $key: ${_setting(option, resolved, options, dartExecutable)} (${_source(configuration.valueSourceType(option))})${_detected(option, resolved)}',
 ];
 
 /// What the project config adds to [option], or ''.
-String _detected(CiachOption<dynamic> option, ProjectConfig detected) {
+String _detected(CiachOption<dynamic> option, ResolvedOptions resolved) {
+  final detected = resolved.detected;
   final values = switch (option) {
     .entryPoints => detected.entryPoints,
-    .generatedGlob => detected.generatedGlobs,
+    .generatedGlob =>
+      resolved.unusedTranslations
+          ? detected.generatedGlobsExceptTranslations
+          : detected.generatedGlobs,
     _ => const <Object>[],
   };
   return values.isEmpty ? '' : '; ${_value(values)} (project config)';
@@ -88,6 +91,7 @@ String _setting(
   .failPublic => '${resolved.failPublic}',
   .generated => '${resolved.includeGenerated}',
   .projectConfig => '${resolved.projectConfig}',
+  .unusedTranslations => '${resolved.unusedTranslations}',
   .overrides => '${resolved.overrides}',
   .operators => '${resolved.operators}',
   .unusedUnionMembers => '${resolved.unusedUnionMembers}',

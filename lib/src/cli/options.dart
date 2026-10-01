@@ -20,6 +20,7 @@ class ResolvedOptions {
     required this.failPublic,
     required this.includeGenerated,
     required this.projectConfig,
+    required this.unusedTranslations,
     required this.detected,
     required this.overrides,
     required this.operators,
@@ -53,6 +54,7 @@ class ResolvedOptions {
   final bool failPublic;
   final bool includeGenerated;
   final bool projectConfig;
+  final bool unusedTranslations;
 
   /// Read from the package when [projectConfig] is on.
   final ProjectConfig detected;
@@ -93,7 +95,9 @@ class ResolvedOptions {
       additionalGeneratedSuffixes: additionalGeneratedSuffixes,
       additionalGeneratedGlobs: [
         ...additionalGeneratedGlobs,
-        ...detected.generatedGlobs,
+        ...unusedTranslations
+            ? detected.generatedGlobsExceptTranslations
+            : detected.generatedGlobs,
       ],
       kinds: kinds,
       includePublic: includePublic,
@@ -104,6 +108,7 @@ class ResolvedOptions {
       reportToJson: reportToJson,
       transitive: transitive,
       entryPoints: [...entryPoints, ...detected.entryPoints],
+      translations: unusedTranslations ? detected.translations : const [],
       concurrency: concurrency,
       dartExecutable: dartExecutable ?? this.dartExecutable,
     );
@@ -146,6 +151,7 @@ ResolvedOptions resolveOptions(
     failPublic: configuration.value(CiachOption.failPublic),
     includeGenerated: configuration.value(CiachOption.generated),
     projectConfig: projectConfig,
+    unusedTranslations: configuration.value(CiachOption.unusedTranslations),
     detected: projectConfig
         ? ProjectConfig.read(rootPath.absoluteNormalized)
         : ProjectConfig.none,

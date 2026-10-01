@@ -4,6 +4,8 @@ library;
 import 'dart:io';
 
 import 'package:ciach/ciach.dart';
+import 'package:ciach/src/cli/args.dart';
+import 'package:ciach/src/cli/options.dart';
 import 'package:ciach/src/log.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -179,6 +181,36 @@ Object run(Object handler, Object ip, int port) => handler;
     );
     expect(unused, isNot(contains('lib/js.dart:Counter')));
   });
+
+  test(
+    'with --unused-translations, the gen-l10n template is report-only',
+    () async {
+      final resolved = resolveOptions(
+        resolveConfiguration(
+          buildParser().parse([package.path, '--unused-translations']),
+          const .empty(),
+        ),
+        progressDefault: false,
+      );
+      final result = await Ciach(resolved.finderOptions()).run();
+      final translations = {
+        for (final d in result.unused)
+          if (d.filePath.startsWith('lib/l10n/'))
+            d.qualifiedName: (d.removalBlocked, d.hint),
+      };
+
+      expect(translations, {
+        'Strings': (
+          true,
+          'gen-l10n output — remove the message from lib/l10n/app_en.arb',
+        ),
+        'Strings.unusedMessage': (
+          true,
+          'gen-l10n output — remove the message from lib/l10n/app_en.arb',
+        ),
+      });
+    },
+  );
 
   test('narrates what the project config declares', () async {
     final lines = <String>[];

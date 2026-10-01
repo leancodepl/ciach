@@ -79,6 +79,7 @@ ciach --verbose                        # explain each step
 | `--[no-]public` | on | Report unused public declarations too. Disable to report only private (`_`-prefixed) ones. |
 | `--[no-]generated` | off | Scan generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, …). |
 | `--[no-]project-config` | on | Read [entry points](#entry-points) and [generated files](#generated-files-from-the-project-config) from `pubspec.yaml`, `build.yaml` and `l10n.yaml`. |
+| `--[no-]unused-translations` | off | Scan the gen-l10n template and report its unused messages. Report-only: remove them from the template ARB file. |
 | `--[no-]overrides` | off | Report `@override` members too. Off by default — see limitations. |
 | `--[no-]operators` | off | Report operator overloads (`operator +`, `operator ==`, …) too. Off by default — see limitations. |
 | `--[no-]unused-union-members` | off | Also flag a (sealed) supertype member matched only by type patterns, never constructed. Report-only — never touched by `--remove`. |
@@ -266,6 +267,7 @@ auto-remove — remove manually` and skipped, along with anything coupled to the
 | The sole constructor of a live class with `final` fields, or whose superclass needs constructor arguments | the implicit default constructor can't replace it |
 | A primary constructor or its declaring parameters | only part of the class header |
 | A member whose override is a declaring parameter, or is in a file the run didn't scan | that override can't be deleted, and would be left overriding nothing |
+| A gen-l10n message (`--unused-translations`) | it lives in the ARB file; gen-l10n would regenerate it |
 
 ## What it skips by default
 
@@ -329,7 +331,8 @@ command-line form.
 
 - `build_extensions` of applied `build_to: source` builders, dependencies'
   included, and of builder options in `targets:`;
-- `flutter gen-l10n` output, from `l10n.yaml`.
+- `flutter gen-l10n` output, from `l10n.yaml`; `--unused-translations` scans
+  the template file.
 
 ### Monorepos
 

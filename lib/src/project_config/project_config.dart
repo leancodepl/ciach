@@ -1,4 +1,5 @@
 import 'package:ciach/src/conventions/entry_points.dart';
+import 'package:ciach/src/conventions/gen_l10n.dart';
 import 'package:ciach/src/project_config/analysis_server_plugin.dart';
 import 'package:ciach/src/project_config/build_runner.dart';
 import 'package:ciach/src/project_config/custom_lint.dart';
@@ -14,11 +15,13 @@ final class ProjectConfig {
   const ProjectConfig({
     this.entryPoints = const [],
     this.generatedGlobs = const [],
+    this.translations = const [],
   });
 
   factory ProjectConfig.read(String rootPath) {
     final pubspec = readPubspec(rootPath);
     final buildYaml = readBuildYaml(rootPath);
+    final genL10n = readGenL10n(rootPath);
     return ProjectConfig(
       entryPoints: [
         ...flutterPluginEntryPoints(pubspec),
@@ -30,8 +33,10 @@ final class ProjectConfig {
       ],
       generatedGlobs: {
         ...buildRunnerGeneratedGlobs(rootPath, pubspec, buildYaml),
-        ...genL10nGeneratedGlobs(rootPath),
+        ?genL10n?.localesGlob,
+        if (genL10n != null) escapeGlob(genL10n.template.dartFile),
       }.toList(),
+      translations: [?genL10n?.template],
     );
   }
 
@@ -39,6 +44,16 @@ final class ProjectConfig {
 
   final List<EntryPoint> entryPoints;
 
-  /// POSIX, relative to the package root.
+  /// POSIX, relative to the package root. Includes [translations].
   final List<String> generatedGlobs;
+
+  final List<Translations> translations;
+
+  List<String> get generatedGlobsExceptTranslations {
+    final templates = {for (final t in translations) escapeGlob(t.dartFile)};
+    return [
+      for (final glob in generatedGlobs)
+        if (!templates.contains(glob)) glob,
+    ];
+  }
 }

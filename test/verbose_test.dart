@@ -169,7 +169,8 @@ void main() {
         lines,
         contains(
           '  generated-glob: gen/** (command line); '
-          'lib/l10n/app_localizations{,_*}.dart (project config)',
+          'lib/l10n/app_localizations_*.dart, lib/l10n/app_localizations.dart '
+          '(project config)',
         ),
       );
       expect(
