@@ -51,7 +51,6 @@ class FinderOptions {
     this.kinds = defaultKinds,
     this.includePublic = true,
     this.includeGenerated = false,
-    this.serverpodEndpoints = false,
     this.additionalGeneratedSuffixes = const [],
     this.additionalGeneratedGlobs = const [],
     this.skipOverrides = true,
@@ -94,9 +93,6 @@ class FinderOptions {
 
   /// Whether to scan generated files (`*.g.dart`, `*.freezed.dart`, …).
   final bool includeGenerated;
-
-  /// Public methods of direct `Endpoint` subclasses are entry points.
-  final bool serverpodEndpoints;
 
   /// Extra filename suffixes to treat as generated, beyond the built-in set
   /// (`.g.dart`, `.freezed.dart`, …) — for projects whose generators emit a

@@ -688,7 +688,6 @@ dependencies:
         'gen/**',
         'lib/l10n/app_localizations{,_*}.dart',
       ]);
-      expect(options.serverpodEndpoints, isTrue);
     });
 
     test('--no-project-config reads none of it', () {
@@ -699,7 +698,6 @@ dependencies:
 
       expect(options.entryPoints, isEmpty);
       expect(options.additionalGeneratedGlobs, isEmpty);
-      expect(options.serverpodEndpoints, isFalse);
     });
   });
 }

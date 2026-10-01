@@ -14,7 +14,6 @@ final class ProjectConventions {
   const ProjectConventions({
     this.entryPoints = const [],
     this.generatedGlobs = const [],
-    this.serverpod = false,
   });
 
   factory ProjectConventions.read(String rootPath) {
@@ -46,7 +45,6 @@ final class ProjectConventions {
         ..._buildExtensionOptions(buildYaml),
         ..._l10nOutputs(rootPath),
       }.toList(),
-      serverpod: dependencies.contains('serverpod'),
     );
   }
 
@@ -56,8 +54,6 @@ final class ProjectConventions {
 
   /// POSIX, relative to the package root.
   final List<String> generatedGlobs;
-
-  final bool serverpod;
 }
 
 Map<Object?, Object?>? _readYaml(String path) {
@@ -143,6 +139,12 @@ Iterable<EntryPoint> _frameworkEntryPoints(
     for (final hook in const ['init', 'run']) {
       yield* _rules(hook, ['main.dart'], 'a dart_frog server hook');
     }
+  }
+  if (dependencies.contains('serverpod')) {
+    yield .publicMethodsOfSubclasses(
+      'Endpoint',
+      reason: 'a Serverpod endpoint method, called by the generated dispatcher',
+    );
   }
   if (dependencies.contains('analysis_server_plugin')) {
     yield* _rules('plugin', [

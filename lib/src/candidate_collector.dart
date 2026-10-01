@@ -129,7 +129,7 @@ final class CandidateCollector {
         path: relativePath,
         line: symbol.selectionRange.start.line + 1,
         name: symbol.name,
-        reason: 'declares the entry point ${rule.name}',
+        reason: 'declares the entry point ${rule.label}',
       ));
     }
   }
@@ -189,7 +189,7 @@ final class CandidateCollector {
       );
       final isTypeLike = typeLikeKinds.contains(symbol.kind);
       final exports = isTypeLike
-          ? _exportedMembers(candidate, leadingMetadata)
+          ? _exportedMembers(leadingMetadata)
           : containerExports;
       if (_shouldConsider(
         relativePath,
@@ -214,44 +214,36 @@ final class CandidateCollector {
     }
   }
 
-  _ExportedMembers? _exportedMembers(
-    Candidate candidate,
-    Iterable<SemanticToken> leadingMetadata,
-  ) {
+  _ExportedMembers? _exportedMembers(Iterable<SemanticToken> leadingMetadata) {
     if (leadingMetadata.any((t) => t.isAnnotationNamed('JSExport'))) {
       return .jsExport;
     }
     if (leadingMetadata.any((t) => t.isAnnotationNamed('reflectiveTest'))) {
       return .reflectiveTest;
     }
-    if (options.serverpodEndpoints &&
-        candidate.symbol.kind == .class$ &&
-        _extendsEndpoint(candidate)) {
-      return .serverpodEndpoint;
-    }
     return null;
   }
 
-  /// Direct subclasses only.
-  bool _extendsEndpoint(Candidate candidate) {
-    final start = _sources.offsetOf(
-      candidate.path,
-      candidate.symbol.selectionRange.end,
-    );
-    final end = _sources.offsetOf(candidate.path, candidate.symbol.range.end);
-    if (start == null || end == null) {
-      return false;
+  /// The `extends` clause's class name of the class [path]'s [symbol].
+  String? _superclassOf(String path, DocumentSymbol symbol) {
+    if (symbol.kind != .class$) {
+      return null;
     }
-    final rest = _sources.content(candidate.path).substring(start, end);
+    final start = _sources.offsetOf(path, symbol.selectionRange.end);
+    final end = _sources.offsetOf(path, symbol.range.end);
+    if (start == null || end == null) {
+      return null;
+    }
+    final rest = _sources.content(path).substring(start, end);
     final brace = rest.indexOf('{');
-    return _extendsEndpointHeader.hasMatch(
-      brace < 0 ? rest : rest.substring(0, brace),
-    );
+    return _extendsClause
+        .firstMatch(brace < 0 ? rest : rest.substring(0, brace))
+        ?.group(1);
   }
 
   /// No nested type parameters.
-  static final _extendsEndpointHeader = RegExp(
-    r'^\s*(?:<[^<>]*>)?\s*extends\s+Endpoint\b',
+  static final _extendsClause = RegExp(
+    r'^\s*(?:<[^<>]*>)?\s*extends\s+([A-Za-z_$][\w$]*)',
   );
 
   /// test_reflective_loader's prefixes.
@@ -266,9 +258,6 @@ final class CandidateCollector {
     _ExportedMembers? ownExports,
   ) {
     final symbol = candidate.symbol;
-    if (ownExports == .serverpodEndpoint) {
-      return 'a Serverpod endpoint, constructed by the generated dispatcher';
-    }
     if (ownExports == .jsExport ||
         leadingMetadata.any((t) => t.isAnnotationNamed('JSExport'))) {
       return 'exported to JavaScript by `@JSExport`';
@@ -278,8 +267,6 @@ final class CandidateCollector {
     }
     return switch (containerExports) {
       .jsExport => 'exported to JavaScript by `@JSExport` on its class',
-      .serverpodEndpoint when symbol.kind == .method =>
-        'a Serverpod endpoint method, called by the generated dispatcher',
       .reflectiveTest
           when symbol.kind == .method &&
               _reflectiveTestMethod.hasMatch(symbol.name) =>
@@ -307,11 +294,23 @@ final class CandidateCollector {
       return false;
     }
     // Called by a framework or tool, with no source reference to find.
-    if (_entryPoints.match(relativePath, symbol, container) case final rule?) {
+    if (_entryPoints.match(
+          relativePath,
+          symbol,
+          container,
+          containerSuperclass: () => switch (candidate.containerSymbol) {
+            final containerSymbol? => _superclassOf(
+              candidate.path,
+              containerSymbol,
+            ),
+            null => null,
+          },
+        )
+        case final rule?) {
       _skippedEntryPoints.add((
         path: relativePath,
         line: symbol.selectionRange.start.line + 1,
-        name: rule.name,
+        name: container == null ? symbol.name : '$container.${symbol.name}',
         reason: rule.reason,
       ));
       if (container != null) {
@@ -372,7 +371,7 @@ final class CandidateCollector {
 }
 
 /// Members of a type called from outside Dart source.
-enum _ExportedMembers { jsExport, serverpodEndpoint, reflectiveTest }
+enum _ExportedMembers { jsExport, reflectiveTest }
 
 /// A skipped entry point: root-relative POSIX path, one-based line, the name
 /// as the rule spells it, and why.

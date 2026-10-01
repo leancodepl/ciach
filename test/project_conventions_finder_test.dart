@@ -138,7 +138,6 @@ Object run(Object handler, Object ip, int port) => handler;
       rootPath: package.path,
       entryPoints: conventions.entryPoints,
       additionalGeneratedGlobs: conventions.generatedGlobs,
-      serverpodEndpoints: conventions.serverpod,
     );
   }
 

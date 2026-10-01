@@ -37,7 +37,6 @@ void main() {
 
     expect(conventions.entryPoints, isEmpty);
     expect(conventions.generatedGlobs, isEmpty);
-    expect(conventions.serverpod, isFalse);
   });
 
   test('a file that does not parse is ignored', () {
@@ -290,7 +289,7 @@ dev_dependencies:
   serverpod: any
 ''');
 
-      expect(read().serverpod, isTrue);
+      expect(rules(read()), {'public methods of `Endpoint` subclasses'});
     });
   });
 }

@@ -105,7 +105,6 @@ class ResolvedOptions {
       reportToJson: reportToJson,
       transitive: transitive,
       entryPoints: [...entryPoints, ...detected.entryPoints],
-      serverpodEndpoints: detected.serverpod,
       concurrency: concurrency,
       dartExecutable: dartExecutable ?? this.dartExecutable,
     );

@@ -66,10 +66,7 @@ List<String> describeSettings(
 /// What the project config adds to [option], or ''.
 String _detected(CiachOption<dynamic> option, ProjectConventions detected) {
   final values = switch (option) {
-    .entryPoints => [
-      ...detected.entryPoints,
-      if (detected.serverpod) 'public methods of `Endpoint` subclasses',
-    ],
+    .entryPoints => detected.entryPoints,
     .generatedGlob => detected.generatedGlobs,
     _ => const <Object>[],
   };

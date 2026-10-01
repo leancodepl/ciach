@@ -18,7 +18,16 @@ final class EntryPoint {
   /// A glob that does not parse throws the glob package's [FormatException],
   /// whose `source` is the glob.
   EntryPoint({required this.name, required this.reason, this.files = const []})
-    : _globs = [for (final file in files) .new(file, context: _posix)];
+    : superclass = null,
+      _globs = [for (final file in files) .new(file, context: _posix)];
+
+  /// Public methods of direct subclasses of [superclass].
+  EntryPoint.publicMethodsOfSubclasses(
+    String this.superclass, {
+    required this.reason,
+    this.files = const [],
+  }) : name = '*',
+       _globs = [for (final file in files) .new(file, context: _posix)];
 
   /// A rule from `entry-points` or the project config.
   ///
@@ -52,6 +61,9 @@ final class EntryPoint {
   /// type parameters are not part of either.
   final String name;
 
+  /// Set for [EntryPoint.publicMethodsOfSubclasses].
+  final String? superclass;
+
   /// The file globs as written; empty matches any file.
   final List<String> files;
 
@@ -74,16 +86,39 @@ final class EntryPoint {
 
   /// Whether [symbol], in the file at [relativePath] (POSIX, from the package
   /// root) inside [container] (`null` at the top level), meets this rule.
-  bool matches(String relativePath, DocumentSymbol symbol, String? container) {
-    final qualified = container == null
-        ? symbol.name
-        : '$container.${symbol.name}';
-    return qualified == name &&
+  /// [containerSuperclass] is read only for a [superclass] rule.
+  bool matches(
+    String relativePath,
+    DocumentSymbol symbol,
+    String? container, {
+    String? Function()? containerSuperclass,
+  }) {
+    final bool named;
+    if (superclass case final superclass?) {
+      named =
+          container != null &&
+          symbol.kind == .method &&
+          !symbol.name.startsWith('_') &&
+          containerSuperclass?.call() == superclass;
+    } else {
+      final qualified = container == null
+          ? symbol.name
+          : '$container.${symbol.name}';
+      named = qualified == name;
+    }
+    return named &&
         (_globs.isEmpty || _globs.any((glob) => glob.matches(relativePath)));
   }
 
+  /// [name], or what a [superclass] rule matches.
+  String get label => switch (superclass) {
+    final superclass? => 'public methods of `$superclass` subclasses',
+    null => name,
+  };
+
   @override
-  String toString() => files.isEmpty ? name : '$name in ${files.join(' or ')}';
+  String toString() =>
+      files.isEmpty ? label : '$label in ${files.join(' or ')}';
 }
 
 /// [EntryPoint.builtIn] followed by a project's own rules; the first match
@@ -98,8 +133,14 @@ final class EntryPoints {
   EntryPoint? match(
     String relativePath,
     DocumentSymbol symbol,
-    String? container,
-  ) => _rules.firstWhereOrNull(
-    (rule) => rule.matches(relativePath, symbol, container),
+    String? container, {
+    String? Function()? containerSuperclass,
+  }) => _rules.firstWhereOrNull(
+    (rule) => rule.matches(
+      relativePath,
+      symbol,
+      container,
+      containerSuperclass: containerSuperclass,
+    ),
   );
 }
