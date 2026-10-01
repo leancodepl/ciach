@@ -122,7 +122,7 @@ export 'src/chain.dart' show D, E;
   test('with includeExported off, only what other packages can name is '
       'left out', () async {
     write('lib/lib_pkg.dart', '''
-export 'src/api.dart' show Api;
+export 'src/api.dart' show Api, make;
 
 void publicTopLevel() {}
 ''');
@@ -135,9 +135,25 @@ class Internal {
   void internalMember() {}
 }
 
-void notExported() {}
+class Leaked {
+  void leakedMember() {}
+}
 
-void _private() {}
+Leaked make() => Leaked();
+
+extension InternalExtension on int {
+  void used() {}
+  void extensionMember() {}
+}
+
+extension _PrivateExtension on int {
+  void privateUsed() {}
+  void privateExtensionMember() {}
+}
+
+void notExported() => 1.used();
+
+void _private() => 1.privateUsed();
 ''');
     write('bin/main.dart', '''
 void main() {}
@@ -158,6 +174,9 @@ void cliHelper() {}
       'Api.exportedMember',
       'Internal',
       'Internal.internalMember',
+      'Leaked.leakedMember',
+      'InternalExtension.extensionMember',
+      '_PrivateExtension.privateExtensionMember',
       'notExported',
       '_private',
       'cliHelper',
@@ -165,7 +184,8 @@ void cliHelper() {}
 
     expect(await unused(includeExported: false), {
       'Internal',
-      'Internal.internalMember',
+      'InternalExtension.extensionMember',
+      '_PrivateExtension.privateExtensionMember',
       'notExported',
       '_private',
       'cliHelper',

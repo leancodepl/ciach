@@ -244,8 +244,9 @@ only:
 
 ### Library packages
 
-`--no-exported` skips libraries under `lib/` outside `lib/src/` and what they
-export (`show`/`hide` respected). The rest is reported:
+`--no-exported` skips libraries under `lib/` outside `lib/src/`, what they
+export (`show`/`hide` respected), and every public member of a type, since an
+instance can leak through an inferred signature. The rest is reported:
 
 ```dart
 // lib/my_lib.dart
@@ -256,8 +257,7 @@ class Client { … }
 class RetryPolicy { … } // not exported: reported if unused
 ```
 
-Unexported types leaking through public signatures, and `package:my_lib/src/…`
-imports, count as internal.
+Assumes nobody imports `package:my_lib/src/…`.
 
 ### Removing declarations
 
