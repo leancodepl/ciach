@@ -83,6 +83,7 @@ ciach --verbose                        # explain each step
 | `--[no-]unused-union-members` | off | Also flag a (sealed) supertype member matched only by type patterns, never constructed. Report-only — never touched by `--remove`. |
 | `--[no-]report-tojson` | off | Report an otherwise-unused `toJson()` serialization hook too. Off by default — `jsonEncode` dispatches to it dynamically. |
 | `--[no-]transitive` | off | Also report declarations referenced only from other findings. See [Transitively dead code](#transitively-dead-code). |
+| `--[no-]reachability` | off | Report every declaration no live code reaches, including cycles of dead declarations. Implies `--transitive`. See [Dead cycles](#dead-cycles). |
 | `--set-exit-if-changed` | off | Exit with status `1` when anything is found (for CI). Named after `dart format`. |
 | `--[no-]fail-public` | on | Count unused public declarations toward the exit code (with `--set-exit-if-changed`). `--no-fail-public` reports them but fails only on private findings. |
 | `--remove` | off | Remove unused declarations after reporting them. Prompts for confirmation first. |
@@ -203,8 +204,34 @@ reported without its members.
 It's off by default because one false positive also flags everything only it
 referenced. `-f json` lists every finding a declaration depends on in
 `onlyReferencedFrom`; the other formats show the first and a count. Dead
-declarations that reference each other in a cycle are not found
-([#65](https://github.com/leancodepl/ciach/issues/65)).
+declarations that reference each other in a cycle are not found; see
+[Dead cycles](#dead-cycles).
+
+### Dead cycles
+
+Two private functions that only call each other, or two classes that only
+reference each other, keep each other alive under `--transitive`: each still
+has a reference outside the findings. `--reachability` finds them:
+
+```
+lib/report.dart
+  40:6  function  _ping  (private)  (only referenced from dead _pong (lib/report.dart:42))
+  42:6  function  _pong  (private)  (only referenced from dead _ping (lib/report.dart:40))
+```
+
+It works the other way round: every declaration ciach checks starts out dead,
+and only a reference from live code keeps one alive. Code that isn't checked
+is live: entry points, generated and excluded files, `@override` members, and
+public declarations under `--no-public`. A declaration kept alive makes what
+it references live in turn, and whatever is left is reported, cycles
+included. This is how a tracing garbage collector frees a cycle that
+reference counting never could. It reuses the fetched references, like
+`--transitive`, which it implies.
+
+It's off by default because it reports more at once: with `--public`, a
+library's whole unused public API, and everything only that API reaches,
+shows up in one run. Each finding still names the dead declarations that
+reference it.
 
 ### GitHub Actions
 
@@ -350,7 +377,7 @@ deleting blindly:
   itself is dead.
 - **Code referenced only from dead code** is reported only with
   [`--transitive`](#transitively-dead-code), and a cycle of dead declarations
-  not even then.
+  only with [`--reachability`](#dead-cycles).
 - A package that doesn't analyze cleanly (missing `pub get`, errors) yields
   incomplete references.
 

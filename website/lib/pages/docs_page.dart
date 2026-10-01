@@ -99,6 +99,10 @@ const _options = [
     'Also report what only other findings reference, in the same run.',
   ),
   (
+    '--reachability',
+    'Report everything no live code reaches, dead cycles included.',
+  ),
+  (
     '--overrides, --operators, --generated, --report-tojson',
     'Opt back into a '
         'category skipped by default.',

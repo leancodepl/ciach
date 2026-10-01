@@ -222,6 +222,18 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'false positive also flags everything only it referenced.',
     ),
   ),
+  reachability(
+    FlagOption(
+      argName: 'reachability',
+      configKey: '/reachability',
+      defaultsTo: false,
+      helpText:
+          'Report every declaration no live code reaches, including cycles\n'
+          'of dead declarations that only reference each other. Implies\n'
+          '--transitive. Off by default: with --public, a whole unused public\n'
+          'API can be reported at once.',
+    ),
+  ),
   reportToJson(
     FlagOption(
       argName: 'report-tojson',

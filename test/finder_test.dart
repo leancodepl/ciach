@@ -54,6 +54,7 @@ void main() {
     List<String> include = const [],
     List<EntryPoint> entryPoints = const [],
     bool transitive = false,
+    bool reachability = false,
   }) => Ciach(
     .new(
       rootPath: fixturePath,
@@ -65,6 +66,7 @@ void main() {
       includeGlobs: include,
       entryPoints: entryPoints,
       transitive: transitive,
+      reachability: reachability,
     ),
   ).run();
 
@@ -791,6 +793,87 @@ void main() {
         expect(names(second.docOnly), isEmpty);
       },
     );
+  });
+
+  group('reachability (opt-in --reachability)', () {
+    const fixture = ['lib/scenarios/transitive.dart'];
+
+    Future<FinderResult> runReachability() =>
+        runFinder(include: fixture, exclude: const [], reachability: true);
+
+    Set<String> names(Iterable<UnusedDeclaration> decls) =>
+        decls.map((d) => d.qualifiedName).toSet();
+
+    test('reports what --transitive does, plus the dead cycles', () async {
+      final transitive = await runFinder(
+        include: fixture,
+        exclude: const [],
+        transitive: true,
+      );
+      final result = await runReachability();
+      expect(names(result.unused), {
+        ...names(transitive.unused),
+        '_ping',
+        '_pong',
+        '_Chicken',
+        '_Egg',
+      });
+      expect(names(result.docOnly), isEmpty);
+    });
+
+    test('each member of a dead cycle names the others', () async {
+      final result = await runReachability();
+      DeadReferrer asOwner(String qualified) {
+        final decl = findByQualified(result, qualified)!;
+        return (
+          qualifiedName: decl.qualifiedName,
+          filePath: decl.filePath,
+          line: decl.line,
+        );
+      }
+
+      List<DeadReferrer> via(String name) =>
+          findByQualified(result, name)!.onlyReferencedFrom;
+      expect(via('_ping'), [asOwner('_pong')]);
+      expect(via('_pong'), [asOwner('_ping')]);
+      expect(via('_Chicken'), [asOwner('_Egg')]);
+      expect(via('_Egg'), [asOwner('_Chicken')]);
+      expect(findByQualified(result, '_Chicken.lay'), isNull);
+      expect(findByQualified(result, '_Egg.hatch'), isNull);
+    });
+
+    test('a cycle entered from live code stays, and so do report-only '
+        "findings' references", () async {
+      final result = await runReachability();
+      for (final name in [
+        'transitiveAnchor',
+        '_usedByLive',
+        '_liveCycle',
+        '_liveCycleBack',
+        '_loneArg',
+      ]) {
+        expect(findByQualified(result, name), isNull, reason: name);
+      }
+      expect(findByQualified(result, 'Lone.only')!.removalBlocked, isTrue);
+      expect(findByQualified(result, 'Token.new')!.removalBlocked, isTrue);
+    });
+
+    test('after --remove, a second run has nothing left to remove', () async {
+      final copy = Directory.systemTemp.createTempSync('ciach_reachability_');
+      addTearDown(() => copy.deleteSync(recursive: true));
+      copyTree(Directory(fixturePath), copy);
+      Future<FinderResult> run() => Ciach(
+        .new(rootPath: copy.path, includeGlobs: fixture, reachability: true),
+      ).run();
+
+      final first = await run();
+      expect(names(first.unused), containsAll(['_ping', '_Chicken']));
+      removeDeclarations(first.unused, copy.path);
+
+      final second = await run();
+      expect(names(second.unused.where((d) => !d.removalBlocked)), isEmpty);
+      expect(names(second.docOnly), isEmpty);
+    });
   });
 
   const extensionFixture = [

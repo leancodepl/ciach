@@ -10,6 +10,7 @@ import 'package:ciach/src/models.dart';
 import 'package:ciach/src/overrides.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/plural.dart';
+import 'package:ciach/src/reachability.dart';
 import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/remove_safety.dart';
 import 'package:ciach/src/source_index.dart';
@@ -17,7 +18,7 @@ import 'package:ciach/src/superclasses.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:ciach/src/verdict.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location;
+import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
 final _log = Logger('ciach.finder');
 
@@ -56,6 +57,9 @@ final class Settler {
   /// Names the cross-library recovery has already probed.
   final _probedNames = <String>{};
 
+  /// The candidate index of each finding, for the reachability sweep.
+  final _candidateOf = Map<UnusedDeclaration, int>.identity();
+
   /// Override lookups by candidate index, cached across rounds.
   final _overridesByMember = <int, OverriddenMember>{};
 
@@ -87,8 +91,20 @@ final class Settler {
       rootPath: rootPath,
     );
 
-    var deadSpans = DeadSpans.empty;
     var crossLib = CrossLibraryReferences.empty;
+    var deadSpans = options.reachability
+        ? _sweep(candidates, refsByCandidate, .empty, [
+            for (var i = 0; i < candidates.length; i++)
+              _finding(i, _verdict.finding(candidates[i], rootPath)),
+          ], rootPath)
+        : DeadSpans.empty;
+    if (options.reachability) {
+      _log.info(
+        'Round 1: checking the '
+        '${plural(deadSpans.length, 'declaration', 'declarations')} no live '
+        'code reaches…',
+      );
+    }
     Settled settled;
     for (var round = 1; ; round++) {
       final liveRefs = _liveRefs(refsByCandidate, deadSpans);
@@ -106,10 +122,18 @@ final class Settler {
         rootPath,
         analysisRoot,
       );
-      if (!options.transitive) {
+      if (!options.transitive && !options.reachability) {
         break;
       }
-      final next = DeadSpans.of(settled.unused, rootPath);
+      final next = options.reachability
+          ? _sweep(
+              candidates,
+              refsByCandidate,
+              crossLib,
+              settled.unused,
+              rootPath,
+            )
+          : DeadSpans.of(settled.unused, rootPath);
       if (next.sameAs(deadSpans)) {
         if (round > 1) {
           _log.fine('Settled after ${plural(round, 'round', 'rounds')}.');
@@ -139,6 +163,62 @@ final class Settler {
       docOnly: settled.docOnly.sorted(compareByLocation),
       recovered: settled.recovered,
     );
+  }
+
+  /// The removable [findings] no live code reaches, as [DeadSpans]: their
+  /// own spans are dead to begin with, and a reference from outside every
+  /// dead span — or one [crossLib] recovered there — revives what it uses,
+  /// which revives what that one uses, and so on (see [unreached]). What is
+  /// left includes cycles, whose members reference only each other.
+  DeadSpans _sweep(
+    List<Candidate> candidates,
+    List<List<Location>> refsByCandidate,
+    CrossLibraryReferences crossLib,
+    List<UnusedDeclaration> findings,
+    String rootPath,
+  ) {
+    final spans = DeadSpans.of(findings, rootPath);
+    final nodes = {
+      for (final finding in findings)
+        if (!finding.removalBlocked) _candidateOf[finding]!,
+    };
+    Iterable<int> enclosers(String path, Position position) => [
+      for (final owner in spans.ownersOf(path, position)) _candidateOf[owner]!,
+    ];
+    final uses = [
+      for (final i in nodes) ...[
+        for (final loc in refsByCandidate[i])
+          // Judged one by one, as the round would judge it if it were the
+          // only reference left.
+          if (_classifier.classify(candidates[i], [loc], .empty) == .used)
+            (
+              target: i,
+              enclosers: enclosers(
+                SourceIndex.pathOf(loc.uri),
+                loc.range.start,
+              ),
+            ),
+        if (crossLib.recoveredUsage(candidates[i]) case final usage?)
+          (
+            target: i,
+            enclosers: enclosers(
+              usage.path,
+              Position(line: usage.line, character: usage.character),
+            ),
+          ),
+      ],
+    ];
+    final dead = unreached(nodes, uses);
+    return DeadSpans.of([
+      for (final finding in findings)
+        if (dead.contains(_candidateOf[finding])) finding,
+    ], rootPath);
+  }
+
+  /// Records that [finding] reports the candidate at [index].
+  UnusedDeclaration _finding(int index, UnusedDeclaration finding) {
+    _candidateOf[finding] = index;
+    return finding;
   }
 
   /// [refsByCandidate] less the references inside [deadSpans].
@@ -274,7 +354,7 @@ final class Settler {
               deadSpans,
             ),
           );
-          unused.add(finding);
+          unused.add(_finding(i, finding));
           if (!finding.removalBlocked) {
             _removableBefore.add(i);
           }

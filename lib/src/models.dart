@@ -58,6 +58,7 @@ class FinderOptions {
     this.unusedUnionMembers = false,
     this.reportToJson = false,
     this.transitive = false,
+    this.reachability = false,
     this.entryPoints = const [],
     this.concurrency = 16,
     this.dartExecutable,
@@ -148,8 +149,16 @@ class FinderOptions {
   /// `--remove` would delete, repeating until nothing new is found. Off by
   /// default, because one false positive also flags everything only it
   /// referenced. Dead declarations that reference each other in a cycle are
-  /// not found (https://github.com/leancodepl/ciach/issues/65).
+  /// not found; [reachability] finds them.
   final bool transitive;
+
+  /// Whether to report every declaration no live code reaches, dead cycles
+  /// included: each candidate starts dead, and only a reference from code
+  /// that is not a candidate (or from one proven live) keeps one alive. Finds
+  /// everything [transitive] does and more, so it implies it. Off by default:
+  /// with [includePublic], a library's whole unused public surface can go in
+  /// one cascade.
+  final bool reachability;
 
   /// The project's own entry points, on top of [EntryPoint.builtIn]. A match
   /// is never a candidate, so it is neither reported nor removed.
