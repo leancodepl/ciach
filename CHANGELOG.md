@@ -1,7 +1,7 @@
 ## Unreleased
 
 - Add `--no-exported` (`exported: false`): skip only declarations other
-  packages can import.
+  packages can import. ([#85](https://github.com/leancodepl/ciach/pull/85))
 
 ## 0.6.0
 
