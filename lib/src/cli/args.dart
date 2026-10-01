@@ -173,6 +173,18 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'Scan generated files (*.g.dart, *.freezed.dart, …). Off by default.',
     ),
   ),
+  projectConfig(
+    FlagOption(
+      argName: 'project-config',
+      configKey: '/project-config',
+      defaultsTo: true,
+      helpText:
+          "Read entry points and generated files from the package's own\n"
+          "pubspec.yaml, build.yaml and l10n.yaml (and its dependencies'\n"
+          'build.yaml). Disable to rely only on entry-points, the built-in\n'
+          'conventions and the --generated-* options.',
+    ),
+  ),
   overrides(
     FlagOption(
       argName: 'overrides',

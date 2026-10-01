@@ -38,6 +38,7 @@ path: packages/app
 analysis-root: .
 public: false
 generated: true
+project-config: false
 overrides: true
 operators: true
 unused-union-members: true
@@ -73,6 +74,7 @@ dart: /sdk/bin/dart
       expect(resolved.analysisRootPath, '.');
       expect(resolved.includePublic, isFalse);
       expect(resolved.includeGenerated, isTrue);
+      expect(resolved.projectConfig, isFalse);
       expect(resolved.overrides, isTrue);
       expect(resolved.operators, isTrue);
       expect(resolved.unusedUnionMembers, isTrue);
@@ -260,6 +262,7 @@ concurrency: 4
       const everyOption = [
         '--public',
         '--generated',
+        '--project-config',
         '--overrides',
         '--operators',
         '--unused-union-members',
@@ -429,6 +432,7 @@ concurrency: 4
       expect(resolved.rootPath, '.');
       expect(resolved.includePublic, isTrue);
       expect(resolved.includeGenerated, isFalse);
+      expect(resolved.projectConfig, isTrue);
       expect(resolved.overrides, isFalse);
       expect(resolved.operators, isFalse);
       expect(resolved.unusedUnionMembers, isFalse);

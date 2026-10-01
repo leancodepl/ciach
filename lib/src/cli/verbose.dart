@@ -76,6 +76,7 @@ String _setting(
   .public => '${resolved.includePublic}',
   .failPublic => '${resolved.failPublic}',
   .generated => '${resolved.includeGenerated}',
+  .projectConfig => '${resolved.projectConfig}',
   .overrides => '${resolved.overrides}',
   .operators => '${resolved.operators}',
   .unusedUnionMembers => '${resolved.unusedUnionMembers}',

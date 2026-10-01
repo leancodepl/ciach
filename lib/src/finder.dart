@@ -66,7 +66,9 @@ class Ciach {
   );
 
   /// What the package's own configuration files declare, read once.
-  late final _conventions = ProjectConventions.read(options.rootPath);
+  late final _conventions = options.readProjectConfig
+      ? ProjectConventions.read(options.rootPath)
+      : ProjectConventions.none;
 
   late final _collector = CandidateCollector(
     options: options,

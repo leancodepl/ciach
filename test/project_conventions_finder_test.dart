@@ -154,6 +154,29 @@ Object run(Object handler, Object ip, int port) => handler;
     );
   });
 
+  test('--no-project-config reads none of it', () async {
+    final result = await Ciach(
+      .new(rootPath: package.path, readProjectConfig: false),
+    ).run();
+    final unused = {
+      for (final d in result.unused) '${d.filePath}:${d.qualifiedName}',
+    };
+
+    expect(
+      unused,
+      containsAll([
+        'lib/builder.dart:stampBuilder',
+        'lib/endpoint.dart:GreetingEndpoint',
+        'lib/model.stamp.dart:StampOutput',
+        'lib/l10n/strings_pl.dart:StringsPl',
+        'routes/index.dart:onRequest',
+        'main.dart:init',
+      ]),
+    );
+    // Annotations are not project config.
+    expect(unused, isNot(contains('lib/js.dart:Counter')));
+  });
+
   test('narrates what the project config declares', () async {
     final lines = <String>[];
     final level = Logger.root.level;

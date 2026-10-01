@@ -6,7 +6,8 @@
   applied to the package (dependencies' too), `pubspec.yaml` plugin classes'
   `registerWith`, `l10n.yaml`'s gen-l10n output, dart_frog routes and hooks,
   Serverpod endpoint methods, and analyzer and custom_lint plugin entry
-  points. `-v` lists what was read.
+  points. `-v` lists what was read; `--no-project-config` (and
+  `project-config: false` in `ciach.yaml`) turns it off.
   ([#59](https://github.com/leancodepl/ciach/issues/59))
 - `@JSExport` declarations, the public members of a `@JSExport` class, and
   the `test_…` methods of a `@reflectiveTest` class are no longer reported.

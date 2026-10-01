@@ -78,6 +78,7 @@ ciach --verbose                        # explain each step
 | `--analysis-root <path>` | the scanned path | Count references from this whole directory, not just the scanned package — for a monorepo wired by `path:` dependencies. See [Monorepos](#monorepos). |
 | `--[no-]public` | on | Report unused public declarations too. Disable to report only private (`_`-prefixed) ones. |
 | `--[no-]generated` | off | Scan generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, …). |
+| `--[no-]project-config` | on | Read [entry points](#entry-points) and [generated files](#generated-files-from-the-project-config) from the package's `pubspec.yaml`, `build.yaml` and `l10n.yaml`, and its dependencies' `build.yaml`. Disable to rely only on `entry-points:`, the built-in conventions and the `--generated-*` options. |
 | `--[no-]overrides` | off | Report `@override` members too. Off by default — see limitations. |
 | `--[no-]operators` | off | Report operator overloads (`operator +`, `operator ==`, …) too. Off by default — see limitations. |
 | `--[no-]unused-union-members` | off | Also flag a (sealed) supertype member matched only by type patterns, never constructed. Report-only — never touched by `--remove`. |
@@ -325,7 +326,7 @@ entry-points:
 A matching declaration is neither reported nor removed, whatever its signature.
 A member rule also keeps its type, while the type's other members are still
 checked. `-v` lists the rules read from the project config and names each
-skipped entry point. This setting has no command-line form.
+skipped entry point. `--no-project-config` turns the table above off. This setting has no command-line form.
 
 ### Generated files from the project config
 
@@ -340,6 +341,9 @@ Besides the built-in suffixes and banners, ciach treats as generated:
   (`lib/generated/{{}}.g.dart`);
 - the files `flutter gen-l10n` writes, from `l10n.yaml`'s `output-dir` (or
   `arb-dir`) and `output-localization-file`.
+
+`--no-project-config` turns this off; `--generated` scans these files like any
+other.
 
 ### Monorepos
 

@@ -51,6 +51,7 @@ class FinderOptions {
     this.kinds = defaultKinds,
     this.includePublic = true,
     this.includeGenerated = false,
+    this.readProjectConfig = true,
     this.additionalGeneratedSuffixes = const [],
     this.additionalGeneratedGlobs = const [],
     this.skipOverrides = true,
@@ -93,6 +94,12 @@ class FinderOptions {
 
   /// Whether to scan generated files (`*.g.dart`, `*.freezed.dart`, …).
   final bool includeGenerated;
+
+  /// Whether to read entry points and generated files from the package's own
+  /// `pubspec.yaml`, `build.yaml` and `l10n.yaml`, and its dependencies'
+  /// `build.yaml`. Off, only [entryPoints], the built-in conventions and the
+  /// generated-file options apply.
+  final bool readProjectConfig;
 
   /// Extra filename suffixes to treat as generated, beyond the built-in set
   /// (`.g.dart`, `.freezed.dart`, …) — for projects whose generators emit a

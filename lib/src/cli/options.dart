@@ -18,6 +18,7 @@ class ResolvedOptions {
     required this.includePublic,
     required this.failPublic,
     required this.includeGenerated,
+    required this.projectConfig,
     required this.overrides,
     required this.operators,
     required this.unusedUnionMembers,
@@ -49,6 +50,7 @@ class ResolvedOptions {
   final bool includePublic;
   final bool failPublic;
   final bool includeGenerated;
+  final bool projectConfig;
 
   /// Whether to report `@override` members — inverted for the finder.
   final bool overrides;
@@ -87,6 +89,7 @@ class ResolvedOptions {
     kinds: kinds,
     includePublic: includePublic,
     includeGenerated: includeGenerated,
+    readProjectConfig: projectConfig,
     skipOverrides: !overrides,
     skipOperators: !operators,
     unusedUnionMembers: unusedUnionMembers,
@@ -131,6 +134,7 @@ ResolvedOptions resolveOptions(
     includePublic: configuration.value(CiachOption.public),
     failPublic: configuration.value(CiachOption.failPublic),
     includeGenerated: configuration.value(CiachOption.generated),
+    projectConfig: configuration.value(CiachOption.projectConfig),
     overrides: configuration.value(CiachOption.overrides),
     operators: configuration.value(CiachOption.operators),
     unusedUnionMembers: configuration.value(CiachOption.unusedUnionMembers),
