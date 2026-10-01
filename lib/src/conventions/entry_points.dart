@@ -20,8 +20,7 @@ final class EntryPoint {
   EntryPoint({required this.name, required this.reason, this.files = const []})
     : _globs = [for (final file in files) .new(file, context: _posix)];
 
-  /// A rule from the `entry-points` config key, or from another file of the
-  /// project's configuration, which [reason] names.
+  /// A rule from `entry-points` or the project config.
   ///
   /// Throws a [FormatException] for a [name] that is not an identifier
   /// (optionally `Container.member`); the constructor throws for a glob that

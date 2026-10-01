@@ -39,7 +39,6 @@ final class CandidateCollector {
   /// Freezed-union tracking, fed as candidates are collected.
   final FreezedUnions _freezed;
 
-  /// What the package's configuration files declare.
   final ProjectConventions _conventions;
 
   late final _entryPoints = EntryPoints([
@@ -147,8 +146,7 @@ final class CandidateCollector {
   /// and records the enclosing type name as their container.
   ///
   /// [parentIsEnum] marks children of an enum declaration so their enum values
-  /// are remapped to the `enum-value` kind; [containerExports] says which of
-  /// the container's members code outside Dart calls.
+  /// are remapped to the `enum-value` kind.
   Iterable<Candidate> _collect(
     Uri uri,
     String path,
@@ -224,8 +222,6 @@ final class CandidateCollector {
     }
   }
 
-  /// Which members of the type [candidate] code outside Dart calls, by its
-  /// annotations or its superclass.
   _ExportedMembers? _exportedMembers(
     Candidate candidate,
     Iterable<SemanticToken> leadingMetadata,
@@ -244,8 +240,7 @@ final class CandidateCollector {
     return null;
   }
 
-  /// Whether the class [candidate]'s header reads `extends Endpoint`. A
-  /// subclass of a subclass of `Endpoint` is not recognized.
+  /// Direct subclasses only.
   bool _extendsEndpoint(Candidate candidate) {
     final start = _sources.offsetOf(
       candidate.path,
@@ -262,20 +257,16 @@ final class CandidateCollector {
     );
   }
 
-  /// A class header after its name: type parameters without nested ones,
-  /// then the superclass.
+  /// No nested type parameters.
   static final _extendsEndpointHeader = RegExp(
     r'^\s*(?:<[^<>]*>)?\s*extends\s+Endpoint\b',
   );
 
-  /// The methods test_reflective_loader runs, by name, in a
-  /// `@reflectiveTest` class.
+  /// test_reflective_loader's prefixes.
   static final _reflectiveTestMethod = RegExp(
     r'^(?:(?:solo_)?test_|(?:solo_)?fail_|skip_test_)|^(?:setUp|tearDown)(?:Class)?$',
   );
 
-  /// Why [candidate] is called from outside Dart source, given its own and
-  /// its container's exports, or `null`.
   String? _calledFromOutside(
     Candidate candidate,
     Iterable<SemanticToken> leadingMetadata,
@@ -388,20 +379,8 @@ final class CandidateCollector {
   }
 }
 
-/// Members of a type that code outside Dart source calls.
-enum _ExportedMembers {
-  /// `@JSExport` on the class: `createJSInteropWrapper` exposes its public
-  /// members to JavaScript.
-  jsExport,
-
-  /// A Serverpod `Endpoint` subclass: the generated dispatcher calls its
-  /// public methods.
-  serverpodEndpoint,
-
-  /// A `@reflectiveTest` class: test_reflective_loader runs its `test_…`
-  /// methods, found by mirrors.
-  reflectiveTest,
-}
+/// Members of a type called from outside Dart source.
+enum _ExportedMembers { jsExport, serverpodEndpoint, reflectiveTest }
 
 /// A skipped entry point: root-relative POSIX path, one-based line, the name
 /// as the rule spells it, and why.

@@ -8,12 +8,8 @@ import 'package:yaml/yaml.dart';
 
 final _log = Logger('ciach.finder');
 
-/// What a package's own configuration files declare about its code: the
-/// declarations a tool calls by convention, and the files a generator writes.
-///
-/// Read once per run from the package root, so none of it has to be repeated
-/// under `entry-points` or `--generated-glob`. A file that is missing or does
-/// not parse contributes nothing; it never fails the run.
+/// Entry points and generated files declared by pubspec.yaml, build.yaml and
+/// l10n.yaml. Unparsable files are ignored.
 final class ProjectConventions {
   const ProjectConventions({
     this.entryPoints = const [],
@@ -21,9 +17,6 @@ final class ProjectConventions {
     this.serverpod = false,
   });
 
-  /// Reads the configuration of the package at [rootPath]: its
-  /// `pubspec.yaml`, `build.yaml` and `l10n.yaml`, and the `build.yaml` of
-  /// every package in its resolved `package_config.json`.
   factory ProjectConventions.read(String rootPath) {
     final pubspec = _readYaml(p.join(rootPath, 'pubspec.yaml'));
     final buildYaml = _readYaml(p.join(rootPath, 'build.yaml'));
@@ -59,16 +52,11 @@ final class ProjectConventions {
 
   static const none = ProjectConventions();
 
-  /// Declarations called from code a tool generates, as named by the
-  /// package's configuration.
   final List<EntryPoint> entryPoints;
 
-  /// POSIX globs, relative to the package root, of the files a generator
-  /// writes into the source tree.
+  /// POSIX, relative to the package root.
   final List<String> generatedGlobs;
 
-  /// Whether the package depends on Serverpod, whose generated dispatcher
-  /// calls every public method of an `Endpoint` subclass.
   final bool serverpod;
 
   void _narrate() {
@@ -91,7 +79,6 @@ final class ProjectConventions {
   }
 }
 
-/// The YAML map at [path], or `null` when it is missing or is not a map.
 Map<Object?, Object?>? _readYaml(String path) {
   final file = File(path);
   if (!file.existsSync()) {
@@ -108,9 +95,7 @@ Map<Object?, Object?>? _readYaml(String path) {
   }
 }
 
-/// `pubspec.yaml`'s `flutter: plugin: platforms:`. flutter_tools generates a
-/// call to `registerWith` on each platform's `dartPluginClass`, and on the web
-/// platform's `pluginClass`; the others name native classes.
+/// Non-web `pluginClass` is native.
 Iterable<EntryPoint> _pluginClasses(Map<Object?, Object?>? pubspec) sync* {
   if (pubspec?['flutter'] case {
     'plugin': {'platforms': final Map<Object?, Object?> platforms},
@@ -139,8 +124,6 @@ Iterable<EntryPoint> _registerWith(
   if (fileName is String) 'lib/$fileName' else 'lib/**',
 ], 'the $platform plugin class in pubspec.yaml');
 
-/// The factories of the builders the package's own `build.yaml` defines:
-/// build_runner imports `import:` and calls each factory by name.
 Iterable<EntryPoint> _builderFactories(
   Map<Object?, Object?>? buildYaml,
   String packageName,
@@ -167,14 +150,11 @@ Iterable<EntryPoint> _builderFactories(
   }
 }
 
-/// Conventions of frameworks that call the package's code by name, keyed by
-/// the dependency that brings them.
 Iterable<EntryPoint> _frameworkEntryPoints(
   Set<String> dependencies,
   String? packageName,
 ) sync* {
   if (dependencies.contains('dart_frog')) {
-    // dart_frog generates a server that imports every route.
     yield* _rules('onRequest', ['routes/**'], 'a dart_frog route handler');
     yield* _rules('middleware', [
       'routes/**_middleware.dart',
@@ -195,8 +175,6 @@ Iterable<EntryPoint> _frameworkEntryPoints(
   }
 }
 
-/// A rule built from configuration the package wrote, which may not hold a
-/// usable name or glob: such a rule is dropped, not fatal.
 Iterable<EntryPoint> _rules(
   String name,
   List<String> files,
@@ -209,14 +187,11 @@ Iterable<EntryPoint> _rules(
   }
 }
 
-/// A builder from a `build.yaml`: `package:name` and its definition.
+/// `key` is `package:name`.
 typedef _Builder = ({String key, Map<Object?, Object?> definition});
 
-/// The builders build_runner applies to the package at [rootPath], named
-/// [rootName], whose `build.yaml` is [rootBuildYaml]: its own and its
-/// dependencies' builders that `auto_apply` reaches it, or its `targets:`
-/// enable, and those they `applies_builders`. A builder its `targets:` disable
-/// is left out.
+/// Builders build_runner applies to the root package: by `auto_apply`,
+/// `targets:`, or transitively by `applies_builders`.
 Iterable<_Builder> _appliedBuilders(
   String rootPath,
   String? rootName,
@@ -286,9 +261,8 @@ Iterable<_Builder> _appliedBuilders(
   return [for (final key in applied) ?defined[key]];
 }
 
-/// [key] as `package:name`: build_config also writes `package|name`, and a
-/// bare `name` for the builder named like its package, or one of the root
-/// package's own with a leading `:`.
+/// `pkg|name`, `:name` (root package) and `name` (`name:name`) to
+/// `pkg:name`.
 String _builderKey(String key, String? rootName) {
   final normalized = key.replaceFirst('|', ':');
   if (normalized.startsWith(':')) {
@@ -297,9 +271,8 @@ String _builderKey(String key, String? rootName) {
   return normalized.contains(':') ? normalized : '$normalized:$normalized';
 }
 
-/// Every package the package at [rootPath] resolves to, itself included,
-/// from the nearest `.dart_tool/package_config.json` (a pub workspace keeps it
-/// at the workspace root), with the directory each one lives in.
+/// From the nearest package_config.json; a pub workspace keeps it at its
+/// root.
 Iterable<({String name, String root})> _resolvedPackages(
   String rootPath,
 ) sync* {
@@ -333,9 +306,7 @@ Iterable<({String name, String root})> _resolvedPackages(
   }
 }
 
-/// `build_extensions` passed as a builder option in the package's own
-/// targets, which source_gen's and freezed's builders honor to write their
-/// output elsewhere (`lib/generated/{{}}.g.dart`).
+/// source_gen and freezed accept `build_extensions` as an option.
 Iterable<String> _buildExtensionOptions(
   Map<Object?, Object?>? buildYaml,
 ) sync* {
@@ -356,15 +327,7 @@ Iterable<String> _buildExtensionOptions(
 
 final _captureGroup = RegExp(r'\{\{\w*\}\}');
 
-/// Globs matching the Dart files a builder declaring [buildExtensions] writes,
-/// relative to the package root.
-///
-/// Follows package:build's `expectedOutputs`: an input with a `{{capture}}`
-/// matches a path suffix (or the whole path with a leading `^`) and its
-/// outputs replace that suffix; a `^path` input names one file, and so do its
-/// outputs; the synthetic `$package$` and `$lib$` inputs sit at the package
-/// root and in `lib/`; any other input is a file extension the outputs
-/// replace.
+/// Mirrors package:build's `expectedOutputs`.
 Iterable<String> outputGlobs(Map<Object?, Object?> buildExtensions) sync* {
   for (final MapEntry(key: input, value: outputs) in buildExtensions.entries) {
     if (input is! String) {
@@ -398,9 +361,7 @@ Iterable<String> outputGlobs(Map<Object?, Object?> buildExtensions) sync* {
 String _escapeGlob(String literal) =>
     literal.replaceAllMapped(RegExp(r'[*?\[\]{},\\]'), (m) => '\\${m[0]}');
 
-/// The files `flutter gen-l10n` writes, as `l10n.yaml` configures it: the
-/// `output-localization-file` and one `<file>_<locale>.dart` beside it per
-/// locale, in `output-dir` (by default the `arb-dir`). They carry no banner.
+/// gen-l10n output has no banner.
 Iterable<String> _l10nOutputs(String rootPath) sync* {
   final file = File(p.join(rootPath, 'l10n.yaml'));
   if (!file.existsSync()) {
@@ -408,7 +369,6 @@ Iterable<String> _l10nOutputs(String rootPath) sync* {
   }
   final config = _readYaml(file.path) ?? const {};
   if (config['synthetic-package'] == true) {
-    // Written under .dart_tool/, which is never scanned.
     return;
   }
   final arbDir = switch (config['arb-dir']) {

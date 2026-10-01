@@ -28,7 +28,6 @@ void main() {
     for (final rule in conventions.entryPoints) '$rule',
   };
 
-  /// Whether any of [globs] matches [path].
   bool generated(List<String> globs, String path) => globs.any(
     (glob) => Glob(glob, context: p.Context(style: .posix)).matches(path),
   );
@@ -184,7 +183,6 @@ builders:
           '**.dependents.dart',
           '**.combined.dart',
         });
-        // A dependency's builders are not this package's entry points.
         expect(conventions.entryPoints, isEmpty);
       });
 

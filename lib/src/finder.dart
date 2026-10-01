@@ -65,7 +65,6 @@ class Ciach {
     unusedUnionMembers: options.unusedUnionMembers,
   );
 
-  /// What the package's own configuration files declare, read once.
   late final _conventions = options.readProjectConfig
       ? ProjectConventions.read(options.rootPath)
       : ProjectConventions.none;

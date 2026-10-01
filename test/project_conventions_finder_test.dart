@@ -9,10 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 void main() {
-  // A package whose configuration declares what the finder would otherwise
-  // misreport: a dart_frog server with Serverpod endpoints, a build.yaml
-  // builder, a gen-l10n output and JS-exported classes. Nothing is resolved,
-  // so `Endpoint` and `JSExport` stand in for the real ones by name.
+  // Unresolved: local `Endpoint`/`JSExport` match by name.
   late Directory package;
 
   void write(String path, String contents) => File(p.join(package.path, path))
@@ -173,7 +170,6 @@ Object run(Object handler, Object ip, int port) => handler;
         'main.dart:init',
       ]),
     );
-    // Annotations are not project config.
     expect(unused, isNot(contains('lib/js.dart:Counter')));
   });
 
