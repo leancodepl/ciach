@@ -8,7 +8,7 @@ import 'package:yaml/yaml.dart';
 
 final _log = Logger('ciach.finder');
 
-/// `pubspec.yaml`, as the conventions read it.
+/// `pubspec.yaml`, as the project config reads it.
 typedef Pubspec = ({
   String? name,
   Set<String> dependencies,

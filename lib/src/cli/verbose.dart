@@ -1,9 +1,9 @@
 import 'package:ciach/src/cli/args.dart';
 import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/options.dart';
-import 'package:ciach/src/conventions/project_conventions.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/plural.dart';
+import 'package:ciach/src/project_config/project_config.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
@@ -60,11 +60,11 @@ List<String> describeSettings(
   'Settings for this run:',
   for (final option in CiachOption.values)
     if (option.configKey case final key?)
-      '  $key: ${_setting(option, resolved, options, dartExecutable)} (${_source(configuration.valueSourceType(option))})${_detected(option, resolved.projectConventions)}',
+      '  $key: ${_setting(option, resolved, options, dartExecutable)} (${_source(configuration.valueSourceType(option))})${_detected(option, resolved.detected)}',
 ];
 
 /// What the project config adds to [option], or ''.
-String _detected(CiachOption<dynamic> option, ProjectConventions detected) {
+String _detected(CiachOption<dynamic> option, ProjectConfig detected) {
   final values = switch (option) {
     .entryPoints => detected.entryPoints,
     .generatedGlob => detected.generatedGlobs,

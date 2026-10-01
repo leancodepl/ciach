@@ -17,7 +17,7 @@ void main() {
     ..writeAsStringSync(contents);
 
   setUp(() {
-    package = .systemTemp.createTempSync('ciach_project_conventions_');
+    package = .systemTemp.createTempSync('ciach_project_config_');
     write('pubspec.yaml', '''
 name: server
 environment:
@@ -133,11 +133,11 @@ Object run(Object handler, Object ip, int port) => handler;
   tearDown(() => package.deleteSync(recursive: true));
 
   FinderOptions detected() {
-    final conventions = ProjectConventions.read(package.path);
+    final config = ProjectConfig.read(package.path);
     return .new(
       rootPath: package.path,
-      entryPoints: conventions.entryPoints,
-      additionalGeneratedGlobs: conventions.generatedGlobs,
+      entryPoints: config.entryPoints,
+      additionalGeneratedGlobs: config.generatedGlobs,
     );
   }
 

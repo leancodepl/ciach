@@ -404,7 +404,7 @@ for (final decl in result.unused) {
 ```
 
 `FinderOptions` doesn't read the project config; pass what
-`ProjectConventions.read(root)` returns into `entryPoints` and
+`ProjectConfig.read(root)` returns into `entryPoints` and
 `additionalGeneratedGlobs`.
 
 ciach logs through [`package:logging`](https://pub.dev/packages/logging), with

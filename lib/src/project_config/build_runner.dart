@@ -1,5 +1,5 @@
 import 'package:ciach/src/conventions/entry_points.dart';
-import 'package:ciach/src/conventions/project_files.dart';
+import 'package:ciach/src/project_config/project_files.dart';
 import 'package:path/path.dart' as p;
 
 Map<Object?, Object?>? readBuildYaml(String rootPath) =>

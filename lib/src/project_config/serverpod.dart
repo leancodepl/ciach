@@ -1,5 +1,5 @@
 import 'package:ciach/src/conventions/entry_points.dart';
-import 'package:ciach/src/conventions/project_files.dart';
+import 'package:ciach/src/project_config/project_files.dart';
 
 Iterable<EntryPoint> serverpodEntryPoints(Pubspec pubspec) sync* {
   if (pubspec.dependencies.contains('serverpod')) {

@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:ciach/src/conventions/build_runner.dart';
-import 'package:ciach/src/conventions/project_conventions.dart';
+import 'package:ciach/src/project_config/build_runner.dart';
+import 'package:ciach/src/project_config/project_config.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -10,7 +10,7 @@ void main() {
   late Directory tempDir;
 
   setUp(() {
-    tempDir = .systemTemp.createTempSync('ciach_project_conventions_test_');
+    tempDir = .systemTemp.createTempSync('ciach_project_config_test_');
   });
 
   tearDown(() {
@@ -23,10 +23,10 @@ void main() {
       ..writeAsStringSync(content);
   }
 
-  ProjectConventions read() => .read(tempDir.path);
+  ProjectConfig read() => .read(tempDir.path);
 
-  Set<String> rules(ProjectConventions conventions) => {
-    for (final rule in conventions.entryPoints) '$rule',
+  Set<String> rules(ProjectConfig config) => {
+    for (final rule in config.entryPoints) '$rule',
   };
 
   bool generated(List<String> globs, String path) => globs.any(
@@ -34,10 +34,10 @@ void main() {
   );
 
   test('nothing to read, nothing declared', () {
-    final conventions = read();
+    final config = read();
 
-    expect(conventions.entryPoints, isEmpty);
-    expect(conventions.generatedGlobs, isEmpty);
+    expect(config.entryPoints, isEmpty);
+    expect(config.generatedGlobs, isEmpty);
   });
 
   test('a file that does not parse is ignored', () {
@@ -97,13 +97,13 @@ post_process_builders:
     builder_factory: "cleanup"
 ''');
 
-      final conventions = read();
-      expect(rules(conventions), {
+      final config = read();
+      expect(rules(config), {
         'myBuilder in lib/builder.dart',
         'otherBuilder in lib/builder.dart',
         'cleanup in lib/src/cleanup.dart',
       });
-      expect(conventions.generatedGlobs, ['**.my.dart']);
+      expect(config.generatedGlobs, ['**.my.dart']);
     });
 
     test('build_extensions become globs, as package:build expands them', () {
@@ -178,12 +178,12 @@ builders:
       });
 
       test('by auto_apply, and the builders they apply', () {
-        final conventions = read();
-        expect(conventions.generatedGlobs.toSet(), {
+        final config = read();
+        expect(config.generatedGlobs.toSet(), {
           '**.dependents.dart',
           '**.combined.dart',
         });
-        expect(conventions.entryPoints, isEmpty);
+        expect(config.entryPoints, isEmpty);
       });
 
       test('or as its targets enable and disable them', () {

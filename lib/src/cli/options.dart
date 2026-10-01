@@ -20,7 +20,7 @@ class ResolvedOptions {
     required this.failPublic,
     required this.includeGenerated,
     required this.projectConfig,
-    required this.projectConventions,
+    required this.detected,
     required this.overrides,
     required this.operators,
     required this.unusedUnionMembers,
@@ -55,7 +55,7 @@ class ResolvedOptions {
   final bool projectConfig;
 
   /// Read from the package when [projectConfig] is on.
-  final ProjectConventions projectConventions;
+  final ProjectConfig detected;
 
   /// Whether to report `@override` members — inverted for the finder.
   final bool overrides;
@@ -83,9 +83,8 @@ class ResolvedOptions {
   final int concurrency;
   final String? dartExecutable;
 
-  /// The finder's options, with [projectConventions] merged in.
+  /// The finder's options, with [detected] merged in.
   FinderOptions finderOptions({String? dartExecutable}) {
-    final detected = projectConventions;
     return .new(
       rootPath: rootPath,
       analysisRootPath: analysisRootPath,
@@ -147,9 +146,9 @@ ResolvedOptions resolveOptions(
     failPublic: configuration.value(CiachOption.failPublic),
     includeGenerated: configuration.value(CiachOption.generated),
     projectConfig: projectConfig,
-    projectConventions: projectConfig
-        ? ProjectConventions.read(rootPath.absoluteNormalized)
-        : ProjectConventions.none,
+    detected: projectConfig
+        ? ProjectConfig.read(rootPath.absoluteNormalized)
+        : ProjectConfig.none,
     overrides: configuration.value(CiachOption.overrides),
     operators: configuration.value(CiachOption.operators),
     unusedUnionMembers: configuration.value(CiachOption.unusedUnionMembers),
