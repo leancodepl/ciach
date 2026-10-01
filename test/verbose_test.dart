@@ -155,6 +155,32 @@ void main() {
       expect(lines, contains('  color: auto (auto-detected)'));
     });
 
+    test('adds what the project config declares, named as such', () {
+      final package = Directory.systemTemp.createTempSync('ciach_verbose_');
+      addTearDown(() => package.deleteSync(recursive: true));
+      File(
+        p.join(package.path, 'pubspec.yaml'),
+      ).writeAsStringSync('name: server\ndependencies: {serverpod: any}\n');
+      File(p.join(package.path, 'l10n.yaml')).writeAsStringSync('');
+
+      final lines = describe([package.path, '--generated-glob', 'gen/**']);
+
+      expect(
+        lines,
+        contains(
+          '  generated-glob: gen/** (command line); '
+          'lib/l10n/app_localizations{,_*}.dart (project config)',
+        ),
+      );
+      expect(
+        lines,
+        contains(
+          '  entry-points: (none) (default); '
+          'public methods of `Endpoint` subclasses (project config)',
+        ),
+      );
+    });
+
     test('marks an empty list rather than printing nothing', () {
       final lines = describe();
 

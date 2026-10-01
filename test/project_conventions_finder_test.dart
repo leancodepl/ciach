@@ -195,12 +195,6 @@ Object run(Object handler, Object ip, int port) => handler;
 
     await Ciach(detected()).run();
 
-    const builder =
-        'Entry point from the project config: stampBuilder in lib/builder.dart '
-        '(a builder factory in build.yaml).';
-    const generated =
-        'Generated files from the project config: **.stamp.dart, '
-        'lib/l10n/strings{,_*}.dart.';
     const endpointMethod =
         'Skipped lib/endpoint.dart:6 GreetingEndpoint.hello: a Serverpod '
         'endpoint method, called by the generated dispatcher.';
@@ -208,15 +202,6 @@ Object run(Object handler, Object ip, int port) => handler;
         'Skipped lib/js.dart:6 Counter: exported to JavaScript by `@JSExport`.';
     const route =
         'Skipped routes/index.dart:1 onRequest: a dart_frog route handler.';
-    expect(
-      lines,
-      containsAll(const [
-        builder,
-        generated,
-        endpointMethod,
-        jsExported,
-        route,
-      ]),
-    );
+    expect(lines, containsAll(const [endpointMethod, jsExported, route]));
   });
 }

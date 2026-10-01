@@ -47,7 +47,7 @@ final class ProjectConventions {
         ..._l10nOutputs(rootPath),
       }.toList(),
       serverpod: dependencies.contains('serverpod'),
-    ).._narrate();
+    );
   }
 
   static const none = ProjectConventions();
@@ -58,25 +58,6 @@ final class ProjectConventions {
   final List<String> generatedGlobs;
 
   final bool serverpod;
-
-  void _narrate() {
-    for (final rule in entryPoints) {
-      _log.config(
-        'Entry point from the project config: $rule (${rule.reason}).',
-      );
-    }
-    if (generatedGlobs.isNotEmpty) {
-      _log.config(
-        'Generated files from the project config: ${generatedGlobs.join(', ')}.',
-      );
-    }
-    if (serverpod) {
-      _log.config(
-        'Depends on serverpod: public methods of `Endpoint` subclasses are '
-        'entry points.',
-      );
-    }
-  }
 }
 
 Map<Object?, Object?>? _readYaml(String path) {

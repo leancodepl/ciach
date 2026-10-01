@@ -20,6 +20,7 @@ class ResolvedOptions {
     required this.failPublic,
     required this.includeGenerated,
     required this.projectConfig,
+    required this.projectConventions,
     required this.overrides,
     required this.operators,
     required this.unusedUnionMembers,
@@ -53,6 +54,9 @@ class ResolvedOptions {
   final bool includeGenerated;
   final bool projectConfig;
 
+  /// Read from the package when [projectConfig] is on.
+  final ProjectConventions projectConventions;
+
   /// Whether to report `@override` members — inverted for the finder.
   final bool overrides;
 
@@ -79,11 +83,9 @@ class ResolvedOptions {
   final int concurrency;
   final String? dartExecutable;
 
-  /// The finder's options, with what [projectConfig] reads merged in.
+  /// The finder's options, with [projectConventions] merged in.
   FinderOptions finderOptions({String? dartExecutable}) {
-    final detected = projectConfig
-        ? ProjectConventions.read(rootPath.absoluteNormalized)
-        : ProjectConventions.none;
+    final detected = projectConventions;
     return .new(
       rootPath: rootPath,
       analysisRootPath: analysisRootPath,
@@ -128,9 +130,11 @@ ResolvedOptions resolveOptions(
   required bool progressDefault,
 }) {
   final verbose = configuration.value(CiachOption.verbose);
+  final rootPath = configuration.value(CiachOption.path);
+  final projectConfig = configuration.value(CiachOption.projectConfig);
 
   return .new(
-    rootPath: configuration.value(CiachOption.path),
+    rootPath: rootPath,
     analysisRootPath: configuration.optionalValue(CiachOption.analysisRoot),
     includeGlobs: configuration.value(CiachOption.include),
     excludeGlobs: configuration.value(CiachOption.exclude),
@@ -143,7 +147,10 @@ ResolvedOptions resolveOptions(
     includePublic: configuration.value(CiachOption.public),
     failPublic: configuration.value(CiachOption.failPublic),
     includeGenerated: configuration.value(CiachOption.generated),
-    projectConfig: configuration.value(CiachOption.projectConfig),
+    projectConfig: projectConfig,
+    projectConventions: projectConfig
+        ? ProjectConventions.read(rootPath.absoluteNormalized)
+        : ProjectConventions.none,
     overrides: configuration.value(CiachOption.overrides),
     operators: configuration.value(CiachOption.operators),
     unusedUnionMembers: configuration.value(CiachOption.unusedUnionMembers),

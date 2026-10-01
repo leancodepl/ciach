@@ -1,6 +1,7 @@
 import 'package:ciach/src/cli/args.dart';
 import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/options.dart';
+import 'package:ciach/src/conventions/project_conventions.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/plural.dart';
 import 'package:collection/collection.dart';
@@ -59,8 +60,21 @@ List<String> describeSettings(
   'Settings for this run:',
   for (final option in CiachOption.values)
     if (option.configKey case final key?)
-      '  $key: ${_setting(option, resolved, options, dartExecutable)} (${_source(configuration.valueSourceType(option))})',
+      '  $key: ${_setting(option, resolved, options, dartExecutable)} (${_source(configuration.valueSourceType(option))})${_detected(option, resolved.projectConventions)}',
 ];
+
+/// What the project config adds to [option], or ''.
+String _detected(CiachOption<dynamic> option, ProjectConventions detected) {
+  final values = switch (option) {
+    .entryPoints => [
+      ...detected.entryPoints,
+      if (detected.serverpod) 'public methods of `Endpoint` subclasses',
+    ],
+    .generatedGlob => detected.generatedGlobs,
+    _ => const <Object>[],
+  };
+  return values.isEmpty ? '' : '; ${_value(values)} (project config)';
+}
 
 /// The value of [option] as the run uses it, with the root made absolute, the
 /// kinds as labels, and the auto-detected flags as they settled.
