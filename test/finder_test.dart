@@ -54,7 +54,7 @@ void main() {
     List<String> include = const [],
     List<EntryPoint> entryPoints = const [],
     bool transitive = false,
-    bool deadCycles = false,
+    bool deadCycles = true,
   }) => Ciach(
     .new(
       rootPath: fixturePath,
@@ -348,13 +348,13 @@ void main() {
       },
     );
 
-    for (final deadCycles in [false, true]) {
+    for (final transitive in [false, true]) {
       test('a dead widget whose State is used elsewhere is report-only '
-          '(deadCycles: $deadCycles)', () async {
+          '(transitive: $transitive)', () async {
         final result = await runFinder(
           include: ['lib/scenarios/widgets.dart'],
           exclude: const [],
-          deadCycles: deadCycles,
+          transitive: transitive,
         );
         final widget = findByQualified(result, 'KeyedWidget')!;
         expect(widget.removalBlocked, isTrue);
@@ -659,11 +659,15 @@ void main() {
     );
   });
 
-  group('transitive (opt-in --transitive)', () {
+  group('transitive rounds (--transitive --no-dead-cycles)', () {
     const fixture = ['lib/scenarios/transitive.dart'];
 
-    Future<FinderResult> runTransitive({bool transitive = true}) =>
-        runFinder(include: fixture, exclude: const [], transitive: transitive);
+    Future<FinderResult> runTransitive({bool transitive = true}) => runFinder(
+      include: fixture,
+      exclude: const [],
+      transitive: transitive,
+      deadCycles: false,
+    );
 
     Set<String> names(Iterable<UnusedDeclaration> decls) =>
         decls.map((d) => d.qualifiedName).toSet();
@@ -742,6 +746,7 @@ void main() {
         include: fixture,
         exclude: const [],
         transitive: true,
+        deadCycles: false,
       );
       expect(messages, isNot(contains(startsWith('Stopping after'))));
       // Removable in round one, while `Token.new` was still used.
@@ -796,7 +801,12 @@ void main() {
         addTearDown(() => copy.deleteSync(recursive: true));
         copyTree(Directory(fixturePath), copy);
         Future<FinderResult> run() => Ciach(
-          .new(rootPath: copy.path, includeGlobs: fixture, transitive: true),
+          .new(
+            rootPath: copy.path,
+            includeGlobs: fixture,
+            transitive: true,
+            deadCycles: false,
+          ),
         ).run();
 
         final first = await run();
@@ -810,20 +820,21 @@ void main() {
     );
   });
 
-  group('dead cycles (opt-in --dead-cycles)', () {
+  group('dead cycles (--transitive, on by default)', () {
     const fixture = ['lib/scenarios/transitive.dart'];
 
     Future<FinderResult> runDeadCycles() =>
-        runFinder(include: fixture, exclude: const [], deadCycles: true);
+        runFinder(include: fixture, exclude: const [], transitive: true);
 
     Set<String> names(Iterable<UnusedDeclaration> decls) =>
         decls.map((d) => d.qualifiedName).toSet();
 
-    test('reports what --transitive does, plus the dead cycles', () async {
+    test('reports what --no-dead-cycles does, plus the dead cycles', () async {
       final transitive = await runFinder(
         include: fixture,
         exclude: const [],
         transitive: true,
+        deadCycles: false,
       );
       final result = await runDeadCycles();
       expect(names(result.unused), {
@@ -878,7 +889,7 @@ void main() {
       addTearDown(() => copy.deleteSync(recursive: true));
       copyTree(Directory(fixturePath), copy);
       Future<FinderResult> run() => Ciach(
-        .new(rootPath: copy.path, includeGlobs: fixture, deadCycles: true),
+        .new(rootPath: copy.path, includeGlobs: fixture, transitive: true),
       ).run();
 
       final first = await run();
@@ -1298,7 +1309,7 @@ void main() {
         'lib/scenarios/xref_dead_cycles.dart',
       ],
       exclude: const [],
-      deadCycles: true,
+      transitive: true,
     );
     final names = result.unused.map((d) => d.qualifiedName).toSet();
     expect(names, contains('_deadReady'));

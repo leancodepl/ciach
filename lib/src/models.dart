@@ -58,7 +58,7 @@ class FinderOptions {
     this.unusedUnionMembers = false,
     this.reportToJson = false,
     this.transitive = false,
-    this.deadCycles = false,
+    this.deadCycles = true,
     this.entryPoints = const [],
     this.concurrency = 16,
     this.dartExecutable,
@@ -149,11 +149,10 @@ class FinderOptions {
   /// `--remove` would delete, repeating until nothing new is found. Off by
   /// default, because one false positive also flags everything only it
   /// referenced. Dead declarations that reference each other in a cycle are
-  /// not found; [deadCycles] finds them.
+  /// found only with [deadCycles].
   final bool transitive;
 
-  /// Whether to report what no live code reaches, dead cycles included.
-  /// Implies [transitive].
+  /// With [transitive], whether to also report dead cycles. Ignored without.
   final bool deadCycles;
 
   /// The project's own entry points, on top of [EntryPoint.builtIn]. A match

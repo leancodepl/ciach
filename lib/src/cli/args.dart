@@ -226,10 +226,10 @@ enum CiachOption<V> implements OptionDefinition<V> {
     FlagOption(
       argName: 'dead-cycles',
       configKey: '/dead-cycles',
-      defaultsTo: false,
+      defaultsTo: true,
       helpText:
-          '--transitive plus dead cycles: report whatever no live code\n'
-          'reaches.',
+          'With --transitive, also report cycles of dead declarations that\n'
+          'only reference each other. Ignored without --transitive.',
     ),
   ),
   reportToJson(

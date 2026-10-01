@@ -90,14 +90,15 @@ final class Settler {
       rootPath: rootPath,
     );
 
+    final sweep = options.transitive && options.deadCycles;
     var crossLib = CrossLibraryReferences.empty;
-    var deadSpans = options.deadCycles
+    var deadSpans = sweep
         ? _sweep(candidates, refsByCandidate, .empty, [
             for (var i = 0; i < candidates.length; i++)
               _finding(i, _verdict.finding(candidates[i], rootPath)),
           ], rootPath)
         : DeadSpans.empty;
-    if (options.deadCycles) {
+    if (sweep) {
       _log.info(
         'Round 1: checking the '
         '${plural(deadSpans.length, 'declaration', 'declarations')} no live '
@@ -121,10 +122,10 @@ final class Settler {
         rootPath,
         analysisRoot,
       );
-      if (!options.transitive && !options.deadCycles) {
+      if (!options.transitive) {
         break;
       }
-      final next = options.deadCycles
+      final next = sweep
           ? _sweep(
               candidates,
               refsByCandidate,
