@@ -179,10 +179,8 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/project-config',
       defaultsTo: true,
       helpText:
-          "Read entry points and generated files from the package's own\n"
-          "pubspec.yaml, build.yaml and l10n.yaml (and its dependencies'\n"
-          'build.yaml). Disable to rely only on entry-points, the built-in\n'
-          'conventions and the --generated-* options.',
+          'Read entry points and generated files from pubspec.yaml,\n'
+          'build.yaml and l10n.yaml.',
     ),
   ),
   overrides(
@@ -332,8 +330,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'Declarations a tool calls from generated code, so never reported:\n'
           'rules with a `name` (`bootstrap`, `MyHost.callback`) and an\n'
           'optional `glob` (one, or a list) for the files. Built in: `main`,\n'
-          '`testExecutable` in a flutter_test_config.dart, and what\n'
-          'pubspec.yaml and build.yaml declare.',
+          'and `testExecutable` in a flutter_test_config.dart.',
     ),
   ),
   kinds(

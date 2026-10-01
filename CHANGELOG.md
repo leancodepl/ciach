@@ -1,20 +1,11 @@
 ## Unreleased
 
-- Read entry points and generated files from the project's own config, so
-  they no longer need listing under `entry-points` or `--generated-glob`:
-  `build.yaml` builder factories and the source output of every builder
-  applied to the package (dependencies' too), `pubspec.yaml` plugin classes'
-  `registerWith`, `l10n.yaml`'s gen-l10n output, dart_frog routes and hooks,
-  Serverpod endpoint methods, and analyzer and custom_lint plugin entry
-  points. `-v` lists what was read; `--no-project-config` (and
-  `project-config: false` in `ciach.yaml`) turns it off.
+- Read entry points and generated files from `pubspec.yaml`, `build.yaml`
+  and `l10n.yaml`; `--no-project-config` turns it off.
   ([#59](https://github.com/leancodepl/ciach/issues/59))
-- `@JSExport` declarations, the public members of a `@JSExport` class, and
-  the `test_…` methods of a `@reflectiveTest` class are no longer reported.
+- Skip `@JSExport` and `@reflectiveTest` test methods.
   ([#59](https://github.com/leancodepl/ciach/issues/59))
-- Recognize more generated-code banners in a file's leading comments:
-  protoc's, Serverpod's, Pigeon's, ffigen's and others that say "generated"
-  and "do not edit".
+- Recognize more generated-code banners (protoc, Serverpod, Pigeon, …).
   ([#59](https://github.com/leancodepl/ciach/issues/59))
 - Recommend `dart install ciach` over `dart pub global activate` in the README
   and on the website.
