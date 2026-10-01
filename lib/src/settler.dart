@@ -192,7 +192,7 @@ final class Settler {
                 loc.range.start,
               ),
             ),
-        if (crossLib.recoveredUsage(candidates[i]) case final usage?)
+        for (final usage in crossLib.recoveredUsages(candidates[i]))
           (
             target: i,
             enclosers: enclosers(

@@ -1274,6 +1274,23 @@ void main() {
     });
   });
 
+  test('reachability: a recovered member with a dead and a live use stays '
+      'used', () async {
+    final result = await runFinder(
+      include: const [
+        'lib/scenarios/xref_shapes.dart',
+        'lib/scenarios/xref_surface.dart',
+        'lib/scenarios/xref_reachability.dart',
+      ],
+      exclude: const [],
+      reachability: true,
+    );
+    final names = result.unused.map((d) => d.qualifiedName).toSet();
+    expect(names, contains('_deadReady'));
+    expect(names, isNot(contains('XrefLoadedState.ready')));
+    expect(names, isNot(contains('liveReady')));
+  });
+
   group('same-simple-name collision recovery', () {
     // Two members share the simple name `status`: one used only from another
     // file (must be recovered) and one never used (must stay flagged). Guards

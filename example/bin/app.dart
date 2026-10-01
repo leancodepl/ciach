@@ -11,6 +11,8 @@ import 'package:sample_pkg/scenarios/serialization.dart';
 import 'package:sample_pkg/scenarios/transitive.dart';
 import 'package:sample_pkg/scenarios/unions.dart';
 import 'package:sample_pkg/scenarios/widgets.dart';
+import 'package:sample_pkg/scenarios/xref_reachability.dart';
+import 'package:sample_pkg/scenarios/xref_shapes.dart';
 import 'package:sample_pkg/shapes.dart';
 import 'package:sample_pkg/user.dart';
 
@@ -85,6 +87,7 @@ void main() {
 
   // Live anchors of the transitive scenario.
   transitiveAnchor();
+  print(liveReady(XrefLoadedState(active: true)));
   print(Odometer().live());
   const Lone? lone = null;
   print(lone?.arg);
