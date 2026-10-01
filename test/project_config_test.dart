@@ -138,7 +138,7 @@ post_process_builders:
   {"name": "missing", "rootUri": "../deps/missing", "packageUri": "lib/"}
 ]}
 ''');
-        write('pubspec.yaml', 'name: app');
+        write('pubspec.yaml', 'name: app\ndev_dependencies: {gen: any}\n');
         write('deps/gen/build.yaml', '''
 builders:
   dependents:
@@ -184,6 +184,12 @@ builders:
           '**.combined.dart',
         });
         expect(config.entryPoints, isEmpty);
+      });
+
+      test('dependents only for a direct dependency', () {
+        write('pubspec.yaml', 'name: app\ndependencies: {other: any}\n');
+
+        expect(read().generatedGlobs, isEmpty);
       });
 
       test('or as its targets enable and disable them', () {

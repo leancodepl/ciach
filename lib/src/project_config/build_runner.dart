@@ -20,7 +20,7 @@ Iterable<String> buildRunnerGeneratedGlobs(
   Pubspec pubspec,
   Map<Object?, Object?>? buildYaml,
 ) sync* {
-  for (final builder in _appliedBuilders(rootPath, pubspec.name, buildYaml)) {
+  for (final builder in _appliedBuilders(rootPath, pubspec, buildYaml)) {
     if (builder.definition case {
       'build_to': 'source',
       'build_extensions': final Map<Object?, Object?> extensions,
@@ -62,13 +62,15 @@ Iterable<EntryPoint> _builderFactories(
 /// `key` is `package:name`.
 typedef _Builder = ({String key, Map<Object?, Object?> definition});
 
-/// Builders build_runner applies to the root package: by `auto_apply`,
-/// `targets:`, or transitively by `applies_builders`.
+/// Builders build_runner applies to the root package: by `auto_apply`
+/// (`dependents` needs a direct dependency), `targets:`, or transitively by
+/// `applies_builders`.
 Iterable<_Builder> _appliedBuilders(
   String rootPath,
-  String? rootName,
+  Pubspec pubspec,
   Map<Object?, Object?>? rootBuildYaml,
 ) {
+  final rootName = pubspec.name;
   final defined = <String, _Builder>{};
   final applied = <String>{};
   void define(String package, Map<Object?, Object?>? buildYaml) {
@@ -80,7 +82,7 @@ Iterable<_Builder> _appliedBuilders(
           final own = package == rootName;
           if (switch (definition['auto_apply']) {
             'all_packages' => true,
-            'dependents' => !own,
+            'dependents' => pubspec.dependencies.contains(package),
             'root_package' => own,
             _ => false,
           }) {
