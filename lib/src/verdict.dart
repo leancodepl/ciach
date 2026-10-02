@@ -1,4 +1,5 @@
 import 'package:ciach/src/candidates.dart';
+import 'package:ciach/src/conventions/gen_l10n.dart';
 import 'package:ciach/src/conventions/serialization.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
@@ -115,7 +116,8 @@ final class Verdict {
             candidate.symbol.kind == .constructor &&
             containerKey != null &&
             safety.blockedCtorClasses.contains(containerKey)) ||
-        _isHeaderDeclaration(candidate);
+        _isHeaderDeclaration(candidate) ||
+        _translations(candidate) != null;
   }
 
   /// Whether [candidate] is a member a subclass could override. A declaring
@@ -129,6 +131,9 @@ final class Verdict {
   };
 
   String? hintFor(Candidate candidate) {
+    if (_translations(candidate) case final t?) {
+      return 'gen-l10n output — remove the message from ${t.arbFile}';
+    }
     if (_isHeaderDeclaration(candidate)) {
       return candidate.symbol.kind == .constructor
           ? _primaryConstructorHint
@@ -178,6 +183,9 @@ final class Verdict {
       onlyReferencedFrom: onlyReferencedFrom,
     );
   }
+
+  Translations? _translations(Candidate candidate) =>
+      translationsOf(candidate, options.translations, options.rootPath);
 
   /// See [StructuralChecks.isDeclaredInTypeHeader].
   bool _isHeaderDeclaration(Candidate candidate) =>

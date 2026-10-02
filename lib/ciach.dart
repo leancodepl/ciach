@@ -46,4 +46,5 @@ export 'src/models.dart'
         RemovalResult,
         SymbolKindLabel,
         UnusedDeclaration;
+export 'src/project_config/project_config.dart' show ProjectConfig;
 export 'src/remover.dart' show RemovalException, removeDeclarations;

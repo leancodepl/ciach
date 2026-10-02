@@ -2,6 +2,7 @@ import 'package:args/args.dart';
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/args.dart';
 import 'package:ciach/src/cli/config.dart';
+import 'package:ciach/src/paths.dart';
 import 'package:config/config.dart';
 
 /// A resolved [Configuration] in the types the rest of the tool works in: kind
@@ -18,6 +19,9 @@ class ResolvedOptions {
     required this.includePublic,
     required this.failPublic,
     required this.includeGenerated,
+    required this.projectConfig,
+    required this.unusedTranslations,
+    required this.detected,
     required this.overrides,
     required this.operators,
     required this.unusedUnionMembers,
@@ -49,6 +53,11 @@ class ResolvedOptions {
   final bool includePublic;
   final bool failPublic;
   final bool includeGenerated;
+  final bool projectConfig;
+  final bool unusedTranslations;
+
+  /// Read from the package when [projectConfig] is on.
+  final ProjectConfig detected;
 
   /// Whether to report `@override` members — inverted for the finder.
   final bool overrides;
@@ -76,26 +85,34 @@ class ResolvedOptions {
   final int concurrency;
   final String? dartExecutable;
 
-  /// The finder's options.
-  FinderOptions finderOptions({String? dartExecutable}) => .new(
-    rootPath: rootPath,
-    analysisRootPath: analysisRootPath,
-    includeGlobs: includeGlobs,
-    excludeGlobs: excludeGlobs,
-    additionalGeneratedSuffixes: additionalGeneratedSuffixes,
-    additionalGeneratedGlobs: additionalGeneratedGlobs,
-    kinds: kinds,
-    includePublic: includePublic,
-    includeGenerated: includeGenerated,
-    skipOverrides: !overrides,
-    skipOperators: !operators,
-    unusedUnionMembers: unusedUnionMembers,
-    reportToJson: reportToJson,
-    transitive: transitive,
-    entryPoints: entryPoints,
-    concurrency: concurrency,
-    dartExecutable: dartExecutable ?? this.dartExecutable,
-  );
+  /// The finder's options, with [detected] merged in.
+  FinderOptions finderOptions({String? dartExecutable}) {
+    return .new(
+      rootPath: rootPath,
+      analysisRootPath: analysisRootPath,
+      includeGlobs: includeGlobs,
+      excludeGlobs: excludeGlobs,
+      additionalGeneratedSuffixes: additionalGeneratedSuffixes,
+      additionalGeneratedGlobs: [
+        ...additionalGeneratedGlobs,
+        ...unusedTranslations
+            ? detected.generatedGlobsExceptTranslations
+            : detected.generatedGlobs,
+      ],
+      kinds: kinds,
+      includePublic: includePublic,
+      includeGenerated: includeGenerated,
+      skipOverrides: !overrides,
+      skipOperators: !operators,
+      unusedUnionMembers: unusedUnionMembers,
+      reportToJson: reportToJson,
+      transitive: transitive,
+      entryPoints: [...entryPoints, ...detected.entryPoints],
+      translations: unusedTranslations ? detected.translations : const [],
+      concurrency: concurrency,
+      dartExecutable: dartExecutable ?? this.dartExecutable,
+    );
+  }
 }
 
 /// Resolves every [CiachOption] from [args] and [config], the command line
@@ -116,9 +133,11 @@ ResolvedOptions resolveOptions(
   required bool progressDefault,
 }) {
   final verbose = configuration.value(CiachOption.verbose);
+  final rootPath = configuration.value(CiachOption.path);
+  final projectConfig = configuration.value(CiachOption.projectConfig);
 
   return .new(
-    rootPath: configuration.value(CiachOption.path),
+    rootPath: rootPath,
     analysisRootPath: configuration.optionalValue(CiachOption.analysisRoot),
     includeGlobs: configuration.value(CiachOption.include),
     excludeGlobs: configuration.value(CiachOption.exclude),
@@ -131,6 +150,11 @@ ResolvedOptions resolveOptions(
     includePublic: configuration.value(CiachOption.public),
     failPublic: configuration.value(CiachOption.failPublic),
     includeGenerated: configuration.value(CiachOption.generated),
+    projectConfig: projectConfig,
+    unusedTranslations: configuration.value(CiachOption.unusedTranslations),
+    detected: projectConfig
+        ? ProjectConfig.read(rootPath.absoluteNormalized)
+        : ProjectConfig.none,
     overrides: configuration.value(CiachOption.overrides),
     operators: configuration.value(CiachOption.operators),
     unusedUnionMembers: configuration.value(CiachOption.unusedUnionMembers),
