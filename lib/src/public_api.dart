@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:ciach/src/comment_stripping.dart';
-import 'package:ciach/src/file_discovery.dart';
-import 'package:ciach/src/paths.dart';
+import 'package:ciach/src/packages.dart';
+import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
@@ -11,55 +11,41 @@ final class PublicApi {
   PublicApi._(this._libraryOf, this._visible);
 
   factory PublicApi.scan(String rootPath) {
-    final libDirByPackage = <String, String>{};
-    final libDirs = <String>[];
-    final dartFiles = <File>[];
-    for (final entity in Directory(
-      rootPath,
-    ).listSync(recursive: true, followLinks: false)) {
-      if (entity is! File ||
-          isInSkippedDir(relativePosix(entity.absolute.path, rootPath))) {
-        continue;
-      }
-      if (p.basename(entity.path) == 'pubspec.yaml') {
-        final libDir = p.join(
-          p.dirname(p.normalize(entity.absolute.path)),
-          'lib',
-        );
-        libDirs.add(libDir);
-        if (pubspecName(entity.path) case final name?) {
-          libDirByPackage[name] = libDir;
+    final tree = scanPackageTree(rootPath);
+    final libDirOf = <String, String>{};
+    for (final path in tree.dartFiles) {
+      for (
+        var dir = p.dirname(path);
+        dir != p.dirname(dir);
+        dir = p.dirname(dir)
+      ) {
+        if (tree.libDirs.contains(dir)) {
+          libDirOf[path] = dir;
+          break;
         }
-      } else if (entity.path.endsWith('.dart')) {
-        dartFiles.add(entity);
       }
     }
 
-    String? libDirOf(String path) =>
-        libDirs.firstWhereOrNull((dir) => p.isWithin(dir, path));
-
     final libraries = <String, _Directives>{};
-    for (final file in dartFiles) {
-      final path = p.normalize(file.absolute.path);
-      if (libDirOf(path) == null) {
-        continue;
-      }
+    for (final path in libDirOf.keys) {
       final String content;
       try {
-        content = file.readAsStringSync();
+        content = File(path).readAsStringSync();
       } on FileSystemException {
         continue;
       }
-      libraries[path] = _Directives.parse(content, path, libDirByPackage);
+      libraries[path] = _Directives.parse(content, path, tree.libDirByPackage);
     }
 
     final libraryOf = <String, String>{};
+    final partsOf = <String, List<String>>{};
     void own(String library, String file) {
       for (final part in libraries[file]?.parts ?? const <String>[]) {
         if (libraryOf.containsKey(part) || part == library) {
           continue;
         }
         libraryOf[part] = library;
+        (partsOf[library] ??= []).add(part);
         own(library, part);
       }
     }
@@ -70,26 +56,20 @@ final class PublicApi {
       }
     }
 
-    final visible = <String, List<_Combinator>>{};
+    final visible = <String, Set<_Combinator>>{};
     final pending = <(String, _Combinator)>[
       for (final MapEntry(key: path, value: directives) in libraries.entries)
         if (!directives.isPart &&
-            !p.isWithin(p.join(libDirOf(path)!, 'src'), path) &&
+            !p.isWithin(p.join(libDirOf[path]!, 'src'), path) &&
             !libraryOf.containsKey(path))
           (path, const .all()),
     ];
     while (pending.isNotEmpty) {
       final (library, combinator) = pending.removeLast();
-      final seen = visible.putIfAbsent(library, () => []);
-      if (seen.contains(combinator)) {
+      if (!visible.putIfAbsent(library, () => {}).add(combinator)) {
         continue;
       }
-      seen.add(combinator);
-      for (final file in [
-        library,
-        for (final MapEntry(key: part, value: owner) in libraryOf.entries)
-          if (owner == library) part,
-      ]) {
+      for (final file in [library, ...?partsOf[library]]) {
         for (final export in libraries[file]?.exports ?? const <_Export>[]) {
           for (final target in export.targets) {
             pending.add((
@@ -104,32 +84,20 @@ final class PublicApi {
   }
 
   final Map<String, String> _libraryOf;
-  final Map<String, List<_Combinator>> _visible;
+  final Map<String, Set<_Combinator>> _visible;
 
   int get libraryCount => _visible.length;
 
   bool exposes(String path, String name) =>
-      _visible[_libraryOf[path] ?? path]?.any((c) => c.admits(name)) ?? false;
+      !isPrivateName(name) &&
+      (_visible[_libraryOf[path] ?? path]?.any((c) => c.admits(name)) ?? false);
 }
-
-String? pubspecName(String pubspecPath) {
-  try {
-    return _pubspecNameLine
-        .firstMatch(File(pubspecPath).readAsStringSync())
-        ?.group(1);
-  } on FileSystemException {
-    return null;
-  }
-}
-
-final _pubspecNameLine = RegExp(r'^name:\s*([A-Za-z0-9_]+)', multiLine: true);
 
 final _directive = RegExp(
-  r'''^[ \t]*(export|part)\s+((?:of\b)?[^;]*);''',
+  r'''^[ \t]*(export|part)\s+([^;]*);''',
   multiLine: true,
 );
 
-final _uriLiteral = RegExp(r'''r?(['"])([^'"\n]*)\1''');
 final _word = RegExp(r'[A-Za-z_$][A-Za-z0-9_$]*');
 
 final class _Directives {
@@ -148,14 +116,14 @@ final class _Directives {
       if (match.group(1) == 'part') {
         if (body.startsWith('of')) {
           isPart = true;
-        } else if (_uriLiteral.firstMatch(body) case final uri?) {
+        } else if (uriLiteral.firstMatch(body) case final uri?) {
           if (_resolve(uri.group(2)!, path, libDirByPackage) case final part?) {
             parts.add(part);
           }
         }
         continue;
       }
-      final uris = _uriLiteral.allMatches(body).toList();
+      final uris = uriLiteral.allMatches(body).toList();
       if (uris.isEmpty) {
         continue;
       }
@@ -179,24 +147,10 @@ final class _Directives {
     String uri,
     String from,
     Map<String, String> libDirByPackage,
-  ) {
-    if (uri.startsWith('package:')) {
-      final rest = uri.substring('package:'.length);
-      final slash = rest.indexOf('/');
-      final libDir = slash < 0
-          ? null
-          : libDirByPackage[rest.substring(0, slash)];
-      return libDir == null
-          ? null
-          : p.normalize(
-              p.joinAll([libDir, ...p.posix.split(rest.substring(slash + 1))]),
-            );
-    }
-    if (uri.contains(':')) {
-      return null;
-    }
-    return p.normalize(p.joinAll([p.dirname(from), ...p.posix.split(uri)]));
-  }
+  ) => switch (resolveDartUri(uri, from, libDirByPackage)) {
+    unknownPackage => null,
+    final resolved => resolved,
+  };
 }
 
 typedef _Export = ({List<String> targets, _Combinator combinator});
