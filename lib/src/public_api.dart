@@ -11,27 +11,46 @@ final class PublicApi {
   PublicApi._(this._libraryOf, this._visible);
 
   factory PublicApi.scan(String rootPath) {
-    final libDir = p.join(rootPath, 'lib');
-    final package = pubspecName(p.join(rootPath, 'pubspec.yaml'));
-    final libraries = <String, _Directives>{};
-    final dir = Directory(libDir);
-    if (dir.existsSync()) {
-      for (final entity in dir.listSync(recursive: true, followLinks: false)) {
-        if (entity is! File || !entity.path.endsWith('.dart')) {
-          continue;
-        }
-        final path = p.normalize(entity.absolute.path);
-        if (isInSkippedDir(relativePosix(path, rootPath))) {
-          continue;
-        }
-        final String content;
-        try {
-          content = entity.readAsStringSync();
-        } on FileSystemException {
-          continue;
-        }
-        libraries[path] = _Directives.parse(content, path, libDir, package);
+    final libDirByPackage = <String, String>{};
+    final libDirs = <String>[];
+    final dartFiles = <File>[];
+    for (final entity in Directory(
+      rootPath,
+    ).listSync(recursive: true, followLinks: false)) {
+      if (entity is! File ||
+          isInSkippedDir(relativePosix(entity.absolute.path, rootPath))) {
+        continue;
       }
+      if (p.basename(entity.path) == 'pubspec.yaml') {
+        final libDir = p.join(
+          p.dirname(p.normalize(entity.absolute.path)),
+          'lib',
+        );
+        libDirs.add(libDir);
+        if (pubspecName(entity.path) case final name?) {
+          libDirByPackage[name] = libDir;
+        }
+      } else if (entity.path.endsWith('.dart')) {
+        dartFiles.add(entity);
+      }
+    }
+
+    String? libDirOf(String path) =>
+        libDirs.firstWhereOrNull((dir) => p.isWithin(dir, path));
+
+    final libraries = <String, _Directives>{};
+    for (final file in dartFiles) {
+      final path = p.normalize(file.absolute.path);
+      if (libDirOf(path) == null) {
+        continue;
+      }
+      final String content;
+      try {
+        content = file.readAsStringSync();
+      } on FileSystemException {
+        continue;
+      }
+      libraries[path] = _Directives.parse(content, path, libDirByPackage);
     }
 
     final libraryOf = <String, String>{};
@@ -55,7 +74,7 @@ final class PublicApi {
     final pending = <(String, _Combinator)>[
       for (final MapEntry(key: path, value: directives) in libraries.entries)
         if (!directives.isPart &&
-            !p.isWithin(p.join(libDir, 'src'), path) &&
+            !p.isWithin(p.join(libDirOf(path)!, 'src'), path) &&
             !libraryOf.containsKey(path))
           (path, const .all()),
     ];
@@ -119,8 +138,7 @@ final class _Directives {
   factory _Directives.parse(
     String content,
     String path,
-    String libDir,
-    String? package,
+    Map<String, String> libDirByPackage,
   ) {
     final exports = <_Export>[];
     final parts = <String>[];
@@ -131,7 +149,7 @@ final class _Directives {
         if (body.startsWith('of')) {
           isPart = true;
         } else if (_uriLiteral.firstMatch(body) case final uri?) {
-          if (_resolve(uri.group(2)!, path, libDir, package) case final part?) {
+          if (_resolve(uri.group(2)!, path, libDirByPackage) case final part?) {
             parts.add(part);
           }
         }
@@ -144,7 +162,7 @@ final class _Directives {
       exports.add((
         targets: [
           for (final uri in uris)
-            ?_resolve(uri.group(2)!, path, libDir, package),
+            ?_resolve(uri.group(2)!, path, libDirByPackage),
         ],
         combinator: _Combinator.parse(body.substring(uris.last.end)),
       ));
@@ -160,16 +178,19 @@ final class _Directives {
   static String? _resolve(
     String uri,
     String from,
-    String libDir,
-    String? package,
+    Map<String, String> libDirByPackage,
   ) {
-    if (package != null && uri.startsWith('package:$package/')) {
-      return p.normalize(
-        p.joinAll([
-          libDir,
-          ...p.posix.split(uri.substring('package:$package/'.length)),
-        ]),
-      );
+    if (uri.startsWith('package:')) {
+      final rest = uri.substring('package:'.length);
+      final slash = rest.indexOf('/');
+      final libDir = slash < 0
+          ? null
+          : libDirByPackage[rest.substring(0, slash)];
+      return libDir == null
+          ? null
+          : p.normalize(
+              p.joinAll([libDir, ...p.posix.split(rest.substring(slash + 1))]),
+            );
     }
     if (uri.contains(':')) {
       return null;

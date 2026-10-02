@@ -108,6 +108,23 @@ export 'src/chain.dart' show D, E;
       expect(api.exposes(path('lib/src/inner_part.dart'), 'A'), isFalse);
     });
 
+    test('a nested package has its own public libraries', () {
+      write('example/pubspec.yaml', 'name: example_app');
+      write(
+        'example/lib/main.dart',
+        "export 'package:example_app/src/a.dart';",
+      );
+      write('example/lib/src/b.dart', 'void b() {}');
+      write('example/bin/run.dart', 'void run() {}');
+
+      final api = PublicApi.scan(root.path);
+
+      expect(api.exposes(path('example/lib/main.dart'), 'plugin'), isTrue);
+      expect(api.exposes(path('example/lib/src/a.dart'), 'A'), isTrue);
+      expect(api.exposes(path('example/lib/src/b.dart'), 'b'), isFalse);
+      expect(api.exposes(path('example/bin/run.dart'), 'run'), isFalse);
+    });
+
     test('a cycle of exports terminates', () {
       write('lib/lib_pkg.dart', "export 'src/a.dart';");
       write('lib/src/a.dart', "export 'b.dart';");
