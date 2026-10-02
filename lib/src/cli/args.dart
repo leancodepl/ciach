@@ -153,6 +153,14 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'highest-confidence dead code.',
     ),
   ),
+  exported(
+    FlagOption(
+      argName: 'exported',
+      configKey: '/exported',
+      defaultsTo: true,
+      helpText: 'Report declarations other packages can import.',
+    ),
+  ),
   failPublic(
     FlagOption(
       argName: 'fail-public',

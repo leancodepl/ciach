@@ -50,6 +50,7 @@ class FinderOptions {
     this.excludeGlobs = const [],
     this.kinds = defaultKinds,
     this.includePublic = true,
+    this.includeExported = true,
     this.includeGenerated = false,
     this.additionalGeneratedSuffixes = const [],
     this.additionalGeneratedGlobs = const [],
@@ -90,6 +91,9 @@ class FinderOptions {
   /// Whether to report public declarations (those not starting with `_`).
   /// Private declarations are always reported when unused.
   final bool includePublic;
+
+  /// Whether to report declarations importable by other packages.
+  final bool includeExported;
 
   /// Whether to scan generated files (`*.g.dart`, `*.freezed.dart`, …).
   final bool includeGenerated;

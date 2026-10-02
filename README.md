@@ -60,6 +60,7 @@ scanning code needs an SDK new enough to parse it.
 ciach                                  # current package
 ciach path/to/package                  # another package
 ciach --no-public -f json              # private-only, as JSON
+ciach --no-exported                    # skip the package's public API
 ciach -f github --set-exit-if-changed  # CI: annotations, non-zero on finds
 ciach --remove                         # delete findings, asks first
 ciach --remove --force                 # …without asking
@@ -84,6 +85,7 @@ ciach --verbose                        # explain each step
 | `--[no-]report-tojson` | off | Report an otherwise-unused `toJson()` serialization hook too. Off by default — `jsonEncode` dispatches to it dynamically. |
 | `--[no-]transitive` | off | Also report declarations referenced only from other findings. See [Transitively dead code](#transitively-dead-code). |
 | `--set-exit-if-changed` | off | Exit with status `1` when anything is found (for CI). Named after `dart format`. |
+| `--[no-]exported` | on | Report declarations other packages can import. See [Library packages](#library-packages). |
 | `--[no-]fail-public` | on | Count unused public declarations toward the exit code (with `--set-exit-if-changed`). `--no-fail-public` reports them but fails only on private findings. |
 | `--remove` | off | Remove unused declarations after reporting them. Prompts for confirmation first. |
 | `--force` | off | Skip the confirmation prompt for `--remove`. Requires `--remove`. |
@@ -218,12 +220,30 @@ the repository root so paths resolve; when scanning a sub-package (`ciach -f
 github app`), the scan path is prepended automatically.
 
 For a library or workspace package whose public API is legitimately "unused"
-from its own perspective, add `--no-fail-public` to still surface those
-findings while gating the job on unused *private* declarations only:
+from its own perspective, add `--no-exported`, or `--no-fail-public` to still
+surface those findings while gating the job on unused *private* declarations
+only:
 
 ```yaml
 - run: dart run ciach -f github --set-exit-if-changed --no-fail-public
 ```
+
+### Library packages
+
+`--no-exported` skips libraries under `lib/` outside `lib/src/`, what they
+export (`show`/`hide` respected), and every public member of a type, since an
+instance can leak through an inferred signature. The rest is reported:
+
+```dart
+// lib/my_lib.dart
+export 'src/client.dart' show Client; // Client and its members: skipped
+
+// lib/src/client.dart
+class Client { … }
+class RetryPolicy { … } // not exported: reported if unused
+```
+
+Assumes nobody imports `package:my_lib/src/…`.
 
 ### Removing declarations
 
@@ -337,7 +357,7 @@ This is a static, reference-based heuristic, so review its output rather than
 deleting blindly:
 
 - **A library package's public API** is legitimately unused from inside the
-  package. Prefer `--no-public` there, or treat public findings as advisory.
+  package. Prefer [`--no-exported`](#library-packages) there.
   In a monorepo, [`--analysis-root`](#monorepos) recovers uses that live in a
   sibling package; a published package's consumers stay invisible.
 - **Reflection, dynamic invocation, and names referenced only from generated

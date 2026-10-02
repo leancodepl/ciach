@@ -64,9 +64,10 @@ const _toc = [
 ];
 
 const _options = [
+  ('--no-public', 'Report private declarations only. Cheapest mode.'),
   (
-    '--no-public',
-    'Report private declarations only. Cheapest mode; the right '
+    '--no-exported',
+    'Skip what other packages can import. The right '
         'one for library packages.',
   ),
   (
@@ -712,7 +713,7 @@ class DocsPage extends StatelessComponent {
                   li(
                     rich(
                       'A library package’s public API is legitimately unused '
-                      'from the inside: prefer `--no-public` there. In a '
+                      'from the inside: prefer `--no-exported` there. In a '
                       'monorepo, `--analysis-root` recovers uses that live in '
                       'a sibling package.',
                     ),

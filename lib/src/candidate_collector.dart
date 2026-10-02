@@ -9,7 +9,9 @@ import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
+import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/problems.dart';
+import 'package:ciach/src/public_api.dart';
 import 'package:ciach/src/reference_fetch.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
@@ -28,13 +30,16 @@ final class CandidateCollector {
     required SourceIndex sources,
     required FreezedUnions freezed,
   }) : _sources = sources,
-       _freezed = freezed;
+       _freezed = freezed,
+       _publicApi = options.includeExported ? null : _scanPublicApi(options);
 
   final FinderOptions options;
   final SourceIndex _sources;
 
   /// Freezed-union tracking, fed as candidates are collected.
   final FreezedUnions _freezed;
+
+  final PublicApi? _publicApi;
 
   late final _entryPoints = EntryPoints(options.entryPoints);
 
@@ -87,6 +92,21 @@ final class CandidateCollector {
     ).toList();
     return _withoutEntryPointContainers(candidates, relativePath).toList();
   }
+
+  static PublicApi _scanPublicApi(FinderOptions options) {
+    final api = PublicApi.scan(options.rootPath);
+    _log.config(
+      'Leaving out the public API of '
+      '${plural(api.libraryCount, 'library', 'libraries')} other packages can '
+      'import.',
+    );
+    return api;
+  }
+
+  // An instance of any type can leak through an inferred public signature.
+  static bool _reachableFromOutside(Candidate candidate, PublicApi api) =>
+      (candidate.container != null && !candidate.isExtensionMember) ||
+      api.exposes(candidate.path, candidate.container ?? candidate.symbol.name);
 
   /// One line per skipped entry point, except the ubiquitous `main`.
   void reportSkipped() {
@@ -236,7 +256,10 @@ final class CandidateCollector {
         !candidate.isExtensionType) {
       return false;
     }
-    if (!isPrivateName(symbol.name) && !options.includePublic) {
+    if (!isPrivateName(symbol.name) &&
+        (!options.includePublic ||
+            (_publicApi != null &&
+                _reachableFromOutside(candidate, _publicApi)))) {
       return false;
     }
     if (options.skipOperators && symbol.isOperator) {
