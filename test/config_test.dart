@@ -643,6 +643,7 @@ dart: /sdk/bin/dart
     test('hands the finder its share of the settings', () {
       final resolved = resolve(const [
         '--no-public',
+        '--no-project-config',
         '--overrides',
         '-e',
         'test/**',

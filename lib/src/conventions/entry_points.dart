@@ -110,6 +110,25 @@ final class EntryPoint {
         (_globs.isEmpty || _globs.any((glob) => glob.matches(relativePath)));
   }
 
+  /// This rule for the package under [prefix], a glob for its directory
+  /// from the scanned root; `''` is the root itself.
+  EntryPoint within(String prefix) {
+    if (prefix.isEmpty) {
+      return this;
+    }
+    final scoped = files.isEmpty
+        ? ['$prefix/**']
+        : [for (final file in files) '$prefix/$file'];
+    return switch (superclass) {
+      final superclass? => .publicMethodsOfSubclasses(
+        superclass,
+        reason: reason,
+        files: scoped,
+      ),
+      null => .new(name: name, reason: reason, files: scoped),
+    };
+  }
+
   /// [name], or what a [superclass] rule matches.
   String get label => switch (superclass) {
     final superclass? => 'public methods of `$superclass` subclasses',

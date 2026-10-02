@@ -334,6 +334,10 @@ command-line form.
 - `flutter gen-l10n` output, from `l10n.yaml`; `--unused-translations` scans
   the template file.
 
+Every package under the scanned path is read from its own files, so scanning a
+pub workspace or monorepo root covers its members. `build.yaml` counts together
+with every `build.<name>.yaml`, since `build_runner --config` may pick any.
+
 ### Supported versions
 
 Minimums are from each tool's changelog or git history.

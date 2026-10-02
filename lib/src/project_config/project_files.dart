@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:ciach/src/conventions/entry_points.dart';
+import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/log.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
@@ -94,3 +95,23 @@ Iterable<({String name, String root})> resolvedPackages(String rootPath) sync* {
 
 String escapeGlob(String literal) =>
     literal.replaceAllMapped(RegExp(r'[*?\[\]{},\\]'), (m) => '\\${m[0]}');
+
+/// POSIX directories, relative to [rootPath], of the packages in it: `''` for
+/// [rootPath] itself, then each nested one with a pubspec.yaml.
+Iterable<String> packageDirs(String rootPath) sync* {
+  final root = Directory(rootPath);
+  if (!root.existsSync()) {
+    return;
+  }
+  yield '';
+  final nested = [
+    for (final entity in root.listSync(recursive: true, followLinks: false))
+      if (entity is File && p.basename(entity.path) == 'pubspec.yaml')
+        p.split(p.relative(p.dirname(entity.path), from: rootPath)).join('/'),
+  ]..sort();
+  for (final dir in nested) {
+    if (dir != '.' && !isInSkippedDir(dir)) {
+      yield dir;
+    }
+  }
+}

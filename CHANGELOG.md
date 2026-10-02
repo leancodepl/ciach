@@ -1,7 +1,8 @@
 ## Unreleased
 
 - Read entry points and generated files from `pubspec.yaml`, `build.yaml`
-  and `l10n.yaml`; `--no-project-config` turns it off.
+  and `l10n.yaml` — of every package under the scanned path, `build.<name>.yaml`
+  included; `--no-project-config` turns it off.
   ([#59](https://github.com/leancodepl/ciach/issues/59))
 - Add `--unused-translations`: report unused gen-l10n messages, report-only.
   ([#59](https://github.com/leancodepl/ciach/issues/59))

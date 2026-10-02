@@ -288,6 +288,80 @@ template-arb-file: app_pl.arb
     });
   });
 
+  group('nested packages', () {
+    test("a workspace member's config, scoped to its directory", () {
+      write('pubspec.yaml', 'name: ws\nworkspace: [pkgs/app, pkgs/plugin]\n');
+      write(
+        'pkgs/app/pubspec.yaml',
+        'name: app\nresolution: workspace\ndependencies: {dart_frog: any}\n',
+      );
+      write('pkgs/app/l10n.yaml', 'output-localization-file: strings.dart\n');
+      write('pkgs/plugin/pubspec.yaml', '''
+name: plugin
+flutter: {plugin: {platforms: {linux: {dartPluginClass: LinuxPlugin}}}}
+''');
+      write(
+        'build/pubspec.yaml',
+        'name: skipped\ndependencies: {serverpod: any}\n',
+      );
+
+      final config = read();
+      expect(rules(config), {
+        'onRequest in pkgs/app/routes/**',
+        'middleware in pkgs/app/routes/**_middleware.dart',
+        'init in pkgs/app/main.dart',
+        'run in pkgs/app/main.dart',
+        'LinuxPlugin.registerWith in pkgs/plugin/lib/**',
+      });
+      expect(config.generatedGlobs, [
+        'pkgs/app/lib/l10n/strings_*.dart',
+        'pkgs/app/lib/l10n/strings.dart',
+      ]);
+      expect(config.translations, [
+        (
+          dartFile: 'pkgs/app/lib/l10n/strings.dart',
+          arbFile: 'pkgs/app/lib/l10n/app_en.arb',
+        ),
+      ]);
+    });
+
+    test('a rule for any file is scoped to its package', () {
+      write(
+        'pkgs/server/pubspec.yaml',
+        'name: s\ndependencies: {serverpod: any}\n',
+      );
+
+      expect(rules(read()), {
+        'public methods of `Endpoint` subclasses in pkgs/server/**',
+      });
+    });
+  });
+
+  group('build.<name>.yaml', () {
+    test('every config build_runner can pick with --config counts', () {
+      write('pubspec.yaml', 'name: app');
+      write('build.release.yaml', r'''
+targets:
+  $default:
+    builders:
+      source_gen|combining_builder:
+        options:
+          build_extensions: {'^lib/{{}}.dart': 'lib/gen/{{}}.g.dart'}
+''');
+      write('build.yaml', '''
+builders:
+  stamp:
+    import: "package:app/builder.dart"
+    builder_factories: ["stamp"]
+''');
+      write('build.release.yaml.bak', 'not: [a config');
+
+      final config = read();
+      expect(config.generatedGlobs, ['lib/gen/**.g.dart']);
+      expect(rules(config), {'stamp in lib/builder.dart'});
+    });
+  });
+
   group('frameworks, by dependency', () {
     test('dart_frog routes, middleware and server hooks', () {
       write('pubspec.yaml', '''

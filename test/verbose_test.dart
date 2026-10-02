@@ -130,7 +130,7 @@ void main() {
 
     test('names the layer each value came from', () {
       final configuration = resolveConfiguration(
-        parser.parse(const ['--no-public']),
+        parser.parse(const ['--no-public', '--no-project-config']),
         .parse(
           'format: json\nremove: true\nentry-points: [{name: registerWith, glob: lib/**}]',
           origin: 'c.yaml',
@@ -183,7 +183,7 @@ void main() {
     });
 
     test('marks an empty list rather than printing nothing', () {
-      final lines = describe();
+      final lines = describe(const ['--no-project-config']);
 
       expect(lines, contains('  exclude: (none) (default)'));
       expect(lines, contains('  include: (none) (default)'));
