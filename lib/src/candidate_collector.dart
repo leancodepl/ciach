@@ -30,7 +30,8 @@ final class CandidateCollector {
     required SourceIndex sources,
     required FreezedUnions freezed,
   }) : _sources = sources,
-       _freezed = freezed;
+       _freezed = freezed,
+       _publicApi = options.includeExported ? null : _scanPublicApi(options);
 
   final FinderOptions options;
   final SourceIndex _sources;
@@ -38,11 +39,9 @@ final class CandidateCollector {
   /// Freezed-union tracking, fed as candidates are collected.
   final FreezedUnions _freezed;
 
-  late final _entryPoints = EntryPoints(options.entryPoints);
+  final PublicApi? _publicApi;
 
-  late final PublicApi? _publicApi = options.includeExported
-      ? null
-      : _scanPublicApi();
+  late final _entryPoints = EntryPoints(options.entryPoints);
 
   /// Skipped as entry points this run, for `--verbose`.
   final _skippedEntryPoints = <_SkippedEntryPoint>[];
@@ -94,7 +93,7 @@ final class CandidateCollector {
     return _withoutEntryPointContainers(candidates, relativePath).toList();
   }
 
-  PublicApi _scanPublicApi() {
+  static PublicApi _scanPublicApi(FinderOptions options) {
     final api = PublicApi.scan(options.rootPath);
     _log.config(
       'Leaving out the public API of '
@@ -105,13 +104,9 @@ final class CandidateCollector {
   }
 
   // An instance of any type can leak through an inferred public signature.
-  bool _reachableFromOutside(Candidate candidate, PublicApi api) {
-    if (candidate.container case final container?) {
-      return !candidate.isExtensionMember ||
-          (!isPrivateName(container) && api.exposes(candidate.path, container));
-    }
-    return api.exposes(candidate.path, candidate.symbol.name);
-  }
+  static bool _reachableFromOutside(Candidate candidate, PublicApi api) =>
+      (candidate.container != null && !candidate.isExtensionMember) ||
+      api.exposes(candidate.path, candidate.container ?? candidate.symbol.name);
 
   /// One line per skipped entry point, except the ubiquitous `main`.
   void reportSkipped() {
@@ -261,14 +256,11 @@ final class CandidateCollector {
         !candidate.isExtensionType) {
       return false;
     }
-    if (!isPrivateName(symbol.name)) {
-      if (!options.includePublic) {
-        return false;
-      }
-      if (_publicApi case final api?
-          when _reachableFromOutside(candidate, api)) {
-        return false;
-      }
+    if (!isPrivateName(symbol.name) &&
+        (!options.includePublic ||
+            (_publicApi != null &&
+                _reachableFromOutside(candidate, _publicApi)))) {
+      return false;
     }
     if (options.skipOperators && symbol.isOperator) {
       return false;

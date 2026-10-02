@@ -26,12 +26,6 @@ version: 1.0.0
 environment:
   sdk: ^3.10.0
 ''');
-    write(
-      '.dart_tool/package_config.json',
-      '{\n  "configVersion": 2,\n  "packages": [\n'
-          '    { "name": "lib_pkg", "rootUri": "../", "packageUri": "lib/", '
-          '"languageVersion": "3.10" }\n  ]\n}\n',
-    );
   });
 
   tearDown(() => root.deleteSync(recursive: true));
@@ -138,6 +132,12 @@ export 'src/chain.dart' show D, E;
 
   test('with includeExported off, only what other packages can name is '
       'left out', () async {
+    write(
+      '.dart_tool/package_config.json',
+      '{\n  "configVersion": 2,\n  "packages": [\n'
+          '    { "name": "lib_pkg", "rootUri": "../", "packageUri": "lib/", '
+          '"languageVersion": "3.10" }\n  ]\n}\n',
+    );
     write('lib/lib_pkg.dart', '''
 export 'src/api.dart' show Api, make;
 

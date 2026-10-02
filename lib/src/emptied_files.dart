@@ -1,11 +1,10 @@
 import 'dart:io';
 
 import 'package:ciach/src/comment_stripping.dart';
-import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
+import 'package:ciach/src/packages.dart';
 import 'package:ciach/src/paths.dart';
-import 'package:ciach/src/public_api.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
@@ -80,7 +79,6 @@ final _directive = RegExp(
   multiLine: true,
 );
 
-final _uriLiteral = RegExp(r'''r?(['"])([^'"\n]*)\1''');
 final _partOf = RegExp(r'^\s*of\b');
 final _conditional = RegExp(r'\bif\s*\(');
 
@@ -93,28 +91,8 @@ final class _Package {
   _Package._(this._files, this._libDirByPackage);
 
   factory _Package.scan(String root) {
-    final files = <String>{};
-    final libDirByPackage = <String, String>{};
-    for (final entity in Directory(
-      root,
-    ).listSync(recursive: true, followLinks: false)) {
-      if (entity is! File) {
-        continue;
-      }
-      final absolute = p.normalize(entity.absolute.path);
-      if (isInSkippedDir(relativePosix(absolute, root))) {
-        continue;
-      }
-      final name = p.basename(absolute);
-      if (name.endsWith('.dart')) {
-        files.add(absolute);
-      } else if (name == 'pubspec.yaml') {
-        if (pubspecName(absolute) case final package?) {
-          libDirByPackage[package] = p.join(p.dirname(absolute), 'lib');
-        }
-      }
-    }
-    return ._(files, libDirByPackage);
+    final tree = scanPackageTree(root);
+    return ._(tree.dartFiles, tree.libDirByPackage);
   }
 
   final Set<String> _files;
@@ -167,14 +145,14 @@ final class _Package {
     final kind = directive.group(1)!;
     final body = directive.group(2)!;
     var link = _Link.none;
-    for (final uri in _uriLiteral.allMatches(body)) {
-      final resolved = _resolve(uri.group(2)!, from);
+    for (final uri in uriLiteral.allMatches(body)) {
+      final resolved = resolveDartUri(uri.group(2)!, from, _libDirByPackage);
       if (resolved == null) {
         continue;
       }
       if (resolved == target) {
         link = .droppable;
-      } else if (resolved == _uncertain &&
+      } else if (resolved == unknownPackage &&
           _libPathMatches(uri.group(2)!, target)) {
         return .blocking;
       }
@@ -184,30 +162,6 @@ final class _Package {
     }
     final partOf = kind == 'part' && _partOf.hasMatch(body);
     return partOf || _conditional.hasMatch(body) ? .blocking : link;
-  }
-
-  /// A `package:` URI no pubspec under the root claims.
-  static const _uncertain = '';
-
-  String? _resolve(String uri, String from) {
-    if (uri.startsWith('package:')) {
-      final rest = uri.substring('package:'.length);
-      final slash = rest.indexOf('/');
-      if (slash < 0) {
-        return null;
-      }
-      final libDir = _libDirByPackage[rest.substring(0, slash)];
-      if (libDir == null) {
-        return _uncertain;
-      }
-      return p.normalize(
-        p.joinAll([libDir, ...p.posix.split(rest.substring(slash + 1))]),
-      );
-    }
-    if (uri.contains(':')) {
-      return null;
-    }
-    return p.normalize(p.joinAll([p.dirname(from), ...p.posix.split(uri)]));
   }
 
   /// Whether an unknown package's [uri] could still mean [target].
