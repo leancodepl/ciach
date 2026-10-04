@@ -64,9 +64,9 @@ final class TypeLeaks {
           continue;
         }
         switch (_carrierAt(outlines[path], path, pos, sources, api)) {
-          case _Type(key: final carrier) when types.containsKey(carrier):
+          case final carrier? when types.containsKey(carrier):
             carriers.add(carrier);
-          case _Root() || _Type():
+          case _?:
             leaking.add(key);
           case null:
             break;
@@ -86,29 +86,24 @@ final class TypeLeaks {
       ],
     ).map((i) => keys[i]);
 
-    final filesOf = <DeclKey, Set<String>>{};
-    for (final key in sealed) {
-      final files = filesOf[key] = {};
-      final seen = {key};
-      for (final pending = [key]; pending.isNotEmpty;) {
-        final type = pending.removeLast();
-        files
-          ..add(type.path)
-          ..addAll(types[type]!.$2.map((loc) => SourceIndex.pathOf(loc.uri)));
-        pending.addAll(carriersOf[type]!.where(seen.add));
-      }
-    }
+    final filesOf = {
+      for (final key in sealed)
+        key: {
+          key.path,
+          for (final loc in types[key]!.$2) SourceIndex.pathOf(loc.uri),
+        },
+    };
     return ._(filesOf);
   }
 
-  /// For each sealed type, the files its instances can reach: those naming it
-  /// or a type that carries it.
+  /// For each sealed type, the files naming it, where its members are most
+  /// likely used.
   final Map<DeclKey, Set<String>> _filesOf;
 
   /// Whether no other package can hold an instance of [member]'s type.
   bool isSealed(Candidate member) => _filesOf.containsKey(member.containerKey);
 
-  /// The files where [member] of a sealed type can be used.
+  /// The files where [member] of a sealed type is most likely used.
   Set<String> filesFor(Candidate member) => _filesOf[member.containerKey]!;
 
   /// Whether [member] is reachable only if its type leaks. Members of
@@ -123,9 +118,10 @@ final class TypeLeaks {
       typeLikeKinds.contains(candidate.symbol.kind) &&
       !candidate.isExtension;
 
-  /// What the reference at [pos] hands its type to, or `null` when it sits in
-  /// a body, a directive or an extension no other package can import.
-  static _Carrier? _carrierAt(
+  /// The type the reference at [pos] hands its type to, [_root] when it
+  /// hands it to everyone, or `null` when it sits in a body, a directive or
+  /// an extension no other package can import.
+  static DeclKey? _carrierAt(
     Outline? unit,
     String path,
     Position pos,
@@ -133,7 +129,7 @@ final class TypeLeaks {
     PublicApi api,
   ) {
     if (unit == null) {
-      return const _Root();
+      return _root;
     }
     final top = _childAt(unit, pos);
     if (top == null) {
@@ -146,14 +142,14 @@ final class TypeLeaks {
         return null;
       }
       if (kind != .extension) {
-        return _Type(DeclKey(path, top.element.name));
+        return DeclKey(path, top.element.name);
       }
       return !top.element.isUnnamedExtension &&
               api.exposes(path, top.element.name)
-          ? const _Root()
+          ? _root
           : null;
     }
-    return _inBody(top, path, pos, sources) ? null : const _Root();
+    return _inBody(top, path, pos, sources) ? null : _root;
   }
 
   static Outline? _childAt(Outline parent, Position pos) =>
@@ -213,18 +209,5 @@ final class TypeLeaks {
   }
 }
 
-/// Where a mention hands its type: everywhere, or to a type that leaks it
-/// only if it leaks itself.
-sealed class _Carrier {
-  const _Carrier();
-}
-
-final class _Root extends _Carrier {
-  const _Root();
-}
-
-final class _Type extends _Carrier {
-  const _Type(this.key);
-
-  final DeclKey key;
-}
+/// A carrier no type matches, so whatever it carries leaks.
+const _root = DeclKey('', '');

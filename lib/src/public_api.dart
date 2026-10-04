@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:ciach/src/comment_stripping.dart';
 import 'package:ciach/src/packages.dart';
 import 'package:ciach/src/symbols.dart';
-import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
 /// Declarations importable by other packages, read from directives only.
@@ -37,46 +36,35 @@ final class PublicApi {
       libraries[path] = _Directives.parse(content, path, tree.libDirByPackage);
     }
 
-    final libraryOf = <String, String>{};
-    final partsOf = <String, List<String>>{};
-    void own(String library, String file) {
-      for (final part in libraries[file]?.parts ?? const <String>[]) {
-        if (libraryOf.containsKey(part) || part == library) {
-          continue;
-        }
-        libraryOf[part] = library;
-        (partsOf[library] ??= []).add(part);
-        own(library, part);
-      }
-    }
+    final libraryOf = {
+      for (final MapEntry(key: path, value: directives) in libraries.entries)
+        if (!directives.isPart)
+          for (final part in directives.parts) part: path,
+    };
 
-    for (final MapEntry(key: path, value: directives) in libraries.entries) {
-      if (!directives.isPart) {
-        own(path, path);
-      }
-    }
-
-    final visible = <String, Set<_Combinator>>{};
-    final pending = <(String, _Combinator)>[
+    // The names each library exposes; `null` for all of them.
+    final visible = <String, Set<String>?>{};
+    final pending = <(String, Set<String>?)>[
       for (final MapEntry(key: path, value: directives) in libraries.entries)
         if (!directives.isPart &&
-            !p.isWithin(p.join(libDirOf[path]!, 'src'), path) &&
-            !libraryOf.containsKey(path))
-          (path, const .all()),
+            !p.isWithin(p.join(libDirOf[path]!, 'src'), path))
+          (path, null),
     ];
     while (pending.isNotEmpty) {
-      final (library, combinator) = pending.removeLast();
-      if (!visible.putIfAbsent(library, () => {}).add(combinator)) {
+      final (library, shown) = pending.removeLast();
+      final known = visible.containsKey(library);
+      final names = known ? _union(visible[library], shown) : shown;
+      if (known && visible[library]?.length == names?.length) {
         continue;
       }
-      for (final file in [library, ...?partsOf[library]]) {
-        for (final export in libraries[file]?.exports ?? const <_Export>[]) {
-          for (final target in export.targets) {
-            pending.add((
-              libraryOf[target] ?? target,
-              export.combinator.then(combinator),
-            ));
-          }
+      visible[library] = names;
+      for (final export in libraries[library]?.exports ?? const <_Export>[]) {
+        final next = switch ((export.shown, names)) {
+          (null, final other) || (final other, null) => other,
+          (final a?, final b?) => a.intersection(b),
+        };
+        for (final target in export.targets) {
+          pending.add((libraryOf[target] ?? target, next));
         }
       }
     }
@@ -86,18 +74,19 @@ final class PublicApi {
   final String _rootPath;
   final Set<String> _inLib;
   final Map<String, String> _libraryOf;
-  final Map<String, Set<_Combinator>> _visible;
-
-  int get libraryCount => _visible.length;
+  final Map<String, Set<String>?> _visible;
 
   /// Whether another package could import the file at [path]: one under a
   /// package's `lib/`, or anywhere outside the scanned root.
   bool isImportable(String path) =>
       !p.isWithin(_rootPath, path) || _inLib.contains(path);
 
-  bool exposes(String path, String name) =>
-      !isPrivateName(name) &&
-      (_visible[_libraryOf[path] ?? path]?.any((c) => c.admits(name)) ?? false);
+  bool exposes(String path, String name) {
+    final library = _libraryOf[path] ?? path;
+    return !isPrivateName(name) &&
+        _visible.containsKey(library) &&
+        (_visible[library]?.contains(name) ?? true);
+  }
 }
 
 final _directive = RegExp(
@@ -139,7 +128,7 @@ final class _Directives {
           for (final uri in uris)
             ?_resolve(uri.group(2)!, path, libDirByPackage),
         ],
-        combinator: _Combinator.parse(body.substring(uris.last.end)),
+        shown: _shown(body.substring(uris.last.end)),
       ));
     }
     return .new(exports, parts, isPart: isPart);
@@ -160,66 +149,18 @@ final class _Directives {
   };
 }
 
-typedef _Export = ({List<String> targets, _Combinator combinator});
+typedef _Export = ({List<String> targets, Set<String>? shown});
 
-final class _Combinator {
-  const _Combinator.all() : shown = null, hidden = const {};
+Set<String>? _union(Set<String>? a, Set<String>? b) =>
+    a == null || b == null ? null : a.union(b);
 
-  _Combinator._(this.shown, this.hidden);
-
-  factory _Combinator.parse(String text) {
-    var combinator = const _Combinator.all();
-    String? clause;
-    var names = <String>{};
-    void apply() {
-      combinator = switch (clause) {
-        'show' => combinator.then(._(names, const {})),
-        'hide' => combinator.then(._(null, names)),
-        _ => combinator,
-      };
-    }
-
-    for (final word in _word.allMatches(text).map((m) => m.group(0)!)) {
-      if (word == 'show' || word == 'hide') {
-        apply();
-        clause = word;
-        names = {};
-      } else {
-        names.add(word);
-      }
-    }
-    apply();
-    return combinator;
-  }
-
-  final Set<String>? shown;
-  final Set<String> hidden;
-
-  bool admits(String name) =>
-      (shown?.contains(name) ?? true) && !hidden.contains(name);
-
-  _Combinator then(_Combinator outer) {
-    final hidden = {...this.hidden, ...outer.hidden};
-    final shown = switch ((this.shown, outer.shown)) {
-      (null, null) => null,
-      (final a?, null) => a,
-      (null, final b?) => b,
-      (final a?, final b?) => a.intersection(b),
-    };
-    return shown == null
-        ? ._(null, hidden)
-        : ._(shown.difference(hidden), const {});
-  }
-
-  static const _sets = SetEquality<String>();
-
-  @override
-  bool operator ==(Object other) =>
-      other is _Combinator &&
-      _sets.equals(shown, other.shown) &&
-      _sets.equals(hidden, other.hidden);
-
-  @override
-  int get hashCode =>
-      Object.hash(shown == null ? null : _sets.hash(shown), _sets.hash(hidden));
+/// The names a `show` clause in [combinators] lets through; `null` for all.
+/// A `hide` is ignored, so hidden names count as exported.
+Set<String>? _shown(String combinators) {
+  final show = RegExp(
+    r'\bshow\b([^;]*?)(?=\bhide\b|$)',
+  ).firstMatch(combinators);
+  return show == null
+      ? null
+      : {for (final m in _word.allMatches(show.group(1)!)) m.group(0)!};
 }

@@ -244,24 +244,11 @@ only:
 
 ### Library packages
 
-`--no-exported` skips libraries under `lib/` outside `lib/src/`, what they
-export (`show`/`hide` respected), and the members of any type an exported
-signature can hand out, even through other types. The rest is reported:
-
-```dart
-// lib/my_lib.dart
-export 'src/client.dart' show Client, connect; // skipped, members too
-
-// lib/src/client.dart
-Client connect() => Client();
-class Client { Config get config => … } // Config's members: skipped
-class RetryPolicy { … } // not exported: reported if unused
-```
-
-A type leaks when it is named outside a function body: in a signature, a
-field initializer, a supertype or a typedef.
-
-Assumes nobody imports `package:my_lib/src/…`.
+`--no-exported` skips what another package can reach: libraries under `lib/`
+outside `lib/src/`, what they export (`show` respected, `hide` ignored), and
+the members of any type named outside a function body in an exported
+signature, field or supertype, even through other types. Assumes nobody
+imports `package:my_lib/src/…`.
 
 ### Removing declarations
 

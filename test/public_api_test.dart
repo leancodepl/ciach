@@ -3,8 +3,6 @@ library;
 
 import 'dart:io';
 
-import 'package:ciach/src/finder.dart';
-import 'package:ciach/src/models.dart';
 import 'package:ciach/src/public_api.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -45,61 +43,38 @@ environment:
       expect(api.exposes(path('bin/tool.dart'), 'd'), isFalse);
     });
 
-    test('exports are followed through show and hide, transitively', () {
-      write('lib/lib_pkg.dart', '''
+    test('exports are followed transitively, narrowed by show', () {
+      write('lib/a.dart', '''
 // export 'src/commented.dart';
-export 'src/shown.dart' show A, B;
-export 'package:lib_pkg/src/hidden.dart' hide C;
+export 'src/shown.dart' show A;
+export 'package:lib_pkg/src/hidden.dart' hide H;
 export 'src/chain.dart' show D, E;
+export 'src/stub.dart' if (dart.library.io) 'src/io.dart';
 ''');
-      write('lib/src/chain.dart', "export 'deep.dart' hide E;");
+      write('lib/b.dart', "export 'src/shown.dart' show B;");
+      write('lib/src/chain.dart', "export 'deep.dart' show D;");
+      write('lib/src/deep.dart', "export 'chain.dart';");
 
       final api = PublicApi.scan(root.path);
 
       expect(api.exposes(path('lib/src/commented.dart'), 'X'), isFalse);
       expect(api.exposes(path('lib/src/shown.dart'), 'A'), isTrue);
-      expect(api.exposes(path('lib/src/shown.dart'), 'Z'), isFalse);
-      expect(api.exposes(path('lib/src/hidden.dart'), 'Z'), isTrue);
-      expect(api.exposes(path('lib/src/hidden.dart'), 'C'), isFalse);
+      expect(api.exposes(path('lib/src/shown.dart'), 'B'), isTrue);
+      expect(api.exposes(path('lib/src/shown.dart'), 'C'), isFalse);
+      // A hide is ignored: the hidden name counts as exported.
+      expect(api.exposes(path('lib/src/hidden.dart'), 'H'), isTrue);
       expect(api.exposes(path('lib/src/deep.dart'), 'D'), isTrue);
       expect(api.exposes(path('lib/src/deep.dart'), 'E'), isFalse);
-      expect(api.exposes(path('lib/src/deep.dart'), 'F'), isFalse);
-    });
-
-    test('a name exported by any route is exposed', () {
-      write('lib/a.dart', "export 'src/x.dart' show A;");
-      write('lib/b.dart', "export 'src/x.dart' show B;");
-
-      final api = PublicApi.scan(root.path);
-
-      expect(api.exposes(path('lib/src/x.dart'), 'A'), isTrue);
-      expect(api.exposes(path('lib/src/x.dart'), 'B'), isTrue);
-      expect(api.exposes(path('lib/src/x.dart'), 'C'), isFalse);
-    });
-
-    test('every branch of a conditional export counts', () {
-      write(
-        'lib/lib_pkg.dart',
-        "export 'src/stub.dart' if (dart.library.io) 'src/io.dart' show f;",
-      );
-
-      final api = PublicApi.scan(root.path);
-
-      expect(api.exposes(path('lib/src/stub.dart'), 'f'), isTrue);
       expect(api.exposes(path('lib/src/io.dart'), 'f'), isTrue);
-      expect(api.exposes(path('lib/src/io.dart'), 'g'), isFalse);
     });
 
     test('a part shares its library visibility', () {
       write('lib/lib_pkg.dart', "part 'src/part.dart';");
       write('lib/src/part.dart', "part of '../lib_pkg.dart';");
-      write('lib/src/inner.dart', "part 'inner_part.dart';");
-      write('lib/src/inner_part.dart', "part of 'inner.dart';");
 
       final api = PublicApi.scan(root.path);
 
       expect(api.exposes(path('lib/src/part.dart'), 'A'), isTrue);
-      expect(api.exposes(path('lib/src/inner_part.dart'), 'A'), isFalse);
     });
 
     test('a nested package has its own public libraries', () {
@@ -117,96 +92,6 @@ export 'src/chain.dart' show D, E;
       expect(api.exposes(path('example/lib/src/a.dart'), 'A'), isTrue);
       expect(api.exposes(path('example/lib/src/b.dart'), 'b'), isFalse);
       expect(api.exposes(path('example/bin/run.dart'), 'run'), isFalse);
-    });
-
-    test('a cycle of exports terminates', () {
-      write('lib/lib_pkg.dart', "export 'src/a.dart';");
-      write('lib/src/a.dart', "export 'b.dart';");
-      write('lib/src/b.dart', "export 'a.dart';");
-
-      final api = PublicApi.scan(root.path);
-
-      expect(api.exposes(path('lib/src/b.dart'), 'B'), isTrue);
-    });
-  });
-
-  test('with includeExported off, only what other packages can name is '
-      'left out', () async {
-    write(
-      '.dart_tool/package_config.json',
-      '{\n  "configVersion": 2,\n  "packages": [\n'
-          '    { "name": "lib_pkg", "rootUri": "../", "packageUri": "lib/", '
-          '"languageVersion": "3.10" }\n  ]\n}\n',
-    );
-    write('lib/lib_pkg.dart', '''
-export 'src/api.dart' show Api, make;
-
-void publicTopLevel() {}
-''');
-    write('lib/src/api.dart', '''
-class Api {
-  void exportedMember() {}
-}
-
-class Internal {
-  void internalMember() {}
-}
-
-class Leaked {
-  void leakedMember() {}
-}
-
-Leaked make() => Leaked();
-
-extension InternalExtension on int {
-  void used() {}
-  void extensionMember() {}
-}
-
-extension _PrivateExtension on int {
-  void privateUsed() {}
-  void privateExtensionMember() {}
-}
-
-void notExported() => 1.used();
-
-void _private() => 1.privateUsed();
-''');
-    write('bin/main.dart', '''
-void main() {}
-
-void cliHelper() {}
-''');
-
-    Future<Set<String>> unused({required bool includeExported}) async {
-      final result = await Ciach(
-        FinderOptions(rootPath: root.path, includeExported: includeExported),
-      ).run();
-      return {for (final decl in result.unused) decl.qualifiedName};
-    }
-
-    final everything = await unused(includeExported: true);
-    expect(everything, {
-      'publicTopLevel',
-      'Api.exportedMember',
-      'Internal',
-      'Internal.internalMember',
-      'Leaked.leakedMember',
-      'InternalExtension.extensionMember',
-      '_PrivateExtension.privateExtensionMember',
-      'notExported',
-      '_private',
-      'cliHelper',
-    });
-
-    expect(await unused(includeExported: false), {
-      'Internal',
-      'Internal.internalMember',
-      'InternalExtension.extensionMember',
-      '_PrivateExtension.privateExtensionMember',
-      'notExported',
-      '_private',
-      'cliHelper',
     });
   });
 }

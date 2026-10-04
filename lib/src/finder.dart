@@ -72,7 +72,7 @@ class Ciach {
   /// What other packages can import, when exported declarations are left out.
   late final PublicApi? _publicApi = options.includeExported
       ? null
-      : _scanPublicApi();
+      : .scan(options.rootPath);
 
   late final _collector = CandidateCollector(
     options: options,
@@ -271,16 +271,6 @@ class Ciach {
     refsByCandidate.addAll(probed.refs);
     await fetch(probed.rest, probed.rest.map((c) => c.path).toSet().length);
     return (candidates: candidates, refsByCandidate: refsByCandidate);
-  }
-
-  PublicApi _scanPublicApi() {
-    final api = PublicApi.scan(options.rootPath);
-    _log.config(
-      'Leaving out the public API of '
-      '${plural(api.libraryCount, 'library', 'libraries')} other packages can '
-      'import.',
-    );
-    return api;
   }
 
   /// Opens [path] in the server. `false` if the file cannot be read.

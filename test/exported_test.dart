@@ -24,7 +24,12 @@ void main() {
           '    { "name": "leaks", "rootUri": "../", "packageUri": "lib/", '
           '"languageVersion": "3.10" }\n  ]\n}\n',
     );
-    write('lib/leaks.dart', "export 'src/api.dart';");
+    write('lib/leaks.dart', '''
+export 'src/api.dart';
+
+void publicTopLevel() {}
+''');
+    write('bin/main.dart', 'void main() {}\n\nvoid cliHelper() {}');
     write('lib/src/api.dart', '''
 import 'types.dart';
 
@@ -35,6 +40,13 @@ class Exported extends Base {}
 final inferred = Inferred();
 Carrier makeCarrier() => Carrier();
 Wrapper makeWrapper() => Wrapper(1);
+
+void _private() => 1.privateUsed();
+
+extension _PrivateExtension on int {
+  void privateUsed() {}
+  void privateExtensionDead() {}
+}
 
 /// Mentions [DocOnly], which hands nothing out.
 void work() {
@@ -103,6 +115,13 @@ class Deep {
   void used() {}
   void deepDead() {}
 }
+
+void notExported() => 1.used();
+
+extension InternalExtension on int {
+  void used() {}
+  void extensionDead() {}
+}
 ''');
     write('test/helper_test.dart', '''
 class Helper {
@@ -116,18 +135,38 @@ void main() => Helper().used();
 
   tearDownAll(() => root.deleteSync(recursive: true));
 
-  Future<Set<String>> deadMembers({required bool includeExported}) async {
+  Future<Set<String>> dead({required bool includeExported}) async {
     final result = await Ciach(
       FinderOptions(rootPath: root.path, includeExported: includeExported),
     ).run();
-    return {
-      for (final decl in result.unused)
-        if (decl.container != null) decl.qualifiedName,
-    };
+    return {for (final decl in result.unused) decl.qualifiedName};
   }
 
-  test('every member under test is dead', () async {
-    expect(await deadMembers(includeExported: true), {
+  const internal = {
+    'DocOnly.docOnlyDead',
+    'BodyOnly.bodyOnlyDead',
+    'Hidden.hiddenDead',
+    'Deep.deepDead',
+    'Helper.helperDead',
+    'InternalExtension.extensionDead',
+    '_PrivateExtension.privateExtensionDead',
+    'notExported',
+    '_private',
+    'cliHelper',
+  };
+
+  test('everything under test is dead', () async {
+    expect(await dead(includeExported: true), {
+      ...internal,
+      'publicTopLevel',
+      'createClient',
+      'listen',
+      'generics',
+      'Exported',
+      'inferred',
+      'makeCarrier',
+      'makeWrapper',
+      'work',
       'Client.config',
       'Client.clientDead',
       'Config.retry',
@@ -140,21 +179,10 @@ void main() => Helper().used();
       'Carrier.carried',
       'Carried.carriedDead',
       'Wrapper.wrapperDead',
-      'DocOnly.docOnlyDead',
-      'BodyOnly.bodyOnlyDead',
-      'Hidden.hiddenDead',
-      'Deep.deepDead',
-      'Helper.helperDead',
     });
   });
 
-  test('members of a type reachable from another package are kept', () async {
-    expect(await deadMembers(includeExported: false), {
-      'DocOnly.docOnlyDead',
-      'BodyOnly.bodyOnlyDead',
-      'Hidden.hiddenDead',
-      'Deep.deepDead',
-      'Helper.helperDead',
-    });
+  test('what another package can reach is kept', () async {
+    expect(await dead(includeExported: false), internal);
   });
 }
