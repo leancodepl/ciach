@@ -43,16 +43,16 @@ environment:
       expect(api.exposes(path('bin/tool.dart'), 'd'), isFalse);
     });
 
-    test('exports are followed transitively, narrowed by show', () {
+    test('exports are followed transitively through show and hide', () {
       write('lib/a.dart', '''
 // export 'src/commented.dart';
 export 'src/shown.dart' show A;
 export 'package:lib_pkg/src/hidden.dart' hide H;
-export 'src/chain.dart' show D, E;
+export 'src/chain.dart' show D, E, F;
 export 'src/stub.dart' if (dart.library.io) 'src/io.dart';
 ''');
       write('lib/b.dart', "export 'src/shown.dart' show B;");
-      write('lib/src/chain.dart', "export 'deep.dart' show D;");
+      write('lib/src/chain.dart', "export 'deep.dart' hide E;");
       write('lib/src/deep.dart', "export 'chain.dart';");
 
       final api = PublicApi.scan(root.path);
@@ -61,10 +61,11 @@ export 'src/stub.dart' if (dart.library.io) 'src/io.dart';
       expect(api.exposes(path('lib/src/shown.dart'), 'A'), isTrue);
       expect(api.exposes(path('lib/src/shown.dart'), 'B'), isTrue);
       expect(api.exposes(path('lib/src/shown.dart'), 'C'), isFalse);
-      // A hide is ignored: the hidden name counts as exported.
-      expect(api.exposes(path('lib/src/hidden.dart'), 'H'), isTrue);
+      expect(api.exposes(path('lib/src/hidden.dart'), 'H'), isFalse);
+      expect(api.exposes(path('lib/src/hidden.dart'), 'G'), isTrue);
       expect(api.exposes(path('lib/src/deep.dart'), 'D'), isTrue);
       expect(api.exposes(path('lib/src/deep.dart'), 'E'), isFalse);
+      expect(api.exposes(path('lib/src/deep.dart'), 'G'), isFalse);
       expect(api.exposes(path('lib/src/io.dart'), 'f'), isTrue);
     });
 

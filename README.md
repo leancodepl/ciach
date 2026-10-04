@@ -245,7 +245,7 @@ only:
 ### Library packages
 
 `--no-exported` skips what another package can reach: libraries under `lib/`
-outside `lib/src/`, what they export (`show` respected, `hide` ignored), and
+outside `lib/src/`, what they export (`show`/`hide` respected), and
 the members of any type named outside a function body in an exported
 signature, field or supertype, even through other types. Assumes nobody
 imports `package:my_lib/src/…`.

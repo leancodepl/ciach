@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:ciach/src/comment_stripping.dart';
 import 'package:ciach/src/packages.dart';
 import 'package:ciach/src/symbols.dart';
+import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
 /// Declarations importable by other packages, read from directives only.
@@ -43,28 +44,26 @@ final class PublicApi {
     };
 
     // The names each library exposes; `null` for all of them.
-    final visible = <String, Set<String>?>{};
-    final pending = <(String, Set<String>?)>[
+    final visible = <String, _Names>{};
+    final pending = <(String, _Names)>[
       for (final MapEntry(key: path, value: directives) in libraries.entries)
         if (!directives.isPart &&
             !p.isWithin(p.join(libDirOf[path]!, 'src'), path))
-          (path, null),
+          (path, _Names.all),
     ];
     while (pending.isNotEmpty) {
-      final (library, shown) = pending.removeLast();
-      final known = visible.containsKey(library);
-      final names = known ? _union(visible[library], shown) : shown;
-      if (known && visible[library]?.length == names?.length) {
+      final (library, names) = pending.removeLast();
+      final merged = visible[library]?.union(names) ?? names;
+      if (merged == visible[library]) {
         continue;
       }
-      visible[library] = names;
+      visible[library] = merged;
       for (final export in libraries[library]?.exports ?? const <_Export>[]) {
-        final next = switch ((export.shown, names)) {
-          (null, final other) || (final other, null) => other,
-          (final a?, final b?) => a.intersection(b),
-        };
         for (final target in export.targets) {
-          pending.add((libraryOf[target] ?? target, next));
+          pending.add((
+            libraryOf[target] ?? target,
+            export.names.intersection(merged),
+          ));
         }
       }
     }
@@ -74,7 +73,7 @@ final class PublicApi {
   final String _rootPath;
   final Set<String> _inLib;
   final Map<String, String> _libraryOf;
-  final Map<String, Set<String>?> _visible;
+  final Map<String, _Names> _visible;
 
   /// Whether another package could import the file at [path]: one under a
   /// package's `lib/`, or anywhere outside the scanned root.
@@ -85,7 +84,7 @@ final class PublicApi {
     final library = _libraryOf[path] ?? path;
     return !isPrivateName(name) &&
         _visible.containsKey(library) &&
-        (_visible[library]?.contains(name) ?? true);
+        _visible[library]!.admits(name);
   }
 }
 
@@ -128,7 +127,7 @@ final class _Directives {
           for (final uri in uris)
             ?_resolve(uri.group(2)!, path, libDirByPackage),
         ],
-        shown: _shown(body.substring(uris.last.end)),
+        names: _Names.parse(body.substring(uris.last.end)),
       ));
     }
     return .new(exports, parts, isPart: isPart);
@@ -149,18 +148,58 @@ final class _Directives {
   };
 }
 
-typedef _Export = ({List<String> targets, Set<String>? shown});
+typedef _Export = ({List<String> targets, _Names names});
 
-Set<String>? _union(Set<String>? a, Set<String>? b) =>
-    a == null || b == null ? null : a.union(b);
+/// The names a filter lets through: [shown] (all when `null`) less [hidden].
+final class _Names {
+  const _Names(this.shown, this.hidden);
 
-/// The names a `show` clause in [combinators] lets through; `null` for all.
-/// A `hide` is ignored, so hidden names count as exported.
-Set<String>? _shown(String combinators) {
-  final show = RegExp(
-    r'\bshow\b([^;]*?)(?=\bhide\b|$)',
-  ).firstMatch(combinators);
-  return show == null
-      ? null
-      : {for (final m in _word.allMatches(show.group(1)!)) m.group(0)!};
+  /// The `show` and `hide` clauses in [combinators].
+  factory _Names.parse(String combinators) {
+    Set<String>? clause(String keyword) => switch (RegExp(
+      '\\b$keyword\\b([^;]*?)(?=\\b(?:show|hide)\\b|\$)',
+    ).firstMatch(combinators)) {
+      final match? => {
+        for (final m in _word.allMatches(match.group(1)!)) m.group(0)!,
+      },
+      null => null,
+    };
+    return all.intersection(_Names(clause('show'), clause('hide') ?? const {}));
+  }
+
+  static const all = _Names(null, {});
+
+  final Set<String>? shown;
+  final Set<String> hidden;
+
+  bool admits(String name) =>
+      (shown?.contains(name) ?? true) && !hidden.contains(name);
+
+  /// The names both let through.
+  _Names intersection(_Names other) => switch ((shown, other.shown)) {
+    (null, null) => _Names(null, hidden.union(other.hidden)),
+    (final a?, null) => _Names(a.difference(other.hidden), const {}),
+    (null, final b?) => _Names(b.difference(hidden), const {}),
+    (final a?, final b?) => _Names(a.intersection(b), const {}),
+  };
+
+  /// The names either lets through.
+  _Names union(_Names other) => switch ((shown, other.shown)) {
+    (null, null) => _Names(null, hidden.intersection(other.hidden)),
+    (final a?, null) => _Names(null, other.hidden.difference(a)),
+    (null, final b?) => _Names(null, hidden.difference(b)),
+    (final a?, final b?) => _Names(a.union(b), const {}),
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      other is _Names &&
+      const SetEquality<String>().equals(shown, other.shown) &&
+      const SetEquality<String>().equals(hidden, other.hidden);
+
+  @override
+  int get hashCode => Object.hash(
+    const SetEquality<String>().hash(shown),
+    const SetEquality<String>().hash(hidden),
+  );
 }
