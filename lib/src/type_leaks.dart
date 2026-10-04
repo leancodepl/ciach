@@ -104,10 +104,13 @@ final class TypeLeaks {
   /// Whether another package may reach [member] of a type through an
   /// instance. Members of extensions are reached only by importing them.
   bool reaches(Candidate member) =>
+      isGated(member) && !_sealed.contains(member.containerKey);
+
+  /// Whether [member] is reachable only if its type leaks.
+  static bool isGated(Candidate member) =>
       member.container != null &&
       member.containerOutline?.element.kind != .extension &&
-      !isPrivateName(member.symbol.name) &&
-      !_sealed.contains(member.containerKey);
+      !isPrivateName(member.symbol.name);
 
   static bool _isType(Candidate candidate) =>
       candidate.container == null &&

@@ -28,6 +28,7 @@ import 'package:ciach/src/settler.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/type_leaks.dart';
 import 'package:ciach/src/verdict.dart';
+import 'package:collection/collection.dart';
 
 final _log = Logger('ciach.finder');
 
@@ -168,20 +169,28 @@ class Ciach {
 
       // Phase 2: check references for every candidate through a single global
       // pool, so the server stays saturated instead of stalling between files.
+      // Members of an unexported type wait until the types' references show
+      // which ones another package can reach.
+      final api = _collector.publicApi;
+      final gated = api == null
+          ? const <Candidate>[]
+          : collected.where(TypeLeaks.isGated).toList();
+      final ungated = api == null
+          ? collected
+          : collected.whereNot(TypeLeaks.isGated).toList();
       _log.info(
-        'Checking references for ${plural(collected.length, 'declaration', 'declarations')}…',
+        'Checking references for ${plural(ungated.length, 'declaration', 'declarations')}…',
       );
       final fetched = await _fetch.references(
         client,
-        collected,
+        ungated,
         totalFiles: files.length,
         rootPath: rootPath,
       );
-      var candidates = fetched.checked;
-      var refsByCandidate = fetched.refs;
-      declarationsChecked = candidates.length;
+      final candidates = fetched.checked;
+      final refsByCandidate = fetched.refs;
       await _fetch.semanticTokensFor(client, refsByCandidate);
-      if (_collector.publicApi case final api?) {
+      if (api != null && gated.isNotEmpty) {
         final leaks = await TypeLeaks.find(
           client: client,
           sources: _sources,
@@ -189,13 +198,21 @@ class Ciach {
           candidates: candidates,
           refs: refsByCandidate,
         );
-        final kept = [
-          for (var i = 0; i < candidates.length; i++)
-            if (!leaks.reaches(candidates[i])) i,
-        ];
-        candidates = [for (final i in kept) candidates[i]];
-        refsByCandidate = [for (final i in kept) refsByCandidate[i]];
+        final sealed = gated.whereNot(leaks.reaches).toList();
+        _log.info(
+          'Checking references for ${plural(sealed.length, 'member', 'members')} of unexported types…',
+        );
+        final members = await _fetch.references(
+          client,
+          sealed,
+          totalFiles: sealed.map((c) => c.path).toSet().length,
+          rootPath: rootPath,
+        );
+        await _fetch.semanticTokensFor(client, members.refs);
+        candidates.addAll(members.checked);
+        refsByCandidate.addAll(members.refs);
       }
+      declarationsChecked = candidates.length;
       await _fetch.selectionRanges(client, candidates, refsByCandidate);
 
       // Phase 3: settle the verdicts; with `transitive`, in rounds.
