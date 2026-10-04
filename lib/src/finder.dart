@@ -18,6 +18,7 @@ import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/member_probe.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/plural.dart';
@@ -200,12 +201,24 @@ class Ciach {
         );
         final sealed = gated.whereNot(leaks.reaches).toList();
         _log.info(
-          'Checking references for ${plural(sealed.length, 'member', 'members')} of unexported types…',
+          'Looking up uses of ${plural(sealed.length, 'member', 'members')} of unexported types…',
+        );
+        final probed = await probeMembers(
+          client: client,
+          sources: _sources,
+          leaks: leaks,
+          members: sealed,
+          concurrency: options.concurrency,
+        );
+        candidates.addAll(probed.used);
+        refsByCandidate.addAll(probed.refs);
+        _log.info(
+          'Checking references for ${plural(probed.rest.length, 'member', 'members')} no lookup found used…',
         );
         final members = await _fetch.references(
           client,
-          sealed,
-          totalFiles: sealed.map((c) => c.path).toSet().length,
+          probed.rest,
+          totalFiles: probed.rest.map((c) => c.path).toSet().length,
           rootPath: rootPath,
         );
         await _fetch.semanticTokensFor(client, members.refs);

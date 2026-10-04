@@ -8,6 +8,7 @@ import 'package:ciach/src/public_api.dart';
 import 'package:ciach/src/reference_kinds.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
+import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location, Position, Range;
 
 /// Unexported types another package may still hold an instance of.
@@ -17,7 +18,7 @@ import 'package:pro_lsp/pro_lsp.dart' show Location, Position, Range;
 /// mention inside another type counts only if that type leaks too. An
 /// omitted return type is `dynamic`, so a body never leaks a type.
 final class TypeLeaks {
-  TypeLeaks._(this._sealed);
+  TypeLeaks._(this._sealed, this._filesOf);
 
   static Future<TypeLeaks> find({
     required LspClient client,
@@ -92,14 +93,39 @@ final class TypeLeaks {
         }
       }
     }
-    return ._({
-      for (final key in types.keys)
-        if (!leaking.contains(key)) key,
-    });
+    final sealed = types.keys.whereNot(leaking.contains).toSet();
+    final filesOf = <DeclKey, Set<String>>{};
+    for (final key in sealed) {
+      final files = filesOf[key] = {};
+      final seen = {key};
+      final pending = [key];
+      while (pending.isNotEmpty) {
+        final type = pending.removeLast();
+        files.add(type.path);
+        for (final loc in refs[types[type]!]) {
+          files.add(SourceIndex.pathOf(loc.uri));
+        }
+        for (final carrier in carriersOf[type]!) {
+          if (carrier.key case final next? when types.containsKey(next)) {
+            if (seen.add(next)) {
+              pending.add(next);
+            }
+          }
+        }
+      }
+    }
+    return ._(sealed, filesOf);
   }
 
   /// Types whose references were read and none of which leaks.
   final Set<DeclKey> _sealed;
+
+  /// For each sealed type, the files its instances can reach: those naming it
+  /// or a type that carries it.
+  final Map<DeclKey, Set<String>> _filesOf;
+
+  /// The files where [member] of a sealed type can be used.
+  Set<String> filesFor(Candidate member) => _filesOf[member.containerKey]!;
 
   /// Whether another package may reach [member] of a type through an
   /// instance. Members of extensions are reached only by importing them.
