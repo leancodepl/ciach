@@ -24,7 +24,7 @@ String stripComments(String content) {
   var i = 0;
   while (i < n) {
     final start = i;
-    if (_stringLiteralEnd(content, i) case final end?) {
+    if (stringLiteralEnd(content, i) case final end?) {
       out.write(content.substring(start, end));
       i = end;
       continue;
@@ -75,7 +75,9 @@ int _skipBlockComment(String content, int from) {
 
 bool _isQuote(String c) => c == "'" || c == '"';
 
-int? _stringLiteralEnd(String content, int i) => switch (content[i]) {
+/// The index just past the string literal starting at [i], or `null` when
+/// none starts there.
+int? stringLiteralEnd(String content, int i) => switch (content[i]) {
   final c when _isQuote(c) => _skipString(content, i, raw: false),
   'r' when i + 1 < content.length && _isQuote(content[i + 1]) => _skipString(
     content,

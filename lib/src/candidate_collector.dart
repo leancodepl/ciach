@@ -31,7 +31,7 @@ final class CandidateCollector {
     required FreezedUnions freezed,
   }) : _sources = sources,
        _freezed = freezed,
-       _publicApi = options.includeExported ? null : _scanPublicApi(options);
+       publicApi = options.includeExported ? null : _scanPublicApi(options);
 
   final FinderOptions options;
   final SourceIndex _sources;
@@ -39,7 +39,8 @@ final class CandidateCollector {
   /// Freezed-union tracking, fed as candidates are collected.
   final FreezedUnions _freezed;
 
-  final PublicApi? _publicApi;
+  /// What other packages can import, when exported declarations are left out.
+  final PublicApi? publicApi;
 
   late final _entryPoints = EntryPoints(options.entryPoints);
 
@@ -102,11 +103,6 @@ final class CandidateCollector {
     );
     return api;
   }
-
-  // An instance of any type can leak through an inferred public signature.
-  static bool _reachableFromOutside(Candidate candidate, PublicApi api) =>
-      (candidate.container != null && !candidate.isExtensionMember) ||
-      api.exposes(candidate.path, candidate.container ?? candidate.symbol.name);
 
   /// One line per skipped entry point, except the ubiquitous `main`.
   void reportSkipped() {
@@ -258,8 +254,8 @@ final class CandidateCollector {
     }
     if (!isPrivateName(symbol.name) &&
         (!options.includePublic ||
-            (_publicApi != null &&
-                _reachableFromOutside(candidate, _publicApi)))) {
+            (publicApi?.exposes(candidate.path, container ?? symbol.name) ??
+                false))) {
       return false;
     }
     if (options.skipOperators && symbol.isOperator) {

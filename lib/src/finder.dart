@@ -26,6 +26,7 @@ import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/reference_fetch.dart';
 import 'package:ciach/src/settler.dart';
 import 'package:ciach/src/source_index.dart';
+import 'package:ciach/src/type_leaks.dart';
 import 'package:ciach/src/verdict.dart';
 
 final _log = Logger('ciach.finder');
@@ -176,10 +177,25 @@ class Ciach {
         totalFiles: files.length,
         rootPath: rootPath,
       );
-      final candidates = fetched.checked;
-      final refsByCandidate = fetched.refs;
+      var candidates = fetched.checked;
+      var refsByCandidate = fetched.refs;
       declarationsChecked = candidates.length;
       await _fetch.semanticTokensFor(client, refsByCandidate);
+      if (_collector.publicApi case final api?) {
+        final leaks = await TypeLeaks.find(
+          client: client,
+          sources: _sources,
+          api: api,
+          candidates: candidates,
+          refs: refsByCandidate,
+        );
+        final kept = [
+          for (var i = 0; i < candidates.length; i++)
+            if (!leaks.reaches(candidates[i])) i,
+        ];
+        candidates = [for (final i in kept) candidates[i]];
+        refsByCandidate = [for (final i in kept) refsByCandidate[i]];
+      }
       await _fetch.selectionRanges(client, candidates, refsByCandidate);
 
       // Phase 3: settle the verdicts; with `transitive`, in rounds.

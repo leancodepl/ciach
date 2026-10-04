@@ -201,6 +201,7 @@ void cliHelper() {}
 
     expect(await unused(includeExported: false), {
       'Internal',
+      'Internal.internalMember',
       'InternalExtension.extensionMember',
       '_PrivateExtension.privateExtensionMember',
       'notExported',
