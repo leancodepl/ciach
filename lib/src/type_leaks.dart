@@ -5,6 +5,7 @@ import 'package:ciach/src/comment_stripping.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/public_api.dart';
+import 'package:ciach/src/reachability.dart';
 import 'package:ciach/src/reference_kinds.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
@@ -73,23 +74,20 @@ final class TypeLeaks {
       }
     }
 
-    final carriedBy = <DeclKey, List<DeclKey>>{};
-    for (final MapEntry(:key, value: carriers) in carriersOf.entries) {
-      for (final carrier in carriers) {
-        (carriedBy[carrier] ??= []).add(key);
-      }
-    }
-    for (final pending = leaking.toList(); pending.isNotEmpty;) {
-      for (final carried
-          in carriedBy[pending.removeLast()] ?? const <DeclKey>[]) {
-        if (leaking.add(carried)) {
-          pending.add(carried);
-        }
-      }
-    }
+    final keys = types.keys.toList();
+    final indexOf = {for (final (i, key) in keys.indexed) key: i};
+    final sealed = unreached(
+      {for (var i = 0; i < keys.length; i++) i},
+      [
+        for (final key in leaking) (target: indexOf[key]!, enclosers: const []),
+        for (final MapEntry(:key, value: carriers) in carriersOf.entries)
+          for (final carrier in carriers)
+            (target: indexOf[key]!, enclosers: [indexOf[carrier]!]),
+      ],
+    ).map((i) => keys[i]);
 
     final filesOf = <DeclKey, Set<String>>{};
-    for (final key in types.keys.whereNot(leaking.contains)) {
+    for (final key in sealed) {
       final files = filesOf[key] = {};
       final seen = {key};
       for (final pending = [key]; pending.isNotEmpty;) {
