@@ -23,6 +23,7 @@ import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/problems.dart';
+import 'package:ciach/src/public_api.dart';
 import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/reference_fetch.dart';
 import 'package:ciach/src/settler.dart';
@@ -30,6 +31,7 @@ import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/type_leaks.dart';
 import 'package:ciach/src/verdict.dart';
 import 'package:collection/collection.dart';
+import 'package:pro_lsp/pro_lsp.dart' show Location;
 
 final _log = Logger('ciach.finder');
 
@@ -67,10 +69,16 @@ class Ciach {
     unusedUnionMembers: options.unusedUnionMembers,
   );
 
+  /// What other packages can import, when exported declarations are left out.
+  late final PublicApi? _publicApi = options.includeExported
+      ? null
+      : _scanPublicApi();
+
   late final _collector = CandidateCollector(
     options: options,
     sources: _sources,
     freezed: _freezed,
+    publicApi: _publicApi,
   );
 
   late final _fetch = ReferenceFetch(options: options, sources: _sources);
@@ -170,61 +178,12 @@ class Ciach {
 
       // Phase 2: check references for every candidate through a single global
       // pool, so the server stays saturated instead of stalling between files.
-      // Members of an unexported type wait until the types' references show
-      // which ones another package can reach.
-      final api = _collector.publicApi;
-      final gated = api == null
-          ? const <Candidate>[]
-          : collected.where(TypeLeaks.isGated).toList();
-      final ungated = api == null
-          ? collected
-          : collected.whereNot(TypeLeaks.isGated).toList();
-      _log.info(
-        'Checking references for ${plural(ungated.length, 'declaration', 'declarations')}…',
-      );
-      final fetched = await _fetch.references(
+      final (:candidates, :refsByCandidate) = await _references(
         client,
-        ungated,
+        collected,
         totalFiles: files.length,
         rootPath: rootPath,
       );
-      final candidates = fetched.checked;
-      final refsByCandidate = fetched.refs;
-      await _fetch.semanticTokensFor(client, refsByCandidate);
-      if (api != null && gated.isNotEmpty) {
-        final leaks = await TypeLeaks.find(
-          client: client,
-          sources: _sources,
-          api: api,
-          candidates: candidates,
-          refs: refsByCandidate,
-        );
-        final sealed = gated.whereNot(leaks.reaches).toList();
-        _log.info(
-          'Looking up uses of ${plural(sealed.length, 'member', 'members')} of unexported types…',
-        );
-        final probed = await probeMembers(
-          client: client,
-          sources: _sources,
-          leaks: leaks,
-          members: sealed,
-          concurrency: options.concurrency,
-        );
-        candidates.addAll(probed.used);
-        refsByCandidate.addAll(probed.refs);
-        _log.info(
-          'Checking references for ${plural(probed.rest.length, 'member', 'members')} no lookup found used…',
-        );
-        final members = await _fetch.references(
-          client,
-          probed.rest,
-          totalFiles: probed.rest.map((c) => c.path).toSet().length,
-          rootPath: rootPath,
-        );
-        await _fetch.semanticTokensFor(client, members.refs);
-        candidates.addAll(members.checked);
-        refsByCandidate.addAll(members.refs);
-      }
       declarationsChecked = candidates.length;
       await _fetch.selectionRanges(client, candidates, refsByCandidate);
 
@@ -251,6 +210,77 @@ class Ciach {
       recoveredReferences: settled.recovered,
       problems: problems.problems,
     );
+  }
+
+  /// The references of [collected], less the candidates left unchecked.
+  ///
+  /// Members of an unexported type wait until the types' references show
+  /// which ones another package can reach; the rest are settled by
+  /// [probeMembers] first.
+  Future<({List<Candidate> candidates, List<List<Location>> refsByCandidate})>
+  _references(
+    LspClient client,
+    List<Candidate> collected, {
+    required int totalFiles,
+    required String rootPath,
+  }) async {
+    final api = _publicApi;
+    final gated = api == null
+        ? const <Candidate>{}
+        : collected.where(TypeLeaks.isGated).toSet();
+    final candidates = <Candidate>[];
+    final refsByCandidate = <List<Location>>[];
+    Future<void> fetch(List<Candidate> batch, int files) async {
+      _log.info(
+        'Checking references for ${plural(batch.length, 'declaration', 'declarations')}…',
+      );
+      final fetched = await _fetch.references(
+        client,
+        batch,
+        totalFiles: files,
+        rootPath: rootPath,
+      );
+      await _fetch.semanticTokensFor(client, fetched.refs);
+      candidates.addAll(fetched.checked);
+      refsByCandidate.addAll(fetched.refs);
+    }
+
+    await fetch(collected.whereNot(gated.contains).toList(), totalFiles);
+    if (api == null || gated.isEmpty) {
+      return (candidates: candidates, refsByCandidate: refsByCandidate);
+    }
+    final leaks = await TypeLeaks.find(
+      client: client,
+      sources: _sources,
+      api: api,
+      candidates: candidates,
+      refs: refsByCandidate,
+    );
+    final sealed = gated.where(leaks.isSealed).toList();
+    _log.info(
+      'Looking up uses of ${plural(sealed.length, 'member', 'members')} of unexported types…',
+    );
+    final probed = await probeMembers(
+      client: client,
+      sources: _sources,
+      leaks: leaks,
+      members: sealed,
+      concurrency: options.concurrency,
+    );
+    candidates.addAll(probed.used);
+    refsByCandidate.addAll(probed.refs);
+    await fetch(probed.rest, probed.rest.map((c) => c.path).toSet().length);
+    return (candidates: candidates, refsByCandidate: refsByCandidate);
+  }
+
+  PublicApi _scanPublicApi() {
+    final api = PublicApi.scan(options.rootPath);
+    _log.config(
+      'Leaving out the public API of '
+      '${plural(api.libraryCount, 'library', 'libraries')} other packages can '
+      'import.',
+    );
+    return api;
   }
 
   /// Opens [path] in the server. `false` if the file cannot be read.

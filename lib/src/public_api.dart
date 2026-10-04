@@ -8,7 +8,7 @@ import 'package:path/path.dart' as p;
 
 /// Declarations importable by other packages, read from directives only.
 final class PublicApi {
-  PublicApi._(this._rootPath, this._libDirs, this._libraryOf, this._visible);
+  PublicApi._(this._rootPath, this._inLib, this._libraryOf, this._visible);
 
   factory PublicApi.scan(String rootPath) {
     final tree = scanPackageTree(rootPath);
@@ -80,11 +80,11 @@ final class PublicApi {
         }
       }
     }
-    return ._(rootPath, tree.libDirs, libraryOf, visible);
+    return ._(rootPath, libDirOf.keys.toSet(), libraryOf, visible);
   }
 
   final String _rootPath;
-  final Set<String> _libDirs;
+  final Set<String> _inLib;
   final Map<String, String> _libraryOf;
   final Map<String, Set<_Combinator>> _visible;
 
@@ -92,21 +92,8 @@ final class PublicApi {
 
   /// Whether another package could import the file at [path]: one under a
   /// package's `lib/`, or anywhere outside the scanned root.
-  bool isImportable(String path) {
-    if (!p.isWithin(_rootPath, path)) {
-      return true;
-    }
-    for (
-      var dir = p.dirname(path);
-      p.isWithin(_rootPath, dir);
-      dir = p.dirname(dir)
-    ) {
-      if (_libDirs.contains(dir)) {
-        return true;
-      }
-    }
-    return false;
-  }
+  bool isImportable(String path) =>
+      !p.isWithin(_rootPath, path) || _inLib.contains(path);
 
   bool exposes(String path, String name) =>
       !isPrivateName(name) &&

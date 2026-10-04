@@ -129,6 +129,10 @@ extension SymbolChecks on DocumentSymbol {
 }
 
 extension RangeConversion on Range {
+  /// Whether [position] lies within this range, both ends included.
+  bool contains(Position position) =>
+      start.atOrBefore(position) && position.atOrBefore(end);
+
   /// This range as a [DeclarationRange].
   DeclarationRange get toDeclarationRange => (
     startLine: start.line,

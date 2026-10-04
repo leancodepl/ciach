@@ -9,7 +9,6 @@ import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
-import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/problems.dart';
 import 'package:ciach/src/public_api.dart';
 import 'package:ciach/src/reference_fetch.dart';
@@ -29,9 +28,10 @@ final class CandidateCollector {
     required this.options,
     required SourceIndex sources,
     required FreezedUnions freezed,
+    PublicApi? publicApi,
   }) : _sources = sources,
        _freezed = freezed,
-       publicApi = options.includeExported ? null : _scanPublicApi(options);
+       _publicApi = publicApi;
 
   final FinderOptions options;
   final SourceIndex _sources;
@@ -40,7 +40,7 @@ final class CandidateCollector {
   final FreezedUnions _freezed;
 
   /// What other packages can import, when exported declarations are left out.
-  final PublicApi? publicApi;
+  final PublicApi? _publicApi;
 
   late final _entryPoints = EntryPoints(options.entryPoints);
 
@@ -92,16 +92,6 @@ final class CandidateCollector {
       _OutlineIndex(outline),
     ).toList();
     return _withoutEntryPointContainers(candidates, relativePath).toList();
-  }
-
-  static PublicApi _scanPublicApi(FinderOptions options) {
-    final api = PublicApi.scan(options.rootPath);
-    _log.config(
-      'Leaving out the public API of '
-      '${plural(api.libraryCount, 'library', 'libraries')} other packages can '
-      'import.',
-    );
-    return api;
   }
 
   /// One line per skipped entry point, except the ubiquitous `main`.
@@ -254,7 +244,7 @@ final class CandidateCollector {
     }
     if (!isPrivateName(symbol.name) &&
         (!options.includePublic ||
-            (publicApi?.exposes(candidate.path, container ?? symbol.name) ??
+            (_publicApi?.exposes(candidate.path, container ?? symbol.name) ??
                 false))) {
       return false;
     }

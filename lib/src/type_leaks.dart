@@ -9,7 +9,7 @@ import 'package:ciach/src/reference_kinds.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location, Position, Range;
+import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
 /// Unexported types another package may still hold an instance of.
 ///
@@ -18,7 +18,7 @@ import 'package:pro_lsp/pro_lsp.dart' show Location, Position, Range;
 /// mention inside another type counts only if that type leaks too. An
 /// omitted return type is `dynamic`, so a body never leaks a type.
 final class TypeLeaks {
-  TypeLeaks._(this._sealed, this._filesOf);
+  TypeLeaks._(this._filesOf);
 
   static Future<TypeLeaks> find({
     required LspClient client,
@@ -27,112 +27,94 @@ final class TypeLeaks {
     required List<Candidate> candidates,
     required List<List<Location>> refs,
   }) async {
-    final types = <DeclKey, int>{
-      for (var i = 0; i < candidates.length; i++)
-        if (_isType(candidates[i])) candidates[i].key: i,
+    final types = <DeclKey, (Candidate, List<Location>)>{
+      for (final (i, candidate) in candidates.indexed)
+        if (_isType(candidate)) candidate.key: (candidate, refs[i]),
     };
-    final outlines = <String, Outline?>{};
-    Future<Outline?> outlineOf(String path) async {
-      if (outlines.containsKey(path)) {
-        return outlines[path];
-      }
-      Outline? outline;
-      if (sources.scannedPaths.contains(path)) {
+    final paths = {
+      for (final (_, typeRefs) in types.values)
+        for (final loc in typeRefs) SourceIndex.pathOf(loc.uri),
+    }.where(sources.scannedPaths.contains);
+    final outlines = <String, Outline>{};
+    await Future.wait(
+      paths.map((path) async {
         try {
-          outline = await client.outline(File(path).uri);
+          outlines[path] = await client.outline(File(path).uri);
         } on LspRequestException {
-          outline = null;
+          // A file without an outline reads as leaking every type it names.
         }
-      }
-      return outlines[path] = outline;
-    }
+      }),
+    );
 
-    final code = <String, String>{};
-    final carriersOf = <DeclKey, Set<_Carrier>>{};
-    for (final MapEntry(:key, value: i) in types.entries) {
-      final type = candidates[i];
+    // Each type's carriers: the types whose leak would leak it.
+    final carriersOf = <DeclKey, Set<DeclKey>>{};
+    final leaking = <DeclKey>{};
+    for (final MapEntry(:key, value: (type, typeRefs)) in types.entries) {
       final carriers = carriersOf[key] = {};
-      for (final loc in refs[i]) {
+      if (api.exposes(key.path, key.name)) {
+        leaking.add(key);
+      }
+      for (final loc in typeRefs) {
         final path = SourceIndex.pathOf(loc.uri);
         final pos = loc.range.start;
         if (!api.isImportable(path) ||
-            (path == type.path && _contains(type.outline.range, pos)) ||
+            (path == type.path && type.outline.range.contains(pos)) ||
             sources.isDocReference(loc)) {
           continue;
         }
-        final unit = await outlineOf(path);
-        if (unit == null) {
-          carriers.add(const _Carrier.root());
-          continue;
-        }
-        final content = code[path] ??= stripComments(sources.content(path));
-        if (_carrierAt(unit, path, pos, sources, content) case final carrier?) {
-          carriers.add(carrier);
+        switch (_carrierAt(outlines[path], path, pos, sources, api)) {
+          case _Type(key: final carrier) when types.containsKey(carrier):
+            carriers.add(carrier);
+          case _Root() || _Type():
+            leaking.add(key);
+          case null:
+            break;
         }
       }
     }
 
-    final leaking = <DeclKey>{
-      for (final key in types.keys)
-        if (api.exposes(key.path, key.name) ||
-            carriersOf[key]!.any((c) => c.isRoot))
-          key,
-    };
-    bool leaks(_Carrier carrier) =>
-        carrier.isRoot ||
-        switch (carrier.extension) {
-          true => api.exposes(carrier.key!.path, carrier.key!.name),
-          false =>
-            !types.containsKey(carrier.key) || leaking.contains(carrier.key),
-        };
-    for (var grew = true; grew;) {
-      grew = false;
-      for (final key in types.keys) {
-        if (!leaking.contains(key) && carriersOf[key]!.any(leaks)) {
-          grew = leaking.add(key) || grew;
+    final carriedBy = <DeclKey, List<DeclKey>>{};
+    for (final MapEntry(:key, value: carriers) in carriersOf.entries) {
+      for (final carrier in carriers) {
+        (carriedBy[carrier] ??= []).add(key);
+      }
+    }
+    for (final pending = leaking.toList(); pending.isNotEmpty;) {
+      for (final carried
+          in carriedBy[pending.removeLast()] ?? const <DeclKey>[]) {
+        if (leaking.add(carried)) {
+          pending.add(carried);
         }
       }
     }
-    final sealed = types.keys.whereNot(leaking.contains).toSet();
+
     final filesOf = <DeclKey, Set<String>>{};
-    for (final key in sealed) {
+    for (final key in types.keys.whereNot(leaking.contains)) {
       final files = filesOf[key] = {};
       final seen = {key};
-      final pending = [key];
-      while (pending.isNotEmpty) {
+      for (final pending = [key]; pending.isNotEmpty;) {
         final type = pending.removeLast();
-        files.add(type.path);
-        for (final loc in refs[types[type]!]) {
-          files.add(SourceIndex.pathOf(loc.uri));
-        }
-        for (final carrier in carriersOf[type]!) {
-          if (carrier.key case final next? when types.containsKey(next)) {
-            if (seen.add(next)) {
-              pending.add(next);
-            }
-          }
-        }
+        files
+          ..add(type.path)
+          ..addAll(types[type]!.$2.map((loc) => SourceIndex.pathOf(loc.uri)));
+        pending.addAll(carriersOf[type]!.where(seen.add));
       }
     }
-    return ._(sealed, filesOf);
+    return ._(filesOf);
   }
-
-  /// Types whose references were read and none of which leaks.
-  final Set<DeclKey> _sealed;
 
   /// For each sealed type, the files its instances can reach: those naming it
   /// or a type that carries it.
   final Map<DeclKey, Set<String>> _filesOf;
 
+  /// Whether no other package can hold an instance of [member]'s type.
+  bool isSealed(Candidate member) => _filesOf.containsKey(member.containerKey);
+
   /// The files where [member] of a sealed type can be used.
   Set<String> filesFor(Candidate member) => _filesOf[member.containerKey]!;
 
-  /// Whether another package may reach [member] of a type through an
-  /// instance. Members of extensions are reached only by importing them.
-  bool reaches(Candidate member) =>
-      isGated(member) && !_sealed.contains(member.containerKey);
-
-  /// Whether [member] is reachable only if its type leaks.
+  /// Whether [member] is reachable only if its type leaks. Members of
+  /// extensions are reached only by importing them.
   static bool isGated(Candidate member) =>
       member.container != null &&
       member.containerOutline?.element.kind != .extension &&
@@ -140,44 +122,44 @@ final class TypeLeaks {
 
   static bool _isType(Candidate candidate) =>
       candidate.container == null &&
-      (typeLikeKinds.contains(candidate.symbol.kind) &&
-          !candidate.isExtension &&
-          !candidate.isEnumValue);
+      typeLikeKinds.contains(candidate.symbol.kind) &&
+      !candidate.isExtension;
 
-  static bool _contains(Range range, Position pos) =>
-      range.start.atOrBefore(pos) && pos.atOrBefore(range.end);
-
-  /// What the reference at [pos] hands out, or `null` when it sits in a body
-  /// or a directive.
+  /// What the reference at [pos] hands its type to, or `null` when it sits in
+  /// a body, a directive or an extension no other package can import.
   static _Carrier? _carrierAt(
-    Outline unit,
+    Outline? unit,
     String path,
     Position pos,
     SourceIndex sources,
-    String content,
+    PublicApi api,
   ) {
-    final top = unit.children.where((n) => _contains(n.range, pos)).firstOrNull;
+    if (unit == null) {
+      return const _Root();
+    }
+    final top = _childAt(unit, pos);
     if (top == null) {
       return null;
     }
     final kind = top.element.kind;
     if (kind case .class$ || .mixin || .enum$ || .extension || .extensionType) {
-      final member = top.children
-          .where((n) => _contains(n.range, pos))
-          .firstOrNull;
-      if (member != null && _inBody(member, path, pos, sources, content)) {
+      final member = _childAt(top, pos);
+      if (member != null && _inBody(member, path, pos, sources)) {
         return null;
       }
-      if (kind == .extension && top.element.isUnnamedExtension) {
-        return null;
+      if (kind != .extension) {
+        return _Type(DeclKey(path, top.element.name));
       }
-      return .of(
-        DeclKey(path, top.element.name),
-        extension: kind == .extension,
-      );
+      return !top.element.isUnnamedExtension &&
+              api.exposes(path, top.element.name)
+          ? const _Root()
+          : null;
     }
-    return _inBody(top, path, pos, sources, content) ? null : const .root();
+    return _inBody(top, path, pos, sources) ? null : const _Root();
   }
+
+  static Outline? _childAt(Outline parent, Position pos) =>
+      parent.children.firstWhereOrNull((child) => child.range.contains(pos));
 
   /// Whether [pos] lies in the body of the function-like [node].
   static bool _inBody(
@@ -185,7 +167,6 @@ final class TypeLeaks {
     String path,
     Position pos,
     SourceIndex sources,
-    String content,
   ) {
     if (node.element.kind
         case .field ||
@@ -204,7 +185,7 @@ final class TypeLeaks {
     if (from == null || to == null || at == null) {
       return false;
     }
-    final body = _bodyStart(content, from, to);
+    final body = _bodyStart(sources.code(path), from, to);
     return body != null && at >= body;
   }
 
@@ -234,22 +215,18 @@ final class TypeLeaks {
   }
 }
 
-/// Where a mention of a type escapes to: a type or extension that leaks it
-/// only if it leaks itself, or the root, which always does.
-final class _Carrier {
-  const _Carrier.root() : key = null, extension = false;
+/// Where a mention hands its type: everywhere, or to a type that leaks it
+/// only if it leaks itself.
+sealed class _Carrier {
+  const _Carrier();
+}
 
-  const _Carrier.of(DeclKey this.key, {required this.extension});
+final class _Root extends _Carrier {
+  const _Root();
+}
 
-  final DeclKey? key;
-  final bool extension;
+final class _Type extends _Carrier {
+  const _Type(this.key);
 
-  bool get isRoot => key == null;
-
-  @override
-  bool operator ==(Object other) =>
-      other is _Carrier && other.key == key && other.extension == extension;
-
-  @override
-  int get hashCode => Object.hash(key, extension);
+  final DeclKey key;
 }

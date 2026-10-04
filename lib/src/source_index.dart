@@ -10,8 +10,10 @@
 
 import 'dart:io';
 
+import 'package:ciach/src/comment_stripping.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
+import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position, SelectionRange;
 
 /// Per-file view of the source under analysis: its lines, content and line
@@ -22,6 +24,7 @@ class SourceIndex {
   final _semanticTokens = <String, List<SemanticToken>>{};
   final _selectionRanges = <String, Map<(int, int), SelectionRange>>{};
   final _content = <String, String>{};
+  final _code = <String, String>{};
   final _lineStarts = <String, List<int>>{};
   final _scanned = <String>{};
 
@@ -85,6 +88,9 @@ class SourceIndex {
   /// the document content the analysis server resolved positions against.
   String content(String path) => _content[path] ??= lines(path).join('\n');
 
+  /// [content] with comments blanked, offsets preserved.
+  String code(String path) => _code[path] ??= stripComments(content(path));
+
   List<int> lineStarts(String path) =>
       _lineStarts[path] ??= _computeLineStarts(content(path));
 
@@ -101,6 +107,13 @@ class SourceIndex {
       return null;
     }
     return offset;
+  }
+
+  /// The LSP position of [offset] in [path]'s content.
+  Position positionOf(String path, int offset) {
+    final starts = lineStarts(path);
+    final line = lowerBound(starts, offset + 1) - 1;
+    return Position(line: line, character: offset - starts[line]);
   }
 
   /// The start offset of each line in [content].
