@@ -24,11 +24,11 @@ import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/problems.dart';
 import 'package:ciach/src/public_api.dart';
+import 'package:ciach/src/reachable_types.dart';
 import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/reference_fetch.dart';
 import 'package:ciach/src/settler.dart';
 import 'package:ciach/src/source_index.dart';
-import 'package:ciach/src/type_leaks.dart';
 import 'package:ciach/src/verdict.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location;
@@ -227,7 +227,7 @@ class Ciach {
     final api = _publicApi;
     final gated = api == null
         ? const <Candidate>{}
-        : collected.where(TypeLeaks.isGated).toSet();
+        : collected.where(ReachableTypes.isGated).toSet();
     final candidates = <Candidate>[];
     final refsByCandidate = <List<Location>>[];
     Future<void> fetch(List<Candidate> batch, int files) async {
@@ -249,22 +249,22 @@ class Ciach {
     if (api == null || gated.isEmpty) {
       return (candidates: candidates, refsByCandidate: refsByCandidate);
     }
-    final leaks = await TypeLeaks.find(
+    final types = await ReachableTypes.find(
       client: client,
       sources: _sources,
       api: api,
       candidates: candidates,
       refs: refsByCandidate,
     );
-    final sealed = gated.where(leaks.isSealed).toList();
+    final internal = gated.where(types.isInternal).toList();
     _log.info(
-      'Looking up uses of ${plural(sealed.length, 'member', 'members')} of unexported types…',
+      'Looking up uses of ${plural(internal.length, 'member', 'members')} of unexported types…',
     );
     final probed = await probeMembers(
       client: client,
       sources: _sources,
-      leaks: leaks,
-      members: sealed,
+      types: types,
+      members: internal,
       concurrency: options.concurrency,
     );
     candidates.addAll(probed.used);

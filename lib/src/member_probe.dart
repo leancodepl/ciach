@@ -3,12 +3,12 @@ import 'dart:io';
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/concurrency.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/reachable_types.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
-import 'package:ciach/src/type_leaks.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location, Range;
 
-/// Members of sealed types found used by a `textDocument/definition` lookup at
+/// Members of internal types found used by a `textDocument/definition` lookup at
 /// a spelling of their name in the files their type reaches, with the use as
 /// their one reference. A lookup on a resolved file is far cheaper than a
 /// reference search, which the rest still get, so no finding rests on a
@@ -19,7 +19,7 @@ Future<
 probeMembers({
   required LspClient client,
   required SourceIndex sources,
-  required TypeLeaks leaks,
+  required ReachableTypes types,
   required List<Candidate> members,
   required int concurrency,
 }) async {
@@ -40,7 +40,7 @@ probeMembers({
   final sitesOf = {
     for (final member in members)
       member: [
-        for (final path in leaks.filesFor(member))
+        for (final path in types.filesFor(member))
           for (final site in sitesIn(path, _spelling(member)))
             if (path != member.path ||
                 !member.outline.range.contains(site.range.start))

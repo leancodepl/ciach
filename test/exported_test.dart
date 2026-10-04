@@ -16,7 +16,7 @@ void main() {
     ..writeAsStringSync(contents);
 
   setUpAll(() {
-    root = .systemTemp.createTempSync('ciach_type_leaks_');
+    root = .systemTemp.createTempSync('ciach_exported_');
     write('pubspec.yaml', 'name: leaks\nenvironment:\n  sdk: ^3.10.0\n');
     write(
       '.dart_tool/package_config.json',

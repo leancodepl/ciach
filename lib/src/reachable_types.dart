@@ -14,14 +14,15 @@ import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
 /// Unexported types another package may still hold an instance of.
 ///
-/// A type leaks when it is named outside a function body in an importable
-/// file: in a signature, a field initializer, a supertype or a typedef. A
-/// mention inside another type counts only if that type leaks too. An
-/// omitted return type is `dynamic`, so a body never leaks a type.
-final class TypeLeaks {
-  TypeLeaks._(this._filesOf);
+/// A type is reachable when it is named outside a function body in an
+/// importable file: in a signature, a field initializer, a supertype or a
+/// typedef. A mention inside another type counts only if that type is
+/// reachable too. An omitted return type is `dynamic`, so a body never hands
+/// a type out.
+final class ReachableTypes {
+  ReachableTypes._(this._filesOf);
 
-  static Future<TypeLeaks> find({
+  static Future<ReachableTypes> find({
     required LspClient client,
     required SourceIndex sources,
     required PublicApi api,
@@ -42,18 +43,18 @@ final class TypeLeaks {
         try {
           outlines[path] = await client.outline(File(path).uri);
         } on LspRequestException {
-          // A file without an outline reads as leaking every type it names.
+          // A file without an outline hands out every type it names.
         }
       }),
     );
 
-    // Each type's carriers: the types whose leak would leak it.
+    // Each type's carriers: the types that hand it out if they are reachable.
     final carriersOf = <DeclKey, Set<DeclKey>>{};
-    final leaking = <DeclKey>{};
+    final reachable = <DeclKey>{};
     for (final MapEntry(:key, value: (type, typeRefs)) in types.entries) {
       final carriers = carriersOf[key] = {};
       if (api.exposes(key.path, key.name)) {
-        leaking.add(key);
+        reachable.add(key);
       }
       for (final loc in typeRefs) {
         final path = SourceIndex.pathOf(loc.uri);
@@ -67,7 +68,7 @@ final class TypeLeaks {
           case final carrier? when types.containsKey(carrier):
             carriers.add(carrier);
           case _?:
-            leaking.add(key);
+            reachable.add(key);
           case null:
             break;
         }
@@ -76,10 +77,11 @@ final class TypeLeaks {
 
     final keys = types.keys.toList();
     final indexOf = {for (final (i, key) in keys.indexed) key: i};
-    final sealed = unreached(
+    final internal = unreached(
       {for (var i = 0; i < keys.length; i++) i},
       [
-        for (final key in leaking) (target: indexOf[key]!, enclosers: const []),
+        for (final key in reachable)
+          (target: indexOf[key]!, enclosers: const []),
         for (final MapEntry(:key, value: carriers) in carriersOf.entries)
           for (final carrier in carriers)
             (target: indexOf[key]!, enclosers: [indexOf[carrier]!]),
@@ -87,7 +89,7 @@ final class TypeLeaks {
     ).map((i) => keys[i]);
 
     final filesOf = {
-      for (final key in sealed)
+      for (final key in internal)
         key: {
           key.path,
           for (final loc in types[key]!.$2) SourceIndex.pathOf(loc.uri),
@@ -96,17 +98,18 @@ final class TypeLeaks {
     return ._(filesOf);
   }
 
-  /// For each sealed type, the files naming it, where its members are most
+  /// For each internal type, the files naming it, where its members are most
   /// likely used.
   final Map<DeclKey, Set<String>> _filesOf;
 
   /// Whether no other package can hold an instance of [member]'s type.
-  bool isSealed(Candidate member) => _filesOf.containsKey(member.containerKey);
+  bool isInternal(Candidate member) =>
+      _filesOf.containsKey(member.containerKey);
 
-  /// The files where [member] of a sealed type is most likely used.
+  /// The files where [member] of an internal type is most likely used.
   Set<String> filesFor(Candidate member) => _filesOf[member.containerKey]!;
 
-  /// Whether [member] is reachable only if its type leaks. Members of
+  /// Whether [member] is reachable only if its type is. Members of
   /// extensions are reached only by importing them.
   static bool isGated(Candidate member) =>
       member.container != null &&
@@ -209,5 +212,5 @@ final class TypeLeaks {
   }
 }
 
-/// A carrier no type matches, so whatever it carries leaks.
+/// A carrier no type matches, so whatever it carries is reachable.
 const _root = DeclKey('', '');
