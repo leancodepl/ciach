@@ -167,7 +167,7 @@ final class ReachableTypes {
     final kind = top.element.kind;
     if (kind case .class$ || .mixin || .enum$ || .extension || .extensionType) {
       final member = _childAt(top, pos);
-      if (member != null && _inBody(member, path, pos, sources)) {
+      if (member != null && _hidesIn(member, top, path, pos, sources)) {
         return null;
       }
       if (kind != .extension) {
@@ -178,20 +178,23 @@ final class ReachableTypes {
           ? _root
           : null;
     }
-    return _inBody(top, path, pos, sources) ? null : _root;
+    return _hidesIn(top, null, path, pos, sources) ? null : _root;
   }
 
   static Outline? _childAt(Outline parent, Position pos) =>
       parent.children.firstWhereOrNull((child) => child.range.contains(pos));
 
-  /// Whether [pos] lies in the body of the function-like [node].
-  static bool _inBody(
+  /// Whether a mention at [pos] in the function-like [node] stays inside it:
+  /// it sits in the body, and nothing the signature hands out is `dynamic`.
+  static bool _hidesIn(
     Outline node,
+    Outline? owner,
     String path,
     Position pos,
     SourceIndex sources,
   ) {
-    if (node.element.kind
+    final element = node.element;
+    if (element.kind
         case .field ||
             .topLevelVariable ||
             .enumConstant ||
@@ -199,8 +202,33 @@ final class ReachableTypes {
             .functionTypeAlias) {
       return false;
     }
-    // A body is the syntax node that ends the declaration and opens it.
     final code = sources.code(path);
+    final from = sources.offsetOf(path, node.codeRange.start);
+    final body = _bodyStart(node, path, pos, sources, code);
+    if (from == null || body == null) {
+      return false;
+    }
+    final returnsDynamic =
+        (element.kind == .function ||
+            element.kind == .method ||
+            element.kind == .getter) &&
+        ((element.returnType ?? '').isEmpty || element.returnType == 'dynamic');
+    return !returnsDynamic &&
+        !_dynamic.hasMatch(code.substring(from, body)) &&
+        (element.typeParameters ?? '').isEmpty &&
+        (owner?.element.typeParameters ?? '').isEmpty &&
+        !_hasUntypedParameter(element.parameters);
+  }
+
+  /// Where the body of [node] that holds [pos] starts: the syntax node that
+  /// ends the declaration and opens with `{`, `=>`, `async` or `sync`.
+  static int? _bodyStart(
+    Outline node,
+    String path,
+    Position pos,
+    SourceIndex sources,
+    String code,
+  ) {
     for (
       var range = sources.selectionRangeAt(path, pos);
       range != null && node.codeRange.contains(range.range.start);
@@ -211,12 +239,48 @@ final class ReachableTypes {
           range.range.end == node.codeRange.end &&
           range.range.start != node.codeRange.start &&
           _bodyOpener.matchAsPrefix(code, start) != null) {
-        return true;
+        return start;
       }
     }
-    return false;
+    return null;
+  }
+
+  /// Whether a parameter in [parameters], as written, has no type.
+  static bool _hasUntypedParameter(String? parameters) {
+    if (parameters == null) {
+      return false;
+    }
+    final parts = <String>[];
+    var depth = 0;
+    var part = StringBuffer();
+    for (final char
+        in parameters.substring(1, parameters.length - 1).split('')) {
+      if (char == ',' && depth == 0) {
+        parts.add(part.toString());
+        part = StringBuffer();
+        continue;
+      }
+      depth += switch (char) {
+        '(' || '<' => 1,
+        ')' || '>' => -1,
+        _ => 0,
+      };
+      part.write(char);
+    }
+    parts.add(part.toString());
+    return parts.any((part) {
+      final declared = part
+          .split('=')
+          .first
+          .replaceAll(RegExp(r'[{}\[\]]|\b(?:required|covariant|final)\b'), '')
+          .trim();
+      return RegExp(r'^[\w$]+$').hasMatch(declared);
+    });
   }
 }
+
+/// Types through which a caller can invoke any member.
+final _dynamic = RegExp(r'\b(?:dynamic|Function|var)\b');
 
 final _bodyOpener = RegExp(r'\{|=>|async\b|sync\b');
 

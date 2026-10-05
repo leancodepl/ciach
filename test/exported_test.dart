@@ -40,6 +40,11 @@ class Exported extends Base {}
 final inferred = Inferred();
 Carrier makeCarrier() => Carrier();
 Wrapper makeWrapper() => Wrapper(1);
+dynamic makeDynamic() => DynamicOnly();
+untypedReturn() => UntypedOnly();
+Function makeFunction() => () => FunctionOnly();
+void callBack(cb) => cb(CallbackArg());
+T makeGeneric<T>() => GenericOnly() as T;
 
 void _private() => 1.privateUsed();
 
@@ -58,6 +63,27 @@ void work() {
 class Client {
   Config get config => Config();
   void clientDead() {}
+  void _clientPrivateDead() {}
+}
+
+class DynamicOnly {
+  void dynamicDead() {}
+}
+
+class UntypedOnly {
+  void untypedDead() {}
+}
+
+class FunctionOnly {
+  void functionDead() {}
+}
+
+class CallbackArg {
+  void callbackArgDead() {}
+}
+
+class GenericOnly {
+  void genericOnlyDead() {}
 }
 
 class Config {
@@ -143,6 +169,7 @@ void main() => Helper().used();
   }
 
   const internal = {
+    'Client._clientPrivateDead',
     'DocOnly.docOnlyDead',
     'BodyOnly.bodyOnlyDead',
     'Hidden.hiddenDead',
@@ -166,6 +193,16 @@ void main() => Helper().used();
       'inferred',
       'makeCarrier',
       'makeWrapper',
+      'makeDynamic',
+      'untypedReturn',
+      'makeFunction',
+      'callBack',
+      'makeGeneric',
+      'DynamicOnly.dynamicDead',
+      'UntypedOnly.untypedDead',
+      'FunctionOnly.functionDead',
+      'CallbackArg.callbackArgDead',
+      'GenericOnly.genericOnlyDead',
       'work',
       'Client.config',
       'Client.clientDead',

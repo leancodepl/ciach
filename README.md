@@ -247,7 +247,8 @@ only:
 `--no-exported` skips what another package can reach: libraries under `lib/`
 outside `lib/src/`, what they export (`show`/`hide` respected), and
 the members of any type named outside a function body in an exported
-signature, field or supertype, even through other types. Assumes nobody
+signature, field or supertype, even through other types, or in the body of
+one whose signature is `dynamic`. Assumes nobody
 imports `package:my_lib/src/…`.
 
 ### Removing declarations
