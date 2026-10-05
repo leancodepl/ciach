@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:ciach/src/candidates.dart';
-import 'package:ciach/src/comment_stripping.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/public_api.dart';
@@ -44,6 +43,33 @@ final class ReachableTypes {
           outlines[path] = await client.outline(File(path).uri);
         } on LspRequestException {
           // A file without an outline hands out every type it names.
+        }
+      }),
+    );
+    final positionsIn = <String, Set<Position>>{};
+    for (final (_, typeRefs) in types.values) {
+      for (final loc in typeRefs) {
+        final path = SourceIndex.pathOf(loc.uri);
+        if (outlines.containsKey(path) && api.isImportable(path)) {
+          (positionsIn[path] ??= {}).add(loc.range.start);
+        }
+      }
+    }
+    await Future.wait(
+      positionsIn.entries.map((entry) async {
+        final positions = entry.value.toList();
+        try {
+          final ranges = await client.selectionRanges(
+            File(entry.key).uri,
+            positions,
+          );
+          for (final (i, range) in ranges.indexed) {
+            if (range != null) {
+              sources.cacheSelectionRange(entry.key, positions[i], range);
+            }
+          }
+        } on LspRequestException {
+          // Without syntax nodes no mention reads as in a body.
         }
       }),
     );
@@ -173,44 +199,26 @@ final class ReachableTypes {
             .functionTypeAlias) {
       return false;
     }
-    final from = sources.offsetOf(
-      path,
-      node.element.range?.end ?? node.codeRange.start,
-    );
-    final to = sources.offsetOf(path, node.codeRange.end);
-    final at = sources.offsetOf(path, pos);
-    if (from == null || to == null || at == null) {
-      return false;
-    }
-    final body = _bodyStart(sources.code(path), from, to);
-    return body != null && at >= body;
-  }
-
-  /// The offset of the first `{` or `=>` outside brackets in [content] between
-  /// [from] and [to].
-  static int? _bodyStart(String content, int from, int to) {
-    var depth = 0;
-    var i = from;
-    while (i < to) {
-      if (stringLiteralEnd(content, i) case final end?) {
-        i = end;
-        continue;
+    // A body is the syntax node that ends the declaration and opens it.
+    final code = sources.code(path);
+    for (
+      var range = sources.selectionRangeAt(path, pos);
+      range != null && node.codeRange.contains(range.range.start);
+      range = range.parent
+    ) {
+      final start = sources.offsetOf(path, range.range.start);
+      if (start != null &&
+          range.range.end == node.codeRange.end &&
+          range.range.start != node.codeRange.start &&
+          _bodyOpener.matchAsPrefix(code, start) != null) {
+        return true;
       }
-      switch (content[i]) {
-        case '(' || '[':
-          depth++;
-        case ')' || ']':
-          depth--;
-        case '{' when depth == 0:
-          return i;
-        case '=' when depth == 0 && i + 1 < to && content[i + 1] == '>':
-          return i;
-      }
-      i++;
     }
-    return null;
+    return false;
   }
 }
+
+final _bodyOpener = RegExp(r'\{|=>|async\b|sync\b');
 
 /// A carrier no type matches, so whatever it carries is reachable.
 const _root = DeclKey('', '');
