@@ -14,21 +14,20 @@ Set<int> unreached(Set<int> maybeDead, Iterable<Use> uses) {
     }
   }
 
-  // waitingOn[n]: the uses written inside n, while n is not proven live yet.
-  // A use counts only once every node it is written inside is proven live.
-  final waitingOn = <int, List<_PendingUse>>{};
+  // usesInside[n]: the uses whose text lies inside maybe-dead node n.
+  final usesInside = <int, List<_PendingUse>>{};
   for (final (:target, :enclosers) in uses) {
     if (!maybeDead.contains(target)) {
       continue;
     }
-    final deadEnclosers = enclosers.where(maybeDead.contains).toSet();
-    if (deadEnclosers.isEmpty) {
+    final maybeDeadEnclosers = enclosers.where(maybeDead.contains).toSet();
+    if (maybeDeadEnclosers.isEmpty) {
       markLive(target);
       continue;
     }
-    final pending = _PendingUse(target, deadEnclosers.length);
-    for (final encloser in deadEnclosers) {
-      waitingOn.putIfAbsent(encloser, () => []).add(pending);
+    final pending = _PendingUse(target, maybeDeadEnclosers.length);
+    for (final encloser in maybeDeadEnclosers) {
+      usesInside.putIfAbsent(encloser, () => []).add(pending);
     }
   }
 
@@ -36,8 +35,8 @@ Set<int> unreached(Set<int> maybeDead, Iterable<Use> uses) {
   // "all enclosers live -> target live", and each node is popped once.
   while (queue.isNotEmpty) {
     final node = queue.removeLast();
-    for (final pending in waitingOn[node] ?? const <_PendingUse>[]) {
-      if (--pending.deadEnclosers == 0) {
+    for (final pending in usesInside[node] ?? const <_PendingUse>[]) {
+      if (--pending.maybeDeadEnclosers == 0) {
         markLive(pending.target);
       }
     }
@@ -45,9 +44,10 @@ Set<int> unreached(Set<int> maybeDead, Iterable<Use> uses) {
   return maybeDead.difference(live);
 }
 
+/// A use with [maybeDeadEnclosers] of its enclosers not yet proven live.
 final class _PendingUse {
-  _PendingUse(this.target, this.deadEnclosers);
+  _PendingUse(this.target, this.maybeDeadEnclosers);
 
   final int target;
-  int deadEnclosers;
+  int maybeDeadEnclosers;
 }
