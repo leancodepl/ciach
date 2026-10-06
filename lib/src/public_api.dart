@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/src/comment_stripping.dart';
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/packages.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
@@ -156,13 +157,13 @@ final class _Names {
 
   /// The `show` and `hide` clauses in [combinators].
   factory _Names.parse(String combinators) {
-    Set<String>? clause(RegExp keyword) =>
-        switch (keyword.firstMatch(combinators)) {
-          final match? => {
+    Set<String>? clause(RegExp keyword) => keyword
+        .firstMatch(combinators)
+        ?.let(
+          (match) => {
             for (final m in _word.allMatches(match.group(1)!)) m.group(0)!,
           },
-          null => null,
-        };
+        );
     return all.intersection(_Names(clause(_show), clause(_hide) ?? const {}));
   }
 

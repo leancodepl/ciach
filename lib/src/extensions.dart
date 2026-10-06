@@ -16,6 +16,11 @@ extension StringExtensions on String {
       };
 }
 
+extension Let<T extends Object> on T {
+  /// [transform] applied to this, for chaining after `?.`.
+  R let<R>(R Function(T it) transform) => transform(this);
+}
+
 extension FutureExtensions on Future<void> {
   /// Completes when this future does, discarding any error it completes with.
   Future<void> ignoringErrors() async {

@@ -180,7 +180,7 @@ final class ReachableTypes {
       return false;
     }
     final from = sources.offsetOf(path, node.codeRange.start);
-    final body = from == null ? null : _bodyStart(node, path, pos, sources);
+    final body = _bodyStart(node, path, pos, sources);
     if (from == null || body == null) {
       return false;
     }
