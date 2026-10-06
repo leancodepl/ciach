@@ -57,8 +57,6 @@ final class Settler {
   /// Names the cross-library recovery has already probed.
   final _probedNames = <String>{};
 
-  final _candidateOf = Map<UnusedDeclaration, int>.identity();
-
   /// Override lookups by candidate index, cached across rounds.
   final _overridesByMember = <int, OverriddenMember>{};
 
@@ -101,7 +99,7 @@ final class Settler {
       crossLib = crossLib.merged(
         await _recoverCrossLibraryRefs(client, candidates, liveRefs),
       );
-      settled = await _round(
+      final result = await _round(
         candidates,
         refsByCandidate,
         liveRefs,
@@ -112,6 +110,7 @@ final class Settler {
         rootPath,
         analysisRoot,
       );
+      settled = result.settled;
       if (!options.transitive) {
         break;
       }
@@ -120,7 +119,7 @@ final class Settler {
               candidates,
               refsByCandidate,
               crossLib,
-              settled.unused,
+              result.candidateOf,
               rootPath,
             )
           : DeadSpans.of(settled.unused, rootPath);
@@ -162,10 +161,10 @@ final class Settler {
     List<List<Location>> refsByCandidate,
     String rootPath,
   ) {
-    final allDead = [
+    final allDead = {
       for (var i = 0; i < candidates.length; i++)
-        _finding(i, _verdict.finding(candidates[i], rootPath)),
-    ];
+        _verdict.finding(candidates[i], rootPath): i,
+    };
     final unreached = _sweep(
       candidates,
       refsByCandidate,
@@ -181,22 +180,23 @@ final class Settler {
     return unreached;
   }
 
-  /// The removable [findings] no live reference reaches. [crossLib] sites
-  /// count as references.
+  /// The removable findings no live reference reaches. [candidateOf] maps
+  /// each finding to its candidate's index. [crossLib] sites count as
+  /// references.
   DeadSpans _sweep(
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
     CrossLibraryReferences crossLib,
-    List<UnusedDeclaration> findings,
+    Map<UnusedDeclaration, int> candidateOf,
     String rootPath,
   ) {
-    final spans = DeadSpans.of(findings, rootPath);
+    final spans = DeadSpans.of(candidateOf.keys, rootPath);
     final nodes = {
-      for (final finding in findings)
-        if (!finding.removalBlocked) _candidateOf[finding]!,
+      for (final MapEntry(key: finding, value: i) in candidateOf.entries)
+        if (!finding.removalBlocked) i,
     };
     Iterable<int> enclosers(String path, Position position) => [
-      for (final owner in spans.ownersOf(path, position)) _candidateOf[owner]!,
+      for (final owner in spans.ownersOf(path, position)) candidateOf[owner]!,
     ];
     final uses = [
       for (final i in nodes) ...[
@@ -221,14 +221,9 @@ final class Settler {
     ];
     final dead = unreached(nodes, uses);
     return DeadSpans.of([
-      for (final finding in findings)
-        if (dead.contains(_candidateOf[finding])) finding,
+      for (final MapEntry(key: finding, value: i) in candidateOf.entries)
+        if (dead.contains(i)) finding,
     ], rootPath);
-  }
-
-  UnusedDeclaration _finding(int index, UnusedDeclaration finding) {
-    _candidateOf[finding] = index;
-    return finding;
   }
 
   /// [refsByCandidate] less the references inside [deadSpans].
@@ -249,9 +244,10 @@ final class Settler {
             ],
         ];
 
-  /// One round, classifying from [liveRefs]. [refsByCandidate] still holds the
-  /// references into [deadSpans], for [_onlyReferencedFrom].
-  Future<Settled> _round(
+  /// One round, classifying from [liveRefs], with each unused finding's
+  /// candidate index. [refsByCandidate] still holds the references into
+  /// [deadSpans], for [_onlyReferencedFrom].
+  Future<({Settled settled, Map<UnusedDeclaration, int> candidateOf})> _round(
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
     List<List<Location>> liveRefs,
@@ -323,6 +319,7 @@ final class Settler {
     final overridden = await _coupleOverrides(candidates, reported, overrides);
 
     final unused = <UnusedDeclaration>[];
+    final candidateOf = <UnusedDeclaration, int>{};
     final docOnly = <UnusedDeclaration>[];
     for (var i = 0; i < candidates.length; i++) {
       final candidate = candidates[i];
@@ -369,7 +366,8 @@ final class Settler {
               deadSpans,
             ),
           );
-          unused.add(_finding(i, finding));
+          unused.add(finding);
+          candidateOf[finding] = i;
           if (!finding.removalBlocked) {
             _removableBefore.add(i);
           }
@@ -391,7 +389,12 @@ final class Settler {
       );
     }
 
-    return (unused: unused, docOnly: docOnly, recovered: recovered);
+    return (
+      settled: (unused: unused, docOnly: docOnly, recovered: recovered),
+      candidateOf: {
+        for (final finding in unused) finding: candidateOf[finding]!,
+      },
+    );
   }
 
   /// The findings in [deadSpans] that contain a reference to [candidate], in
