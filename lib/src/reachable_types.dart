@@ -107,10 +107,10 @@ final class ReachableTypes {
       {for (var i = 0; i < keys.length; i++) i},
       [
         for (final key in reachable)
-          (target: indexOf[key]!, enclosers: const []),
+          (target: indexOf[key]!, containers: const []),
         for (final MapEntry(:key, value: carriers) in carriersOf.entries)
           for (final carrier in carriers)
-            (target: indexOf[key]!, enclosers: [indexOf[carrier]!]),
+            (target: indexOf[key]!, containers: [indexOf[carrier]!]),
       ],
     ).map((i) => keys[i]);
 
