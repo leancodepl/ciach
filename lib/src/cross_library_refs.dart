@@ -38,9 +38,9 @@ class CrossLibraryReferences {
 
   /// Recovered declaration position -> every usage site that confirmed it,
   /// so dropping a dead one never drops a live one.
-  final Map<_DeclPosition, List<_Site>> _usageByDecl;
+  final Map<_DeclPosition, Set<_Site>> _usageByDecl;
 
-  static const empty = CrossLibraryReferences._(<_DeclPosition, List<_Site>>{});
+  static const empty = CrossLibraryReferences._(<_DeclPosition, Set<_Site>>{});
 
   static const _unresolvedSite =
       'Could not resolve a possible use; check findings before removing.';
@@ -102,9 +102,9 @@ class CrossLibraryReferences {
       }
     });
 
-    final usageByDecl = <_DeclPosition, List<_Site>>{};
+    final usageByDecl = <_DeclPosition, Set<_Site>>{};
     // Uses resolving to a non-candidate (e.g. an override), by name.
-    final elsewhere = <String, Map<_DeclPosition, List<_Site>>>{};
+    final elsewhere = <String, Map<_DeclPosition, Set<_Site>>>{};
     for (var i = 0; i < sites.length; i++) {
       final site = (uri: sites[i].uri, position: sites[i].position);
       for (final loc in perSite[i]) {
@@ -112,13 +112,13 @@ class CrossLibraryReferences {
         final pos = (SourceIndex.pathOf(loc.uri), start.line, start.character);
         if (byPosition[pos] case final declaration?) {
           if (!_isSelfUse(site, declaration)) {
-            usageByDecl.putIfAbsent(pos, () => []).add(site);
+            usageByDecl.putIfAbsent(pos, () => {}).add(site);
           }
         } else if (pos != _positionOfSite(site)) {
           // Skip a declaration's own name.
           elsewhere
               .putIfAbsent(sites[i].name, () => {})
-              .putIfAbsent(pos, () => [])
+              .putIfAbsent(pos, () => {})
               .add(site);
         }
       }
@@ -137,8 +137,8 @@ class CrossLibraryReferences {
   static Future<void> _recoverThroughOverrides({
     required LspClient client,
     required List<Candidate> candidates,
-    required Map<String, Map<_DeclPosition, List<_Site>>> elsewhere,
-    required Map<_DeclPosition, List<_Site>> usageByDecl,
+    required Map<String, Map<_DeclPosition, Set<_Site>>> elsewhere,
+    required Map<_DeclPosition, Set<_Site>> usageByDecl,
     required int concurrency,
   }) async {
     final members = [
@@ -175,7 +175,7 @@ class CrossLibraryReferences {
         final pos = (SourceIndex.pathOf(loc.uri), start.line, start.character);
         if (uses[pos] case final sites?) {
           usageByDecl
-              .putIfAbsent(_positionOf(members[i]), () => [])
+              .putIfAbsent(_positionOf(members[i]), () => {})
               .addAll(sites);
         }
       }
@@ -196,7 +196,7 @@ class CrossLibraryReferences {
       CrossLibraryReferences._({
         ...other._usageByDecl,
         for (final MapEntry(key: decl, value: sites) in _usageByDecl.entries)
-          decl: [...sites, ...?other._usageByDecl[decl]],
+          decl: {...sites, ...?other._usageByDecl[decl]},
       });
 
   /// The recoveries less the usage sites (absolute path, position) that pass
@@ -205,10 +205,10 @@ class CrossLibraryReferences {
     bool Function(String path, Position position) test,
   ) => CrossLibraryReferences._({
     for (final MapEntry(key: decl, value: sites) in _usageByDecl.entries)
-      if ([
+      if ({
             for (final site in sites)
               if (!test(site.uri.toFilePath(), site.position)) site,
-          ]
+          }
           case final kept when kept.isNotEmpty)
         decl: kept,
   });
@@ -222,14 +222,13 @@ class CrossLibraryReferences {
   /// Every usage site that recovered [candidate].
   Iterable<({String path, int line, int character})> recoveredUsages(
     Candidate candidate,
-  ) => [
-    for (final site in _usageByDecl[_positionOf(candidate)] ?? const <_Site>[])
-      (
-        path: site.uri.toFilePath(),
-        line: site.position.line,
-        character: site.position.character,
-      ),
-  ];
+  ) => (_usageByDecl[_positionOf(candidate)] ?? const <_Site>{}).map(
+    (site) => (
+      path: site.uri.toFilePath(),
+      line: site.position.line,
+      character: site.position.character,
+    ),
+  );
 
   /// Whether the use at [site] sits inside the very declaration it resolved
   /// to — a recursive call. [ReferenceClassifier.isSelfReference] discounts
