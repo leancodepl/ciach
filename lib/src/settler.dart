@@ -191,7 +191,7 @@ final class Settler {
     String rootPath,
   ) {
     final spans = DeadSpans.of(candidateOf.keys, rootPath);
-    final nodes = {
+    final maybeDead = {
       for (final MapEntry(key: finding, value: i) in candidateOf.entries)
         if (!finding.removalBlocked) i,
     };
@@ -199,7 +199,7 @@ final class Settler {
       for (final owner in spans.ownersOf(path, position)) candidateOf[owner]!,
     ];
     final uses = [
-      for (final i in nodes) ...[
+      for (final i in maybeDead) ...[
         for (final loc in refsByCandidate[i])
           if (_classifier.classify(candidates[i], [loc], .empty) == .used)
             (
@@ -219,7 +219,7 @@ final class Settler {
           ),
       ],
     ];
-    final dead = unreached(nodes, uses);
+    final dead = unreached(maybeDead, uses);
     return DeadSpans.of([
       for (final MapEntry(key: finding, value: i) in candidateOf.entries)
         if (dead.contains(i)) finding,

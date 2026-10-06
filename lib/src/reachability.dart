@@ -3,34 +3,31 @@
 /// None = a root.
 typedef Use = ({int target, Iterable<int> enclosers});
 
-/// The [nodes] no root reaches through [uses]; unlike the `transitive`
-/// rounds, this includes cycles.
-Set<int> unreached(Set<int> nodes, Iterable<Use> uses) {
+/// The [maybeDead] nodes no root reaches through [uses]; unlike the
+/// `transitive` rounds, this includes cycles.
+Set<int> unreached(Set<int> maybeDead, Iterable<Use> uses) {
   final live = <int>{};
   final queue = <int>[];
-  void mark(int node) {
-    if (nodes.contains(node) && live.add(node)) {
+  void markLive(int node) {
+    if (maybeDead.contains(node) && live.add(node)) {
       queue.add(node);
     }
   }
 
-  final targets = <int>[];
-  final deadEnclosers = <int>[];
-  final enclosed = <int, List<int>>{};
+  // Each use still waiting on a dead encloser, listed under every one of them.
+  final waitingOn = <int, List<_PendingUse>>{};
   for (final (:target, :enclosers) in uses) {
-    if (!nodes.contains(target)) {
+    if (!maybeDead.contains(target)) {
       continue;
     }
-    final dead = enclosers.where(nodes.contains).toSet();
-    if (dead.isEmpty) {
-      mark(target);
+    final deadEnclosers = enclosers.where(maybeDead.contains).toSet();
+    if (deadEnclosers.isEmpty) {
+      markLive(target);
       continue;
     }
-    final use = targets.length;
-    targets.add(target);
-    deadEnclosers.add(dead.length);
-    for (final encloser in dead) {
-      enclosed.putIfAbsent(encloser, () => []).add(use);
+    final pending = _PendingUse(target, deadEnclosers.length);
+    for (final encloser in deadEnclosers) {
+      waitingOn.putIfAbsent(encloser, () => []).add(pending);
     }
   }
 
@@ -38,11 +35,18 @@ Set<int> unreached(Set<int> nodes, Iterable<Use> uses) {
   // "all enclosers live -> target live", and each node is popped once.
   while (queue.isNotEmpty) {
     final node = queue.removeLast();
-    for (final use in enclosed[node] ?? const <int>[]) {
-      if (--deadEnclosers[use] == 0) {
-        mark(targets[use]);
+    for (final pending in waitingOn[node] ?? const <_PendingUse>[]) {
+      if (--pending.deadEnclosers == 0) {
+        markLive(pending.target);
       }
     }
   }
-  return nodes.difference(live);
+  return maybeDead.difference(live);
+}
+
+final class _PendingUse {
+  _PendingUse(this.target, this.deadEnclosers);
+
+  final int target;
+  int deadEnclosers;
 }
