@@ -57,9 +57,9 @@ extension FlutterWidgets on SourceIndex {
         keyword.text == 'extends';
   }
 
-  /// The extra spans to remove alongside a dead [widget] class: the paired
-  /// private `State<Widget>` subclass, when there is exactly one and it is used
-  /// only from within the widget (via `createState`). Returns an empty list for
+  /// The extra spans to remove alongside a dead [widget] class: each
+  /// `State<Widget>` subclass, in any file, used only from within the widget
+  /// (via `createState`). Returns an empty list for
   /// a plain class.
   ///
   /// Removing the widget on its own would leave
@@ -77,21 +77,21 @@ extension FlutterWidgets on SourceIndex {
     final out = <CoupledRemoval>[];
     var blocked = false;
     for (final loc in widgetRefs) {
-      if (!isStatePairingReference(widget.symbol.name, loc) ||
-          SourceIndex.pathOf(loc.uri) != widget.path) {
+      if (!isStatePairingReference(widget.symbol.name, loc)) {
         continue;
       }
+      final path = SourceIndex.pathOf(loc.uri);
       // The widget's own `createState` return type is inside the widget and
       // removed with it; only a pairing reference outside the widget points at
       // the separate State subclass.
-      if (loc.range.start.within(widget.symbol)) {
+      if (path == widget.path && loc.range.start.within(widget.symbol)) {
         continue;
       }
-      var coupled = false;
+      final before = out.length;
       for (var j = 0; j < candidates.length; j++) {
         final state = candidates[j];
         if (state.symbol.kind != .class$ ||
-            state.path != widget.path ||
+            state.path != path ||
             identical(state, widget) ||
             !loc.range.start.within(state.symbol)) {
           continue;
@@ -107,11 +107,10 @@ extension FlutterWidgets on SourceIndex {
             range: state.outline.codeRange.toDeclarationRange,
             fullRange: state.outline.range.toDeclarationRange,
           ));
-          coupled = true;
         }
         break;
       }
-      blocked |= !coupled;
+      blocked |= out.length == before;
     }
     return (removals: out, blocked: blocked);
   }

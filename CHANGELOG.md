@@ -5,7 +5,8 @@
   ([#65](https://github.com/leancodepl/ciach/issues/65))
 - A dead `StatefulWidget` whose `State` is used elsewhere (say, by a
   `GlobalKey`) is report-only: `--remove` deleted the widget and left
-  `State<Widget>` naming a missing type.
+  `State<Widget>` naming a missing type. A `State` in another file is now
+  removed with its widget, instead of being left behind the same way.
 
 ## 0.6.0
 

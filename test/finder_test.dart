@@ -363,6 +363,32 @@ void main() {
       });
     }
 
+    test('couples a State declared in another file', () async {
+      final result = await runFinder(
+        include: [
+          'lib/scenarios/widgets.dart',
+          'lib/scenarios/widgets_state.dart',
+        ],
+        exclude: const [],
+      );
+      final widget = findByQualified(result, 'SplitWidget')!;
+      expect(widget.removalBlocked, isFalse);
+      expect(widget.coupledRemovals.map((c) => c.filePath), [
+        'lib/scenarios/widgets_state.dart',
+      ]);
+      expect(findByQualified(result, 'SplitWidgetState'), isNull);
+    });
+
+    test(
+      'blocks a widget whose State in another file is not scanned',
+      () async {
+        final result = await runWidgets();
+        final widget = findByQualified(result, 'SplitWidget')!;
+        expect(widget.removalBlocked, isTrue);
+        expect(widget.coupledRemovals, isEmpty);
+      },
+    );
+
     test(
       'never flags a live widget-style class or the State stand-in',
       () async {
