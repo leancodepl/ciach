@@ -14,7 +14,8 @@ Set<int> unreached(Set<int> maybeDead, Iterable<Use> uses) {
     }
   }
 
-  // Each use still waiting on a dead encloser, listed under every one of them.
+  // waitingOn[n]: the uses written inside n, while n is not proven live yet.
+  // A use counts only once every node it is written inside is proven live.
   final waitingOn = <int, List<_PendingUse>>{};
   for (final (:target, :enclosers) in uses) {
     if (!maybeDead.contains(target)) {
