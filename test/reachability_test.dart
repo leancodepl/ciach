@@ -2,8 +2,8 @@ import 'package:ciach/src/reachability.dart';
 import 'package:test/test.dart';
 
 void main() {
-  Use use(int target, [List<int> enclosers = const []]) =>
-      (target: target, enclosers: enclosers);
+  Use use(int target, [List<int> containers = const []]) =>
+      (target: target, containers: containers);
 
   test('a use from live code marks its target, and the chain behind it', () {
     expect(
@@ -46,7 +46,7 @@ void main() {
     );
   });
 
-  test('a use inside nested nodes needs every encloser live', () {
+  test('a use inside nested nodes needs every container live', () {
     // 2 is used from inside 1, which sits inside 0; only 1 is reached.
     expect(
       unreached(
@@ -71,7 +71,7 @@ void main() {
     );
   });
 
-  test('enclosers outside the nodes are live', () {
+  test('containers outside the dead set are live', () {
     expect(
       unreached(
         {0},
@@ -83,7 +83,7 @@ void main() {
     );
   });
 
-  test('uses of nodes outside the set are ignored', () {
+  test('uses of nodes outside the dead set are ignored', () {
     expect(
       unreached(
         {0},

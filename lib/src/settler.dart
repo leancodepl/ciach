@@ -191,20 +191,20 @@ final class Settler {
     String rootPath,
   ) {
     final spans = DeadSpans.of(candidateOf.keys, rootPath);
-    final maybeDead = {
+    final removable = {
       for (final MapEntry(key: finding, value: i) in candidateOf.entries)
         if (!finding.removalBlocked) i,
     };
-    Iterable<int> enclosers(String path, Position position) => [
+    Iterable<int> containers(String path, Position position) => [
       for (final owner in spans.ownersOf(path, position)) candidateOf[owner]!,
     ];
     final uses = [
-      for (final i in maybeDead) ...[
+      for (final i in removable) ...[
         for (final loc in refsByCandidate[i])
           if (_classifier.classify(candidates[i], [loc], .empty) == .used)
             (
               target: i,
-              enclosers: enclosers(
+              containers: containers(
                 SourceIndex.pathOf(loc.uri),
                 loc.range.start,
               ),
@@ -212,14 +212,14 @@ final class Settler {
         for (final usage in crossLib.recoveredUsages(candidates[i]))
           (
             target: i,
-            enclosers: enclosers(
+            containers: containers(
               usage.path,
               Position(line: usage.line, character: usage.character),
             ),
           ),
       ],
     ];
-    final dead = unreached(maybeDead, uses);
+    final dead = unreached(removable, uses);
     return DeadSpans.of([
       for (final MapEntry(key: finding, value: i) in candidateOf.entries)
         if (dead.contains(i)) finding,
