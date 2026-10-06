@@ -93,18 +93,8 @@ final class Settler {
     final sweep = options.transitive && options.deadCycles;
     var crossLib = CrossLibraryReferences.empty;
     var deadSpans = sweep
-        ? _sweep(candidates, refsByCandidate, .empty, [
-            for (var i = 0; i < candidates.length; i++)
-              _finding(i, _verdict.finding(candidates[i], rootPath)),
-          ], rootPath)
+        ? _unreachedCandidates(candidates, refsByCandidate, rootPath)
         : DeadSpans.empty;
-    if (sweep) {
-      _log.info(
-        'Round 1: checking the '
-        '${plural(deadSpans.length, 'declaration', 'declarations')} no live '
-        'code reaches…',
-      );
-    }
     Settled settled;
     for (var round = 1; ; round++) {
       final liveRefs = _liveRefs(refsByCandidate, deadSpans);
@@ -163,6 +153,32 @@ final class Settler {
       docOnly: settled.docOnly.sorted(compareByLocation),
       recovered: settled.recovered,
     );
+  }
+
+  /// The spans of every candidate no live code reaches, all of them assumed
+  /// dead to begin with.
+  DeadSpans _unreachedCandidates(
+    List<Candidate> candidates,
+    List<List<Location>> refsByCandidate,
+    String rootPath,
+  ) {
+    final allDead = [
+      for (var i = 0; i < candidates.length; i++)
+        _finding(i, _verdict.finding(candidates[i], rootPath)),
+    ];
+    final unreached = _sweep(
+      candidates,
+      refsByCandidate,
+      .empty,
+      allDead,
+      rootPath,
+    );
+    _log.info(
+      'Round 1: checking the '
+      '${plural(unreached.length, 'declaration', 'declarations')} no live '
+      'code reaches…',
+    );
+    return unreached;
   }
 
   /// The removable [findings] no live reference reaches. [crossLib] sites
