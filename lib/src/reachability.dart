@@ -7,10 +7,11 @@ typedef Use = ({int target, Iterable<int> containers});
 /// containers are all live revives its target. Unlike the `transitive`
 /// rounds, this leaves cycles dead.
 Set<int> unreached(Set<int> dead, Iterable<Use> uses) {
-  final live = <int>{};
+  final stillDead = {...dead};
+  // Revived nodes whose uses are not counted yet.
   final revived = <int>[];
   void revive(int node) {
-    if (dead.contains(node) && live.add(node)) {
+    if (stillDead.remove(node)) {
       revived.add(node);
     }
   }
@@ -18,10 +19,10 @@ Set<int> unreached(Set<int> dead, Iterable<Use> uses) {
   // For each dead node, the uses written inside it.
   final usesInside = <int, List<_ContainedUse>>{};
   for (final (:target, :containers) in uses) {
-    if (!dead.contains(target)) {
+    if (!stillDead.contains(target)) {
       continue;
     }
-    final deadContainers = containers.where(dead.contains).toSet();
+    final deadContainers = containers.where(stillDead.contains).toSet();
     if (deadContainers.isEmpty) {
       revive(target);
       continue;
@@ -42,7 +43,7 @@ Set<int> unreached(Set<int> dead, Iterable<Use> uses) {
       }
     }
   }
-  return dead.difference(live);
+  return stillDead;
 }
 
 /// A use of [target] with [deadContainers] containers not revived yet.
