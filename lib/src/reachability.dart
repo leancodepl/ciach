@@ -34,8 +34,11 @@ Set<int> unreached(Set<int> nodes, Iterable<Use> uses) {
     }
   }
 
+  // Worklist propagation, as in linear-time Horn-SAT: each use is the rule
+  // "all enclosers live -> target live", and each node is popped once.
   while (queue.isNotEmpty) {
-    for (final use in enclosed[queue.removeLast()] ?? const <int>[]) {
+    final node = queue.removeLast();
+    for (final use in enclosed[node] ?? const <int>[]) {
       if (--deadEnclosers[use] == 0) {
         mark(targets[use]);
       }
