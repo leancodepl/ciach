@@ -237,9 +237,7 @@ class CrossLibraryReferences {
     if (site.uri.toFilePath() != declaration.path) {
       return false;
     }
-    final range = declaration.outline.range;
-    return range.start.atOrBefore(site.position) &&
-        site.position.atOrBefore(range.end);
+    return declaration.outline.range.contains(site.position);
   }
 
   static _DeclPosition _positionOf(Candidate candidate) {

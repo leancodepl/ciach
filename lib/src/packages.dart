@@ -30,7 +30,7 @@ PackageTree scanPackageTree(String root) {
         } else if (name == 'pubspec.yaml') {
           final libDir = p.join(p.dirname(path), 'lib');
           libDirs.add(libDir);
-          if (pubspecName(path) case final package?) {
+          if (_pubspecName(path) case final package?) {
             libDirByPackage[package] = libDir;
           }
         }
@@ -46,7 +46,7 @@ PackageTree scanPackageTree(String root) {
   );
 }
 
-String? pubspecName(String pubspecPath) {
+String? _pubspecName(String pubspecPath) {
   try {
     return _pubspecNameLine
         .firstMatch(File(pubspecPath).readAsStringSync())

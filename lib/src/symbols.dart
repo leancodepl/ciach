@@ -8,6 +8,7 @@
  *     - mark-ai-provenance
  */
 
+import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/models.dart';
 import 'package:pro_lsp/pro_lsp.dart'
     show DocumentSymbol, Position, Range, SymbolKind;
@@ -126,6 +127,18 @@ extension SymbolChecks on DocumentSymbol {
 
   /// The symbol's code, body included.
   DeclarationRange get declarationRange => range.toDeclarationRange;
+}
+
+extension OutlineChildren on Outline {
+  /// The child covering [position].
+  Outline? childAt(Position position) {
+    final child = lastStartingAtOrBefore(
+      children,
+      position,
+      (child) => child.range.start,
+    );
+    return child != null && position.atOrBefore(child.range.end) ? child : null;
+  }
 }
 
 extension RangeConversion on Range {

@@ -43,7 +43,7 @@ final class PublicApi {
           for (final part in directives.parts) part: path,
     };
 
-    // The names each library exposes; `null` for all of them.
+    // The names each library exposes.
     final visible = <String, _Names>{};
     final pending = <(String, _Names)>[
       for (final MapEntry(key: path, value: directives) in libraries.entries)
@@ -82,9 +82,7 @@ final class PublicApi {
 
   bool exposes(String path, String name) {
     final library = _libraryOf[path] ?? path;
-    return !isPrivateName(name) &&
-        _visible.containsKey(library) &&
-        _visible[library]!.admits(name);
+    return !isPrivateName(name) && (_visible[library]?.admits(name) ?? false);
   }
 }
 
@@ -93,6 +91,8 @@ final _directive = RegExp(
   multiLine: true,
 );
 
+final _show = RegExp(r'\bshow\b([^;]*?)(?=\b(?:show|hide)\b|$)');
+final _hide = RegExp(r'\bhide\b([^;]*?)(?=\b(?:show|hide)\b|$)');
 final _word = RegExp(r'[A-Za-z_$][A-Za-z0-9_$]*');
 
 final class _Directives {
@@ -156,15 +156,14 @@ final class _Names {
 
   /// The `show` and `hide` clauses in [combinators].
   factory _Names.parse(String combinators) {
-    Set<String>? clause(String keyword) => switch (RegExp(
-      '\\b$keyword\\b([^;]*?)(?=\\b(?:show|hide)\\b|\$)',
-    ).firstMatch(combinators)) {
-      final match? => {
-        for (final m in _word.allMatches(match.group(1)!)) m.group(0)!,
-      },
-      null => null,
-    };
-    return all.intersection(_Names(clause('show'), clause('hide') ?? const {}));
+    Set<String>? clause(RegExp keyword) =>
+        switch (keyword.firstMatch(combinators)) {
+          final match? => {
+            for (final m in _word.allMatches(match.group(1)!)) m.group(0)!,
+          },
+          null => null,
+        };
+    return all.intersection(_Names(clause(_show), clause(_hide) ?? const {}));
   }
 
   static const all = _Names(null, {});

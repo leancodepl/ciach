@@ -5,10 +5,10 @@ import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/public_api.dart';
 import 'package:ciach/src/reachability.dart';
+import 'package:ciach/src/reference_fetch.dart';
 import 'package:ciach/src/reference_kinds.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
-import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
 /// Unexported types another package may still hold an instance of.
@@ -24,6 +24,7 @@ final class ReachableTypes {
   static Future<ReachableTypes> find({
     required LspClient client,
     required SourceIndex sources,
+    required ReferenceFetch fetch,
     required PublicApi api,
     required List<Candidate> candidates,
     required List<List<Location>> refs,
@@ -32,13 +33,18 @@ final class ReachableTypes {
       for (final (i, candidate) in candidates.indexed)
         if (_isType(candidate)) candidate.key: (candidate, refs[i]),
     };
-    final paths = {
-      for (final (_, typeRefs) in types.values)
-        for (final loc in typeRefs) SourceIndex.pathOf(loc.uri),
-    }.where(sources.scannedPaths.contains);
+    final positionsIn = <String, Set<Position>>{};
+    for (final (_, typeRefs) in types.values) {
+      for (final loc in typeRefs) {
+        final path = SourceIndex.pathOf(loc.uri);
+        if (sources.scannedPaths.contains(path) && api.isImportable(path)) {
+          (positionsIn[path] ??= {}).add(loc.range.start);
+        }
+      }
+    }
     final outlines = <String, Outline>{};
     await Future.wait(
-      paths.map((path) async {
+      positionsIn.keys.map((path) async {
         try {
           outlines[path] = await client.outline(File(path).uri);
         } on LspRequestException {
@@ -46,33 +52,7 @@ final class ReachableTypes {
         }
       }),
     );
-    final positionsIn = <String, Set<Position>>{};
-    for (final (_, typeRefs) in types.values) {
-      for (final loc in typeRefs) {
-        final path = SourceIndex.pathOf(loc.uri);
-        if (outlines.containsKey(path) && api.isImportable(path)) {
-          (positionsIn[path] ??= {}).add(loc.range.start);
-        }
-      }
-    }
-    await Future.wait(
-      positionsIn.entries.map((entry) async {
-        final positions = entry.value.toList();
-        try {
-          final ranges = await client.selectionRanges(
-            File(entry.key).uri,
-            positions,
-          );
-          for (final (i, range) in ranges.indexed) {
-            if (range != null) {
-              sources.cacheSelectionRange(entry.key, positions[i], range);
-            }
-          }
-        } on LspRequestException {
-          // Without syntax nodes no mention reads as in a body.
-        }
-      }),
-    );
+    await fetch.fetchSelectionRanges(client, positionsIn);
 
     // Each type's carriers: the types that hand it out if they are reachable.
     final carriersOf = <DeclKey, Set<DeclKey>>{};
@@ -160,13 +140,13 @@ final class ReachableTypes {
     if (unit == null) {
       return _root;
     }
-    final top = _childAt(unit, pos);
+    final top = unit.childAt(pos);
     if (top == null) {
       return null;
     }
     final kind = top.element.kind;
     if (kind case .class$ || .mixin || .enum$ || .extension || .extensionType) {
-      final member = _childAt(top, pos);
+      final member = top.childAt(pos);
       if (member != null && _hidesIn(member, top, path, pos, sources)) {
         return null;
       }
@@ -180,9 +160,6 @@ final class ReachableTypes {
     }
     return _hidesIn(top, null, path, pos, sources) ? null : _root;
   }
-
-  static Outline? _childAt(Outline parent, Position pos) =>
-      parent.children.firstWhereOrNull((child) => child.range.contains(pos));
 
   /// Whether a mention at [pos] in the function-like [node] stays inside it:
   /// it sits in the body, and nothing the signature hands out is `dynamic`.
@@ -202,9 +179,8 @@ final class ReachableTypes {
             .functionTypeAlias) {
       return false;
     }
-    final code = sources.code(path);
     final from = sources.offsetOf(path, node.codeRange.start);
-    final body = _bodyStart(node, path, pos, sources, code);
+    final body = from == null ? null : _bodyStart(node, path, pos, sources);
     if (from == null || body == null) {
       return false;
     }
@@ -214,7 +190,7 @@ final class ReachableTypes {
             element.kind == .getter) &&
         ((element.returnType ?? '').isEmpty || element.returnType == 'dynamic');
     return !returnsDynamic &&
-        !_dynamic.hasMatch(code.substring(from, body)) &&
+        !_dynamic.hasMatch(sources.code(path).substring(from, body)) &&
         (element.typeParameters ?? '').isEmpty &&
         (owner?.element.typeParameters ?? '').isEmpty &&
         !_hasUntypedParameter(element.parameters);
@@ -227,8 +203,8 @@ final class ReachableTypes {
     String path,
     Position pos,
     SourceIndex sources,
-    String code,
   ) {
+    final code = sources.code(path);
     for (
       var range = sources.selectionRangeAt(path, pos);
       range != null && node.codeRange.contains(range.range.start);
@@ -272,12 +248,15 @@ final class ReachableTypes {
       final declared = part
           .split('=')
           .first
-          .replaceAll(RegExp(r'[{}\[\]]|\b(?:required|covariant|final)\b'), '')
+          .replaceAll(_parameterNoise, '')
           .trim();
-      return RegExp(r'^[\w$]+$').hasMatch(declared);
+      return _identifier.hasMatch(declared);
     });
   }
 }
+
+final _parameterNoise = RegExp(r'[{}\[\]]|\b(?:required|covariant|final)\b');
+final _identifier = RegExp(r'^[\w$]+$');
 
 /// Types through which a caller can invoke any member.
 final _dynamic = RegExp(r'\b(?:dynamic|Function|var)\b');

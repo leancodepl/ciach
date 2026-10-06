@@ -109,9 +109,7 @@ class ReferenceClassifier {
   /// `State<Foo>` pairing ([FlutterWidgets.isStatePairingReference]).
   bool isSelfReference(Candidate candidate, Location loc) {
     if (SourceIndex.pathOf(loc.uri) == candidate.path) {
-      final range = candidate.outline.range;
-      final pos = loc.range.start;
-      if (range.start.atOrBefore(pos) && pos.atOrBefore(range.end)) {
+      if (candidate.outline.range.contains(loc.range.start)) {
         return true;
       }
     }

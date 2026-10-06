@@ -252,6 +252,7 @@ class Ciach {
     final types = await ReachableTypes.find(
       client: client,
       sources: _sources,
+      fetch: _fetch,
       api: api,
       candidates: candidates,
       refs: refsByCandidate,
