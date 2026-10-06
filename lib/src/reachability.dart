@@ -1,4 +1,6 @@
-/// A use of `target` that is live once all `enclosers` are; none = a root.
+/// A use of `target` from text inside each of `enclosers` (a method and its
+/// class, say): removing any of them deletes it, so it is live once all are.
+/// None = a root.
 typedef Use = ({int target, Iterable<int> enclosers});
 
 /// The [nodes] no root reaches through [uses]; unlike the `transitive`
