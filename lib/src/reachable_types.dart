@@ -180,8 +180,11 @@ final class ReachableTypes {
       return false;
     }
     final from = sources.offsetOf(path, node.codeRange.start);
+    if (from == null) {
+      return false;
+    }
     final body = _bodyStart(node, path, pos, sources);
-    if (from == null || body == null) {
+    if (body == null) {
       return false;
     }
     final returnsDynamic =
