@@ -13,38 +13,69 @@ final class PublicApi {
 
   factory PublicApi.scan(String rootPath) {
     final tree = scanPackageTree(rootPath);
-    final libDirOf = <String, String>{};
-    for (final path in tree.dartFiles) {
-      for (
-        var dir = p.dirname(path);
-        dir != p.dirname(dir);
-        dir = p.dirname(dir)
-      ) {
-        if (tree.libDirs.contains(dir)) {
-          libDirOf[path] = dir;
-          break;
-        }
+    final libDirOf = _libDirOf(tree);
+    final libraries = _readDirectives(libDirOf.keys, tree.libDirByPackage);
+    final libraryOf = _libraryOfParts(libraries);
+    return ._(
+      rootPath,
+      libDirOf.keys.toSet(),
+      libraryOf,
+      _visibleNames(libraries, libraryOf, libDirOf),
+    );
+  }
+
+  /// The `lib/` each Dart file under one sits in: the nearest above it.
+  static Map<String, String> _libDirOf(PackageTree tree) => {
+    for (final path in tree.dartFiles)
+      path: ?_nearestLibDir(path, tree.libDirs),
+  };
+
+  static String? _nearestLibDir(String path, Set<String> libDirs) {
+    for (
+      var dir = p.dirname(path);
+      dir != p.dirname(dir);
+      dir = p.dirname(dir)
+    ) {
+      if (libDirs.contains(dir)) {
+        return dir;
       }
     }
+    return null;
+  }
 
+  static Map<String, _Directives> _readDirectives(
+    Iterable<String> paths,
+    Map<String, String> libDirByPackage,
+  ) {
     final libraries = <String, _Directives>{};
-    for (final path in libDirOf.keys) {
+    for (final path in paths) {
       final String content;
       try {
         content = File(path).readAsStringSync();
       } on FileSystemException {
         continue;
       }
-      libraries[path] = _Directives.parse(content, path, tree.libDirByPackage);
+      libraries[path] = _Directives.parse(content, path, libDirByPackage);
     }
+    return libraries;
+  }
 
-    final libraryOf = {
-      for (final MapEntry(key: path, value: directives) in libraries.entries)
-        if (!directives.isPart)
-          for (final part in directives.parts) part: path,
-    };
+  /// The library each part belongs to.
+  static Map<String, String> _libraryOfParts(
+    Map<String, _Directives> libraries,
+  ) => {
+    for (final MapEntry(key: path, value: directives) in libraries.entries)
+      if (!directives.isPart)
+        for (final part in directives.parts) part: path,
+  };
 
-    // The names each library exposes.
+  /// The names each library exposes: all of a library outside `lib/src/`,
+  /// then whatever exports pass on.
+  static Map<String, _Names> _visibleNames(
+    Map<String, _Directives> libraries,
+    Map<String, String> libraryOf,
+    Map<String, String> libDirOf,
+  ) {
     final visible = <String, _Names>{};
     final pending = <(String, _Names)>[
       for (final MapEntry(key: path, value: directives) in libraries.entries)
@@ -68,7 +99,7 @@ final class PublicApi {
         }
       }
     }
-    return ._(rootPath, libDirOf.keys.toSet(), libraryOf, visible);
+    return visible;
   }
 
   final String _rootPath;
