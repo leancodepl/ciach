@@ -229,25 +229,11 @@ final class ReachableTypes {
     if (parameters == null) {
       return false;
     }
-    final parts = <String>[];
-    var depth = 0;
-    var part = StringBuffer();
-    for (final char
-        in parameters.substring(1, parameters.length - 1).split('')) {
-      if (char == ',' && depth == 0) {
-        parts.add(part.toString());
-        part = StringBuffer();
-        continue;
-      }
-      depth += switch (char) {
-        '(' || '<' => 1,
-        ')' || '>' => -1,
-        _ => 0,
-      };
-      part.write(char);
+    var flat = parameters.substring(1, parameters.length - 1);
+    while (flat.contains(_nested)) {
+      flat = flat.replaceAll(_nested, '');
     }
-    parts.add(part.toString());
-    return parts.any((part) {
+    return flat.split(',').any((part) {
       final declared = part
           .split('=')
           .first
@@ -258,6 +244,9 @@ final class ReachableTypes {
   }
 }
 
+/// An innermost `(…)` or `<…>`, such as a function type's parameters or a
+/// type's arguments.
+final _nested = RegExp(r'\([^()]*\)|<[^<>]*>');
 final _parameterNoise = RegExp(r'[{}\[\]]|\b(?:required|covariant|final)\b');
 final _identifier = RegExp(r'^[\w$]+$');
 
