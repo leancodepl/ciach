@@ -6,6 +6,11 @@ typedef Use = ({int target, Iterable<int> containers});
 /// The [dead] nodes that stay dead: each starts dead, and a use whose
 /// containers are all live revives its target. Unlike the `transitive`
 /// rounds, this leaves cycles dead.
+///
+/// This is the linear-time Horn-SAT algorithm of Dowling and Gallier (1984):
+/// each use is the clause "containers live -> target live", and each use
+/// keeps a count of its containers still dead. It runs in time linear in the
+/// uses and their containers, and its result doesn't depend on their order.
 Set<int> unreached(Set<int> dead, Iterable<Use> uses) {
   final stillDead = {...dead};
   // Revived nodes whose uses are not counted yet.
@@ -33,8 +38,8 @@ Set<int> unreached(Set<int> dead, Iterable<Use> uses) {
     }
   }
 
-  // Worklist propagation, as in linear-time Horn-SAT: each revived node is
-  // taken once, and a use counts when its last dead container is revived.
+  // Each revived node is taken once; a use counts when its last dead
+  // container is revived.
   while (revived.isNotEmpty) {
     final node = revived.removeLast();
     for (final use in usesInside[node] ?? const <_ContainedUse>[]) {
