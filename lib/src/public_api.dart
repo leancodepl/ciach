@@ -78,9 +78,8 @@ final class PublicApi {
   ) {
     final visible = <String, _Names>{};
     final pending = <(String, _Names)>[
-      for (final MapEntry(key: path, value: directives) in libraries.entries)
-        if (!directives.isPart &&
-            !p.isWithin(p.join(libDirOf[path]!, 'src'), path))
+      for (final path in libraries.keys)
+        if (!p.isWithin(p.join(libDirOf[path]!, 'src'), path))
           (path, _Names.all),
     ];
     while (pending.isNotEmpty) {

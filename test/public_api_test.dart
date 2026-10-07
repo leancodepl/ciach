@@ -78,6 +78,15 @@ export 'src/stub.dart' if (dart.library.io) 'src/io.dart';
       expect(api.exposes(path('lib/src/part.dart'), 'A'), isTrue);
     });
 
+    test('a part outside lib/src/ of a private library is private', () {
+      write('lib/src/impl.dart', "part '../gen/impl.g.dart';");
+      write('lib/gen/impl.g.dart', "part of '../src/impl.dart';");
+
+      final api = PublicApi.scan(root.path);
+
+      expect(api.exposes(path('lib/gen/impl.g.dart'), 'A'), isFalse);
+    });
+
     test('a nested package has its own public libraries', () {
       write('example/pubspec.yaml', 'name: example_app');
       write(
