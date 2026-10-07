@@ -160,7 +160,7 @@ final class _Names {
         .firstMatch(combinators)
         ?.let(
           (match) => {
-            for (final m in identifierLike(match.group(1)!)) m.group(0)!,
+            for (final word in identifierLike(match.group(1)!)) word.name,
           },
         );
     return all.intersection(_Names(clause(_show), clause(_hide) ?? const {}));

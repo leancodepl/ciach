@@ -25,11 +25,11 @@ probeMembers({
   final namesIn = <String, Map<String, List<_Site>>>{};
   Map<String, List<_Site>> index(String path) {
     final names = <String, List<_Site>>{};
-    for (final match in identifierLike(sources.code(path))) {
-      (names[match.group(0)!] ??= []).add((
+    for (final (:name, :offset) in identifierLike(sources.code(path))) {
+      (names[name] ??= []).add((
         path: path,
-        start: match.start,
-        end: match.end,
+        start: offset,
+        end: offset + name.length,
       ));
     }
     return names;
