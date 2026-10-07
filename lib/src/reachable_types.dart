@@ -29,22 +29,60 @@ final class ReachableTypes {
     required List<Candidate> candidates,
     required List<List<Location>> refs,
   }) async {
-    final types = <DeclKey, (Candidate, List<Location>)>{
+    final types = <DeclKey, _Type>{
       for (final (i, candidate) in candidates.indexed)
-        if (_isType(candidate)) candidate.key: (candidate, refs[i]),
+        if (_isType(candidate))
+          candidate.key: (candidate: candidate, refs: refs[i]),
     };
+    final positionsIn = _importableRefs(types.values, sources, api);
+    final outlines = await _outlines(client, positionsIn.keys);
+    await fetch.fetchSelectionRanges(client, positionsIn);
+
+    final reachable = <DeclKey>{};
+    final carriersOf = <DeclKey, Set<DeclKey>>{};
+    for (final MapEntry(:key, value: type) in types.entries) {
+      final carriers = _carriersOf(type, outlines, sources, api);
+      // A carrier that is not a type here, such as [_root], hands it out.
+      if (api.exposes(key.path, key.name) ||
+          carriers.any((carrier) => !types.containsKey(carrier))) {
+        reachable.add(key);
+      }
+      carriersOf[key] = carriers.where(types.containsKey).toSet();
+    }
+    return ._({
+      for (final key in _unreached(types.keys, reachable, carriersOf))
+        key: {
+          key.path,
+          for (final loc in types[key]!.refs) SourceIndex.pathOf(loc.uri),
+        },
+    });
+  }
+
+  /// The positions of [types]' references in scanned, importable files.
+  static Map<String, Set<Position>> _importableRefs(
+    Iterable<_Type> types,
+    SourceIndex sources,
+    PublicApi api,
+  ) {
     final positionsIn = <String, Set<Position>>{};
-    for (final (_, typeRefs) in types.values) {
-      for (final loc in typeRefs) {
+    for (final type in types) {
+      for (final loc in type.refs) {
         final path = SourceIndex.pathOf(loc.uri);
         if (sources.scannedPaths.contains(path) && api.isImportable(path)) {
           (positionsIn[path] ??= {}).add(loc.range.start);
         }
       }
     }
+    return positionsIn;
+  }
+
+  static Future<Map<String, Outline>> _outlines(
+    LspClient client,
+    Iterable<String> paths,
+  ) async {
     final outlines = <String, Outline>{};
     await Future.wait(
-      positionsIn.keys.map((path) async {
+      paths.map((path) async {
         try {
           outlines[path] = await client.outline(File(path).uri);
         } on LspRequestException {
@@ -52,38 +90,52 @@ final class ReachableTypes {
         }
       }),
     );
-    await fetch.fetchSelectionRanges(client, positionsIn);
+    return outlines;
+  }
 
-    // Each type's carriers: the types that hand it out if they are reachable.
-    final carriersOf = <DeclKey, Set<DeclKey>>{};
-    final reachable = <DeclKey>{};
-    for (final MapEntry(:key, value: (type, typeRefs)) in types.entries) {
-      final carriers = carriersOf[key] = {};
-      if (api.exposes(key.path, key.name)) {
-        reachable.add(key);
-      }
-      for (final loc in typeRefs) {
-        final path = SourceIndex.pathOf(loc.uri);
-        final pos = loc.range.start;
-        if (!api.isImportable(path) ||
-            (path == type.path && type.outline.range.contains(pos)) ||
-            sources.isDocReference(loc)) {
-          continue;
-        }
-        switch (_carrierAt(outlines[path], path, pos, sources, api)) {
-          case final carrier? when types.containsKey(carrier):
-            carriers.add(carrier);
-          case _?:
-            reachable.add(key);
-          case null:
-            break;
-        }
-      }
-    }
+  /// What hands [type] out: the types holding a reference to it, and
+  /// [_root] for a reference that hands it to everyone.
+  static Set<DeclKey> _carriersOf(
+    _Type type,
+    Map<String, Outline> outlines,
+    SourceIndex sources,
+    PublicApi api,
+  ) => {
+    for (final loc in type.refs)
+      if (_handsOut(type, loc, sources, api))
+        ?_carrierAt(
+          outlines[SourceIndex.pathOf(loc.uri)],
+          SourceIndex.pathOf(loc.uri),
+          loc.range.start,
+          sources,
+          api,
+        ),
+  };
 
-    final keys = types.keys.toList();
+  /// Whether [loc] can hand [type] to another package: in an importable
+  /// file, outside [type] itself, not a doc comment.
+  static bool _handsOut(
+    _Type type,
+    Location loc,
+    SourceIndex sources,
+    PublicApi api,
+  ) {
+    final path = SourceIndex.pathOf(loc.uri);
+    return api.isImportable(path) &&
+        !(path == type.candidate.path &&
+            type.candidate.outline.range.contains(loc.range.start)) &&
+        !sources.isDocReference(loc);
+  }
+
+  /// The types neither [reachable] nor carried by a reachable type.
+  static Iterable<DeclKey> _unreached(
+    Iterable<DeclKey> types,
+    Set<DeclKey> reachable,
+    Map<DeclKey, Set<DeclKey>> carriersOf,
+  ) {
+    final keys = types.toList();
     final indexOf = {for (final (i, key) in keys.indexed) key: i};
-    final internal = unreached(
+    return unreached(
       {for (var i = 0; i < keys.length; i++) i},
       [
         for (final key in reachable)
@@ -93,15 +145,6 @@ final class ReachableTypes {
             (target: indexOf[key]!, containers: [indexOf[carrier]!]),
       ],
     ).map((i) => keys[i]);
-
-    final filesOf = {
-      for (final key in internal)
-        key: {
-          key.path,
-          for (final loc in types[key]!.$2) SourceIndex.pathOf(loc.uri),
-        },
-    };
-    return ._(filesOf);
   }
 
   /// For each internal type, the files naming it, where its members are most
@@ -257,3 +300,5 @@ final _bodyOpener = RegExp(r'\{|=>|async\b|sync\b');
 
 /// A carrier no type matches, so whatever it carries is reachable.
 const _root = DeclKey('', '');
+
+typedef _Type = ({Candidate candidate, List<Location> refs});
