@@ -38,19 +38,23 @@ final class ReachableTypes {
     final outlines = await _outlines(client, positionsIn.keys);
     await fetch.fetchSelectionRanges(client, positionsIn);
 
+    final carriersOf = _Carriers(client, sources, api, outlines);
     final reachable = <DeclKey>{};
-    final carriersOf = <DeclKey, Set<DeclKey>>{};
-    for (final MapEntry(:key, value: type) in types.entries) {
-      final carriers = _carriersOf(type, outlines, sources, api);
-      // A carrier that is not a type here, such as [_root], hands it out.
-      if (api.exposes(key.path, key.name) ||
-          carriers.any((carrier) => !types.containsKey(carrier))) {
-        reachable.add(key);
-      }
-      carriersOf[key] = carriers.where(types.containsKey).toSet();
-    }
+    final carriedBy = <DeclKey, Set<DeclKey>>{};
+    await Future.wait(
+      types.entries.map((entry) async {
+        final MapEntry(:key, value: type) = entry;
+        final carriers = await carriersOf(type);
+        // A carrier that is not a type here, such as [_root], hands it out.
+        if (api.exposes(key.path, key.name) ||
+            carriers.any((carrier) => !types.containsKey(carrier))) {
+          reachable.add(key);
+        }
+        carriedBy[key] = carriers.where(types.containsKey).toSet();
+      }),
+    );
     return ._({
-      for (final key in _unreached(types.keys, reachable, carriersOf))
+      for (final key in _unreached(types.keys, reachable, carriedBy))
         key: {
           key.path,
           for (final loc in types[key]!.refs) SourceIndex.pathOf(loc.uri),
@@ -91,40 +95,6 @@ final class ReachableTypes {
       }),
     );
     return outlines;
-  }
-
-  /// What hands [type] out: the types holding a reference to it, and
-  /// [_root] for a reference that hands it to everyone.
-  static Set<DeclKey> _carriersOf(
-    _Type type,
-    Map<String, Outline> outlines,
-    SourceIndex sources,
-    PublicApi api,
-  ) => {
-    for (final loc in type.refs)
-      if (_handsOut(type, loc, sources, api))
-        ?_carrierAt(
-          outlines[SourceIndex.pathOf(loc.uri)],
-          SourceIndex.pathOf(loc.uri),
-          loc.range.start,
-          sources,
-          api,
-        ),
-  };
-
-  /// Whether [loc] can hand [type] to another package: in an importable
-  /// file, outside [type] itself, not a doc comment.
-  static bool _handsOut(
-    _Type type,
-    Location loc,
-    SourceIndex sources,
-    PublicApi api,
-  ) {
-    final path = SourceIndex.pathOf(loc.uri);
-    return api.isImportable(path) &&
-        !(path == type.candidate.path &&
-            type.candidate.outline.range.contains(loc.range.start)) &&
-        !sources.isDocReference(loc);
   }
 
   /// The types neither [reachable] nor carried by a reachable type.
@@ -169,17 +139,46 @@ final class ReachableTypes {
       candidate.container == null &&
       typeLikeKinds.contains(candidate.symbol.kind) &&
       !candidate.isExtension;
+}
+
+/// A carrier no type matches, so whatever it carries is reachable.
+const _root = DeclKey('', '');
+
+typedef _Type = ({Candidate candidate, List<Location> refs});
+
+/// What hands a type out, read from the outlines of the files naming it.
+final class _Carriers {
+  _Carriers(this._client, this._sources, this._api, this._outlines);
+
+  final LspClient _client;
+  final SourceIndex _sources;
+  final PublicApi _api;
+  final Map<String, Outline> _outlines;
+  final _signatures = <(String, Position), Future<String?>>{};
+
+  /// The types holding a reference to [type], and [_root] for a reference
+  /// that hands it to everyone.
+  Future<Set<DeclKey>> call(_Type type) async => {
+    for (final loc in type.refs)
+      if (_canHandOut(type, loc))
+        ?await _carrierAt(SourceIndex.pathOf(loc.uri), loc.range.start),
+  };
+
+  /// Whether [loc] can hand [type] to another package: in an importable
+  /// file, outside [type] itself, not a doc comment.
+  bool _canHandOut(_Type type, Location loc) {
+    final path = SourceIndex.pathOf(loc.uri);
+    return _api.isImportable(path) &&
+        !(path == type.candidate.path &&
+            type.candidate.outline.range.contains(loc.range.start)) &&
+        !_sources.isDocReference(loc);
+  }
 
   /// The type the reference at [pos] hands its type to, [_root] when it
   /// hands it to everyone, or `null` when it sits in a body, a directive or
   /// an extension no other package can import.
-  static DeclKey? _carrierAt(
-    Outline? unit,
-    String path,
-    Position pos,
-    SourceIndex sources,
-    PublicApi api,
-  ) {
+  Future<DeclKey?> _carrierAt(String path, Position pos) async {
+    final unit = _outlines[path];
     if (unit == null) {
       return _root;
     }
@@ -190,29 +189,28 @@ final class ReachableTypes {
     final kind = top.element.kind;
     if (kind case .class$ || .mixin || .enum$ || .extension || .extensionType) {
       final member = top.childAt(pos);
-      if (member != null && _hidesIn(member, top, path, pos, sources)) {
+      if (member != null && await _hidesIn(member, top, path, pos)) {
         return null;
       }
       if (kind != .extension) {
         return DeclKey(path, top.element.name);
       }
       return !top.element.isUnnamedExtension &&
-              api.exposes(path, top.element.name)
+              _api.exposes(path, top.element.name)
           ? _root
           : null;
     }
-    return _hidesIn(top, null, path, pos, sources) ? null : _root;
+    return await _hidesIn(top, null, path, pos) ? null : _root;
   }
 
   /// Whether a mention at [pos] in the function-like [node] stays inside it:
   /// it sits in the body, and nothing the signature hands out is `dynamic`.
-  static bool _hidesIn(
+  Future<bool> _hidesIn(
     Outline node,
     Outline? owner,
     String path,
     Position pos,
-    SourceIndex sources,
-  ) {
+  ) async {
     final element = node.element;
     if (element.kind
         case .field ||
@@ -222,41 +220,25 @@ final class ReachableTypes {
             .functionTypeAlias) {
       return false;
     }
-    final from = sources.offsetOf(path, node.codeRange.start);
-    if (from == null) {
+    if (_bodyStart(node, path, pos) == null ||
+        (element.typeParameters ?? '').isNotEmpty ||
+        (owner?.element.typeParameters ?? '').isNotEmpty) {
       return false;
     }
-    final body = _bodyStart(node, path, pos, sources);
-    if (body == null) {
-      return false;
-    }
-    final returnsDynamic =
-        (element.kind == .function ||
-            element.kind == .method ||
-            element.kind == .getter) &&
-        ((element.returnType ?? '').isEmpty || element.returnType == 'dynamic');
-    return !returnsDynamic &&
-        !_dynamic.hasMatch(sources.code(path).substring(from, body)) &&
-        (element.typeParameters ?? '').isEmpty &&
-        (owner?.element.typeParameters ?? '').isEmpty &&
-        !_hasUntypedParameter(element.parameters);
+    final signature = await _signature(path, node);
+    return signature != null && !_dynamic.hasMatch(signature);
   }
 
   /// Where the body of [node] that holds [pos] starts: the syntax node that
   /// ends the declaration and opens with `{`, `=>`, `async` or `sync`.
-  static int? _bodyStart(
-    Outline node,
-    String path,
-    Position pos,
-    SourceIndex sources,
-  ) {
-    final code = sources.code(path);
+  int? _bodyStart(Outline node, String path, Position pos) {
+    final code = _sources.code(path);
     for (
-      var range = sources.selectionRangeAt(path, pos);
+      var range = _sources.selectionRangeAt(path, pos);
       range != null && node.codeRange.contains(range.range.start);
       range = range.parent
     ) {
-      final start = sources.offsetOf(path, range.range.start);
+      final start = _sources.offsetOf(path, range.range.start);
       if (start != null &&
           range.range.end == node.codeRange.end &&
           range.range.start != node.codeRange.start &&
@@ -267,38 +249,26 @@ final class ReachableTypes {
     return null;
   }
 
-  /// Whether a parameter in [parameters], as written, has no type.
-  static bool _hasUntypedParameter(String? parameters) {
-    if (parameters == null) {
-      return false;
-    }
-    var flat = parameters.substring(1, parameters.length - 1);
-    while (flat.contains(_nested)) {
-      flat = flat.replaceAll(_nested, '');
-    }
-    return flat.split(',').any((part) {
-      final declared = part
-          .split('=')
-          .first
-          .replaceAll(_parameterNoise, '')
-          .trim();
-      return _identifier.hasMatch(declared);
-    });
+  /// [node]'s signature as the analyzer resolved it, e.g.
+  /// `void f(dynamic cb)` for `void f(cb)`, from its hover.
+  Future<String?> _signature(String path, Outline node) {
+    final at = node.element.range?.start ?? node.codeRange.start;
+    return _signatures[(path, at)] ??= () async {
+      try {
+        final hover = await _client.hover(File(path).uri, at);
+        return hover == null ? null : _fencedCode.firstMatch(hover)?.group(1);
+      } on LspRequestException {
+        return null;
+      }
+    }();
   }
 }
 
-/// An innermost `(…)` or `<…>`, such as a function type's parameters or a
-/// type's arguments.
-final _nested = RegExp(r'\([^()]*\)|<[^<>]*>');
-final _parameterNoise = RegExp(r'[{}\[\]]|\b(?:required|covariant|final)\b');
-final _identifier = RegExp(r'^[\w$]+$');
-
-/// Types through which a caller can invoke any member.
-final _dynamic = RegExp(r'\b(?:dynamic|Function|var)\b');
+/// Types through which a caller can invoke any member: `dynamic`, and a
+/// bare `Function`.
+final _dynamic = RegExp(r'\bdynamic\b|\bFunction\b(?!\s*[(<])');
 
 final _bodyOpener = RegExp(r'\{|=>|async\b|sync\b');
 
-/// A carrier no type matches, so whatever it carries is reachable.
-const _root = DeclKey('', '');
-
-typedef _Type = ({Candidate candidate, List<Location> refs});
+/// The first fenced code block of a hover: the signature.
+final _fencedCode = RegExp(r'```dart\n([^`]*?)\n```');
