@@ -201,8 +201,8 @@ final class _Names {
         .firstMatch(combinators)
         ?.let(
           (match) => {
-            for (final word in identifierLike(match.namedGroup('names')!))
-              word.name,
+            for (final name in match.namedGroup('names')!.split(','))
+              name.trim(),
           },
         );
     return all.intersection(_Names(clause(_show), clause(_hide) ?? const {}));

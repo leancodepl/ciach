@@ -232,7 +232,7 @@ final class _Carriers {
   /// Where the body of [node] that holds [pos] starts: the syntax node that
   /// ends the declaration and opens with `{`, `=>`, `async` or `sync`.
   int? _bodyStart(Outline node, String path, Position pos) {
-    final code = _sources.code(path);
+    final code = _sources.content(path);
     for (
       var range = _sources.selectionRangeAt(path, pos);
       range != null && node.codeRange.contains(range.range.start);

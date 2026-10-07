@@ -4,10 +4,12 @@ import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/concurrency.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/reachable_types.dart';
+import 'package:ciach/src/reference_fetch.dart';
+import 'package:ciach/src/reference_kinds.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location, Range;
+import 'package:pro_lsp/pro_lsp.dart' show Location, Position, Range;
 
 /// Splits [members] into those a definition lookup finds used, with that
 /// use, and the rest.
@@ -21,27 +23,33 @@ probeMembers({
   required List<Candidate> members,
   required int concurrency,
 }) async {
-  // Where each name is written, per file, indexed on first use.
-  final mentionsByFile = <String, Map<String, List<_Mention>>>{};
-  Map<String, List<_Mention>> findMentions(String path) {
-    final mentions = <String, List<_Mention>>{};
-    for (final (:name, :offset) in identifierLike(sources.code(path))) {
-      (mentions[name] ??= []).add((
-        path: path,
-        start: offset,
-        end: offset + name.length,
-      ));
-    }
-    return mentions;
-  }
-
-  Range rangeOf(_Mention mention) => Range(
-    start: sources.positionOf(mention.path, mention.start),
-    end: sources.positionOf(mention.path, mention.end),
+  final files = {for (final member in members) ...types.filesFor(member)};
+  await mapPooled(
+    files.where((path) => !sources.hasSemanticTokens(path)).toList(),
+    concurrency,
+    (path) async => sources.cacheSemanticTokens(
+      path,
+      await semanticTokensOrEmpty(client, sources, path),
+    ),
   );
 
-  List<_Mention> mentionsIn(String path, String name) =>
-      (mentionsByFile[path] ??= findMentions(path))[name] ?? const [];
+  // Where each name is written in code, per file, from the server's tokens.
+  final mentionsByFile = <String, Map<String, List<_Mention>>>{};
+  for (final path in files) {
+    final mentions = mentionsByFile[path] = {};
+    for (final token in sources.semanticTokens(path)!) {
+      if (sources.isDocLine(path, token.line)) {
+        continue;
+      }
+      (mentions[token.text] ??= []).add((
+        path: path,
+        range: Range(
+          start: token.start,
+          end: Position(line: token.line, character: token.end),
+        ),
+      ));
+    }
+  }
 
   // The member's name written in files its type reaches, outside its own
   // declaration.
@@ -49,9 +57,10 @@ probeMembers({
     for (final member in members)
       member: [
         for (final path in types.filesFor(member))
-          for (final mention in mentionsIn(path, _spelling(member)))
+          for (final mention
+              in mentionsByFile[path]![_spelling(member)] ?? const <_Mention>[])
             if (path != member.path ||
-                !member.outline.range.contains(rangeOf(mention).start))
+                !member.outline.range.contains(mention.range.start))
               mention,
       ],
   };
@@ -64,7 +73,7 @@ probeMembers({
     try {
       return await client.definition(
         File(mention.path).uri,
-        rangeOf(mention).start,
+        mention.range.start,
       );
     } on LspRequestException {
       // Unresolved, the mention proves nothing; the reference search decides.
@@ -86,7 +95,7 @@ probeMembers({
     } else {
       used.add(member);
       refs.add([
-        Location(uri: File(use.path).uri.toString(), range: rangeOf(use)),
+        Location(uri: File(use.path).uri.toString(), range: use.range),
       ]);
     }
   }
@@ -94,7 +103,7 @@ probeMembers({
 }
 
 /// A place where a name is written.
-typedef _Mention = ({String path, int start, int end});
+typedef _Mention = ({String path, Range range});
 
 /// How a use of [member] is spelled: the class name for an unnamed
 /// constructor.
