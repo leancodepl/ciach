@@ -94,5 +94,17 @@ export 'src/stub.dart' if (dart.library.io) 'src/io.dart';
       expect(api.exposes(path('example/lib/src/b.dart'), 'b'), isFalse);
       expect(api.exposes(path('example/bin/run.dart'), 'run'), isFalse);
     });
+
+    test('packages sharing a name all have public libraries', () {
+      write('a/pubspec.yaml', 'name: twin');
+      write('a/lib/a.dart', 'void a() {}');
+      write('b/pubspec.yaml', 'name: twin');
+      write('b/lib/b.dart', 'void b() {}');
+
+      final api = PublicApi.scan(root.path);
+
+      expect(api.exposes(path('a/lib/a.dart'), 'a'), isTrue);
+      expect(api.exposes(path('b/lib/b.dart'), 'b'), isTrue);
+    });
   });
 }

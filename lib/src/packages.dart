@@ -1,9 +1,12 @@
 import 'dart:io';
 
 import 'package:ciach/src/file_discovery.dart';
+import 'package:ciach/src/pubspec.dart';
 import 'package:path/path.dart' as p;
 
 /// The Dart files under a root, and the `lib/` of every package there.
+/// `libDirs` also holds those `libDirByPackage` drops: unnamed, or sharing a
+/// name.
 typedef PackageTree = ({
   Set<String> dartFiles,
   Map<String, String> libDirByPackage,
@@ -30,7 +33,7 @@ PackageTree scanPackageTree(String root) {
         } else if (name == 'pubspec.yaml') {
           final libDir = p.join(p.dirname(path), 'lib');
           libDirs.add(libDir);
-          if (_pubspecName(path) case final package?) {
+          if (pubspecName(path) case final package?) {
             libDirByPackage[package] = libDir;
           }
         }
@@ -45,18 +48,6 @@ PackageTree scanPackageTree(String root) {
     libDirs: libDirs,
   );
 }
-
-String? _pubspecName(String pubspecPath) {
-  try {
-    return _pubspecNameLine
-        .firstMatch(File(pubspecPath).readAsStringSync())
-        ?.group(1);
-  } on FileSystemException {
-    return null;
-  }
-}
-
-final _pubspecNameLine = RegExp(r'^name:\s*([A-Za-z0-9_]+)', multiLine: true);
 
 final uriLiteral = RegExp(r'''r?(['"])([^'"\n]*)\1''');
 
