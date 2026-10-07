@@ -9,11 +9,8 @@ import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location, Range;
 
-/// Members of internal types found used by a `textDocument/definition` lookup at
-/// a spelling of their name in the files their type reaches, with the use as
-/// their one reference. A lookup on a resolved file is far cheaper than a
-/// reference search, which the rest still get, so no finding rests on a
-/// lookup.
+/// Splits [members] into those a definition lookup finds used, with that
+/// use, and the rest.
 Future<
   ({List<Candidate> used, List<List<Location>> refs, List<Candidate> rest})
 >
