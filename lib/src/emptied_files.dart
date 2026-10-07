@@ -146,14 +146,18 @@ final class _Package {
     final body = directive.group(2)!;
     var link = _Link.none;
     for (final uri in uriLiteral.allMatches(body)) {
-      final resolved = resolveDartUri(uri.group(2)!, from, _libDirByPackage);
+      final resolved = resolveDartUri(
+        uri.namedGroup('uri')!,
+        from,
+        _libDirByPackage,
+      );
       if (resolved == null) {
         continue;
       }
       if (resolved == target) {
         link = .droppable;
       } else if (resolved == unknownPackage &&
-          _libPathMatches(uri.group(2)!, target)) {
+          _libPathMatches(uri.namedGroup('uri')!, target)) {
         return .blocking;
       }
     }

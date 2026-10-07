@@ -128,12 +128,12 @@ final class PublicApi {
 }
 
 final _directive = RegExp(
-  r'''^[ \t]*(export|part)\s+([^;]*);''',
+  r'''^[ \t]*(?<kind>export|part)\s+(?<body>[^;]*);''',
   multiLine: true,
 );
 
-final _show = RegExp(r'\bshow\b([^;]*?)(?=\b(?:show|hide)\b|$)');
-final _hide = RegExp(r'\bhide\b([^;]*?)(?=\b(?:show|hide)\b|$)');
+final _show = RegExp(r'\bshow\b(?<names>[^;]*?)(?=\b(?:show|hide)\b|$)');
+final _hide = RegExp(r'\bhide\b(?<names>[^;]*?)(?=\b(?:show|hide)\b|$)');
 
 final class _Directives {
   _Directives(this.exports, this.parts);
@@ -146,13 +146,14 @@ final class _Directives {
     final exports = <_Export>[];
     final parts = <String>[];
     for (final match in _directive.allMatches(stripComments(content))) {
-      final body = match.group(2)!;
-      if (match.group(1) == 'part') {
+      final body = match.namedGroup('body')!;
+      if (match.namedGroup('kind') == 'part') {
         if (body.startsWith('of')) {
           continue;
         }
         if (uriLiteral.firstMatch(body) case final uri?) {
-          if (_resolve(uri.group(2)!, path, libDirByPackage) case final part?) {
+          if (_resolve(uri.namedGroup('uri')!, path, libDirByPackage)
+              case final part?) {
             parts.add(part);
           }
         }
@@ -165,7 +166,7 @@ final class _Directives {
       exports.add((
         targets: [
           for (final uri in uris)
-            ?_resolve(uri.group(2)!, path, libDirByPackage),
+            ?_resolve(uri.namedGroup('uri')!, path, libDirByPackage),
         ],
         names: _Names.parse(body.substring(uris.last.end)),
       ));
@@ -198,7 +199,8 @@ final class _Names {
         .firstMatch(combinators)
         ?.let(
           (match) => {
-            for (final word in identifierLike(match.group(1)!)) word.name,
+            for (final word in identifierLike(match.namedGroup('names')!))
+              word.name,
           },
         );
     return all.intersection(_Names(clause(_show), clause(_hide) ?? const {}));

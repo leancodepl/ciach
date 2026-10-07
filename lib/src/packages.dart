@@ -49,7 +49,7 @@ PackageTree scanPackageTree(String root) {
   );
 }
 
-final uriLiteral = RegExp(r'''r?(['"])([^'"\n]*)\1''');
+final uriLiteral = RegExp(r'''r?(?<quote>['"])(?<uri>[^'"\n]*)\k<quote>''');
 
 /// What [resolveDartUri] returns for a `package:` URI no pubspec claims.
 const unknownPackage = '';
