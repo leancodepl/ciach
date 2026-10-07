@@ -100,7 +100,7 @@ final class PublicApi {
       }
       visible[library] = merged;
       for (final export in libraries[library]?.exports ?? const <_Export>[]) {
-        for (final target in export.targets) {
+        for (final target in export.paths) {
           pending.add((
             libraryOf[target] ?? target,
             export.names.intersection(merged),
@@ -164,7 +164,7 @@ final class _Directives {
         continue;
       }
       exports.add((
-        targets: [
+        paths: [
           for (final uri in uris)
             ?_resolve(uri.namedGroup('uri')!, path, libDirByPackage),
         ],
@@ -187,7 +187,9 @@ final class _Directives {
   };
 }
 
-typedef _Export = ({List<String> targets, _Names names});
+/// The files an `export` names, as absolute paths (several when conditional),
+/// and the names it lets through.
+typedef _Export = ({List<String> paths, _Names names});
 
 /// The names a filter lets through: [shown] (all when `null`) less [hidden].
 final class _Names {
