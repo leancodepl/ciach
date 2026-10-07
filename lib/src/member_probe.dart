@@ -24,11 +24,11 @@ probeMembers({
   required List<Candidate> members,
   required int concurrency,
 }) async {
-  // Each file's identifiers by name, found in one pass.
+  // Each file's identifier-shaped words by name, found in one pass.
   final namesIn = <String, Map<String, List<_Site>>>{};
   Map<String, List<_Site>> index(String path) {
     final names = <String, List<_Site>>{};
-    for (final match in _identifier.allMatches(sources.code(path))) {
+    for (final match in _word.allMatches(sources.code(path))) {
       (names[match.group(0)!] ??= []).add((
         path: path,
         start: match.start,
@@ -90,7 +90,7 @@ probeMembers({
 
 typedef _Site = ({String path, int start, int end});
 
-final _identifier = RegExp(r'[A-Za-z_$][\w$]*');
+final _word = RegExp(r'[A-Za-z_$][\w$]*');
 
 /// How a use of [member] is spelled: the class name for an unnamed
 /// constructor.
