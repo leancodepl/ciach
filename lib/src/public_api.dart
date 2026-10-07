@@ -94,7 +94,6 @@ final _directive = RegExp(
 
 final _show = RegExp(r'\bshow\b([^;]*?)(?=\b(?:show|hide)\b|$)');
 final _hide = RegExp(r'\bhide\b([^;]*?)(?=\b(?:show|hide)\b|$)');
-final _word = RegExp(r'[A-Za-z_$][A-Za-z0-9_$]*');
 
 final class _Directives {
   _Directives(this.exports, this.parts, {required this.isPart});
@@ -161,7 +160,8 @@ final class _Names {
         .firstMatch(combinators)
         ?.let(
           (match) => {
-            for (final m in _word.allMatches(match.group(1)!)) m.group(0)!,
+            for (final m in identifierLike.allMatches(match.group(1)!))
+              m.group(0)!,
           },
         );
     return all.intersection(_Names(clause(_show), clause(_hide) ?? const {}));

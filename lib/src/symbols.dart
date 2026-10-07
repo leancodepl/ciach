@@ -196,6 +196,9 @@ extension PositionGeometry on Position {
   }
 }
 
+/// Text spelled like a Dart identifier.
+final identifierLike = RegExp(r'[A-Za-z_$][\w$]*');
+
 /// Whether [name] (possibly qualified, e.g. `Foo._bar`) is library-private —
 /// its simple segment starts with `_`.
 bool isPrivateName(String name) =>
