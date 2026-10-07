@@ -21,71 +21,80 @@ probeMembers({
   required List<Candidate> members,
   required int concurrency,
 }) async {
-  // Each file's identifier-shaped words by name, found in one pass.
-  final namesIn = <String, Map<String, List<_Site>>>{};
-  Map<String, List<_Site>> index(String path) {
-    final names = <String, List<_Site>>{};
+  // Where each name is written, per file, indexed on first use.
+  final mentionsByFile = <String, Map<String, List<_Mention>>>{};
+  Map<String, List<_Mention>> findMentions(String path) {
+    final mentions = <String, List<_Mention>>{};
     for (final (:name, :offset) in identifierLike(sources.code(path))) {
-      (names[name] ??= []).add((
+      (mentions[name] ??= []).add((
         path: path,
         start: offset,
         end: offset + name.length,
       ));
     }
-    return names;
+    return mentions;
   }
 
-  Range rangeOf(_Site site) => Range(
-    start: sources.positionOf(site.path, site.start),
-    end: sources.positionOf(site.path, site.end),
+  Range rangeOf(_Mention mention) => Range(
+    start: sources.positionOf(mention.path, mention.start),
+    end: sources.positionOf(mention.path, mention.end),
   );
 
-  List<_Site> sitesIn(String path, String name) =>
-      (namesIn[path] ??= index(path))[name] ?? const [];
+  List<_Mention> mentionsIn(String path, String name) =>
+      (mentionsByFile[path] ??= findMentions(path))[name] ?? const [];
 
-  final sitesOf = {
+  // The member's name written in files its type reaches, outside its own
+  // declaration.
+  final mentionsOfMember = {
     for (final member in members)
       member: [
         for (final path in types.filesFor(member))
-          for (final site in sitesIn(path, _spelling(member)))
+          for (final mention in mentionsIn(path, _spelling(member)))
             if (path != member.path ||
-                !member.outline.range.contains(rangeOf(site).start))
-              site,
+                !member.outline.range.contains(rangeOf(mention).start))
+              mention,
       ],
   };
-  final sites = {
-    for (final memberSites in sitesOf.values) ...memberSites,
+  final allMentions = {
+    for (final mentions in mentionsOfMember.values) ...mentions,
   }.toList();
-  final targets = await mapPooled(sites, concurrency, (site) async {
+  final definitions = await mapPooled(allMentions, concurrency, (
+    mention,
+  ) async {
     try {
-      return await client.definition(File(site.path).uri, rangeOf(site).start);
+      return await client.definition(
+        File(mention.path).uri,
+        rangeOf(mention).start,
+      );
     } on LspRequestException {
-      // Unresolved, the site proves nothing; the reference search decides.
+      // Unresolved, the mention proves nothing; the reference search decides.
       return const <Location>[];
     }
   });
-  final targetsOf = Map.fromIterables(sites, targets);
+  final definitionsOf = Map.fromIterables(allMentions, definitions);
 
   final used = <Candidate>[];
   final refs = <List<Location>>[];
   final rest = <Candidate>[];
-  for (final MapEntry(key: member, value: memberSites) in sitesOf.entries) {
-    final hit = memberSites.firstWhereOrNull(
-      (site) => targetsOf[site]!.any((t) => _declares(member, t)),
+  for (final MapEntry(key: member, value: mentions)
+      in mentionsOfMember.entries) {
+    final use = mentions.firstWhereOrNull(
+      (mention) => definitionsOf[mention]!.any((t) => _declares(member, t)),
     );
-    if (hit == null) {
+    if (use == null) {
       rest.add(member);
     } else {
       used.add(member);
       refs.add([
-        Location(uri: File(hit.path).uri.toString(), range: rangeOf(hit)),
+        Location(uri: File(use.path).uri.toString(), range: rangeOf(use)),
       ]);
     }
   }
   return (used: used, refs: refs, rest: rest);
 }
 
-typedef _Site = ({String path, int start, int end});
+/// A place where a name is written.
+typedef _Mention = ({String path, int start, int end});
 
 /// How a use of [member] is spelled: the class name for an unnamed
 /// constructor.
