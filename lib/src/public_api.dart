@@ -60,14 +60,24 @@ final class PublicApi {
     return libraries;
   }
 
-  /// The library each part belongs to.
+  /// The library each part belongs to, through parts of parts.
   static Map<String, String> _libraryOfParts(
     Map<String, _Directives> libraries,
-  ) => {
-    for (final MapEntry(key: path, value: directives) in libraries.entries)
-      if (!directives.isPart)
+  ) {
+    final ownerOf = {
+      for (final MapEntry(key: path, value: directives) in libraries.entries)
         for (final part in directives.parts) part: path,
-  };
+    };
+    String libraryOf(String part) {
+      var library = part;
+      for (final seen = <String>{}; seen.add(library);) {
+        library = ownerOf[library] ?? library;
+      }
+      return library;
+    }
+
+    return {for (final part in ownerOf.keys) part: libraryOf(part)};
+  }
 
   /// The names each library exposes: all of a library outside `lib/src/`,
   /// then whatever exports pass on.
@@ -126,7 +136,7 @@ final _show = RegExp(r'\bshow\b([^;]*?)(?=\b(?:show|hide)\b|$)');
 final _hide = RegExp(r'\bhide\b([^;]*?)(?=\b(?:show|hide)\b|$)');
 
 final class _Directives {
-  _Directives(this.exports, this.parts, {required this.isPart});
+  _Directives(this.exports, this.parts);
 
   factory _Directives.parse(
     String content,
@@ -135,13 +145,13 @@ final class _Directives {
   ) {
     final exports = <_Export>[];
     final parts = <String>[];
-    var isPart = false;
     for (final match in _directive.allMatches(stripComments(content))) {
       final body = match.group(2)!;
       if (match.group(1) == 'part') {
         if (body.startsWith('of')) {
-          isPart = true;
-        } else if (uriLiteral.firstMatch(body) case final uri?) {
+          continue;
+        }
+        if (uriLiteral.firstMatch(body) case final uri?) {
           if (_resolve(uri.group(2)!, path, libDirByPackage) case final part?) {
             parts.add(part);
           }
@@ -160,13 +170,11 @@ final class _Directives {
         names: _Names.parse(body.substring(uris.last.end)),
       ));
     }
-    return .new(exports, parts, isPart: isPart);
+    return .new(exports, parts);
   }
 
   final List<_Export> exports;
   final List<String> parts;
-
-  final bool isPart;
 
   static String? _resolve(
     String uri,

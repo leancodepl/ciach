@@ -78,6 +78,16 @@ export 'src/stub.dart' if (dart.library.io) 'src/io.dart';
       expect(api.exposes(path('lib/src/part.dart'), 'A'), isTrue);
     });
 
+    test('a part of a part shares its library visibility', () {
+      write('lib/lib_pkg.dart', "part 'src/a.dart';");
+      write('lib/src/a.dart', "part of '../lib_pkg.dart';\npart 'b.dart';");
+      write('lib/src/b.dart', "part of 'a.dart';");
+
+      final api = PublicApi.scan(root.path);
+
+      expect(api.exposes(path('lib/src/b.dart'), 'B'), isTrue);
+    });
+
     test('a part outside lib/src/ of a private library is private', () {
       write('lib/src/impl.dart', "part '../gen/impl.g.dart';");
       write('lib/gen/impl.g.dart', "part of '../src/impl.dart';");
