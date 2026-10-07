@@ -196,8 +196,11 @@ extension PositionGeometry on Position {
   }
 }
 
-/// Text spelled like a Dart identifier.
-final identifierLike = RegExp(r'[A-Za-z_$][\w$]*');
+/// The runs of [text] spelled like a Dart identifier, keywords included.
+Iterable<RegExpMatch> identifierLike(String text) =>
+    _identifierLike.allMatches(text);
+
+final _identifierLike = RegExp(r'[A-Za-z_$][\w$]*');
 
 /// Whether [name] (possibly qualified, e.g. `Foo._bar`) is library-private —
 /// its simple segment starts with `_`.
