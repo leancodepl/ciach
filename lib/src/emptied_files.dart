@@ -28,42 +28,55 @@ List<DeletedFile> deleteEmptiedFiles(Set<String> rewritten, String rootPath) {
   while (progressed) {
     progressed = false;
     for (final path in pending.sorted()) {
-      final content = package.content(path);
-      if (content == null) {
-        pending.remove(path);
-        continue;
+      if (_deleteIfEmptied(package, path, pending, root) case final file?) {
+        deleted.add(file);
+        progressed = true;
       }
-      if (!_isDirectiveOnly(content)) {
-        continue;
-      }
-      final links = package.linksTo(path);
-      if (links == null) {
-        pending.remove(path);
-        continue;
-      }
-      for (final MapEntry(key: importer, value: spans) in links.entries) {
-        package.dropSpans(importer, spans);
-        pending.add(importer);
-      }
-      package.delete(path);
-      pending.remove(path);
-      final file = (
-        filePath: relativePosix(path, root),
-        unlinkedFrom: [
-          for (final importer in links.keys.sorted())
-            relativePosix(importer, root),
-        ],
-      );
-      deleted.add(file);
-      _log.fine(
-        file.unlinkedFrom.isEmpty
-            ? 'Deleted ${file.filePath}: nothing left but library/import/part-of lines.'
-            : 'Deleted ${file.filePath}: nothing left but library/import/part-of lines. Dropped the directives naming it from ${file.unlinkedFrom.join(', ')}.',
-      );
-      progressed = true;
     }
   }
   return deleted;
+}
+
+/// Deletes [path] if nothing but directives is left in it, dropping the
+/// directives naming it and queueing their files in [pending]. Settles [path]
+/// unless it may yet be emptied.
+DeletedFile? _deleteIfEmptied(
+  _Package package,
+  String path,
+  Set<String> pending,
+  String root,
+) {
+  final content = package.content(path);
+  if (content == null) {
+    pending.remove(path);
+    return null;
+  }
+  if (!_isDirectiveOnly(content)) {
+    return null;
+  }
+  final links = package.linksTo(path);
+  if (links == null) {
+    pending.remove(path);
+    return null;
+  }
+  for (final MapEntry(key: importer, value: spans) in links.entries) {
+    package.dropSpans(importer, spans);
+    pending.add(importer);
+  }
+  package.delete(path);
+  pending.remove(path);
+  final file = (
+    filePath: relativePosix(path, root),
+    unlinkedFrom: [
+      for (final importer in links.keys.sorted()) relativePosix(importer, root),
+    ],
+  );
+  _log.fine(
+    file.unlinkedFrom.isEmpty
+        ? 'Deleted ${file.filePath}: nothing left but library/import/part-of lines.'
+        : 'Deleted ${file.filePath}: nothing left but library/import/part-of lines. Dropped the directives naming it from ${file.unlinkedFrom.join(', ')}.',
+  );
+  return file;
 }
 
 final _directiveOnly = RegExp(

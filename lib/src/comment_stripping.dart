@@ -90,37 +90,34 @@ int? _stringLiteralEnd(String content, int i) => switch (content[i]) {
 /// unless [raw] — `${…}`/`$id` interpolation (whose braces and nested
 /// strings are matched so a `}` or quote inside them doesn't end the string).
 int _skipString(String content, int from, {required bool raw}) {
-  final n = content.length;
   final quote = content[from];
-  final triple =
-      from + 2 < n && content[from + 1] == quote && content[from + 2] == quote;
+  final triple = _isTripleQuote(content, from);
   var i = from + (triple ? 3 : 1);
-  while (i < n) {
+  while (i < content.length) {
     final c = content[i];
-    if (!raw && c == r'\') {
-      i += 2;
-      continue;
-    }
-    if (!raw && c == r'$') {
-      i = _skipInterpolation(content, i);
-      continue;
-    }
-    if (c == quote) {
-      if (!triple) {
+    switch (c) {
+      case r'\' when !raw:
+        i += 2;
+      case r'$' when !raw:
+        i = _skipInterpolation(content, i);
+      case _ when c == quote && !triple:
         return i + 1;
-      }
-      if (i + 2 < n && content[i + 1] == quote && content[i + 2] == quote) {
+      case _ when c == quote && _isTripleQuote(content, i):
         return i + 3;
-      }
-    }
-    if (!triple && c == '\n') {
       // Unterminated single-line string; stop at the newline rather than run on.
-      return i;
+      case '\n' when !triple:
+        return i;
+      default:
+        i++;
     }
-    i++;
   }
-  return n;
+  return content.length;
 }
+
+bool _isTripleQuote(String content, int at) =>
+    at + 2 < content.length &&
+    content[at + 1] == content[at] &&
+    content[at + 2] == content[at];
 
 /// Skips a `$`-interpolation starting at [from] (the `$`), returning the
 /// index just past it. Handles both `$identifier` and brace-matched `${…}`.

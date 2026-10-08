@@ -75,28 +75,16 @@ Future<int> _run(List<String> arguments) async {
   // where that file is read from.
   final projectDir = args.rest.isEmpty ? '.' : args.rest.first;
 
-  final ResolvedOptions resolved;
-  final ConfigFile config;
-  final CiachConfiguration configuration;
-  try {
-    config = .load(
-      projectDir: projectDir,
-      explicitPath: explicitConfig,
-      ignore: ignoreConfig,
-    );
-    configuration = resolveConfiguration(args, config);
-    resolved = resolveOptions(
-      configuration,
-      // Progress goes to stderr, so default it on only for a terminal.
-      progressDefault: _console.errIsTerminal,
-    );
-  } on UsageException catch (e) {
-    _log.severe(e.message);
-    return 2;
-  } on FormatException catch (e) {
-    _log.severe(e.message);
+  final loaded = _loadOptions(
+    args,
+    projectDir: projectDir,
+    explicitConfig: explicitConfig,
+    ignoreConfig: ignoreConfig,
+  );
+  if (loaded == null) {
     return 2;
   }
+  final (:config, :configuration, :resolved) = loaded;
 
   _console.configure(
     color: resolved.color,
@@ -132,19 +120,8 @@ Future<int> _run(List<String> arguments) async {
   final options = resolved.finderOptions(dartExecutable: dartExecutable);
   final rootPath = options.rootPath;
 
-  if (options.analysisRootPath case final analysisRoot?) {
-    if (!Directory(analysisRoot).existsSync()) {
-      _log.severe('Analysis root does not exist: $analysisRoot');
-      return 2;
-    }
-    // A root beside or below the scanned package would drop references, not
-    // add them.
-    if (!analysisRootContains(analysisRoot, rootPath)) {
-      _log.severe(
-        'The analysis root must contain the analyzed path: $analysisRoot does not contain $rootPath.',
-      );
-      return 2;
-    }
+  if (!_analysisRootIsValid(options)) {
+    return 2;
   }
 
   describeSettings(
@@ -155,39 +132,9 @@ Future<int> _run(List<String> arguments) async {
   ).forEach(_log.config);
 
   final result = await Ciach(options).run();
-  final counts = [
-    '${result.unused.length} unused',
-    '${result.docOnly.length} referenced only from doc comments',
-    if (result.recoveredReferences.isNotEmpty)
-      '${result.recoveredReferences.length} recovered',
-    if (result.problems.isNotEmpty) '${result.problems.length} not analyzed',
-  ];
-  _log.fine(
-    'Scanned ${plural(result.filesScanned, 'file', 'files')} and checked '
-    '${plural(result.declarationsChecked, 'declaration', 'declarations')} in '
-    '${result.elapsed.inMilliseconds}ms: ${counts.join(', ')}.',
-  );
+  _logSummary(result);
 
-  switch (resolved.format) {
-    case 'json':
-      _console.output(Reporter.json(result));
-    case 'github':
-      // GitHub resolves annotation paths from the repo root, so prepend the
-      // scan root's path from here.
-      final prefix = p
-          .split(p.relative(rootPath, from: Directory.current.path))
-          .join('/');
-      _log.config("Prefixing annotation paths with '$prefix/'.");
-      _console.output(Reporter.github(result, pathPrefix: prefix));
-    case _:
-      _console.output(
-        Reporter.text(
-          result,
-          style: _console.outStyle,
-          verbose: resolved.verbose,
-        ),
-      );
-  }
+  _report(result, resolved, rootPath);
 
   if (result.unused.isNotEmpty && resolved.remove) {
     _removeUnused(result, rootPath, resolved);
@@ -195,16 +142,7 @@ Future<int> _run(List<String> arguments) async {
     _log.fine('Leaving the findings in place; --remove was not given.');
   }
 
-  if (resolved.setExitIfChanged) {
-    // Public findings are still reported; --no-fail-public only drops them from the exit code.
-    final failing = resolved.failPublic
-        ? result.unused
-        : result.unused.where((d) => d.isPrivate);
-    if (failing.isNotEmpty) {
-      return 1;
-    }
-  }
-  return 0;
+  return _exitCode(result, resolved);
 }
 
 /// Confirms (unless forced), removes the findings, and reports it.
@@ -268,4 +206,109 @@ void _removeUnused(
       style: _console.outStyle,
     ),
   );
+}
+
+bool _analysisRootIsValid(FinderOptions options) {
+  final rootPath = options.rootPath;
+  if (options.analysisRootPath case final analysisRoot?) {
+    if (!Directory(analysisRoot).existsSync()) {
+      _log.severe('Analysis root does not exist: $analysisRoot');
+      return false;
+    }
+    // A root beside or below the scanned package would drop references, not
+    // add them.
+    if (!analysisRootContains(analysisRoot, rootPath)) {
+      _log.severe(
+        'The analysis root must contain the analyzed path: $analysisRoot does not contain $rootPath.',
+      );
+      return false;
+    }
+  }
+  return true;
+}
+
+void _logSummary(FinderResult result) {
+  final counts = [
+    '${result.unused.length} unused',
+    '${result.docOnly.length} referenced only from doc comments',
+    if (result.recoveredReferences.isNotEmpty)
+      '${result.recoveredReferences.length} recovered',
+    if (result.problems.isNotEmpty) '${result.problems.length} not analyzed',
+  ];
+  _log.fine(
+    'Scanned ${plural(result.filesScanned, 'file', 'files')} and checked '
+    '${plural(result.declarationsChecked, 'declaration', 'declarations')} in '
+    '${result.elapsed.inMilliseconds}ms: ${counts.join(', ')}.',
+  );
+}
+
+void _report(FinderResult result, ResolvedOptions resolved, String rootPath) {
+  switch (resolved.format) {
+    case 'json':
+      _console.output(Reporter.json(result));
+    case 'github':
+      // GitHub resolves annotation paths from the repo root, so prepend the
+      // scan root's path from here.
+      final prefix = p
+          .split(p.relative(rootPath, from: Directory.current.path))
+          .join('/');
+      _log.config("Prefixing annotation paths with '$prefix/'.");
+      _console.output(Reporter.github(result, pathPrefix: prefix));
+    case _:
+      _console.output(
+        Reporter.text(
+          result,
+          style: _console.outStyle,
+          verbose: resolved.verbose,
+        ),
+      );
+  }
+}
+
+int _exitCode(FinderResult result, ResolvedOptions resolved) {
+  if (resolved.setExitIfChanged) {
+    // Public findings are still reported; --no-fail-public only drops them from the exit code.
+    final failing = resolved.failPublic
+        ? result.unused
+        : result.unused.where((d) => d.isPrivate);
+    if (failing.isNotEmpty) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+/// The options [args] resolve to with the config file, or `null` once it has
+/// logged why they don't.
+({
+  ConfigFile config,
+  CiachConfiguration configuration,
+  ResolvedOptions resolved,
+})?
+_loadOptions(
+  ArgResults args, {
+  required String projectDir,
+  required String? explicitConfig,
+  required bool ignoreConfig,
+}) {
+  try {
+    final ConfigFile config = .load(
+      projectDir: projectDir,
+      explicitPath: explicitConfig,
+      ignore: ignoreConfig,
+    );
+    final configuration = resolveConfiguration(args, config);
+    final resolved = resolveOptions(
+      configuration,
+      // Progress goes to stderr, so default it on only for a terminal.
+      progressDefault: _console.errIsTerminal,
+    );
+    return (config: config, configuration: configuration, resolved: resolved);
+  } on UsageException catch (e) {
+    _log.severe(e.message);
+    return null;
+  } on FormatException catch (e) {
+    _log.severe(e.message);
+    return null;
+  }
 }
