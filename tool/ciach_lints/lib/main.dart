@@ -6,7 +6,6 @@
 
 import 'package:analysis_server_plugin/plugin.dart';
 import 'package:analysis_server_plugin/registry.dart';
-import 'package:ciach_lints/src/cognitive_complexity.dart';
 import 'package:ciach_lints/src/version_matches_pubspec.dart';
 
 final plugin = CiachLintsPlugin();
@@ -18,7 +17,6 @@ final class CiachLintsPlugin() extends Plugin {
   @override
   void register(PluginRegistry registry) {
     registry
-      ..registerWarningRule(CognitiveComplexity())
       ..registerWarningRule(VersionMatchesPubspec())
       ..registerFixForRule(
         VersionMatchesPubspec.code,
