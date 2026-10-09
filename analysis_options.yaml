@@ -7,7 +7,7 @@ plugins:
     git:
       url: https://github.com/leancodepl/flutter_corelibrary
       path: packages/leancode_lint
-      ref: 34552b1c8eb8d257639c2bbe20842794eb003ab4
+      ref: 301e2190a3b45e0da390a25fd66dd0157de4038b
     diagnostics:
       cognitive_complexity: true
   ciach_lints:
