@@ -14,14 +14,13 @@
   does, instead of the pubspecs under the root. `--remove` no longer keeps an
   emptied file because a path dependency outside the root has a file at the
   same `lib/` path. ([#92](https://github.com/leancodepl/ciach/pull/92))
-- ciach finds entry points and generated files without any configuration.
-  It skips builder factories, Flutter plugin classes, dart_frog handlers,
-  Serverpod endpoints, analyzer and custom_lint plugins, and members marked
-  with `@JSExport` or `@reflectiveTest`, because tools call them. It also
-  skips build_runner and gen-l10n output, and recognizes more kinds of
-  generated-code banners (protoc, Pigeon, …). `--no-project-config` turns off
-  reading `pubspec.yaml`, `build.yaml` and `l10n.yaml`, and
-  `--unused-translations` reports unused gen-l10n messages.
+- Skip entry points and generated files without any configuration:
+  - Entry points: builder factories, Flutter plugin classes, dart_frog
+    handlers, Serverpod endpoints, analyzer and custom_lint plugins, and
+    `@JSExport` and `@reflectiveTest` members.
+  - Generated files: build_runner and gen-l10n output, and more kinds of
+    generated-code banners (protoc, Pigeon, …).
+  - New flags: `--no-project-config` and `--unused-translations`.
   ([#86](https://github.com/leancodepl/ciach/pull/86))
 
 ## 0.6.0

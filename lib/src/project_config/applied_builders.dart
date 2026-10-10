@@ -10,8 +10,6 @@ import 'package:path/path.dart' as p;
 ///   dependency;
 /// - by the `targets:` of the package;
 /// - by the `applies_builders` list of another builder that is applied.
-///
-/// This follows build_config 0.4.2.
 Iterable<Map<Object?, Object?>> appliedBuilders(
   String rootPath,
   Pubspec pubspec,
