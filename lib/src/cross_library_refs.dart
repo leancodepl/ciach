@@ -230,7 +230,7 @@ class CrossLibraryReferences {
           character: site.position.character,
         ),
       ) ??
-      const [];
+      const .empty();
 
   /// Whether the use at [site] sits inside the very declaration it resolved
   /// to — a recursive call. [ReferenceClassifier.isSelfReference] discounts
