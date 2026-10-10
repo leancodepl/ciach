@@ -1,5 +1,7 @@
+import 'package:ciach/src/packages.dart';
 import 'package:ciach/src/project_config/build_yaml.dart';
 import 'package:ciach/src/project_config/project_files.dart';
+import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
 
 /// The definitions of the builders build_runner applies to the package at
@@ -33,9 +35,11 @@ Map<String, _Definition> _definitions(
   Map<Object?, Object?>? rootBuildYaml,
 ) => {
   if (rootName != null) ..._definedIn(rootName, rootBuildYaml),
-  for (final (:name, :root) in resolvedPackages(rootPath))
-    if (name != rootName)
-      ..._definedIn(name, readYamlMap(p.join(root, 'build.yaml'))),
+  // A pub workspace keeps package_config.json at its root.
+  for (final Package(:name, :root)
+      in PackageResolver().configOf(rootPath)?.packages ?? const <Package>[])
+    if (name != rootName && root.isScheme('file'))
+      ..._definedIn(name, readYamlMap(p.join(root.toFilePath(), 'build.yaml'))),
 };
 
 Map<String, _Definition> _definedIn(
