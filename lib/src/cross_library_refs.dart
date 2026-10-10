@@ -225,13 +225,15 @@ class CrossLibraryReferences {
   /// Every usage site that recovered [candidate].
   Iterable<({String path, int line, int character})> recoveredUsages(
     Candidate candidate,
-  ) => (_usageByDecl[_positionOf(candidate)] ?? const <_Site>{}).map(
-    (site) => (
-      path: site.uri.toFilePath(),
-      line: site.position.line,
-      character: site.position.character,
-    ),
-  );
+  ) =>
+      _usageByDecl[_positionOf(candidate)]?.map(
+        (site) => (
+          path: site.uri.toFilePath(),
+          line: site.position.line,
+          character: site.position.character,
+        ),
+      ) ??
+      const [];
 
   /// Whether the use at [site] sits inside the very declaration it resolved
   /// to — a recursive call. [ReferenceClassifier.isSelfReference] discounts
