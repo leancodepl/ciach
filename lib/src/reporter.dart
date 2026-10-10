@@ -186,47 +186,8 @@ abstract final class Reporter {
       buffer.writeln('  $summary');
       for (final MapEntry(key: cause, value: ofCause)
           in ofSummary.groupListsBy((p) => p.cause).entries) {
-        buffer.writeln('    ${style.failure(cause)}');
-        final listed = verbose ? ofCause : ofCause.take(maxListed).toList();
-        for (final MapEntry(key: file, value: inFile)
-            in listed.groupListsBy((p) => p.filePath).entries) {
-          buffer.writeln('    ${style.path(file)}');
-          final rows = [
-            for (final p in inFile)
-              if (p.line != null) p,
-          ];
-          if (rows.isEmpty) {
-            continue;
-          }
-          final locWidth = rows
-              .map((p) => '${p.line}:${p.column ?? 1}'.length)
-              .max;
-          for (final p in rows) {
-            final loc = '${p.line}:${p.column ?? 1}'.padRight(locWidth);
-            buffer.writeln(
-              '      ${style.position(loc)}${p.name == null ? '' : '  ${p.name}'}',
-            );
-          }
-        }
-        if (ofCause.length > listed.length) {
-          buffer.writeln(
-            style.note(
-              '    … and ${ofCause.length - listed.length} more '
-              '(-v lists them all)',
-            ),
-          );
-        }
-        final detail = ofCause.first.detail;
-        hasDetail |= detail != null;
-        if (verbose && detail != null) {
-          buffer
-            ..writeln(style.note('    Stack trace of the first:'))
-            ..writeln(
-              style.note(
-                detail.split('\n').map((line) => '      $line').join('\n'),
-              ),
-            );
-        }
+        _writeCause(buffer, cause, ofCause, style, verbose, maxListed);
+        hasDetail |= ofCause.first.detail != null;
       }
     }
     if (hasDetail && !verbose) {
@@ -235,6 +196,60 @@ abstract final class Reporter {
       );
     }
     buffer.writeln();
+  }
+
+  static void _writeCause(
+    StringBuffer buffer,
+    String cause,
+    List<AnalysisProblem> ofCause,
+    Style style,
+    bool verbose,
+    int maxListed,
+  ) {
+    buffer.writeln('    ${style.failure(cause)}');
+    final listed = verbose ? ofCause : ofCause.take(maxListed).toList();
+    for (final MapEntry(key: file, value: inFile)
+        in listed.groupListsBy((p) => p.filePath).entries) {
+      buffer.writeln('    ${style.path(file)}');
+      _writeProblemRows(buffer, inFile, style);
+    }
+    if (ofCause.length > listed.length) {
+      buffer.writeln(
+        style.note(
+          '    … and ${ofCause.length - listed.length} more (-v lists them all)',
+        ),
+      );
+    }
+    if (ofCause.first.detail case final detail? when verbose) {
+      buffer
+        ..writeln(style.note('    Stack trace of the first:'))
+        ..writeln(
+          style.note(
+            detail.split('\n').map((line) => '      $line').join('\n'),
+          ),
+        );
+    }
+  }
+
+  static void _writeProblemRows(
+    StringBuffer buffer,
+    List<AnalysisProblem> inFile,
+    Style style,
+  ) {
+    final rows = [
+      for (final p in inFile)
+        if (p.line != null) p,
+    ];
+    if (rows.isEmpty) {
+      return;
+    }
+    final locWidth = rows.map((p) => '${p.line}:${p.column ?? 1}'.length).max;
+    for (final p in rows) {
+      final loc = '${p.line}:${p.column ?? 1}'.padRight(locWidth);
+      buffer.writeln(
+        '      ${style.position(loc)}${p.name == null ? '' : '  ${p.name}'}',
+      );
+    }
   }
 
   /// What the text report adds in parentheses after a finding.
