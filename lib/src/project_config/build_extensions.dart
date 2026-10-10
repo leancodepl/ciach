@@ -1,8 +1,8 @@
 import 'package:ciach/src/project_config/project_files.dart';
 
-/// Globs of the Dart files a builder's `build_extensions` declare, mirroring
-/// package:build's `expectedOutputs`. Covers package:build up to 2.3, which
-/// allowed `^` without a capture.
+/// Globs that match the Dart files declared by a builder's `build_extensions`.
+/// The expansion mirrors `expectedOutputs` from package:build, up to version
+/// 2.3, which allowed `^` without a capture.
 Iterable<String> outputGlobs(Map<Object?, Object?> buildExtensions) => [
   for (final MapEntry(key: input, value: outputs) in buildExtensions.entries)
     if (input is String)
@@ -23,8 +23,9 @@ String _outputGlob(String input, String output) => switch (input) {
   _ => '**${escapeGlob(output)}',
 };
 
-/// A `{{capture}}` input matches a path suffix, or the whole path when it
-/// starts with `^` or a capture.
+/// The glob for an output whose input contains a `{{capture}}`. Such an input
+/// matches the end of a path, or the whole path when it starts with `^` or
+/// with a capture.
 String _capturedOutputGlob(String input, String output) {
   final glob = output.splitMapJoin(
     _captureGroup,

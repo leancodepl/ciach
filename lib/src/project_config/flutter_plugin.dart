@@ -1,9 +1,10 @@
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/project_config/project_files.dart';
 
-/// `registerWith` on each platform's `dartPluginClass`, and on the web
-/// platform's `pluginClass`; any other `pluginClass` is native. Covers Flutter
-/// up to 3.27, which added `dartFileName`.
+/// The `registerWith` methods Flutter calls to register a plugin: one on each
+/// platform's `dartPluginClass`, and one on the web platform's `pluginClass`.
+/// On other platforms, `pluginClass` names a native class. This follows
+/// Flutter up to 3.27, the version that added `dartFileName`.
 Iterable<EntryPoint> flutterPluginEntryPoints(Pubspec pubspec) => [
   if (pubspec.yaml?['flutter'] case {
     'plugin': {'platforms': final Map<Object?, Object?> platforms},

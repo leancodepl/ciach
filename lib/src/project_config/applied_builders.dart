@@ -4,10 +4,11 @@ import 'package:ciach/src/project_config/project_files.dart';
 import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
 
-/// The definitions of the builders build_runner applies to the package at
-/// [rootPath]: by `auto_apply` (`dependents` needs a direct dependency),
-/// `targets:`, or transitively by `applies_builders`. Covers build_config up
-/// to 0.4.2, which added `auto_apply_builders`.
+/// The definitions of the builders that build_runner applies to the package at
+/// [rootPath]. A builder is applied by its `auto_apply` setting (`dependents`
+/// only counts for a direct dependency), by the package's `targets:`, or by
+/// another applied builder's `applies_builders`. This follows build_config up
+/// to 0.4.2, the version that added `auto_apply_builders`.
 Iterable<Map<Object?, Object?>> appliedBuilders(
   String rootPath,
   Pubspec pubspec,
@@ -25,10 +26,11 @@ Iterable<Map<Object?, Object?>> appliedBuilders(
   ];
 }
 
-/// A builder's `package` and definition, by `package:name`.
+/// The package that defines a builder, and the builder's definition.
 typedef _Definition = ({String package, Map<Object?, Object?> definition});
 
-/// The builders the root package and every resolved package define.
+/// The builders defined by the root package and by every package in its
+/// package config, keyed by `package:name`.
 Map<String, _Definition> _definitions(
   String rootPath,
   String? rootName,
@@ -72,9 +74,11 @@ Set<String> _autoApplied(
       key,
 };
 
-/// [autoApplied] as the targets of [buildYaml] change it: any configuration
-/// enables a builder (build_config 0.2.1) unless it says `enabled: false`,
-/// and `auto_apply_builders: false` (0.4.2) in every target drops the rest.
+/// [autoApplied], changed by the targets in [buildYaml]. Configuring a builder
+/// in a target enables it (since build_config 0.2.1), unless the
+/// configuration says `enabled: false`. When every target sets
+/// `auto_apply_builders: false` (since 0.4.2), the builders that are only
+/// auto-applied are dropped.
 Set<String> _byTargets(
   Set<String> autoApplied,
   Map<Object?, Object?>? buildYaml,
@@ -95,7 +99,8 @@ Set<String> _byTargets(
   return applied;
 }
 
-/// [applied] and, transitively, every builder they `applies_builders`.
+/// [applied], plus every builder they list under `applies_builders`, and so
+/// on transitively.
 Set<String> _withAppliedBuilders(
   Set<String> applied,
   Map<String, _Definition> definitions,
@@ -115,8 +120,9 @@ Set<String> _withAppliedBuilders(
   return all;
 }
 
-/// `pkg|name`, `:name` (root package) and `name` (`name:name`) to
-/// `pkg:name`.
+/// Normalizes a builder key to `pkg:name`. build_runner also accepts
+/// `pkg|name`, `:name` for a builder of the root package, and `name` for
+/// `name:name`.
 String _builderKey(String key, String? rootName) =>
     switch (key.replaceFirst('|', ':')) {
       final local when local.startsWith(':') => '$rootName$local',

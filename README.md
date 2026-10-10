@@ -80,7 +80,7 @@ ciach --verbose                        # explain each step
 | `--[no-]public` | on | Report unused public declarations too. Disable to report only private (`_`-prefixed) ones. |
 | `--[no-]generated` | off | Scan generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, …). |
 | `--[no-]project-config` | on | Read [entry points](#entry-points) and [generated files](#generated-files-from-the-project-config) from `pubspec.yaml`, `build.yaml` and `l10n.yaml`. |
-| `--[no-]unused-translations` | off | Scan the gen-l10n template and report its unused messages. Report-only: remove them from the template ARB file. |
+| `--[no-]unused-translations` | off | Scan the gen-l10n template file and report its unused messages. They are report-only: remove them from the template ARB file. |
 | `--[no-]overrides` | off | Report `@override` members too. Off by default — see limitations. |
 | `--[no-]operators` | off | Report operator overloads (`operator +`, `operator ==`, …) too. Off by default — see limitations. |
 | `--[no-]unused-union-members` | off | Also flag a (sealed) supertype member matched only by type patterns, never constructed. Report-only — never touched by `--remove`. |
@@ -284,7 +284,7 @@ auto-remove — remove manually` and skipped, along with anything coupled to the
 | The sole constructor of a live class with `final` fields, or whose superclass needs constructor arguments | the implicit default constructor can't replace it |
 | A primary constructor or its declaring parameters | only part of the class header |
 | A member whose override is a declaring parameter, or is in a file the run didn't scan | that override can't be deleted, and would be left overriding nothing |
-| A gen-l10n message (`--unused-translations`) | it lives in the ARB file; gen-l10n would regenerate it |
+| A gen-l10n message (`--unused-translations`) | the message is defined in the ARB file, and gen-l10n would generate it again |
 
 ## What it skips by default
 
@@ -301,7 +301,7 @@ that cost.
 | `call` methods | implicit-call syntax (`obj(…)`) is unresolvable the same way | — |
 | `@pragma('vm:entry-point')` | reachable from native code or reflection | — |
 | `@JSExport`, and public members of a `@JSExport` class | reachable from JavaScript | — |
-| `test_…` methods of a `@reflectiveTest` class | run through mirrors | — |
+| `test_…` methods of a `@reflectiveTest` class | run through `dart:mirrors` | — |
 | Generated files | by filename convention, a generated-code banner, the [project config](#generated-files-from-the-project-config), and `--generated-suffix` / `--generated-glob`. Still opened during analysis, so a declaration used only from a `.g.dart` isn't misreported | `--generated` |
 | `toJson()` | `jsonEncode(obj)` calls it by dynamic dispatch, leaving no source-level reference | `--report-tojson` |
 | Type parameters | always "used" within their scope | — |
@@ -323,7 +323,7 @@ dead. ciach knows `main` and `testExecutable`, plus:
 | Source | Entry point |
 | --- | --- |
 | `build.yaml` builders | `builder_factories` / `builder_factory` |
-| `pubspec.yaml` plugin | `X.registerWith` for `dartPluginClass` and web `pluginClass` |
+| `pubspec.yaml` plugin | `registerWith` on each platform's `dartPluginClass` and on the web `pluginClass` |
 | `dart_frog` | `onRequest`, `middleware`, `init`, `run` |
 | `serverpod` | direct `Endpoint` subclasses and their public methods |
 | `analysis_server_plugin` | `plugin` in `lib/main.dart` |
@@ -346,14 +346,19 @@ command-line form.
 
 ### Generated files from the project config
 
-- what build_runner writes into the source tree, as the builders applied to
-  the package and its `build.yaml` declare it;
-- `flutter gen-l10n` output, from `l10n.yaml`; `--unused-translations` scans
-  the template file.
+ciach also treats these files as generated:
 
-Every package under the scanned path is read from its own files, so scanning a
-pub workspace or monorepo root covers its members. `build.yaml` counts together
-with every `build.<name>.yaml`, since `build_runner --config` may pick any.
+- The files build_runner writes into the source tree. ciach works out which
+  builders build_runner applies to the package, and reads the outputs they
+  declare.
+- The files `flutter gen-l10n` writes, as `l10n.yaml` configures them. With
+  `--unused-translations`, the template file is scanned instead, and its
+  unused messages are reported.
+
+Every package under the scanned path is read from its own files, so scanning
+the root of a pub workspace or monorepo covers all of its members. `build.yaml`
+is read together with every `build.<name>.yaml`, because
+`build_runner --config` can use any of them.
 
 ### Monorepos
 
@@ -386,8 +391,9 @@ deleting blindly:
   sibling package; a published package's consumers stay invisible.
 - **Reflection, dynamic invocation, and names referenced only from generated
   code you excluded** are invisible to a reference search.
-- **Other entry points** (isolate entry points, native callbacks) need
-  [`entry-points`](#entry-points) or `@pragma('vm:entry-point')`.
+- **Other entry points**, such as isolate entry points and native callbacks,
+  have to be listed under [`entry-points`](#entry-points) or marked with
+  `@pragma('vm:entry-point')`.
 - **A primary constructor shares its class's references**, since a query at the
   header resolves to the class: a never-invoked one only surfaces once the class
   itself is dead.

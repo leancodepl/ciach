@@ -4,7 +4,8 @@ import 'package:ciach/src/project_config/build_extensions.dart';
 import 'package:ciach/src/project_config/build_yaml.dart';
 import 'package:ciach/src/project_config/project_files.dart';
 
-/// Builder factories the package's own build.yaml defines.
+/// The builder factories that the package's own build.yaml defines. build_runner
+/// calls them, so nothing in the source references them.
 Iterable<EntryPoint> buildRunnerEntryPoints(
   Pubspec pubspec,
   Map<Object?, Object?> buildYaml,
@@ -15,7 +16,7 @@ Iterable<EntryPoint> buildRunnerEntryPoints(
         for (final builder in builders.values) ..._factoriesOf(builder, name),
 ];
 
-/// The factories of [builder] when it is imported from [packageName].
+/// The factories of [builder], when its `import` points into [packageName].
 Iterable<EntryPoint> _factoriesOf(Object? builder, String packageName) sync* {
   if (builder case {
     'import': final String import,
@@ -32,9 +33,9 @@ Iterable<EntryPoint> _factoriesOf(Object? builder, String packageName) sync* {
   }
 }
 
-/// Source output of the builders applied to the package, and of
-/// `build_extensions` given as a builder option, which source_gen 1.2 and
-/// freezed 1.0.1 accept.
+/// The files written into the source tree by the builders applied to the
+/// package. A builder's output can also be moved by a `build_extensions`
+/// option in `targets:`, which source_gen 1.2 and freezed 1.0.1 accept.
 Iterable<String> buildRunnerGeneratedGlobs(
   String rootPath,
   Pubspec pubspec,

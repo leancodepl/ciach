@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:ciach/src/project_config/project_files.dart';
 import 'package:path/path.dart' as p;
 
-/// `build.yaml` and every `build.<name>.yaml` build_runner can pick with
-/// `--config`.
+/// The package's `build.yaml`, and every `build.<name>.yaml` that
+/// `build_runner --config <name>` can use instead.
 List<Map<Object?, Object?>> readBuildYamls(String rootPath) => [
   for (final file in _buildYamlFiles(rootPath)) ?readYamlMap(file),
 ];
@@ -23,7 +23,7 @@ Iterable<String> _buildYamlFiles(String rootPath) {
   ]..sort();
 }
 
-/// The maps under `targets:` in [buildYaml].
+/// The target configurations under `targets:` in [buildYaml].
 Iterable<Map<Object?, Object?>> targetsOf(Map<Object?, Object?>? buildYaml) =>
     switch (buildYaml?['targets']) {
       final Map<Object?, Object?> targets =>
@@ -31,7 +31,8 @@ Iterable<Map<Object?, Object?>> targetsOf(Map<Object?, Object?>? buildYaml) =>
       _ => const [],
     };
 
-/// Each builder [targets] configure, by its key as written.
+/// Every builder that [targets] configure, with its key as written and its
+/// configuration.
 Iterable<({String key, Object? config})> targetBuilders(
   Iterable<Map<Object?, Object?>> targets,
 ) => [

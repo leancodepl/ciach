@@ -197,8 +197,8 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/unused-translations',
       defaultsTo: false,
       helpText:
-          'Report unused gen-l10n messages, as report-only: remove them from\n'
-          'the template ARB file. Off by default.',
+          'Report the unused messages of the gen-l10n template. They are\n'
+          'report-only: remove them from the template ARB file. Off by default.',
     ),
   ),
   overrides(

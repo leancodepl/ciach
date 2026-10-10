@@ -58,7 +58,8 @@ class ResolvedOptions {
   final bool projectConfig;
   final bool unusedTranslations;
 
-  /// Read from the package when [projectConfig] is on.
+  /// What the package's own config files declare. It is empty when
+  /// [projectConfig] is off.
   final ProjectConfig detected;
 
   /// Whether to report `@override` members — inverted for the finder.
@@ -87,7 +88,8 @@ class ResolvedOptions {
   final int concurrency;
   final String? dartExecutable;
 
-  /// The finder's options, with [detected] merged in.
+  /// The options for the finder, with the entry points and generated files
+  /// from [detected] added to the ones the user gave.
   FinderOptions finderOptions({String? dartExecutable}) => .new(
     rootPath: rootPath,
     analysisRootPath: analysisRootPath,

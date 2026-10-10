@@ -2,13 +2,13 @@ import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:collection/collection.dart';
 
-/// gen-l10n's template Dart file and the ARB file its messages come from,
-/// both POSIX, relative to the package root.
+/// The Dart file gen-l10n generates from the template ARB file, and that ARB
+/// file. Both are POSIX paths relative to the package root.
 typedef Translations = ({String dartFile, String arbFile});
 
-/// The [Translations] [candidate] is declared in, if any. Its findings are
-/// report-only: the message lives in the ARB file, and gen-l10n would
-/// regenerate a removed one.
+/// The [Translations] whose Dart file declares [candidate], if any. Such a
+/// finding is report-only: the message is defined in the ARB file, so gen-l10n
+/// would generate it again if it were removed from the Dart file.
 Translations? translationsOf(
   Candidate candidate,
   List<Translations> translations,

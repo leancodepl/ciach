@@ -139,7 +139,7 @@ final class CandidateCollector {
         name: symbol.name,
         reason: switch (rule.superclass) {
           final superclass? =>
-            'extends `$superclass`; its public methods are entry points',
+            'extends `$superclass`, so its public methods are entry points',
           null => 'declares the entry point ${rule.name}',
         },
       ));
@@ -243,8 +243,9 @@ final class CandidateCollector {
             false);
   }
 
-  /// Which members of the type [symbol] code outside Dart calls; `null` for
-  /// anything else.
+  /// Which members of the type [symbol] are called from outside Dart source,
+  /// judging by the annotation on the type. Returns `null` when [symbol] is
+  /// not a type or has no such annotation.
   _ExportedMembers? _exportsOf(
     DocumentSymbol symbol,
     Iterable<SemanticToken> leadingMetadata,
@@ -261,7 +262,8 @@ final class CandidateCollector {
     return null;
   }
 
-  /// The `extends` clause's class name of the class [path]'s [symbol].
+  /// The name of the class that [symbol], a class declared in [path], extends.
+  /// Returns `null` when [symbol] is not a class or has no `extends` clause.
   String? _superclassOf(String path, DocumentSymbol symbol) {
     if (symbol.kind != .class$) {
       return null;
@@ -278,7 +280,8 @@ final class CandidateCollector {
         ?.group(1);
   }
 
-  /// No nested type parameters.
+  /// The `extends` clause after a class name. The type parameters before it
+  /// must not nest, so `<T extends List<int>>` is not matched.
   static final _extendsClause = RegExp(
     r'^\s*(?:<[^<>]*>)?\s*extends\s+([A-Za-z_$][\w$]*)',
   );
@@ -304,8 +307,9 @@ final class CandidateCollector {
     };
   }
 
-  /// Whether [candidate] is called by a framework or tool, with no source
-  /// reference to find; recorded for `--verbose` if so.
+  /// Whether a framework or tool calls [candidate], so that no reference to it
+  /// exists in the source. Each such entry point is recorded and listed by
+  /// `--verbose`.
   bool _isEntryPoint(
     String relativePath,
     Candidate candidate,
@@ -404,7 +408,7 @@ final class CandidateCollector {
   }
 }
 
-/// Members of a type called from outside Dart source.
+/// Which members of a type are called from outside Dart source.
 enum _ExportedMembers { jsExport, reflectiveTest }
 
 /// A skipped entry point: root-relative POSIX path, one-based line, the name
