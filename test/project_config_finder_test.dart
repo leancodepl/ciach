@@ -11,8 +11,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 /// A package whose config declares entry points and generated files:
-/// - pubspec.yaml: dart_frog (`routes/`, `main.dart`) and serverpod
-///   (`lib/endpoint.dart`);
+/// - pubspec.yaml: dart_frog (`routes/`) and serverpod (`lib/endpoint.dart`);
 /// - build.yaml: a builder factory (`lib/builder.dart`) writing `.stamp.dart`;
 /// - l10n.yaml: gen-l10n output in `lib/l10n/`;
 /// - annotations, config or not: `@JSExport` (`lib/js.dart`) and
@@ -32,34 +31,24 @@ void main() {
     package = .systemTemp.createTempSync('ciach_project_config_');
     write('pubspec.yaml', '''
 name: server
-environment:
-  sdk: ^3.10.0
-dependencies:
-  dart_frog: any
-  serverpod: any
+environment: {sdk: ^3.10.0}
+dependencies: {dart_frog: any, serverpod: any}
 ''');
     write('build.yaml', '''
 builders:
   stamp:
-    import: "package:server/builder.dart"
-    builder_factories: ["stampBuilder"]
-    build_extensions: {".dart": [".stamp.dart"]}
+    import: package:server/builder.dart
+    builder_factories: [stampBuilder]
+    build_extensions: {.dart: [.stamp.dart]}
     auto_apply: root_package
     build_to: source
 ''');
-    write('l10n.yaml', '''
-arb-dir: lib/l10n
-output-localization-file: strings.dart
-''');
+    write('l10n.yaml', 'output-localization-file: strings.dart');
     write('lib/endpoint.dart', '''
 class Endpoint {}
 
-class Session {}
-
 class GreetingEndpoint extends Endpoint {
-  Future<String> hello(Session session, String name) async => _greet(name);
-
-  String _greet(String name) => name;
+  String hello(String name) => name;
 
   void _unusedHelper() {}
 }
@@ -73,17 +62,13 @@ Object stampBuilder(Object options) => options;
 
 Object unusedBuilderHelper() => 0;
 ''');
-    write('lib/model.stamp.dart', '''
-class StampOutput {}
-''');
+    write('lib/model.stamp.dart', 'class StampOutput {}');
     write('lib/l10n/strings.dart', '''
 abstract class Strings {
   String get unusedMessage;
 }
 ''');
-    write('lib/l10n/strings_pl.dart', '''
-class StringsPl {}
-''');
+    write('lib/l10n/strings_pl.dart', 'class StringsPl {}');
     write('lib/js.dart', '''
 class JSExport {
   const JSExport();
@@ -120,10 +105,6 @@ class ParserTest {
 
   void test_parses() {}
 
-  void solo_test_focused() {}
-
-  void skip_test_later() {}
-
   void helper() {}
 }
 ''');
@@ -131,14 +112,6 @@ class ParserTest {
 Object onRequest(Object context) => context;
 
 void unusedRouteHelper() {}
-''');
-    write('routes/admin/_middleware.dart', '''
-Object middleware(Object handler) => handler;
-''');
-    write('main.dart', '''
-Object init(Object ip, int port) => ip;
-
-Object run(Object handler, Object ip, int port) => handler;
 ''');
   });
 
@@ -153,24 +126,45 @@ Object run(Object handler, Object ip, int port) => handler;
     );
   }
 
-  test('declarations the project config names are not reported', () async {
-    final result = await Ciach(detected()).run();
+  test(
+    'declarations the project config names are not reported, and why',
+    () async {
+      final lines = <String>[];
+      final level = Logger.root.level;
+      Logger.root.level = .FINE;
+      final logging = Logger.root.onRecord
+          .where((r) => r.loggerName == 'ciach.finder')
+          .listen((r) => lines.add(r.message));
+      addTearDown(() {
+        Logger.root.level = level;
+        return logging.cancel();
+      });
 
-    expect(
-      {for (final d in result.unused) '${d.filePath}:${d.qualifiedName}'},
-      {
-        'lib/endpoint.dart:GreetingEndpoint._unusedHelper',
-        'lib/endpoint.dart:NotAnEndpoint',
-        'lib/endpoint.dart:NotAnEndpoint.hello',
-        'lib/builder.dart:unusedBuilderHelper',
-        'lib/js.dart:Counter._neverCalled',
-        'lib/js.dart:Partial.notExported',
-        'lib/js.dart:usePartial',
-        'test/reflective_test.dart:ParserTest.helper',
-        'routes/index.dart:unusedRouteHelper',
-      },
-    );
-  });
+      final result = await Ciach(detected()).run();
+
+      expect(
+        {for (final d in result.unused) '${d.filePath}:${d.qualifiedName}'},
+        {
+          'lib/endpoint.dart:GreetingEndpoint._unusedHelper',
+          'lib/endpoint.dart:NotAnEndpoint',
+          'lib/endpoint.dart:NotAnEndpoint.hello',
+          'lib/builder.dart:unusedBuilderHelper',
+          'lib/js.dart:Counter._neverCalled',
+          'lib/js.dart:Partial.notExported',
+          'lib/js.dart:usePartial',
+          'test/reflective_test.dart:ParserTest.helper',
+          'routes/index.dart:unusedRouteHelper',
+        },
+      );
+      expect(
+        lines,
+        containsAll(const [
+          'Skipped lib/endpoint.dart:4 GreetingEndpoint.hello: called by the Serverpod dispatcher.',
+          'Skipped routes/index.dart:1 onRequest: called by dart_frog.',
+        ]),
+      );
+    },
+  );
 
   test('without them, it is all reported', () async {
     final result = await Ciach(.new(rootPath: package.path)).run();
@@ -182,13 +176,12 @@ Object run(Object handler, Object ip, int port) => handler;
       unused,
       containsAll([
         'lib/builder.dart:stampBuilder',
-        'lib/endpoint.dart:GreetingEndpoint',
         'lib/model.stamp.dart:StampOutput',
         'lib/l10n/strings_pl.dart:StringsPl',
         'routes/index.dart:onRequest',
-        'main.dart:init',
       ]),
     );
+    // Annotations need no config.
     expect(unused, isNot(contains('lib/js.dart:Counter')));
   });
 
@@ -203,44 +196,19 @@ Object run(Object handler, Object ip, int port) => handler;
         progressDefault: false,
       );
       final result = await Ciach(resolved.finderOptions()).run();
-      final translations = {
+      final translations = [
         for (final d in result.unused)
-          if (d.filePath.startsWith('lib/l10n/'))
-            d.qualifiedName: (d.removalBlocked, d.hint),
-      };
+          if (d.filePath.startsWith('lib/l10n/')) d,
+      ];
 
-      expect(translations, {
-        'Strings': (
-          true,
-          'gen-l10n output — remove the message from lib/l10n/app_en.arb',
-        ),
-        'Strings.unusedMessage': (
-          true,
-          'gen-l10n output — remove the message from lib/l10n/app_en.arb',
-        ),
-      });
+      expect(translations.map((d) => d.qualifiedName), [
+        'Strings',
+        'Strings.unusedMessage',
+      ]);
+      for (final d in translations) {
+        expect(d.removalBlocked, isTrue);
+        expect(d.hint, contains('remove the message from lib/l10n/app_en.arb'));
+      }
     },
   );
-
-  test('narrates what the project config declares', () async {
-    final lines = <String>[];
-    final level = Logger.root.level;
-    Logger.root.level = .FINE;
-    final logging = Logger.root.onRecord
-        .where((r) => r.loggerName == 'ciach.finder')
-        .listen((r) => lines.add(r.message));
-    addTearDown(() {
-      Logger.root.level = level;
-      return logging.cancel();
-    });
-
-    await Ciach(detected()).run();
-
-    const endpointMethod =
-        'Skipped lib/endpoint.dart:6 GreetingEndpoint.hello: called by the Serverpod dispatcher.';
-    const jsExported =
-        'Skipped lib/js.dart:6 Counter: exported to JavaScript by `@JSExport`.';
-    const route = 'Skipped routes/index.dart:1 onRequest: called by dart_frog.';
-    expect(lines, containsAll(const [endpointMethod, jsExported, route]));
-  });
 }

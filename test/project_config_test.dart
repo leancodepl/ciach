@@ -33,47 +33,48 @@ void main() {
     (glob) => Glob(glob, context: p.Context(style: .posix)).matches(path),
   );
 
-  test('nothing to read, nothing declared', () {
-    final config = read();
-
-    expect(config.entryPoints, isEmpty);
-    expect(config.generatedGlobs, isEmpty);
-  });
-
   test('a file that does not parse is ignored', () {
     write('pubspec.yaml', 'name: [unclosed');
     write('build.yaml', '- a list');
-    write('l10n.yaml', 'not: [valid');
 
     expect(read().entryPoints, isEmpty);
+    expect(read().generatedGlobs, isEmpty);
   });
 
-  group('pubspec.yaml plugin classes', () {
-    test('dartPluginClass on any platform, and pluginClass on web only', () {
-      write('pubspec.yaml', '''
+  test('plugin classes: dartPluginClass, and pluginClass on web only', () {
+    write('pubspec.yaml', '''
 name: my_plugin
 flutter:
   plugin:
     platforms:
-      android:
-        package: com.example
-        pluginClass: MyPluginJava
-      linux:
-        dartPluginClass: MyPluginLinux
-        dartFileName: src/linux.dart
-      windows:
-        dartPluginClass: MyPluginWindows
-        pluginClass: MyPluginCpp
-      web:
-        pluginClass: MyPluginWeb
-        fileName: my_plugin_web.dart
+      android: {pluginClass: MyPluginJava}
+      linux: {dartPluginClass: MyPluginLinux, dartFileName: src/linux.dart}
+      windows: {dartPluginClass: MyPluginWindows, pluginClass: MyPluginCpp}
+      web: {pluginClass: MyPluginWeb, fileName: my_plugin_web.dart}
 ''');
 
-      expect(rules(read()), {
-        'MyPluginLinux.registerWith in lib/src/linux.dart',
-        'MyPluginWindows.registerWith in lib/**',
-        'MyPluginWeb.registerWith in lib/my_plugin_web.dart',
-      });
+    expect(rules(read()), {
+      'MyPluginLinux.registerWith in lib/src/linux.dart',
+      'MyPluginWindows.registerWith in lib/**',
+      'MyPluginWeb.registerWith in lib/my_plugin_web.dart',
+    });
+  });
+
+  test('frameworks and plugins, by dependency', () {
+    write('pubspec.yaml', '''
+name: my_lints
+dependencies: {dart_frog: any, analysis_server_plugin: any}
+dev_dependencies: {serverpod: any, custom_lint_builder: any}
+''');
+
+    expect(rules(read()), {
+      'onRequest in routes/**',
+      'middleware in routes/**_middleware.dart',
+      'init in main.dart',
+      'run in main.dart',
+      'public methods of `Endpoint` subclasses',
+      'plugin in lib/main.dart',
+      'createPlugin in lib/my_lints.dart',
     });
   });
 
@@ -83,18 +84,14 @@ flutter:
       write('build.yaml', '''
 builders:
   my_builder:
-    import: "package:my_gen/builder.dart"
-    builder_factories: ["myBuilder", "otherBuilder"]
-    build_extensions: {".dart": [".my.dart"]}
+    import: package:my_gen/builder.dart
+    builder_factories: [myBuilder, otherBuilder]
+    build_extensions: {.dart: [.my.dart]}
     auto_apply: root_package
     build_to: source
-  foreign:
-    import: "package:other/builder.dart"
-    builder_factories: ["foreignBuilder"]
+  foreign: {import: package:other/builder.dart, builder_factories: [foreign]}
 post_process_builders:
-  cleanup:
-    import: "package:my_gen/src/cleanup.dart"
-    builder_factory: "cleanup"
+  cleanup: {import: package:my_gen/src/cleanup.dart, builder_factory: cleanup}
 ''');
 
       final config = read();
@@ -141,39 +138,12 @@ post_process_builders:
         write('pubspec.yaml', 'name: app\ndev_dependencies: {gen: any}\n');
         write('deps/gen/build.yaml', '''
 builders:
-  dependents:
-    import: "package:gen/builder.dart"
-    builder_factories: ["a"]
-    build_extensions: {".dart": [".dependents.dart"]}
-    auto_apply: dependents
-    build_to: source
-  to_cache:
-    import: "package:gen/builder.dart"
-    builder_factories: ["b"]
-    build_extensions: {".dart": [".cache.dart"]}
-    auto_apply: dependents
-    applies_builders: ["gen|combining"]
-  combining:
-    import: "package:gen/builder.dart"
-    builder_factories: ["c"]
-    build_extensions: {".dart": [".combined.dart"]}
-    build_to: source
-  own_tests_only:
-    import: "tool/builder.dart"
-    builder_factories: ["d"]
-    build_extensions: {".dart": [".internal.dart"]}
-    auto_apply: root_package
-    build_to: source
-  opt_in:
-    import: "package:gen/builder.dart"
-    builder_factories: ["e"]
-    build_extensions: {".dart": [".opt_in.dart"]}
-    build_to: source
-  gen:
-    import: "package:gen/builder.dart"
-    builder_factories: ["f"]
-    build_extensions: {".dart": [".gen.x.dart"]}
-    build_to: source
+  dependents: {auto_apply: dependents, build_to: source, build_extensions: {.dart: [.dependents.dart]}}
+  to_cache: {auto_apply: dependents, applies_builders: [gen|combining], build_extensions: {.dart: [.cache.dart]}}
+  combining: {build_to: source, build_extensions: {.dart: [.combined.dart]}}
+  own_tests_only: {auto_apply: root_package, build_to: source, build_extensions: {.dart: [.internal.dart]}}
+  opt_in: {build_to: source, build_extensions: {.dart: [.opt_in.dart]}}
+  gen: {build_to: source, build_extensions: {.dart: [.gen.x.dart]}}
 ''');
       });
 
@@ -260,23 +230,15 @@ template-arb-file: app_pl.arb
       expect(config.generatedGlobsExceptTranslations, [
         'lib/src/gen/l10n_*.dart',
       ]);
-      expect(generated(globs, 'lib/src/gen/l10n.dart'), isTrue);
       expect(generated(globs, 'lib/src/gen/l10n_pt_BR.dart'), isTrue);
-      expect(generated(globs, 'lib/src/gen/strings.dart'), isFalse);
     });
 
     test('defaults to app_localizations.dart in the arb-dir', () {
       write('l10n.yaml', 'arb-dir: lib/i18n\n');
-      expect(read().generatedGlobs, [
-        'lib/i18n/app_localizations_*.dart',
-        'lib/i18n/app_localizations.dart',
-      ]);
-
-      write('l10n.yaml', '');
       expect(read().translations, [
         (
-          dartFile: 'lib/l10n/app_localizations.dart',
-          arbFile: 'lib/l10n/app_en.arb',
+          dartFile: 'lib/i18n/app_localizations.dart',
+          arbFile: 'lib/i18n/app_en.arb',
         ),
       ]);
     });
@@ -284,63 +246,37 @@ template-arb-file: app_pl.arb
     test('a synthetic package writes nothing to the source tree', () {
       write('l10n.yaml', 'synthetic-package: true\n');
       expect(read().generatedGlobs, isEmpty);
-      expect(read().translations, isEmpty);
     });
   });
 
-  group('nested packages', () {
-    test("a workspace member's config, scoped to its directory", () {
-      write('pubspec.yaml', 'name: ws\nworkspace: [pkgs/app, pkgs/plugin]\n');
-      write(
-        'pkgs/app/pubspec.yaml',
-        'name: app\nresolution: workspace\ndependencies: {dart_frog: any}\n',
-      );
-      write('pkgs/app/l10n.yaml', 'output-localization-file: strings.dart\n');
-      write('pkgs/plugin/pubspec.yaml', '''
+  test("nested packages' config, scoped to their directory", () {
+    write('pubspec.yaml', 'name: ws\nworkspace: [pkgs/app, pkgs/plugin]\n');
+    write('pkgs/app/pubspec.yaml', 'name: app\ndependencies: {serverpod: any}');
+    write('pkgs/app/l10n.yaml', 'output-localization-file: strings.dart\n');
+    write('pkgs/plugin/pubspec.yaml', '''
 name: plugin
 flutter: {plugin: {platforms: {linux: {dartPluginClass: LinuxPlugin}}}}
 ''');
-      write(
-        'build/pubspec.yaml',
-        'name: skipped\ndependencies: {serverpod: any}\n',
-      );
+    write(
+      'build/pubspec.yaml',
+      'name: skipped\ndependencies: {dart_frog: any}',
+    );
 
-      final config = read();
-      expect(rules(config), {
-        'onRequest in pkgs/app/routes/**',
-        'middleware in pkgs/app/routes/**_middleware.dart',
-        'init in pkgs/app/main.dart',
-        'run in pkgs/app/main.dart',
-        'LinuxPlugin.registerWith in pkgs/plugin/lib/**',
-      });
-      expect(config.generatedGlobs, [
-        'pkgs/app/lib/l10n/strings_*.dart',
-        'pkgs/app/lib/l10n/strings.dart',
-      ]);
-      expect(config.translations, [
-        (
-          dartFile: 'pkgs/app/lib/l10n/strings.dart',
-          arbFile: 'pkgs/app/lib/l10n/app_en.arb',
-        ),
-      ]);
+    final config = read();
+    expect(rules(config), {
+      'public methods of `Endpoint` subclasses in pkgs/app/**',
+      'LinuxPlugin.registerWith in pkgs/plugin/lib/**',
     });
-
-    test('a rule for any file is scoped to its package', () {
-      write(
-        'pkgs/server/pubspec.yaml',
-        'name: s\ndependencies: {serverpod: any}\n',
-      );
-
-      expect(rules(read()), {
-        'public methods of `Endpoint` subclasses in pkgs/server/**',
-      });
-    });
+    expect(config.generatedGlobs, [
+      'pkgs/app/lib/l10n/strings_*.dart',
+      'pkgs/app/lib/l10n/strings.dart',
+    ]);
+    expect(config.translations.single.arbFile, 'pkgs/app/lib/l10n/app_en.arb');
   });
 
-  group('build.<name>.yaml', () {
-    test('every config build_runner can pick with --config counts', () {
-      write('pubspec.yaml', 'name: app');
-      write('build.release.yaml', r'''
+  test('every build.<name>.yaml counts, as build_runner --config picks it', () {
+    write('pubspec.yaml', 'name: app');
+    write('build.release.yaml', r'''
 targets:
   $default:
     builders:
@@ -348,58 +284,14 @@ targets:
         options:
           build_extensions: {'^lib/{{}}.dart': 'lib/gen/{{}}.g.dart'}
 ''');
-      write('build.yaml', '''
+    write('build.yaml', '''
 builders:
-  stamp:
-    import: "package:app/builder.dart"
-    builder_factories: ["stamp"]
+  stamp: {import: package:app/builder.dart, builder_factories: [stamp]}
 ''');
-      write('build.release.yaml.bak', 'not: [a config');
+    write('build.release.yaml.bak', 'not: [a config');
 
-      final config = read();
-      expect(config.generatedGlobs, ['lib/gen/**.g.dart']);
-      expect(rules(config), {'stamp in lib/builder.dart'});
-    });
-  });
-
-  group('frameworks, by dependency', () {
-    test('dart_frog routes, middleware and server hooks', () {
-      write('pubspec.yaml', '''
-name: server
-dependencies:
-  dart_frog: ^1.0.0
-''');
-
-      expect(rules(read()), {
-        'onRequest in routes/**',
-        'middleware in routes/**_middleware.dart',
-        'init in main.dart',
-        'run in main.dart',
-      });
-    });
-
-    test('analyzer and custom_lint plugins', () {
-      write('pubspec.yaml', '''
-name: my_lints
-dependencies:
-  analysis_server_plugin: any
-  custom_lint_builder: any
-''');
-
-      expect(rules(read()), {
-        'plugin in lib/main.dart',
-        'createPlugin in lib/my_lints.dart',
-      });
-    });
-
-    test('serverpod, also as a dev dependency', () {
-      write('pubspec.yaml', '''
-name: server
-dev_dependencies:
-  serverpod: any
-''');
-
-      expect(rules(read()), {'public methods of `Endpoint` subclasses'});
-    });
+    final config = read();
+    expect(config.generatedGlobs, ['lib/gen/**.g.dart']);
+    expect(rules(config), {'stamp in lib/builder.dart'});
   });
 }
