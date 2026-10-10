@@ -56,11 +56,11 @@ final class PackageResolver {
   };
 
   String? _packagePath(Uri uri, String from) =>
-      _configOf(p.dirname(from))?.resolve(uri)?.toFilePath().let(p.normalize);
+      configOf(p.dirname(from))?.resolve(uri)?.toFilePath().let(p.normalize);
 
   /// The package config of [dir]: its own, or its nearest ancestor's, as in a
   /// pub workspace.
-  PackageConfig? _configOf(String dir) {
+  PackageConfig? configOf(String dir) {
     if (_configByDir.containsKey(dir)) {
       return _configByDir[dir];
     }
@@ -68,7 +68,7 @@ final class PackageResolver {
     final parent = p.dirname(dir);
     return _configByDir[dir] = file.existsSync()
         ? _read(file)
-        : (parent == dir ? null : _configOf(parent));
+        : (parent == dir ? null : configOf(parent));
   }
 
   /// [file] parsed, skipping malformed entries; `null` when unreadable.

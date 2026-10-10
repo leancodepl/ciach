@@ -39,6 +39,8 @@ analysis-root: .
 public: false
 exported: false
 generated: true
+project-config: false
+unused-translations: true
 overrides: true
 operators: true
 unused-union-members: true
@@ -75,6 +77,8 @@ dart: /sdk/bin/dart
       expect(resolved.includePublic, isFalse);
       expect(resolved.includeExported, isFalse);
       expect(resolved.includeGenerated, isTrue);
+      expect(resolved.projectConfig, isFalse);
+      expect(resolved.unusedTranslations, isTrue);
       expect(resolved.overrides, isTrue);
       expect(resolved.operators, isTrue);
       expect(resolved.unusedUnionMembers, isTrue);
@@ -262,6 +266,8 @@ concurrency: 4
       const everyOption = [
         '--public',
         '--generated',
+        '--project-config',
+        '--unused-translations',
         '--overrides',
         '--operators',
         '--unused-union-members',
@@ -432,6 +438,8 @@ concurrency: 4
       expect(resolved.includePublic, isTrue);
       expect(resolved.includeExported, isTrue);
       expect(resolved.includeGenerated, isFalse);
+      expect(resolved.projectConfig, isTrue);
+      expect(resolved.unusedTranslations, isFalse);
       expect(resolved.overrides, isFalse);
       expect(resolved.operators, isFalse);
       expect(resolved.unusedUnionMembers, isFalse);
@@ -638,6 +646,7 @@ dart: /sdk/bin/dart
     test('hands the finder its share of the settings', () {
       final resolved = resolve(const [
         '--no-public',
+        '--no-project-config',
         '--overrides',
         '-e',
         'test/**',
@@ -654,6 +663,50 @@ dart: /sdk/bin/dart
       expect(options.excludeGlobs, ['test/**']);
       expect(options.entryPoints.map((e) => '$e'), ['bootstrap']);
       expect(options.concurrency, 4);
+    });
+  });
+
+  group('project config', () {
+    late Directory package;
+
+    setUp(() {
+      package = .systemTemp.createTempSync('ciach_config_project_');
+      File(p.join(package.path, 'pubspec.yaml')).writeAsStringSync('''
+name: server
+dependencies:
+  dart_frog: any
+  serverpod: any
+''');
+      File(p.join(package.path, 'l10n.yaml')).writeAsStringSync('');
+    });
+
+    tearDown(() => package.deleteSync(recursive: true));
+
+    test('is merged into the finder options', () {
+      final options = resolve(
+        [package.path, '--generated-glob', 'gen/**'],
+        .parse('entry-points: [{name: bootstrap}]', origin: 'ciach.yaml'),
+      ).finderOptions();
+
+      expect(
+        options.entryPoints.map((e) => e.name),
+        containsAllInOrder(['bootstrap', 'onRequest']),
+      );
+      expect(options.additionalGeneratedGlobs, [
+        'gen/**',
+        'lib/l10n/app_localizations_*.dart',
+        'lib/l10n/app_localizations.dart',
+      ]);
+    });
+
+    test('--no-project-config reads none of it', () {
+      final options = resolve([
+        package.path,
+        '--no-project-config',
+      ]).finderOptions();
+
+      expect(options.entryPoints, isEmpty);
+      expect(options.additionalGeneratedGlobs, isEmpty);
     });
   });
 }
