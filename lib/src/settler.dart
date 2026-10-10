@@ -10,6 +10,7 @@ import 'package:ciach/src/models.dart';
 import 'package:ciach/src/overrides.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/plural.dart';
+import 'package:ciach/src/reachability.dart';
 import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/remove_safety.dart';
 import 'package:ciach/src/source_index.dart';
@@ -17,7 +18,7 @@ import 'package:ciach/src/superclasses.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:ciach/src/verdict.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location;
+import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
 final _log = Logger('ciach.finder');
 
@@ -30,11 +31,12 @@ typedef Settled = ({
 
 /// From references to findings: settles each candidate's verdict — classifies
 /// it, applies the conventions and remove-safety, couples overrides — and
-/// builds the sorted report. With `transitive`, it repeats this in rounds:
-/// each ignores the references inside the previous round's removable findings,
-/// until a round adds nothing. Rounds reuse the fetched references and cached
-/// override lookups, and probe only the names a round newly leaves
-/// unreferenced.
+/// builds the sorted report. With `transitive`, every candidate starts dead
+/// and only what live code reaches is revived (see [unreached]), so dead
+/// cycles are reported too. Each round then settles the verdicts, and what a
+/// round keeps revives what it reaches, until the dead set stops changing.
+/// Rounds reuse the fetched references and cached override lookups, and probe
+/// only the names a round newly leaves unreferenced.
 final class Settler {
   Settler({
     required this.options,
@@ -87,15 +89,17 @@ final class Settler {
       rootPath: rootPath,
     );
 
-    var deadSpans = DeadSpans.empty;
     var crossLib = CrossLibraryReferences.empty;
+    var deadSpans = options.transitive
+        ? _unreachedCandidates(candidates, refsByCandidate, rootPath)
+        : DeadSpans.empty;
     Settled settled;
     for (var round = 1; ; round++) {
       final liveRefs = _liveRefs(refsByCandidate, deadSpans);
       crossLib = crossLib.merged(
         await _recoverCrossLibraryRefs(client, candidates, liveRefs),
       );
-      settled = await _round(
+      final result = await _round(
         candidates,
         refsByCandidate,
         liveRefs,
@@ -106,10 +110,17 @@ final class Settler {
         rootPath,
         analysisRoot,
       );
+      settled = result.settled;
       if (!options.transitive) {
         break;
       }
-      final next = DeadSpans.of(settled.unused, rootPath);
+      final next = _sweep(
+        candidates,
+        refsByCandidate,
+        crossLib,
+        result.candidateOf,
+        rootPath,
+      );
       if (next.sameAs(deadSpans)) {
         if (round > 1) {
           _log.fine('Settled after ${plural(round, 'round', 'rounds')}.');
@@ -141,6 +152,78 @@ final class Settler {
     );
   }
 
+  /// The spans of every candidate no live code reaches, all of them assumed
+  /// dead to begin with.
+  DeadSpans _unreachedCandidates(
+    List<Candidate> candidates,
+    List<List<Location>> refsByCandidate,
+    String rootPath,
+  ) {
+    final allDead = {
+      for (var i = 0; i < candidates.length; i++)
+        _verdict.finding(candidates[i], rootPath): i,
+    };
+    final unreached = _sweep(
+      candidates,
+      refsByCandidate,
+      .empty,
+      allDead,
+      rootPath,
+    );
+    _log.info(
+      'Round 1: checking the '
+      '${plural(unreached.length, 'declaration', 'declarations')} no live '
+      'code reaches…',
+    );
+    return unreached;
+  }
+
+  /// The removable findings no live reference reaches. [candidateOf] maps
+  /// each finding to its candidate's index. [crossLib] sites count as
+  /// references.
+  DeadSpans _sweep(
+    List<Candidate> candidates,
+    List<List<Location>> refsByCandidate,
+    CrossLibraryReferences crossLib,
+    Map<UnusedDeclaration, int> candidateOf,
+    String rootPath,
+  ) {
+    final spans = DeadSpans.of(candidateOf.keys, rootPath);
+    final removable = {
+      for (final MapEntry(key: finding, value: i) in candidateOf.entries)
+        if (!finding.removalBlocked) i,
+    };
+    Iterable<int> containers(String path, Position position) => [
+      for (final owner in spans.ownersOf(path, position)) candidateOf[owner]!,
+    ];
+    final uses = [
+      for (final i in removable) ...[
+        for (final loc in refsByCandidate[i])
+          if (_classifier.classify(candidates[i], [loc], .empty) == .used)
+            (
+              target: i,
+              containers: containers(
+                SourceIndex.pathOf(loc.uri),
+                loc.range.start,
+              ),
+            ),
+        for (final usage in crossLib.recoveredUsages(candidates[i]))
+          (
+            target: i,
+            containers: containers(
+              usage.path,
+              Position(line: usage.line, character: usage.character),
+            ),
+          ),
+      ],
+    ];
+    final dead = unreached(removable, uses);
+    return DeadSpans.of([
+      for (final MapEntry(key: finding, value: i) in candidateOf.entries)
+        if (dead.contains(i)) finding,
+    ], rootPath);
+  }
+
   /// [refsByCandidate] less the references inside [deadSpans].
   List<List<Location>> _liveRefs(
     List<List<Location>> refsByCandidate,
@@ -159,9 +242,10 @@ final class Settler {
             ],
         ];
 
-  /// One round, classifying from [liveRefs]. [refsByCandidate] still holds the
-  /// references into [deadSpans], for [_onlyReferencedFrom].
-  Future<Settled> _round(
+  /// One round, classifying from [liveRefs], with each unused finding's
+  /// candidate index. [refsByCandidate] still holds the references into
+  /// [deadSpans], for [_onlyReferencedFrom].
+  Future<({Settled settled, Map<UnusedDeclaration, int> candidateOf})> _round(
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
     List<List<Location>> liveRefs,
@@ -222,6 +306,7 @@ final class Settler {
     final overridden = await _coupleOverrides(candidates, reported, overrides);
 
     final unused = <UnusedDeclaration>[];
+    final candidateOf = <UnusedDeclaration, int>{};
     final docOnly = <UnusedDeclaration>[];
     for (final (i, candidate) in candidates.indexed) {
       switch (statuses[i]) {
@@ -237,6 +322,7 @@ final class Settler {
             rootPath: rootPath,
           );
           unused.add(finding);
+          candidateOf[finding] = i;
           if (!finding.removalBlocked) {
             _removableBefore.add(i);
           }
@@ -258,7 +344,12 @@ final class Settler {
       );
     }
 
-    return (unused: unused, docOnly: docOnly, recovered: recovered);
+    return (
+      settled: (unused: unused, docOnly: docOnly, recovered: recovered),
+      candidateOf: {
+        for (final finding in unused) finding: candidateOf[finding]!,
+      },
+    );
   }
 
   /// Names of classes flagged unused, per file. A whole dead class is removed
@@ -291,20 +382,22 @@ final class Settler {
   }) {
     final candidate = candidates[i];
     final refs = liveRefs[i];
-    final isClass = candidate.symbol.kind == .class$;
     final blockedByOverride = overridden?.blocked ?? false;
+    final pairedState = candidate.symbol.kind == .class$
+        ? _sources.pairedStateRemovals(
+            candidate,
+            refs,
+            candidates,
+            liveRefs,
+            rootPath,
+          )
+        : null;
+    final blockedByState = pairedState?.blocked ?? false;
     return _verdict.finding(
       candidate,
       rootPath,
-      coupledRemovals: isClass
-          ? _sources.pairedStateRemovals(
-              candidate,
-              refs,
-              candidates,
-              liveRefs,
-              rootPath,
-            )
-          : overridden?.removals ?? const [],
+      coupledRemovals:
+          pairedState?.removals ?? overridden?.removals ?? const [],
       removalBlocked:
           _verdict.isRemovalBlocked(
             candidate,
@@ -312,10 +405,12 @@ final class Settler {
             safety,
             groupGuards: !_removableBefore.contains(i),
           ) ||
-          blockedByOverride,
+          blockedByOverride ||
+          blockedByState,
       hint:
           _verdict.hintFor(candidate) ??
-          (blockedByOverride ? Verdict.overriddenHint : null),
+          (blockedByOverride ? Verdict.overriddenHint : null) ??
+          (blockedByState ? Verdict.pairedStateHint : null),
       onlyReferencedFrom: _onlyReferencedFrom(
         candidate,
         refsByCandidate[i],

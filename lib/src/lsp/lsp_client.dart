@@ -395,6 +395,25 @@ class LspClient {
     return definition?.asLocationList ?? [?definition?.asLocation];
   }
 
+  /// The hover text at [position] in [uri]: the element's signature as the
+  /// analyzer resolved it, then its docs. `null` when there is none.
+  Future<String?> hover(Uri uri, lsp.Position position) async {
+    final result = await _guard(
+      lsp.RequestMethod.hover.value,
+      () => _client.server.textDocument.hover(
+        .new(
+          textDocument: .new(uri: uri.toString()),
+          position: position,
+        ),
+      ),
+    );
+    return switch (result?.contents.toJson()) {
+      {'value': final String value} => value,
+      Map() || null => null,
+      final contents => '$contents',
+    };
+  }
+
   /// The semantic tokens of [uri], with each token's text taken from [lines].
   Future<List<SemanticToken>> semanticTokens(
     Uri uri,

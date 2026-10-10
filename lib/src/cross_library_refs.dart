@@ -36,10 +36,11 @@ typedef _DeclPosition = (String path, int line, int character);
 class CrossLibraryReferences {
   const CrossLibraryReferences._(this._usageByDecl);
 
-  /// Recovered declaration position -> the usage site that confirmed it.
-  final Map<_DeclPosition, _Site> _usageByDecl;
+  /// Recovered declaration position -> every usage site that confirmed it,
+  /// so dropping a dead one never drops a live one.
+  final Map<_DeclPosition, Set<_Site>> _usageByDecl;
 
-  static const empty = CrossLibraryReferences._(<_DeclPosition, _Site>{});
+  static const empty = CrossLibraryReferences._(<_DeclPosition, Set<_Site>>{});
 
   static const _unresolvedSite =
       'Could not resolve a possible use; check findings before removing.';
@@ -101,9 +102,9 @@ class CrossLibraryReferences {
       }
     });
 
-    final usageByDecl = <_DeclPosition, _Site>{};
+    final usageByDecl = <_DeclPosition, Set<_Site>>{};
     // Uses resolving to a non-candidate (e.g. an override), by name.
-    final elsewhere = <String, Map<_DeclPosition, _Site>>{};
+    final elsewhere = <String, Map<_DeclPosition, Set<_Site>>>{};
     for (var i = 0; i < sites.length; i++) {
       final site = (uri: sites[i].uri, position: sites[i].position);
       for (final loc in perSite[i]) {
@@ -111,11 +112,14 @@ class CrossLibraryReferences {
         final pos = (SourceIndex.pathOf(loc.uri), start.line, start.character);
         if (byPosition[pos] case final declaration?) {
           if (!_isSelfUse(site, declaration)) {
-            usageByDecl.putIfAbsent(pos, () => site);
+            usageByDecl.putIfAbsent(pos, () => {}).add(site);
           }
         } else if (pos != _positionOfSite(site)) {
           // Skip a declaration's own name.
-          elsewhere.putIfAbsent(sites[i].name, () => {})[pos] ??= site;
+          elsewhere
+              .putIfAbsent(sites[i].name, () => {})
+              .putIfAbsent(pos, () => {})
+              .add(site);
         }
       }
     }
@@ -133,8 +137,8 @@ class CrossLibraryReferences {
   static Future<void> _recoverThroughOverrides({
     required LspClient client,
     required List<Candidate> candidates,
-    required Map<String, Map<_DeclPosition, _Site>> elsewhere,
-    required Map<_DeclPosition, _Site> usageByDecl,
+    required Map<String, Map<_DeclPosition, Set<_Site>>> elsewhere,
+    required Map<_DeclPosition, Set<_Site>> usageByDecl,
     required int concurrency,
   }) async {
     final members = [
@@ -169,9 +173,10 @@ class CrossLibraryReferences {
       for (final loc in perMember[i]) {
         final start = loc.range.start;
         final pos = (SourceIndex.pathOf(loc.uri), start.line, start.character);
-        if (uses[pos] case final site?) {
-          usageByDecl.putIfAbsent(_positionOf(members[i]), () => site);
-          break;
+        if (uses[pos] case final sites?) {
+          usageByDecl
+              .putIfAbsent(_positionOf(members[i]), () => {})
+              .addAll(sites);
         }
       }
     }
@@ -186,33 +191,45 @@ class CrossLibraryReferences {
   bool isRecovered(Candidate candidate) =>
       _usageByDecl.containsKey(_positionOf(candidate));
 
-  /// These recoveries plus [other]'s; where both recovered a declaration,
-  /// this one's usage site wins.
+  /// These recoveries plus [other]'s; this one's sites come first.
   CrossLibraryReferences merged(CrossLibraryReferences other) =>
-      CrossLibraryReferences._({...other._usageByDecl, ..._usageByDecl});
+      CrossLibraryReferences._({
+        ...other._usageByDecl,
+        for (final MapEntry(key: decl, value: sites) in _usageByDecl.entries)
+          decl: {...sites, ...?other._usageByDecl[decl]},
+      });
 
-  /// The recoveries whose usage site (absolute path, position) fails [test].
+  /// The recoveries less the usage sites (absolute path, position) that pass
+  /// [test].
   CrossLibraryReferences whereNot(
     bool Function(String path, Position position) test,
-  ) => CrossLibraryReferences._({
-    for (final MapEntry(key: decl, value: site) in _usageByDecl.entries)
-      if (!test(site.uri.toFilePath(), site.position)) decl: site,
-  });
+  ) {
+    bool keep(_Site site) => !test(site.uri.toFilePath(), site.position);
+    return ._({
+      for (final MapEntry(key: decl, value: sites) in _usageByDecl.entries)
+        if (sites.where(keep).toSet() case final kept when kept.isNotEmpty)
+          decl: kept,
+    });
+  }
 
-  /// The usage site that recovered [candidate], or `null` if not recovered.
+  /// The first usage site that recovered [candidate], or `null` if not
+  /// recovered.
   ({String path, int line, int character})? recoveredUsage(
     Candidate candidate,
-  ) {
-    final site = _usageByDecl[_positionOf(candidate)];
-    if (site == null) {
-      return null;
-    }
-    return (
-      path: site.uri.toFilePath(),
-      line: site.position.line,
-      character: site.position.character,
-    );
-  }
+  ) => recoveredUsages(candidate).firstOrNull;
+
+  /// Every usage site that recovered [candidate].
+  Iterable<({String path, int line, int character})> recoveredUsages(
+    Candidate candidate,
+  ) =>
+      _usageByDecl[_positionOf(candidate)]?.map(
+        (site) => (
+          path: site.uri.toFilePath(),
+          line: site.position.line,
+          character: site.position.character,
+        ),
+      ) ??
+      const .empty();
 
   /// Whether the use at [site] sits inside the very declaration it resolved
   /// to — a recursive call. [ReferenceClassifier.isSelfReference] discounts
@@ -221,9 +238,7 @@ class CrossLibraryReferences {
     if (site.uri.toFilePath() != declaration.path) {
       return false;
     }
-    final range = declaration.outline.range;
-    return range.start.atOrBefore(site.position) &&
-        site.position.atOrBefore(range.end);
+    return declaration.outline.range.contains(site.position);
   }
 
   static _DeclPosition _positionOf(Candidate candidate) {

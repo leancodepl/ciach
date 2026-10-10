@@ -153,6 +153,14 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'highest-confidence dead code.',
     ),
   ),
+  exported(
+    FlagOption(
+      argName: 'exported',
+      configKey: '/exported',
+      defaultsTo: true,
+      helpText: 'Report declarations other packages can import.',
+    ),
+  ),
   failPublic(
     FlagOption(
       argName: 'fail-public',
@@ -218,8 +226,9 @@ enum CiachOption<V> implements OptionDefinition<V> {
       defaultsTo: false,
       helpText:
           'Also report declarations referenced only from other findings,\n'
-          'repeating until nothing new is found. Off by default, because one\n'
-          'false positive also flags everything only it referenced.',
+          'and cycles of declarations that only reference each other. Off by\n'
+          'default, because one false positive also flags everything only it\n'
+          'referenced.',
     ),
   ),
   reportToJson(

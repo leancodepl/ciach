@@ -6,6 +6,8 @@
 // Scanned only by the dedicated widget tests (excluded from the default-run
 // assertions); see test/finder_test.dart.
 
+import 'package:sample_pkg/scenarios/widgets_state.dart';
+
 /// Stand-in for Flutter's `State<T>`. USED via the `State<...>` pairings below.
 abstract class State<T> {}
 
@@ -34,4 +36,28 @@ class _DeadStatefulWidgetState extends State<DeadStatefulWidget> {}
 /// by its own constructor declaration.
 class LiveWidget {
   const LiveWidget();
+}
+
+/// Stand-in for Flutter's `GlobalKey<T>`.
+class GlobalKey<T> {}
+
+/// Never constructed, but its State is named by a live key -> reported, but
+/// report-only: removing it would leave `State<KeyedWidget>` dangling.
+class KeyedWidget {
+  const KeyedWidget();
+
+  State<KeyedWidget> createState() => _KeyedWidgetState();
+}
+
+class _KeyedWidgetState extends State<KeyedWidget> {}
+
+/// Read from bin/app.dart -> USED, and so is `_KeyedWidgetState`.
+final Object keyedWidgetKey = GlobalKey<_KeyedWidgetState>();
+
+/// Never constructed; its State lives in widgets_state.dart -> UNUSED, the
+/// State coupled across files.
+class SplitWidget {
+  const SplitWidget();
+
+  State<SplitWidget> createState() => SplitWidgetState();
 }

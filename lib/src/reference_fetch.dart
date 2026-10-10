@@ -137,17 +137,35 @@ final class ReferenceFetch {
         positionsByPath.putIfAbsent(path, () => {}).add(position);
       }
     }
-    if (positionsByPath.isEmpty) {
+    await fetchSelectionRanges(client, positionsByPath);
+  }
+
+  /// Fetches and caches the selection ranges at [positionsByPath] not cached
+  /// yet, one request per file.
+  Future<void> fetchSelectionRanges(
+    LspClient client,
+    Map<String, Set<Position>> positionsByPath,
+  ) async {
+    final pending = {
+      for (final MapEntry(key: path, value: positions)
+          in positionsByPath.entries)
+        if (positions
+                .where((p) => _sources.selectionRangeAt(path, p) == null)
+                .toList()
+            case final missing when missing.isNotEmpty)
+          path: missing,
+    };
+    if (pending.isEmpty) {
       return;
     }
     _log.info(
-      'Fetching syntax nodes in ${plural(positionsByPath.length, 'file', 'files')}…',
+      'Fetching syntax nodes in ${plural(pending.length, 'file', 'files')}…',
     );
-    await mapPooled(positionsByPath.entries.toList(), options.concurrency, (
+    await mapPooled(pending.entries.toList(), options.concurrency, (
       entry,
     ) async {
-      final MapEntry(key: path, value: positions) = entry;
-      await _fetchSelectionRanges(client, path, positions.toList());
+      final MapEntry(key: path, value: missing) = entry;
+      await _fetchSelectionRanges(client, path, missing);
     });
   }
 

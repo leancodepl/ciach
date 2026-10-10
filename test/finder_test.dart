@@ -346,6 +346,47 @@ void main() {
       },
     );
 
+    for (final transitive in [false, true]) {
+      test('a dead widget whose State is used elsewhere is report-only '
+          '(transitive: $transitive)', () async {
+        final result = await runFinder(
+          include: ['lib/scenarios/widgets.dart'],
+          exclude: const [],
+          transitive: transitive,
+        );
+        final widget = findByQualified(result, 'KeyedWidget')!;
+        expect(widget.removalBlocked, isTrue);
+        expect(widget.coupledRemovals, isEmpty);
+        expect(findByQualified(result, '_KeyedWidgetState'), isNull);
+      });
+    }
+
+    test('couples a State declared in another file', () async {
+      final result = await runFinder(
+        include: [
+          'lib/scenarios/widgets.dart',
+          'lib/scenarios/widgets_state.dart',
+        ],
+        exclude: const [],
+      );
+      final widget = findByQualified(result, 'SplitWidget')!;
+      expect(widget.removalBlocked, isFalse);
+      expect(widget.coupledRemovals.map((c) => c.filePath), [
+        'lib/scenarios/widgets_state.dart',
+      ]);
+      expect(findByQualified(result, 'SplitWidgetState'), isNull);
+    });
+
+    test(
+      'blocks a widget whose State in another file is not scanned',
+      () async {
+        final result = await runWidgets();
+        final widget = findByQualified(result, 'SplitWidget')!;
+        expect(widget.removalBlocked, isTrue);
+        expect(widget.coupledRemovals, isEmpty);
+      },
+    );
+
     test(
       'never flags a live widget-style class or the State stand-in',
       () async {
@@ -676,9 +717,13 @@ void main() {
     });
 
     test('flag ON: what only dead code referenced is reported too, each '
-        'naming the finding it hangs on', () async {
+        'naming the finding it hangs on, and so are dead cycles', () async {
       final result = await runTransitive();
       expect(names(result.unused), {
+        '_ping',
+        '_pong',
+        '_Chicken',
+        '_Egg',
         '_deadRoot',
         '_secondDeadRoot',
         'Lone.only',
@@ -763,14 +808,32 @@ void main() {
       expect(findByQualified(result, '_loneArg'), isNull);
     });
 
-    test('flag ON: a cycle keeps itself alive, and a live anchor keeps its '
-        'chain', () async {
+    test('flag ON: each member of a dead cycle names the others', () async {
       final result = await runTransitive();
-      expect(findByQualified(result, '_ping'), isNull);
-      expect(findByQualified(result, '_pong'), isNull);
-      expect(findByQualified(result, 'transitiveAnchor'), isNull);
-      expect(findByQualified(result, '_usedByLive'), isNull);
+      List<DeadReferrer> via(String name) =>
+          findByQualified(result, name)!.onlyReferencedFrom;
+      expect(via('_ping'), [asOwner(result, '_pong')]);
+      expect(via('_pong'), [asOwner(result, '_ping')]);
+      expect(via('_Chicken'), [asOwner(result, '_Egg')]);
+      expect(via('_Egg'), [asOwner(result, '_Chicken')]);
+      expect(findByQualified(result, '_Chicken.lay'), isNull);
+      expect(findByQualified(result, '_Egg.hatch'), isNull);
     });
+
+    test(
+      'flag ON: a live anchor keeps its chain, and a cycle it enters',
+      () async {
+        final result = await runTransitive();
+        for (final name in [
+          'transitiveAnchor',
+          '_usedByLive',
+          '_liveCycle',
+          '_liveCycleBack',
+        ]) {
+          expect(findByQualified(result, name), isNull, reason: name);
+        }
+      },
+    );
 
     test(
       'flag ON: after --remove, a second run has nothing left to remove',
@@ -783,7 +846,7 @@ void main() {
         ).run();
 
         final first = await run();
-        expect(first.unused.where((d) => !d.removalBlocked), isNotEmpty);
+        expect(names(first.unused), containsAll(['_ping', '_Chicken']));
         removeDeclarations(first.unused, copy.path);
 
         final second = await run();
@@ -1189,6 +1252,23 @@ void main() {
       expect(signOut.usageFilePath, endsWith('xref_uses.dart'));
       expect(signOut.message, contains('likely a Dart SDK find-references'));
     });
+  });
+
+  test('transitive: a recovered member with a dead and a live use stays '
+      'used', () async {
+    final result = await runFinder(
+      include: const [
+        'lib/scenarios/xref_shapes.dart',
+        'lib/scenarios/xref_surface.dart',
+        'lib/scenarios/xref_dead_cycles.dart',
+      ],
+      exclude: const [],
+      transitive: true,
+    );
+    final names = result.unused.map((d) => d.qualifiedName).toSet();
+    expect(names, contains('_deadReady'));
+    expect(names, isNot(contains('XrefLoadedState.ready')));
+    expect(names, isNot(contains('liveReady')));
   });
 
   group('same-simple-name collision recovery', () {

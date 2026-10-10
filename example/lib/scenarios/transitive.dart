@@ -40,7 +40,10 @@ class _DeadHolder {
 }
 
 /// Called from bin/app.dart -> USED.
-void transitiveAnchor() => _usedByLive();
+void transitiveAnchor() {
+  _usedByLive();
+  _liveCycle();
+}
 
 /// Called only by live `transitiveAnchor` -> USED either way.
 void _usedByLive() {}
@@ -57,10 +60,24 @@ class Odometer {
   int live() => 1;
 }
 
-/// A cycle with `_pong` -> USED even with transitive (#65).
+/// Dead cycle -> UNUSED with transitive.
 void _ping() => _pong();
 
 void _pong() => _ping();
+
+/// Cycle entered from `transitiveAnchor` -> USED.
+void _liveCycle() => _liveCycleBack();
+
+void _liveCycleBack() => _liveCycle();
+
+/// Dead class cycle -> UNUSED with transitive, without members.
+class _Chicken {
+  _Egg lay() => _Egg()..hatch();
+}
+
+class _Egg {
+  _Chicken hatch() => _Chicken()..lay();
+}
 
 /// Referenced as a type from bin/app.dart -> USED. Its only value is dead but
 /// report-only, so it stays, and so does what it references.

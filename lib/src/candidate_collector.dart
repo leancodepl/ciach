@@ -10,6 +10,7 @@ import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/problems.dart';
+import 'package:ciach/src/public_api.dart';
 import 'package:ciach/src/reference_fetch.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
@@ -27,14 +28,19 @@ final class CandidateCollector {
     required this.options,
     required SourceIndex sources,
     required FreezedUnions freezed,
+    PublicApi? publicApi,
   }) : _sources = sources,
-       _freezed = freezed;
+       _freezed = freezed,
+       _publicApi = publicApi;
 
   final FinderOptions options;
   final SourceIndex _sources;
 
   /// Freezed-union tracking, fed as candidates are collected.
   final FreezedUnions _freezed;
+
+  /// What other packages can import, when exported declarations are left out.
+  final PublicApi? _publicApi;
 
   late final _entryPoints = EntryPoints(options.entryPoints);
 
@@ -207,6 +213,21 @@ final class CandidateCollector {
     }
   }
 
+  /// Whether [candidate] is public and left out: by `--no-public`, or as part
+  /// of the package's API by `--no-exported`.
+  bool _skipsPublic(Candidate candidate) {
+    final symbol = candidate.symbol;
+    if (isPrivateName(symbol.name)) {
+      return false;
+    }
+    return !options.includePublic ||
+        (_publicApi?.exposes(
+              candidate.path,
+              candidate.container ?? symbol.name,
+            ) ??
+            false);
+  }
+
   /// Whether [candidate] should have its references checked.
   bool _shouldConsider(
     String relativePath,
@@ -241,7 +262,7 @@ final class CandidateCollector {
         !candidate.isExtensionType) {
       return false;
     }
-    if (!isPrivateName(symbol.name) && !options.includePublic) {
+    if (_skipsPublic(candidate)) {
       return false;
     }
     if (options.skipOperators && symbol.isOperator) {

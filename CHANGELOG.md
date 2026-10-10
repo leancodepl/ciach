@@ -1,3 +1,16 @@
+## Unreleased
+
+- `--transitive` also reports dead cycles: declarations that only reference
+  each other.
+  ([#87](https://github.com/leancodepl/ciach/pull/87))
+- A dead `StatefulWidget` whose `State` is used elsewhere (say, by a
+  `GlobalKey`) is report-only: `--remove` deleted the widget and left
+  `State<Widget>` naming a missing type. A `State` in another file is now
+  removed with its widget, instead of being left behind the same way.
+  ([#87](https://github.com/leancodepl/ciach/pull/87))
+- Add `--no-exported` (`exported: false`): skip only declarations other
+  packages can import. ([#85](https://github.com/leancodepl/ciach/pull/85))
+
 ## 0.6.0
 
 - **Breaking:** `FinderOptions.onProgress` is removed; ciach logs through

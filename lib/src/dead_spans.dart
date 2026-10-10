@@ -66,6 +66,13 @@ final class DeadSpans {
     return outermost?.owner;
   }
 
+  /// Every finding whose removal deletes [position] in [path].
+  Iterable<UnusedDeclaration> ownersOf(String path, Position position) => {
+    if (_byPath[path] case final spans?)
+      for (final span in spans)
+        if (_contains(span.range, position)) span.owner,
+  };
+
   /// Whether another finding's removal deletes [finding] too.
   bool enclosesInAnother(UnusedDeclaration finding, String rootPath) {
     final spans = _byPath[_absolute(finding.filePath, rootPath)];

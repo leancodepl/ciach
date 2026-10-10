@@ -50,6 +50,7 @@ class FinderOptions {
     this.excludeGlobs = const [],
     this.kinds = defaultKinds,
     this.includePublic = true,
+    this.includeExported = true,
     this.includeGenerated = false,
     this.additionalGeneratedSuffixes = const [],
     this.additionalGeneratedGlobs = const [],
@@ -90,6 +91,9 @@ class FinderOptions {
   /// Whether to report public declarations (those not starting with `_`).
   /// Private declarations are always reported when unused.
   final bool includePublic;
+
+  /// Whether to report declarations importable by other packages.
+  final bool includeExported;
 
   /// Whether to scan generated files (`*.g.dart`, `*.freezed.dart`, …).
   final bool includeGenerated;
@@ -147,8 +151,8 @@ class FinderOptions {
   /// Whether to also report declarations referenced only from findings
   /// `--remove` would delete, repeating until nothing new is found. Off by
   /// default, because one false positive also flags everything only it
-  /// referenced. Dead declarations that reference each other in a cycle are
-  /// not found (https://github.com/leancodepl/ciach/issues/65).
+  /// referenced. Dead declarations that only reference each other, in a
+  /// cycle, are reported too.
   final bool transitive;
 
   /// The project's own entry points, on top of [EntryPoint.builtIn]. A match

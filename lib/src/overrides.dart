@@ -158,7 +158,7 @@ final class OverrideRemovals {
   ) {
     var parent = root;
     while (true) {
-      final child = _childAt(parent, position);
+      final child = parent.childAt(position);
       if (child == null) {
         return null;
       }
@@ -167,15 +167,5 @@ final class OverrideRemovals {
       }
       parent = child;
     }
-  }
-
-  /// The child of [parent] covering [position].
-  static Outline? _childAt(Outline parent, Position position) {
-    final child = lastStartingAtOrBefore(
-      parent.children,
-      position,
-      (child) => child.range.start,
-    );
-    return child != null && position.atOrBefore(child.range.end) ? child : null;
   }
 }

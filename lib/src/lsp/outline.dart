@@ -63,6 +63,7 @@ final class OutlineElement {
     this.range,
     this.parameters,
     this.returnType,
+    this.typeParameters,
   });
 
   factory OutlineElement.fromJson(Map<String, Object?> json) => .new(
@@ -74,6 +75,7 @@ final class OutlineElement {
     },
     parameters: json['parameters'] as String?,
     returnType: json['returnType'] as String?,
+    typeParameters: json['typeParameters'] as String?,
   );
 
   final OutlineKind kind;
@@ -90,6 +92,9 @@ final class OutlineElement {
 
   /// The declared return type, or a variable's type.
   final String? returnType;
+
+  /// The type parameters as written, e.g. `<T extends Object>`.
+  final String? typeParameters;
 
   /// Whether this is an unnamed extension. The server names it after its
   /// `on` type, dropping type parameters: `extension<T> on List<T>` becomes

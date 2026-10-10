@@ -1,0 +1,255 @@
+@Timeout(Duration(minutes: 5))
+library;
+
+import 'dart:io';
+
+import 'package:ciach/src/finder.dart';
+import 'package:ciach/src/models.dart';
+import 'package:path/path.dart' as p;
+import 'package:test/test.dart';
+
+/// `--no-exported` depends on the package layout, so this builds a package:
+/// - `lib/exported_pkg.dart`, a public library exporting `lib/src/api.dart`;
+/// - `lib/src/api.dart`, whose signatures each hand out one type of
+///   `lib/src/types.dart` in a different way;
+/// - `lib/src/types.dart`, not exported, where each type has a `…Dead`
+///   member;
+/// - `bin/` and `test/`, which no other package can import.
+///
+/// With `includeExported: false`, a type's members are kept only when an
+/// exported signature hands the type out.
+void main() {
+  late Directory root;
+
+  void write(String path, String contents) => File(p.join(root.path, path))
+    ..createSync(recursive: true)
+    ..writeAsStringSync(contents);
+
+  setUpAll(() {
+    root = .systemTemp.createTempSync('ciach_exported_');
+    write('pubspec.yaml', 'name: exported_pkg\nenvironment:\n  sdk: ^3.10.0\n');
+    write(
+      '.dart_tool/package_config.json',
+      '{\n  "configVersion": 2,\n  "packages": [\n'
+          '    { "name": "exported_pkg", "rootUri": "../", "packageUri": "lib/", '
+          '"languageVersion": "3.10" }\n  ]\n}\n',
+    );
+    write('lib/exported_pkg.dart', '''
+export 'src/api.dart';
+
+void publicTopLevel() {}
+''');
+    write('bin/main.dart', 'void main() {}\n\nvoid cliHelper() {}');
+    write('lib/src/api.dart', '''
+import 'types.dart';
+
+// Each hands out the type it names: as a return type, a callback parameter,
+// a type argument, a supertype, an inferred type, and a wrapper. Config and
+// Retry are reached through Client's getters, Carried through Carrier's.
+Client createClient() => Client();
+void listen(void Function(Callback) f) {}
+Future<List<Generic>> generics() async => [];
+class Exported extends Base {}
+final inferred = Inferred();
+Carrier makeCarrier() => Carrier();
+Wrapper makeWrapper() => Wrapper(1);
+
+// Untyped signatures hand out whatever the body builds.
+dynamic makeDynamic() => DynamicOnly();
+untypedReturn() => UntypedOnly();
+Function makeFunction() => () => FunctionOnly();
+void callBack(cb) => cb(CallbackArg());
+T makeGeneric<T>() => GenericOnly() as T;
+
+// Hand out nothing: private code, a doc link, and a typed function's body.
+void _private() => 1.privateUsed();
+
+extension _PrivateExtension on int {
+  void privateUsed() {}
+  void privateExtensionDead() {}
+}
+
+/// Mentions [DocOnly], which hands nothing out.
+void work() {
+  final body = BodyOnly()..used();
+  Hidden().deep.used();
+  final Shorthand s = .new();
+  final Named n = .named();
+}
+''');
+    // Every `…Dead` member is dead. With --no-exported, only those of types
+    // api.dart doesn't hand out are reported.
+    write('lib/src/types.dart', '''
+class Client {
+  Config get config => Config();
+  void clientDead() {}
+  void _clientPrivateDead() {}
+}
+
+class DynamicOnly {
+  void dynamicDead() {}
+}
+
+class UntypedOnly {
+  void untypedDead() {}
+}
+
+class FunctionOnly {
+  void functionDead() {}
+}
+
+class CallbackArg {
+  void callbackArgDead() {}
+}
+
+class GenericOnly {
+  void genericOnlyDead() {}
+}
+
+class Config {
+  Retry get retry => Retry();
+  void configDead() {}
+}
+
+class Retry {
+  void retryDead() {}
+}
+
+class Callback {
+  void callbackDead() {}
+}
+
+class Generic {
+  void genericDead() {}
+}
+
+class Base {
+  void baseDead() {}
+}
+
+class Inferred {
+  void inferredDead() {}
+}
+
+class Carrier {
+  Carried get carried => Carried();
+}
+
+class Carried {
+  void carriedDead() {}
+}
+
+extension type Wrapper(int value) {
+  void wrapperDead() {}
+}
+
+class DocOnly {
+  void docOnlyDead() {}
+}
+
+class BodyOnly {
+  void used() {}
+  void bodyOnlyDead() {}
+}
+
+class Shorthand {
+  Shorthand();
+}
+
+class Named {
+  Named.named();
+}
+
+class Hidden {
+  Deep get deep => Deep();
+  void hiddenDead() {}
+}
+
+class Deep {
+  void used() {}
+  void deepDead() {}
+}
+
+void notExported() => 1.used();
+
+extension InternalExtension on int {
+  void used() {}
+  void extensionDead() {}
+}
+''');
+    write('test/helper_test.dart', '''
+class Helper {
+  void used() {}
+  void helperDead() {}
+}
+
+void main() => Helper().used();
+''');
+  });
+
+  tearDownAll(() => root.deleteSync(recursive: true));
+
+  Future<Set<String>> dead({required bool includeExported}) async {
+    final result = await Ciach(
+      FinderOptions(rootPath: root.path, includeExported: includeExported),
+    ).run();
+    return {for (final decl in result.unused) decl.qualifiedName};
+  }
+
+  // Reported either way: private, unexported, or a member of a type no
+  // exported signature hands out.
+  const internal = {
+    'Client._clientPrivateDead',
+    'DocOnly.docOnlyDead',
+    'BodyOnly.bodyOnlyDead',
+    'Hidden.hiddenDead',
+    'Deep.deepDead',
+    'Helper.helperDead',
+    'InternalExtension.extensionDead',
+    '_PrivateExtension.privateExtensionDead',
+    'notExported',
+    '_private',
+    'cliHelper',
+  };
+
+  test('everything under test is dead', () async {
+    expect(await dead(includeExported: true), {
+      ...internal,
+      'publicTopLevel',
+      'createClient',
+      'listen',
+      'generics',
+      'Exported',
+      'inferred',
+      'makeCarrier',
+      'makeWrapper',
+      'makeDynamic',
+      'untypedReturn',
+      'makeFunction',
+      'callBack',
+      'makeGeneric',
+      'DynamicOnly.dynamicDead',
+      'UntypedOnly.untypedDead',
+      'FunctionOnly.functionDead',
+      'CallbackArg.callbackArgDead',
+      'GenericOnly.genericOnlyDead',
+      'work',
+      'Client.config',
+      'Client.clientDead',
+      'Config.retry',
+      'Config.configDead',
+      'Retry.retryDead',
+      'Callback.callbackDead',
+      'Generic.genericDead',
+      'Base.baseDead',
+      'Inferred.inferredDead',
+      'Carrier.carried',
+      'Carried.carriedDead',
+      'Wrapper.wrapperDead',
+    });
+  });
+
+  test('what another package can reach is kept', () async {
+    expect(await dead(includeExported: false), internal);
+  });
+}

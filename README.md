@@ -60,6 +60,7 @@ scanning code needs an SDK new enough to parse it.
 ciach                                  # current package
 ciach path/to/package                  # another package
 ciach --no-public -f json              # private-only, as JSON
+ciach --no-exported                    # skip the package's public API
 ciach -f github --set-exit-if-changed  # CI: annotations, non-zero on finds
 ciach --remove                         # delete findings, asks first
 ciach --remove --force                 # …without asking
@@ -82,8 +83,9 @@ ciach --verbose                        # explain each step
 | `--[no-]operators` | off | Report operator overloads (`operator +`, `operator ==`, …) too. Off by default — see limitations. |
 | `--[no-]unused-union-members` | off | Also flag a (sealed) supertype member matched only by type patterns, never constructed. Report-only — never touched by `--remove`. |
 | `--[no-]report-tojson` | off | Report an otherwise-unused `toJson()` serialization hook too. Off by default — `jsonEncode` dispatches to it dynamically. |
-| `--[no-]transitive` | off | Also report declarations referenced only from other findings. See [Transitively dead code](#transitively-dead-code). |
+| `--[no-]transitive` | off | Also report declarations referenced only from other findings, and dead cycles. See [Transitively dead code](#transitively-dead-code). |
 | `--set-exit-if-changed` | off | Exit with status `1` when anything is found (for CI). Named after `dart format`. |
+| `--[no-]exported` | on | Report declarations other packages can import. See [Library packages](#library-packages). |
 | `--[no-]fail-public` | on | Count unused public declarations toward the exit code (with `--set-exit-if-changed`). `--no-fail-public` reports them but fails only on private findings. |
 | `--remove` | off | Remove unused declarations after reporting them. Prompts for confirmation first. |
 | `--force` | off | Skip the confirmation prompt for `--remove`. Requires `--remove`. |
@@ -194,17 +196,23 @@ lib/report.dart
   31:6  function  _pad           (private)  (only referenced from dead _formatRow (lib/report.dart:20))
 ```
 
-ciach ignores the references inside everything `--remove` would delete and
-checks again, until nothing new turns up. It reuses the references it already
-fetched, so this costs little. A [report-only](#removing-declarations) finding
-isn't deleted, so what it references stays used. A class found dead this way is
-reported without its members.
+A [report-only](#removing-declarations) finding stays in the code, so what it
+references stays used. A class found dead this way is reported without its
+members.
 
 It's off by default because one false positive also flags everything only it
 referenced. `-f json` lists every finding a declaration depends on in
-`onlyReferencedFrom`; the other formats show the first and a count. Dead
-declarations that reference each other in a cycle are not found
-([#65](https://github.com/leancodepl/ciach/issues/65)).
+`onlyReferencedFrom`; the other formats show the first and a count.
+
+### Dead cycles
+
+`--transitive` also reports declarations that only reference each other:
+
+```
+lib/report.dart
+  40:6  function  _ping  (private)  (only referenced from dead _pong (lib/report.dart:42))
+  42:6  function  _pong  (private)  (only referenced from dead _ping (lib/report.dart:40))
+```
 
 ### GitHub Actions
 
@@ -218,12 +226,21 @@ the repository root so paths resolve; when scanning a sub-package (`ciach -f
 github app`), the scan path is prepended automatically.
 
 For a library or workspace package whose public API is legitimately "unused"
-from its own perspective, add `--no-fail-public` to still surface those
-findings while gating the job on unused *private* declarations only:
+from its own perspective, add `--no-exported`, or `--no-fail-public` to still
+surface those findings while gating the job on unused *private* declarations
+only:
 
 ```yaml
 - run: dart run ciach -f github --set-exit-if-changed --no-fail-public
 ```
+
+### Library packages
+
+`--no-exported` skips what another package can reach: libraries under `lib/`
+outside `lib/src/`, what they export (`show`/`hide` respected), and
+the members of any type named outside a function body in an exported
+signature, field or supertype, even through other types, or in the body of
+one whose signature is `dynamic`.
 
 ### Removing declarations
 
@@ -337,7 +354,7 @@ This is a static, reference-based heuristic, so review its output rather than
 deleting blindly:
 
 - **A library package's public API** is legitimately unused from inside the
-  package. Prefer `--no-public` there, or treat public findings as advisory.
+  package. Prefer [`--no-exported`](#library-packages) there.
   In a monorepo, [`--analysis-root`](#monorepos) recovers uses that live in a
   sibling package; a published package's consumers stay invisible.
 - **Reflection, dynamic invocation, and names referenced only from generated
@@ -348,9 +365,9 @@ deleting blindly:
 - **A primary constructor shares its class's references**, since a query at the
   header resolves to the class: a never-invoked one only surfaces once the class
   itself is dead.
-- **Code referenced only from dead code** is reported only with
-  [`--transitive`](#transitively-dead-code), and a cycle of dead declarations
-  not even then.
+- **Code referenced only from dead code**, or in a
+  [dead cycle](#dead-cycles), is reported only with
+  [`--transitive`](#transitively-dead-code).
 - A package that doesn't analyze cleanly (missing `pub get`, errors) yields
   incomplete references.
 

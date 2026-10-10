@@ -37,6 +37,7 @@ void main() {
 path: packages/app
 analysis-root: .
 public: false
+exported: false
 generated: true
 overrides: true
 operators: true
@@ -72,6 +73,7 @@ dart: /sdk/bin/dart
       expect(resolved.rootPath, 'packages/app');
       expect(resolved.analysisRootPath, '.');
       expect(resolved.includePublic, isFalse);
+      expect(resolved.includeExported, isFalse);
       expect(resolved.includeGenerated, isTrue);
       expect(resolved.overrides, isTrue);
       expect(resolved.operators, isTrue);
@@ -428,6 +430,7 @@ concurrency: 4
 
       expect(resolved.rootPath, '.');
       expect(resolved.includePublic, isTrue);
+      expect(resolved.includeExported, isTrue);
       expect(resolved.includeGenerated, isFalse);
       expect(resolved.overrides, isFalse);
       expect(resolved.operators, isFalse);
