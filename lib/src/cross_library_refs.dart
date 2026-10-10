@@ -203,15 +203,14 @@ class CrossLibraryReferences {
   /// [test].
   CrossLibraryReferences whereNot(
     bool Function(String path, Position position) test,
-  ) => CrossLibraryReferences._({
-    for (final MapEntry(key: decl, value: sites) in _usageByDecl.entries)
-      if ({
-            for (final site in sites)
-              if (!test(site.uri.toFilePath(), site.position)) site,
-          }
-          case final kept when kept.isNotEmpty)
-        decl: kept,
-  });
+  ) {
+    bool keep(_Site site) => !test(site.uri.toFilePath(), site.position);
+    return ._({
+      for (final MapEntry(key: decl, value: sites) in _usageByDecl.entries)
+        if (sites.where(keep).toSet() case final kept when kept.isNotEmpty)
+          decl: kept,
+    });
+  }
 
   /// The first usage site that recovered [candidate], or `null` if not
   /// recovered.
