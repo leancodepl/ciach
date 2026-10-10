@@ -370,6 +370,10 @@ deleting blindly:
   [`--transitive`](#transitively-dead-code).
 - A package that doesn't analyze cleanly (missing `pub get`, errors) yields
   incomplete references.
+- **Bugs in the analysis server's reference search** can report used code as
+  unused, or make a query fail, which leaves that declaration or file under
+  "Not analyzed". [doc/upstream_bugs.md][upstream-bugs] lists the ones ciach
+  has found and the SDK commits that fixed them.
 
 ## Performance
 
@@ -450,6 +454,7 @@ We are **top-tier experts** focused on Flutter Enterprise solutions.
 </div>
 
 [site]: https://ciach.leancode.co/
+[upstream-bugs]: https://github.com/leancodepl/ciach/blob/main/doc/upstream_bugs.md
 
 [pub-badge]: https://img.shields.io/pub/v/ciach?style=for-the-badge&logo=dart
 [pub-badge-link]: https://pub.dev/packages/ciach

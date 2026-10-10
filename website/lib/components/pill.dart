@@ -1,3 +1,4 @@
+import 'package:ciach_website/components/icons.dart';
 import 'package:ciach_website/components/section.dart';
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
@@ -7,14 +8,15 @@ import 'package:jaspr_class_scope/jaspr_class_scope.dart';
 part 'pill.scopes.dart';
 
 /// A small rounded badge: a version, a licence, a requirement. With [href] it
-/// links out; [accent] draws it in the accent color.
+/// links out; [accent] draws it in the accent color; [icon] leads the text.
 @scopedCss
 class Pill extends StatelessComponent {
-  const Pill(this.text, {this.href, this.accent = false, super.key});
+  const Pill(this.text, {this.href, this.accent = false, this.icon, super.key});
 
   final String text;
   final String? href;
   final bool accent;
+  final Icon? icon;
 
   static const _class = _$PillScope;
 
@@ -49,9 +51,10 @@ class Pill extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     final classes = (accent ? root + _accent : root).name;
+    final children = [?icon?.build(size: 14), Component.text(text)];
     if (href case final href?) {
-      return externalLink(href, classes: classes, [.text(text)]);
+      return externalLink(href, classes: classes, children);
     }
-    return span(classes: classes, [.text(text)]);
+    return span(classes: classes, children);
   }
 }

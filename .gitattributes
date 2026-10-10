@@ -1,0 +1,2 @@
+# Written by jaspr_builder; GitHub only recognizes the scopes files on its own.
+website/lib/*.options.dart linguist-generated=true
