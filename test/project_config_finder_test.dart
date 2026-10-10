@@ -10,8 +10,18 @@ import 'package:ciach/src/log.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+/// A package whose config declares entry points and generated files:
+/// - pubspec.yaml: dart_frog (`routes/`, `main.dart`) and serverpod
+///   (`lib/endpoint.dart`);
+/// - build.yaml: a builder factory (`lib/builder.dart`) writing `.stamp.dart`;
+/// - l10n.yaml: gen-l10n output in `lib/l10n/`;
+/// - annotations, config or not: `@JSExport` (`lib/js.dart`) and
+///   `@reflectiveTest` (`test/reflective_test.dart`).
+///
+/// Beside them, declarations nothing calls stay reported.
+/// Nothing is resolved: local `Endpoint`, `JSExport` and `reflectiveTest`
+/// stand in for the real ones, which ciach matches by name.
 void main() {
-  // Unresolved: local `Endpoint`/`JSExport` match by name.
   late Directory package;
 
   void write(String path, String contents) => File(p.join(package.path, path))
@@ -227,8 +237,7 @@ Object run(Object handler, Object ip, int port) => handler;
     await Ciach(detected()).run();
 
     const endpointMethod =
-        'Skipped lib/endpoint.dart:6 GreetingEndpoint.hello: a Serverpod '
-        'endpoint method, called by the generated dispatcher.';
+        'Skipped lib/endpoint.dart:6 GreetingEndpoint.hello: a Serverpod endpoint method, called by the generated dispatcher.';
     const jsExported =
         'Skipped lib/js.dart:6 Counter: exported to JavaScript by `@JSExport`.';
     const route =

@@ -195,20 +195,19 @@ final class CandidateCollector {
           symbols,
         ),
       );
-      final isTypeLike = typeLikeKinds.contains(symbol.kind);
-      final exports = isTypeLike
-          ? _exportedMembers(leadingMetadata)
-          : containerExports;
+      final exports = _exportsOf(symbol, leadingMetadata) ?? containerExports;
       if (_shouldConsider(
         relativePath,
         candidate,
         leadingMetadata,
         containerExports: containerExports,
-        ownExports: isTypeLike ? exports : null,
       )) {
         yield candidate;
       }
-      final (childContainer, childContainerCandidate) = isTypeLike
+      final (
+        childContainer,
+        childContainerCandidate,
+      ) = typeLikeKinds.contains(symbol.kind)
           ? (symbol.name, candidate)
           : (container, containerCandidate);
       yield* _collect(
@@ -240,7 +239,15 @@ final class CandidateCollector {
             false);
   }
 
-  _ExportedMembers? _exportedMembers(Iterable<SemanticToken> leadingMetadata) {
+  /// Which members of the type [symbol] code outside Dart calls; `null` for
+  /// anything else.
+  _ExportedMembers? _exportsOf(
+    DocumentSymbol symbol,
+    Iterable<SemanticToken> leadingMetadata,
+  ) {
+    if (!typeLikeKinds.contains(symbol.kind)) {
+      return null;
+    }
     if (isJsExported(leadingMetadata)) {
       return .jsExport;
     }
@@ -276,10 +283,9 @@ final class CandidateCollector {
     Candidate candidate,
     Iterable<SemanticToken> leadingMetadata,
     _ExportedMembers? containerExports,
-    _ExportedMembers? ownExports,
   ) {
     final symbol = candidate.symbol;
-    if (ownExports == .jsExport || isJsExported(leadingMetadata)) {
+    if (isJsExported(leadingMetadata)) {
       return 'exported to JavaScript by `@JSExport`';
     }
     if (isPrivateName(symbol.name) || symbol.kind == .constructor) {
@@ -294,16 +300,55 @@ final class CandidateCollector {
     };
   }
 
+  /// Whether [candidate] is called by a framework or tool, with no source
+  /// reference to find; recorded for `--verbose` if so.
+  bool _isEntryPoint(
+    String relativePath,
+    Candidate candidate,
+    Iterable<SemanticToken> leadingMetadata,
+    _ExportedMembers? containerExports,
+  ) {
+    final symbol = candidate.symbol;
+    final container = candidate.container;
+    final rule = _entryPoints.match(
+      relativePath,
+      symbol,
+      container,
+      containerSuperclass: () => switch (candidate.containerSymbol) {
+        final containerSymbol? => _superclassOf(
+          candidate.path,
+          containerSymbol,
+        ),
+        null => null,
+      },
+    );
+    if (rule != null && container != null) {
+      _entryPointContainers[DeclKey(relativePath, container)] ??= rule;
+    }
+    final reason =
+        rule?.reason ??
+        _calledFromOutside(candidate, leadingMetadata, containerExports);
+    if (reason == null) {
+      return false;
+    }
+    final name = symbol.declarationName(container);
+    _skippedEntryPoints.add((
+      path: relativePath,
+      line: symbol.selectionRange.start.line + 1,
+      name: container == null ? name : '$container.$name',
+      reason: reason,
+    ));
+    return true;
+  }
+
   /// Whether [candidate] should have its references checked.
   bool _shouldConsider(
     String relativePath,
     Candidate candidate,
     Iterable<SemanticToken> leadingMetadata, {
     required _ExportedMembers? containerExports,
-    required _ExportedMembers? ownExports,
   }) {
     final symbol = candidate.symbol;
-    final container = candidate.container;
     if (!options.kinds.contains(
       symbol.reportedKind(
         parentIsEnum: candidate.isEnumValue,
@@ -312,46 +357,12 @@ final class CandidateCollector {
     )) {
       return false;
     }
-    // Called by a framework or tool, with no source reference to find.
-    if (_entryPoints.match(
-          relativePath,
-          symbol,
-          container,
-          containerSuperclass: () => switch (candidate.containerSymbol) {
-            final containerSymbol? => _superclassOf(
-              candidate.path,
-              containerSymbol,
-            ),
-            null => null,
-          },
-        )
-        case final rule?) {
-      _skippedEntryPoints.add((
-        path: relativePath,
-        line: symbol.selectionRange.start.line + 1,
-        name: container == null ? symbol.name : '$container.${symbol.name}',
-        reason: rule.reason,
-      ));
-      if (container != null) {
-        _entryPointContainers[DeclKey(relativePath, container)] ??= rule;
-      }
-      return false;
-    }
-    if (_calledFromOutside(
-          candidate,
-          leadingMetadata,
-          containerExports,
-          ownExports,
-        )
-        case final reason?) {
-      _skippedEntryPoints.add((
-        path: relativePath,
-        line: symbol.selectionRange.start.line + 1,
-        name: container == null
-            ? symbol.declarationName(container)
-            : '$container.${symbol.declarationName(container)}',
-        reason: reason,
-      ));
+    if (_isEntryPoint(
+      relativePath,
+      candidate,
+      leadingMetadata,
+      containerExports,
+    )) {
       return false;
     }
     if (symbol.kind == .namespace &&

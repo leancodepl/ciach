@@ -346,8 +346,8 @@ command-line form.
 
 ### Generated files from the project config
 
-- `build_extensions` of applied `build_to: source` builders, dependencies'
-  included, and of builder options in `targets:`;
+- what build_runner writes into the source tree, as the builders applied to
+  the package and its `build.yaml` declare it;
 - `flutter gen-l10n` output, from `l10n.yaml`; `--unused-translations` scans
   the template file.
 

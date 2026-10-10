@@ -11,26 +11,21 @@ import 'package:path/path.dart' as p;
   if (!file.existsSync()) {
     return null;
   }
-  final config = readYamlMap(file.path) ?? const {};
-  if (config['synthetic-package'] == true) {
+  final config = readYamlMap(file.path);
+  if (config case {'synthetic-package': true}) {
     return null;
   }
-  final arbDir = switch (config['arb-dir']) {
-    final String dir => dir,
-    _ => 'lib/l10n',
+  String setting(String key, String fallback) => switch (config?[key]) {
+    final String value => value,
+    _ => fallback,
   };
-  final outputDir = switch (config['output-dir']) {
-    final String dir => dir,
-    _ => arbDir,
-  };
-  final outputFile = switch (config['output-localization-file']) {
-    final String name => name,
-    _ => 'app_localizations.dart',
-  };
-  final templateArb = switch (config['template-arb-file']) {
-    final String name => name,
-    _ => 'app_en.arb',
-  };
+  final arbDir = setting('arb-dir', 'lib/l10n');
+  final outputDir = setting('output-dir', arbDir);
+  final outputFile = setting(
+    'output-localization-file',
+    'app_localizations.dart',
+  );
+  final templateArb = setting('template-arb-file', 'app_en.arb');
   final dir = p.posix.normalize(outputDir);
   final stem = p.posix.withoutExtension(outputFile);
   return (

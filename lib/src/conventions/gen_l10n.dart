@@ -1,5 +1,6 @@
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/paths.dart';
+import 'package:collection/collection.dart';
 
 /// gen-l10n's template Dart file and the ARB file its messages come from,
 /// both POSIX, relative to the package root.
@@ -14,10 +15,5 @@ Translations? translationsOf(
   String rootPath,
 ) {
   final path = relativePosix(candidate.path, rootPath);
-  for (final t in translations) {
-    if (t.dartFile == path) {
-      return t;
-    }
-  }
-  return null;
+  return translations.firstWhereOrNull((t) => t.dartFile == path);
 }

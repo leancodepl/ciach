@@ -1,26 +1,26 @@
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/project_config/project_files.dart';
 
-/// Non-web `pluginClass` is native.
-Iterable<EntryPoint> flutterPluginEntryPoints(Pubspec pubspec) sync* {
+/// `registerWith` on each platform's `dartPluginClass`, and on the web
+/// platform's `pluginClass`; any other `pluginClass` is native.
+Iterable<EntryPoint> flutterPluginEntryPoints(Pubspec pubspec) => [
   if (pubspec.yaml?['flutter'] case {
     'plugin': {'platforms': final Map<Object?, Object?> platforms},
-  }) {
-    for (final MapEntry(key: platform, value: config) in platforms.entries) {
-      if (config is! Map<Object?, Object?>) {
-        continue;
-      }
-      if (config case {'dartPluginClass': final String plugin}) {
-        yield* _registerWith(plugin, config['dartFileName'], platform);
-      }
-      if (platform == 'web') {
-        if (config case {'pluginClass': final String plugin}) {
-          yield* _registerWith(plugin, config['fileName'], platform);
-        }
-      }
-    }
-  }
-}
+  })
+    for (final MapEntry(key: platform, value: config) in platforms.entries)
+      if (config is Map<Object?, Object?>)
+        ..._pluginClassesOf(platform, config),
+];
+
+Iterable<EntryPoint> _pluginClassesOf(
+  Object? platform,
+  Map<Object?, Object?> config,
+) => [
+  if (config case {'dartPluginClass': final String plugin})
+    ..._registerWith(plugin, config['dartFileName'], platform),
+  if ((platform, config) case ('web', {'pluginClass': final String plugin}))
+    ..._registerWith(plugin, config['fileName'], platform),
+];
 
 Iterable<EntryPoint> _registerWith(
   String plugin,

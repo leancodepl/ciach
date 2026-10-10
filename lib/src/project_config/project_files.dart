@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:ciach/src/conventions/entry_points.dart';
-import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/log.dart';
+import 'package:ciach/src/packages.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
@@ -60,35 +60,41 @@ Iterable<EntryPoint> configRule(
   }
 }
 
-/// From the nearest package_config.json; a pub workspace keeps it at its
-/// root.
-Iterable<({String name, String root})> resolvedPackages(String rootPath) sync* {
+/// Every package the nearest package_config.json resolves, by the directory
+/// it lives in; a pub workspace keeps that file at its root.
+Iterable<({String name, String root})> resolvedPackages(String rootPath) {
+  final config = _nearestPackageConfig(rootPath);
+  if (config == null) {
+    return const [];
+  }
+  try {
+    return switch (jsonDecode(config.readAsStringSync())) {
+      {'packages': final List<Object?> packages} => [
+        for (final package in packages)
+          if (package case {
+            'name': final String name,
+            'rootUri': final String rootUri,
+          })
+            if (config.uri.resolve(rootUri) case final root
+                when root.scheme == 'file')
+              (name: name, root: root.toFilePath()),
+      ],
+      _ => const [],
+    };
+  } on FormatException catch (e) {
+    _log.fine('Ignored ${config.path}, which does not parse: $e');
+    return const [];
+  }
+}
+
+File? _nearestPackageConfig(String rootPath) {
   for (var dir = rootPath; ; dir = p.dirname(dir)) {
     final config = File(p.join(dir, '.dart_tool', 'package_config.json'));
     if (config.existsSync()) {
-      try {
-        if (jsonDecode(config.readAsStringSync()) case {
-          'packages': final List<Object?> packages,
-        }) {
-          for (final package in packages) {
-            if (package case {
-              'name': final String name,
-              'rootUri': final String rootUri,
-            }) {
-              final root = config.uri.resolve(rootUri);
-              if (root.scheme == 'file') {
-                yield (name: name, root: root.toFilePath());
-              }
-            }
-          }
-        }
-      } on FormatException catch (e) {
-        _log.fine('Ignored ${config.path}, which does not parse: $e');
-      }
-      return;
+      return config;
     }
     if (p.dirname(dir) == dir) {
-      return;
+      return null;
     }
   }
 }
@@ -98,20 +104,13 @@ String escapeGlob(String literal) =>
 
 /// POSIX directories, relative to [rootPath], of the packages in it: `''` for
 /// [rootPath] itself, then each nested one with a pubspec.yaml.
-Iterable<String> packageDirs(String rootPath) sync* {
-  final root = Directory(rootPath);
-  if (!root.existsSync()) {
-    return;
+Iterable<String> packageDirs(String rootPath) {
+  if (!Directory(rootPath).existsSync()) {
+    return const [];
   }
-  yield '';
-  final nested = [
-    for (final entity in root.listSync(recursive: true, followLinks: false))
-      if (entity is File && p.basename(entity.path) == 'pubspec.yaml')
-        p.split(p.relative(p.dirname(entity.path), from: rootPath)).join('/'),
-  ]..sort();
-  for (final dir in nested) {
-    if (dir != '.' && !isInSkippedDir(dir)) {
-      yield dir;
-    }
-  }
+  final nested = {
+    for (final libDir in scanPackageTree(rootPath).libDirs)
+      p.split(p.relative(p.dirname(libDir), from: rootPath)).join('/'),
+  }..remove('.');
+  return ['', ...nested.toList()..sort()];
 }

@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:ciach/src/project_config/build_runner.dart';
+import 'package:ciach/src/project_config/build_extensions.dart';
 import 'package:ciach/src/project_config/project_config.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;

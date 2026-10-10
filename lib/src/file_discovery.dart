@@ -137,8 +137,7 @@ bool _isGenerated(
 const _buildBanner = 'GENERATED CODE - DO NOT MODIFY BY HAND';
 
 final _banner = RegExp(
-  r'\b(?:auto-?)?generated\b.{0,200}?\b(?:do not|don.t|must not)\s+(?:\w+\s+)?(?:edit|modify)\b'
-  r'|\b(?:do not|don.t)\s+(?:edit|modify)\b.{0,200}?\bgenerated\b',
+  r'\b(?:auto-?)?generated\b.{0,200}?\b(?:do not|don.t|must not)\s+(?:\w+\s+)?(?:edit|modify)\b|\b(?:do not|don.t)\s+(?:edit|modify)\b.{0,200}?\bgenerated\b',
   caseSensitive: false,
 );
 

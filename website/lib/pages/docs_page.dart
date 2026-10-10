@@ -124,8 +124,7 @@ const _skips = [
   ),
   (
     'Entry points the project config names',
-    'build.yaml builder factories, pubspec.yaml plugin classes, dart_frog '
-        'routes, Serverpod endpoints; `entry-points:` in ciach.yaml adds more.',
+    'build.yaml builder factories, pubspec.yaml plugin classes, dart_frog routes, Serverpod endpoints; `entry-points:` in ciach.yaml adds more.',
     null,
   ),
   (
@@ -150,8 +149,7 @@ const _skips = [
   ),
   (
     'Generated files',
-    'By filename, a generated-code banner, build.yaml, l10n.yaml and '
-        '`--generated-glob`; still opened for analysis.',
+    'By filename, a generated-code banner, build.yaml, l10n.yaml and `--generated-glob`; still opened for analysis.',
     '--generated',
   ),
   (
@@ -731,9 +729,7 @@ class DocsPage extends StatelessComponent {
                   ),
                   li(
                     rich(
-                      'Entry points the project config does not name need '
-                      'listing under `entry-points` in ciach.yaml or '
-                      "`@pragma('vm:entry-point')`.",
+                      "Entry points the project config does not name need listing under `entry-points` in ciach.yaml or `@pragma('vm:entry-point')`.",
                     ),
                   ),
                   li(
