@@ -130,7 +130,7 @@ void main() {
 
     test('names the layer each value came from', () {
       final configuration = resolveConfiguration(
-        parser.parse(const ['--no-public']),
+        parser.parse(const ['--no-public', '--no-project-config']),
         .parse(
           'format: json\nremove: true\nentry-points: [{name: registerWith, glob: lib/**}]',
           origin: 'c.yaml',
@@ -155,8 +155,35 @@ void main() {
       expect(lines, contains('  color: auto (auto-detected)'));
     });
 
+    test('adds what the project config declares, named as such', () {
+      final package = Directory.systemTemp.createTempSync('ciach_verbose_');
+      addTearDown(() => package.deleteSync(recursive: true));
+      File(
+        p.join(package.path, 'pubspec.yaml'),
+      ).writeAsStringSync('name: server\ndependencies: {serverpod: any}\n');
+      File(p.join(package.path, 'l10n.yaml')).writeAsStringSync('');
+
+      final lines = describe([package.path, '--generated-glob', 'gen/**']);
+
+      expect(
+        lines,
+        contains(
+          '  generated-glob: gen/** (command line); '
+          'lib/l10n/app_localizations_*.dart, lib/l10n/app_localizations.dart '
+          '(project config)',
+        ),
+      );
+      expect(
+        lines,
+        contains(
+          '  entry-points: (none) (default); '
+          'public methods of `Endpoint` subclasses (project config)',
+        ),
+      );
+    });
+
     test('marks an empty list rather than printing nothing', () {
-      final lines = describe();
+      final lines = describe(const ['--no-project-config']);
 
       expect(lines, contains('  exclude: (none) (default)'));
       expect(lines, contains('  include: (none) (default)'));

@@ -14,6 +14,16 @@
   does, instead of the pubspecs under the root. `--remove` no longer keeps an
   emptied file because a path dependency outside the root has a file at the
   same `lib/` path. ([#92](https://github.com/leancodepl/ciach/pull/92))
+- Read entry points and generated files from `pubspec.yaml`, `build.yaml`
+  and `l10n.yaml` — of every package under the scanned path, `build.<name>.yaml`
+  included; `--no-project-config` turns it off.
+  ([#86](https://github.com/leancodepl/ciach/pull/86))
+- Add `--unused-translations`: report unused gen-l10n messages, report-only.
+  ([#86](https://github.com/leancodepl/ciach/pull/86))
+- Skip `@JSExport` and `@reflectiveTest` test methods.
+  ([#86](https://github.com/leancodepl/ciach/pull/86))
+- Recognize more generated-code banners (protoc, Serverpod, Pigeon, …).
+  ([#86](https://github.com/leancodepl/ciach/pull/86))
 
 ## 0.6.0
 
