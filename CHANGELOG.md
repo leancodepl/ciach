@@ -10,6 +10,10 @@
   ([#87](https://github.com/leancodepl/ciach/pull/87))
 - Add `--no-exported` (`exported: false`): skip only declarations other
   packages can import. ([#85](https://github.com/leancodepl/ciach/pull/85))
+- Resolve `package:` URIs through `.dart_tool/package_config.json`, as Dart
+  does, instead of the pubspecs under the root. `--remove` no longer keeps an
+  emptied file because a path dependency outside the root has a file at the
+  same `lib/` path. ([#92](https://github.com/leancodepl/ciach/pull/92))
 
 ## 0.6.0
 
