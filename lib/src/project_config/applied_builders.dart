@@ -4,11 +4,15 @@ import 'package:ciach/src/project_config/project_files.dart';
 import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
 
-/// The definitions of the builders that build_runner applies to the package at
-/// [rootPath]. A builder is applied by its `auto_apply` setting (`dependents`
-/// only counts for a direct dependency), by the package's `targets:`, or by
-/// another applied builder's `applies_builders`. This follows build_config up
-/// to 0.4.2, the version that added `auto_apply_builders`.
+/// Returns the definitions of the builders that build_runner applies to the
+/// package at [rootPath]. A builder can be applied in three ways:
+/// - by its `auto_apply` setting, where `dependents` counts only for a direct
+///   dependency;
+/// - by the `targets:` of the package;
+/// - by the `applies_builders` list of another builder that is applied.
+///
+/// The rules match build_config 0.4.2, which is the version that added
+/// `auto_apply_builders`.
 Iterable<Map<Object?, Object?>> appliedBuilders(
   String rootPath,
   Pubspec pubspec,
@@ -26,18 +30,18 @@ Iterable<Map<Object?, Object?>> appliedBuilders(
   ];
 }
 
-/// The package that defines a builder, and the builder's definition.
+/// The package that defines a builder, and the definition of the builder.
 typedef _Definition = ({String package, Map<Object?, Object?> definition});
 
-/// The builders defined by the root package and by every package in its
-/// package config, keyed by `package:name`.
+/// Returns the builders that are defined by the root package and by every
+/// package in its package config. The keys have the form `package:name`.
 Map<String, _Definition> _definitions(
   String rootPath,
   String? rootName,
   Map<Object?, Object?>? rootBuildYaml,
 ) => {
   if (rootName != null) ..._definedIn(rootName, rootBuildYaml),
-  // A pub workspace keeps package_config.json at its root.
+  // In a pub workspace, package_config.json is in the root of the workspace.
   for (final Package(:name, :root)
       in PackageResolver().configOf(rootPath)?.packages ?? const <Package>[])
     if (name != rootName && root.isScheme('file'))
@@ -74,11 +78,11 @@ Set<String> _autoApplied(
       key,
 };
 
-/// [autoApplied], changed by the targets in [buildYaml]. Configuring a builder
-/// in a target enables it (since build_config 0.2.1), unless the
-/// configuration says `enabled: false`. When every target sets
-/// `auto_apply_builders: false` (since 0.4.2), the builders that are only
-/// auto-applied are dropped.
+/// Returns [autoApplied], changed by the targets in [buildYaml]. When a target
+/// configures a builder, the builder is enabled, unless the configuration says
+/// `enabled: false`; build_config has worked this way since 0.2.1. When every
+/// target sets `auto_apply_builders: false`, which build_config supports since
+/// 0.4.2, the builders that are only auto-applied are dropped.
 Set<String> _byTargets(
   Set<String> autoApplied,
   Map<Object?, Object?>? buildYaml,
@@ -99,8 +103,9 @@ Set<String> _byTargets(
   return applied;
 }
 
-/// [applied], plus every builder they list under `applies_builders`, and so
-/// on transitively.
+/// Returns [applied], together with every builder that they list under
+/// `applies_builders`. The builders that are added this way can list more
+/// builders, which are added as well.
 Set<String> _withAppliedBuilders(
   Set<String> applied,
   Map<String, _Definition> definitions,
@@ -120,9 +125,9 @@ Set<String> _withAppliedBuilders(
   return all;
 }
 
-/// Normalizes a builder key to `pkg:name`. build_runner also accepts
-/// `pkg|name`, `:name` for a builder of the root package, and `name` for
-/// `name:name`.
+/// Returns the builder key [key] in the form `pkg:name`. build_runner also
+/// accepts `pkg|name`, `:name` for a builder of the root package, and `name`
+/// as a short form of `name:name`.
 String _builderKey(String key, String? rootName) =>
     switch (key.replaceFirst('|', ':')) {
       final local when local.startsWith(':') => '$rootName$local',

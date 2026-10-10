@@ -62,8 +62,9 @@ List<String> describeSettings(
       '  $key: ${_setting(option, resolved, options, dartExecutable)} (${_source(configuration.valueSourceType(option))})${_detected(option, resolved)}',
 ];
 
-/// The values the project config adds to [option], formatted for the settings
-/// list, or an empty string when it adds none.
+/// Returns the values that the project config adds to [option], formatted for
+/// the list of settings. Returns an empty string when the project config adds
+/// no values.
 String _detected(CiachOption<dynamic> option, ResolvedOptions resolved) {
   final detected = resolved.detected;
   final values = switch (option) {

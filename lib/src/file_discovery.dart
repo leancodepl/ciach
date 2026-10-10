@@ -133,8 +133,8 @@ bool _isGenerated(
   return isGeneratedBanner(_readPrefix(file, 2000));
 }
 
-/// The banner build_runner writes. It is matched anywhere in the first 300
-/// characters of a file.
+/// The banner that build_runner writes at the top of a generated file. It is
+/// matched anywhere in the first 300 characters of the file.
 const _buildBanner = 'GENERATED CODE - DO NOT MODIFY BY HAND';
 
 final _banner = RegExp(
@@ -142,9 +142,10 @@ final _banner = RegExp(
   caseSensitive: false,
 );
 
-/// Whether [source] starts with a generated-code banner. Only the comments
-/// before the first declaration are read, and doc comments are skipped,
-/// because a doc comment can mention generated code without being generated.
+/// Returns whether [source] starts with a banner that marks generated code.
+/// Only the comments before the first declaration are read. Doc comments are
+/// skipped, because a doc comment can mention generated code in a file that
+/// is not generated.
 bool isGeneratedBanner(String source) {
   if (source.substring(0, min(source.length, 300)).contains(_buildBanner)) {
     return true;

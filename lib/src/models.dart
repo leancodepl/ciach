@@ -161,8 +161,8 @@ class FinderOptions {
   /// is never a candidate, so it is neither reported nor removed.
   final List<EntryPoint> entryPoints;
 
-  /// The gen-l10n template files to scan for unused messages. Their findings
-  /// are report-only.
+  /// The `gen-l10n` template files that are scanned for unused messages. The
+  /// findings in these files are report-only.
   final List<Translations> translations;
 
   /// How many `textDocument/references` requests to keep in flight at once.

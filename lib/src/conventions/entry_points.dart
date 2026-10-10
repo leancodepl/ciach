@@ -21,8 +21,8 @@ final class EntryPoint {
     : superclass = null,
       _globs = [for (final file in files) .new(file, context: _posix)];
 
-  /// A rule that matches the public methods of every class that directly
-  /// extends [superclass].
+  /// Creates a rule that matches the public methods of every class that
+  /// directly extends [superclass].
   EntryPoint.publicMethodsOfSubclasses(
     String this.superclass, {
     required this.reason,
@@ -30,7 +30,8 @@ final class EntryPoint {
   }) : name = '*',
        _globs = [for (final file in files) .new(file, context: _posix)];
 
-  /// A rule from the `entry-points` setting or from the project config.
+  /// Creates a rule that comes from the `entry-points` setting or from the
+  /// project config.
   ///
   /// Throws a [FormatException] for a [name] that is not an identifier
   /// (optionally `Container.member`); the constructor throws for a glob that
@@ -62,8 +63,8 @@ final class EntryPoint {
   /// type parameters are not part of either.
   final String name;
 
-  /// The superclass a [EntryPoint.publicMethodsOfSubclasses] rule matches;
-  /// `null` for every other rule.
+  /// The superclass that a [EntryPoint.publicMethodsOfSubclasses] rule
+  /// matches. It is `null` for every other rule.
   final String? superclass;
 
   /// The file globs as written; empty matches any file.
@@ -88,8 +89,8 @@ final class EntryPoint {
 
   /// Whether [symbol], in the file at [relativePath] (POSIX, from the package
   /// root) inside [container] (`null` at the top level), meets this rule.
-  /// Whether this rule matches [symbol]. [containerSuperclass] is called only
-  /// for a [superclass] rule, since reading it means parsing the source.
+  /// Returns whether this rule matches [symbol]. [containerSuperclass] is
+  /// called only for a [superclass] rule, because it has to parse the source.
   bool matches(
     String relativePath,
     DocumentSymbol symbol,
@@ -113,9 +114,9 @@ final class EntryPoint {
         (_globs.isEmpty || _globs.any((glob) => glob.matches(relativePath)));
   }
 
-  /// This rule, limited to the package in [prefix]. [prefix] is the package's
-  /// directory, relative to the scanned root and escaped as a glob; `''` means
-  /// the scanned root itself.
+  /// Returns this rule, limited to the package in the directory [prefix].
+  /// [prefix] is relative to the scanned root and is escaped as a glob. An
+  /// empty [prefix] means the scanned root itself.
   EntryPoint within(String prefix) {
     if (prefix.isEmpty) {
       return this;
@@ -133,8 +134,8 @@ final class EntryPoint {
     };
   }
 
-  /// How the rule is shown to the user: its [name], or a description of what a
-  /// [superclass] rule matches.
+  /// The text that shows the rule to the user. It is the [name] of the rule,
+  /// or, for a [superclass] rule, a description of what the rule matches.
   String get label => switch (superclass) {
     final superclass? => 'public methods of `$superclass` subclasses',
     null => name,

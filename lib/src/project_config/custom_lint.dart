@@ -1,7 +1,8 @@
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/project_config/project_files.dart';
 
-/// custom_lint calls `createPlugin` in `lib/<package>.dart`, as it has since
+/// Returns the entry point of a custom_lint plugin. custom_lint calls the
+/// `createPlugin` function in `lib/<package>.dart`. It has done so since
 /// custom_lint_builder 0.1.0.
 Iterable<EntryPoint> customLintEntryPoints(Pubspec pubspec) sync* {
   if (pubspec.dependencies.contains('custom_lint_builder')) {

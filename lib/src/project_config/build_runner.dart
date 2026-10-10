@@ -4,8 +4,9 @@ import 'package:ciach/src/project_config/build_extensions.dart';
 import 'package:ciach/src/project_config/build_yaml.dart';
 import 'package:ciach/src/project_config/project_files.dart';
 
-/// The builder factories that the package's own build.yaml defines. build_runner
-/// calls them, so nothing in the source references them.
+/// Returns the builder factories that are defined in the package's own
+/// build.yaml. build_runner calls these factories, so nothing in the source
+/// code references them.
 Iterable<EntryPoint> buildRunnerEntryPoints(
   Pubspec pubspec,
   Map<Object?, Object?> buildYaml,
@@ -16,7 +17,8 @@ Iterable<EntryPoint> buildRunnerEntryPoints(
         for (final builder in builders.values) ..._factoriesOf(builder, name),
 ];
 
-/// The factories of [builder], when its `import` points into [packageName].
+/// Returns the factories of [builder] when its `import` points to a file in
+/// [packageName].
 Iterable<EntryPoint> _factoriesOf(Object? builder, String packageName) sync* {
   if (builder case {
     'import': final String import,
@@ -33,15 +35,17 @@ Iterable<EntryPoint> _factoriesOf(Object? builder, String packageName) sync* {
   }
 }
 
-/// The files written into the source tree by the builders applied to the
-/// package. A builder's output can also be moved by a `build_extensions`
-/// option in `targets:`, which source_gen 1.2 and freezed 1.0.1 accept.
+/// Returns globs for the files that the applied builders write into the
+/// source tree of the package. A `build_extensions` option in `targets:` can
+/// move the output of a builder to another place. source_gen 1.2 and freezed
+/// 1.0.1 support this option.
 Iterable<String> buildRunnerGeneratedGlobs(
   String rootPath,
   Pubspec pubspec,
   List<Map<Object?, Object?>> buildYamls,
 ) => [
-  // Without a build.yaml, build_runner still applies auto-applied builders.
+  // A package without a build.yaml still gets the builders that are applied
+  // automatically.
   for (final buildYaml in buildYamls.isEmpty ? const [null] : buildYamls)
     for (final definition in appliedBuilders(rootPath, pubspec, buildYaml))
       if (definition case {

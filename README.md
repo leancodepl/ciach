@@ -80,7 +80,7 @@ ciach --verbose                        # explain each step
 | `--[no-]public` | on | Report unused public declarations too. Disable to report only private (`_`-prefixed) ones. |
 | `--[no-]generated` | off | Scan generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, …). |
 | `--[no-]project-config` | on | Read [entry points](#entry-points) and [generated files](#generated-files-from-the-project-config) from `pubspec.yaml`, `build.yaml` and `l10n.yaml`. |
-| `--[no-]unused-translations` | off | Scan the gen-l10n template file and report its unused messages. They are report-only: remove them from the template ARB file. |
+| `--[no-]unused-translations` | off | Scan the gen-l10n template file and report its unused messages. They are only reported, never removed: remove them from the template ARB file instead. |
 | `--[no-]overrides` | off | Report `@override` members too. Off by default — see limitations. |
 | `--[no-]operators` | off | Report operator overloads (`operator +`, `operator ==`, …) too. Off by default — see limitations. |
 | `--[no-]unused-union-members` | off | Also flag a (sealed) supertype member matched only by type patterns, never constructed. Report-only — never touched by `--remove`. |
@@ -295,13 +295,13 @@ that cost.
 | --- | --- | --- |
 | `main` | the entry point is never unused | — |
 | `testExecutable` in a `flutter_test_config.dart` | called by the `flutter test` bootstrap | — |
-| Entry points from the [project config](#entry-points) | called from generated code | `--no-project-config` |
+| Entry points from the [project config](#entry-points) | they are called by a framework or a tool | `--no-project-config` |
 | `@override` members — never reported, but removed with a dead member | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses, so none of them are findings. One that overrides a dead member is dead too, so `--remove` [takes both](#removing-declarations) | `--overrides` |
 | Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--operators` |
 | `call` methods | implicit-call syntax (`obj(…)`) is unresolvable the same way | — |
 | `@pragma('vm:entry-point')` | reachable from native code or reflection | — |
-| `@JSExport`, and public members of a `@JSExport` class | reachable from JavaScript | — |
-| `test_…` methods of a `@reflectiveTest` class | run through `dart:mirrors` | — |
+| `@JSExport`, and the public members of a `@JSExport` class | they can be called from JavaScript | — |
+| `test_…` methods of a `@reflectiveTest` class | they are run through `dart:mirrors` | — |
 | Generated files | by filename convention, a generated-code banner, the [project config](#generated-files-from-the-project-config), and `--generated-suffix` / `--generated-glob`. Still opened during analysis, so a declaration used only from a `.g.dart` isn't misreported | `--generated` |
 | `toJson()` | `jsonEncode(obj)` calls it by dynamic dispatch, leaving no source-level reference | `--report-tojson` |
 | Type parameters | always "used" within their scope | — |
@@ -318,18 +318,19 @@ Some declarations are only ever called from code a tool generates: `flutter
 test` runs `testExecutable` from the nearest `flutter_test_config.dart`,
 flutter_tools calls `MyPlugin.registerWith()` on the plugin class named in
 `pubspec.yaml`. Nothing in the package references them, so they would read as
-dead. ciach knows `main` and `testExecutable`, plus:
+dead. ciach knows about `main` and `testExecutable`. It also reads these entry
+points from the project's own config files:
 
 | Source | Entry point |
 | --- | --- |
-| `build.yaml` builders | `builder_factories` / `builder_factory` |
+| `build.yaml` builders | the functions listed under `builder_factories` or `builder_factory` |
 | `pubspec.yaml` plugin | `registerWith` on each platform's `dartPluginClass` and on the web `pluginClass` |
 | `dart_frog` | `onRequest`, `middleware`, `init`, `run` |
-| `serverpod` | direct `Endpoint` subclasses and their public methods |
+| `serverpod` | the classes that directly extend `Endpoint`, and their public methods |
 | `analysis_server_plugin` | `plugin` in `lib/main.dart` |
 | `custom_lint_builder` | `createPlugin` in `lib/<package>.dart` |
 
-Others go under `entry-points:` in `ciach.yaml`:
+List any other entry points under `entry-points:` in `ciach.yaml`:
 
 ```yaml
 entry-points:
@@ -341,8 +342,8 @@ entry-points:
 
 A matching declaration is neither reported nor removed, whatever its signature.
 A member rule also keeps its type, while the type's other members are still
-checked. `-v` names each skipped entry point. `entry-points:` has no
-command-line form.
+checked. `-v` names each skipped entry point. `entry-points:` can't be
+set on the command line.
 
 ### Generated files from the project config
 

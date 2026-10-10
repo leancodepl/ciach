@@ -11,10 +11,10 @@ import 'package:ciach/src/project_config/project_files.dart';
 import 'package:ciach/src/project_config/serverpod.dart';
 import 'package:path/path.dart' as p;
 
-/// The entry points and generated files that a project's pubspec.yaml,
-/// build.yaml and l10n.yaml declare. Files that do not parse are ignored.
-/// `Ciach` does not read the project config itself; pass [entryPoints] and
-/// [generatedGlobs] into `FinderOptions`.
+/// The entry points and generated files that are declared in a project's
+/// pubspec.yaml, build.yaml and l10n.yaml. Files that cannot be parsed are
+/// ignored. `Ciach` does not read the project config by itself, so pass
+/// [entryPoints] and [generatedGlobs] to `FinderOptions`.
 final class ProjectConfig {
   const ProjectConfig({
     this.entryPoints = const [],
@@ -22,8 +22,9 @@ final class ProjectConfig {
     this.translations = const [],
   });
 
-  /// Reads the package at [rootPath] and every package nested in it, such as
-  /// the members of a pub workspace. Each package is read from its own files.
+  /// Reads the package at [rootPath] and every package that is nested in it,
+  /// such as the members of a pub workspace. Each package is read from its own
+  /// files.
   factory ProjectConfig.read(String rootPath) {
     final entryPoints = <EntryPoint>[];
     final generatedGlobs = <String>{};
@@ -82,8 +83,8 @@ final class ProjectConfig {
 
   final List<EntryPoint> entryPoints;
 
-  /// POSIX globs, relative to the scanned root. They include the Dart files of
-  /// [translations].
+  /// POSIX globs that are relative to the scanned root. They also match the
+  /// Dart files of [translations].
   final List<String> generatedGlobs;
 
   final List<Translations> translations;

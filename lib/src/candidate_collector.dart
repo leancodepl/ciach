@@ -243,9 +243,9 @@ final class CandidateCollector {
             false);
   }
 
-  /// Which members of the type [symbol] are called from outside Dart source,
-  /// judging by the annotation on the type. Returns `null` when [symbol] is
-  /// not a type or has no such annotation.
+  /// Returns which members of the type [symbol] are called from outside the
+  /// Dart source. The annotation on the type decides this. Returns `null`
+  /// when [symbol] is not a type, or when the type has no such annotation.
   _ExportedMembers? _exportsOf(
     DocumentSymbol symbol,
     Iterable<SemanticToken> leadingMetadata,
@@ -262,8 +262,9 @@ final class CandidateCollector {
     return null;
   }
 
-  /// The name of the class that [symbol], a class declared in [path], extends.
-  /// Returns `null` when [symbol] is not a class or has no `extends` clause.
+  /// Returns the name of the class that [symbol] extends. [symbol] is a class
+  /// that is declared in the file at [path]. Returns `null` when [symbol] is
+  /// not a class, or when the class has no `extends` clause.
   String? _superclassOf(String path, DocumentSymbol symbol) {
     if (symbol.kind != .class$) {
       return null;
@@ -280,8 +281,9 @@ final class CandidateCollector {
         ?.group(1);
   }
 
-  /// The `extends` clause after a class name. The type parameters before it
-  /// must not nest, so `<T extends List<int>>` is not matched.
+  /// Matches the `extends` clause that follows a class name. The type
+  /// parameters before the clause must not be nested, so a class with
+  /// `<T extends List<int>>` is not matched.
   static final _extendsClause = RegExp(
     r'^\s*(?:<[^<>]*>)?\s*extends\s+([A-Za-z_$][\w$]*)',
   );
@@ -307,9 +309,9 @@ final class CandidateCollector {
     };
   }
 
-  /// Whether a framework or tool calls [candidate], so that no reference to it
-  /// exists in the source. Each such entry point is recorded and listed by
-  /// `--verbose`.
+  /// Returns whether [candidate] is called by a framework or a tool. Such a
+  /// declaration has no reference in the source code. Every entry point that
+  /// is found here is recorded, so that `--verbose` can list it.
   bool _isEntryPoint(
     String relativePath,
     Candidate candidate,
@@ -349,7 +351,7 @@ final class CandidateCollector {
     return true;
   }
 
-  /// Whether [candidate] should have its references checked.
+  /// Returns whether the references to [candidate] should be checked.
   bool _shouldConsider(
     String relativePath,
     Candidate candidate,
@@ -408,7 +410,7 @@ final class CandidateCollector {
   }
 }
 
-/// Which members of a type are called from outside Dart source.
+/// The members of a type that are called from outside the Dart source.
 enum _ExportedMembers { jsExport, reflectiveTest }
 
 /// A skipped entry point: root-relative POSIX path, one-based line, the name

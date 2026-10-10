@@ -8,7 +8,7 @@ import 'package:yaml/yaml.dart';
 
 final _log = Logger('ciach.finder');
 
-/// The parts of `pubspec.yaml` that the project config uses.
+/// The parts of `pubspec.yaml` that are used by the project config.
 typedef Pubspec = ({
   String? name,
   Set<String> dependencies,
@@ -62,8 +62,9 @@ Iterable<EntryPoint> configRule(
 String escapeGlob(String literal) =>
     literal.replaceAllMapped(RegExp(r'[*?\[\]{},\\]'), (m) => '\\${m[0]}');
 
-/// The directories of the packages in [rootPath], as POSIX paths relative to
-/// it: `''` for [rootPath] itself, then every nested directory that has a
+/// Returns the directories of the packages in [rootPath], as POSIX paths that
+/// are relative to [rootPath]. The first one is `''`, which stands for
+/// [rootPath] itself. It is followed by every nested directory that has a
 /// pubspec.yaml.
 Iterable<String> packageDirs(String rootPath) {
   if (!Directory(rootPath).existsSync()) {
