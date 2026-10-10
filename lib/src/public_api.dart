@@ -14,7 +14,7 @@ final class PublicApi {
   factory PublicApi.scan(String rootPath) {
     final tree = scanPackageTree(rootPath);
     final libDirOf = _libDirOf(tree);
-    final libraries = _readDirectives(libDirOf.keys, tree.libDirByPackage);
+    final libraries = _readDirectives(libDirOf.keys, PackageResolver());
     final libraryOf = _libraryOfParts(libraries);
     return ._(
       rootPath,
@@ -45,7 +45,7 @@ final class PublicApi {
 
   static Map<String, _Directives> _readDirectives(
     Iterable<String> paths,
-    Map<String, String> libDirByPackage,
+    PackageResolver packages,
   ) {
     final libraries = <String, _Directives>{};
     for (final path in paths) {
@@ -53,7 +53,7 @@ final class PublicApi {
         libraries[path] = _Directives.parse(
           File(path).readAsStringSync(),
           path,
-          libDirByPackage,
+          packages,
         );
       } on FileSystemException {
         continue;
@@ -142,17 +142,17 @@ final class _Directives {
   factory _Directives.parse(
     String content,
     String path,
-    Map<String, String> libDirByPackage,
+    PackageResolver packages,
   ) {
     final exports = <_Export>[];
     final parts = <String>[];
     for (final match in _directive.allMatches(stripComments(content))) {
       final body = match.namedGroup('body')!;
       if (match.namedGroup('kind') == 'part') {
-        if (_part(body, path, libDirByPackage) case final part?) {
+        if (_part(body, path, packages) case final part?) {
           parts.add(part);
         }
-      } else if (_export(body, path, libDirByPackage) case final export?) {
+      } else if (_export(body, path, packages) case final export?) {
         exports.add(export);
       }
     }
@@ -160,26 +160,18 @@ final class _Directives {
   }
 
   /// The file a `part` directive's [body] names; `null` for `part of`.
-  static String? _part(
-    String body,
-    String from,
-    Map<String, String> libDirByPackage,
-  ) {
+  static String? _part(String body, String from, PackageResolver packages) {
     if (body.startsWith('of')) {
       return null;
     }
     return switch (uriLiteral.firstMatch(body)) {
-      final uri? => _resolve(uri.namedGroup('uri')!, from, libDirByPackage),
+      final uri? => _resolve(uri.namedGroup('uri')!, from, packages),
       null => null,
     };
   }
 
   /// The export an `export` directive's [body] makes; `null` without a URI.
-  static _Export? _export(
-    String body,
-    String from,
-    Map<String, String> libDirByPackage,
-  ) {
+  static _Export? _export(String body, String from, PackageResolver packages) {
     final uris = uriLiteral.allMatches(body).toList();
     if (uris.isEmpty) {
       return null;
@@ -187,7 +179,7 @@ final class _Directives {
     return (
       paths: [
         for (final uri in uris)
-          ?_resolve(uri.namedGroup('uri')!, from, libDirByPackage),
+          ?_resolve(uri.namedGroup('uri')!, from, packages),
       ],
       names: _Names.parse(body.substring(uris.last.end)),
     );
@@ -196,14 +188,11 @@ final class _Directives {
   final List<_Export> exports;
   final List<String> parts;
 
-  static String? _resolve(
-    String uri,
-    String from,
-    Map<String, String> libDirByPackage,
-  ) => switch (resolveDartUri(uri, from, libDirByPackage)) {
-    unknownPackage => null,
-    final resolved => resolved,
-  };
+  static String? _resolve(String uri, String from, PackageResolver packages) =>
+      switch (packages.resolve(uri, from)) {
+        unknownPackage => null,
+        final resolved => resolved,
+      };
 }
 
 /// The files an `export` names, as absolute paths (several when conditional),

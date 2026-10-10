@@ -7,6 +7,8 @@ import 'package:ciach/src/public_api.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import 'support/package_config.dart';
+
 void main() {
   late Directory root;
 
@@ -24,6 +26,7 @@ version: 1.0.0
 environment:
   sdk: ^3.10.0
 ''');
+    write('.dart_tool/package_config.json', packageConfig({'lib_pkg': '.'}));
   });
 
   tearDown(() => root.deleteSync(recursive: true));
@@ -99,6 +102,10 @@ export 'src/stub.dart' if (dart.library.io) 'src/io.dart';
 
     test('a nested package has its own public libraries', () {
       write('example/pubspec.yaml', 'name: example_app');
+      write(
+        'example/.dart_tool/package_config.json',
+        packageConfig({'example_app': '.'}),
+      );
       write(
         'example/lib/main.dart',
         "export 'package:example_app/src/a.dart';",

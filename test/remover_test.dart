@@ -4,6 +4,8 @@ import 'package:ciach/ciach.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import 'support/package_config.dart';
+
 void main() {
   late Directory tempDir;
 
@@ -973,6 +975,7 @@ class Registry {
 
     setUp(() {
       write('pubspec.yaml', 'name: pkg\n');
+      write('.dart_tool/package_config.json', packageConfig({'pkg': '.'}));
     });
 
     test('deletes a file left with nothing but imports and drops the '
@@ -1160,7 +1163,8 @@ void kept() {}
       expect(read('lib/switch.dart'), contains("'dead.dart'"));
     });
 
-    test('a `package:` URI of a package no pubspec claims keeps the file '
+    test('a `package:` URI of a package no package config lists keeps the '
+        'file '
         'when the paths line up', () {
       write('lib/dead.dart', '''
 import 'dart:async';
@@ -1185,6 +1189,10 @@ import 'dart:async';
 void gone() {}
 ''');
       write('example/pubspec.yaml', 'name: sample\n');
+      write(
+        'example/.dart_tool/package_config.json',
+        packageConfig({'sample': '.'}),
+      );
       write('example/lib/dead.dart', 'void sampleDead() {}\n');
       write('example/bin/main.dart', '''
 import 'package:sample/dead.dart';
@@ -1197,6 +1205,30 @@ void main() {}
         read('example/bin/main.dart'),
         contains('package:sample/dead.dart'),
       );
+    });
+
+    test('a `package:` URI of a path dependency outside the root is not '
+        'this file', () {
+      write('app/pubspec.yaml', 'name: app\n');
+      write(
+        'app/.dart_tool/package_config.json',
+        packageConfig({'app': '.', 'core': '../core'}),
+      );
+      write('app/lib/dead.dart', '''
+import 'dart:async';
+
+void gone() {}
+''');
+      write('app/lib/user.dart', '''
+import 'package:core/dead.dart';
+
+void kept() {}
+''');
+      write('core/pubspec.yaml', 'name: core\n');
+      write('core/lib/dead.dart', 'void coreDead() {}\n');
+      removeDeclarations([gone('lib/dead.dart')], p.join(tempDir.path, 'app'));
+      expect(exists('app/lib/dead.dart'), isFalse);
+      expect(read('app/lib/user.dart'), contains('package:core/dead.dart'));
     });
 
     test('a file nothing was removed from is never deleted, even if empty', () {

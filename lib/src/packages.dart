@@ -1,38 +1,25 @@
 import 'dart:io';
 
 import 'package:ciach/src/file_discovery.dart';
-import 'package:ciach/src/pubspec.dart';
+import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
 
 /// The Dart files under a root, and the `lib/` of every package there.
-/// `libDirs` also holds those `libDirByPackage` drops: unnamed, or sharing a
-/// name.
-typedef PackageTree = ({
-  Set<String> dartFiles,
-  Map<String, String> libDirByPackage,
-  Set<String> libDirs,
-});
+typedef PackageTree = ({Set<String> dartFiles, Set<String> libDirs});
 
 /// Walks [root], never entering a skipped directory. Paths are absolute and
 /// normalized.
 PackageTree scanPackageTree(String root) {
   final files = _filesUnder(Directory(root));
-  final libDirByPackage = <String, String>{};
-  final libDirs = <String>{};
-  for (final pubspec in files.where((f) => p.basename(f) == 'pubspec.yaml')) {
-    final libDir = p.join(p.dirname(pubspec), 'lib');
-    libDirs.add(libDir);
-    if (pubspecName(pubspec) case final package?) {
-      libDirByPackage[package] = libDir;
-    }
-  }
   return (
     dartFiles: {
       for (final file in files)
         if (file.endsWith('.dart')) file,
     },
-    libDirByPackage: libDirByPackage,
-    libDirs: libDirs,
+    libDirs: {
+      for (final file in files)
+        if (p.basename(file) == 'pubspec.yaml') p.join(p.dirname(file), 'lib'),
+    },
   );
 }
 
@@ -47,24 +34,52 @@ List<String> _filesUnder(Directory dir) => [
 
 final uriLiteral = RegExp(r'''r?(?<quote>['"])(?<uri>[^'"\n]*)\k<quote>''');
 
-/// What [resolveDartUri] returns for a `package:` URI no pubspec claims.
+/// What [PackageResolver.resolve] returns for a `package:` URI no package
+/// config lists.
 const unknownPackage = '';
 
-/// [uri], written in [from], as an absolute path; [unknownPackage] for a
-/// package not in [libDirByPackage]; `null` for any other scheme.
-String? resolveDartUri(
-  String uri,
-  String from,
-  Map<String, String> libDirByPackage,
-) => switch (Uri.tryParse(uri)) {
-  Uri(scheme: 'package', pathSegments: [final package, ...final path])
-      when path.isNotEmpty =>
-    switch (libDirByPackage[package]) {
-      final libDir? => p.normalize(p.joinAll([libDir, ...path])),
-      null => unknownPackage,
-    },
-  Uri(scheme: '') && final parsed => p.normalize(
-    p.join(p.dirname(from), p.fromUri(parsed)),
-  ),
-  _ => null,
-};
+/// Resolves URIs as Dart does: `package:` ones through the
+/// `.dart_tool/package_config.json` nearest the file that names them.
+final class PackageResolver {
+  final _configByDir = <String, PackageConfig?>{};
+
+  /// [uri], written in [from], as an absolute path; [unknownPackage] for a
+  /// package [from]'s config doesn't list; `null` for any other scheme.
+  String? resolve(String uri, String from) => switch (Uri.tryParse(uri)) {
+    Uri(scheme: 'package', pathSegments: [_, _, ...]) && final parsed =>
+      switch (_configOf(p.dirname(from))?.resolve(parsed)) {
+        final file? => p.normalize(file.toFilePath()),
+        null => unknownPackage,
+      },
+    Uri(scheme: '') && final parsed => p.normalize(
+      p.join(p.dirname(from), p.fromUri(parsed)),
+    ),
+    _ => null,
+  };
+
+  /// The package config of [dir]: its own, or its nearest ancestor's, as in a
+  /// pub workspace.
+  PackageConfig? _configOf(String dir) {
+    if (_configByDir.containsKey(dir)) {
+      return _configByDir[dir];
+    }
+    final file = File(p.join(dir, '.dart_tool', 'package_config.json'));
+    final parent = p.dirname(dir);
+    return _configByDir[dir] = file.existsSync()
+        ? _read(file)
+        : (parent == dir ? null : _configOf(parent));
+  }
+
+  /// [file] parsed, skipping malformed entries; `null` when unreadable.
+  static PackageConfig? _read(File file) {
+    try {
+      return PackageConfig.parseBytes(
+        file.readAsBytesSync(),
+        file.uri,
+        onError: (_) {},
+      );
+    } on FileSystemException {
+      return null;
+    }
+  }
+}

@@ -103,15 +103,12 @@ enum _Link { none, droppable, blocking }
 
 /// The package's Dart files, contents cached across the rewrites.
 final class _Package {
-  _Package._(this._files, this._libDirByPackage);
+  _Package._(this._files);
 
-  factory _Package.scan(String root) {
-    final tree = scanPackageTree(root);
-    return ._(tree.dartFiles, tree.libDirByPackage);
-  }
+  factory _Package.scan(String root) => ._(scanPackageTree(root).dartFiles);
 
   final Set<String> _files;
-  final Map<String, String> _libDirByPackage;
+  final _packages = PackageResolver();
   final _contents = <String, String?>{};
 
   String? content(String path) {
@@ -161,11 +158,7 @@ final class _Package {
     final body = directive.group(2)!;
     var link = _Link.none;
     for (final uri in uriLiteral.allMatches(body)) {
-      final resolved = resolveDartUri(
-        uri.namedGroup('uri')!,
-        from,
-        _libDirByPackage,
-      );
+      final resolved = _packages.resolve(uri.namedGroup('uri')!, from);
       if (resolved == null) {
         continue;
       }
