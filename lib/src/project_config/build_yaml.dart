@@ -4,13 +4,10 @@ import 'package:ciach/src/project_config/project_files.dart';
 import 'package:path/path.dart' as p;
 
 /// `build.yaml` and every `build.<name>.yaml` build_runner can pick with
-/// `--config`, or a single `null` when there is none.
-List<Map<Object?, Object?>?> readBuildYamls(String rootPath) {
-  final configs = [
-    for (final file in _buildYamlFiles(rootPath)) ?readYamlMap(file),
-  ];
-  return configs.isEmpty ? const [null] : configs;
-}
+/// `--config`.
+List<Map<Object?, Object?>> readBuildYamls(String rootPath) => [
+  for (final file in _buildYamlFiles(rootPath)) ?readYamlMap(file),
+];
 
 final _buildYamlName = RegExp(r'^build(\.[^.]+)?\.yaml$');
 

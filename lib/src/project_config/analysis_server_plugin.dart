@@ -5,6 +5,6 @@ Iterable<EntryPoint> analysisServerPluginEntryPoints(Pubspec pubspec) sync* {
   if (pubspec.dependencies.contains('analysis_server_plugin')) {
     yield* configRule('plugin', [
       'lib/main.dart',
-    ], 'the analyzer plugin the analysis server loads');
+    ], 'called by the analysis server');
   }
 }

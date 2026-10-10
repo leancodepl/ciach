@@ -137,7 +137,11 @@ final class CandidateCollector {
         path: relativePath,
         line: symbol.selectionRange.start.line + 1,
         name: symbol.name,
-        reason: 'declares the entry point ${rule.label}',
+        reason: switch (rule.superclass) {
+          final superclass? =>
+            'extends `$superclass`; its public methods are entry points',
+          null => 'declares the entry point ${rule.name}',
+        },
       ));
     }
   }

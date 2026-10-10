@@ -5,7 +5,7 @@ Iterable<EntryPoint> serverpodEntryPoints(Pubspec pubspec) sync* {
   if (pubspec.dependencies.contains('serverpod')) {
     yield .publicMethodsOfSubclasses(
       'Endpoint',
-      reason: 'a Serverpod endpoint method, called by the generated dispatcher',
+      reason: 'called by the Serverpod dispatcher',
     );
   }
 }

@@ -5,11 +5,11 @@ Iterable<EntryPoint> dartFrogEntryPoints(Pubspec pubspec) sync* {
   if (!pubspec.dependencies.contains('dart_frog')) {
     return;
   }
-  yield* configRule('onRequest', ['routes/**'], 'a dart_frog route handler');
+  yield* configRule('onRequest', ['routes/**'], 'called by dart_frog');
   yield* configRule('middleware', [
     'routes/**_middleware.dart',
-  ], 'a dart_frog middleware');
+  ], 'called by dart_frog');
   for (final hook in const ['init', 'run']) {
-    yield* configRule(hook, ['main.dart'], 'a dart_frog server hook');
+    yield* configRule(hook, ['main.dart'], 'called by dart_frog');
   }
 }

@@ -68,8 +68,7 @@ final class ProjectConfig {
           '$rule': rule,
       }.values.toList(),
       generatedGlobs: {
-        for (final buildYaml in buildYamls)
-          ...buildRunnerGeneratedGlobs(packagePath, pubspec, buildYaml),
+        ...buildRunnerGeneratedGlobs(packagePath, pubspec, buildYamls),
         ?genL10n?.localesGlob,
         if (genL10n != null) escapeGlob(genL10n.template.dartFile),
       }.toList(),

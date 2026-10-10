@@ -6,7 +6,7 @@ Iterable<EntryPoint> customLintEntryPoints(Pubspec pubspec) sync* {
     if (pubspec.name case final name?) {
       yield* configRule('createPlugin', [
         'lib/$name.dart',
-      ], 'the custom_lint plugin entry point');
+      ], 'called by custom_lint');
     }
   }
 }

@@ -237,11 +237,10 @@ Object run(Object handler, Object ip, int port) => handler;
     await Ciach(detected()).run();
 
     const endpointMethod =
-        'Skipped lib/endpoint.dart:6 GreetingEndpoint.hello: a Serverpod endpoint method, called by the generated dispatcher.';
+        'Skipped lib/endpoint.dart:6 GreetingEndpoint.hello: called by the Serverpod dispatcher.';
     const jsExported =
         'Skipped lib/js.dart:6 Counter: exported to JavaScript by `@JSExport`.';
-    const route =
-        'Skipped routes/index.dart:1 onRequest: a dart_frog route handler.';
+    const route = 'Skipped routes/index.dart:1 onRequest: called by dart_frog.';
     expect(lines, containsAll(const [endpointMethod, jsExported, route]));
   });
 }

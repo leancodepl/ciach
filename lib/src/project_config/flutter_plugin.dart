@@ -28,4 +28,4 @@ Iterable<EntryPoint> _registerWith(
   Object? platform,
 ) => configRule('$plugin.registerWith', [
   if (fileName is String) 'lib/$fileName' else 'lib/**',
-], 'the $platform plugin class in pubspec.yaml');
+], 'called by Flutter to register the $platform plugin');

@@ -14,15 +14,13 @@
   does, instead of the pubspecs under the root. `--remove` no longer keeps an
   emptied file because a path dependency outside the root has a file at the
   same `lib/` path. ([#92](https://github.com/leancodepl/ciach/pull/92))
-- Read entry points and generated files from `pubspec.yaml`, `build.yaml`
-  and `l10n.yaml` — of every package under the scanned path, `build.<name>.yaml`
-  included; `--no-project-config` turns it off.
-  ([#86](https://github.com/leancodepl/ciach/pull/86))
-- Add `--unused-translations`: report unused gen-l10n messages, report-only.
-  ([#86](https://github.com/leancodepl/ciach/pull/86))
-- Skip `@JSExport` and `@reflectiveTest` test methods.
-  ([#86](https://github.com/leancodepl/ciach/pull/86))
-- Recognize more generated-code banners (protoc, Serverpod, Pigeon, …).
+- Find entry points and generated files without configuring them: builder
+  factories, Flutter plugin classes, dart_frog handlers, Serverpod endpoints,
+  analyzer and custom_lint plugins, `@JSExport` and `@reflectiveTest` members
+  are entry points; build_runner and gen-l10n output, and files with more
+  generated-code banners (protoc, Pigeon, …), are generated.
+  `--no-project-config` stops reading `pubspec.yaml`, `build.yaml` and
+  `l10n.yaml`; `--unused-translations` reports unused gen-l10n messages.
   ([#86](https://github.com/leancodepl/ciach/pull/86))
 
 ## 0.6.0
