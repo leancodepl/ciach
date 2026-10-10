@@ -43,6 +43,15 @@ jobs:
       - name: Run tests
         run: dart test
 
+      - name: Check changelog entries
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          git fetch --depth=1 origin "$BASE_REF"
+          dart run tool/check_changelog.dart --base FETCH_HEAD --pr "$PR"
+
       - name: Run lint plugin tests
         run: dart test
         working-directory: tool/ciach_lints
