@@ -194,13 +194,9 @@ lib/report.dart
   31:6  function  _pad           (private)  (only referenced from dead _formatRow (lib/report.dart:20))
 ```
 
-Every declaration ciach checks starts dead, and only a reference from live code
-revives it; what it references is then revived in turn. Unchecked code is live:
-entry points, generated and excluded files, `@override` members, public
-declarations under `--no-public`. It reuses the references it already fetched,
-so this costs little. A [report-only](#removing-declarations) finding isn't
-deleted, so what it references stays used. A class found dead this way is
-reported without its members.
+A [report-only](#removing-declarations) finding stays in the code, so what it
+references stays used. A class found dead this way is reported without its
+members.
 
 It's off by default because one false positive also flags everything only it
 referenced. `-f json` lists every finding a declaration depends on in
