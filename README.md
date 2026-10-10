@@ -353,9 +353,9 @@ deleting blindly:
   not even then.
 - A package that doesn't analyze cleanly (missing `pub get`, errors) yields
   incomplete references.
-- **ciach is only as accurate as the analysis server's reference search.** The
-  bugs it has turned up there, and the SDK commits that fixed them, are listed
-  in [doc/upstream_bugs.md][upstream-bugs].
+- **Bugs in the analysis server's reference search** surface as false
+  positives. [doc/upstream_bugs.md][upstream-bugs] lists the ones ciach has
+  found and the SDK commits that fixed them.
 
 ## Performance
 
