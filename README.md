@@ -353,6 +353,9 @@ deleting blindly:
   not even then.
 - A package that doesn't analyze cleanly (missing `pub get`, errors) yields
   incomplete references.
+- **ciach is only as accurate as the analysis server's reference search.** The
+  bugs it has turned up there, and the SDK commits that fixed them, are listed
+  in [doc/upstream_bugs.md][upstream-bugs].
 
 ## Performance
 
@@ -433,6 +436,7 @@ We are **top-tier experts** focused on Flutter Enterprise solutions.
 </div>
 
 [site]: https://ciach.leancode.co/
+[upstream-bugs]: https://github.com/leancodepl/ciach/blob/main/doc/upstream_bugs.md
 
 [pub-badge]: https://img.shields.io/pub/v/ciach?style=for-the-badge&logo=dart
 [pub-badge-link]: https://pub.dev/packages/ciach

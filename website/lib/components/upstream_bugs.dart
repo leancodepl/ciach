@@ -64,6 +64,7 @@ const _bugs = [
 
 /// The analysis server bugs ciach turned up, linked to their dart-lang/sdk
 /// issues, with the ones we fixed ourselves marked as such.
+/// `doc/upstream_bugs.md` at the repository root keeps the same list.
 @scopedCss
 class UpstreamBugs extends StatelessComponent {
   const UpstreamBugs({super.key});
