@@ -3,6 +3,7 @@ import 'package:ciach_website/components/features.dart';
 import 'package:ciach_website/components/formats.dart';
 import 'package:ciach_website/components/hero.dart';
 import 'package:ciach_website/components/shell.dart';
+import 'package:ciach_website/components/upstream_bugs.dart';
 import 'package:ciach_website/seo.dart';
 import 'package:ciach_website/site.dart';
 import 'package:jaspr/jaspr.dart';
@@ -28,6 +29,7 @@ class HomePage extends StatelessComponent {
         const CiachDemo(),
         const Features(),
         const OutputFormats(),
+        const UpstreamBugs(),
       ],
     );
   }
