@@ -47,12 +47,8 @@ class RemoveSafety {
     SuperclassNeedsArguments superclassNeedsArguments,
   ) async {
     final tally = _Tally(sources);
-    for (var i = 0; i < candidates.length; i++) {
-      tally.add(
-        candidates[i],
-        refsByCandidate[i],
-        unused: statuses[i] == .unused,
-      );
+    for (final (i, candidate) in candidates.indexed) {
+      tally.add(candidate, refsByCandidate[i], unused: statuses[i] == .unused);
     }
 
     // Conservative: if the enum-type candidate is missing we cannot prove the

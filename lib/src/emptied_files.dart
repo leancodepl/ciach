@@ -72,9 +72,11 @@ DeletedFile? _deleteIfEmptied(
     ],
   );
   _log.fine(
-    file.unlinkedFrom.isEmpty
-        ? 'Deleted ${file.filePath}: nothing left but library/import/part-of lines.'
-        : 'Deleted ${file.filePath}: nothing left but library/import/part-of lines. Dropped the directives naming it from ${file.unlinkedFrom.join(', ')}.',
+    [
+      'Deleted ${file.filePath}: nothing left but library/import/part-of lines.',
+      if (file.unlinkedFrom.isNotEmpty)
+        'Dropped the directives naming it from ${file.unlinkedFrom.join(', ')}.',
+    ].join(' '),
   );
   return file;
 }

@@ -91,7 +91,7 @@ int? _stringLiteralEnd(String content, int i) => switch (content[i]) {
 /// strings are matched so a `}` or quote inside them doesn't end the string).
 int _skipString(String content, int from, {required bool raw}) {
   final quote = content[from];
-  final triple = _isTripleQuote(content, from);
+  final triple = _isTripleQuote(content, from, quote);
   var i = from + (triple ? 3 : 1);
   while (i < content.length) {
     final c = content[i];
@@ -102,7 +102,7 @@ int _skipString(String content, int from, {required bool raw}) {
         i = _skipInterpolation(content, i);
       case _ when c == quote && !triple:
         return i + 1;
-      case _ when c == quote && _isTripleQuote(content, i):
+      case _ when _isTripleQuote(content, i, quote):
         return i + 3;
       // Unterminated single-line string; stop at the newline rather than run on.
       case '\n' when !triple:
@@ -114,10 +114,8 @@ int _skipString(String content, int from, {required bool raw}) {
   return content.length;
 }
 
-bool _isTripleQuote(String content, int at) =>
-    at + 2 < content.length &&
-    content[at + 1] == content[at] &&
-    content[at + 2] == content[at];
+bool _isTripleQuote(String content, int at, String quote) =>
+    content.startsWith(quote * 3, at);
 
 /// Skips a `$`-interpolation starting at [from] (the `$`), returning the
 /// index just past it. Handles both `$identifier` and brace-matched `${…}`.

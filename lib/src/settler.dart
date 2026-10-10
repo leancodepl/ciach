@@ -223,7 +223,7 @@ final class Settler {
 
     final unused = <UnusedDeclaration>[];
     final docOnly = <UnusedDeclaration>[];
-    for (var i = 0; i < candidates.length; i++) {
+    for (final (i, candidate) in candidates.indexed) {
       switch (statuses[i]) {
         case .unused when reported.contains(i):
           final finding = _unusedFinding(
@@ -241,7 +241,7 @@ final class Settler {
             _removableBefore.add(i);
           }
         case .docOnly:
-          docOnly.add(_verdict.finding(candidates[i], rootPath));
+          docOnly.add(_verdict.finding(candidate, rootPath));
         case .unused || .used:
           break;
       }
@@ -269,8 +269,7 @@ final class Settler {
     List<RefStatus> statuses,
   ) {
     final deadClassNames = <String, Set<String>>{};
-    for (var i = 0; i < candidates.length; i++) {
-      final candidate = candidates[i];
+    for (final (i, candidate) in candidates.indexed) {
       if (statuses[i] == .unused && candidate.symbol.kind == .class$) {
         deadClassNames
             .putIfAbsent(candidate.path, () => <String>{})
@@ -421,8 +420,8 @@ final class Settler {
       options.concurrency,
       (index) => overrides.of(candidates[index]),
     );
-    for (var i = 0; i < unchecked.length; i++) {
-      _overridesByMember[unchecked[i]] = results[i];
+    for (final (i, index) in unchecked.indexed) {
+      _overridesByMember[index] = results[i];
     }
   }
 

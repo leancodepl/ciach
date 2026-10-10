@@ -216,8 +216,7 @@ abstract final class Reporter {
     if (ofCause.length > listed.length) {
       buffer.writeln(
         style.note(
-          '    … and ${ofCause.length - listed.length} more '
-          '(-v lists them all)',
+          '    … and ${ofCause.length - listed.length} more (-v lists them all)',
         ),
       );
     }

@@ -132,11 +132,8 @@ final class ReferenceFetch {
     List<List<Location>> refsByCandidate,
   ) async {
     final positionsByPath = <String, Set<Position>>{};
-    for (var i = 0; i < candidates.length; i++) {
-      for (final (path, position) in _probes(
-        candidates[i],
-        refsByCandidate[i],
-      )) {
+    for (final (i, candidate) in candidates.indexed) {
+      for (final (:path, :position) in _probes(candidate, refsByCandidate[i])) {
         positionsByPath.putIfAbsent(path, () => {}).add(position);
       }
     }
@@ -156,7 +153,7 @@ final class ReferenceFetch {
 
   /// The positions in which files whose syntax node the structural checks
   /// need for [candidate] and its [refs].
-  Iterable<(String, Position)> _probes(
+  Iterable<({String path, Position position})> _probes(
     Candidate candidate,
     List<Location> refs,
   ) sync* {
@@ -164,21 +161,24 @@ final class ReferenceFetch {
     final isEnumType = kind == .enum$ && !candidate.isEnumValue;
     if (isEnumType || kind == .class$) {
       for (final loc in refs) {
-        yield (SourceIndex.pathOf(loc.uri), loc.range.start);
+        yield (path: SourceIndex.pathOf(loc.uri), position: loc.range.start);
       }
     }
     if ((kind == .constructor || kind == .field) &&
         candidate.containerOutline != null) {
-      yield (candidate.path, candidate.symbol.selectionRange.start);
+      yield (
+        path: candidate.path,
+        position: candidate.symbol.selectionRange.start,
+      );
     }
     if (isEnumType) {
       for (final token in _sources.valuesTokensIn(candidate)) {
-        yield (candidate.path, token.start);
+        yield (path: candidate.path, position: token.start);
       }
     }
     if (kind == .constructor) {
       if (_sources.redirectProbePosition(candidate) case final position?) {
-        yield (candidate.path, position);
+        yield (path: candidate.path, position: position);
       }
     }
   }
@@ -190,9 +190,9 @@ final class ReferenceFetch {
   ) async {
     try {
       final ranges = await client.selectionRanges(File(path).uri, positions);
-      for (var i = 0; i < positions.length; i++) {
+      for (final (i, position) in positions.indexed) {
         if (ranges[i] case final range?) {
-          _sources.cacheSelectionRange(path, positions[i], range);
+          _sources.cacheSelectionRange(path, position, range);
         }
       }
     } on LspRequestException catch (e) {

@@ -16,6 +16,7 @@ import 'package:ciach/src/cli/args.dart';
 import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/console.dart';
 import 'package:ciach/src/cli/options.dart';
+import 'package:ciach/src/cli/report.dart';
 import 'package:ciach/src/cli/verbose.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/paths.dart';
@@ -24,7 +25,6 @@ import 'package:ciach/src/reporter.dart';
 import 'package:ciach/src/version.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
-import 'package:path/path.dart' as p;
 
 final _log = Logger('ciach.cli');
 
@@ -132,9 +132,9 @@ Future<int> _run(List<String> arguments) async {
   ).forEach(_log.config);
 
   final result = await Ciach(options).run();
-  _logSummary(result);
+  logSummary(result);
 
-  _report(result, resolved, rootPath);
+  writeReport(_console, result, resolved, rootPath);
 
   if (result.unused.isNotEmpty && resolved.remove) {
     _removeUnused(result, rootPath, resolved);
@@ -142,7 +142,7 @@ Future<int> _run(List<String> arguments) async {
     _log.fine('Leaving the findings in place; --remove was not given.');
   }
 
-  return _exitCode(result, resolved);
+  return exitCodeFor(result, resolved);
 }
 
 /// Confirms (unless forced), removes the findings, and reports it.
@@ -225,57 +225,6 @@ bool _analysisRootIsValid(FinderOptions options) {
     }
   }
   return true;
-}
-
-void _logSummary(FinderResult result) {
-  final counts = [
-    '${result.unused.length} unused',
-    '${result.docOnly.length} referenced only from doc comments',
-    if (result.recoveredReferences.isNotEmpty)
-      '${result.recoveredReferences.length} recovered',
-    if (result.problems.isNotEmpty) '${result.problems.length} not analyzed',
-  ];
-  _log.fine(
-    'Scanned ${plural(result.filesScanned, 'file', 'files')} and checked '
-    '${plural(result.declarationsChecked, 'declaration', 'declarations')} in '
-    '${result.elapsed.inMilliseconds}ms: ${counts.join(', ')}.',
-  );
-}
-
-void _report(FinderResult result, ResolvedOptions resolved, String rootPath) {
-  switch (resolved.format) {
-    case 'json':
-      _console.output(Reporter.json(result));
-    case 'github':
-      // GitHub resolves annotation paths from the repo root, so prepend the
-      // scan root's path from here.
-      final prefix = p
-          .split(p.relative(rootPath, from: Directory.current.path))
-          .join('/');
-      _log.config("Prefixing annotation paths with '$prefix/'.");
-      _console.output(Reporter.github(result, pathPrefix: prefix));
-    case _:
-      _console.output(
-        Reporter.text(
-          result,
-          style: _console.outStyle,
-          verbose: resolved.verbose,
-        ),
-      );
-  }
-}
-
-int _exitCode(FinderResult result, ResolvedOptions resolved) {
-  if (resolved.setExitIfChanged) {
-    // Public findings are still reported; --no-fail-public only drops them from the exit code.
-    final failing = resolved.failPublic
-        ? result.unused
-        : result.unused.where((d) => d.isPrivate);
-    if (failing.isNotEmpty) {
-      return 1;
-    }
-  }
-  return 0;
 }
 
 /// The options [args] resolve to with the config file, or `null` once it has
