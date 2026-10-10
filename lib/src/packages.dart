@@ -55,9 +55,8 @@ final class PackageResolver {
     _ => null,
   };
 
-  String? _packagePath(Uri uri, String from) => _configOf(
-    p.dirname(from),
-  )?.resolve(uri)?.let((file) => p.normalize(file.toFilePath()));
+  String? _packagePath(Uri uri, String from) =>
+      _configOf(p.dirname(from))?.resolve(uri)?.toFilePath().let(p.normalize);
 
   /// The package config of [dir]: its own, or its nearest ancestor's, as in a
   /// pub workspace.
