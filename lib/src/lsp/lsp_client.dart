@@ -407,10 +407,11 @@ class LspClient {
         ),
       ),
     );
-    final contents = result?.contents.toJson();
-    return contents is Map
-        ? contents['value'] as String?
-        : contents?.toString();
+    return switch (result?.contents.toJson()) {
+      {'value': final String value} => value,
+      Map() || null => null,
+      final contents => '$contents',
+    };
   }
 
   /// The semantic tokens of [uri], with each token's text taken from [lines].

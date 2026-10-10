@@ -100,11 +100,12 @@ List<_Mention> _mentionsOf(
   Map<String, Map<String, List<_Mention>>> mentionsByFile,
 ) => [
   for (final path in types.filesFor(member))
-    for (final mention
-        in mentionsByFile[path]![_spelling(member)] ?? const <_Mention>[])
-      if (path != member.path ||
-          !member.outline.range.contains(mention.range.start))
-        mention,
+    for (final spelling in _spellings(member))
+      if (mentionsByFile[path]![spelling] case final mentions?)
+        for (final mention in mentions)
+          if (path != member.path ||
+              !member.outline.range.contains(mention.range.start))
+            mention,
 ];
 
 /// Where each of [mentions] resolves to.
@@ -131,12 +132,12 @@ Future<Map<_Mention, List<Location>>> _definitions(
 /// A place where a name is written.
 typedef _Mention = ({String path, Range range});
 
-/// How a use of [member] is spelled: the class name for an unnamed
-/// constructor.
-String _spelling(Candidate member) =>
+/// How a use of [member] is spelled: an unnamed constructor by its class
+/// name, or by `new` in `.new()` and `Class.new`.
+List<String> _spellings(Candidate member) =>
     switch (member.symbol.declarationName(member.container)) {
-      'new' => member.container!,
-      final name => name,
+      'new' => [member.container!, 'new'],
+      final name => [name],
     };
 
 bool _declares(Candidate member, Location target) =>

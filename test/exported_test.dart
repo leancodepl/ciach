@@ -57,6 +57,8 @@ extension _PrivateExtension on int {
 void work() {
   final body = BodyOnly()..used();
   Hidden().deep.used();
+  final Shorthand s = .new();
+  final Named n = .named();
 }
 ''');
     write('lib/src/types.dart', '''
@@ -130,6 +132,14 @@ class DocOnly {
 class BodyOnly {
   void used() {}
   void bodyOnlyDead() {}
+}
+
+class Shorthand {
+  Shorthand();
+}
+
+class Named {
+  Named.named();
 }
 
 class Hidden {

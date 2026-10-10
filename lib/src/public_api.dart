@@ -49,13 +49,15 @@ final class PublicApi {
   ) {
     final libraries = <String, _Directives>{};
     for (final path in paths) {
-      final String content;
       try {
-        content = File(path).readAsStringSync();
+        libraries[path] = _Directives.parse(
+          File(path).readAsStringSync(),
+          path,
+          libDirByPackage,
+        );
       } on FileSystemException {
         continue;
       }
-      libraries[path] = _Directives.parse(content, path, libDirByPackage);
     }
     return libraries;
   }

@@ -56,23 +56,15 @@ String? resolveDartUri(
   String uri,
   String from,
   Map<String, String> libDirByPackage,
-) {
-  if (uri.startsWith('package:')) {
-    final rest = uri.substring('package:'.length);
-    final slash = rest.indexOf('/');
-    if (slash < 0) {
-      return null;
-    }
-    final libDir = libDirByPackage[rest.substring(0, slash)];
-    if (libDir == null) {
-      return unknownPackage;
-    }
-    return p.normalize(
-      p.joinAll([libDir, ...p.posix.split(rest.substring(slash + 1))]),
-    );
-  }
-  if (uri.contains(':')) {
-    return null;
-  }
-  return p.normalize(p.joinAll([p.dirname(from), ...p.posix.split(uri)]));
-}
+) => switch (Uri.tryParse(uri)) {
+  Uri(scheme: 'package', pathSegments: [final package, ...final path])
+      when path.isNotEmpty =>
+    switch (libDirByPackage[package]) {
+      final libDir? => p.normalize(p.joinAll([libDir, ...path])),
+      null => unknownPackage,
+    },
+  Uri(scheme: '') && final parsed => p.normalize(
+    p.join(p.dirname(from), p.fromUri(parsed)),
+  ),
+  _ => null,
+};

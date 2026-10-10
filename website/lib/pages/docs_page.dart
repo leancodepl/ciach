@@ -67,8 +67,7 @@ const _options = [
   ('--no-public', 'Report private declarations only. Cheapest mode.'),
   (
     '--no-exported',
-    'Skip what other packages can import. The right '
-        'one for library packages.',
+    'Skip what other packages can import. The right one for library packages.',
   ),
   (
     '--remove, --force',
