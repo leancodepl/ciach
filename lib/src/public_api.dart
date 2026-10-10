@@ -101,13 +101,12 @@ final class PublicApi {
         continue;
       }
       visible[library] = merged;
-      for (final export in libraries[library]?.exports ?? const <_Export>[]) {
-        for (final target in export.paths) {
-          pending.add((
-            libraryOf[target] ?? target,
-            export.names.intersection(merged),
-          ));
-        }
+      if (libraries[library]?.exports case final exports?) {
+        pending.addAll([
+          for (final export in exports)
+            for (final target in export.paths)
+              (libraryOf[target] ?? target, export.names.intersection(merged)),
+        ]);
       }
     }
     return visible;
