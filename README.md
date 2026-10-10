@@ -357,18 +357,21 @@ with every `build.<name>.yaml`, since `build_runner --config` may pick any.
 
 ### Supported versions
 
-| Tool | Minimum version |
-| --- | --- |
-| `build.yaml` | build_config 0.2.5 (`applies_builders`, `post_process_builders`); `auto_apply_builders` 0.4.2; `{{capture}}` extensions build 2.1, `^` without a capture build 2.3 |
-| `build_extensions` option | source_gen 1.1 (`combining_builder`), 1.2 (`PartBuilder`); freezed 1.0.1 |
-| `l10n.yaml` | Flutter 1.20; `output-dir` 1.22. A `synthetic-package` writes under `.dart_tool/`, so nothing is detected |
-| `pubspec.yaml` plugins | Flutter 1.17 (`platforms:`, web `pluginClass`/`fileName`); `dartPluginClass` 2.5; `dartFileName` 3.27 |
-| dart_frog | dart_frog_cli 0.0.2-dev.12 (`run` in `main.dart`); `init` 0.3.4 |
-| Serverpod | 0.8.0 |
-| analysis_server_plugin | 0.2.0 |
-| custom_lint | custom_lint_builder 0.1.0 |
-| test_reflective_loader | 0.0.1; `skip_test_` 0.1.9, `setUpClass` 0.4.0 |
-| `@JSExport` | `package:js` 0.6.6, `dart:js_interop` |
+For each config below, ciach reads every key up to the version listed. Older
+versions work too, with fewer keys to read. Keys added in later versions are
+ignored.
+
+- `build.yaml`: build_config 0.4.2, build 2.3
+- `build_extensions` given as a builder option: source_gen 1.2, freezed 1.0.1
+- `l10n.yaml`: Flutter 1.22. With `synthetic-package`, gen-l10n writes into
+  `.dart_tool/`, so no source file is skipped.
+- Plugin classes in `pubspec.yaml`: Flutter 3.27
+- dart_frog: dart_frog_cli 0.3.4
+- Serverpod endpoints: Serverpod 0.8.0
+- analyzer plugins: analysis_server_plugin 0.2.0
+- custom_lint plugins: custom_lint_builder 0.1.0
+- `@reflectiveTest`: test_reflective_loader 0.4.0
+- `@JSExport`: `package:js` 0.6.6 or `dart:js_interop`
 
 ### Monorepos
 
