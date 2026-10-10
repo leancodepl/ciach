@@ -4,7 +4,7 @@ import 'package:ciach/src/project_config/project_files.dart';
 /// Returns the `registerWith` methods that Flutter calls to register a plugin.
 /// There is one on the `dartPluginClass` of each platform, and one on the
 /// `pluginClass` of the web platform. On the other platforms, `pluginClass`
-/// names a native class (Flutter 3.27+).
+/// names a native class.
 Iterable<EntryPoint> flutterPluginEntryPoints(Pubspec pubspec) => [
   if (pubspec.yaml?['flutter'] case {
     'plugin': {'platforms': final Map<Object?, Object?> platforms},
