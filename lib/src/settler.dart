@@ -279,18 +279,7 @@ final class Settler {
       _sources,
     );
 
-    // Names of classes flagged unused, per file. A whole dead class is
-    // removed as one node, taking its own constructor(s) with it, so those
-    // constructors must not also be reported (or removed) on their own.
-    final deadClassNames = <String, Set<String>>{};
-    for (var i = 0; i < candidates.length; i++) {
-      final candidate = candidates[i];
-      if (statuses[i] == .unused && candidate.symbol.kind == .class$) {
-        deadClassNames
-            .putIfAbsent(candidate.path, () => <String>{})
-            .add(candidate.symbol.name);
-      }
-    }
+    final deadClassNames = _deadClassNames(candidates, statuses);
 
     final safety = await RemoveSafety.analyze(
       _sources,
@@ -321,50 +310,18 @@ final class Settler {
     final unused = <UnusedDeclaration>[];
     final candidateOf = <UnusedDeclaration, int>{};
     final docOnly = <UnusedDeclaration>[];
-    for (var i = 0; i < candidates.length; i++) {
-      final candidate = candidates[i];
-      final refs = liveRefs[i];
+    for (final (i, candidate) in candidates.indexed) {
       switch (statuses[i]) {
-        case .unused:
-          if (!reported.contains(i)) {
-            break;
-          }
-          final isClass = candidate.symbol.kind == .class$;
-          final overrides = overridden[i];
-          final blockedByOverride = overrides?.blocked ?? false;
-          final pairedState = isClass
-              ? _sources.pairedStateRemovals(
-                  candidate,
-                  refs,
-                  candidates,
-                  liveRefs,
-                  rootPath,
-                )
-              : null;
-          final blockedByState = pairedState?.blocked ?? false;
-          final finding = _verdict.finding(
-            candidate,
-            rootPath,
-            coupledRemovals:
-                pairedState?.removals ?? overrides?.removals ?? const [],
-            removalBlocked:
-                _verdict.isRemovalBlocked(
-                  candidate,
-                  refs,
-                  safety,
-                  groupGuards: !_removableBefore.contains(i),
-                ) ||
-                blockedByOverride ||
-                blockedByState,
-            hint:
-                _verdict.hintFor(candidate) ??
-                (blockedByOverride ? Verdict.overriddenHint : null) ??
-                (blockedByState ? Verdict.pairedStateHint : null),
-            onlyReferencedFrom: _onlyReferencedFrom(
-              candidate,
-              refsByCandidate[i],
-              deadSpans,
-            ),
+        case .unused when reported.contains(i):
+          final finding = _unusedFinding(
+            i,
+            candidates: candidates,
+            refsByCandidate: refsByCandidate,
+            liveRefs: liveRefs,
+            overridden: overridden[i],
+            safety: safety,
+            deadSpans: deadSpans,
+            rootPath: rootPath,
           );
           unused.add(finding);
           candidateOf[finding] = i;
@@ -373,7 +330,7 @@ final class Settler {
           }
         case .docOnly:
           docOnly.add(_verdict.finding(candidate, rootPath));
-        case .used:
+        case .unused || .used:
           break;
       }
     }
@@ -394,6 +351,73 @@ final class Settler {
       candidateOf: {
         for (final finding in unused) finding: candidateOf[finding]!,
       },
+    );
+  }
+
+  /// Names of classes flagged unused, per file. A whole dead class is removed
+  /// as one node, taking its own constructor(s) with it, so those constructors
+  /// must not also be reported (or removed) on their own.
+  static Map<String, Set<String>> _deadClassNames(
+    List<Candidate> candidates,
+    List<RefStatus> statuses,
+  ) {
+    final deadClassNames = <String, Set<String>>{};
+    for (final (i, candidate) in candidates.indexed) {
+      if (statuses[i] == .unused && candidate.symbol.kind == .class$) {
+        deadClassNames
+            .putIfAbsent(candidate.path, () => <String>{})
+            .add(candidate.symbol.name);
+      }
+    }
+    return deadClassNames;
+  }
+
+  UnusedDeclaration _unusedFinding(
+    int i, {
+    required List<Candidate> candidates,
+    required List<List<Location>> refsByCandidate,
+    required List<List<Location>> liveRefs,
+    required OverriddenMember? overridden,
+    required RemoveSafety safety,
+    required DeadSpans deadSpans,
+    required String rootPath,
+  }) {
+    final candidate = candidates[i];
+    final refs = liveRefs[i];
+    final blockedByOverride = overridden?.blocked ?? false;
+    final pairedState = candidate.symbol.kind == .class$
+        ? _sources.pairedStateRemovals(
+            candidate,
+            refs,
+            candidates,
+            liveRefs,
+            rootPath,
+          )
+        : null;
+    final blockedByState = pairedState?.blocked ?? false;
+    return _verdict.finding(
+      candidate,
+      rootPath,
+      coupledRemovals:
+          pairedState?.removals ?? overridden?.removals ?? const [],
+      removalBlocked:
+          _verdict.isRemovalBlocked(
+            candidate,
+            refs,
+            safety,
+            groupGuards: !_removableBefore.contains(i),
+          ) ||
+          blockedByOverride ||
+          blockedByState,
+      hint:
+          _verdict.hintFor(candidate) ??
+          (blockedByOverride ? Verdict.overriddenHint : null) ??
+          (blockedByState ? Verdict.pairedStateHint : null),
+      onlyReferencedFrom: _onlyReferencedFrom(
+        candidate,
+        refsByCandidate[i],
+        deadSpans,
+      ),
     );
   }
 
@@ -443,19 +467,7 @@ final class Settler {
         if (_verdict.canBeOverridden(candidates[index])) index,
     ];
     final unchecked = members.whereNot(_overridesByMember.containsKey).toList();
-    if (unchecked.isNotEmpty) {
-      _log.info(
-        'Checking ${plural(unchecked.length, 'dead member', 'dead members')} for overrides…',
-      );
-      final results = await mapPooled(
-        unchecked,
-        options.concurrency,
-        (index) => overrides.of(candidates[index]),
-      );
-      for (var i = 0; i < unchecked.length; i++) {
-        _overridesByMember[unchecked[i]] = results[i];
-      }
-    }
+    await _checkOverrides(unchecked, candidates, overrides);
     final byCandidate = <int, OverriddenMember>{};
     var coupled = 0;
     var couplingMembers = 0;
@@ -487,6 +499,27 @@ final class Settler {
       );
     }
     return byCandidate;
+  }
+
+  Future<void> _checkOverrides(
+    List<int> unchecked,
+    List<Candidate> candidates,
+    OverrideRemovals overrides,
+  ) async {
+    if (unchecked.isEmpty) {
+      return;
+    }
+    _log.info(
+      'Checking ${plural(unchecked.length, 'dead member', 'dead members')} for overrides…',
+    );
+    final results = await mapPooled(
+      unchecked,
+      options.concurrency,
+      (index) => overrides.of(candidates[index]),
+    );
+    for (final (i, index) in unchecked.indexed) {
+      _overridesByMember[index] = results[i];
+    }
   }
 
   /// One warning per declaration the secondary check kept alive: it had no

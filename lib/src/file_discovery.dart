@@ -65,16 +65,9 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
   final root = Directory(rootPath);
   final context = p.Context(style: .posix);
 
-  final includeGlobs = [
-    for (final pattern in options.includeGlobs) Glob(pattern, context: context),
-  ];
-  final excludeGlobs = [
-    for (final pattern in options.excludeGlobs) Glob(pattern, context: context),
-  ];
-  final generatedGlobs = [
-    for (final pattern in options.additionalGeneratedGlobs)
-      Glob(pattern, context: context),
-  ];
+  final includeGlobs = _globs(options.includeGlobs, context);
+  final excludeGlobs = _globs(options.excludeGlobs, context);
+  final generatedGlobs = _globs(options.additionalGeneratedGlobs, context);
 
   final candidates = <String>[];
   final warmOnly = <String>[];
@@ -117,6 +110,10 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
   warmOnly.sort();
   return (candidates: candidates, warmOnly: warmOnly);
 }
+
+List<Glob> _globs(List<String> patterns, p.Context context) => [
+  for (final pattern in patterns) Glob(pattern, context: context),
+];
 
 bool isInSkippedDir(String relativePath) =>
     p.split(relativePath).any(_skippedDirs.contains);

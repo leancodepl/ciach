@@ -148,30 +148,48 @@ final class _Directives {
     for (final match in _directive.allMatches(stripComments(content))) {
       final body = match.namedGroup('body')!;
       if (match.namedGroup('kind') == 'part') {
-        if (body.startsWith('of')) {
-          continue;
+        if (_part(body, path, libDirByPackage) case final part?) {
+          parts.add(part);
         }
-        if (uriLiteral.firstMatch(body) case final uri?) {
-          if (_resolve(uri.namedGroup('uri')!, path, libDirByPackage)
-              case final part?) {
-            parts.add(part);
-          }
-        }
-        continue;
+      } else if (_export(body, path, libDirByPackage) case final export?) {
+        exports.add(export);
       }
-      final uris = uriLiteral.allMatches(body).toList();
-      if (uris.isEmpty) {
-        continue;
-      }
-      exports.add((
-        paths: [
-          for (final uri in uris)
-            ?_resolve(uri.namedGroup('uri')!, path, libDirByPackage),
-        ],
-        names: _Names.parse(body.substring(uris.last.end)),
-      ));
     }
     return .new(exports, parts);
+  }
+
+  /// The file a `part` directive's [body] names; `null` for `part of`.
+  static String? _part(
+    String body,
+    String from,
+    Map<String, String> libDirByPackage,
+  ) {
+    if (body.startsWith('of')) {
+      return null;
+    }
+    return switch (uriLiteral.firstMatch(body)) {
+      final uri? => _resolve(uri.namedGroup('uri')!, from, libDirByPackage),
+      null => null,
+    };
+  }
+
+  /// The export an `export` directive's [body] makes; `null` without a URI.
+  static _Export? _export(
+    String body,
+    String from,
+    Map<String, String> libDirByPackage,
+  ) {
+    final uris = uriLiteral.allMatches(body).toList();
+    if (uris.isEmpty) {
+      return null;
+    }
+    return (
+      paths: [
+        for (final uri in uris)
+          ?_resolve(uri.namedGroup('uri')!, from, libDirByPackage),
+      ],
+      names: _Names.parse(body.substring(uris.last.end)),
+    );
   }
 
   final List<_Export> exports;

@@ -194,18 +194,38 @@ final class CandidateCollector {
       if (_shouldConsider(relativePath, candidate, leadingMetadata)) {
         yield candidate;
       }
-      final isTypeLike = typeLikeKinds.contains(symbol.kind);
+      final (
+        childContainer,
+        childContainerCandidate,
+      ) = typeLikeKinds.contains(symbol.kind)
+          ? (symbol.name, candidate)
+          : (container, containerCandidate);
       yield* _collect(
         uri,
         path,
         relativePath,
         symbol.children ?? const [],
-        isTypeLike ? symbol.name : container,
-        isTypeLike ? candidate : containerCandidate,
+        childContainer,
+        childContainerCandidate,
         symbol.kind == .enum$,
         outlines,
       );
     }
+  }
+
+  /// Whether [candidate] is public and left out: by `--no-public`, or as part
+  /// of the package's API by `--no-exported`.
+  bool _skipsPublic(Candidate candidate) {
+    final symbol = candidate.symbol;
+    if (isPrivateName(symbol.name)) {
+      return false;
+    }
+    return !options.includePublic ||
+        (_publicApi?.exposes(
+              candidate.path,
+              candidate.container ?? symbol.name,
+            ) ??
+            false);
   }
 
   /// Whether [candidate] should have its references checked.
@@ -242,10 +262,7 @@ final class CandidateCollector {
         !candidate.isExtensionType) {
       return false;
     }
-    if (!isPrivateName(symbol.name) &&
-        (!options.includePublic ||
-            (_publicApi?.exposes(candidate.path, container ?? symbol.name) ??
-                false))) {
+    if (_skipsPublic(candidate)) {
       return false;
     }
     if (options.skipOperators && symbol.isOperator) {

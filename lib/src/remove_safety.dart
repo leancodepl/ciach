@@ -46,90 +46,27 @@ class RemoveSafety {
     Map<String, Set<String>> deadClassNames,
     SuperclassNeedsArguments superclassNeedsArguments,
   ) async {
-    final enumTypeStays = <DeclKey, bool>{};
-    final enumValueTotal = <DeclKey, int>{};
-    final enumValueDead = <DeclKey, int>{};
-    final enumValuesIterated = <DeclKey>{};
-    final ctorTotal = <DeclKey, int>{};
-    final ctorDead = <DeclKey, int>{};
-    final classByKey = <DeclKey, Candidate>{};
-    final extensionUnreferenced = <DeclKey, bool>{};
-    final extensionMemberTotal = <DeclKey, int>{};
-    final extensionMemberDead = <DeclKey, int>{};
-
-    for (var i = 0; i < candidates.length; i++) {
-      final candidate = candidates[i];
-      final symbol = candidate.symbol;
-      final unused = statuses[i] == .unused;
-      if (candidate.containerKey case final key?
-          when candidate.isExtensionMember && unused) {
-        extensionMemberDead.update(key, (n) => n + 1, ifAbsent: () => 1);
-      }
-      if (candidate.isExtension) {
-        // Unnamed extensions on one type share a key; merging can only keep.
-        extensionUnreferenced.update(
-          candidate.key,
-          (was) => was && unused,
-          ifAbsent: () => unused,
-        );
-        // Every member counts, so one excluded by `--kinds`/`--no-public`
-        // keeps the extension.
-        extensionMemberTotal.update(
-          candidate.key,
-          (n) => n + (symbol.children?.length ?? 0),
-          ifAbsent: () => symbol.children?.length ?? 0,
-        );
-      } else if (symbol.kind == .enum$ && !candidate.isEnumValue) {
-        enumTypeStays[candidate.key] = !unused;
-        if (refsByCandidate[i].any(sources.isDotValuesRef) ||
-            sources.enumIteratesOwnValues(candidate)) {
-          enumValuesIterated.add(candidate.key);
-        }
-      } else if (candidate.isEnumValue) {
-        if (candidate.containerKey case final key?) {
-          enumValueTotal.update(key, (n) => n + 1, ifAbsent: () => 1);
-          if (unused) {
-            enumValueDead.update(key, (n) => n + 1, ifAbsent: () => 1);
-          }
-        }
-      } else if (symbol.kind == .class$) {
-        classByKey[candidate.key] = candidate;
-      } else if (symbol.kind == .constructor) {
-        if (candidate.containerKey case final key?) {
-          ctorTotal.update(key, (n) => n + 1, ifAbsent: () => 1);
-          if (unused) {
-            ctorDead.update(key, (n) => n + 1, ifAbsent: () => 1);
-          }
-        }
-      }
+    final tally = _Tally(sources);
+    for (final (i, candidate) in candidates.indexed) {
+      tally.add(candidate, refsByCandidate[i], unused: statuses[i] == .unused);
     }
 
-    final emptiedEnums = <DeclKey>{};
-    for (final MapEntry(:key, value: total) in enumValueTotal.entries) {
-      final dead = enumValueDead[key] ?? 0;
-      if (dead == 0 || dead != total) {
-        continue;
-      }
-      // Conservative: if the enum-type candidate is missing we cannot prove the
-      // enum is itself being removed, so assume it stays and block.
-      if (enumTypeStays[key] ?? true) {
-        emptiedEnums.add(key);
-      }
-    }
+    // Conservative: if the enum-type candidate is missing we cannot prove the
+    // enum is itself being removed, so assume it stays and block.
+    final emptiedEnums = {
+      for (final key in tally.enumValues.allDead)
+        if (tally.enumTypeStays[key] ?? true) key,
+    };
 
     final blockedCtorClasses = <DeclKey>{};
-    for (final MapEntry(:key, value: total) in ctorTotal.entries) {
-      final dead = ctorDead[key] ?? 0;
-      if (dead == 0 || dead != total) {
-        continue;
-      }
+    for (final key in tally.constructors.allDead) {
       // A dead class is removed whole (its constructors go with it), so its
       // constructors are never reported on their own — nothing to guard.
       if (deadClassNames[key.path]?.contains(key.name) ?? false) {
         continue;
       }
       // No declaration to inspect: block.
-      final classCandidate = classByKey[key];
+      final classCandidate = tally.classByKey[key];
       if (classCandidate == null ||
           sources.classHasFinalInstanceField(classCandidate) ||
           await superclassNeedsArguments(classCandidate)) {
@@ -139,16 +76,17 @@ class RemoveSafety {
 
     final deadExtensions = <DeclKey>{
       for (final MapEntry(:key, value: unreferenced)
-          in extensionUnreferenced.entries)
+          in tally.extensionUnreferenced.entries)
         if (unreferenced &&
-            (extensionMemberDead[key] ?? 0) == extensionMemberTotal[key])
+            (tally.extensionMemberDead[key] ?? 0) ==
+                tally.extensionMemberTotal[key])
           key,
     };
 
     return RemoveSafety(
       emptiedEnums: emptiedEnums,
       blockedCtorClasses: blockedCtorClasses,
-      enumValuesIterated: enumValuesIterated,
+      enumValuesIterated: tally.enumValuesIterated,
       deadExtensions: deadExtensions,
     );
   }
@@ -157,4 +95,74 @@ class RemoveSafety {
   final Set<DeclKey> blockedCtorClasses;
   final Set<DeclKey> enumValuesIterated;
   final Set<DeclKey> deadExtensions;
+}
+
+final class _Tally {
+  _Tally(this._sources);
+
+  final SourceIndex _sources;
+  final enumTypeStays = <DeclKey, bool>{};
+  final enumValues = _PartCounts();
+  final enumValuesIterated = <DeclKey>{};
+  final constructors = _PartCounts();
+  final classByKey = <DeclKey, Candidate>{};
+  final extensionUnreferenced = <DeclKey, bool>{};
+  final extensionMemberTotal = <DeclKey, int>{};
+  final extensionMemberDead = <DeclKey, int>{};
+
+  void add(Candidate candidate, List<Location> refs, {required bool unused}) {
+    final symbol = candidate.symbol;
+    if (candidate.containerKey case final key?
+        when candidate.isExtensionMember && unused) {
+      extensionMemberDead.update(key, (n) => n + 1, ifAbsent: () => 1);
+    }
+    if (candidate.isExtension) {
+      // Unnamed extensions on one type share a key; merging can only keep.
+      extensionUnreferenced.update(
+        candidate.key,
+        (was) => was && unused,
+        ifAbsent: () => unused,
+      );
+      // Every member counts, so one excluded by `--kinds`/`--no-public`
+      // keeps the extension.
+      extensionMemberTotal.update(
+        candidate.key,
+        (n) => n + (symbol.children?.length ?? 0),
+        ifAbsent: () => symbol.children?.length ?? 0,
+      );
+    } else if (symbol.kind == .enum$ && !candidate.isEnumValue) {
+      enumTypeStays[candidate.key] = !unused;
+      if (refs.any(_sources.isDotValuesRef) ||
+          _sources.enumIteratesOwnValues(candidate)) {
+        enumValuesIterated.add(candidate.key);
+      }
+    } else if (candidate.isEnumValue) {
+      enumValues.add(candidate.containerKey, dead: unused);
+    } else if (symbol.kind == .class$) {
+      classByKey[candidate.key] = candidate;
+    } else if (symbol.kind == .constructor) {
+      constructors.add(candidate.containerKey, dead: unused);
+    }
+  }
+}
+
+/// How many parts (enum values, constructors) each declaration has, and how
+/// many of them are dead.
+final class _PartCounts {
+  final _total = <DeclKey, int>{};
+  final _dead = <DeclKey, int>{};
+
+  void add(DeclKey? container, {required bool dead}) {
+    if (container == null) {
+      return;
+    }
+    _total.update(container, (n) => n + 1, ifAbsent: () => 1);
+    if (dead) {
+      _dead.update(container, (n) => n + 1, ifAbsent: () => 1);
+    }
+  }
+
+  /// The declarations every one of whose parts is dead.
+  Iterable<DeclKey> get allDead =>
+      _total.keys.where((key) => _dead[key] == _total[key]);
 }
