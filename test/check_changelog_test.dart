@@ -62,7 +62,8 @@ void main() {
     );
   });
 
-  test('passes a reworded entry of a pull request the base links', () {
+  test('passes an edit of an older entry, which keeps its own link', () {
+    // The base has "Old entry. ([#5](…))"; this PR (#7) rewords it.
     expect(
       _errors('- Reworded. ([#5](https://github.com/leancodepl/ciach/pull/5))'),
       isEmpty,
