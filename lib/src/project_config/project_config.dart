@@ -12,7 +12,8 @@ import 'package:ciach/src/project_config/serverpod.dart';
 import 'package:path/path.dart' as p;
 
 /// Entry points and generated files declared by pubspec.yaml, build.yaml and
-/// l10n.yaml. Unparsable files are ignored.
+/// l10n.yaml. Unparsable files are ignored. `Ciach` does not read it; pass
+/// [entryPoints] and [generatedGlobs] into `FinderOptions`.
 final class ProjectConfig {
   const ProjectConfig({
     this.entryPoints = const [],

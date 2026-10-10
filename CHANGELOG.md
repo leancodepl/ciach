@@ -18,7 +18,7 @@
   factories, Flutter plugin classes, dart_frog handlers, Serverpod endpoints,
   analyzer and custom_lint plugins, `@JSExport` and `@reflectiveTest` members
   are entry points; build_runner and gen-l10n output, and files with more
-  generated-code banners (protoc, Pigeon, …), are generated.
+  generated-code banners (protoc, Pigeon, …), are skipped as generated code.
   `--no-project-config` stops reading `pubspec.yaml`, `build.yaml` and
   `l10n.yaml`; `--unused-translations` reports unused gen-l10n messages.
   ([#86](https://github.com/leancodepl/ciach/pull/86))
