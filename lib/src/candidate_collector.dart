@@ -188,14 +188,19 @@ final class CandidateCollector {
       if (_shouldConsider(relativePath, candidate, leadingMetadata)) {
         yield candidate;
       }
-      final isTypeLike = typeLikeKinds.contains(symbol.kind);
+      final (
+        childContainer,
+        childContainerCandidate,
+      ) = typeLikeKinds.contains(symbol.kind)
+          ? (symbol.name, candidate)
+          : (container, containerCandidate);
       yield* _collect(
         uri,
         path,
         relativePath,
         symbol.children ?? const [],
-        isTypeLike ? symbol.name : container,
-        isTypeLike ? candidate : containerCandidate,
+        childContainer,
+        childContainerCandidate,
         symbol.kind == .enum$,
         outlines,
       );

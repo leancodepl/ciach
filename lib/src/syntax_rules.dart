@@ -112,20 +112,7 @@ extension StructuralChecks on SourceIndex {
       if (statementStart == null) {
         continue;
       }
-      var isFinal = false;
-      for (final token in leadingMetadata(path, statementStart)) {
-        if (!token.isKeyword) {
-          continue;
-        }
-        if (token.text case 'static' || 'const') {
-          isFinal = false;
-          break;
-        }
-        if (token.text == 'final') {
-          isFinal = true;
-        }
-      }
-      if (isFinal) {
+      if (_declaresFinalInstance(leadingMetadata(path, statementStart))) {
         return true;
       }
     }
@@ -203,4 +190,19 @@ extension StructuralChecks on SourceIndex {
         switchNode != null &&
         opensWith(switchNode, 'switch');
   }
+}
+
+/// Whether the keywords in [modifiers] make a `final` instance field: `final`,
+/// and neither `static` nor `const`.
+bool _declaresFinalInstance(Iterable<SemanticToken> modifiers) {
+  var isFinal = false;
+  for (final token in modifiers.where((token) => token.isKeyword)) {
+    if (token.text case 'static' || 'const') {
+      return false;
+    }
+    if (token.text == 'final') {
+      isFinal = true;
+    }
+  }
+  return isFinal;
 }

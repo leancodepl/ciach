@@ -132,31 +132,9 @@ final class ReferenceFetch {
     List<List<Location>> refsByCandidate,
   ) async {
     final positionsByPath = <String, Set<Position>>{};
-    void add(String path, Position position) =>
+    for (final (i, candidate) in candidates.indexed) {
+      for (final (:path, :position) in _probes(candidate, refsByCandidate[i])) {
         positionsByPath.putIfAbsent(path, () => {}).add(position);
-
-    for (var i = 0; i < candidates.length; i++) {
-      final candidate = candidates[i];
-      final kind = candidate.symbol.kind;
-      final isEnumType = kind == .enum$ && !candidate.isEnumValue;
-      if (isEnumType || kind == .class$) {
-        for (final loc in refsByCandidate[i]) {
-          add(SourceIndex.pathOf(loc.uri), loc.range.start);
-        }
-      }
-      if ((kind == .constructor || kind == .field) &&
-          candidate.containerOutline != null) {
-        add(candidate.path, candidate.symbol.selectionRange.start);
-      }
-      if (isEnumType) {
-        for (final token in _sources.valuesTokensIn(candidate)) {
-          add(candidate.path, token.start);
-        }
-      }
-      if (kind == .constructor) {
-        if (_sources.redirectProbePosition(candidate) case final position?) {
-          add(candidate.path, position);
-        }
       }
     }
     if (positionsByPath.isEmpty) {
@@ -169,24 +147,63 @@ final class ReferenceFetch {
       entry,
     ) async {
       final MapEntry(key: path, value: positions) = entry;
-      final ordered = positions.toList();
-      try {
-        final ranges = await client.selectionRanges(File(path).uri, ordered);
-        for (var i = 0; i < ordered.length; i++) {
-          if (ranges[i] case final range?) {
-            _sources.cacheSelectionRange(path, ordered[i], range);
-          }
-        }
-      } on LspRequestException catch (e) {
-        // A position with no cached range reads as "not the special shape".
-        recordProblem(
-          _noSelectionRanges,
-          e,
-          path: path,
-          position: ordered.first,
-        );
-      }
+      await _fetchSelectionRanges(client, path, positions.toList());
     });
+  }
+
+  /// The positions in which files whose syntax node the structural checks
+  /// need for [candidate] and its [refs].
+  Iterable<({String path, Position position})> _probes(
+    Candidate candidate,
+    List<Location> refs,
+  ) sync* {
+    final kind = candidate.symbol.kind;
+    final isEnumType = kind == .enum$ && !candidate.isEnumValue;
+    if (isEnumType || kind == .class$) {
+      for (final loc in refs) {
+        yield (path: SourceIndex.pathOf(loc.uri), position: loc.range.start);
+      }
+    }
+    if ((kind == .constructor || kind == .field) &&
+        candidate.containerOutline != null) {
+      yield (
+        path: candidate.path,
+        position: candidate.symbol.selectionRange.start,
+      );
+    }
+    if (isEnumType) {
+      for (final token in _sources.valuesTokensIn(candidate)) {
+        yield (path: candidate.path, position: token.start);
+      }
+    }
+    if (kind == .constructor) {
+      if (_sources.redirectProbePosition(candidate) case final position?) {
+        yield (path: candidate.path, position: position);
+      }
+    }
+  }
+
+  Future<void> _fetchSelectionRanges(
+    LspClient client,
+    String path,
+    List<Position> positions,
+  ) async {
+    try {
+      final ranges = await client.selectionRanges(File(path).uri, positions);
+      for (final (i, position) in positions.indexed) {
+        if (ranges[i] case final range?) {
+          _sources.cacheSelectionRange(path, position, range);
+        }
+      }
+    } on LspRequestException catch (e) {
+      // A position with no cached range reads as "not the special shape".
+      recordProblem(
+        _noSelectionRanges,
+        e,
+        path: path,
+        position: positions.first,
+      );
+    }
   }
 }
 
