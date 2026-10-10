@@ -8,5 +8,7 @@ pubspec.lock
 # The landing page is not part of the published package.
 website/
 
-# Repository-only analyzer plugin.
+# Repository-only analyzer plugin and changelog check.
 tool/
+test/check_changelog_test.dart
+CLAUDE.md
