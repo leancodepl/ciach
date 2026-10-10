@@ -1,13 +1,13 @@
 include: package:leancode_lint/analysis_options.yaml
 
 plugins:
-  # Pinned to the unreleased commit adding `cognitive_complexity`; go back to a
+  # Pinned to the master commit adding `cognitive_complexity`; go back to a
   # version constraint once it is published.
   leancode_lint:
     git:
       url: https://github.com/leancodepl/flutter_corelibrary
       path: packages/leancode_lint
-      ref: a7234a06827dc9c8e70e5f53bd6f0079c5576fcd
+      ref: dff1be1715976b71a39b521073d8a4bae4b9dada
     diagnostics:
       cognitive_complexity: true
   ciach_lints:
