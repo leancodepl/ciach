@@ -7,8 +7,8 @@ import 'package:path/path.dart' as p;
 /// Returns the files that `gen-l10n` generates, as `l10n.yaml` configures
 /// them. `gen-l10n` writes the template file, and next to it one
 /// `<template>_<locale>.dart` file for each locale. These files have no banner
-/// that marks them as generated, so they have to be found this way. The
-/// settings match Flutter 1.22, which is the version that added `output-dir`.
+/// that marks them as generated, so they have to be found this way
+/// (Flutter 1.22+).
 /// With `synthetic-package`, `gen-l10n` writes the files into `.dart_tool/`
 /// instead, so there is nothing to find in the source tree.
 ({Translations template, String localesGlob})? readGenL10n(String rootPath) {

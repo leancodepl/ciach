@@ -2,8 +2,7 @@ import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/project_config/project_files.dart';
 
 /// Returns the functions that dart_frog calls: the route handlers, the
-/// middleware, and the server hooks in `main.dart`. The list matches
-/// dart_frog_cli 0.3.4, which is the version that added `init`.
+/// middleware, and the server hooks in `main.dart` (dart_frog_cli 0.3.4+).
 Iterable<EntryPoint> dartFrogEntryPoints(Pubspec pubspec) sync* {
   if (!pubspec.dependencies.contains('dart_frog')) {
     return;

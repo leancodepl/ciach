@@ -11,8 +11,7 @@ import 'package:path/path.dart' as p;
 /// - by the `targets:` of the package;
 /// - by the `applies_builders` list of another builder that is applied.
 ///
-/// The rules match build_config 0.4.2, which is the version that added
-/// `auto_apply_builders`.
+/// This follows build_config 0.4.2.
 Iterable<Map<Object?, Object?>> appliedBuilders(
   String rootPath,
   Pubspec pubspec,
@@ -80,9 +79,8 @@ Set<String> _autoApplied(
 
 /// Returns [autoApplied], changed by the targets in [buildYaml]. When a target
 /// configures a builder, the builder is enabled, unless the configuration says
-/// `enabled: false`; build_config has worked this way since 0.2.1. When every
-/// target sets `auto_apply_builders: false`, which build_config supports since
-/// 0.4.2, the builders that are only auto-applied are dropped.
+/// `enabled: false`. When every target sets `auto_apply_builders: false`, the
+/// builders that are only auto-applied are dropped.
 Set<String> _byTargets(
   Set<String> autoApplied,
   Map<Object?, Object?>? buildYaml,
