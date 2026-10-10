@@ -8,6 +8,16 @@ import 'package:ciach/src/models.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+/// `--no-exported` depends on the package layout, so this builds a package:
+/// - `lib/exported_pkg.dart`, a public library exporting `lib/src/api.dart`;
+/// - `lib/src/api.dart`, whose signatures each hand out one type of
+///   `lib/src/types.dart` in a different way;
+/// - `lib/src/types.dart`, not exported, where each type has a `…Dead`
+///   member;
+/// - `bin/` and `test/`, which no other package can import.
+///
+/// With `includeExported: false`, a type's members are kept only when an
+/// exported signature hands the type out.
 void main() {
   late Directory root;
 
@@ -33,6 +43,9 @@ void publicTopLevel() {}
     write('lib/src/api.dart', '''
 import 'types.dart';
 
+// Each hands out the type it names: as a return type, a callback parameter,
+// a type argument, a supertype, an inferred type, and a wrapper. Config and
+// Retry are reached through Client's getters, Carried through Carrier's.
 Client createClient() => Client();
 void listen(void Function(Callback) f) {}
 Future<List<Generic>> generics() async => [];
@@ -40,12 +53,15 @@ class Exported extends Base {}
 final inferred = Inferred();
 Carrier makeCarrier() => Carrier();
 Wrapper makeWrapper() => Wrapper(1);
+
+// Untyped signatures hand out whatever the body builds.
 dynamic makeDynamic() => DynamicOnly();
 untypedReturn() => UntypedOnly();
 Function makeFunction() => () => FunctionOnly();
 void callBack(cb) => cb(CallbackArg());
 T makeGeneric<T>() => GenericOnly() as T;
 
+// Hand out nothing: private code, a doc link, and a typed function's body.
 void _private() => 1.privateUsed();
 
 extension _PrivateExtension on int {
@@ -61,6 +77,8 @@ void work() {
   final Named n = .named();
 }
 ''');
+    // Every `…Dead` member is dead. With --no-exported, only those of types
+    // api.dart doesn't hand out are reported.
     write('lib/src/types.dart', '''
 class Client {
   Config get config => Config();
@@ -178,6 +196,8 @@ void main() => Helper().used();
     return {for (final decl in result.unused) decl.qualifiedName};
   }
 
+  // Reported either way: private, unexported, or a member of a type no
+  // exported signature hands out.
   const internal = {
     'Client._clientPrivateDead',
     'DocOnly.docOnlyDead',
