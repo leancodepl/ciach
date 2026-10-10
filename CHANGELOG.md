@@ -1,7 +1,7 @@
 ## Unreleased
 
 - `--transitive` also reports dead cycles: declarations that only reference
-  each other. `--no-dead-cycles` (`dead-cycles: false`) turns that off.
+  each other.
   ([#65](https://github.com/leancodepl/ciach/issues/65))
 - A dead `StatefulWidget` whose `State` is used elsewhere (say, by a
   `GlobalKey`) is report-only: `--remove` deleted the widget and left

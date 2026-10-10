@@ -218,18 +218,9 @@ enum CiachOption<V> implements OptionDefinition<V> {
       defaultsTo: false,
       helpText:
           'Also report declarations referenced only from other findings,\n'
-          'repeating until nothing new is found. Off by default, because one\n'
-          'false positive also flags everything only it referenced.',
-    ),
-  ),
-  deadCycles(
-    FlagOption(
-      argName: 'dead-cycles',
-      configKey: '/dead-cycles',
-      defaultsTo: true,
-      helpText:
-          'With --transitive, also report cycles of dead declarations that\n'
-          'only reference each other. Ignored without --transitive.',
+          'and cycles of declarations that only reference each other. Off by\n'
+          'default, because one false positive also flags everything only it\n'
+          'referenced.',
     ),
   ),
   reportToJson(
