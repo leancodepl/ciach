@@ -19,7 +19,7 @@ List<DeletedFile> deleteEmptiedFiles(Set<String> rewritten, String rootPath) {
     return const [];
   }
   final root = rootPath.absoluteNormalized;
-  final package = _Package.scan(root);
+  final package = _Package(root);
   final pending = rewritten.map(p.normalize).toSet();
   final deleted = <DeletedFile>[];
 
@@ -103,9 +103,7 @@ enum _Link { none, droppable, blocking }
 
 /// The package's Dart files, contents cached across the rewrites.
 final class _Package {
-  _Package._(this._files);
-
-  factory _Package.scan(String root) => ._(scanPackageTree(root).dartFiles);
+  _Package(String root) : _files = scanPackageTree(root).dartFiles;
 
   final Set<String> _files;
   final _packages = PackageResolver();

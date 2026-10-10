@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/file_discovery.dart';
 import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
@@ -47,15 +48,16 @@ final class PackageResolver {
   /// package [from]'s config doesn't list; `null` for any other scheme.
   String? resolve(String uri, String from) => switch (Uri.tryParse(uri)) {
     Uri(scheme: 'package', pathSegments: [_, _, ...]) && final parsed =>
-      switch (_configOf(p.dirname(from))?.resolve(parsed)) {
-        final file? => p.normalize(file.toFilePath()),
-        null => unknownPackage,
-      },
+      _packagePath(parsed, from) ?? unknownPackage,
     Uri(scheme: '') && final parsed => p.normalize(
       p.join(p.dirname(from), p.fromUri(parsed)),
     ),
     _ => null,
   };
+
+  String? _packagePath(Uri uri, String from) => _configOf(
+    p.dirname(from),
+  )?.resolve(uri)?.let((file) => p.normalize(file.toFilePath()));
 
   /// The package config of [dir]: its own, or its nearest ancestor's, as in a
   /// pub workspace.

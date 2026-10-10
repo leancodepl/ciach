@@ -4,7 +4,7 @@ import 'package:ciach/ciach.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-import 'support/package_config.dart';
+import 'support/removal.dart';
 
 void main() {
   late Directory tempDir;
@@ -17,46 +17,8 @@ void main() {
     tempDir.deleteSync(recursive: true);
   });
 
-  /// Writes [content] to `<tempDir>/lib.dart`, removes [decls] from it, and
-  /// returns the resulting content, or `''` if the file was deleted.
-  String applyRemoval(String content, List<UnusedDeclaration> decls) {
-    final file = File(p.join(tempDir.path, 'lib.dart'))
-      ..writeAsStringSync(content);
-    removeDeclarations(decls, tempDir.path);
-    return file.existsSync() ? file.readAsStringSync() : '';
-  }
-
-  /// A finding whose doc comment or annotations start at [docLine]:[docColumn].
-  UnusedDeclaration decl({
-    required int startLine,
-    required int startColumn,
-    required int endLine,
-    required int endColumn,
-    SymbolKind kind = .function,
-    bool isEnumValue = false,
-    int? docLine,
-    int? docColumn,
-  }) => .new(
-    name: 'x',
-    kind: kind,
-    filePath: 'lib.dart',
-    line: startLine + 1,
-    column: startColumn + 1,
-    isPrivate: false,
-    isEnumValue: isEnumValue,
-    range: (
-      startLine: startLine,
-      startColumn: startColumn,
-      endLine: endLine,
-      endColumn: endColumn,
-    ),
-    fullRange: (
-      startLine: docLine ?? startLine,
-      startColumn: docColumn ?? (docLine == null ? startColumn : 0),
-      endLine: endLine,
-      endColumn: endColumn,
-    ),
-  );
+  String applyRemoval(String content, List<UnusedDeclaration> decls) =>
+      removeFrom(tempDir, content, decls);
 
   test('removes a top-level function along with its doc comment', () {
     const source = '''
@@ -108,7 +70,7 @@ class C {
     expect(result, isNot(contains('Doc.')));
     expect(result, contains('class C {'));
     expect(result, contains('void method() {}'));
-    _expectBalanced(result);
+    expectBalanced(result);
   });
 
   group('multi-declarator statement `int a = 1, b = 2, c = 3;`', () {
@@ -193,388 +155,6 @@ class C {
     expect(result, source);
   });
 
-  group('enum values', () {
-    test('removes a middle value along with its trailing comma', () {
-      const source = '''
-enum Direction {
-  north,
-  south,
-  east,
-}
-''';
-      final result = applyRemoval(source, [
-        decl(
-          startLine: 2,
-          startColumn: 2,
-          endLine: 2,
-          endColumn: 2 + 'south'.length,
-          isEnumValue: true,
-        ),
-      ]);
-      expect(result, isNot(contains('south')));
-      expect(result, contains('north,'));
-      expect(result, contains('east,'));
-      expect(result, isNot(contains(',,')));
-    });
-
-    test('removes the last value when there is no trailing comma', () {
-      const source = '''
-enum Direction {
-  north,
-  south
-}
-''';
-      final result = applyRemoval(source, [
-        decl(
-          startLine: 2,
-          startColumn: 2,
-          endLine: 2,
-          endColumn: 2 + 'south'.length,
-          isEnumValue: true,
-        ),
-      ]);
-      expect(result, isNot(contains('south')));
-      expect(result, contains('north'));
-      expect(result, isNot(contains('north,,')));
-      _expectBalanced(result);
-    });
-
-    group('compact single-line `enum Size { small, medium, large }`', () {
-      const source = 'enum Size { small, medium, large }\n';
-
-      UnusedDeclaration valueNamed(String name) {
-        final start = source.indexOf(name);
-        return decl(
-          startLine: 0,
-          startColumn: start,
-          endLine: 0,
-          endColumn: start + name.length,
-          isEnumValue: true,
-        );
-      }
-
-      test('removes a middle value without corrupting the declaration', () {
-        final result = applyRemoval(source, [valueNamed('medium')]);
-        expect(result, isNot(contains('medium')));
-        expect(result, contains('enum Size {'));
-        expect(result, contains('small'));
-        expect(result, contains('large'));
-        expect(result, isNot(contains(',,')));
-        _expectBalanced(result);
-      });
-
-      test('removes the last value without corrupting the declaration', () {
-        final result = applyRemoval(source, [valueNamed('large')]);
-        expect(result, isNot(contains('large')));
-        expect(result, contains('enum Size {'));
-        expect(result, contains('small'));
-        expect(result, contains('medium'));
-        expect(result, isNot(contains(',,')));
-        _expectBalanced(result);
-      });
-    });
-
-    group('compact single-line, removing multiple values in one pass', () {
-      const source = 'enum E { a, b, c, d }\n';
-
-      UnusedDeclaration valueNamed(String name) {
-        final start = source.indexOf(name);
-        return decl(
-          startLine: 0,
-          startColumn: start,
-          endLine: 0,
-          endColumn: start + name.length,
-          isEnumValue: true,
-        );
-      }
-
-      test('removes two non-adjacent middle values', () {
-        final result = applyRemoval(source, [valueNamed('b'), valueNamed('d')]);
-        expect(result, contains('enum E {'));
-        expect(result, contains('a'));
-        expect(result, contains('c'));
-        expect(result, isNot(contains('b')));
-        expect(result, isNot(contains('d')));
-        expect(result, isNot(contains(',,')));
-        expect(result.trim(), 'enum E { a, c }');
-        _expectBalanced(result);
-      });
-
-      test('removes two adjacent middle values', () {
-        final result = applyRemoval(source, [valueNamed('b'), valueNamed('c')]);
-        expect(result, contains('enum E {'));
-        expect(result, contains('a'));
-        expect(result, contains('d'));
-        expect(result, isNot(contains('b')));
-        expect(result, isNot(contains('c')));
-        expect(result, isNot(contains(',,')));
-        expect(result.trim(), 'enum E { a, d }');
-        _expectBalanced(result);
-      });
-
-      test('removes a trailing run, leaving no dangling separator comma', () {
-        // Regression: removing the last values used to leave a dangling `,`.
-        final result = applyRemoval(source, [valueNamed('c'), valueNamed('d')]);
-        expect(result, contains('enum E {'));
-        expect(result, contains('a'));
-        expect(result, contains('b'));
-        expect(result, isNot(contains('c')));
-        expect(result, isNot(contains('d')));
-        expect(result, isNot(contains(',,')));
-        expect(result.trim(), 'enum E { a, b }');
-        _expectBalanced(result);
-      });
-
-      test('removes a leading run, keeping the surviving values', () {
-        final result = applyRemoval(source, [valueNamed('a'), valueNamed('b')]);
-        expect(result, contains('enum E {'));
-        expect(result, contains('c'));
-        expect(result, contains('d'));
-        expect(result, isNot(contains('a')));
-        expect(result, isNot(contains('b')));
-        expect(result, isNot(contains(',,')));
-        expect(result.trim(), 'enum E { c, d }');
-        _expectBalanced(result);
-      });
-    });
-
-    group('compact single-line enum with a leading `///` doc comment', () {
-      // The line above the values is the enum type's doc comment — it must
-      // never be swept into a value's removal span.
-      const source =
-          '/// Doc comment on the enum type.\n'
-          'enum Accuracy { best, high, medium }\n';
-
-      UnusedDeclaration valueNamed(String name) {
-        final start = source.indexOf(name);
-        final line = '\n'.allMatches(source.substring(0, start)).length;
-        final column = start - (source.lastIndexOf('\n', start - 1) + 1);
-        return decl(
-          startLine: line,
-          startColumn: column,
-          endLine: line,
-          endColumn: column + name.length,
-          isEnumValue: true,
-        );
-      }
-
-      test(
-        'removing one value keeps the doc comment, header and kept values',
-        () {
-          final result = applyRemoval(source, [valueNamed('high')]);
-          expect(result, contains('/// Doc comment on the enum type.'));
-          expect(result, contains('enum Accuracy {'));
-          expect(result, contains('best'));
-          expect(result, contains('medium'));
-          expect(result, isNot(contains('high')));
-          expect(result, isNot(contains(',,')));
-          _expectBalanced(result);
-        },
-      );
-
-      test('removing multiple values keeps the doc comment and header', () {
-        final result = applyRemoval(source, [
-          valueNamed('high'),
-          valueNamed('medium'),
-        ]);
-        expect(result, contains('/// Doc comment on the enum type.'));
-        expect(result, contains('enum Accuracy { best }'));
-        expect(result, isNot(contains('high')));
-        expect(result, isNot(contains('medium')));
-        expect(result, isNot(contains(',,')));
-        _expectBalanced(result);
-      });
-    });
-
-    group('compact single-line enum with a `//` line and annotation above', () {
-      // The comment and annotation belong to the enum type, not a value, and
-      // must survive value removal.
-      const source =
-          '// Ordered from least to most precise.\n'
-          '@immutable\n'
-          'enum Level { low, mid, top }\n';
-
-      UnusedDeclaration valueNamed(String name) {
-        final start = source.indexOf(' $name') + 1;
-        final line = '\n'.allMatches(source.substring(0, start)).length;
-        final column = start - (source.lastIndexOf('\n', start - 1) + 1);
-        return decl(
-          startLine: line,
-          startColumn: column,
-          endLine: line,
-          endColumn: column + name.length,
-          isEnumValue: true,
-        );
-      }
-
-      test('removing values keeps the comment, annotation and header', () {
-        final result = applyRemoval(source, [
-          valueNamed('mid'),
-          valueNamed('top'),
-        ]);
-        expect(result, contains('// Ordered from least to most precise.'));
-        expect(result, contains('@immutable'));
-        expect(result, contains('enum Level { low }'));
-        expect(result, isNot(contains('mid')));
-        expect(result, isNot(contains('top')));
-        expect(result, isNot(contains(',,')));
-        _expectBalanced(result);
-      });
-    });
-
-    group('removing every value', () {
-      // NOTE: an enum with no values is invalid Dart, so removing *all* of an
-      // enum's values would leave `enum Foo {}`, which won't compile. The
-      // safety net that refuses this whole-enum removal lives elsewhere (the
-      // `removalBlocked` guard on the empty-enum branch, PR #10), not in the
-      // remover's span logic. These tests only pin down that this branch's
-      // span math stays clean when it is handed every value: the values and
-      // their separators come out with no leftover names, no dangling/`,,`
-      // comma, and balanced braces — it just collapses to an empty body.
-
-      test('multi-line enum collapses to an empty body', () {
-        const source = '''
-enum Direction {
-  north,
-  south,
-  east,
-}
-''';
-        UnusedDeclaration valueNamed(String name) {
-          final start = source.indexOf('  $name') + 2;
-          final line = '\n'.allMatches(source.substring(0, start)).length;
-          final column = start - (source.lastIndexOf('\n', start - 1) + 1);
-          return decl(
-            startLine: line,
-            startColumn: column,
-            endLine: line,
-            endColumn: column + name.length,
-            isEnumValue: true,
-          );
-        }
-
-        final result = applyRemoval(source, [
-          valueNamed('north'),
-          valueNamed('south'),
-          valueNamed('east'),
-        ]);
-        expect(result, isNot(contains('north')));
-        expect(result, isNot(contains('south')));
-        expect(result, isNot(contains('east')));
-        expect(result, isNot(contains(',')));
-        expect(result.trim(), 'enum Direction {\n}');
-        _expectBalanced(result);
-      });
-
-      test('compact single-line enum collapses to an empty body', () {
-        const source = 'enum Empty { a, b, c }\n';
-        UnusedDeclaration valueNamed(String name) {
-          final start = source.indexOf(' $name') + 1;
-          return decl(
-            startLine: 0,
-            startColumn: start,
-            endLine: 0,
-            endColumn: start + name.length,
-            isEnumValue: true,
-          );
-        }
-
-        final result = applyRemoval(source, [
-          valueNamed('a'),
-          valueNamed('b'),
-          valueNamed('c'),
-        ]);
-        expect(result, isNot(contains(',')));
-        expect(result, isNot(contains(',,')));
-        // Clean span math: header and braces survive, body is emptied.
-        expect(result.trim(), 'enum Empty {  }');
-        _expectBalanced(result);
-      });
-    });
-
-    group('enhanced enum (values, then `;` and other members)', () {
-      // Removing the last *value* must drop the value and its separator comma
-      // but leave the `;` that terminates the value list and every trailing
-      // member (constructors/fields/methods) untouched.
-
-      test('multi-line: removing the last value keeps the `;` and members', () {
-        const source = '''
-enum E {
-  a,
-  b;
-
-  const E();
-  int get v => 0;
-}
-''';
-        // `b` is the last value, on line index 2, columns 2..3.
-        final result = applyRemoval(source, [
-          decl(
-            startLine: 2,
-            startColumn: 2,
-            endLine: 2,
-            endColumn: 3,
-            isEnumValue: true,
-          ),
-        ]);
-        expect(result, isNot(contains('  b')));
-        // The surviving last value now carries the list-terminating `;`.
-        expect(result, contains('  a;'));
-        expect(result, contains('const E();'));
-        expect(result, contains('int get v => 0;'));
-        expect(result, isNot(contains(',,')));
-        expect(result, isNot(contains(', ;')));
-        _expectBalanced(result);
-      });
-
-      test('compact: removing the last value keeps the `;` and members', () {
-        const source = 'enum E { a, b; final int x = 0; }\n';
-        final start = source.indexOf(' b') + 1;
-        final result = applyRemoval(source, [
-          decl(
-            startLine: 0,
-            startColumn: start,
-            endLine: 0,
-            endColumn: start + 1,
-            isEnumValue: true,
-          ),
-        ]);
-        expect(result.trim(), 'enum E { a; final int x = 0; }');
-        expect(result, isNot(contains(',,')));
-        _expectBalanced(result);
-      });
-
-      test('multi-line: removing a middle value keeps the `;` and members', () {
-        const source = '''
-enum E {
-  a,
-  b,
-  c;
-
-  int get v => 0;
-}
-''';
-        // `b` is a middle value, on line index 2, columns 2..3.
-        final result = applyRemoval(source, [
-          decl(
-            startLine: 2,
-            startColumn: 2,
-            endLine: 2,
-            endColumn: 3,
-            isEnumValue: true,
-          ),
-        ]);
-        expect(result, isNot(contains('  b')));
-        expect(result, contains('  a,'));
-        // `c` remains the last value and keeps terminating the list with `;`.
-        expect(result, contains('  c;'));
-        expect(result, contains('int get v => 0;'));
-        expect(result, isNot(contains(',,')));
-        _expectBalanced(result);
-      });
-    });
-  });
-
   test('collapses a fully-unused class into a single removal', () {
     const lines = [
       'class Kept {}',
@@ -616,7 +196,7 @@ enum E {
     expect(result, isNot(contains('orphanMethod')));
     expect(result, contains('class Kept {}'));
     expect(result, contains('class AlsoKept {}'));
-    _expectBalanced(result);
+    expectBalanced(result);
   });
 
   test('a declarator reported and coupled at once is removed once', () {
@@ -659,7 +239,7 @@ class Pair {
     expect(result, isNot(contains('left')));
     expect(result, isNot(contains('right')));
     expect(result, contains('class Pair {'));
-    _expectBalanced(result);
+    expectBalanced(result);
   });
 
   test(
@@ -704,7 +284,7 @@ class Mixed implements Halved {
       expect(result, isNot(contains('dead')));
       expect(result, contains('live = 2;'));
       expect(result, contains('class Mixed implements Halved {'));
-      _expectBalanced(result);
+      expectBalanced(result);
     },
   );
 
@@ -758,7 +338,7 @@ class Kept {}
       expect(result, isNot(contains('DeadWidget')));
       expect(result, isNot(contains('_DeadWidgetState')));
       expect(result, contains('class Kept {}'));
-      _expectBalanced(result);
+      expectBalanced(result);
     },
   );
 
@@ -898,7 +478,7 @@ int useKept() => Kept(1).x;
     expect(result, isNot(contains('Never referenced')));
     expect(result, contains('class Kept(var int x);'));
     expect(result, contains('int useKept() => Kept(1).x;'));
-    _expectBalanced(result);
+    expectBalanced(result);
   });
 
   test(
@@ -943,340 +523,9 @@ class Registry {
       expect(result, isNot(contains('deadRedirect')));
       expect(result, contains('new() : tag = null;'));
       expect(result, contains('final String? tag;'));
-      _expectBalanced(result);
+      expectBalanced(result);
     },
   );
-
-  group('emptied files', () {
-    void write(String relativePath, String content) {
-      File(p.join(tempDir.path, p.joinAll(p.posix.split(relativePath))))
-        ..createSync(recursive: true)
-        ..writeAsStringSync(content);
-    }
-
-    String read(String relativePath) => File(
-      p.join(tempDir.path, p.joinAll(p.posix.split(relativePath))),
-    ).readAsStringSync();
-
-    bool exists(String relativePath) => File(
-      p.join(tempDir.path, p.joinAll(p.posix.split(relativePath))),
-    ).existsSync();
-
-    /// `void gone() {}` on line index [line].
-    UnusedDeclaration gone(String filePath, {int line = 2}) => .new(
-      name: 'gone',
-      kind: .function,
-      filePath: filePath,
-      line: line + 1,
-      column: 6,
-      isPrivate: false,
-      range: (startLine: line, startColumn: 0, endLine: line, endColumn: 14),
-    );
-
-    setUp(() {
-      write('pubspec.yaml', 'name: pkg\n');
-      write('.dart_tool/package_config.json', packageConfig({'pkg': '.'}));
-    });
-
-    test('deletes a file left with nothing but imports and drops the '
-        'directives naming it — relative, package:, and an export', () {
-      write('lib/dead.dart', '''
-import 'dart:async';
-
-void gone() {}
-''');
-      write('lib/user.dart', '''
-import 'package:pkg/dead.dart';
-import 'dart:io';
-
-void kept() {}
-''');
-      write('lib/sub/relative.dart', '''
-import '../dead.dart' show gone;
-
-void alsoKept() {}
-''');
-      write('lib/barrel.dart', '''
-export 'dead.dart';
-export 'user.dart';
-''');
-
-      final result = removeDeclarations([gone('lib/dead.dart')], tempDir.path);
-
-      expect(exists('lib/dead.dart'), isFalse);
-      expect(result.filesChanged, 1);
-      final deleted = result.deletedFiles.single;
-      expect(deleted.filePath, 'lib/dead.dart');
-      expect(deleted.unlinkedFrom, [
-        'lib/barrel.dart',
-        'lib/sub/relative.dart',
-        'lib/user.dart',
-      ]);
-      expect(read('lib/user.dart'), "import 'dart:io';\n\nvoid kept() {}\n");
-      expect(read('lib/sub/relative.dart'), '\nvoid alsoKept() {}\n');
-      expect(read('lib/barrel.dart'), "export 'user.dart';\n");
-    });
-
-    test('a `library` line and comments do not keep a file', () {
-      write('lib/dead.dart', '''
-// Copyright: nobody.
-
-/// Docs for the library.
-library dead;
-
-// ignore_for_file: unused_import
-import 'dart:async';
-
-/// Gone.
-void gone() {}
-''');
-      removeDeclarations([gone('lib/dead.dart', line: 9)], tempDir.path);
-      expect(exists('lib/dead.dart'), isFalse);
-    });
-
-    test('a file that exports something stays, even once its own last '
-        'declaration is gone', () {
-      write('lib/dead.dart', '''
-export 'other.dart';
-
-void gone() {}
-''');
-      write('lib/other.dart', 'void other() {}\n');
-      final result = removeDeclarations([gone('lib/dead.dart')], tempDir.path);
-      expect(exists('lib/dead.dart'), isTrue);
-      expect(read('lib/dead.dart'), "export 'other.dart';\n\n");
-      expect(result.deletedFiles, isEmpty);
-    });
-
-    test('an export keeps its file whichever directives sit around it', () {
-      // Only the export matters, not the import or the `show`.
-      write('pubspec.yaml', 'name: pkg\n');
-      write('lib/other.dart', 'class Kept {}\n');
-      write('lib/dead.dart', '''
-import 'dart:async';
-export 'package:pkg/other.dart' show Kept;
-
-class DeadClass {}
-''');
-      final result = removeDeclarations([
-        const .new(
-          name: 'DeadClass',
-          kind: .class$,
-          filePath: 'lib/dead.dart',
-          line: 4,
-          column: 7,
-          isPrivate: false,
-          range: (startLine: 3, startColumn: 0, endLine: 3, endColumn: 17),
-        ),
-      ], tempDir.path);
-
-      expect(exists('lib/dead.dart'), isTrue);
-      expect(result.deletedFiles, isEmpty);
-      expect(
-        read('lib/dead.dart'),
-        contains("export 'package:pkg/other.dart'"),
-      );
-      expect(read('lib/dead.dart'), isNot(contains('DeadClass')));
-    });
-
-    test('a file that still owns a part stays', () {
-      write('lib/dead.dart', '''
-part 'dead.g.dart';
-
-void gone() {}
-''');
-      write('lib/dead.g.dart', "part of 'dead.dart';\n");
-      removeDeclarations([gone('lib/dead.dart')], tempDir.path);
-      expect(exists('lib/dead.dart'), isTrue);
-      expect(exists('lib/dead.g.dart'), isTrue);
-    });
-
-    test('an emptied part file is deleted with its `part` line, and the '
-        'owner left with nothing but imports follows it', () {
-      write('lib/owner.dart', '''
-import 'dart:async';
-
-part 'piece.dart';
-''');
-      write('lib/piece.dart', '''
-part of 'owner.dart';
-
-void gone() {}
-''');
-      write('bin/main.dart', '''
-import 'package:pkg/owner.dart';
-
-void main() {}
-''');
-
-      final result = removeDeclarations([gone('lib/piece.dart')], tempDir.path);
-
-      expect(exists('lib/piece.dart'), isFalse);
-      expect(exists('lib/owner.dart'), isFalse);
-      expect(result.deletedFiles.map((d) => d.filePath), [
-        'lib/piece.dart',
-        'lib/owner.dart',
-      ]);
-      expect(read('bin/main.dart'), '\nvoid main() {}\n');
-    });
-
-    test('a barrel left with nothing once its only export is deleted '
-        'follows it', () {
-      write('lib/dead.dart', '''
-import 'dart:async';
-
-void gone() {}
-''');
-      write('lib/barrel.dart', "export 'dead.dart';\n");
-      write('bin/main.dart', '''
-import 'package:pkg/barrel.dart';
-
-void main() {}
-''');
-
-      final result = removeDeclarations([gone('lib/dead.dart')], tempDir.path);
-
-      expect(exists('lib/dead.dart'), isFalse);
-      expect(exists('lib/barrel.dart'), isFalse);
-      expect(result.deletedFiles.map((d) => d.filePath), [
-        'lib/dead.dart',
-        'lib/barrel.dart',
-      ]);
-      expect(read('bin/main.dart'), '\nvoid main() {}\n');
-    });
-
-    test('a file named in a conditional import stays', () {
-      write('lib/dead.dart', '''
-import 'dart:async';
-
-void gone() {}
-''');
-      write('lib/switch.dart', '''
-import 'stub.dart' if (dart.library.io) 'dead.dart';
-
-void kept() {}
-''');
-      write('lib/stub.dart', 'void stub() {}\n');
-      final result = removeDeclarations([gone('lib/dead.dart')], tempDir.path);
-      expect(exists('lib/dead.dart'), isTrue);
-      expect(result.deletedFiles, isEmpty);
-      expect(read('lib/switch.dart'), contains("'dead.dart'"));
-    });
-
-    test('a `package:` URI of a package no package config lists keeps the '
-        'file '
-        'when the paths line up', () {
-      write('lib/dead.dart', '''
-import 'dart:async';
-
-void gone() {}
-''');
-      write('lib/user.dart', '''
-import 'package:mystery/dead.dart';
-
-void kept() {}
-''');
-      removeDeclarations([gone('lib/dead.dart')], tempDir.path);
-      expect(exists('lib/dead.dart'), isTrue);
-      expect(read('lib/user.dart'), contains('package:mystery/dead.dart'));
-    });
-
-    test('a `package:` URI of another package under the root is not this '
-        'file', () {
-      write('lib/dead.dart', '''
-import 'dart:async';
-
-void gone() {}
-''');
-      write('example/pubspec.yaml', 'name: sample\n');
-      write(
-        'example/.dart_tool/package_config.json',
-        packageConfig({'sample': '.'}),
-      );
-      write('example/lib/dead.dart', 'void sampleDead() {}\n');
-      write('example/bin/main.dart', '''
-import 'package:sample/dead.dart';
-
-void main() {}
-''');
-      removeDeclarations([gone('lib/dead.dart')], tempDir.path);
-      expect(exists('lib/dead.dart'), isFalse);
-      expect(
-        read('example/bin/main.dart'),
-        contains('package:sample/dead.dart'),
-      );
-    });
-
-    test('a `package:` URI of a path dependency outside the root is not '
-        'this file', () {
-      write('app/pubspec.yaml', 'name: app\n');
-      write(
-        'app/.dart_tool/package_config.json',
-        packageConfig({'app': '.', 'core': '../core'}),
-      );
-      write('app/lib/dead.dart', '''
-import 'dart:async';
-
-void gone() {}
-''');
-      write('app/lib/user.dart', '''
-import 'package:core/dead.dart';
-
-void kept() {}
-''');
-      write('core/pubspec.yaml', 'name: core\n');
-      write('core/lib/dead.dart', 'void coreDead() {}\n');
-      removeDeclarations([gone('lib/dead.dart')], p.join(tempDir.path, 'app'));
-      expect(exists('app/lib/dead.dart'), isFalse);
-      expect(read('app/lib/user.dart'), contains('package:core/dead.dart'));
-    });
-
-    test('a file nothing was removed from is never deleted, even if empty', () {
-      write('lib/placeholder.dart', '// Reserved for later.\n');
-      write('lib/dead.dart', '''
-import 'placeholder.dart';
-
-void gone() {}
-''');
-      removeDeclarations([gone('lib/dead.dart')], tempDir.path);
-      expect(exists('lib/dead.dart'), isFalse);
-      expect(exists('lib/placeholder.dart'), isTrue);
-    });
-
-    test('a file with a declaration left is not deleted, and its import of '
-        'a deleted file is dropped whole even across lines', () {
-      write('lib/dead.dart', 'void gone() {}\n');
-      write('lib/user.dart', '''
-import 'dead.dart'
-    show gone,
-        other;
-
-/// Still here.
-void kept() {}
-''');
-      removeDeclarations([gone('lib/dead.dart', line: 0)], tempDir.path);
-      expect(exists('lib/dead.dart'), isFalse);
-      expect(read('lib/user.dart'), '\n/// Still here.\nvoid kept() {}\n');
-    });
-
-    test('a report-only finding does not empty its file', () {
-      write('lib/dead.dart', 'void gone() {}\n');
-      const blocked = UnusedDeclaration(
-        name: 'gone',
-        kind: .function,
-        filePath: 'lib/dead.dart',
-        line: 1,
-        column: 6,
-        isPrivate: false,
-        range: (startLine: 0, startColumn: 0, endLine: 0, endColumn: 14),
-        removalBlocked: true,
-      );
-      final result = removeDeclarations([blocked], tempDir.path);
-      expect(exists('lib/dead.dart'), isTrue);
-      expect(result.filesChanged, 0);
-      expect(result.deletedFiles, isEmpty);
-    });
-  });
 
   test('a file it cannot rewrite stops it, naming what it already rewrote', () {
     File(
@@ -1310,20 +559,4 @@ void kept() {}
       'void b() {}\n',
     );
   });
-}
-
-/// A cheap brace-balance check so a regression that mangles a removal shows
-/// up in these fast unit tests, without needing the full analyzer.
-void _expectBalanced(String source) {
-  var depth = 0;
-  for (final ch in source.split('')) {
-    if (ch == '{') {
-      depth++;
-    }
-    if (ch == '}') {
-      depth--;
-    }
-    expect(depth, greaterThanOrEqualTo(0), reason: 'unbalanced braces');
-  }
-  expect(depth, 0, reason: 'unbalanced braces');
 }

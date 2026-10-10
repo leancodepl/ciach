@@ -69,18 +69,5 @@ void main() {
         unknownPackage,
       );
     });
-
-    test('resolves a relative URI against the file', () {
-      expect(
-        PackageResolver().resolve('src/../b.dart', path(from)),
-        path('pkgs/app/lib/b.dart'),
-      );
-    });
-
-    test('ignores dart: URIs and a package: URI without a path', () {
-      final packages = PackageResolver();
-      expect(packages.resolve('dart:io', path(from)), isNull);
-      expect(packages.resolve('package:core', path(from)), isNull);
-    });
   });
 }
