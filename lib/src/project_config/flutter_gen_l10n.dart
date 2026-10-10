@@ -5,7 +5,8 @@ import 'package:ciach/src/project_config/project_files.dart';
 import 'package:path/path.dart' as p;
 
 /// gen-l10n output has no banner: the template file, and one
-/// `<template>_<locale>.dart` per locale beside it.
+/// `<template>_<locale>.dart` per locale beside it. Covers Flutter up to 1.22,
+/// which added `output-dir`; a `synthetic-package` writes into `.dart_tool/`.
 ({Translations template, String localesGlob})? readGenL10n(String rootPath) {
   final file = File(p.join(rootPath, 'l10n.yaml'));
   if (!file.existsSync()) {

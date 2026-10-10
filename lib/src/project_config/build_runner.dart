@@ -33,8 +33,8 @@ Iterable<EntryPoint> _factoriesOf(Object? builder, String packageName) sync* {
 }
 
 /// Source output of the builders applied to the package, and of
-/// `build_extensions` given as a builder option, which source_gen and freezed
-/// accept.
+/// `build_extensions` given as a builder option, which source_gen 1.2 and
+/// freezed 1.0.1 accept.
 Iterable<String> buildRunnerGeneratedGlobs(
   String rootPath,
   Pubspec pubspec,

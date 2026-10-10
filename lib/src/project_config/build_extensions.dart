@@ -1,7 +1,8 @@
 import 'package:ciach/src/project_config/project_files.dart';
 
 /// Globs of the Dart files a builder's `build_extensions` declare, mirroring
-/// package:build's `expectedOutputs`.
+/// package:build's `expectedOutputs`. Covers package:build up to 2.3, which
+/// allowed `^` without a capture.
 Iterable<String> outputGlobs(Map<Object?, Object?> buildExtensions) => [
   for (final MapEntry(key: input, value: outputs) in buildExtensions.entries)
     if (input is String)

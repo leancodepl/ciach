@@ -4,7 +4,8 @@ import 'package:path/path.dart' as p;
 
 /// The definitions of the builders build_runner applies to the package at
 /// [rootPath]: by `auto_apply` (`dependents` needs a direct dependency),
-/// `targets:`, or transitively by `applies_builders`.
+/// `targets:`, or transitively by `applies_builders`. Covers build_config up
+/// to 0.4.2, which added `auto_apply_builders`.
 Iterable<Map<Object?, Object?>> appliedBuilders(
   String rootPath,
   Pubspec pubspec,

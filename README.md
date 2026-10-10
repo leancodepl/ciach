@@ -355,24 +355,6 @@ Every package under the scanned path is read from its own files, so scanning a
 pub workspace or monorepo root covers its members. `build.yaml` counts together
 with every `build.<name>.yaml`, since `build_runner --config` may pick any.
 
-### Supported versions
-
-For each config below, ciach reads every key up to the version listed. Older
-versions work too, with fewer keys to read. Keys added in later versions are
-ignored.
-
-- `build.yaml`: build_config 0.4.2, build 2.3
-- `build_extensions` given as a builder option: source_gen 1.2, freezed 1.0.1
-- `l10n.yaml`: Flutter 1.22. With `synthetic-package`, gen-l10n writes into
-  `.dart_tool/`, so no source file is skipped.
-- Plugin classes in `pubspec.yaml`: Flutter 3.27
-- dart_frog: dart_frog_cli 0.3.4
-- Serverpod endpoints: Serverpod 0.8.0
-- analyzer plugins: analysis_server_plugin 0.2.0
-- custom_lint plugins: custom_lint_builder 0.1.0
-- `@reflectiveTest`: test_reflective_loader 0.4.0
-- `@JSExport`: `package:js` 0.6.6 or `dart:js_interop`
-
 ### Monorepos
 
 In a monorepo where sibling packages depend on this one by `path:`, their calls
