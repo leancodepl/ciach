@@ -31,11 +31,12 @@ typedef Settled = ({
 
 /// From references to findings: settles each candidate's verdict — classifies
 /// it, applies the conventions and remove-safety, couples overrides — and
-/// builds the sorted report. With `transitive`, it repeats this in rounds:
-/// each ignores the references inside the previous round's removable findings,
-/// until a round adds nothing. Rounds reuse the fetched references and cached
-/// override lookups, and probe only the names a round newly leaves
-/// unreferenced.
+/// builds the sorted report. With `transitive`, every candidate starts dead
+/// and only what live code reaches is revived (see [unreached]), so dead
+/// cycles are reported too. Each round then settles the verdicts, and what a
+/// round keeps revives what it reaches, until the dead set stops changing.
+/// Rounds reuse the fetched references and cached override lookups, and probe
+/// only the names a round newly leaves unreferenced.
 final class Settler {
   Settler({
     required this.options,
@@ -88,9 +89,8 @@ final class Settler {
       rootPath: rootPath,
     );
 
-    final sweep = options.transitive && options.deadCycles;
     var crossLib = CrossLibraryReferences.empty;
-    var deadSpans = sweep
+    var deadSpans = options.transitive
         ? _unreachedCandidates(candidates, refsByCandidate, rootPath)
         : DeadSpans.empty;
     Settled settled;
@@ -114,15 +114,13 @@ final class Settler {
       if (!options.transitive) {
         break;
       }
-      final next = sweep
-          ? _sweep(
-              candidates,
-              refsByCandidate,
-              crossLib,
-              result.candidateOf,
-              rootPath,
-            )
-          : DeadSpans.of(settled.unused, rootPath);
+      final next = _sweep(
+        candidates,
+        refsByCandidate,
+        crossLib,
+        result.candidateOf,
+        rootPath,
+      );
       if (next.sameAs(deadSpans)) {
         if (round > 1) {
           _log.fine('Settled after ${plural(round, 'round', 'rounds')}.');

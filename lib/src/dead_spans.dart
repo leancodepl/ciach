@@ -68,8 +68,9 @@ final class DeadSpans {
 
   /// Every finding whose removal deletes [position] in [path].
   Iterable<UnusedDeclaration> ownersOf(String path, Position position) => {
-    for (final span in _byPath[path] ?? const <_Span>[])
-      if (_contains(span.range, position)) span.owner,
+    if (_byPath[path] case final spans?)
+      for (final span in spans)
+        if (_contains(span.range, position)) span.owner,
   };
 
   /// Whether another finding's removal deletes [finding] too.
