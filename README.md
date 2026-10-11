@@ -87,7 +87,7 @@ ciach --verbose                        # explain each step
 | `--[no-]report-tojson` | off | Report an otherwise-unused `toJson()` serialization hook too. Off by default — `jsonEncode` dispatches to it dynamically. |
 | `--[no-]transitive` | off | Also report declarations referenced only from other findings, and dead cycles. See [Transitively dead code](#transitively-dead-code). |
 | `--[no-]set-exit-if-changed` | off; on in CI | Exit with status `1` when anything is found. Named after `dart format`. |
-| `--[no-]ci` | auto | Assume a CI environment: `--set-exit-if-changed` and `--verbose` default to on, progress to off, and on GitHub Actions `--format` to `github`. Detected from `CI`, `GITHUB_ACTIONS` and the variables other services set. See [CI](#ci). |
+| `--[no-]ci` | auto | Assume CI: `--set-exit-if-changed` and `--verbose` default to on, progress to off, and `--format` to `github` on GitHub Actions. Detected from `CI`, `GITHUB_ACTIONS` and the like. See [CI](#ci). |
 | `--[no-]exported` | on | Report declarations other packages can import. See [Library packages](#library-packages). |
 | `--[no-]fail-public` | on | Count unused public declarations toward the exit code (with `--set-exit-if-changed`). `--no-fail-public` reports them but fails only on private findings. |
 | `--remove` | off | Remove unused declarations after reporting them. Prompts for confirmation first. |
@@ -143,8 +143,7 @@ combined.
 ### Verbose mode
 
 `-v` prints the whole log on stderr: config, settings, each phase, and what
-`--remove` touches. It is on by default in [CI](#ci), where the log is all
-there is to go on afterwards.
+`--remove` touches. On by default in [CI](#ci).
 
 ```console
 $ ciach -v
@@ -221,19 +220,17 @@ lib/report.dart
 
 ### CI
 
-ciach tells a CI runner from a terminal by the environment: the `CI` variable
-most services set, or their own one (`GITHUB_ACTIONS`, `GITLAB_CI`, `CIRCLECI`,
-`TRAVIS`, `BUILDKITE`, `TF_BUILD`, `JENKINS_URL`, `TEAMCITY_VERSION`,
-`CODEBUILD_BUILD_ID`, `BITBUCKET_BUILD_NUMBER`, `CM_BUILD_ID`). There, the
-defaults change: `--set-exit-if-changed` is on, so the job fails on findings;
-`--verbose` is on, so the log records the config, the settings and each phase
-for when something needs explaining after the fact; and progress is off, since
-a log keeps every overwrite of the progress line. On GitHub Actions `--format`
-defaults to `github` as well. An explicit option, on the command line or in the
-config file, still wins, so `--no-set-exit-if-changed` keeps a CI step
-informational and `--no-verbose` keeps its log short. `--no-ci` keeps the local
+ciach tells CI from a terminal by the environment: the `CI` variable most
+services set, or their own (`GITHUB_ACTIONS`, `GITLAB_CI`, `CIRCLECI`, `TRAVIS`,
+`BUILDKITE`, `TF_BUILD`, `JENKINS_URL`, `TEAMCITY_VERSION`,
+`CODEBUILD_BUILD_ID`, `BITBUCKET_BUILD_NUMBER`, `CM_BUILD_ID`). There,
+`--set-exit-if-changed` and `--verbose` default to on, so the job fails on
+findings and the log explains the run; progress defaults to off, since a log
+keeps every overwrite of its line; and on GitHub Actions `--format` defaults to
+`github`. An explicit option still wins: `--no-set-exit-if-changed` keeps a CI
+step informational, `--no-verbose` its log short. `--no-ci` keeps the local
 defaults on a runner, `--ci` applies the CI ones elsewhere, and the verbose log
-says which service was detected.
+names the service it detected.
 
 #### GitHub Actions
 

@@ -241,7 +241,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       argName: 'set-exit-if-changed',
       configKey: '/set-exit-if-changed',
       helpText:
-          'Exit with a non-zero status when any unused declaration is found. Defaults to on in CI (see --ci) and off elsewhere.',
+          'Exit with a non-zero status when any unused declaration is found. On by default in CI.',
     ),
   ),
   ci(
@@ -249,7 +249,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       argName: 'ci',
       configKey: '/ci',
       helpText:
-          'Assume a CI environment: --set-exit-if-changed and --verbose default to on, progress to off, and on GitHub Actions --format to github. Detected from the CI and GITHUB_ACTIONS environment variables and the ones other services set; --no-ci keeps the local defaults there. An explicit option wins either way.',
+          'Assume CI: --set-exit-if-changed and --verbose default to on, progress to off, and --format to github on GitHub Actions. Detected from CI, GITHUB_ACTIONS and the like; explicit options still win.',
     ),
   ),
   remove(
@@ -341,7 +341,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/format',
       allowedValues: formatNames,
       helpText:
-          'Output format. Defaults to text, or to github on GitHub Actions (see --ci).',
+          'Output format. Defaults to github on GitHub Actions, text elsewhere.',
       allowedHelp: {
         'text': 'Human-readable, grouped by file.',
         'json': 'Machine-readable JSON.',
@@ -370,7 +370,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       argAbbrev: 'v',
       configKey: '/verbose',
       helpText:
-          'Explain what is happening on stderr: which config file was used and what it set, the settings the run ended up with, each scan phase as it starts, and what --remove touches. Supersedes --progress, whose single overwriting line would fight with it. Defaults to on in CI (see --ci), where the log is all there is to go on, and off elsewhere.',
+          'Explain what is happening on stderr: the config file and what it set, the resolved settings, each scan phase, and what --remove touches. Supersedes --progress. On by default in CI.',
     ),
   ),
   concurrency(
