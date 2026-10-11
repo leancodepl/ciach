@@ -219,7 +219,7 @@ DartType? contextTypeOf(Expression node) {
       parameter.declaredFragment?.element.type,
     ConstantPattern(:final expression) when expression == node =>
       parent.matchedValueType,
-    final ListLiteral list => _elementTypeOf(list, 0),
+    ListLiteral() => _elementTypeOf(parent, 0),
     SetOrMapLiteral(isSet: true) && final set => _elementTypeOf(set, 0),
     MapLiteralEntry(:final key, :final value, parent: final SetOrMapLiteral map)
         when key == node || value == node =>
