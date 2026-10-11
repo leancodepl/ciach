@@ -49,10 +49,10 @@ class PreferDotShorthandTest() extends AnalysisRuleTest {
     List<String> flagged, {
     required String fixed,
   }) async {
-    var from = 0;
+    var from = -1;
     await assertDiagnostics(code, [
       for (final snippet in flagged)
-        lint(from = code.indexOf(snippet, from), snippet.length),
+        lint(from = code.indexOf(snippet, from + 1), snippet.length),
     ]);
     final library = await result.session.getResolvedLibrary(
       testFile.path,
@@ -261,8 +261,9 @@ class Key {
 Key f() => Key(1);
 Key g() => Key.named(2);
 Key h() => const Key(3);
+List<int> i() => List.filled(1, 0);
 ''',
-      ['Key(1)', 'Key.named(2)', 'const Key(3)'],
+      ['Key(1)', 'Key.named(2)', 'const Key(3)', 'List.filled(1, 0)'],
       fixed: '''
 class Key {
   const Key(this.a);
@@ -272,6 +273,7 @@ class Key {
 Key f() => .new(1);
 Key g() => .named(2);
 Key h() => const .new(3);
+List<int> i() => .filled(1, 0);
 ''',
     );
   }
@@ -279,13 +281,21 @@ Key h() => const .new(3);
   Future<void> test_staticMethod() async {
     await assertShorthands(
       '''
+class Parser {
+  static final _instance = Parser();
+  static Parser of(String source) => _instance;
+}
 int f() => int.parse('1');
-List<int> g() => List.filled(1, 0);
+Parser g() => Parser.of('x');
 ''',
-      ["int.parse('1')", 'List.filled(1, 0)'],
+      ["int.parse('1')", "Parser.of('x')"],
       fixed: '''
+class Parser {
+  static final _instance = Parser();
+  static Parser of(String source) => _instance;
+}
 int f() => .parse('1');
-List<int> g() => .filled(1, 0);
+Parser g() => .of('x');
 ''',
     );
   }
@@ -318,6 +328,18 @@ final e = [Style.plain];
 ''');
   }
 
+  Future<void> test_typeArguments() async {
+    await assertShorthands(
+      '''
+List<int> f() => List<int>.filled(1, 0);
+''',
+      ['List<int>.filled(1, 0)'],
+      fixed: '''
+List<int> f() => .filled(1, 0);
+''',
+    );
+  }
+
   Future<void> test_otherContext() async {
     await assertNoDiagnostics('''
 ${_style}class Colors {
@@ -325,8 +347,13 @@ ${_style}class Colors {
 }
 Object a() => Style.plain;
 int b() => Colors.red;
-List<int> c() => List<int>.filled(1, 0);
-Style d() => .plain;
+List<num> c() => List<int>.filled(1, 0);
+''');
+  }
+
+  Future<void> test_alreadyShorthand() async {
+    await assertNoDiagnostics('''
+${_style}Style f() => .plain;
 ''');
   }
 
@@ -340,10 +367,38 @@ void f() {}
 ''');
   }
 
-  Future<void> test_inferredTypeParameter() async {
+  Future<void> test_typeParameterPinnedByContext() async {
+    await assertShorthands(
+      '''
+${_style}T same<T>(T value) => value;
+class Box<T> {
+  Box(T value);
+}
+Style f() => same(Style.plain);
+Box<Style> g() => Box(Style.plain);
+''',
+      ['Style.plain', 'Box(Style.plain)', 'Style.plain'],
+      fixed:
+          '''
+${_style}T same<T>(T value) => value;
+class Box<T> {
+  Box(T value);
+}
+Style f() => same(.plain);
+Box<Style> g() => .new(.plain);
+''',
+    );
+  }
+
+  Future<void> test_typeParameterInferredFromArgument() async {
     await assertNoDiagnostics('''
 ${_style}T same<T>(T value) => value;
-Style f() => same(Style.plain);
+class Box<T> {
+  Box(T value);
+}
+final a = same(Style.plain);
+Object b() => same(Style.plain);
+final c = Box(Style.plain);
 ''');
   }
 }

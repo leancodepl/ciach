@@ -62,83 +62,89 @@ class _Visitor(final AnalysisRule rule, final TypeSystem typeSystem)
       _check(node);
 
   void _check(Expression node) {
-    final spelling = spellingOf(node);
-    if (spelling == null) {
+    final qualified = qualifiedMemberOf(node);
+    if (qualified == null) {
       return;
     }
     final context = contextTypeOf(node);
-    if (context == null || namespaceOf(context, typeSystem) != spelling.type) {
+    if (context == null) {
       return;
     }
-    rule.reportAtNode(node, arguments: [spelling.typeName, spelling.member]);
+    final namespace = namespaceOf(context, typeSystem);
+    if (namespace == null || namespace.element != qualified.type) {
+      return;
+    }
+    // Written type arguments can only go when the context spells them too.
+    if (qualified.parameterized case final written? when written != namespace) {
+      return;
+    }
+    rule.reportAtNode(node, arguments: [qualified.typeName, qualified.member]);
   }
 }
 
-/// A type name spelled out before a member, and what to do with it: the
-/// `typeRange` replaced by the `replacement` turns the expression into a dot
-/// shorthand.
-typedef Spelling = ({
-  InterfaceElement type,
-  String typeName,
-  String member,
-  SourceRange typeRange,
-  String replacement,
+/// A member reached through its type's name, `Style.plain`, `int.parse(s)`
+/// or `DeclKey(path, c)`, and what makes it a dot shorthand: the [typeRange]
+/// replaced by the [replacement]. [parameterized] is the written type when it
+/// carries type arguments, `List<int>` in `List<int>.filled(1, 0)`.
+class const QualifiedMember({
+  required final InterfaceElement type,
+  required final String typeName,
+  required final String member,
+  required final SourceRange typeRange,
+  required final String replacement,
+  required final InterfaceType? parameterized,
 });
 
-/// [node]'s [Spelling], or `null` when it is not a static member access, an
-/// enum value, a static method call or a constructor call spelled with its
-/// type name. Explicit type arguments stay out: a shorthand has nowhere to put
-/// them.
-Spelling? spellingOf(Expression node) => switch (node) {
+/// [node] as a [QualifiedMember], or `null` when it is not a static member
+/// access, an enum value, a static method call or a constructor call spelled
+/// with its type name.
+QualifiedMember? qualifiedMemberOf(Expression node) => switch (node) {
   PrefixedIdentifier(
-    prefix: Identifier(element: final InterfaceElement type) && final prefix,
-    :final identifier,
-  ) =>
-    _deleting(type, prefix, identifier.name),
+    prefix: Identifier(element: final InterfaceElement type) &&
+        final Identifier typeNode,
+    identifier: SimpleIdentifier(name: final member),
+  ) ||
   PropertyAccess(
-    target: Identifier(element: final InterfaceElement type) && final target,
-    :final propertyName,
-  ) =>
-    _deleting(type, target, propertyName.name),
+    target: Identifier(element: final InterfaceElement type) &&
+        final Identifier typeNode,
+    propertyName: SimpleIdentifier(name: final member),
+  ) ||
   MethodInvocation(
-    target: Identifier(element: final InterfaceElement type) && final target,
-    typeArguments: null,
-    :final methodName,
-  ) =>
-    _deleting(type, target, methodName.name),
+    target: Identifier(element: final InterfaceElement type) &&
+        final Identifier typeNode,
+    methodName: SimpleIdentifier(name: final member),
+  ) => .new(
+    type: type,
+    typeName: typeNode.toSource(),
+    member: member,
+    typeRange: range.node(typeNode),
+    replacement: '',
+    parameterized: null,
+  ),
   InstanceCreationExpression(
     constructorName: ConstructorName(
-      type: NamedType(
-            element: final InterfaceElement type,
-            typeArguments: null,
-          ) &&
-          final namedType,
+      type: NamedType(element: final InterfaceElement type) && final namedType,
       :final name,
     ),
   ) =>
-    (
+    .new(
       type: type,
       typeName: namedType.toSource(),
       member: name?.name ?? 'new',
       typeRange: range.node(namedType),
       replacement: name == null ? '.new' : '',
+      parameterized: switch (namedType) {
+        NamedType(typeArguments: null) => null,
+        NamedType(type: final InterfaceType written) => written,
+        _ => null,
+      },
     ),
   _ => null,
 };
 
-Spelling _deleting(InterfaceElement type, Expression typeNode, String member) =>
-    (
-      type: type,
-      typeName: typeNode.toSource(),
-      member: member,
-      typeRange: range.node(typeNode),
-      replacement: '',
-    );
-
-/// The declaration a dot shorthand in a context of type [type] resolves
-/// against: the type itself, its non-nullable form, or what its `FutureOr`
-/// wraps.
-InterfaceElement? namespaceOf(DartType type, TypeSystem typeSystem) {
+/// The type a dot shorthand in a context of type [type] resolves against:
+/// the type itself, its non-nullable form, or what its `FutureOr` wraps.
+InterfaceType? namespaceOf(DartType type, TypeSystem typeSystem) {
   var namespace = typeSystem.promoteToNonNull(type);
   while (namespace.isDartAsyncFutureOr) {
     namespace = typeSystem.promoteToNonNull(
@@ -146,25 +152,31 @@ InterfaceElement? namespaceOf(DartType type, TypeSystem typeSystem) {
     );
   }
   return switch (namespace) {
-    InterfaceType(:final element) => element,
+    final InterfaceType interface => interface,
     _ => null,
   };
 }
 
 /// The type the context imposes on [node], as far as a dot shorthand needs
-/// it: `null` when nothing does, or when a type parameter of the invoked
-/// function would have to be inferred from [node] itself. An annotation's
-/// arguments get `null` too: tools read annotations with parsers of their
-/// own (`package:test` evaluates `@Timeout` itself), and those may not know
-/// the shorthand.
+/// it: `null` when nothing does. The analyzer computes context types while
+/// resolving and keeps none of them, so this walks the parents instead. An
+/// annotation's arguments get `null` too: tools read annotations with
+/// parsers of their own (`package:test` evaluates `@Timeout` itself), and
+/// those may not know the shorthand.
 DartType? contextTypeOf(Expression node) {
   final parent = node.parent;
   return switch (parent) {
     ArgumentList(parent: Annotation()) => null,
-    ArgumentList() => _parameterType(node.correspondingParameter),
-    NamedArgument(argumentExpression: final e) when e == node => _parameterType(
-      parent.correspondingParameter,
+    ArgumentList(parent: final Expression invocation) => _parameterType(
+      node.correspondingParameter,
+      invocation,
     ),
+    NamedArgument(
+      argumentExpression: final e,
+      parent: ArgumentList(parent: final Expression invocation),
+    )
+        when e == node =>
+      _parameterType(parent.correspondingParameter, invocation),
     VariableDeclaration(initializer: final e, parent: final list)
         when e == node && list is VariableDeclarationList =>
       list.type?.type,
@@ -198,11 +210,11 @@ DartType? contextTypeOf(Expression node) {
       parameter.declaredFragment?.element.type,
     ConstantPattern(expression: final e) when e == node =>
       parent.matchedValueType,
-    ListLiteral() => _elementTypeOf(parent, 0),
-    SetOrMapLiteral(isSet: true) => _elementTypeOf(parent, 0),
+    final ListLiteral list => _elementTypeOf(list, 0),
+    SetOrMapLiteral(isSet: true) && final set => _elementTypeOf(set, 0),
     MapLiteralEntry(key: final k, value: final v, parent: final map)
-        when map is SetOrMapLiteral =>
-      _elementTypeOf(map, k == node ? 0 : 1).takeIf(k == node || v == node),
+        when map is SetOrMapLiteral && (k == node || v == node) =>
+      _elementTypeOf(map, k == node ? 0 : 1),
     IfElement(thenElement: final t, elseElement: final e)
         when t == node || e == node =>
       _collectionContextOf(parent),
@@ -211,37 +223,61 @@ DartType? contextTypeOf(Expression node) {
   };
 }
 
-/// What [parameter]'s declaration says once substituted, unless the
-/// declaration mentions a type parameter of the function itself: that one is
-/// inferred from the argument, so the argument has no context to lean on.
-DartType? _parameterType(FormalParameterElement? parameter) {
-  if (parameter == null) {
+/// What [parameter]'s declaration says once substituted. Type parameters the
+/// declaration mentions have to be pinned by something other than the
+/// argument: the receiver's type, for an instance member's class parameters
+/// (`styles.add(.plain)` on a `List<Style>`), or else the context of the
+/// [invocation], which then needs a context type equal to its own type and a
+/// declared return type mentioning each of them (`T same<T>(T value)` called
+/// as `Style f() => same(.plain)`).
+DartType? _parameterType(
+  FormalParameterElement? parameter,
+  Expression invocation,
+) {
+  final function = parameter?.baseElement.enclosingElement;
+  if (parameter == null || function is! ExecutableElement) {
     return null;
   }
-  if (parameter.enclosingElement case final ExecutableElement function
-      when _mentionsAny(
-        parameter.baseElement.type,
-        function.baseElement.typeParameters.toSet(),
-      )) {
+  final mentioned = _typeParametersIn(parameter.baseElement.type);
+  final byReceiver = switch (function) {
+    ConstructorElement() => const <TypeParameterElement>{},
+    ExecutableElement(isStatic: true) => const <TypeParameterElement>{},
+    ExecutableElement(
+      enclosingElement: InstanceElement(:final typeParameters),
+    ) =>
+      typeParameters.toSet(),
+    _ => const <TypeParameterElement>{},
+  };
+  final byContext = mentioned.difference(byReceiver);
+  if (byContext.isEmpty) {
+    return parameter.type;
+  }
+  final context = contextTypeOf(invocation);
+  if (context == null || _nonNull(context) != invocation.staticType) {
     return null;
   }
-  return parameter.type;
+  final pinned = _typeParametersIn(function.baseElement.returnType)
+      .containsAll(byContext);
+  return pinned ? parameter.type : null;
 }
 
-bool _mentionsAny(DartType type, Set<TypeParameterElement> parameters) =>
-    switch (type) {
-      TypeParameterType(:final element) => parameters.contains(element),
-      InterfaceType(:final typeArguments) => typeArguments.any(
-        (t) => _mentionsAny(t, parameters),
-      ),
-      FunctionType(:final returnType, :final formalParameters) =>
-        _mentionsAny(returnType, parameters) ||
-            formalParameters.any((p) => _mentionsAny(p.type, parameters)),
-      RecordType(:final positionalFields, :final namedFields) =>
-        positionalFields.any((f) => _mentionsAny(f.type, parameters)) ||
-            namedFields.any((f) => _mentionsAny(f.type, parameters)),
-      _ => false,
-    };
+/// The type parameters [type] mentions.
+Set<TypeParameterElement> _typeParametersIn(DartType type) => switch (type) {
+  TypeParameterType(:final element) => {element},
+  InterfaceType(:final typeArguments) => {
+    for (final argument in typeArguments) ..._typeParametersIn(argument),
+  },
+  FunctionType(:final returnType, :final formalParameters) => {
+    ..._typeParametersIn(returnType),
+    for (final parameter in formalParameters)
+      ..._typeParametersIn(parameter.type),
+  },
+  RecordType(:final positionalFields, :final namedFields) => {
+    for (final field in positionalFields) ..._typeParametersIn(field.type),
+    for (final field in namedFields) ..._typeParametersIn(field.type),
+  },
+  _ => const {},
+};
 
 /// The type a `return` in [body] has to produce, from the declared return
 /// type of the function the body belongs to; `null` for a lambda, whose
@@ -276,7 +312,7 @@ DartType? _futureArgument(DartType type) => switch (type) {
 DartType? _collectionContextOf(CollectionElement element) =>
     switch (element.parent) {
       final ListLiteral list => _elementTypeOf(list, 0),
-      final SetOrMapLiteral set when set.isSet => _elementTypeOf(set, 0),
+      SetOrMapLiteral(isSet: true) && final set => _elementTypeOf(set, 0),
       final IfElement outer => _collectionContextOf(outer),
       final ForElement outer => _collectionContextOf(outer),
       _ => null,
@@ -312,10 +348,6 @@ DartType _nonNull(DartType type) => switch (type) {
   _ => type,
 };
 
-extension<T extends Object> on T? {
-  T? takeIf(bool condition) => condition ? this : null;
-}
-
 /// Rewrites the flagged expression into its dot shorthand.
 class ReplaceWithDotShorthand({required super.context})
     extends ResolvedCorrectionProducer {
@@ -333,19 +365,12 @@ class ReplaceWithDotShorthand({required super.context})
 
   @override
   Future<void> compute(ChangeBuilder builder) async {
-    final expression = node;
-    if (expression is! Expression) {
-      return;
-    }
-    final spelling = spellingOf(expression);
-    if (spelling == null) {
-      return;
-    }
+    final qualified = qualifiedMemberOf(node as Expression)!;
     await builder.addDartFileEdit(
       file,
       (builder) => builder.addSimpleReplacement(
-        spelling.typeRange,
-        spelling.replacement,
+        qualified.typeRange,
+        qualified.replacement,
       ),
     );
   }
