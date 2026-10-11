@@ -47,12 +47,19 @@ class CrossLibraryReferences {
 
   /// Over-inclusive on purpose: the `definition` confirmation, not this set, is
   /// what makes the recovery correct.
+  ///
+  /// `variable` is a workaround for an analysis server bug that Dart 3.14
+  /// fixes (3.14.0-202.0.dev is the first build with the fix): find-references
+  /// misses a top-level getter that is named in a `show` or `hide` combinator,
+  /// and the name in the combinator is a `variable` token. It can be removed
+  /// when ciach requires Dart 3.14.
   static const _memberTokenTypes = {
     'class',
     'method',
     'enum',
     'enumMember',
     'property',
+    'variable',
     'function',
     'type',
   };
