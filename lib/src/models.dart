@@ -490,7 +490,7 @@ class FinderResult {
   final List<UnusedDeclaration> docOnly;
 
   /// Scanned files with nothing in them but comments and `library`, `import`
-  /// or `part of` lines, as sorted root-relative `/`-paths. `--remove` deletes
+  /// or `part of` directives, as sorted root-relative `/`-paths. `--remove` deletes
   /// them as it does the files it empties. A conditional-import variant, and
   /// with [FinderOptions.includeExported] off a file other packages can
   /// import, is never listed.

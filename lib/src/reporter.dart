@@ -298,9 +298,7 @@ abstract final class Reporter {
       },
       'unused': [for (final decl in result.unused) decl.toJson()],
       'docOnly': [for (final decl in result.docOnly) decl.toJson()],
-      'emptyFiles': [
-        for (final file in result.emptyFiles) {'file': file},
-      ],
+      'emptyFiles': result.emptyFiles,
       'warnings': [for (final w in result.recoveredReferences) w.toJson()],
       'problems': [for (final problem in result.problems) problem.toJson()],
     });

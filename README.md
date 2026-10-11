@@ -219,11 +219,11 @@ lib/report.dart
 ### Empty files
 
 A file with nothing in it but comments and `library`, `import` or `part of`
-lines declares nothing, so no finding points at it. It is reported in a section
+directives declares nothing, so no finding points at it. It is reported in a section
 of its own:
 
 ```
-Empty files (1) · nothing but comments and library, import or part-of lines
+Empty files (1) · nothing but comments and library, import or part-of directives
 lib/legacy/helpers.dart
 ```
 
@@ -283,9 +283,9 @@ false-positive risk, which `--overrides` and `--operators` widen considerably.
 [Doc-only findings](#doc-only-findings) are never included. Review the diff, as
 you would after any automated refactor.
 
-A file left with only `library`/`import`/`part of` lines is deleted too, as is an
-[empty file](#empty-files) found before removal, and so are the `import`s of
-them elsewhere, so nothing points at a file that is gone. One that still
+A file left with only `library`/`import`/`part of` directives is deleted too, as
+is an [empty file](#empty-files) found before removal, and so are the `import`s
+of them elsewhere, so nothing points at a file that is gone. One that still
 `export`s or owns a `part` stays.
 
 A dead member's overrides are dead too — a call through any subclass would have

@@ -150,8 +150,8 @@ void main() {
       expect(out, contains("docOnlyThing' has no code references"));
     });
 
-    test('emits a ::warning annotation on the first line of each empty '
-        'file', () {
+    test('emits a ::warning annotation on the first line of '
+        'each empty file', () {
       final out = Reporter.github(
         resultWith(const [], emptyFiles: ['lib/blank.dart']),
         pathPrefix: 'app',
@@ -159,7 +159,7 @@ void main() {
       expect(
         out,
         '::warning file=app/lib/blank.dart,line=1,col=1,title=Empty file::'
-        'Has nothing but comments and library, import or part-of lines\n',
+        'Has nothing but comments and library, import or part-of directives\n',
       );
     });
 
@@ -340,9 +340,7 @@ lib/c.dart
               )
               as Map<String, Object?>;
       expect((json['summary']! as Map<String, Object?>)['emptyFileCount'], 1);
-      expect(json['emptyFiles'], [
-        {'file': 'lib/blank.dart'},
-      ]);
+      expect(json['emptyFiles'], ['lib/blank.dart']);
     });
 
     test('warnings array is empty when there are no recovered references', () {
@@ -423,7 +421,7 @@ lib/a.dart
   3:5   function  dangling  (public)
   18:5  function  _private  (private)
 
-Empty files (2) · nothing but comments and library, import or part-of lines
+Empty files (2) · nothing but comments and library, import or part-of directives
 lib/blank.dart
 lib/zero.dart
 

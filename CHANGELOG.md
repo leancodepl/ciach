@@ -1,7 +1,7 @@
 ## Unreleased
 
 - Report files with nothing but comments and `library`, `import` or
-  `part of` lines, in an "Empty files" section. They count toward
+  `part of` directives, in an "Empty files" section. They count toward
   `--set-exit-if-changed`, and `--remove` deletes them with the directives
   naming them.
   ([#100](https://github.com/leancodepl/ciach/pull/100))

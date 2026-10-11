@@ -13,8 +13,8 @@ import 'package:path/path.dart' as p;
 final _log = Logger('ciach.remover');
 
 /// Deletes the [paths] (absolute; rewritten, or empty to begin with) left with
-/// only `library`/`import`/`part of` lines, dropping the directives naming them
-/// under [rootPath]. One that `export`s, owns a `part`, or sits in a
+/// only `library`/`import`/`part of` directives, dropping the directives naming
+/// them under [rootPath]. One that `export`s, owns a `part`, or sits in a
 /// conditional import stays.
 List<DeletedFile> deleteEmptiedFiles(Set<String> paths, String rootPath) {
   if (paths.isEmpty) {
@@ -75,7 +75,7 @@ DeletedFile? _deleteIfEmptied(
   );
   _log.fine(
     [
-      'Deleted ${file.filePath}: nothing left but library/import/part-of lines.',
+      'Deleted ${file.filePath}: nothing left but library/import/part-of directives.',
       if (file.unlinkedFrom.isNotEmpty)
         'Dropped the directives naming it from ${file.unlinkedFrom.join(', ')}.',
     ].join(' '),
@@ -89,10 +89,10 @@ final _directiveOnly = RegExp(
 
 /// What an empty file holds, for reports: what [isDirectiveOnly] admits.
 const emptyFileContents =
-    'nothing but comments and library, import or part-of lines';
+    'nothing but comments and library, import or part-of directives';
 
 /// Whether [content] has nothing but comments and `library`, `import` or
-/// `part of` lines.
+/// `part of` directives.
 bool isDirectiveOnly(String content) =>
     _directiveOnly.hasMatch(stripComments(content));
 

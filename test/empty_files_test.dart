@@ -68,8 +68,8 @@ void use() => platform();
     ]);
   });
 
-  test('a file other packages can import is left out with includeExported '
-      'off', () async {
+  test('a file other packages can import is left out '
+      'with includeExported off', () async {
     final result = await run(includeExported: false);
     expect(result.emptyFiles, ['tool/scratch.dart']);
   });
