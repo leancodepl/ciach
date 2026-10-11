@@ -95,6 +95,9 @@ class ResolvedOptions {
   /// durable lines the overwriting progress line would fight with, and off by
   /// default on [ci], whose log keeps every overwrite.
   final bool showProgress;
+
+  /// Whether to narrate the run on stderr. On by default on [ci], where the
+  /// log is all there is to go on afterwards.
   final bool verbose;
   final int concurrency;
   final String? dartExecutable;
@@ -148,7 +151,6 @@ ResolvedOptions resolveOptions(
   required bool progressDefault,
   required CiRunner? detectedCi,
 }) {
-  final verbose = configuration.value(CiachOption.verbose);
   final rootPath = configuration.value(CiachOption.path);
   final projectConfig = configuration.value(CiachOption.projectConfig);
   final ci = switch (configuration.optionalValue(CiachOption.ci)) {
@@ -156,6 +158,8 @@ ResolvedOptions resolveOptions(
     true => detectedCi ?? .other,
     false => null,
   };
+  final verbose =
+      configuration.optionalValue(CiachOption.verbose) ?? (ci != null);
 
   return .new(
     rootPath: rootPath,

@@ -149,20 +149,25 @@ void main() {
       expect(result.stdout, isNot(contains('::warning')));
     });
 
-    test('-v says which service was detected', () async {
+    test('the log, on by default, says which service was detected', () async {
+      final gitlab = {...local, 'GITLAB_CI': 'true'};
       final result = await runCli(
         publicOnly,
-        environment: {...local, 'GITLAB_CI': 'true'},
+        environment: gitlab,
         detectCi: true,
       );
       expect(result.exitCode, 1, reason: '${result.stdout}\n${result.stderr}');
-      // Verbose goes to stderr.
-      final verbose = await runCli(
-        [...publicOnly, '-v'],
-        environment: {...local, 'GITLAB_CI': 'true'},
+      // Verbose goes to stderr, the report to stdout.
+      expect(result.stderr, contains('On GitLab CI (GITLAB_CI is set)'));
+      expect(result.stderr, contains('Settings for this run:'));
+      expect(result.stdout, isNot(contains('Settings for this run:')));
+
+      final quiet = await runCli(
+        [...publicOnly, '--no-verbose'],
+        environment: gitlab,
         detectCi: true,
       );
-      expect(verbose.stderr, contains('On GitLab CI (GITLAB_CI is set)'));
+      expect(quiet.stderr, isNot(contains('On GitLab CI')));
     });
   });
 

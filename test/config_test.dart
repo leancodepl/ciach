@@ -576,6 +576,7 @@ dart: /sdk/bin/dart
         );
         expect(local.ci, isNull);
         expect(local.setExitIfChanged, isFalse);
+        expect(local.verbose, isFalse);
         expect(local.showProgress, isTrue);
         expect(local.format, 'text');
 
@@ -587,6 +588,7 @@ dart: /sdk/bin/dart
         );
         expect(onCi.ci, CiRunner.gitlab);
         expect(onCi.setExitIfChanged, isTrue);
+        expect(onCi.verbose, isTrue);
         expect(onCi.showProgress, isFalse);
         // Only GitHub Actions has an annotation format.
         expect(onCi.format, 'text');
@@ -604,26 +606,34 @@ dart: /sdk/bin/dart
 
       test('an explicit value beats the CI default', () {
         final fromArgs = resolveWith(
-          const ['--no-set-exit-if-changed', '--progress', '-f', 'json'],
+          const [
+            '--no-set-exit-if-changed',
+            '--no-verbose',
+            '--progress',
+            '-f',
+            'json',
+          ],
           const .empty(),
           progressDefault: false,
           detectedCi: .githubActions,
         );
         expect(fromArgs.ci, CiRunner.githubActions);
         expect(fromArgs.setExitIfChanged, isFalse);
+        expect(fromArgs.verbose, isFalse);
         expect(fromArgs.showProgress, isTrue);
         expect(fromArgs.format, 'json');
 
         final fromConfig = resolveWith(
           const [],
           .parse(
-            'set-exit-if-changed: false\nprogress: true\nformat: text',
+            'set-exit-if-changed: false\nverbose: false\nprogress: true\nformat: text',
             origin: 'c.yaml',
           ),
           progressDefault: false,
           detectedCi: .githubActions,
         );
         expect(fromConfig.setExitIfChanged, isFalse);
+        expect(fromConfig.verbose, isFalse);
         expect(fromConfig.showProgress, isTrue);
         expect(fromConfig.format, 'text');
       });
@@ -645,6 +655,7 @@ dart: /sdk/bin/dart
         ]) {
           expect(resolved.ci, isNull);
           expect(resolved.setExitIfChanged, isFalse);
+          expect(resolved.verbose, isFalse);
           expect(resolved.showProgress, isTrue);
           expect(resolved.format, 'text');
         }
@@ -658,6 +669,7 @@ dart: /sdk/bin/dart
         );
         expect(forced.ci, CiRunner.other);
         expect(forced.setExitIfChanged, isTrue);
+        expect(forced.verbose, isTrue);
         expect(forced.showProgress, isFalse);
         expect(forced.format, 'text');
 

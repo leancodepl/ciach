@@ -64,6 +64,7 @@ List<String> describeCi(
   final how = ci == detected ? '${ci.variable} is set' : '--ci';
   final defaults = [
     '--set-exit-if-changed defaults to on',
+    '--verbose to on',
     'progress to off',
     if (ci.annotationFormat case final format?) '--format to $format',
   ];

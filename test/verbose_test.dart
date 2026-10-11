@@ -108,16 +108,16 @@ entry-points: [{name: bootstrap}, {name: registerWith, glob: [lib/**, bin/**]}]'
 
     test('names the service, its variable and the defaults it changes', () {
       expect(describe(const [], detected: .githubActions), [
-        'On GitHub Actions (GITHUB_ACTIONS is set): --set-exit-if-changed defaults to on, progress to off, --format to github.',
+        'On GitHub Actions (GITHUB_ACTIONS is set): --set-exit-if-changed defaults to on, --verbose to on, progress to off, --format to github.',
       ]);
       expect(describe(const [], detected: .jenkins), [
-        'On Jenkins (JENKINS_URL is set): --set-exit-if-changed defaults to on, progress to off.',
+        'On Jenkins (JENKINS_URL is set): --set-exit-if-changed defaults to on, --verbose to on, progress to off.',
       ]);
     });
 
     test('credits --ci when nothing was detected', () {
       expect(describe(const ['--ci']), [
-        'On CI (--ci): --set-exit-if-changed defaults to on, progress to off.',
+        'On CI (--ci): --set-exit-if-changed defaults to on, --verbose to on, progress to off.',
       ]);
       // The variable is the better explanation when both apply.
       expect(describe(const ['--ci'], detected: .circle), [
@@ -221,6 +221,7 @@ entry-points: [{name: bootstrap}, {name: registerWith, glob: [lib/**, bin/**]}]'
       expect(onCi, contains('  ci: true (auto-detected)'));
       expect(onCi, contains('  set-exit-if-changed: true (auto-detected)'));
       expect(onCi, contains('  format: github (auto-detected)'));
+      expect(onCi, contains('  verbose: true (auto-detected)'));
       expect(onCi, contains('  progress: false (auto-detected)'));
 
       expect(describe(const ['--ci']), contains('  ci: true (command line)'));

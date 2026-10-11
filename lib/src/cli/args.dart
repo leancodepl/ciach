@@ -249,7 +249,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       argName: 'ci',
       configKey: '/ci',
       helpText:
-          'Assume a CI environment: --set-exit-if-changed defaults to on, progress to off, and on GitHub Actions --format to github. Detected from the CI and GITHUB_ACTIONS environment variables and the ones other services set; --no-ci keeps the local defaults there. An explicit option wins either way.',
+          'Assume a CI environment: --set-exit-if-changed and --verbose default to on, progress to off, and on GitHub Actions --format to github. Detected from the CI and GITHUB_ACTIONS environment variables and the ones other services set; --no-ci keeps the local defaults there. An explicit option wins either way.',
     ),
   ),
   remove(
@@ -369,9 +369,8 @@ enum CiachOption<V> implements OptionDefinition<V> {
       argName: 'verbose',
       argAbbrev: 'v',
       configKey: '/verbose',
-      defaultsTo: false,
       helpText:
-          'Explain what is happening on stderr: which config file was used and what it set, the settings the run ended up with, each scan phase as it starts, and what --remove touches. Supersedes --progress, whose single overwriting line would fight with it.',
+          'Explain what is happening on stderr: which config file was used and what it set, the settings the run ended up with, each scan phase as it starts, and what --remove touches. Supersedes --progress, whose single overwriting line would fight with it. Defaults to on in CI (see --ci), where the log is all there is to go on, and off elsewhere.',
     ),
   ),
   concurrency(
@@ -472,9 +471,9 @@ Examples:
   # Ignore the package's config file for one run
   ciach --no-config
 
-  # In CI, --set-exit-if-changed is on by default, and on GitHub Actions each
-  # finding is an annotation; spelled out, the same works anywhere
-  ciach -f github --set-exit-if-changed
+  # In CI, --set-exit-if-changed and --verbose are on by default, and on GitHub
+  # Actions each finding is an annotation; spelled out, the same works anywhere
+  ciach -f github --set-exit-if-changed -v
 
   # Remove what's found, after confirming
   ciach --remove
