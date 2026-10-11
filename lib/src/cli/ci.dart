@@ -13,6 +13,7 @@ enum CiRunner {
   teamCity('TeamCity', 'TEAMCITY_VERSION'),
   codeBuild('AWS CodeBuild', 'CODEBUILD_BUILD_ID'),
   bitbucket('Bitbucket Pipelines', 'BITBUCKET_BUILD_NUMBER'),
+  codemagic('Codemagic', 'CM_BUILD_ID'),
 
   /// A service known only by the conventional `CI`, or `--ci` outside any.
   other('CI', 'CI');

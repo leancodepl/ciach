@@ -223,13 +223,14 @@ lib/report.dart
 ciach tells a CI runner from a terminal by the environment: the `CI` variable
 most services set, or their own one (`GITHUB_ACTIONS`, `GITLAB_CI`, `CIRCLECI`,
 `TRAVIS`, `BUILDKITE`, `TF_BUILD`, `JENKINS_URL`, `TEAMCITY_VERSION`,
-`CODEBUILD_BUILD_ID`, `BITBUCKET_BUILD_NUMBER`). There, the defaults change:
-`--set-exit-if-changed` is on, so the job fails on findings, and progress is
-off, since a log keeps every overwrite of the progress line. On GitHub Actions
-`--format` defaults to `github` as well. An explicit option, on the command
-line or in the config file, still wins, so `--no-set-exit-if-changed` keeps a
-CI step informational. `--no-ci` keeps the local defaults on a runner, `--ci`
-applies the CI ones elsewhere, and `-v` says which service was detected.
+`CODEBUILD_BUILD_ID`, `BITBUCKET_BUILD_NUMBER`, `CM_BUILD_ID`). There, the
+defaults change: `--set-exit-if-changed` is on, so the job fails on findings,
+and progress is off, since a log keeps every overwrite of the progress line. On
+GitHub Actions `--format` defaults to `github` as well. An explicit option, on
+the command line or in the config file, still wins, so
+`--no-set-exit-if-changed` keeps a CI step informational. `--no-ci` keeps the
+local defaults on a runner, `--ci` applies the CI ones elsewhere, and `-v` says
+which service was detected.
 
 #### GitHub Actions
 

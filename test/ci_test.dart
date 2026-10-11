@@ -20,6 +20,11 @@ void main() {
         CiRunner.detect(const {'TF_BUILD': 'True'}),
         CiRunner.azurePipelines,
       );
+      // Codemagic sets CI too; its own variable names it.
+      expect(
+        CiRunner.detect(const {'CI': 'true', 'CM_BUILD_ID': 'a1b2c3'}),
+        CiRunner.codemagic,
+      );
     });
 
     test('names the service over the conventional CI', () {
