@@ -24,8 +24,7 @@ class PreferLet() extends AnalysisRule {
 
   static const code = LintCode(
     'prefer_let',
-    'This {0} only checks for null; a null-aware chain or '
-        "'?.let' says the same in one expression.",
+    "This {0} only checks for null; a null-aware chain or '?.let' says the same in one expression.",
     correctionMessage:
         "Try replacing the {0} with 'x?.member…' or 'x?.let((v) => …)'.",
     severity: .WARNING,
@@ -83,8 +82,8 @@ typedef LetShape = ({
 /// same check. A conditional qualifies when it compares a local variable or
 /// parameter with null and the branch for the non-null case mentions it.
 LetShape? letShapeOf(Expression node, TypeSystem typeSystem) => switch (node) {
-  final SwitchExpression switch_ => _switchShape(switch_, typeSystem),
-  final ConditionalExpression conditional => _conditionalShape(conditional),
+  SwitchExpression() => _switchShape(node, typeSystem),
+  ConditionalExpression() => _conditionalShape(node),
   _ => null,
 };
 
@@ -109,10 +108,12 @@ LetShape? _switchShape(SwitchExpression node, TypeSystem typeSystem) {
     NullCheckPattern(pattern: final DeclaredVariablePattern variable) =>
       variable,
     final DeclaredVariablePattern variable
-        when nullFirst
-            ? variable.type == null ||
-                  _justNonNull(variable, target, typeSystem)
-            : _justNonNull(variable, target, typeSystem) =>
+        when _onlyBinds(
+          variable,
+          target,
+          nullFirst: nullFirst,
+          typeSystem: typeSystem,
+        ) =>
       variable,
     _ => null,
   };
@@ -128,13 +129,19 @@ LetShape? _switchShape(SwitchExpression node, TypeSystem typeSystem) {
   );
 }
 
-/// Whether [variable]'s declared type is [target]'s own type made
-/// non-nullable, so that matching it only checks for null.
-bool _justNonNull(
+/// Whether a value arm `final v` or `final T v`, with no `?`, still only
+/// binds [target]'s non-null value: untyped once the null arm has matched
+/// null first ([nullFirst]), or typed with [target]'s own type made
+/// non-nullable, which is the same check.
+bool _onlyBinds(
   DeclaredVariablePattern variable,
-  Expression target,
-  TypeSystem typeSystem,
-) {
+  Expression target, {
+  required bool nullFirst,
+  required TypeSystem typeSystem,
+}) {
+  if (nullFirst && variable.type == null) {
+    return true;
+  }
   final declared = variable.type?.type;
   final actual = target.staticType;
   return declared != null &&
@@ -228,10 +235,12 @@ class ReplaceWithLet({required super.context})
   static const kind = FixKind(
     'ciach_lints.fix.replaceWithLet',
     DartFixKindPriority.standard,
-    "Replace with a null-aware chain or '?.let'",
+    'Replace with {0}',
   );
 
   static final _extensions = Uri.parse('package:ciach/src/extensions.dart');
+
+  late final _plan = _rewrite(letShapeOf(node as Expression, typeSystem)!);
 
   @override
   CorrectionApplicability get applicability => .automatically;
@@ -240,15 +249,17 @@ class ReplaceWithLet({required super.context})
   FixKind get fixKind => kind;
 
   @override
+  List<String> get fixArguments => [
+    if (_plan.usesLet) "'?.let'" else 'a null-aware chain',
+  ];
+
+  @override
   Future<void> compute(ChangeBuilder builder) async {
-    final expression = node as Expression;
-    final shape = letShapeOf(expression, typeSystem)!;
-    final (:code, :usesLet) = _rewrite(shape);
     await builder.addDartFileEdit(file, (builder) {
-      if (usesLet) {
+      if (_plan.usesLet) {
         builder.importLibrary(_extensions);
       }
-      builder.addSimpleReplacement(range.node(expression), code);
+      builder.addSimpleReplacement(range.node(node), _plan.code);
     });
   }
 
