@@ -100,42 +100,42 @@ class const QualifiedMember({
 /// with its type name.
 QualifiedMember? qualifiedMemberOf(Expression node) => switch (node) {
   PrefixedIdentifier(
-    prefix: Identifier(element: final InterfaceElement type) &&
+    prefix: Identifier(:final InterfaceElement element) &&
         final Identifier typeNode,
-    identifier: SimpleIdentifier(name: final member),
+    identifier: SimpleIdentifier(:final name),
   ) ||
   PropertyAccess(
-    target: Identifier(element: final InterfaceElement type) &&
+    target: Identifier(:final InterfaceElement element) &&
         final Identifier typeNode,
-    propertyName: SimpleIdentifier(name: final member),
+    propertyName: SimpleIdentifier(:final name),
   ) ||
   MethodInvocation(
-    target: Identifier(element: final InterfaceElement type) &&
+    target: Identifier(:final InterfaceElement element) &&
         final Identifier typeNode,
-    methodName: SimpleIdentifier(name: final member),
+    methodName: SimpleIdentifier(:final name),
   ) => .new(
-    type: type,
+    type: element,
     typeName: typeNode.toSource(),
-    member: member,
+    member: name,
     typeRange: range.node(typeNode),
     replacement: '',
     parameterized: null,
   ),
   InstanceCreationExpression(
     constructorName: ConstructorName(
-      type: NamedType(element: final InterfaceElement type) && final namedType,
+      type: NamedType(:final InterfaceElement element) && final namedType,
       :final name,
     ),
   ) =>
     .new(
-      type: type,
+      type: element,
       typeName: namedType.toSource(),
       member: name?.name ?? 'new',
       typeRange: range.node(namedType),
       replacement: name == null ? '.new' : '',
       parameterized: switch (namedType) {
         NamedType(typeArguments: null) => null,
-        NamedType(type: final InterfaceType written) => written,
+        NamedType(:final InterfaceType type) => type,
         _ => null,
       },
     ),
@@ -172,53 +172,62 @@ DartType? contextTypeOf(Expression node) {
       invocation,
     ),
     NamedArgument(
-      argumentExpression: final e,
+      :final argumentExpression,
       parent: ArgumentList(parent: final Expression invocation),
     )
-        when e == node =>
+        when argumentExpression == node =>
       _parameterType(parent.correspondingParameter, invocation),
-    VariableDeclaration(initializer: final e, parent: final list)
-        when e == node && list is VariableDeclarationList =>
+    VariableDeclaration(
+      :final initializer,
+      parent: final VariableDeclarationList list,
+    )
+        when initializer == node =>
       list.type?.type,
-    ReturnStatement(expression: final e) when e == node => _returnedTypeOf(
-      parent.thisOrAncestorOfType<FunctionBody>(),
-    ),
-    ExpressionFunctionBody(expression: final e) when e == node =>
+    ReturnStatement(:final expression) when expression == node =>
+      _returnedTypeOf(parent.thisOrAncestorOfType<FunctionBody>()),
+    ExpressionFunctionBody(:final expression) when expression == node =>
       _returnedTypeOf(parent),
-    AssignmentExpression(rightHandSide: final e, :final operator)
-        when e == node &&
+    AssignmentExpression(:final rightHandSide, :final operator)
+        when rightHandSide == node &&
             (operator.type == TokenType.EQ ||
                 operator.type == TokenType.QUESTION_QUESTION_EQ) =>
       parent.writeType,
-    BinaryExpression(rightOperand: final e, :final operator)
-        when e == node &&
+    BinaryExpression(:final rightOperand, :final operator)
+        when rightOperand == node &&
             (operator.type == TokenType.EQ_EQ ||
                 operator.type == TokenType.BANG_EQ) =>
       parent.leftOperand.staticType,
-    BinaryExpression(rightOperand: final e, :final operator)
-        when e == node && operator.type == TokenType.QUESTION_QUESTION =>
+    BinaryExpression(:final rightOperand, :final operator)
+        when rightOperand == node &&
+            operator.type == TokenType.QUESTION_QUESTION =>
       contextTypeOf(parent),
     ParenthesizedExpression() => contextTypeOf(parent),
-    ConditionalExpression(thenExpression: final t, elseExpression: final e)
-        when t == node || e == node =>
+    ConditionalExpression(:final thenExpression, :final elseExpression)
+        when thenExpression == node || elseExpression == node =>
       contextTypeOf(parent),
-    SwitchExpressionCase(expression: final e, parent: final switch_)
-        when e == node && switch_ is SwitchExpression =>
+    SwitchExpressionCase(
+      :final expression,
+      parent: final SwitchExpression switch_,
+    )
+        when expression == node =>
       contextTypeOf(switch_),
-    FormalParameterDefaultClause(value: final e, parent: final parameter)
-        when e == node && parameter is FormalParameter =>
+    FormalParameterDefaultClause(
+      :final value,
+      parent: final FormalParameter parameter,
+    )
+        when value == node =>
       parameter.declaredFragment?.element.type,
-    ConstantPattern(expression: final e) when e == node =>
+    ConstantPattern(:final expression) when expression == node =>
       parent.matchedValueType,
     final ListLiteral list => _elementTypeOf(list, 0),
     SetOrMapLiteral(isSet: true) && final set => _elementTypeOf(set, 0),
-    MapLiteralEntry(key: final k, value: final v, parent: final map)
-        when map is SetOrMapLiteral && (k == node || v == node) =>
-      _elementTypeOf(map, k == node ? 0 : 1),
-    IfElement(thenElement: final t, elseElement: final e)
-        when t == node || e == node =>
+    MapLiteralEntry(:final key, :final value, parent: final SetOrMapLiteral map)
+        when key == node || value == node =>
+      _elementTypeOf(map, key == node ? 0 : 1),
+    IfElement(:final thenElement, :final elseElement)
+        when thenElement == node || elseElement == node =>
       _collectionContextOf(parent),
-    ForElement(body: final b) when b == node => _collectionContextOf(parent),
+    ForElement(:final body) when body == node => _collectionContextOf(parent),
     _ => null,
   };
 }
