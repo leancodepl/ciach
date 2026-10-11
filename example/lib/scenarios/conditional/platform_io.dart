@@ -6,5 +6,9 @@ bool get conditionalIsWeb => false;
 bool get conditionalDeadOnBoth => false;
 
 class ConditionalPlatform {
-  String label() => 'io';
+  String label() => 'io'.shout();
+}
+
+extension on String {
+  String shout() => toUpperCase();
 }

@@ -19,3 +19,9 @@ class ConditionalPlatform {
   // Private, so no other library can use it -> flagged.
   void _unusedWebOnly() {}
 }
+
+// Usable only in this library, so not paired with the one in
+// platform_io.dart -> flagged.
+extension on String {
+  String shout() => toUpperCase();
+}

@@ -38,7 +38,7 @@ import 'stub.dart'
     expect(counterpartsOf('stub.dart'), {'io.dart', 'web.dart'});
   });
 
-  test('two directives that share a file form one group', () {
+  test('the variants of one directive are not counterparts of another', () {
     write('lib/a.dart', '''
 export 'io.dart' if (dart.library.js_interop) "web.dart" show f;
 ''');
@@ -46,7 +46,29 @@ export 'io.dart' if (dart.library.js_interop) "web.dart" show f;
 import 'web.dart' if (dart.library.ffi) 'native.dart';
 ''');
 
-    expect(counterpartsOf('io.dart'), {'web.dart', 'native.dart'});
+    expect(counterpartsOf('web.dart'), {'io.dart', 'native.dart'});
+    expect(counterpartsOf('io.dart'), {'web.dart'});
+  });
+
+  test('a variant spans the files it exports and its parts', () {
+    write('lib/a.dart', '''
+import 'io.dart' if (dart.library.js_interop) 'web.dart';
+''');
+    write('lib/io.dart', '''
+export 'src/io_impl.dart';
+import 'src/helper.dart';
+part 'io_part.dart';
+''');
+    write('lib/src/io_impl.dart', 'void f() {}');
+    write('lib/src/helper.dart', 'void g() {}');
+    write('lib/io_part.dart', "part of 'io.dart';");
+
+    expect(counterpartsOf('web.dart'), {
+      'io.dart',
+      'src/io_impl.dart',
+      'io_part.dart',
+    });
+    expect(counterpartsOf('src/io_impl.dart'), {'web.dart'});
   });
 
   test('a string compared in the condition is not a variant', () {

@@ -179,21 +179,23 @@ class Ciach {
             ? _collector.collect(client, path, rootPath)
             : .value(const <Candidate>[]),
       );
-      final collected = _checkable([for (final list in perFile) ...list]);
+      final collected = [for (final list in perFile) ...list];
       _collector.reportSkipped();
 
       // Phase 2: check references for every candidate through a single global
       // pool, so the server stays saturated instead of stalling between files.
-      final (:candidates, refsByCandidate: ownRefs) = await _references(
+      final fetched = await _references(
         client,
         collected,
         totalFiles: files.length,
         rootPath: rootPath,
       );
-      final refsByCandidate = _conditionalImports.sharedReferences(
-        candidates,
-        ownRefs,
+      final (:candidates, :refsByCandidate) = _conditionalImports.share(
+        fetched.candidates,
+        fetched.refsByCandidate,
+        _collector.declaredInVariants,
         _classifier,
+        onDropped: _logUncheckable,
       );
       declarationsChecked = candidates.length;
       await _fetch.selectionRanges(client, candidates, refsByCandidate);
@@ -223,22 +225,12 @@ class Ciach {
     );
   }
 
-  /// [collected] less the ones [ConditionalImports.uncheckable] names.
-  List<Candidate> _checkable(List<Candidate> collected) {
-    final uncheckable = _conditionalImports.uncheckable(
-      collected,
-      _collector.declaredInVariants,
-    );
-    for (final candidate in uncheckable) {
-      _log.fine(
-        'Skipped ${relativePosix(candidate.path, options.rootPath)}:'
-        '${candidate.symbol.selectionRange.start.line + 1} '
-        '${candidate.symbol.name}: its namesake in another conditional-import '
-        'variant is not checked.',
-      );
-    }
-    return collected.whereNot(uncheckable.contains).toList();
-  }
+  void _logUncheckable(Candidate candidate) => _log.fine(
+    'Skipped ${relativePosix(candidate.path, options.rootPath)}:'
+    '${candidate.symbol.selectionRange.start.line + 1} '
+    '${candidate.symbol.name}: its namesake in another conditional-import '
+    'variant is not checked.',
+  );
 
   /// The references of [collected], less the candidates left unchecked.
   ///

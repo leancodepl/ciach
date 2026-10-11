@@ -1,7 +1,5 @@
-import 'dart:io';
-
 import 'package:ciach/src/candidates.dart';
-import 'package:ciach/src/comment_stripping.dart';
+import 'package:ciach/src/directives.dart';
 import 'package:ciach/src/packages.dart';
 import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/symbols.dart';
@@ -16,101 +14,146 @@ import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location;
 /// the variants share their references: they are used, or reported and
 /// removed, together.
 final class ConditionalImports {
-  ConditionalImports._(this._groupOf);
+  ConditionalImports._(this._counterparts);
 
   /// Reads the conditional directives in every Dart file under [rootPath].
+  ///
+  /// A variant spans the files it exports or owns as parts, as long as they
+  /// are under [rootPath].
   factory ConditionalImports.scan(String rootPath) {
-    final packages = PackageResolver();
-    final groups = _Groups();
-    for (final path in scanPackageTree(rootPath).dartFiles) {
-      _directivesIn(path, packages).forEach(groups.join);
+    final counterparts = <String, Set<String>>{};
+    for (final variants in _Tree(rootPath).conditionalVariants()) {
+      for (final (i, variant) in variants.indexed) {
+        final others = {
+          for (final (j, other) in variants.indexed)
+            if (j != i) ...other,
+        };
+        for (final file in variant) {
+          counterparts.putIfAbsent(file, () => {}).addAll(others);
+        }
+      }
     }
-    return ._(groups.groupOf());
+    return ._({
+      for (final MapEntry(key: file, value: others) in counterparts.entries)
+        file: others.difference({file}),
+    });
   }
 
   static final empty = ConditionalImports._(const {});
 
-  /// The group of each variant. Directives that name the same file share a
-  /// group.
-  final Map<String, int> _groupOf;
+  /// The files of the other variants, by file.
+  final Map<String, Set<String>> _counterparts;
 
-  /// Whether [path] is one of the variants of a conditional directive.
-  bool contains(String path) => _groupOf.containsKey(path);
+  /// Whether [path] is part of a variant of a conditional directive.
+  bool contains(String path) => _counterparts.containsKey(path);
 
-  /// The other variants of the directives that name [path].
-  Iterable<String> counterpartFilesOf(String path) => switch (_groupOf[path]) {
-    final group? => [
-      for (final MapEntry(key: file, value: other) in _groupOf.entries)
-        if (other == group && file != path) file,
-    ],
-    null => const [],
+  /// The files of the other variants of the directives that name [path].
+  Set<String> counterpartFilesOf(String path) =>
+      _counterparts[path] ?? const {};
+
+  /// The pairing names in [symbols], a file's outline, and their members:
+  /// `Type.member`, or the top-level name. Private names and members of
+  /// unnamed extensions are left out, since no other library can use them.
+  static Set<String> pairingNames(List<DocumentSymbol> symbols) => {
+    for (final symbol in symbols) ..._pairingNames(symbol, null),
   };
 
-  /// The name that pairs [symbol] with its namesakes: `Type.member`, or the
-  /// top-level name. `null` when [symbol] or its type is private, since no
-  /// other library can use it.
+  static Iterable<String> _pairingNames(
+    DocumentSymbol symbol,
+    String? container,
+  ) sync* {
+    if (pairingName(symbol, container) case final name?) {
+      yield name;
+      if (container == null && typeLikeKinds.contains(symbol.kind)) {
+        for (final child in symbol.children ?? const <DocumentSymbol>[]) {
+          yield* _pairingNames(child, symbol.name);
+        }
+      }
+    }
+  }
+
+  /// The name that pairs [symbol] with its namesakes; see [pairingNames].
   static String? pairingName(DocumentSymbol symbol, String? container) {
+    final type = container ?? symbol.name;
     if (isPrivateName(symbol.name) ||
-        (container != null && isPrivateName(container))) {
+        isPrivateName(type) ||
+        type.startsWith('extension on ')) {
       return null;
     }
     final name = symbol.declarationName(container);
     return container == null ? name : '$container.$name';
   }
 
-  /// The [candidates] whose namesake is declared but not checked, or whose
-  /// other variant was not read. [declared] holds the pairing names in each
-  /// variant that was read.
-  Set<Candidate> uncheckable(
-    List<Candidate> candidates,
-    Map<String, Set<String>> declared,
-  ) {
-    final checked = {
-      for (final candidate in candidates)
-        if (_pairingNameOf(candidate) case final name?) (candidate.path, name),
-    };
-    return {
-      for (final candidate in candidates)
-        if (_pairingNameOf(candidate) case final name?)
-          if (counterpartFilesOf(candidate.path).any(
-            (file) => switch (declared[file]) {
-              null => true,
-              final names =>
-                names.contains(name) && !checked.contains((file, name)),
-            },
-          ))
-            candidate,
-    };
-  }
-
-  /// [refsByCandidate] with the references of each candidate's namesakes
-  /// added, less the ones inside the namesake itself.
-  List<List<Location>> sharedReferences(
+  /// [candidates] and [refsByCandidate] with the references of each
+  /// candidate's namesakes added, less the ones inside the namesake itself.
+  ///
+  /// A candidate is dropped when a namesake is declared but not checked, or
+  /// when another variant was not read; [onDropped] hears of it. [declared]
+  /// holds the [pairingNames] of each variant that was read.
+  ({List<Candidate> candidates, List<List<Location>> refsByCandidate}) share(
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
-    ReferenceClassifier classifier,
-  ) {
-    final byPairing = <(int, String), List<int>>{};
+    Map<String, Set<String>> declared,
+    ReferenceClassifier classifier, {
+    required void Function(Candidate) onDropped,
+  }) {
+    final names = candidates.map(_pairingNameOf).toList();
+    final kept = _checkable(candidates, names, declared);
     for (final (i, candidate) in candidates.indexed) {
-      if ((_groupOf[candidate.path], _pairingNameOf(candidate)) case (
-        final group?,
-        final name?,
-      )) {
-        byPairing.putIfAbsent((group, name), () => []).add(i);
+      if (!kept.contains(i)) {
+        onDropped(candidate);
       }
     }
-    final shared = [...refsByCandidate];
-    for (final indices in byPairing.values.where((list) => list.length > 1)) {
-      for (final i in indices) {
-        shared[i] = [
-          ...refsByCandidate[i],
-          for (final j in indices)
-            if (j != i)
-              ...classifier.externalRefs(candidates[j], refsByCandidate[j]),
-        ];
+    final byName = groupBy(
+      kept.where((i) => names[i] != null),
+      (i) => names[i]!,
+    );
+    return (
+      candidates: [for (final i in kept) candidates[i]],
+      refsByCandidate: [
+        for (final i in kept)
+          [
+            ...refsByCandidate[i],
+            for (final j in byName[names[i]] ?? const <int>[])
+              if (counterpartFilesOf(
+                candidates[i].path,
+              ).contains(candidates[j].path))
+                ...classifier.externalRefs(candidates[j], refsByCandidate[j]),
+          ],
+      ],
+    );
+  }
+
+  /// The indices of the [candidates] whose namesakes are all checked, in
+  /// order. A dropped candidate can leave its own namesakes unchecked, so this
+  /// runs until nothing more drops.
+  Set<int> _checkable(
+    List<Candidate> candidates,
+    List<String?> names,
+    Map<String, Set<String>> declared,
+  ) {
+    final kept = {for (final (i, _) in candidates.indexed) i};
+    while (true) {
+      final checked = {
+        for (final i in kept)
+          if (names[i] case final name?) (candidates[i].path, name),
+      };
+      final dropped = kept.where((i) {
+        final name = names[i];
+        return name != null &&
+            counterpartFilesOf(candidates[i].path).any(
+              (file) => switch (declared[file]) {
+                null => true,
+                final inFile =>
+                  inFile.contains(name) && !checked.contains((file, name)),
+              },
+            );
+      }).toSet();
+      if (dropped.isEmpty) {
+        return kept;
       }
+      kept.removeAll(dropped);
     }
-    return shared;
   }
 
   String? _pairingNameOf(Candidate candidate) => contains(candidate.path)
@@ -118,75 +161,59 @@ final class ConditionalImports {
       : null;
 }
 
-/// The files that each conditional directive in [path] names, the default one
-/// first.
-Iterable<List<String>> _directivesIn(String path, PackageResolver packages) {
-  final String content;
-  try {
-    content = File(path).readAsStringSync();
-  } on FileSystemException {
-    return const [];
-  }
-  return [
-    for (final directive in _conditionalDirective.allMatches(
-      stripComments(content),
-    ))
-      [
-        for (final uri in _uris(directive[0]!))
-          if (packages.resolve(uri, path) case final resolved?
-              when resolved != unknownPackage)
-            resolved,
-      ],
-  ];
-}
+/// The Dart files under a root, their directives read once.
+final class _Tree {
+  _Tree(String root) : _files = scanPackageTree(root).dartFiles;
 
-/// The URIs in [directive], less the strings compared in its conditions.
-Iterable<String> _uris(String directive) sync* {
-  final conditions = _condition.allMatches(directive).toList();
-  for (final uri in uriLiteral.allMatches(directive)) {
-    if (!conditions.any((c) => c.start <= uri.start && uri.end <= c.end)) {
-      yield uri.namedGroup('uri')!;
+  final Set<String> _files;
+  final _packages = PackageResolver();
+  final _directives = <String, List<Directive>>{};
+
+  /// The [span] of each variant, for every conditional directive.
+  Iterable<List<Set<String>>> conditionalVariants() sync* {
+    for (final path in _files) {
+      // Only a file that may hold one is parsed: stripping comments is slow.
+      final content = readSource(path);
+      if (content == null || !_maybeConditional.hasMatch(content)) {
+        continue;
+      }
+      for (final directive in _directivesOf(path, content)) {
+        if (directive.isConditional) {
+          yield directive.pathsFrom(path, _packages).map(span).toList();
+        }
+      }
     }
   }
+
+  /// [variant] and the files under the root it exports or owns as parts.
+  Set<String> span(String variant) {
+    final spanned = <String>{};
+    final pending = [variant];
+    while (pending.isNotEmpty) {
+      final path = pending.removeLast();
+      if (!spanned.add(path)) {
+        continue;
+      }
+      for (final directive in _directivesOf(path)) {
+        if (directive.keyword != 'import' && !directive.isPartOf) {
+          pending.addAll(
+            directive.pathsFrom(path, _packages).where(_files.contains),
+          );
+        }
+      }
+    }
+    return spanned;
+  }
+
+  List<Directive> _directivesOf(String path, [String? content]) =>
+      _directives.putIfAbsent(
+        path,
+        () => [...Directive.allIn(content ?? readSource(path) ?? '')],
+      );
 }
 
-/// An `import` or `export` directive that has at least one `if (…)` clause.
-final _conditionalDirective = RegExp(
-  r'^[ \t]*(?:import|export)\b[^;]*\bif\s*\([^;]*;',
+/// What may start a conditional `import` or `export`.
+final _maybeConditional = RegExp(
+  r'^[ \t]*(?:import|export)\b[^;]*\bif\s*\(',
   multiLine: true,
 );
-
-/// The parenthesized condition of an `if` clause.
-final _condition = RegExp(r'\bif\s*\([^)]*\)');
-
-/// A union-find of files: each directive joins the files it names.
-final class _Groups {
-  final _parent = <String, String>{};
-
-  void join(List<String> files) {
-    for (final file in files) {
-      _parent.putIfAbsent(file, () => file);
-    }
-    for (final file in files.skip(1)) {
-      _parent[_root(file)] = _root(files.first);
-    }
-  }
-
-  String _root(String file) {
-    var root = file;
-    while (_parent[root] != root) {
-      root = _parent[root]!;
-    }
-    return root;
-  }
-
-  /// The group number of every file that shares a group with another.
-  Map<String, int> groupOf() {
-    final byRoot = groupBy(_parent.keys, _root);
-    return {
-      for (final (i, files) in byRoot.values.indexed)
-        if (files.length > 1)
-          for (final file in files) file: i,
-    };
-  }
-}

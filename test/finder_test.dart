@@ -1304,6 +1304,7 @@ void main() {
         'platform_web.dart:conditionalDeadOnBoth',
         'platform_web.dart:conditionalWebOnly',
         'platform_web.dart:ConditionalPlatform._unusedWebOnly',
+        'platform_web.dart:extension on String',
         'web_label.dart:deadWebLabel',
       });
     });
@@ -1319,6 +1320,7 @@ void main() {
 
       expect(unusedIn(result), {
         'platform_web.dart:ConditionalPlatform._unusedWebOnly',
+        'platform_web.dart:extension on String',
         'web_label.dart:deadWebLabel',
       });
     });

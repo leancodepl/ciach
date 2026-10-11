@@ -51,7 +51,7 @@ final class CandidateCollector {
   final ConditionalImports _conditionalImports;
 
   /// The pairing names in each conditional-import variant that was read,
-  /// checked or not; see [ConditionalImports.uncheckable].
+  /// checked or not; see [ConditionalImports.share].
   final declaredInVariants = <String, Set<String>>{};
 
   late final _entryPoints = EntryPoints(options.entryPoints);
@@ -91,7 +91,7 @@ final class CandidateCollector {
     }
     _sources.cacheSemanticTokens(path, await pendingTokens);
     if (_conditionalImports.contains(path)) {
-      declaredInVariants.putIfAbsent(path, () => {});
+      declaredInVariants[path] = ConditionalImports.pairingNames(symbols);
     }
     final relativePath = relativePosix(path, rootPath);
     // The whole walk has to run before the filter: it records the entry-point
@@ -198,7 +198,6 @@ final class CandidateCollector {
           ? ownMetadata.toList()
           : const [];
       _freezed.noteIfAnnotated(path, symbol, leadingMetadata);
-      _noteDeclared(path, symbol, container);
       final candidate = Candidate(
         uri: uri,
         path: path,
@@ -238,16 +237,6 @@ final class CandidateCollector {
         symbol.kind == .enum$,
         outlines,
       );
-    }
-  }
-
-  /// Records [symbol] in [declaredInVariants] when [path] is a variant.
-  void _noteDeclared(String path, DocumentSymbol symbol, String? container) {
-    if (!_conditionalImports.contains(path)) {
-      return;
-    }
-    if (ConditionalImports.pairingName(symbol, container) case final name?) {
-      declaredInVariants.putIfAbsent(path, () => {}).add(name);
     }
   }
 
