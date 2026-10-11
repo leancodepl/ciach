@@ -13,3 +13,16 @@ only in two places: `test(...)` and `group(...)` descriptions, which
 would run past 120 columns. Never wrap with `+`. Option help texts in
 `lib/src/cli/args.dart` are plain sentences with no `\n`; the parser wraps
 them (`usageLineLength`).
+
+# Dot shorthands
+
+Use a dot shorthand wherever the context type lets you: `.new(path, c)`
+rather than `DeclKey(path, c)`, `.plain` rather than `Style.plain`, including
+inside lambdas whose return type the context already fixes. Never replace a
+shorthand with the full type name.
+
+# Nullable chains
+
+Use `x?.let(f)` from `lib/src/extensions.dart` rather than
+`switch (x) { final v? => f(v), null => null }` or `x == null ? null : f(x)`,
+and `x?.let(f) ?? d` rather than `x == null ? d : f(x)`.

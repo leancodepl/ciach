@@ -86,5 +86,5 @@ final class Candidate {
 
   /// The `(path, container)` key of this candidate's enclosing declaration,
   /// or `null` when it has no container.
-  DeclKey? get containerKey => container?.let((c) => DeclKey(path, c));
+  DeclKey? get containerKey => container?.let((c) => .new(path, c));
 }
