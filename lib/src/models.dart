@@ -9,6 +9,7 @@
  */
 
 import 'package:ciach/src/conventions/entry_points.dart';
+import 'package:ciach/src/conventions/gen_l10n.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
@@ -60,6 +61,7 @@ class FinderOptions {
     this.reportToJson = false,
     this.transitive = false,
     this.entryPoints = const [],
+    this.translations = const [],
     this.concurrency = 16,
     this.dartExecutable,
   }) : rootPath = rootPath.absoluteNormalized,
@@ -158,6 +160,10 @@ class FinderOptions {
   /// The project's own entry points, on top of [EntryPoint.builtIn]. A match
   /// is never a candidate, so it is neither reported nor removed.
   final List<EntryPoint> entryPoints;
+
+  /// The `gen-l10n` template files that are scanned for unused messages. The
+  /// findings in these files are report-only.
+  final List<Translations> translations;
 
   /// How many `textDocument/references` requests to keep in flight at once.
   /// Higher values keep the analysis server busier; there are diminishing

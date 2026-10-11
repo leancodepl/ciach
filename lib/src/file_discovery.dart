@@ -8,7 +8,9 @@
  *     - mark-ai-provenance
  */
 
+import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:ciach/src/models.dart';
 import 'package:glob/glob.dart';
@@ -128,12 +130,45 @@ bool _isGenerated(
       additionalSuffixes.any(name.endsWith)) {
     return true;
   }
-  // Fall back to the conventional generated-code banner near the top of the
-  // file. Generators emit it within the first line or two.
-  return _readPrefix(
-    file,
-    300,
-  ).contains('GENERATED CODE - DO NOT MODIFY BY HAND');
+  return isGeneratedBanner(_readPrefix(file, 2000));
+}
+
+/// The banner that build_runner writes at the top of a generated file. It is
+/// matched anywhere in the first 300 characters of the file.
+const _buildBanner = 'GENERATED CODE - DO NOT MODIFY BY HAND';
+
+final _banner = RegExp(
+  r'\b(?:auto-?)?generated\b.{0,200}?\b(?:do not|don.t|must not)\s+(?:\w+\s+)?(?:edit|modify)\b|\b(?:do not|don.t)\s+(?:edit|modify)\b.{0,200}?\bgenerated\b',
+  caseSensitive: false,
+);
+
+/// Returns whether [source] starts with a banner that marks generated code.
+/// Only the comments before the first declaration are read. Doc comments are
+/// skipped, because a doc comment can mention generated code in a file that
+/// is not generated.
+bool isGeneratedBanner(String source) {
+  if (source.substring(0, min(source.length, 300)).contains(_buildBanner)) {
+    return true;
+  }
+  final comments = StringBuffer();
+  var inBlock = false;
+  for (final raw in const LineSplitter().convert(source)) {
+    final line = raw.trim();
+    if (inBlock) {
+      comments.write(' $line');
+      inBlock = !line.contains('*/');
+    } else if (line.startsWith('///')) {
+      continue;
+    } else if (line.startsWith('//')) {
+      comments.write(' $line');
+    } else if (line.startsWith('/*')) {
+      comments.write(' $line');
+      inBlock = !line.substring(2).contains('*/');
+    } else if (line.isNotEmpty) {
+      break;
+    }
+  }
+  return _banner.hasMatch(comments.toString());
 }
 
 String _readPrefix(File file, int maxChars) {

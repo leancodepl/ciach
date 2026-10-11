@@ -59,8 +59,24 @@ List<String> describeSettings(
   'Settings for this run:',
   for (final option in CiachOption.values)
     if (option.configKey case final key?)
-      '  $key: ${_setting(option, resolved, options, dartExecutable)} (${_source(configuration.valueSourceType(option))})',
+      '  $key: ${_setting(option, resolved, options, dartExecutable)} (${_source(configuration.valueSourceType(option))})${_detected(option, resolved)}',
 ];
+
+/// Returns the values that the project config adds to [option], formatted for
+/// the list of settings. Returns an empty string when the project config adds
+/// no values.
+String _detected(CiachOption<dynamic> option, ResolvedOptions resolved) {
+  final detected = resolved.detected;
+  final values = switch (option) {
+    .entryPoints => detected.entryPoints,
+    .generatedGlob =>
+      resolved.unusedTranslations
+          ? detected.generatedGlobsExceptTranslations
+          : detected.generatedGlobs,
+    _ => const <Object>[],
+  };
+  return values.isEmpty ? '' : '; ${_value(values)} (project config)';
+}
 
 /// The value of [option] as the run uses it, with the root made absolute, the
 /// kinds as labels, and the auto-detected flags as they settled.
@@ -77,6 +93,8 @@ String _setting(
   .exported => '${resolved.includeExported}',
   .failPublic => '${resolved.failPublic}',
   .generated => '${resolved.includeGenerated}',
+  .projectConfig => '${resolved.projectConfig}',
+  .unusedTranslations => '${resolved.unusedTranslations}',
   .overrides => '${resolved.overrides}',
   .operators => '${resolved.operators}',
   .unusedUnionMembers => '${resolved.unusedUnionMembers}',

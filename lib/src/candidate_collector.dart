@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/freezed.dart';
+import 'package:ciach/src/conventions/js_interop.dart';
+import 'package:ciach/src/conventions/test_reflective_loader.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
@@ -88,6 +90,7 @@ final class CandidateCollector {
       symbols,
       null,
       null,
+      null,
       false,
       _OutlineIndex(outline),
     ).toList();
@@ -134,7 +137,11 @@ final class CandidateCollector {
         path: relativePath,
         line: symbol.selectionRange.start.line + 1,
         name: symbol.name,
-        reason: 'declares the entry point ${rule.name}',
+        reason: switch (rule.superclass) {
+          final superclass? =>
+            'extends `$superclass`, so its public methods are entry points',
+          null => 'declares the entry point ${rule.name}',
+        },
       ));
     }
   }
@@ -151,6 +158,7 @@ final class CandidateCollector {
     List<DocumentSymbol> symbols,
     String? container,
     Candidate? containerCandidate,
+    _ExportedMembers? containerExports,
     bool parentIsEnum,
     _OutlineIndex outlines,
   ) sync* {
@@ -191,7 +199,13 @@ final class CandidateCollector {
           symbols,
         ),
       );
-      if (_shouldConsider(relativePath, candidate, leadingMetadata)) {
+      final exports = _exportsOf(symbol, leadingMetadata) ?? containerExports;
+      if (_shouldConsider(
+        relativePath,
+        candidate,
+        leadingMetadata,
+        containerExports: containerExports,
+      )) {
         yield candidate;
       }
       final (
@@ -207,6 +221,7 @@ final class CandidateCollector {
         symbol.children ?? const [],
         childContainer,
         childContainerCandidate,
+        exports,
         symbol.kind == .enum$,
         outlines,
       );
@@ -228,14 +243,122 @@ final class CandidateCollector {
             false);
   }
 
-  /// Whether [candidate] should have its references checked.
-  bool _shouldConsider(
+  /// Returns which members of the type [symbol] are called from outside the
+  /// Dart source. The annotation on the type decides this. Returns `null`
+  /// when [symbol] is not a type, or when the type has no such annotation.
+  _ExportedMembers? _exportsOf(
+    DocumentSymbol symbol,
+    Iterable<SemanticToken> leadingMetadata,
+  ) {
+    if (!typeLikeKinds.contains(symbol.kind)) {
+      return null;
+    }
+    if (isJsExported(leadingMetadata)) {
+      return .jsExport;
+    }
+    if (isReflectiveTest(leadingMetadata)) {
+      return .reflectiveTest;
+    }
+    return null;
+  }
+
+  /// Returns the name of the class that [symbol] extends. [symbol] is a class
+  /// that is declared in the file at [path]. Returns `null` when [symbol] is
+  /// not a class, or when the class has no `extends` clause.
+  String? _superclassOf(String path, DocumentSymbol symbol) {
+    if (symbol.kind != .class$) {
+      return null;
+    }
+    final start = _sources.offsetOf(path, symbol.selectionRange.end);
+    final end = _sources.offsetOf(path, symbol.range.end);
+    if (start == null || end == null) {
+      return null;
+    }
+    final rest = _sources.content(path).substring(start, end);
+    final brace = rest.indexOf('{');
+    return _extendsClause
+        .firstMatch(brace < 0 ? rest : rest.substring(0, brace))
+        ?.group(1);
+  }
+
+  /// Matches the `extends` clause that follows a class name. The type
+  /// parameters before the clause must not be nested, so a class with
+  /// `<T extends List<int>>` is not matched.
+  static final _extendsClause = RegExp(
+    r'^\s*(?:<[^<>]*>)?\s*extends\s+([A-Za-z_$][\w$]*)',
+  );
+
+  String? _calledFromOutside(
+    Candidate candidate,
+    Iterable<SemanticToken> leadingMetadata,
+    _ExportedMembers? containerExports,
+  ) {
+    final symbol = candidate.symbol;
+    if (isJsExported(leadingMetadata)) {
+      return 'exported to JavaScript by `@JSExport`';
+    }
+    if (isPrivateName(symbol.name) || symbol.kind == .constructor) {
+      return null;
+    }
+    return switch (containerExports) {
+      .jsExport => 'exported to JavaScript by `@JSExport` on its class',
+      .reflectiveTest
+          when symbol.kind == .method && isReflectiveTestMethod(symbol.name) =>
+        'run by `defineReflectiveTests`',
+      _ => null,
+    };
+  }
+
+  /// Returns whether [candidate] is called by a framework or a tool. Such a
+  /// declaration has no reference in the source code. Every entry point that
+  /// is found here is recorded, so that `--verbose` can list it.
+  bool _isEntryPoint(
     String relativePath,
     Candidate candidate,
     Iterable<SemanticToken> leadingMetadata,
+    _ExportedMembers? containerExports,
   ) {
     final symbol = candidate.symbol;
     final container = candidate.container;
+    final rule = _entryPoints.match(
+      relativePath,
+      symbol,
+      container,
+      containerSuperclass: () => switch (candidate.containerSymbol) {
+        final containerSymbol? => _superclassOf(
+          candidate.path,
+          containerSymbol,
+        ),
+        null => null,
+      },
+    );
+    if (rule != null && container != null) {
+      _entryPointContainers[DeclKey(relativePath, container)] ??= rule;
+    }
+    final reason =
+        rule?.reason ??
+        _calledFromOutside(candidate, leadingMetadata, containerExports);
+    if (reason == null) {
+      return false;
+    }
+    final name = symbol.declarationName(container);
+    _skippedEntryPoints.add((
+      path: relativePath,
+      line: symbol.selectionRange.start.line + 1,
+      name: container == null ? name : '$container.$name',
+      reason: reason,
+    ));
+    return true;
+  }
+
+  /// Returns whether the references to [candidate] should be checked.
+  bool _shouldConsider(
+    String relativePath,
+    Candidate candidate,
+    Iterable<SemanticToken> leadingMetadata, {
+    required _ExportedMembers? containerExports,
+  }) {
+    final symbol = candidate.symbol;
     if (!options.kinds.contains(
       symbol.reportedKind(
         parentIsEnum: candidate.isEnumValue,
@@ -244,17 +367,12 @@ final class CandidateCollector {
     )) {
       return false;
     }
-    // Called by a framework or tool, with no source reference to find.
-    if (_entryPoints.match(relativePath, symbol, container) case final rule?) {
-      _skippedEntryPoints.add((
-        path: relativePath,
-        line: symbol.selectionRange.start.line + 1,
-        name: rule.name,
-        reason: rule.reason,
-      ));
-      if (container != null) {
-        _entryPointContainers[DeclKey(relativePath, container)] ??= rule;
-      }
+    if (_isEntryPoint(
+      relativePath,
+      candidate,
+      leadingMetadata,
+      containerExports,
+    )) {
       return false;
     }
     if (symbol.kind == .namespace &&
@@ -291,6 +409,9 @@ final class CandidateCollector {
     return true;
   }
 }
+
+/// The members of a type that are called from outside the Dart source.
+enum _ExportedMembers { jsExport, reflectiveTest }
 
 /// A skipped entry point: root-relative POSIX path, one-based line, the name
 /// as the rule spells it, and why.

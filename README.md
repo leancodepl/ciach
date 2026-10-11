@@ -79,6 +79,8 @@ ciach --verbose                        # explain each step
 | `--analysis-root <path>` | the scanned path | Count references from this whole directory, not just the scanned package — for a monorepo wired by `path:` dependencies. See [Monorepos](#monorepos). |
 | `--[no-]public` | on | Report unused public declarations too. Disable to report only private (`_`-prefixed) ones. |
 | `--[no-]generated` | off | Scan generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, …). |
+| `--[no-]project-config` | on | Read [entry points](#entry-points) and [generated files](#generated-files-from-the-project-config) from `pubspec.yaml`, `build.yaml` and `l10n.yaml`. |
+| `--[no-]unused-translations` | off | Scan the gen-l10n template file and report its unused messages. They are only reported, never removed: remove them from the template ARB file instead. |
 | `--[no-]overrides` | off | Report `@override` members too. Off by default — see limitations. |
 | `--[no-]operators` | off | Report operator overloads (`operator +`, `operator ==`, …) too. Off by default — see limitations. |
 | `--[no-]unused-union-members` | off | Also flag a (sealed) supertype member matched only by type patterns, never constructed. Report-only — never touched by `--remove`. |
@@ -92,7 +94,7 @@ ciach --verbose                        # explain each step
 | `-e, --exclude <glob>` | — | Skip files matching the glob (repeatable). They are not opened, so a declaration used only from them is reported; see `--generated-glob`. |
 | `-i, --include <glob>` | — | Only scan files matching the glob (repeatable). |
 | `--generated-suffix <suffix>` | — | Extra filename suffix (with leading dot) to treat as generated and skip, on top of the built-in set; repeatable. Ignored when `--generated` is set. |
-| `--generated-glob <glob>` | — | Treat files matching the glob as generated: their references count, but nothing in them is reported or removed. For output without a suffix or banner, like `flutter gen-l10n`'s (`'lib/l10n/**'`), or code kept as is, like a vendored copy. Repeatable; ignored when `--generated` is set. |
+| `--generated-glob <glob>` | — | Treat files matching the glob as generated: their references count, but nothing in them is reported or removed. For output without a suffix or banner, or code kept as is, like a vendored copy. Repeatable; ignored when `--generated` is set. |
 | `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
 | `-f, --format <fmt>` | `text` | `text`, `json`, or `github` (GitHub Actions `::warning` annotations). |
 | `-j, --concurrency <n>` | `16` | Reference queries kept in flight against the analysis server. |
@@ -123,8 +125,8 @@ kinds: [class, function, method]
 format: github
 set-exit-if-changed: true
 entry-points:                     # file-only; see Entry points below
-  - name: MyPlugin.registerWith
-    glob: 'lib/my_plugin.dart'
+  - name: bootstrap
+    glob: 'lib/src/isolate.dart'
 ```
 
 Command line beats config file beats default, even when the flag matches the
@@ -282,6 +284,7 @@ auto-remove — remove manually` and skipped, along with anything coupled to the
 | The sole constructor of a live class with `final` fields, or whose superclass needs constructor arguments | the implicit default constructor can't replace it |
 | A primary constructor or its declaring parameters | only part of the class header |
 | A member whose override is a declaring parameter, or is in a file the run didn't scan | that override can't be deleted, and would be left overriding nothing |
+| A gen-l10n message (`--unused-translations`) | the message is defined in the ARB file, and gen-l10n would generate it again |
 
 ## What it skips by default
 
@@ -291,12 +294,15 @@ that cost.
 | Skipped | Why | Flag |
 | --- | --- | --- |
 | `main` | the entry point is never unused | — |
-| `testExecutable` in a `flutter_test_config.dart` | called by the `flutter test` bootstrap | [`entry-points:`](#entry-points) adds more |
+| `testExecutable` in a `flutter_test_config.dart` | called by the `flutter test` bootstrap | — |
+| Entry points from the [project config](#entry-points) | they are called by a framework or a tool | `--no-project-config` |
 | `@override` members — never reported, but removed with a dead member | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses, so none of them are findings. One that overrides a dead member is dead too, so `--remove` [takes both](#removing-declarations) | `--overrides` |
 | Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--operators` |
 | `call` methods | implicit-call syntax (`obj(…)`) is unresolvable the same way | — |
 | `@pragma('vm:entry-point')` | reachable from native code or reflection | — |
-| Generated files | by filename convention, the `GENERATED CODE - DO NOT MODIFY BY HAND` banner, and `--generated-suffix` / `--generated-glob`. Still opened during analysis, so a declaration used only from a `.g.dart` isn't misreported | `--generated` |
+| `@JSExport`, and the public members of a `@JSExport` class | they can be called from JavaScript | — |
+| `test_…` methods of a `@reflectiveTest` class | they are run through `dart:mirrors` | — |
+| Generated files | by filename convention, a generated-code banner, the [project config](#generated-files-from-the-project-config), and `--generated-suffix` / `--generated-glob`. Still opened during analysis, so a declaration used only from a `.g.dart` isn't misreported | `--generated` |
 | `toJson()` | `jsonEncode(obj)` calls it by dynamic dispatch, leaving no source-level reference | `--report-tojson` |
 | Type parameters | always "used" within their scope | — |
 | dartdoc `[Xxx]` links | not a code reference; reported as [doc-only](#doc-only-findings) instead of hidden | — |
@@ -312,21 +318,48 @@ Some declarations are only ever called from code a tool generates: `flutter
 test` runs `testExecutable` from the nearest `flutter_test_config.dart`,
 flutter_tools calls `MyPlugin.registerWith()` on the plugin class named in
 `pubspec.yaml`. Nothing in the package references them, so they would read as
-dead. ciach knows `main` and `testExecutable`; a project lists its own under
-`entry-points:` in `ciach.yaml`:
+dead. ciach knows about `main` and `testExecutable`. It also reads these entry
+points from the project's own config files:
+
+| Source | Entry point |
+| --- | --- |
+| `build.yaml` builders | the functions listed under `builder_factories` or `builder_factory` |
+| `pubspec.yaml` plugin | `registerWith` on each platform's `dartPluginClass` and on the web `pluginClass` |
+| `dart_frog` | `onRequest`, `middleware`, `init`, `run` |
+| `serverpod` | the classes that directly extend `Endpoint`, and their public methods |
+| `analysis_server_plugin` | `plugin` in `lib/main.dart` |
+| `custom_lint_builder` | `createPlugin` in `lib/<package>.dart` |
+
+List any other entry points under `entry-points:` in `ciach.yaml`:
 
 ```yaml
 entry-points:
-  - name: MyPlugin.registerWith   # a member: `Type.member`, no type parameters
-    glob: 'lib/my_plugin.dart'    # one glob or a list; omit for any file
-  - name: myBuilder               # a build.yaml builder factory
-    glob: 'lib/builder.dart'
+  - name: MyHost.callback         # a member: `Type.member`, no type parameters
+    glob: 'lib/my_host.dart'      # one glob or a list; omit for any file
+  - name: bootstrap               # a top-level declaration
+    glob: 'lib/src/isolate.dart'
 ```
 
 A matching declaration is neither reported nor removed, whatever its signature.
 A member rule also keeps its type, while the type's other members are still
-checked. `-v` names each skipped entry point. This setting has no command-line
-form.
+checked. `-v` names each skipped entry point. `entry-points:` can't be
+set on the command line.
+
+### Generated files from the project config
+
+ciach also treats these files as generated:
+
+- The files build_runner writes into the source tree. ciach works out which
+  builders build_runner applies to the package, and reads the outputs they
+  declare.
+- The files `flutter gen-l10n` writes, as `l10n.yaml` configures them. With
+  `--unused-translations`, the template file is scanned instead, and its
+  unused messages are reported.
+
+Every package under the scanned path is read from its own files, so scanning
+the root of a pub workspace or monorepo covers all of its members. `build.yaml`
+is read together with every `build.<name>.yaml`, because
+`build_runner --config` can use any of them.
 
 ### Monorepos
 
@@ -359,8 +392,8 @@ deleting blindly:
   sibling package; a published package's consumers stay invisible.
 - **Reflection, dynamic invocation, and names referenced only from generated
   code you excluded** are invisible to a reference search.
-- **Entry points other than `main` and `testExecutable`** (plugin registrants,
-  isolate entry points) need listing under [`entry-points`](#entry-points) or
+- **Other entry points**, such as isolate entry points and native callbacks,
+  have to be listed under [`entry-points`](#entry-points) or marked with
   `@pragma('vm:entry-point')`.
 - **A primary constructor shares its class's references**, since a query at the
   header resolves to the class: a never-invoked one only surfaces once the class
