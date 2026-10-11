@@ -136,10 +136,9 @@ Future<int> _run(List<String> arguments) async {
 
   writeReport(_console, result, resolved, rootPath);
 
-  final anyFound = result.unused.isNotEmpty || result.emptyFiles.isNotEmpty;
-  if (anyFound && resolved.remove) {
+  if (resolved.remove) {
     _removeUnused(result, rootPath, resolved);
-  } else if (anyFound) {
+  } else if (result.unused.isNotEmpty || result.emptyFiles.isNotEmpty) {
     _log.fine('Leaving the findings in place; --remove was not given.');
   }
 
@@ -147,12 +146,15 @@ Future<int> _run(List<String> arguments) async {
 }
 
 /// Confirms (unless forced), removes the findings and empty files, and reports
-/// it.
+/// it. Does nothing when there are none.
 void _removeUnused(
   FinderResult result,
   String rootPath,
   ResolvedOptions resolved,
 ) {
+  if (result.unused.isEmpty && result.emptyFiles.isEmpty) {
+    return;
+  }
   // Report-only findings are left in place, so counting them would promise an
   // edit that never happens.
   final removable = result.unused.whereNot((d) => d.removalBlocked).toList();
