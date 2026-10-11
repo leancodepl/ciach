@@ -1,12 +1,8 @@
 ## Unreleased
 
-- Detect CI from the environment (`CI`, `GITHUB_ACTIONS`, `GITLAB_CI`, …):
-  there, `--set-exit-if-changed` and `--verbose` are on and progress off by
-  default, and on GitHub Actions `--format` defaults to `github`, so a bare
-  `ciach` step annotates the diff, fails the job on findings and logs what it
-  did. `--[no-]ci` (`ci:` in `ciach.yaml`) overrides the detection, and
-  `--no-set-exit-if-changed` keeps a CI step from failing. The verbose log
-  names the service it detected.
+- Detect CI: there, `--set-exit-if-changed` and `--verbose` default to on,
+  progress to off, and on GitHub Actions `--format` to `github`. `--[no-]ci`
+  overrides the detection.
   ([#101](https://github.com/leancodepl/ciach/pull/101))
 - `--transitive` also reports dead cycles: declarations that only reference
   each other.
