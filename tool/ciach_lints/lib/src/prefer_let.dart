@@ -15,10 +15,11 @@ import 'package:analyzer_plugin/utilities/fixes/fixes.dart';
 import 'package:analyzer_plugin/utilities/range_factory.dart';
 
 /// Flags an expression that only checks a value for null before using it:
-/// `switch (x) { final v? => f(v), null => d }`, `x == null ? null : f(x)`
-/// and `x == null ? d : f(x)`. A null-aware chain (`x?.length`) or `x?.let(f)`
-/// from `lib/src/extensions.dart`, with `?? d` for a fallback other than
-/// `null`, says the same in one expression.
+/// `switch (x) { final v? => f(v), null => d }`, `x == null ? null : f(x)`,
+/// `x == null ? d : f(x)`, and `a.b == null ? d : f(a.b!)` for a value a null
+/// check cannot promote. A null-aware chain (`x?.length`) or `x?.let(f)` from
+/// `lib/src/extensions.dart`, with `?? d` for a fallback other than `null`,
+/// says the same in one expression.
 class PreferLet() extends AnalysisRule {
   this : super(name: code.lowerCaseName, description: code.problemMessage);
 
@@ -65,13 +66,16 @@ class _Visitor(final AnalysisRule rule, final TypeSystem typeSystem)
 
 /// What a null-aware chain or `x?.let(f)` can replace: the `target` checked
 /// against null, the name and, when spelled, the type of the `variable` bound
-/// to its non-null value, the `body` computed from that, and the `fallback`
-/// produced for null when it is not `null` itself.
+/// to its non-null value, the `body` computed from that, the `aliases` in the
+/// body that stand for the variable (each `target!` when the target is not
+/// promotable), and the `fallback` produced for null when it is not `null`
+/// itself.
 typedef LetShape = ({
   Expression target,
   String variable,
   TypeAnnotation? type,
   Expression body,
+  List<Expression> aliases,
   Expression? fallback,
 });
 
@@ -82,7 +86,9 @@ typedef LetShape = ({
 /// plain `final v` once the null arm has matched null first, or `final T v`
 /// when `T` is just the target's own type made non-nullable, which is the
 /// same check. A conditional qualifies when it compares a local variable or
-/// parameter with null and the branch for the non-null case mentions it.
+/// parameter with null and the branch for the non-null case mentions it, or
+/// compares any other expression with null and that branch uses it only as
+/// `expression!`.
 LetShape? letShapeOf(Expression node, TypeSystem typeSystem) => switch (node) {
   SwitchExpression() => _switchShape(node, typeSystem),
   ConditionalExpression() => _conditionalShape(node),
@@ -127,6 +133,7 @@ LetShape? _switchShape(SwitchExpression node, TypeSystem typeSystem) {
     variable: variable.name.lexeme,
     type: variable.type,
     body: value.expression,
+    aliases: const [],
     fallback: nothing.expression is NullLiteral ? null : nothing.expression,
   );
 }
@@ -160,18 +167,18 @@ bool _isNullArm(SwitchExpressionCase arm, {required bool wildcardOk}) =>
     };
 
 LetShape? _conditionalShape(ConditionalExpression node) {
-  final (variable, equalsNull) = switch (node.condition) {
+  final (target, equalsNull) = switch (node.condition) {
     BinaryExpression(
-      leftOperand: final SimpleIdentifier variable,
+      leftOperand: final target,
       rightOperand: NullLiteral(),
       :final operator,
     ) ||
     BinaryExpression(
       leftOperand: NullLiteral(),
-      rightOperand: final SimpleIdentifier variable,
+      rightOperand: final target,
       :final operator,
-    ) when _isLocal(variable) => (
-      variable,
+    ) => (
+      target,
       switch (operator.type) {
         TokenType.EQ_EQ => true,
         TokenType.BANG_EQ => false,
@@ -180,21 +187,50 @@ LetShape? _conditionalShape(ConditionalExpression node) {
     ),
     _ => (null, null),
   };
-  if (variable == null || equalsNull == null) {
+  if (target == null || equalsNull == null) {
     return null;
   }
   final (whenNull, whenNotNull) = equalsNull
       ? (node.thenExpression, node.elseExpression)
       : (node.elseExpression, node.thenExpression);
-  if (_mentions(whenNotNull, variable.name) == 0) {
+  final fallback = whenNull is NullLiteral ? null : whenNull;
+  if (target case SimpleIdentifier(:final name) when _isLocal(target)) {
+    if (_identifiersNamed(whenNotNull, name) == 0) {
+      return null;
+    }
+    return (
+      target: target,
+      variable: name,
+      type: null,
+      body: whenNotNull,
+      aliases: const [],
+      fallback: fallback,
+    );
+  }
+  // The check promotes nothing, so the branch can only use the value through
+  // `target!`; each of those becomes the variable, named after the target
+  // unless the branch already mentions that name.
+  final uses = _Uses(target.toSource())..visit(whenNotNull);
+  if (uses.aliases.isEmpty || uses.bare > 0) {
+    return null;
+  }
+  String? variable;
+  for (final name in [?_lastName(target), 'it']) {
+    if (_identifiersNamed(whenNotNull, name, aliases: uses.aliases) == 0) {
+      variable = name;
+      break;
+    }
+  }
+  if (variable == null) {
     return null;
   }
   return (
-    target: variable,
-    variable: variable.name,
+    target: target,
+    variable: variable,
     type: null,
     body: whenNotNull,
-    fallback: whenNull is NullLiteral ? null : whenNull,
+    aliases: uses.aliases,
+    fallback: fallback,
   );
 }
 
@@ -205,26 +241,81 @@ bool _isLocal(SimpleIdentifier identifier) => switch (identifier.element) {
   _ => false,
 };
 
-/// How many times [node] mentions a simple identifier called [name].
-int _mentions(AstNode node, String name) {
-  var count = 0;
-  node.visitChildren(
-    _Counter((identifier) {
-      if (identifier.name == name) {
-        count++;
-      }
-    }),
-  );
-  if (node case SimpleIdentifier(name: final found) when found == name) {
-    count++;
+/// The identifier [expression] ends with, as a name for its value: `foo` for
+/// `a.foo`, `a.foo()` or `a.foo[0]`.
+String? _lastName(Expression expression) => switch (expression) {
+  SimpleIdentifier(:final name) => name,
+  PrefixedIdentifier(identifier: SimpleIdentifier(:final name)) => name,
+  PropertyAccess(propertyName: SimpleIdentifier(:final name)) => name,
+  MethodInvocation(methodName: SimpleIdentifier(:final name)) => name,
+  IndexExpression(target: final target?) => _lastName(target),
+  PostfixExpression(:final operand) => _lastName(operand),
+  ParenthesizedExpression(:final expression) => _lastName(expression),
+  _ => null,
+};
+
+/// How a branch uses a value spelled [source] that a null check cannot
+/// promote: the [aliases] are its `source!` occurrences, [bare] counts any
+/// other occurrence.
+class _Uses(final String source) extends GeneralizingAstVisitor<void> {
+  final List<Expression> aliases = [];
+  int bare = 0;
+
+  void visit(Expression branch) => branch.accept(this);
+
+  @override
+  void visitPostfixExpression(PostfixExpression node) {
+    if (node.operator.type == TokenType.BANG &&
+        node.operand.toSource() == source) {
+      aliases.add(node);
+      return;
+    }
+    super.visitPostfixExpression(node);
   }
-  return count;
+
+  @override
+  void visitExpression(Expression node) {
+    if (node.toSource() == source) {
+      bare++;
+    }
+    super.visitExpression(node);
+  }
 }
 
-class _Counter(final void Function(SimpleIdentifier) onIdentifier)
+/// How many simple identifiers in [node], itself included, are called
+/// [name], outside the [aliases].
+int _identifiersNamed(
+  AstNode node,
+  String name, {
+  List<Expression> aliases = const [],
+}) {
+  final counter = _Counter(name, aliases);
+  node.accept(counter);
+  return counter.count;
+}
+
+/// How many times the body of a [LetShape] mentions its variable: as an
+/// identifier called [name], or through one of the [aliases].
+int _mentions(AstNode body, String name, List<Expression> aliases) =>
+    _identifiersNamed(body, name, aliases: aliases) + aliases.length;
+
+class _Counter(final String name, final List<Expression> aliases)
     extends RecursiveAstVisitor<void> {
+  int count = 0;
+
   @override
-  void visitSimpleIdentifier(SimpleIdentifier node) => onIdentifier(node);
+  void visitSimpleIdentifier(SimpleIdentifier node) {
+    if (node.name == name) {
+      count++;
+    }
+  }
+
+  @override
+  void visitPostfixExpression(PostfixExpression node) {
+    if (!aliases.contains(node)) {
+      super.visitPostfixExpression(node);
+    }
+  }
 }
 
 /// What a [LetShape] becomes: the `code` to write, a `sketch` of it for
@@ -245,24 +336,27 @@ Rewrite rewriteOf(LetShape shape, String Function(AstNode node) text) {
   final String code;
   final String sketch;
   final bool usesLet;
-  if (_chainRoot(body) case final root?
-      when root.name == shape.variable &&
-          _mentions(body, shape.variable) == 1) {
+  final variable = shape.variable;
+  final aliases = shape.aliases;
+  if (_chainRoot(body, aliases) case final root?
+      when (root is! SimpleIdentifier || root.name == variable) &&
+          _mentions(body, variable, aliases) == 1) {
     code = root == body
         ? receiver
         : '$receiver?${text(body).substring(root.length)}';
     sketch = code;
     usesLet = false;
-  } else if (_tearOff(body, shape.variable, text) case final function?) {
+  } else if (_tearOff(body, variable, aliases, text) case final function?) {
     code = '$receiver?.let($function)';
     sketch = code;
     usesLet = true;
   } else {
     final parameter = switch (shape.type) {
-      final type? => '${text(type)} ${shape.variable}',
-      null => shape.variable,
+      final type? => '${text(type)} $variable',
+      null => variable,
     };
-    code = '$receiver?.let(($parameter) => ${text(body)})';
+    final bodyText = _withAliasesNamed(body, aliases, variable, text);
+    code = '$receiver?.let(($parameter) => $bodyText)';
     sketch = '$receiver?.let(($parameter) => …)';
     usesLet = true;
   }
@@ -280,70 +374,95 @@ Rewrite rewriteOf(LetShape shape, String Function(AstNode node) text) {
   );
 }
 
-/// The identifier [body] selects from when it is one selector chain,
-/// `v.a.b(c)`, `v[0]`, `v.a!.b`, or `v` itself: the chain's root, which a
-/// `?` after the receiver turns null-aware. The first selector has to be a
-/// `.` or an index, since `?` cannot precede `!` or another `?.`.
-SimpleIdentifier? _chainRoot(Expression body) => switch (body) {
-  final SimpleIdentifier root => root,
-  PrefixedIdentifier(prefix: final root) => root,
-  PropertyAccess(
-    target: final SimpleIdentifier root,
-    operator: Token(type: TokenType.PERIOD),
-  ) =>
-    root,
-  PropertyAccess(
-    target: final target?,
-    isCascaded: false,
-    operator: Token(type: TokenType.PERIOD || TokenType.QUESTION_PERIOD),
-  )
-      when target is! SimpleIdentifier =>
-    _chainRoot(target),
-  MethodInvocation(
-    target: final SimpleIdentifier root,
-    operator: Token(type: TokenType.PERIOD),
-  ) =>
-    root,
-  MethodInvocation(
-    target: final target?,
-    isCascaded: false,
-    operator: Token(type: TokenType.PERIOD || TokenType.QUESTION_PERIOD),
-  )
-      when target is! SimpleIdentifier =>
-    _chainRoot(target),
-  IndexExpression(
-    target: final SimpleIdentifier root,
-    question: null,
-    isCascaded: false,
-  ) =>
-    root,
-  IndexExpression(target: final target?, isCascaded: false)
-      when target is! SimpleIdentifier =>
-    _chainRoot(target),
-  PostfixExpression(operator: Token(type: TokenType.BANG), :final operand)
-      when operand is! SimpleIdentifier =>
-    _chainRoot(operand),
-  _ => null,
-};
+/// [body]'s source with each of the [aliases] replaced by [variable]. Only
+/// exact source, as [text] gives the fix, keeps the offsets; the normalized
+/// source the rule sketches with does not, and there the body is elided
+/// anyway.
+String _withAliasesNamed(
+  Expression body,
+  List<Expression> aliases,
+  String variable,
+  String Function(AstNode node) text,
+) {
+  var source = text(body);
+  if (aliases.isEmpty) {
+    return source;
+  }
+  if (source.length != body.length) {
+    return '…';
+  }
+  final byOffsetDescending = [...aliases]
+    ..sort((a, b) => b.offset.compareTo(a.offset));
+  for (final alias in byOffsetDescending) {
+    final start = alias.offset - body.offset;
+    source = source.replaceRange(start, start + alias.length, variable);
+  }
+  return source;
+}
 
-/// The function [body] calls with the [variable] as its only argument,
-/// `int.parse(v)` or `f(v)`, as a tear-off; `null` for any other body.
+/// The expression [body] selects from when it is one selector chain,
+/// `v.a.b(c)`, `v[0]`, `v.a!.b`, or `v` itself: the chain's root, a simple
+/// identifier or one of the [aliases], which a `?` after the receiver turns
+/// null-aware. The first selector has to be a `.` or an index, since `?`
+/// cannot precede `!` or another `?.`.
+Expression? _chainRoot(Expression body, List<Expression> aliases) {
+  bool isRoot(Expression node) =>
+      node is SimpleIdentifier || aliases.contains(node);
+  if (isRoot(body)) {
+    return body;
+  }
+  final (Expression? target, bool plainSelector) = switch (body) {
+    PrefixedIdentifier(:final prefix) => (prefix, true),
+    PropertyAccess(target: final target?, isCascaded: false, :final operator) =>
+      (target, operator.type == TokenType.PERIOD),
+    MethodInvocation(
+      target: final target?,
+      isCascaded: false,
+      :final operator,
+    ) =>
+      (target, operator?.type == TokenType.PERIOD),
+    IndexExpression(
+      target: final target?,
+      isCascaded: false,
+      :final question,
+    ) =>
+      (target, question == null),
+    PostfixExpression(operator: Token(type: TokenType.BANG), :final operand) =>
+      (operand, false),
+    _ => (null, false),
+  };
+  if (target == null) {
+    return null;
+  }
+  if (isRoot(target)) {
+    return plainSelector ? target : null;
+  }
+  return _chainRoot(target, aliases);
+}
+
+/// Whether [node] is the variable: an identifier called [variable], or one
+/// of the [aliases].
+bool _isVariable(Expression node, String variable, List<Expression> aliases) =>
+    node is SimpleIdentifier && node.name == variable || aliases.contains(node);
+
+/// The function [body] calls with the variable, called [variable] or one of
+/// the [aliases], as its only argument, `int.parse(v)` or `f(v)`, as a
+/// tear-off; `null` for any other body.
 String? _tearOff(
   Expression body,
   String variable,
+  List<Expression> aliases,
   String Function(AstNode node) text,
 ) {
   if (body
       case MethodInvocation(
         typeArguments: null,
         isCascaded: false,
-        argumentList: ArgumentList(
-          arguments: [SimpleIdentifier(name: final argument)],
-        ),
+        argumentList: ArgumentList(arguments: [final Expression argument]),
         :final target,
         :final methodName,
       )
-      when argument == variable) {
+      when _isVariable(argument, variable, aliases)) {
     return switch (target) {
       null => methodName.name,
       Identifier(element: InterfaceElement() || PrefixElement()) =>

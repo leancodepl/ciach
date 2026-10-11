@@ -312,10 +312,48 @@ bool g(String? s) => s == null ? false : true;
   }
 
   Future<void> test_conditionalOnField() async {
-    await assertNoDiagnostics('''
+    await assertRewrites(
+      '''
 class C {
   String? s;
   int? f() => s == null ? null : s!.length;
+  int g() => s != null ? int.parse(s!) : 0;
+}
+int h(C c) => c.s != null ? c.s!.length + 1 : -1;
+int i(C c, int s) => c.s == null ? 0 : c.s!.length + s;
+''',
+      [
+        's == null ? null : s!.length',
+        's != null ? int.parse(s!) : 0',
+        'c.s != null ? c.s!.length + 1 : -1',
+        'c.s == null ? 0 : c.s!.length + s',
+      ],
+      sketches: [
+        's?.length',
+        's?.let(int.parse) ?? …',
+        'c.s?.let((s) => …) ?? …',
+        'c.s?.let((it) => …) ?? …',
+      ],
+      fixed:
+          '''
+${_import}class C {
+  String? s;
+  int? f() => s?.length;
+  int g() => s?.let(int.parse) ?? 0;
+}
+int h(C c) => c.s?.let((s) => s.length + 1) ?? -1;
+int i(C c, int s) => c.s?.let((it) => it.length + s) ?? 0;
+''',
+    );
+  }
+
+  Future<void> test_conditionalOnFieldUsedBare() async {
+    await assertNoDiagnostics('''
+class C {
+  String? s;
+  int f() => s == null ? 0 : s.hashCode;
+  String? g() => s != null ? s : null;
+  int h() => s != null ? s!.length + s.hashCode : 0;
 }
 ''');
   }
