@@ -56,25 +56,16 @@ final class ConditionalImports {
   /// `Type.member`, or the top-level name. Private names and members of
   /// unnamed extensions are left out, since no other library can use them.
   static Set<String> pairingNames(List<DocumentSymbol> symbols) => {
-    for (final symbol in symbols) ..._pairingNames(symbol, null),
+    for (final symbol in symbols)
+      if (pairingName(symbol, null) case final name?) ...[
+        name,
+        if (symbol case DocumentSymbol(
+          :final children?,
+          :final kind,
+        ) when typeLikeKinds.contains(kind))
+          for (final child in children) ?pairingName(child, symbol.name),
+      ],
   };
-
-  static Iterable<String> _pairingNames(
-    DocumentSymbol symbol,
-    String? container,
-  ) sync* {
-    if (pairingName(symbol, container) case final name?) {
-      yield name;
-      final children = symbol.children;
-      if (container == null &&
-          children != null &&
-          typeLikeKinds.contains(symbol.kind)) {
-        for (final child in children) {
-          yield* _pairingNames(child, symbol.name);
-        }
-      }
-    }
-  }
 
   /// The name that pairs [symbol] with its namesakes; see [pairingNames].
   static String? pairingName(DocumentSymbol symbol, String? container) {
