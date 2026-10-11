@@ -92,9 +92,9 @@ final class ConditionalImports {
   /// [candidates] and [refsByCandidate] with the references of each
   /// candidate's namesakes added, less the ones inside the namesake itself.
   ///
-  /// A candidate is dropped when a namesake is declared but not checked, or
-  /// when another variant was not read; [onDropped] hears of it. [declared]
-  /// holds the [pairingNames] of each variant that was read.
+  /// A candidate is dropped when a namesake is declared but is not a
+  /// candidate, or when another variant was not read; [onDropped] hears of
+  /// it. [declared] holds the [pairingNames] of each variant that was read.
   ({List<Candidate> candidates, List<List<Location>> refsByCandidate}) share(
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
@@ -129,8 +129,13 @@ final class ConditionalImports {
     );
   }
 
-  /// The indices of the [candidates] whose namesakes are all checked, in
-  /// order. A dropped candidate can leave its own namesakes unchecked, so this
+  /// The indices of the [candidates], in order, whose namesakes are all
+  /// candidates too.
+  ///
+  /// A namesake that is declared but not a candidate (an entry point, say, or
+  /// one whose references could not be fetched) has no references to share,
+  /// and neither does one in a file that was not read. Such a candidate is
+  /// dropped, which can leave its own namesakes without a candidate, so this
   /// runs until nothing more drops.
   Set<int> _checkable(
     List<Candidate> candidates,
@@ -139,7 +144,7 @@ final class ConditionalImports {
   ) {
     final kept = {for (final (i, _) in candidates.indexed) i};
     while (true) {
-      final checked = {
+      final keptNames = {
         for (final i in kept)
           if (names[i] case final name?) (candidates[i].path, name),
       };
@@ -150,7 +155,7 @@ final class ConditionalImports {
               (file) => switch (declared[file]) {
                 null => true,
                 final inFile =>
-                  inFile.contains(name) && !checked.contains((file, name)),
+                  inFile.contains(name) && !keptNames.contains((file, name)),
               },
             );
       }).toSet();

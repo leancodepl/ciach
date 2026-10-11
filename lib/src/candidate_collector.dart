@@ -51,7 +51,7 @@ final class CandidateCollector {
   final ConditionalImports _conditionalImports;
 
   /// The pairing names in each conditional-import variant that was read,
-  /// checked or not; see [ConditionalImports.share].
+  /// candidates or not; see [ConditionalImports.share].
   final declaredInVariants = <String, Set<String>>{};
 
   late final _entryPoints = EntryPoints(options.entryPoints);
