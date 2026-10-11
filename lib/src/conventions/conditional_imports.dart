@@ -65,8 +65,11 @@ final class ConditionalImports {
   ) sync* {
     if (pairingName(symbol, container) case final name?) {
       yield name;
-      if (container == null && typeLikeKinds.contains(symbol.kind)) {
-        for (final child in symbol.children ?? const <DocumentSymbol>[]) {
+      final children = symbol.children;
+      if (container == null &&
+          children != null &&
+          typeLikeKinds.contains(symbol.kind)) {
+        for (final child in children) {
           yield* _pairingNames(child, symbol.name);
         }
       }
@@ -130,9 +133,12 @@ final class ConditionalImports {
     return [
       for (final (i, candidate) in candidates.indexed)
         [
-          for (final j in byName[names[i]] ?? const <int>[])
-            if (counterpartFilesOf(candidate.path).contains(candidates[j].path))
-              j,
+          if (byName[names[i]] case final sameName?)
+            for (final j in sameName)
+              if (counterpartFilesOf(
+                candidate.path,
+              ).contains(candidates[j].path))
+                j,
         ],
     ];
   }
