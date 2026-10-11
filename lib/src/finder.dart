@@ -244,7 +244,7 @@ class Ciach {
     ];
     if (empty.isNotEmpty) {
       _log.fine(
-        'Found ${plural(empty.length, 'empty file', 'empty files')}, with nothing but comments and library, import or part-of lines: ${empty.join(', ')}.',
+        'Found ${plural(empty.length, 'empty file', 'empty files')}, with $emptyFileContents: ${empty.join(', ')}.',
       );
     }
     return empty;

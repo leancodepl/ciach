@@ -159,7 +159,7 @@ void main() {
       expect(
         out,
         '::warning file=app/lib/blank.dart,line=1,col=1,title=Empty file::'
-        'Nothing but comments and library, import or part-of lines\n',
+        'Has nothing but comments and library, import or part-of lines\n',
       );
     });
 
@@ -535,13 +535,6 @@ Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) Â
         "Deleted 1 empty file: lib/blank.dart. Run 'dart format' to tidy up "
         'spacing.',
       );
-    });
-
-    test('says when nothing was removed', () {
-      final text = Reporter.removal(
-        const .new(filesChanged: 0, deletedFiles: []),
-      );
-      expect(text, 'Nothing removed.');
     });
 
     test('says so when the user declined', () {

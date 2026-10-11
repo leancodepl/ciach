@@ -86,6 +86,10 @@ final _directiveOnly = RegExp(
   r'''^(?:\s*(?:library\b[^;]*|import\s+r?['"][^;]*|part\s+of\b[^;]*);)*\s*$''',
 );
 
+/// What an empty file holds, for reports: what [isDirectiveOnly] admits.
+const emptyFileContents =
+    'nothing but comments and library, import or part-of lines';
+
 /// Whether [content] has nothing but comments and `library`, `import` or
 /// `part of` lines.
 bool isDirectiveOnly(String content) =>
@@ -102,6 +106,7 @@ final class _Package {
   final Set<String> _files;
   final _packages = PackageResolver();
   final _contents = <String, String?>{};
+  final _directives = <String, List<Directive>>{};
 
   String? content(String path) {
     if (_contents.containsKey(path)) {
@@ -122,7 +127,8 @@ final class _Package {
       if (source == null) {
         continue;
       }
-      for (final directive in Directive.allIn(source)) {
+      final directives = _directives[path] ??= Directive.allIn(source).toList();
+      for (final directive in directives) {
         switch (_link(directive, path, target)) {
           case .none:
             break;
@@ -184,12 +190,14 @@ final class _Package {
     final updated = buffer.toString();
     File(path).writeAsStringSync(updated);
     _contents[path] = updated;
+    _directives.remove(path);
   }
 
   void delete(String path) {
     File(path).deleteSync();
     _files.remove(path);
     _contents[path] = null;
+    _directives.remove(path);
   }
 }
 

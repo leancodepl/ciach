@@ -10,6 +10,7 @@
 
 import 'dart:convert';
 
+import 'package:ciach/src/emptied_files.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/style.dart';
@@ -34,7 +35,7 @@ abstract final class Reporter {
         buffer,
         'Empty files',
         result.emptyFiles.length,
-        'nothing but comments and library, import or part-of lines',
+        emptyFileContents,
         style,
       );
       for (final file in result.emptyFiles) {
@@ -105,10 +106,7 @@ abstract final class Reporter {
         style.caution('$blocked left in place — unsafe to auto-remove.'),
       if (deleted.isNotEmpty)
         'Deleted ${plural(deleted.length, 'empty file', 'empty files')}: ${deleted.map((d) => d.filePath).join(', ')}.',
-      if (removed == 0 && deleted.isEmpty)
-        style.note('Nothing removed.')
-      else
-        style.note("Run 'dart format' to tidy up spacing."),
+      style.note("Run 'dart format' to tidy up spacing."),
     ];
     final buffer = StringBuffer(sentences.join(' '));
     for (final note in notes) {
@@ -342,7 +340,7 @@ abstract final class Reporter {
         1,
         level: 'warning',
         title: 'Empty file',
-        message: 'Nothing but comments and library, import or part-of lines',
+        message: 'Has $emptyFileContents',
       );
     }
     for (final decl in result.docOnly) {

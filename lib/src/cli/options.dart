@@ -28,7 +28,7 @@ class ResolvedOptions {
     required this.unusedUnionMembers,
     required this.reportToJson,
     required this.transitive,
-    required this.emptyFiles,
+    required this.reportEmptyFiles,
     required this.entryPoints,
     required this.setExitIfChanged,
     required this.remove,
@@ -71,7 +71,7 @@ class ResolvedOptions {
   final bool unusedUnionMembers;
   final bool reportToJson;
   final bool transitive;
-  final bool emptyFiles;
+  final bool reportEmptyFiles;
 
   /// The project's own entry points, from `entry-points` in the config file.
   final List<EntryPoint> entryPoints;
@@ -113,7 +113,7 @@ class ResolvedOptions {
     unusedUnionMembers: unusedUnionMembers,
     reportToJson: reportToJson,
     transitive: transitive,
-    reportEmptyFiles: emptyFiles,
+    reportEmptyFiles: reportEmptyFiles,
     entryPoints: [...entryPoints, ...detected.entryPoints],
     translations: unusedTranslations ? detected.translations : const [],
     concurrency: concurrency,
@@ -167,7 +167,7 @@ ResolvedOptions resolveOptions(
     unusedUnionMembers: configuration.value(CiachOption.unusedUnionMembers),
     reportToJson: configuration.value(CiachOption.reportToJson),
     transitive: configuration.value(CiachOption.transitive),
-    emptyFiles: configuration.value(CiachOption.emptyFiles),
+    reportEmptyFiles: configuration.value(CiachOption.emptyFiles),
     entryPoints: configuration.value(CiachOption.entryPoints),
     setExitIfChanged: configuration.value(CiachOption.setExitIfChanged),
     remove: configuration.value(CiachOption.remove),

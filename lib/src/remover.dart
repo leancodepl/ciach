@@ -6,7 +6,6 @@ import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/plural.dart';
 import 'package:collection/collection.dart';
-import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
 final _log = Logger('ciach.remover');
@@ -82,13 +81,14 @@ RemovalResult removeDeclarations(
   );
 
   for (final entry in byFile.entries) {
-    final file = File(p.joinAll([rootPath, ...p.posix.split(entry.key)]));
+    final path = absoluteUnder(entry.key, rootPath);
+    final file = File(path);
     try {
       final content = file.readAsStringSync();
       final updated = _removeFromContent(content, entry.value);
       if (updated != content) {
         file.writeAsStringSync(updated);
-        rewritten.add(p.normalize(file.absolute.path));
+        rewritten.add(path);
         _log.fine(
           'Rewrote ${entry.key}: removed ${plural(entry.value.length, 'declaration', 'declarations')}.',
         );
@@ -102,8 +102,7 @@ RemovalResult removeDeclarations(
       filesChanged: rewritten.length,
       deletedFiles: deleteEmptiedFiles({
         ...rewritten,
-        for (final path in emptyFiles)
-          p.joinAll([rootPath, ...p.posix.split(path)]).absoluteNormalized,
+        for (final path in emptyFiles) absoluteUnder(path, rootPath),
       }, rootPath),
     );
   } on FileSystemException catch (e) {

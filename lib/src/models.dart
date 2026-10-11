@@ -501,6 +501,9 @@ class FinderResult {
   /// import, is never listed.
   final List<String> emptyFiles;
 
+  /// Whether there is anything `--remove` would act on.
+  bool get hasFindings => unused.isNotEmpty || emptyFiles.isNotEmpty;
+
   /// Number of files scanned for declarations.
   final int filesScanned;
 

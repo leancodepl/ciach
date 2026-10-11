@@ -10,6 +10,7 @@
 
 import 'package:args/args.dart';
 import 'package:ciach/ciach.dart';
+import 'package:ciach/src/emptied_files.dart';
 import 'package:ciach/src/version.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
@@ -241,7 +242,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/empty-files',
       defaultsTo: true,
       helpText:
-          'Report files with nothing but comments and library, import or part-of lines. --remove deletes them and drops the directives naming them.',
+          'Report files with $emptyFileContents. --remove deletes them and drops the directives naming them.',
     ),
   ),
   setExitIfChanged(
