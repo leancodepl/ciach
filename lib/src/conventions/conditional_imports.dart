@@ -85,8 +85,9 @@ final class ConditionalImports {
     return container == null ? name : '$container.$name';
   }
 
-  /// [candidates] and [refsByCandidate] with the references of each
-  /// candidate's namesakes added, less the ones inside the namesake itself.
+  /// [candidates] and [refsByCandidate], with each candidate's references
+  /// extended by those of its namesakes. References inside a namesake itself
+  /// are not added.
   ///
   /// Candidates left out by [_dropped] go to [onDropped]. [declared]
   /// holds the [pairingNames] of each variant that was read.

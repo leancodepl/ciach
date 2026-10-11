@@ -3,7 +3,7 @@ import 'package:ciach/src/packages.dart';
 
 /// An `import`, `export` or `part` directive, read without the analyzer.
 extension type Directive._(RegExpMatch _match) {
-  /// The directives in [content], less the commented-out ones. Offsets index
+  /// The directives in [content] that are not commented out. Offsets index
   /// [content].
   static Iterable<Directive> allIn(String content) =>
       _directive.allMatches(stripComments(content)).map(Directive._);
@@ -23,8 +23,8 @@ extension type Directive._(RegExpMatch _match) {
   /// Whether it has an `if (…)` clause.
   bool get isConditional => _condition.hasMatch(body);
 
-  /// The URIs it names, the default one first, less the strings compared in
-  /// its conditions.
+  /// The URIs it names, the default one first. Strings compared in its
+  /// conditions are not URIs.
   List<RegExpMatch> get uris {
     final conditions = _condition.allMatches(body).toList();
     return [
