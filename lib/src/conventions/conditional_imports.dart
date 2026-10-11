@@ -167,6 +167,9 @@ final class ConditionalImports {
 }
 
 /// The directives of the Dart files under a root, each file read once.
+///
+/// Every path is absolute and normalized, as [scanPackageTree] and
+/// [Directive.pathsFrom] give them.
 final class _DirectiveIndex {
   _DirectiveIndex(String root) : _files = scanPackageTree(root).dartFiles;
 
