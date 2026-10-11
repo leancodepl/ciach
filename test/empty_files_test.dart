@@ -68,11 +68,13 @@ void use() => platform();
     ]);
   });
 
-  test('a file other packages can import is left out '
-      'with includeExported off', () async {
-    final result = await run(includeExported: false);
-    expect(result.emptyFiles, ['tool/scratch.dart']);
-  });
+  test(
+    'a file other packages can import is left out with includeExported off',
+    () async {
+      final result = await run(includeExported: false);
+      expect(result.emptyFiles, ['tool/scratch.dart']);
+    },
+  );
 
   test('removal deletes them and drops the directives naming them', () async {
     final result = await run();

@@ -150,18 +150,20 @@ void main() {
       expect(out, contains("docOnlyThing' has no code references"));
     });
 
-    test('emits a ::warning annotation on the first line of '
-        'each empty file', () {
-      final out = Reporter.github(
-        resultWith(const [], emptyFiles: ['lib/blank.dart']),
-        pathPrefix: 'app',
-      );
-      expect(
-        out,
-        '::warning file=app/lib/blank.dart,line=1,col=1,title=Empty file::'
-        'Has nothing but comments and library, import or part-of directives\n',
-      );
-    });
+    test(
+      'emits a ::warning annotation on the first line of each empty file',
+      () {
+        final out = Reporter.github(
+          resultWith(const [], emptyFiles: ['lib/blank.dart']),
+          pathPrefix: 'app',
+        );
+        expect(
+          out,
+          '::warning file=app/lib/blank.dart,line=1,col=1,title=Empty file::'
+          'Has nothing but comments and library, import or part-of directives\n',
+        );
+      },
+    );
 
     test('emits a ::warning annotation for each recovered reference', () {
       final out = Reporter.github(
