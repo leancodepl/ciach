@@ -59,8 +59,7 @@ final class ReferenceFetch {
       if (remainingPerFile.update(candidate.path, (n) => n - 1) == 0) {
         filesDone++;
         _log.info(
-          '[$filesDone/$totalFiles] '
-          '${p.relative(candidate.path, from: rootPath)}',
+          '[$filesDone/$totalFiles] ${p.relative(candidate.path, from: rootPath)}',
         );
       }
       return refs;

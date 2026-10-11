@@ -15,8 +15,10 @@ void main() {
     test('names the file it read and every option it set', () {
       final lines = describeConfigSource(
         .parse(
-          "public: false\nexclude: ['test/**']\n"
-          'entry-points: [{name: bootstrap}, {name: registerWith, glob: [lib/**, bin/**]}]',
+          '''
+public: false
+exclude: ['test/**']
+entry-points: [{name: bootstrap}, {name: registerWith, glob: [lib/**, bin/**]}]''',
           origin: '/c.yaml',
         ),
         projectDir: '/pkg',

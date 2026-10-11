@@ -71,14 +71,12 @@ const _options = [
   ),
   (
     '--remove, --force',
-    'Delete what was found after confirming. `--force` skips '
-        'the prompt.',
+    'Delete what was found after confirming. `--force` skips the prompt.',
   ),
   ('-f text|json|github', 'Output format.'),
   (
     '--set-exit-if-changed',
-    'Exit 1 when anything is found. Add '
-        '`--no-fail-public` to count only private findings.',
+    'Exit 1 when anything is found. Add `--no-fail-public` to count only private findings.',
   ),
   (
     '-k, --kinds',
@@ -86,13 +84,11 @@ const _options = [
   ),
   (
     '-i, -e',
-    'Include or exclude file globs. References are still counted '
-        'from everywhere.',
+    'Include or exclude file globs. References are still counted from everywhere.',
   ),
   (
     '--analysis-root',
-    'Count references from a whole monorepo, not just the scanned '
-        'package. What is scanned and removed is unchanged.',
+    'Count references from a whole monorepo, not just the scanned package. What is scanned and removed is unchanged.',
   ),
   (
     '--transitive',
@@ -100,8 +96,7 @@ const _options = [
   ),
   (
     '--overrides, --operators, --generated, --report-tojson',
-    'Opt back into a '
-        'category skipped by default.',
+    'Opt back into a category skipped by default.',
   ),
   ('-v', 'Narrate the run on stderr with timings.'),
 ];
@@ -434,8 +429,7 @@ class DocsPage extends StatelessComponent {
               const h1([.text('Docs')]),
               p(classes: Prose.lead.name, const [
                 .text(
-                  'Install, configure and run ciach, and read its findings '
-                  'with confidence.',
+                  'Install, configure and run ciach, and read its findings with confidence.',
                 ),
               ]),
             ]),
@@ -453,8 +447,7 @@ class DocsPage extends StatelessComponent {
                   ),
                   code([.text('dart run')]),
                   .text(
-                    '). Requires Dart 3.10+ and analyzes with the SDK it runs '
-                    'with.',
+                    '). Requires Dart 3.10+ and analyzes with the SDK it runs with.',
                   ),
                 ]),
                 CodeBlock(
@@ -562,13 +555,11 @@ class DocsPage extends StatelessComponent {
               children: [
                 const p([
                   .text(
-                    'The Dart analyzer already flags unused private '
-                    'declarations through ',
+                    'The Dart analyzer already flags unused private declarations through ',
                   ),
                   code([.text('unused_element')]),
                   .text(
-                    ' and friends, one library at a time. ciach starts where that '
-                    'stops.',
+                    ' and friends, one library at a time. ciach starts where that stops.',
                   ),
                 ]),
                 div(classes: _tableWrap.name, [
@@ -626,8 +617,7 @@ class DocsPage extends StatelessComponent {
                 const p([
                   code([.text('--remove')]),
                   .text(
-                    ' shows what it is about to delete and asks first; '
-                    'with no terminal and no ',
+                    ' shows what it is about to delete and asks first; with no terminal and no ',
                   ),
                   code([.text('--force')]),
                   .text(
@@ -637,13 +627,11 @@ class DocsPage extends StatelessComponent {
                   ),
                   code([.text('int a = 1, b = 2;')]),
                   .text(
-                    ' alone unless every declarator is unused, and never '
-                    'touches doc-only findings. Run ',
+                    ' alone unless every declarator is unused, and never touches doc-only findings. Run ',
                   ),
                   code([.text('dart format')]),
                   .text(
-                    ' afterward and review the diff. A file left with '
-                    'nothing but its imports is deleted too.',
+                    ' afterward and review the diff. A file left with nothing but its imports is deleted too.',
                   ),
                 ]),
                 const h3([.text('Report-only: removal would not compile')]),
@@ -658,8 +646,7 @@ class DocsPage extends StatelessComponent {
               children: [
                 const p([
                   .text(
-                    'Each default skip is a known false-positive source; the '
-                    'flag opts back in at that cost.',
+                    'Each default skip is a known false-positive source; the flag opts back in at that cost.',
                   ),
                 ]),
                 div(classes: _tableWrap.name, [
@@ -734,8 +721,7 @@ class DocsPage extends StatelessComponent {
                   ),
                   li(
                     rich(
-                      'A package that does not analyze cleanly yields '
-                      'incomplete references.',
+                      'A package that does not analyze cleanly yields incomplete references.',
                     ),
                   ),
                 ]),

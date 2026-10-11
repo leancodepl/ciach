@@ -33,20 +33,17 @@ final class Verdict {
       'non-instantiable static-only class, prefer `abstract final class`';
 
   static const _primaryConstructorHint =
-      'primary constructor — declared in the class header, so it cannot be '
-      'removed without removing the class';
+      'primary constructor — declared in the class header, so it cannot be removed without removing the class';
 
   static const _declaringParameterHint =
       'declaring parameter of the primary constructor — removing it changes '
       'the constructor signature at every call site';
 
   static const pairedStateHint =
-      'its State class is used elsewhere, so it would be left extending '
-      'State of a removed widget';
+      'its State class is used elsewhere, so it would be left extending State of a removed widget';
 
   static const overriddenHint =
-      'overridden by a declaration --remove will not delete — that override '
-      'would be left overriding nothing';
+      'overridden by a declaration --remove will not delete — that override would be left overriding nothing';
 
   /// Whether an unused [candidate] should be silently suppressed (never
   /// reported): a live freezed-union arm, an exempt `toJson` hook, a

@@ -111,8 +111,7 @@ final class CandidateCollector {
         continue;
       }
       _log.fine(
-        'Skipped ${skipped.path}:${skipped.line} ${skipped.name}: '
-        '${skipped.reason}.',
+        'Skipped ${skipped.path}:${skipped.line} ${skipped.name}: ${skipped.reason}.',
       );
     }
   }

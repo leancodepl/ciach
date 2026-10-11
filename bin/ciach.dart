@@ -164,10 +164,8 @@ void _removeUnused(
   if (count == 0) {
     _log.warning(
       blocked == 1
-          ? 'Nothing removed: the finding is unsafe to auto-remove — remove '
-                'it manually.'
-          : 'Nothing removed: all $blocked findings are unsafe to auto-remove '
-                '— remove them manually.',
+          ? 'Nothing removed: the finding is unsafe to auto-remove — remove it manually.'
+          : 'Nothing removed: all $blocked findings are unsafe to auto-remove — remove them manually.',
     );
     return;
   }

@@ -20,26 +20,22 @@ const _features = [
   _Feature(
     .layers,
     'Every declaration kind',
-    'Classes, enums and their values, functions, methods, constructors, '
-        'fields, getters, variables and more.',
+    'Classes, enums and their values, functions, methods, constructors, fields, getters, variables and more.',
   ),
   _Feature(
     .search,
     'Backed by the real analyzer',
-    'Reference queries go to the Dart analysis server: the same resolution '
-        'your IDE uses, not a regex.',
+    'Reference queries go to the Dart analysis server: the same resolution your IDE uses, not a regex.',
   ),
   _Feature(
     .git,
     'Built for CI',
-    'Annotations inline on the pull request diff and a non-zero exit when '
-        'anything turns up.',
+    'Annotations inline on the pull request diff and a non-zero exit when anything turns up.',
   ),
   _Feature(
     .shield,
     'Safe defaults',
-    '`@override` members, operators, entry points, generated files and '
-        '`toJson()` are skipped unless you opt in.',
+    '`@override` members, operators, entry points, generated files and `toJson()` are skipped unless you opt in.',
   ),
   _Feature(
     .braces,

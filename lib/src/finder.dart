@@ -143,8 +143,7 @@ class Ciach {
     try {
       if (analysisRoot != rootPath) {
         _log.config(
-          'Analyzing within $analysisRoot: references outside the scanned '
-          'package count.',
+          'Analyzing within $analysisRoot: references outside the scanned package count.',
         );
       }
       await client.initialize(Directory(analysisRoot).uri);

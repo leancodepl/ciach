@@ -559,9 +559,9 @@ class AnalysisServerExitedException implements Exception {
   final String stderr;
 
   String get message =>
-      'The Dart analysis server (`$executable language-server`) exited '
-      'unexpectedly with code $exitCode.\n'
-      '${stderr.isEmpty ? 'It wrote nothing to stderr.' : 'Its stderr:\n$stderr'}';
+      '''
+The Dart analysis server (`$executable language-server`) exited unexpectedly with code $exitCode.
+${stderr.isEmpty ? 'It wrote nothing to stderr.' : 'Its stderr:\n$stderr'}''';
 
   @override
   String toString() => message;

@@ -15,11 +15,10 @@ List<String> _errors(String added, {int? pr = 7}) =>
 void main() {
   test('passes an entry ending with a link to its pull request', () {
     expect(
-      _errors(
-        '- New entry,\n'
-        '  on two lines.\n'
-        '  ([#7](https://github.com/leancodepl/ciach/pull/7))',
-      ),
+      _errors('''
+- New entry,
+  on two lines.
+  ([#7](https://github.com/leancodepl/ciach/pull/7))'''),
       isEmpty,
     );
   });

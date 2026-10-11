@@ -95,12 +95,8 @@ List<StyleRule> get _tokens => [
       '--tk-comment': '#767eaa',
       '--tk-annotation': '#ffcb6b',
       '--tk-function': '#89ddff',
-      '--font-sans':
-          "'Space Grotesk', ui-sans-serif, system-ui, -apple-system, "
-          "'Segoe UI', Roboto, sans-serif",
-      '--font-mono':
-          "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, "
-          'monospace',
+      '--font-sans': "'Space Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      '--font-mono': "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
       '--radius': '14px',
       '--radius-sm': '8px',
       '--container': '1160px',

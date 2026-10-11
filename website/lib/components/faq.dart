@@ -82,9 +82,7 @@ class Faq extends StatelessComponent {
         overflow: .clip,
         raw: {
           'block-size': '0',
-          'transition':
-              'block-size 0.3s ease, opacity 0.25s ease, '
-              'content-visibility 0.3s allow-discrete',
+          'transition': 'block-size 0.3s ease, opacity 0.25s ease, content-visibility 0.3s allow-discrete',
         },
       ),
       css('&[open]::details-content')

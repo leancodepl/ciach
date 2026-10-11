@@ -41,8 +41,7 @@ String describeFatalError(
   }
   if (isBug) {
     buffer.writeln(
-      'This is a bug in ciach $ciachVersion; please report it at '
-      '$_issueTracker with the -v output.',
+      'This is a bug in ciach $ciachVersion; please report it at $_issueTracker with the -v output.',
     );
   }
   if (verbose) {

@@ -171,9 +171,7 @@ final class Settler {
       rootPath,
     );
     _log.info(
-      'Round 1: checking the '
-      '${plural(unreached.length, 'declaration', 'declarations')} no live '
-      'code reaches…',
+      'Round 1: checking the ${plural(unreached.length, 'declaration', 'declarations')} no live code reaches…',
     );
     return unreached;
   }

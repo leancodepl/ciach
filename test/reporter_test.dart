@@ -204,14 +204,14 @@ void main() {
       );
       expect(
         out,
-        contains(
-          'lib/a.dart\n'
-          '  4:7  A.baz  used at lib/b.dart:9:2\n'
-          '\n'
-          'lib/c.dart\n'
-          '  12:7  A.qux  used at lib/b.dart:9:2\n'
-          '\n',
-        ),
+        contains('''
+lib/a.dart
+  4:7  A.baz  used at lib/b.dart:9:2
+
+lib/c.dart
+  12:7  A.qux  used at lib/b.dart:9:2
+
+'''),
       );
     });
 
@@ -248,8 +248,7 @@ void main() {
     expect(
       out,
       contains(
-        "::Unused function 'foo' — a hint — "
-        'only referenced from dead _root (lib/a.dart:1)',
+        "::Unused function 'foo' — a hint — only referenced from dead _root (lib/a.dart:1)",
       ),
     );
   });
@@ -389,30 +388,30 @@ void main() {
       );
       expect(
         text,
-        'lib/a.dart\n'
-        '  3:5   function  dangling  (public)\n'
-        '  18:5  function  _private  (private)\n'
-        '\n'
-        'Referenced only from doc comments (1) · not counted, never removed\n'
-        'lib/a.dart\n'
-        '  41:5  function  docOnly  (public)\n'
-        '\n'
-        'Recovered references (1) · missed by find-references; kept\n'
-        'lib/a.dart\n'
-        '  4:7  A.baz  used at lib/b.dart:9:2\n'
-        '\n'
-        'Not analyzed (2) · the analysis failed here\n'
-        '  Could not find the references; kept.\n'
-        '    Null check operator used on a null value\n'
-        '    lib/b.dart\n'
-        '      65:11  A.foo\n'
-        '  Could not read these files; nothing reported.\n'
-        '    Permission denied\n'
-        '    lib/secret.dart\n'
-        '  Likely a Dart SDK bug; -v shows the stack traces.\n'
-        '\n'
-        'Found 2 unused declarations in 1 file (scanned 3 files, 10 '
-        'declarations, 1.0s) · 1 doc-only · 1 recovered · 2 not analyzed',
+        '''
+lib/a.dart
+  3:5   function  dangling  (public)
+  18:5  function  _private  (private)
+
+Referenced only from doc comments (1) · not counted, never removed
+lib/a.dart
+  41:5  function  docOnly  (public)
+
+Recovered references (1) · missed by find-references; kept
+lib/a.dart
+  4:7  A.baz  used at lib/b.dart:9:2
+
+Not analyzed (2) · the analysis failed here
+  Could not find the references; kept.
+    Null check operator used on a null value
+    lib/b.dart
+      65:11  A.foo
+  Could not read these files; nothing reported.
+    Permission denied
+    lib/secret.dart
+  Likely a Dart SDK bug; -v shows the stack traces.
+
+Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) · 1 doc-only · 1 recovered · 2 not analyzed''',
       );
     });
 
