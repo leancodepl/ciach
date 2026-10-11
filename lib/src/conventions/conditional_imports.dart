@@ -59,10 +59,8 @@ final class ConditionalImports {
     for (final symbol in symbols)
       if (pairingName(symbol, null) case final name?) ...[
         name,
-        if (symbol case DocumentSymbol(
-          :final children?,
-          :final kind,
-        ) when typeLikeKinds.contains(kind))
+        if (symbol.children case final children?
+            when typeLikeKinds.contains(symbol.kind))
           for (final child in children) ?pairingName(child, symbol.name),
       ],
   };
