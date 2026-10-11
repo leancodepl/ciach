@@ -10,6 +10,7 @@
 
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/gen_l10n.dart';
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
@@ -316,7 +317,8 @@ class UnusedDeclaration {
   final List<DeadReferrer> onlyReferencedFrom;
 
   /// Fully qualified display name, e.g. `MyClass.myMethod`.
-  String get qualifiedName => container == null ? name : '$container.$name';
+  String get qualifiedName =>
+      container?.let((container) => '$container.$name') ?? name;
 
   /// A JSON-encodable representation of this declaration.
   Map<String, Object?> toJson() => {
@@ -391,7 +393,8 @@ class RecoveredReference {
   final int usageColumn;
 
   /// Fully qualified display name, e.g. `MyClass.myMethod`.
-  String get qualifiedName => container == null ? name : '$container.$name';
+  String get qualifiedName =>
+      container?.let((container) => '$container.$name') ?? name;
 
   /// Channel-neutral explanation; callers prepend the name and declaration
   /// location as their output format needs.
@@ -449,7 +452,7 @@ class AnalysisProblem {
 
   @override
   String toString() =>
-      '$location${name == null ? '' : ' ($name)'}: $summary Cause: $cause';
+      '$location${name?.let((name) => ' ($name)') ?? ''}: $summary Cause: $cause';
 
   Map<String, Object?> toJson() => {
     'summary': summary,
