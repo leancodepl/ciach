@@ -14,6 +14,7 @@ import 'dart:io';
 import 'package:ciach/src/candidate_collector.dart';
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/concurrency.dart';
+import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/log.dart';
@@ -74,11 +75,17 @@ class Ciach {
       ? null
       : .scan(options.rootPath);
 
+  /// The variants of the conditional imports under the analysis root.
+  late final _conditionalImports = ConditionalImports.scan(
+    options.analysisRootPath ?? options.rootPath,
+  );
+
   late final _collector = CandidateCollector(
     options: options,
     sources: _sources,
     freezed: _freezed,
     publicApi: _publicApi,
+    conditionalImports: _conditionalImports,
   );
 
   late final _fetch = ReferenceFetch(options: options, sources: _sources);
@@ -177,11 +184,18 @@ class Ciach {
 
       // Phase 2: check references for every candidate through a single global
       // pool, so the server stays saturated instead of stalling between files.
-      final (:candidates, :refsByCandidate) = await _references(
+      final fetched = await _references(
         client,
         collected,
         totalFiles: files.length,
         rootPath: rootPath,
+      );
+      final (:candidates, :refsByCandidate) = _conditionalImports.share(
+        fetched.candidates,
+        fetched.refsByCandidate,
+        _collector.declaredInVariants,
+        _classifier,
+        onDropped: _logDropped,
       );
       declarationsChecked = candidates.length;
       await _fetch.selectionRanges(client, candidates, refsByCandidate);
@@ -210,6 +224,13 @@ class Ciach {
       problems: problems.problems,
     );
   }
+
+  void _logDropped(Candidate candidate) => _log.fine(
+    'Skipped ${relativePosix(candidate.path, options.rootPath)}:'
+    '${candidate.symbol.selectionRange.start.line + 1} '
+    '${candidate.symbol.name}: its namesake in another conditional-import '
+    'variant is not checked.',
+  );
 
   /// The references of [collected], less the candidates left unchecked.
   ///

@@ -1,6 +1,7 @@
 import 'package:ciach/src/packages.dart';
 import 'package:ciach/src/project_config/build_yaml.dart';
 import 'package:ciach/src/project_config/project_files.dart';
+import 'package:ciach/src/reachability.dart';
 import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
 
@@ -107,18 +108,15 @@ Set<String> _withAppliedBuilders(
   Map<String, _Definition> definitions,
   String? rootName,
 ) {
-  final all = {...applied};
-  final pending = [...applied];
-  while (pending.isNotEmpty) {
-    if (definitions[pending.removeLast()]?.definition['applies_builders']
-        case final List<Object?> more) {
-      pending.addAll([
-        for (final key in more.whereType<String>())
-          if (all.add(_builderKey(key, rootName))) _builderKey(key, rootName),
-      ]);
-    }
-  }
-  return all;
+  return reachableFrom(
+    applied,
+    (builder) => switch (definitions[builder]?.definition['applies_builders']) {
+      final List<Object?> more => [
+        for (final key in more.whereType<String>()) _builderKey(key, rootName),
+      ],
+      _ => const [],
+    },
+  );
 }
 
 /// Returns the builder key [key] in the form `pkg:name`. build_runner also
