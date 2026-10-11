@@ -33,6 +33,15 @@ List<String> _filesUnder(Directory dir) => [
       p.normalize(entity.absolute.path),
 ];
 
+/// The text of the file at [path]; `null` when it cannot be read.
+String? readSource(String path) {
+  try {
+    return File(path).readAsStringSync();
+  } on FileSystemException {
+    return null;
+  }
+}
+
 final uriLiteral = RegExp(r'''r?(?<quote>['"])(?<uri>[^'"\n]*)\k<quote>''');
 
 /// What [PackageResolver.resolve] returns for a `package:` URI no package

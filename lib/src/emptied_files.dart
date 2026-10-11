@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/src/comment_stripping.dart';
+import 'package:ciach/src/directives.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/packages.dart';
@@ -88,15 +89,6 @@ final _directiveOnly = RegExp(
 bool _isDirectiveOnly(String content) =>
     _directiveOnly.hasMatch(stripComments(content));
 
-/// A directive with a URI string, through its `;`.
-final _directive = RegExp(
-  r'''^[ \t]*(import|export|part)\s+((?:of\s+)?r?['"][^;]*);''',
-  multiLine: true,
-);
-
-final _partOf = RegExp(r'^\s*of\b');
-final _conditional = RegExp(r'\bif\s*\(');
-
 typedef _Span = ({int start, int end});
 
 enum _Link { none, droppable, blocking }
@@ -113,13 +105,7 @@ final class _Package {
     if (_contents.containsKey(path)) {
       return _contents[path];
     }
-    String? read;
-    try {
-      read = File(path).readAsStringSync();
-    } on FileSystemException {
-      read = null;
-    }
-    return _contents[path] = read;
+    return _contents[path] = readSource(path);
   }
 
   /// Spans to drop per file, or `null` when a directive naming [target] can't
@@ -134,16 +120,16 @@ final class _Package {
       if (source == null) {
         continue;
       }
-      for (final match in _directive.allMatches(stripComments(source))) {
-        switch (_link(match, path, target)) {
+      for (final directive in Directive.allIn(source)) {
+        switch (_link(directive, path, target)) {
           case .none:
             break;
           case .blocking:
             return null;
           case .droppable:
             spans.putIfAbsent(path, () => []).add((
-              start: match.start,
-              end: match.end,
+              start: directive.start,
+              end: directive.end,
             ));
         }
       }
@@ -151,11 +137,9 @@ final class _Package {
     return spans;
   }
 
-  _Link _link(RegExpMatch directive, String from, String target) {
-    final kind = directive.group(1)!;
-    final body = directive.group(2)!;
+  _Link _link(Directive directive, String from, String target) {
     var link = _Link.none;
-    for (final uri in uriLiteral.allMatches(body)) {
+    for (final uri in directive.uris) {
       final resolved = _packages.resolve(uri.namedGroup('uri')!, from);
       if (resolved == null) {
         continue;
@@ -170,8 +154,7 @@ final class _Package {
     if (link == .none) {
       return link;
     }
-    final partOf = kind == 'part' && _partOf.hasMatch(body);
-    return partOf || _conditional.hasMatch(body) ? .blocking : link;
+    return directive.isPartOf || directive.isConditional ? .blocking : link;
   }
 
   /// Whether an unknown package's [uri] could still mean [target].

@@ -58,3 +58,16 @@ final class _ContainedUse {
   final int target;
   int deadContainers;
 }
+
+/// [start] and every node reachable from it through [next], each visited once.
+Set<T> reachableFrom<T>(Iterable<T> start, Iterable<T> Function(T node) next) {
+  final reached = <T>{};
+  final pending = [...start];
+  while (pending.isNotEmpty) {
+    final node = pending.removeLast();
+    if (reached.add(node)) {
+      pending.addAll(next(node));
+    }
+  }
+  return reached;
+}
