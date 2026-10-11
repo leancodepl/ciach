@@ -1,5 +1,10 @@
 ## Unreleased
 
+- Report files with nothing but comments and `library`, `import` or
+  `part of` lines, in an "Empty files" section. They count toward
+  `--set-exit-if-changed`, and `--remove` deletes them with the directives
+  naming them. New flag: `--no-empty-files`.
+  ([#100](https://github.com/leancodepl/ciach/pull/100))
 - `--transitive` also reports dead cycles: declarations that only reference
   each other.
   ([#87](https://github.com/leancodepl/ciach/pull/87))
