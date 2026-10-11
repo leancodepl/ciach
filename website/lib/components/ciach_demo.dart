@@ -132,9 +132,7 @@ class CiachDemo extends StatelessComponent {
       id: 'remove',
       eyebrow: '--remove',
       heading: 'Report it. Or ciach it.',
-      lead:
-          'One flag deletes what was found, doc comments included, after '
-          'showing the list and asking first.',
+      lead: 'One flag deletes what was found, doc comments included, after showing the list and asking first.',
       children: [
         div(classes: _grid.name, [
           div(id: 'remove-demo', classes: _sample.name, const [

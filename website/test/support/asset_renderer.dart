@@ -97,9 +97,7 @@ class AssetRenderer {
       // document.fonts.check() is vacuously true when no face matches, so look
       // at the faces themselves: every family must be present and loaded.
       final loaded = await page.evaluate<List<Object?>>(
-        '() => [...document.fonts]'
-        '.filter((f) => f.status === "loaded")'
-        '.map((f) => f.family.replace(/"/g, ""))',
+        '() => [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family.replace(/"/g, ""))',
       );
       for (final family in fonts) {
         if (!loaded.contains(family)) {

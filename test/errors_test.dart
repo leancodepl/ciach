@@ -17,11 +17,11 @@ void main() {
       stack,
       verbose: false,
     );
-    expect(
-      text,
-      'error: The Dart analysis server (`dart language-server`) exited '
-      'unexpectedly with code 255.\nIts stderr:\nOut of memory\n',
-    );
+    expect(text, '''
+error: The Dart analysis server (`dart language-server`) exited unexpectedly with code 255.
+Its stderr:
+Out of memory
+''');
   });
 
   test('a failed request points at -v for the server stack', () {
@@ -30,11 +30,10 @@ void main() {
       'Bad state',
       detail: '#0      Server.init',
     );
-    expect(
-      describeFatalError(error, stack, verbose: false),
-      'error: The Dart analysis server failed initialize: Bad state.\n'
-      'Likely a Dart SDK bug; -v shows the stack trace.\n',
-    );
+    expect(describeFatalError(error, stack, verbose: false), '''
+error: The Dart analysis server failed initialize: Bad state.
+Likely a Dart SDK bug; -v shows the stack trace.
+''');
     expect(
       describeFatalError(error, stack, verbose: true),
       allOf(
@@ -55,8 +54,7 @@ void main() {
         stack,
         verbose: false,
       ),
-      'error: Could not remove declarations from lib/b.dart: Permission '
-      'denied. Already rewritten: lib/a.dart.\n',
+      'error: Could not remove declarations from lib/b.dart: Permission denied. Already rewritten: lib/a.dart.\n',
     );
   });
 

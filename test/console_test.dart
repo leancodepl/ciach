@@ -93,9 +93,7 @@ void main() {
       expect(
         err.toString(),
         // Padding blanks the rest of the longer first line.
-        '\r$first'
-        '\r$second${' ' * (first.length - second.length)}'
-        '\r${' ' * second.length}\r',
+        '\r$first\r$second${' ' * (first.length - second.length)}\r${' ' * second.length}\r',
       );
       expect(out.toString(), 'findings\n');
     });

@@ -168,9 +168,10 @@ enum Direction {
     group('compact single-line enum with a leading `///` doc comment', () {
       // The line above the values is the enum type's doc comment — it must
       // never be swept into a value's removal span.
-      const source =
-          '/// Doc comment on the enum type.\n'
-          'enum Accuracy { best, high, medium }\n';
+      const source = '''
+/// Doc comment on the enum type.
+enum Accuracy { best, high, medium }
+''';
 
       UnusedDeclaration valueNamed(String name) {
         final start = source.indexOf(name);
@@ -216,10 +217,11 @@ enum Direction {
     group('compact single-line enum with a `//` line and annotation above', () {
       // The comment and annotation belong to the enum type, not a value, and
       // must survive value removal.
-      const source =
-          '// Ordered from least to most precise.\n'
-          '@immutable\n'
-          'enum Level { low, mid, top }\n';
+      const source = '''
+// Ordered from least to most precise.
+@immutable
+enum Level { low, mid, top }
+''';
 
       UnusedDeclaration valueNamed(String name) {
         final start = source.indexOf(' $name') + 1;

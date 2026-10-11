@@ -28,12 +28,14 @@ void main() {
   setUpAll(() {
     root = .systemTemp.createTempSync('ciach_exported_');
     write('pubspec.yaml', 'name: exported_pkg\nenvironment:\n  sdk: ^3.10.0\n');
-    write(
-      '.dart_tool/package_config.json',
-      '{\n  "configVersion": 2,\n  "packages": [\n'
-          '    { "name": "exported_pkg", "rootUri": "../", "packageUri": "lib/", '
-          '"languageVersion": "3.10" }\n  ]\n}\n',
-    );
+    write('.dart_tool/package_config.json', '''
+{
+  "configVersion": 2,
+  "packages": [
+    { "name": "exported_pkg", "rootUri": "../", "packageUri": "lib/", "languageVersion": "3.10" }
+  ]
+}
+''');
     write('lib/exported_pkg.dart', '''
 export 'src/api.dart';
 

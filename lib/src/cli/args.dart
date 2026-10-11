@@ -107,8 +107,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       argName: 'config',
       valueHelp: 'path',
       helpText:
-          'Path to a YAML config file. Defaults to $configFileName in the\n'
-          'analyzed package root, when present.',
+          'Path to a YAML config file. Defaults to $configFileName in the analyzed package root, when present.',
     ),
   ),
   // A flag of its own, not a negated `config` — that name is the option above.
@@ -118,8 +117,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       negatable: false,
       defaultsTo: false,
       helpText:
-          'Ignore any config file, including one that would be discovered\n'
-          'automatically. Cannot be combined with --config.',
+          'Ignore any config file, including one that would be discovered automatically. Cannot be combined with --config.',
     ),
   ),
   path(
@@ -136,10 +134,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/analysis-root',
       valueHelp: 'path',
       helpText:
-          'Count references from this whole directory, not just the scanned\n'
-          'package — for a monorepo where sibling packages depend on it by\n'
-          '`path:`. Must contain the scanned path; what is scanned, reported\n'
-          'and removed is unchanged. A pub workspace needs no setting.',
+          'Count references from this whole directory, not just the scanned package — for a monorepo where sibling packages depend on it by `path:`. Must contain the scanned path; what is scanned, reported and removed is unchanged. A pub workspace needs no setting.',
     ),
   ),
   public(
@@ -148,9 +143,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/public',
       defaultsTo: true,
       helpText:
-          'Report unused public declarations too. Disable to report only\n'
-          'private (underscore-prefixed) declarations, which are the\n'
-          'highest-confidence dead code.',
+          'Report unused public declarations too. Disable to report only private (underscore-prefixed) declarations, which are the highest-confidence dead code.',
     ),
   ),
   exported(
@@ -167,9 +160,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/fail-public',
       defaultsTo: true,
       helpText:
-          'Count unused public declarations toward the exit code (with\n'
-          '--set-exit-if-changed). Use --no-fail-public to report them\n'
-          'without failing the build.',
+          'Count unused public declarations toward the exit code (with --set-exit-if-changed). Use --no-fail-public to report them without failing the build.',
     ),
   ),
   generated(
@@ -187,8 +178,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/project-config',
       defaultsTo: true,
       helpText:
-          'Read entry points and generated files from pubspec.yaml,\n'
-          'build.yaml and l10n.yaml.',
+          'Read entry points and generated files from pubspec.yaml, build.yaml and l10n.yaml.',
     ),
   ),
   unusedTranslations(
@@ -197,9 +187,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/unused-translations',
       defaultsTo: false,
       helpText:
-          'Report the unused messages in the gen-l10n template file. They are\n'
-          'only reported, never removed: remove them from the template ARB file\n'
-          'instead. Off by default.',
+          'Report the unused messages in the gen-l10n template file. They are only reported, never removed: remove them from the template ARB file instead. Off by default.',
     ),
   ),
   overrides(
@@ -208,9 +196,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/overrides',
       defaultsTo: false,
       helpText:
-          'Report members annotated with @override too. Off by default,\n'
-          'since overrides are often reached polymorphically and a plain\n'
-          'reference search can miss those uses.',
+          'Report members annotated with @override too. Off by default, since overrides are often reached polymorphically and a plain reference search can miss those uses.',
     ),
   ),
   operators(
@@ -219,10 +205,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/operators',
       defaultsTo: false,
       helpText:
-          'Report operator overloads (operator +, operator ==, …) too. Off\n'
-          'by default: the analysis server never resolves infix operator\n'
-          "syntax (a + b) back to the operator's declaration, so a used\n"
-          'operator is reported as unused every time.',
+          "Report operator overloads (operator +, operator ==, …) too. Off by default: the analysis server never resolves infix operator syntax (a + b) back to the operator's declaration, so a used operator is reported as unused every time.",
     ),
   ),
   unusedUnionMembers(
@@ -231,13 +214,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/unused-union-members',
       defaultsTo: false,
       helpText:
-          'Also flag a class whose only references are type patterns over its\n'
-          '(sealed) supertype — matched but never constructed. Off by default:\n'
-          'a `case Foo():` arm otherwise counts as a use. Report-only: these\n'
-          'findings are surfaced but --remove never deletes them or their\n'
-          'pattern arms (removing a sealed member and rewriting its switches\n'
-          'is left to a human). Conservative: any reference that is not clearly\n'
-          'a type pattern keeps the class alive.',
+          'Also flag a class whose only references are type patterns over its (sealed) supertype — matched but never constructed. Off by default: a `case Foo():` arm otherwise counts as a use. Report-only: these findings are surfaced but --remove never deletes them or their pattern arms (removing a sealed member and rewriting its switches is left to a human). Conservative: any reference that is not clearly a type pattern keeps the class alive.',
     ),
   ),
   transitive(
@@ -246,10 +223,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/transitive',
       defaultsTo: false,
       helpText:
-          'Also report declarations referenced only from other findings,\n'
-          'and cycles of declarations that only reference each other. Off by\n'
-          'default, because one false positive also flags everything only it\n'
-          'referenced.',
+          'Also report declarations referenced only from other findings, and cycles of declarations that only reference each other. Off by default, because one false positive also flags everything only it referenced.',
     ),
   ),
   reportToJson(
@@ -258,10 +232,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/report-tojson',
       defaultsTo: false,
       helpText:
-          'Report a `toJson()` serialization hook as unused too. Off by\n'
-          'default: `jsonEncode(obj)` calls `obj.toJson()` by dynamic dispatch\n'
-          'with no source-level `.toJson()` reference for the search to see, so\n'
-          'a live serializer would be flagged. Enable to audit dead `toJson`s.',
+          'Report a `toJson()` serialization hook as unused too. Off by default: `jsonEncode(obj)` calls `obj.toJson()` by dynamic dispatch with no source-level `.toJson()` reference for the search to see, so a live serializer would be flagged. Enable to audit dead `toJson`s.',
     ),
   ),
   setExitIfChanged(
@@ -271,8 +242,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       negatable: false,
       defaultsTo: false,
       helpText:
-          'Exit with a non-zero status when any unused declaration is found\n'
-          '(useful in CI).',
+          'Exit with a non-zero status when any unused declaration is found (useful in CI).',
     ),
   ),
   remove(
@@ -282,8 +252,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       negatable: false,
       defaultsTo: false,
       helpText:
-          'Remove unused declarations from source after reporting them.\n'
-          'Prompts for confirmation first, unless --force is also given.',
+          'Remove unused declarations from source after reporting them. Prompts for confirmation first, unless --force is also given.',
     ),
   ),
   force(
@@ -322,11 +291,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       defaultsTo: [],
       valueHelp: 'suffix',
       helpText:
-          'Additional filename suffix to treat as generated (and so\n'
-          'exclude from the scan), on top of the built-in set (*.g.dart,\n'
-          '*.freezed.dart, …). Use for custom code generators, e.g.\n'
-          '--generated-suffix .gc.dart. Include the leading dot. Repeatable.\n'
-          'Ignored when --generated is set.',
+          'Additional filename suffix to treat as generated (and so exclude from the scan), on top of the built-in set (*.g.dart, *.freezed.dart, …). Use for custom code generators, e.g. --generated-suffix .gc.dart. Include the leading dot. Repeatable. Ignored when --generated is set.',
     ),
   ),
   generatedGlob(
@@ -336,10 +301,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       defaultsTo: [],
       valueHelp: 'glob',
       helpText:
-          'Glob, relative to the root, of files to treat as generated: their\n'
-          'references count, but nothing in them is reported or edited, e.g.\n'
-          "--generated-glob 'lib/l10n/**'. --exclude drops files entirely\n"
-          'instead. Repeatable. Ignored when --generated is set.',
+          "Glob, relative to the root, of files to treat as generated: their references count, but nothing in them is reported or edited, e.g. --generated-glob 'lib/l10n/**'. --exclude drops files entirely instead. Repeatable. Ignored when --generated is set.",
     ),
   ),
   // Config file only: a map has no command-line spelling.
@@ -347,10 +309,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
     EntryPointsOption(
       configKey: '/entry-points',
       helpText:
-          'Declarations a tool calls from generated code, so never reported:\n'
-          'rules with a `name` (`bootstrap`, `MyHost.callback`) and an\n'
-          'optional `glob` (one, or a list) for the files. Built in: `main`,\n'
-          'and `testExecutable` in a flutter_test_config.dart.',
+          'Declarations a tool calls from generated code, so never reported: rules with a `name` (`bootstrap`, `MyHost.callback`) and an optional `glob` (one, or a list) for the files. Built in: `main`, and `testExecutable` in a flutter_test_config.dart.',
     ),
   ),
   kinds(
@@ -365,8 +324,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       customValidator: parseKinds,
       // Listed in `usage`, which can read them off kindAliases.
       helpText:
-          'Restrict to these declaration kinds (comma-separated).\n'
-          'The kinds are listed at the end of this help.',
+          'Restrict to these declaration kinds (comma-separated). The kinds are listed at the end of this help.',
     ),
   ),
   format(
@@ -389,8 +347,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       argName: 'color',
       configKey: '/color',
       helpText:
-          'Colorize the output. Defaults to auto-detection per stream;\n'
-          'honors NO_COLOR.',
+          'Colorize the output. Defaults to auto-detection per stream; honors NO_COLOR.',
     ),
   ),
   progress(
@@ -407,10 +364,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/verbose',
       defaultsTo: false,
       helpText:
-          'Explain what is happening on stderr: which config file was used and\n'
-          'what it set, the settings the run ended up with, each scan phase as\n'
-          'it starts, and what --remove touches. Supersedes --progress, whose\n'
-          'single overwriting line would fight with it.',
+          'Explain what is happening on stderr: which config file was used and what it set, the settings the run ended up with, each scan phase as it starts, and what --remove touches. Supersedes --progress, whose single overwriting line would fight with it.',
     ),
   ),
   concurrency(
@@ -422,9 +376,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       defaultsTo: 16,
       min: 1,
       helpText:
-          'How many reference queries to run against the analysis server at\n'
-          'once. Higher can be faster on large projects, up to the limit of\n'
-          'the analysis server parallelism.',
+          'How many reference queries to run against the analysis server at once. Higher can be faster on large projects, up to the limit of the analysis server parallelism.',
     ),
   ),
   dart(
@@ -433,8 +385,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/dart',
       valueHelp: 'path',
       helpText:
-          'Path to the dart executable used to launch the analysis server.\n'
-          'Defaults to the SDK running this tool.',
+          'Path to the dart executable used to launch the analysis server. Defaults to the SDK running this tool.',
     ),
   );
 
@@ -456,7 +407,7 @@ const configFileName = 'ciach.yaml';
 
 /// The argument parser for [CiachOption.values].
 ArgParser buildParser() {
-  final parser = ArgParser();
+  final parser = ArgParser(usageLineLength: 100);
   prepareOptionsForParsing(CiachOption.values, parser);
   return parser;
 }

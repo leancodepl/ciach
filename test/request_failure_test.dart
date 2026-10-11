@@ -106,10 +106,10 @@ Future<void> main(List<String> args) async {
 }
 ''');
     final script = File(p.join(tmp.path, 'dart'))
-      ..writeAsStringSync(
-        '#!/bin/sh\nexec ${_quoted(Platform.resolvedExecutable)} '
-        '${_quoted(proxy.path)} "\$@"\n',
-      );
+      ..writeAsStringSync('''
+#!/bin/sh
+exec ${_quoted(Platform.resolvedExecutable)} ${_quoted(proxy.path)} "\$@"
+''');
     Process.runSync('chmod', ['+x', script.path]);
     return script.path;
   }
@@ -173,12 +173,12 @@ Future<void> main(List<String> args) async {
         expect(
           stdout.substring(notAnalyzed),
           allOf(
-            contains(
-              '  Could not find references; kept.\n'
-              '    Injected failure\n'
-              '    lib/a.dart\n'
-              '      1:6  brokenLookup\n',
-            ),
+            contains('''
+  Could not find references; kept.
+    Injected failure
+    lib/a.dart
+      1:6  brokenLookup
+'''),
             contains('-v shows the stack traces'),
             contains('· 1 not analyzed'),
             isNot(contains('#0')),

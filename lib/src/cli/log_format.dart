@@ -55,7 +55,6 @@ final class LogFormatter {
     final seconds = (elapsed.inMilliseconds / 1000).toStringAsFixed(1);
     final name = record.loggerName;
     final area = name.startsWith('ciach.') ? name.substring(6) : name;
-    return '${style.detail('[${seconds.padLeft(5)}s]')} '
-        '${style.detail('[$area]'.padRight(_areaWidth))} ';
+    return '${style.detail('[${seconds.padLeft(5)}s]')} ${style.detail('[$area]'.padRight(_areaWidth))} ';
   }
 }

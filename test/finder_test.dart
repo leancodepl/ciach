@@ -1508,20 +1508,17 @@ void main() {
 
       final skipped = lines.where((l) => l.startsWith('Skipped ')).toList();
       const plugin =
-          'Skipped lib/scenarios/entry_points.dart:15 Plugin: declares the '
-          'entry point Plugin.registerWith.';
+          'Skipped lib/scenarios/entry_points.dart:15 Plugin: declares the entry point Plugin.registerWith.';
       const registerWith =
           'Skipped lib/scenarios/entry_points.dart:16 Plugin.registerWith: '
           'listed under `entry-points` in the config file.';
       const bootstrap =
-          'Skipped lib/scenarios/entry_points.dart:21 bootstrap: listed under '
-          '`entry-points` in the config file.';
+          'Skipped lib/scenarios/entry_points.dart:21 bootstrap: listed under `entry-points` in the config file.';
       const byShape =
           'Skipped lib/scenarios/entry_points/flutter_test_config.dart:4 '
           'testExecutable: called by the `flutter test` bootstrap.';
       const real =
-          'Skipped test/flutter_test_config.dart:6 testExecutable: called by '
-          'the `flutter test` bootstrap.';
+          'Skipped test/flutter_test_config.dart:6 testExecutable: called by the `flutter test` bootstrap.';
       expect(skipped, [plugin, registerWith, bootstrap, byShape, real]);
       expect(lines, isNot(contains(contains(' main:'))));
     });

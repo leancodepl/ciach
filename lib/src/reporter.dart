@@ -164,8 +164,7 @@ abstract final class Reporter {
         final loc = '${r.line}:${r.column}'.padRight(locWidth);
         buffer.writeln(
           '  ${style.position(loc)}  ${r.qualifiedName}  '
-          '${style.position('used at ${r.usageFilePath}:${r.usageLine}:'
-          '${r.usageColumn}')}',
+          '${style.position('used at ${r.usageFilePath}:${r.usageLine}:${r.usageColumn}')}',
         );
       }
       buffer.writeln();
@@ -327,8 +326,7 @@ abstract final class Reporter {
         level: 'notice',
         title: 'Referenced only from a doc comment',
         message:
-            "${decl.kind.label} '${decl.qualifiedName}' has no code "
-            'references, only a dartdoc link',
+            "${decl.kind.label} '${decl.qualifiedName}' has no code references, only a dartdoc link",
       );
     }
     for (final w in result.recoveredReferences) {

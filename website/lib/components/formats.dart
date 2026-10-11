@@ -127,15 +127,13 @@ class OutputFormats extends StatelessComponent {
     css(
       _selectors(
         (id) =>
-            '#format-$id:checked ~ ${_panels.selector} '
-            '${_panelFor(id).selector}',
+            '#format-$id:checked ~ ${_panels.selector} ${_panelFor(id).selector}',
       ),
     ).styles(display: .block),
     css(
       _selectors(
         (id) =>
-            '#format-$id:focus-visible ~ ${_list.selector} '
-            "[for='format-$id']",
+            "#format-$id:focus-visible ~ ${_list.selector} [for='format-$id']",
       ),
     ).styles(
       outline: .new(
