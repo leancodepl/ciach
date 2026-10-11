@@ -19,7 +19,7 @@ final class ConditionalImports {
   /// Reads the conditional directives in every Dart file under [rootPath].
   factory ConditionalImports.scan(String rootPath) {
     final counterparts = <String, Set<String>>{};
-    for (final variants in _Tree(rootPath).conditionalVariants()) {
+    for (final variants in _DirectiveIndex(rootPath).conditionalVariants()) {
       for (final (i, variant) in variants.indexed) {
         final others = {
           for (final (j, other) in variants.indexed)
@@ -39,7 +39,7 @@ final class ConditionalImports {
   static final empty = ConditionalImports._(const {});
 
   /// The files of the other variants, by file of a variant; see
-  /// [_Tree.libraryFiles].
+  /// [_DirectiveIndex.libraryFiles].
   final Map<String, Set<String>> _counterparts;
 
   /// Whether [path] belongs to a variant of a conditional directive.
@@ -159,9 +159,9 @@ final class ConditionalImports {
       : null;
 }
 
-/// The Dart files under a root, their directives read once.
-final class _Tree {
-  _Tree(String root) : _files = scanPackageTree(root).dartFiles;
+/// The directives of the Dart files under a root, each file read once.
+final class _DirectiveIndex {
+  _DirectiveIndex(String root) : _files = scanPackageTree(root).dartFiles;
 
   final Set<String> _files;
   final _packages = PackageResolver();
