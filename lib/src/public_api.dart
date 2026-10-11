@@ -1,6 +1,4 @@
-import 'dart:io';
-
-import 'package:ciach/src/comment_stripping.dart';
+import 'package:ciach/src/directives.dart';
 import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/packages.dart';
 import 'package:ciach/src/symbols.dart';
@@ -46,21 +44,11 @@ final class PublicApi {
   static Map<String, _Directives> _readDirectives(
     Iterable<String> paths,
     PackageResolver packages,
-  ) {
-    final libraries = <String, _Directives>{};
-    for (final path in paths) {
-      try {
-        libraries[path] = _Directives.parse(
-          File(path).readAsStringSync(),
-          path,
-          packages,
-        );
-      } on FileSystemException {
-        continue;
-      }
-    }
-    return libraries;
-  }
+  ) => {
+    for (final path in paths)
+      if (readSource(path) case final content?)
+        path: _Directives.parse(content, path, packages),
+  };
 
   /// The library each part belongs to, through parts of parts.
   static Map<String, String> _libraryOfParts(
@@ -128,11 +116,6 @@ final class PublicApi {
   }
 }
 
-final _directive = RegExp(
-  r'''^[ \t]*(?<kind>export|part)\s+(?<body>[^;]*);''',
-  multiLine: true,
-);
-
 final _show = RegExp(r'\bshow\b(?<names>[^;]*?)(?=\b(?:show|hide)\b|$)');
 final _hide = RegExp(r'\bhide\b(?<names>[^;]*?)(?=\b(?:show|hide)\b|$)');
 
@@ -146,53 +129,24 @@ final class _Directives {
   ) {
     final exports = <_Export>[];
     final parts = <String>[];
-    for (final match in _directive.allMatches(stripComments(content))) {
-      final body = match.namedGroup('body')!;
-      if (match.namedGroup('kind') == 'part') {
-        if (_part(body, path, packages) case final part?) {
-          parts.add(part);
-        }
-      } else if (_export(body, path, packages) case final export?) {
-        exports.add(export);
+    for (final directive in Directive.allIn(content)) {
+      switch (directive.keyword) {
+        case 'part' when !directive.isPartOf:
+          parts.addAll(directive.pathsFrom(path, packages).take(1));
+        case 'export' when directive.uris.isNotEmpty:
+          exports.add((
+            paths: directive.pathsFrom(path, packages),
+            names: _Names.parse(
+              directive.body.substring(directive.uris.last.end),
+            ),
+          ));
       }
     }
     return .new(exports, parts);
   }
 
-  /// The file a `part` directive's [body] names; `null` for `part of`.
-  static String? _part(String body, String from, PackageResolver packages) {
-    if (body.startsWith('of')) {
-      return null;
-    }
-    return uriLiteral
-        .firstMatch(body)
-        ?.namedGroup('uri')!
-        .let((uri) => _resolve(uri, from, packages));
-  }
-
-  /// The export an `export` directive's [body] makes; `null` without a URI.
-  static _Export? _export(String body, String from, PackageResolver packages) {
-    final uris = uriLiteral.allMatches(body).toList();
-    if (uris.isEmpty) {
-      return null;
-    }
-    return (
-      paths: [
-        for (final uri in uris)
-          ?_resolve(uri.namedGroup('uri')!, from, packages),
-      ],
-      names: _Names.parse(body.substring(uris.last.end)),
-    );
-  }
-
   final List<_Export> exports;
   final List<String> parts;
-
-  static String? _resolve(String uri, String from, PackageResolver packages) =>
-      switch (packages.resolve(uri, from)) {
-        unknownPackage => null,
-        final resolved => resolved,
-      };
 }
 
 /// The files an `export` names, as absolute paths (several when conditional),
