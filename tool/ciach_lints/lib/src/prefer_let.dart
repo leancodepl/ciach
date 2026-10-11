@@ -87,8 +87,8 @@ class const LetShape({
 /// when `T` is just the target's own type made non-nullable, which is the
 /// same check. A conditional qualifies when it compares a local variable or
 /// parameter with null and the branch for the non-null case mentions it, or
-/// compares any other expression with null and that branch uses it only as
-/// `expression!`.
+/// compares any other expression with null and that branch reads it, as
+/// `expression` or `expression!`.
 LetShape? letShapeOf(Expression node, TypeSystem typeSystem) => switch (node) {
   SwitchExpression() => _switchShape(node, typeSystem),
   ConditionalExpression() => _conditionalShape(node),
@@ -207,12 +207,12 @@ LetShape? _conditionalShape(ConditionalExpression node) {
       fallback: fallback,
     );
   }
-  // The check promotes nothing, so the branch can only use the value through
-  // `target!`; each of those becomes the variable, named after the target
-  // unless the branch already mentions that name.
+  // The check promotes nothing, so the branch reads the value as `target!` or
+  // as `target` again; each of those becomes the variable, named after the
+  // target unless the branch already mentions that name.
   final uses = _Uses(target.toSource());
   whenNotNull.accept(uses);
-  if (uses.aliases.isEmpty || uses.bare > 0) {
+  if (uses.aliases.isEmpty || uses.assigned) {
     return null;
   }
   String? variable;
@@ -256,11 +256,12 @@ String? _lastName(Expression expression) => switch (expression) {
 };
 
 /// How a branch uses a value spelled [source] that a null check cannot
-/// promote: the [aliases] are its `source!` occurrences, [bare] counts any
-/// other occurrence.
+/// promote: the [aliases] are its occurrences, as `source!` or bare, each to
+/// become the variable; [assigned] says one of them is written to, which the
+/// variable could not stand in for.
 class _Uses(final String source) extends GeneralizingAstVisitor<void> {
   final List<Expression> aliases = [];
-  int bare = 0;
+  bool assigned = false;
 
   @override
   void visitPostfixExpression(PostfixExpression node) {
@@ -275,7 +276,12 @@ class _Uses(final String source) extends GeneralizingAstVisitor<void> {
   @override
   void visitExpression(Expression node) {
     if (node.toSource() == source) {
-      bare++;
+      aliases.add(node);
+      if (node.parent case AssignmentExpression(leftHandSide: final written)
+          when written == node) {
+        assigned = true;
+      }
+      return;
     }
     super.visitExpression(node);
   }
@@ -299,20 +305,21 @@ int _mentions(AstNode body, String name, List<Expression> aliases) =>
     _identifiersNamed(body, name, aliases: aliases) + aliases.length;
 
 class _Counter(final String name, final List<Expression> aliases)
-    extends RecursiveAstVisitor<void> {
+    extends GeneralizingAstVisitor<void> {
   int count = 0;
 
   @override
   void visitSimpleIdentifier(SimpleIdentifier node) {
-    if (node.name == name) {
+    if (node.name == name && !aliases.contains(node)) {
       count++;
     }
+    super.visitSimpleIdentifier(node);
   }
 
   @override
-  void visitPostfixExpression(PostfixExpression node) {
-    if (!aliases.contains(node)) {
-      super.visitPostfixExpression(node);
+  void visitNode(AstNode node) {
+    if (node is! Expression || !aliases.contains(node)) {
+      super.visitNode(node);
     }
   }
 }
@@ -412,20 +419,18 @@ Expression? _chainRoot(Expression body, List<Expression> aliases) {
   }
   final (Expression? target, bool plainSelector) = switch (body) {
     PrefixedIdentifier(:final prefix) => (prefix, true),
-    PropertyAccess(target: final target?, isCascaded: false, :final operator) =>
-      (target, operator.type == TokenType.PERIOD),
-    MethodInvocation(
-      target: final target?,
-      isCascaded: false,
-      :final operator,
-    ) =>
-      (target, operator?.type == TokenType.PERIOD),
-    IndexExpression(
-      target: final target?,
-      isCascaded: false,
-      :final question,
-    ) =>
-      (target, question == null),
+    PropertyAccess(:final target?, isCascaded: false, :final operator) => (
+      target,
+      operator.type == TokenType.PERIOD,
+    ),
+    MethodInvocation(:final target?, isCascaded: false, :final operator) => (
+      target,
+      operator?.type == TokenType.PERIOD,
+    ),
+    IndexExpression(:final target?, isCascaded: false, :final question) => (
+      target,
+      question == null,
+    ),
     PostfixExpression(operator: Token(type: TokenType.BANG), :final operand) =>
       (operand, false),
     _ => (null, false),
@@ -452,25 +457,23 @@ String? _tearOff(
   String variable,
   List<Expression> aliases,
   String Function(AstNode node) text,
-) {
-  if (body
-      case MethodInvocation(
-        typeArguments: null,
-        isCascaded: false,
-        argumentList: ArgumentList(arguments: [final Expression argument]),
-        :final target,
-        :final methodName,
-      )
-      when _isVariable(argument, variable, aliases)) {
-    return switch (target) {
+) => switch (body) {
+  MethodInvocation(
+    typeArguments: null,
+    isCascaded: false,
+    argumentList: ArgumentList(arguments: [final Expression argument]),
+    :final target,
+    :final methodName,
+  )
+      when _isVariable(argument, variable, aliases) =>
+    switch (target) {
       null => methodName.name,
       Identifier(element: InterfaceElement() || PrefixElement()) =>
         '${text(target)}.${methodName.name}',
       _ => null,
-    };
-  }
-  return null;
-}
+    },
+  _ => null,
+};
 
 /// Applies [rewriteOf] to the flagged expression, importing the extension
 /// when `let` is used and the file lacks it.

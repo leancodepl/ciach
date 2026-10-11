@@ -348,12 +348,38 @@ int i(C c, int s) => c.s?.let((it) => it.length + s) ?? 0;
   }
 
   Future<void> test_conditionalOnFieldUsedBare() async {
-    await assertNoDiagnostics('''
+    await assertRewrites(
+      '''
 class C {
   String? s;
   int f() => s == null ? 0 : s.hashCode;
   String? g() => s != null ? s : null;
   int h() => s != null ? s!.length + s.hashCode : 0;
+}
+''',
+      [
+        's == null ? 0 : s.hashCode',
+        's != null ? s : null',
+        's != null ? s!.length + s.hashCode : 0',
+      ],
+      sketches: ['s?.hashCode ?? …', 's', 's?.let((s) => …) ?? …'],
+      fixed:
+          '''
+${_import}class C {
+  String? s;
+  int f() => s?.hashCode ?? 0;
+  String? g() => s;
+  int h() => s?.let((s) => s.length + s.hashCode) ?? 0;
+}
+''',
+    );
+  }
+
+  Future<void> test_conditionalAssigningTheField() async {
+    await assertNoDiagnostics('''
+class C {
+  int? n;
+  int f() => n == null ? 0 : n = n! + 1;
 }
 ''');
   }
