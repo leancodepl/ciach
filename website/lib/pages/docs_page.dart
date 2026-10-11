@@ -508,10 +508,10 @@ class DocsPage extends StatelessComponent {
               children: [
                 p([
                   .text(
-                    'ciach knows a CI runner from a terminal, by the '
-                    'environment: there, the job fails when anything is found, '
-                    'the log explains the run, and on GitHub Actions each '
-                    'finding becomes an annotation on the diff, as if ',
+                    'ciach detects CI from the environment. There, the job '
+                    'fails when anything is found, the log explains the run, '
+                    'and on GitHub Actions each finding becomes an annotation '
+                    'on the diff, as if ',
                   ),
                   code([.text('-f github --set-exit-if-changed -v')]),
                   .text(
