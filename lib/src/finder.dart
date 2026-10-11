@@ -195,7 +195,7 @@ class Ciach {
         fetched.refsByCandidate,
         _collector.declaredInVariants,
         _classifier,
-        onDropped: _logUncheckable,
+        onDropped: _logDropped,
       );
       declarationsChecked = candidates.length;
       await _fetch.selectionRanges(client, candidates, refsByCandidate);
@@ -225,7 +225,7 @@ class Ciach {
     );
   }
 
-  void _logUncheckable(Candidate candidate) => _log.fine(
+  void _logDropped(Candidate candidate) => _log.fine(
     'Skipped ${relativePosix(candidate.path, options.rootPath)}:'
     '${candidate.symbol.selectionRange.start.line + 1} '
     '${candidate.symbol.name}: its namesake in another conditional-import '

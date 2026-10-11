@@ -17,12 +17,8 @@ final class ConditionalImports {
   ConditionalImports._(this._counterparts);
 
   /// Reads the conditional directives in every Dart file under [rootPath].
-  ///
-  /// Each variant's files get the files of the directive's other variants as
-  /// counterparts. For
-  /// `import 'stub.dart' if (dart.library.io) 'io.dart' if (dart.library.js_interop) 'web.dart';`
-  /// the files of `io.dart` get those of `stub.dart` and `web.dart`, and so
-  /// on. A file that several directives name collects the counterparts of each.
+  /// The files of each variant get the files of the other variants of the
+  /// same directive as counterparts.
   factory ConditionalImports.scan(String rootPath) {
     final counterparts = <String, Set<String>>{};
     for (final variants in _DirectiveIndex(rootPath).conditionalVariants()) {
@@ -92,9 +88,8 @@ final class ConditionalImports {
   /// [candidates] and [refsByCandidate] with the references of each
   /// candidate's namesakes added, less the ones inside the namesake itself.
   ///
-  /// A candidate is dropped when a namesake is declared but is not a
-  /// candidate, or when another variant was not read; [onDropped] hears of
-  /// it. [declared] holds the [pairingNames] of each variant that was read.
+  /// Candidates left out by [_withAllNamesakes] go to [onDropped]. [declared]
+  /// holds the [pairingNames] of each variant that was read.
   ({List<Candidate> candidates, List<List<Location>> refsByCandidate}) share(
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
@@ -103,7 +98,7 @@ final class ConditionalImports {
     required void Function(Candidate) onDropped,
   }) {
     final names = candidates.map(_pairingNameOf).toList();
-    final kept = _checkable(candidates, names, declared);
+    final kept = _withAllNamesakes(candidates, names, declared);
     for (final (i, candidate) in candidates.indexed) {
       if (!kept.contains(i)) {
         onDropped(candidate);
@@ -129,15 +124,9 @@ final class ConditionalImports {
     );
   }
 
-  /// The indices of the [candidates], in order, whose namesakes are all
-  /// candidates too.
-  ///
-  /// A namesake that is declared but not a candidate (an entry point, say, or
-  /// one whose references could not be fetched) has no references to share,
-  /// and neither does one in a file that was not read. Such a candidate is
-  /// dropped, which can leave its own namesakes without a candidate, so this
-  /// runs until nothing more drops.
-  Set<int> _checkable(
+  /// The indices of the [candidates] whose namesakes are all candidates too.
+  /// A dropped candidate can strand its own namesakes, so this repeats.
+  Set<int> _withAllNamesakes(
     List<Candidate> candidates,
     List<String?> names,
     Map<String, Set<String>> declared,
@@ -171,10 +160,8 @@ final class ConditionalImports {
       : null;
 }
 
-/// The directives of the Dart files under a root, each file read once.
-///
-/// Every path is absolute and normalized, as [scanPackageTree] and
-/// [Directive.pathsFrom] give them.
+/// The directives of the Dart files under a root, each file read once. Paths
+/// are absolute and normalized.
 final class _DirectiveIndex {
   _DirectiveIndex(String root) : _files = scanPackageTree(root).dartFiles;
 
@@ -182,9 +169,7 @@ final class _DirectiveIndex {
   final _packages = PackageResolver();
   final _directives = <String, List<Directive>>{};
 
-  /// The variants of each conditional directive, as their [libraryFiles]:
-  /// `[libraryFiles('io.dart'), libraryFiles('web.dart')]` for the directive
-  /// in [ConditionalImports].
+  /// The [libraryFiles] of each variant, for every conditional directive.
   Iterable<List<Set<String>>> conditionalVariants() sync* {
     for (final path in _files) {
       // Only a file that may hold one is parsed: stripping comments is slow.
