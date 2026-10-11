@@ -46,6 +46,7 @@ operators: true
 unused-union-members: true
 report-tojson: true
 transitive: true
+empty-files: false
 set-exit-if-changed: true
 remove: true
 force: true
@@ -84,6 +85,7 @@ dart: /sdk/bin/dart
       expect(resolved.unusedUnionMembers, isTrue);
       expect(resolved.reportToJson, isTrue);
       expect(resolved.transitive, isTrue);
+      expect(resolved.emptyFiles, isFalse);
       expect(resolved.setExitIfChanged, isTrue);
       expect(resolved.remove, isTrue);
       expect(resolved.force, isTrue);
@@ -272,6 +274,7 @@ concurrency: 4
         '--operators',
         '--unused-union-members',
         '--report-tojson',
+        '--empty-files',
         '--set-exit-if-changed',
         '--remove',
         '--force',
@@ -445,6 +448,7 @@ concurrency: 4
       expect(resolved.unusedUnionMembers, isFalse);
       expect(resolved.reportToJson, isFalse);
       expect(resolved.transitive, isFalse);
+      expect(resolved.emptyFiles, isTrue);
       expect(resolved.setExitIfChanged, isFalse);
       expect(resolved.remove, isFalse);
       expect(resolved.force, isFalse);

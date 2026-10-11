@@ -15,6 +15,8 @@ void logSummary(FinderResult result) {
   final counts = [
     '${result.unused.length} unused',
     '${result.docOnly.length} referenced only from doc comments',
+    if (result.emptyFiles.isNotEmpty)
+      plural(result.emptyFiles.length, 'empty file', 'empty files'),
     if (result.recoveredReferences.isNotEmpty)
       '${result.recoveredReferences.length} recovered',
     if (result.problems.isNotEmpty) '${result.problems.length} not analyzed',
@@ -56,14 +58,14 @@ void writeReport(
 }
 
 /// The exit code for [result]: 1 when `--set-exit-if-changed` and a counted
-/// finding remain, else 0.
+/// finding or an empty file remain, else 0.
 int exitCodeFor(FinderResult result, ResolvedOptions resolved) {
   if (resolved.setExitIfChanged) {
     // Public findings are still reported; --no-fail-public only drops them from the exit code.
     final failing = resolved.failPublic
         ? result.unused
         : result.unused.where((d) => d.isPrivate);
-    if (failing.isNotEmpty) {
+    if (failing.isNotEmpty || result.emptyFiles.isNotEmpty) {
       return 1;
     }
   }

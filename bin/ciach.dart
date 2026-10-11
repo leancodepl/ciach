@@ -136,16 +136,18 @@ Future<int> _run(List<String> arguments) async {
 
   writeReport(_console, result, resolved, rootPath);
 
-  if (result.unused.isNotEmpty && resolved.remove) {
+  final anyFound = result.unused.isNotEmpty || result.emptyFiles.isNotEmpty;
+  if (anyFound && resolved.remove) {
     _removeUnused(result, rootPath, resolved);
-  } else if (result.unused.isNotEmpty) {
+  } else if (anyFound) {
     _log.fine('Leaving the findings in place; --remove was not given.');
   }
 
   return exitCodeFor(result, resolved);
 }
 
-/// Confirms (unless forced), removes the findings, and reports it.
+/// Confirms (unless forced), removes the findings and empty files, and reports
+/// it.
 void _removeUnused(
   FinderResult result,
   String rootPath,
@@ -156,12 +158,13 @@ void _removeUnused(
   final removable = result.unused.whereNot((d) => d.removalBlocked).toList();
   final count = removable.length;
   final blocked = result.unused.length - count;
+  final emptyFiles = result.emptyFiles.length;
   if (blocked > 0) {
     _log.fine(
       'Skipping $blocked of ${plural(result.unused.length, 'finding', 'findings')}: removing them safely would need a source rewrite (see --unused-union-members and remove safety).',
     );
   }
-  if (count == 0) {
+  if (count == 0 && emptyFiles == 0) {
     _log.warning(
       blocked == 1
           ? 'Nothing removed: the finding is unsafe to auto-remove — remove it manually.'
@@ -178,8 +181,12 @@ void _removeUnused(
       return;
     }
     _log.fine('Asking for confirmation; pass --force to skip the prompt.');
+    final what = [
+      if (count > 0) plural(count, 'unused declaration', 'unused declarations'),
+      if (emptyFiles > 0) plural(emptyFiles, 'empty file', 'empty files'),
+    ].join(' and ');
     final proceed = _console.confirm(
-      'Remove ${plural(count, 'unused declaration', 'unused declarations')}?',
+      'Remove $what?',
       // Non-text formats aren't readable, so show the findings first.
       preamble: resolved.format == 'text'
           ? null
@@ -191,7 +198,11 @@ void _removeUnused(
     }
   }
 
-  final removal = removeDeclarations(result.unused, rootPath);
+  final removal = removeDeclarations(
+    result.unused,
+    rootPath,
+    emptyFiles: result.emptyFiles,
+  );
   _console.output(
     Reporter.removal(
       removal,

@@ -16,6 +16,7 @@ import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/concurrency.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/freezed.dart';
+import 'package:ciach/src/emptied_files.dart';
 import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
@@ -147,6 +148,7 @@ class Ciach {
 
     final Settled settled;
     final int declarationsChecked;
+    final List<String> emptyFiles;
     try {
       if (analysisRoot != rootPath) {
         _log.config(
@@ -167,6 +169,9 @@ class Ciach {
         for (final path in [...discovered.warmOnly, ...files])
           if (_openFile(client, path)) path,
       };
+      emptyFiles = options.reportEmptyFiles
+          ? _emptyFiles(files.where(opened.contains))
+          : const [];
 
       // Phase 1: collect candidate declarations, concurrently.
       _log.info(
@@ -220,9 +225,29 @@ class Ciach {
       filesScanned: files.length,
       declarationsChecked: declarationsChecked,
       elapsed: stopwatch.elapsed,
+      emptyFiles: emptyFiles,
       recoveredReferences: settled.recovered,
       problems: problems.problems,
     );
+  }
+
+  /// The [paths] with nothing but directives and comments, root-relative. A
+  /// conditional-import variant is chosen by a directive, and a file another
+  /// package can import may be imported there, so neither is listed.
+  List<String> _emptyFiles(Iterable<String> paths) {
+    final empty = [
+      for (final path in paths)
+        if (isDirectiveOnly(_sources.content(path)) &&
+            !_conditionalImports.contains(path) &&
+            !(_publicApi?.isImportable(path) ?? false))
+          relativePosix(path, options.rootPath),
+    ];
+    if (empty.isNotEmpty) {
+      _log.fine(
+        'Found ${plural(empty.length, 'empty file', 'empty files')}, with nothing but comments and library, import or part-of lines: ${empty.join(', ')}.',
+      );
+    }
+    return empty;
   }
 
   void _logDropped(Candidate candidate) => _log.fine(

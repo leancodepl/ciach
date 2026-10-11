@@ -235,6 +235,15 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'Report a `toJson()` serialization hook as unused too. Off by default: `jsonEncode(obj)` calls `obj.toJson()` by dynamic dispatch with no source-level `.toJson()` reference for the search to see, so a live serializer would be flagged. Enable to audit dead `toJson`s.',
     ),
   ),
+  emptyFiles(
+    FlagOption(
+      argName: 'empty-files',
+      configKey: '/empty-files',
+      defaultsTo: true,
+      helpText:
+          'Report files with nothing but comments and library, import or part-of lines. --remove deletes them and drops the directives naming them.',
+    ),
+  ),
   setExitIfChanged(
     FlagOption(
       argName: 'set-exit-if-changed',
@@ -242,7 +251,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       negatable: false,
       defaultsTo: false,
       helpText:
-          'Exit with a non-zero status when any unused declaration is found (useful in CI).',
+          'Exit with a non-zero status when any unused declaration or empty file is found (useful in CI).',
     ),
   ),
   remove(
@@ -252,7 +261,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       negatable: false,
       defaultsTo: false,
       helpText:
-          'Remove unused declarations from source after reporting them. Prompts for confirmation first, unless --force is also given.',
+          'Remove unused declarations from source, and delete empty files, after reporting them. Prompts for confirmation first, unless --force is also given.',
     ),
   ),
   force(

@@ -31,12 +31,14 @@ typedef _Span = ({int start, int end});
 /// only removed on its own when that can be done unambiguously; otherwise it
 /// is left in place rather than risk producing invalid source.
 ///
-/// A rewritten file left with nothing but directives is then deleted; see
-/// `deleteEmptiedFiles`.
+/// A rewritten file left with nothing but directives is then deleted, and so
+/// are the [emptyFiles] (root-relative `/`-paths, see
+/// [FinderResult.emptyFiles]); see `deleteEmptiedFiles`.
 RemovalResult removeDeclarations(
   List<UnusedDeclaration> declarations,
-  String rootPath,
-) {
+  String rootPath, {
+  List<String> emptyFiles = const [],
+}) {
   final byFile = <String, List<UnusedDeclaration>>{};
   for (final decl in declarations) {
     // A blocked finding is reported but never auto-removed: deleting it safely
@@ -98,7 +100,11 @@ RemovalResult removeDeclarations(
   try {
     return .new(
       filesChanged: rewritten.length,
-      deletedFiles: deleteEmptiedFiles(rewritten, rootPath),
+      deletedFiles: deleteEmptiedFiles({
+        ...rewritten,
+        for (final path in emptyFiles)
+          p.joinAll([rootPath, ...p.posix.split(path)]).absoluteNormalized,
+      }, rootPath),
     );
   } on FileSystemException catch (e) {
     throw failure(e, e.path ?? rootPath);

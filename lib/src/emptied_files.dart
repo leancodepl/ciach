@@ -11,17 +11,17 @@ import 'package:path/path.dart' as p;
 
 final _log = Logger('ciach.remover');
 
-/// Deletes the [rewritten] files (absolute paths) left with only
-/// `library`/`import`/`part of` lines, dropping the directives naming them
+/// Deletes the [paths] (absolute; rewritten, or empty to begin with) left with
+/// only `library`/`import`/`part of` lines, dropping the directives naming them
 /// under [rootPath]. One that `export`s, owns a `part`, or sits in a
 /// conditional import stays.
-List<DeletedFile> deleteEmptiedFiles(Set<String> rewritten, String rootPath) {
-  if (rewritten.isEmpty) {
+List<DeletedFile> deleteEmptiedFiles(Set<String> paths, String rootPath) {
+  if (paths.isEmpty) {
     return const [];
   }
   final root = rootPath.absoluteNormalized;
   final package = _Package(root);
-  final pending = rewritten.map(p.normalize).toSet();
+  final pending = paths.map(p.normalize).toSet();
   final deleted = <DeletedFile>[];
 
   // Dropping a `part`/`export` line can empty that file in turn.
@@ -52,7 +52,7 @@ DeletedFile? _deleteIfEmptied(
     pending.remove(path);
     return null;
   }
-  if (!_isDirectiveOnly(content)) {
+  if (!isDirectiveOnly(content)) {
     return null;
   }
   final links = package.linksTo(path);
@@ -86,7 +86,9 @@ final _directiveOnly = RegExp(
   r'''^(?:\s*(?:library\b[^;]*|import\s+r?['"][^;]*|part\s+of\b[^;]*);)*\s*$''',
 );
 
-bool _isDirectiveOnly(String content) =>
+/// Whether [content] has nothing but comments and `library`, `import` or
+/// `part of` lines.
+bool isDirectiveOnly(String content) =>
     _directiveOnly.hasMatch(stripComments(content));
 
 typedef _Span = ({int start, int end});

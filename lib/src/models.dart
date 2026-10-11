@@ -60,6 +60,7 @@ class FinderOptions {
     this.unusedUnionMembers = false,
     this.reportToJson = false,
     this.transitive = false,
+    this.reportEmptyFiles = true,
     this.entryPoints = const [],
     this.translations = const [],
     this.concurrency = 16,
@@ -156,6 +157,10 @@ class FinderOptions {
   /// referenced. Dead declarations that only reference each other, in a
   /// cycle, are reported too.
   final bool transitive;
+
+  /// Whether to report scanned files with nothing in them but comments and
+  /// `library`, `import` or `part of` lines; see [FinderResult.emptyFiles].
+  final bool reportEmptyFiles;
 
   /// The project's own entry points, on top of [EntryPoint.builtIn]. A match
   /// is never a candidate, so it is neither reported nor removed.
@@ -471,6 +476,7 @@ class FinderResult {
     required this.filesScanned,
     required this.declarationsChecked,
     required this.elapsed,
+    this.emptyFiles = const [],
     this.recoveredReferences = const [],
     this.problems = const [],
   });
@@ -487,6 +493,13 @@ class FinderResult {
   /// without risking deletion of something that really is pointed to, just
   /// only from documentation. Sorted by file then position.
   final List<UnusedDeclaration> docOnly;
+
+  /// Scanned files with nothing in them but comments and `library`, `import`
+  /// or `part of` lines, as sorted root-relative `/`-paths. `--remove` deletes
+  /// them as it does the files it empties. A conditional-import variant, and
+  /// with [FinderOptions.includeExported] off a file other packages can
+  /// import, is never listed.
+  final List<String> emptyFiles;
 
   /// Number of files scanned for declarations.
   final int filesScanned;

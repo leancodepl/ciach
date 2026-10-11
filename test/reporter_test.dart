@@ -19,6 +19,7 @@ void main() {
   FinderResult resultWith(
     List<UnusedDeclaration> unused, {
     List<UnusedDeclaration> docOnly = const [],
+    List<String> emptyFiles = const [],
     List<RecoveredReference> recoveredReferences = const [],
     List<AnalysisProblem> problems = const [],
   }) => .new(
@@ -27,6 +28,7 @@ void main() {
     filesScanned: 3,
     declarationsChecked: 10,
     elapsed: const .new(seconds: 1),
+    emptyFiles: emptyFiles,
     recoveredReferences: recoveredReferences,
     problems: problems,
   );
@@ -146,6 +148,19 @@ void main() {
       );
       expect(out, startsWith('::notice '));
       expect(out, contains("docOnlyThing' has no code references"));
+    });
+
+    test('emits a ::warning annotation on the first line of each empty '
+        'file', () {
+      final out = Reporter.github(
+        resultWith(const [], emptyFiles: ['lib/blank.dart']),
+        pathPrefix: 'app',
+      );
+      expect(
+        out,
+        '::warning file=app/lib/blank.dart,line=1,col=1,title=Empty file::'
+        'Nothing but comments and library, import or part-of lines\n',
+      );
     });
 
     test('emits a ::warning annotation for each recovered reference', () {
@@ -316,6 +331,20 @@ lib/c.dart
       expect(entry['message'], contains('used at lib/b.dart:9:2'));
     });
 
+    test('lists the empty files and counts them', () {
+      final json =
+          jsonDecode(
+                Reporter.json(
+                  resultWith(const [], emptyFiles: ['lib/blank.dart']),
+                ),
+              )
+              as Map<String, Object?>;
+      expect((json['summary']! as Map<String, Object?>)['emptyFileCount'], 1);
+      expect(json['emptyFiles'], [
+        {'file': 'lib/blank.dart'},
+      ]);
+    });
+
     test('warnings array is empty when there are no recovered references', () {
       final json =
           jsonDecode(Reporter.json(resultWith([decl()])))
@@ -371,6 +400,7 @@ lib/c.dart
             decl(name: '_private', line: 18, isPrivate: true),
           ],
           docOnly: [decl(name: 'docOnly', line: 41)],
+          emptyFiles: ['lib/blank.dart', 'lib/zero.dart'],
           recoveredReferences: [warning()],
           problems: [
             problem(filePath: 'lib/b.dart', line: 65, column: 11),
@@ -393,6 +423,10 @@ lib/a.dart
   3:5   function  dangling  (public)
   18:5  function  _private  (private)
 
+Empty files (2) · nothing but comments and library, import or part-of lines
+lib/blank.dart
+lib/zero.dart
+
 Referenced only from doc comments (1) · not counted, never removed
 lib/a.dart
   41:5  function  docOnly  (public)
@@ -411,7 +445,7 @@ Not analyzed (2) · the analysis failed here
     lib/secret.dart
   Likely a Dart SDK bug; -v shows the stack traces.
 
-Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) · 1 doc-only · 1 recovered · 2 not analyzed''',
+Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) · 2 empty files · 1 doc-only · 1 recovered · 2 not analyzed''',
       );
     });
 
@@ -483,10 +517,31 @@ Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) �
       expect(
         text,
         'Removed 3 unused declarations from 2 files. 1 left in place — unsafe '
-        'to auto-remove. Deleted 1 now-empty file: lib/empty.dart. '
+        'to auto-remove. Deleted 1 empty file: lib/empty.dart. '
         "Run 'dart format' to tidy up spacing.\n"
         'Note: Foo._: prefer `abstract final class`',
       );
+    });
+
+    test('leaves out the declarations when only empty files went', () {
+      final text = Reporter.removal(
+        const .new(
+          filesChanged: 0,
+          deletedFiles: [(filePath: 'lib/blank.dart', unlinkedFrom: [])],
+        ),
+      );
+      expect(
+        text,
+        "Deleted 1 empty file: lib/blank.dart. Run 'dart format' to tidy up "
+        'spacing.',
+      );
+    });
+
+    test('says when nothing was removed', () {
+      final text = Reporter.removal(
+        const .new(filesChanged: 0, deletedFiles: []),
+      );
+      expect(text, 'Nothing removed.');
     });
 
     test('says so when the user declined', () {

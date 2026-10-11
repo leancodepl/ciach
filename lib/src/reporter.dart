@@ -29,6 +29,20 @@ abstract final class Reporter {
     final buffer = StringBuffer();
     _writeDeclarations(buffer, result.unused, style);
 
+    if (result.emptyFiles.isNotEmpty) {
+      _writeHeading(
+        buffer,
+        'Empty files',
+        result.emptyFiles.length,
+        'nothing but comments and library, import or part-of lines',
+        style,
+      );
+      for (final file in result.emptyFiles) {
+        buffer.writeln(style.path(file));
+      }
+      buffer.writeln();
+    }
+
     if (result.docOnly.isNotEmpty) {
       _writeHeading(
         buffer,
@@ -81,24 +95,22 @@ abstract final class Reporter {
     }
     final files = removal.filesChanged;
     final deleted = removal.deletedFiles;
-    final buffer = StringBuffer(
-      style.success(
-        'Removed ${plural(removed, 'unused declaration', 'unused declarations')} from '
-        '${plural(files, 'file', 'files')}.',
-      ),
-    );
-    if (blocked > 0) {
-      buffer.write(
-        ' ${style.caution('$blocked left in place — unsafe to auto-remove.')}',
-      );
-    }
-    if (deleted.isNotEmpty) {
-      buffer.write(
-        ' Deleted ${plural(deleted.length, 'now-empty file', 'now-empty files')}: '
-        '${deleted.map((d) => d.filePath).join(', ')}.',
-      );
-    }
-    buffer.write(" ${style.note("Run 'dart format' to tidy up spacing.")}");
+    final sentences = [
+      if (removed > 0)
+        style.success(
+          'Removed ${plural(removed, 'unused declaration', 'unused declarations')} from '
+          '${plural(files, 'file', 'files')}.',
+        ),
+      if (blocked > 0)
+        style.caution('$blocked left in place — unsafe to auto-remove.'),
+      if (deleted.isNotEmpty)
+        'Deleted ${plural(deleted.length, 'empty file', 'empty files')}: ${deleted.map((d) => d.filePath).join(', ')}.',
+      if (removed == 0 && deleted.isEmpty)
+        style.note('Nothing removed.')
+      else
+        style.note("Run 'dart format' to tidy up spacing."),
+    ];
+    final buffer = StringBuffer(sentences.join(' '));
     for (final note in notes) {
       buffer.write('\n${style.heading('Note:')} $note');
     }
@@ -283,18 +295,22 @@ abstract final class Reporter {
         'declarationsChecked': result.declarationsChecked,
         'unusedCount': result.unused.length,
         'docOnlyCount': result.docOnly.length,
+        'emptyFileCount': result.emptyFiles.length,
         'elapsedMs': result.elapsed.inMilliseconds,
       },
       'unused': [for (final decl in result.unused) decl.toJson()],
       'docOnly': [for (final decl in result.docOnly) decl.toJson()],
+      'emptyFiles': [
+        for (final file in result.emptyFiles) {'file': file},
+      ],
       'warnings': [for (final w in result.recoveredReferences) w.toJson()],
       'problems': [for (final problem in result.problems) problem.toJson()],
     });
   }
 
   /// [GitHub Actions workflow commands][] — one `::warning` annotation per
-  /// unused finding (surfacing them inline on the PR diff and Checks tab) and
-  /// one lower-severity `::notice` per doc-only finding.
+  /// unused finding and empty file (surfacing them inline on the PR diff and
+  /// Checks tab) and one lower-severity `::notice` per doc-only finding.
   ///
   /// Annotation paths are resolved relative to the repository root. [pathPrefix]
   /// (POSIX, `/`-separated) is prepended to each finding's path so that scans of
@@ -316,6 +332,17 @@ abstract final class Reporter {
           ?decl.hint,
           ?_onlyReferencedFrom(decl),
         ].join(' — '),
+      );
+    }
+    for (final file in result.emptyFiles) {
+      _writeAnnotationRaw(
+        buffer,
+        _annotationFile(file, pathPrefix),
+        1,
+        1,
+        level: 'warning',
+        title: 'Empty file',
+        message: 'Nothing but comments and library, import or part-of lines',
       );
     }
     for (final decl in result.docOnly) {
@@ -423,6 +450,10 @@ abstract final class Reporter {
       '${plural(result.declarationsChecked, 'declaration', 'declarations')}, ${seconds}s)',
     );
     final sections = [
+      if (result.emptyFiles.isNotEmpty)
+        style.attention(
+          plural(result.emptyFiles.length, 'empty file', 'empty files'),
+        ),
       if (result.docOnly.isNotEmpty) '${result.docOnly.length} doc-only',
       if (result.recoveredReferences.isNotEmpty)
         style.caution('${result.recoveredReferences.length} recovered'),
