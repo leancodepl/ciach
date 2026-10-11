@@ -509,8 +509,7 @@ class DocsPage extends StatelessComponent {
                 p([
                   .text(
                     'ciach detects CI from the environment. On a runner, the '
-                    'job fails when anything is found, the log explains the '
-                    'run, '
+                    'job fails when anything is found, the log explains the run, '
                     'and on GitHub Actions each finding becomes an annotation '
                     'on the diff, as if ',
                   ),
