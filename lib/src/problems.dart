@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/models.dart';
@@ -51,11 +52,9 @@ void recordProblem(
     summary: summary,
     cause: cause,
     detail: detail,
-    filePath: collector == null
-        ? path
-        : relativePosix(path, collector.rootPath),
-    line: position == null ? null : position.line + 1,
-    column: position == null ? null : position.character + 1,
+    filePath: collector?.let((c) => relativePosix(path, c.rootPath)) ?? path,
+    line: position?.line.let((line) => line + 1),
+    column: position?.character.let((character) => character + 1),
     name: name,
   );
   collector?._problems.add(problem);

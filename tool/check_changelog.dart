@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:ciach/src/extensions.dart';
 
 /// Checks the CHANGELOG.md entries added since a base revision: each ends with
 /// a link to its pull request, `([#N](https://github.com/leancodepl/ciach/pull/N))`.
@@ -25,10 +26,7 @@ Future<void> main(List<String> args) async {
   final errors = changelogErrors(
     File('CHANGELOG.md').readAsStringSync(),
     base: base.stdout as String,
-    pr: switch (options.option('pr')) {
-      final pr? => int.parse(pr),
-      null => null,
-    },
+    pr: options.option('pr')?.let(int.parse),
   );
   if (errors.isNotEmpty) {
     stderr.writeln(errors.join('\n\n'));
@@ -59,10 +57,8 @@ List<String> changelogErrors(
 }
 
 /// The pull request linked at the end of [entry].
-int? _linkedPr(String entry) => switch (_link.firstMatch(entry)) {
-  final link? => int.parse(link[1]!),
-  null => null,
-};
+int? _linkedPr(String entry) =>
+    _link.firstMatch(entry)?.let((link) => int.parse(link[1]!));
 
 const _pulls = 'https://github.com/leancodepl/ciach/pull';
 
