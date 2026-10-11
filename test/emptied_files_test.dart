@@ -84,7 +84,11 @@ export 'user.dart';
         'lib/sub/relative.dart',
         'lib/user.dart',
       ]);
-      expect(read('lib/user.dart'), "import 'dart:io';\n\nvoid kept() {}\n");
+      expect(read('lib/user.dart'), '''
+import 'dart:io';
+
+void kept() {}
+''');
       expect(read('lib/sub/relative.dart'), '\nvoid alsoKept() {}\n');
       expect(read('lib/barrel.dart'), "export 'user.dart';\n");
     });
@@ -328,7 +332,11 @@ void kept() {}
 ''');
       removeDeclarations([gone('lib/dead.dart', line: 0)], tempDir.path);
       expect(exists('lib/dead.dart'), isFalse);
-      expect(read('lib/user.dart'), '\n/// Still here.\nvoid kept() {}\n');
+      expect(read('lib/user.dart'), '''
+
+/// Still here.
+void kept() {}
+''');
     });
 
     test('a report-only finding does not empty its file', () {

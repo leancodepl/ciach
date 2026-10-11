@@ -27,7 +27,11 @@ void main() {
 
   setUpAll(() {
     root = .systemTemp.createTempSync('ciach_exported_');
-    write('pubspec.yaml', 'name: exported_pkg\nenvironment:\n  sdk: ^3.10.0\n');
+    write('pubspec.yaml', '''
+name: exported_pkg
+environment:
+  sdk: ^3.10.0
+''');
     write('.dart_tool/package_config.json', '''
 {
   "configVersion": 2,
@@ -41,7 +45,10 @@ export 'src/api.dart';
 
 void publicTopLevel() {}
 ''');
-    write('bin/main.dart', 'void main() {}\n\nvoid cliHelper() {}');
+    write('bin/main.dart', '''
+void main() {}
+
+void cliHelper() {}''');
     write('lib/src/api.dart', '''
 import 'types.dart';
 
