@@ -192,10 +192,10 @@ class LspClient {
       }
       final failure = switch (e) {
         lsp.LspException(code: lsp.LspErrorCodes.unknownErrorCode) =>
-          switch (await _takeLoggedError(e.message)) {
-            final logged? => LspRequestException.fromLog(method, logged),
-            null => LspRequestException(method, e.message),
-          },
+          (await _takeLoggedError(e.message))?.let(
+                (logged) => LspRequestException.fromLog(method, logged),
+              ) ??
+              LspRequestException(method, e.message),
         lsp.LspException() => LspRequestException(
           method,
           '${e.message} (error ${e.code})',

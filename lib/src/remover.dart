@@ -343,10 +343,9 @@ _Span? _partialDeclaratorSpan(
     // there is one, leaving the `;` in place; otherwise (a sole declarator,
     // unreachable in practice since `_wholeStatementSpan` catches it first)
     // fall back to the line start.
-    (final semicolonEnd, _) => switch (leadingComma) {
-      final comma? => (start: lineStart + comma, end: baseEnd),
-      null => (start: lineStart, end: semicolonEnd + 1),
-    },
+    (final semicolonEnd, _) =>
+      leadingComma?.let((comma) => (start: lineStart + comma, end: baseEnd)) ??
+          (start: lineStart, end: semicolonEnd + 1),
   };
 }
 

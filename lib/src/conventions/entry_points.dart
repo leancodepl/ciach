@@ -125,22 +125,23 @@ final class EntryPoint {
     final scoped = files.isEmpty
         ? ['$prefix/**']
         : [for (final file in files) '$prefix/$file'];
-    return switch (superclass) {
-      final superclass? => .publicMethodsOfSubclasses(
-        superclass,
-        reason: reason,
-        files: scoped,
-      ),
-      null => .new(name: name, reason: reason, files: scoped),
-    };
+    return superclass?.let(
+          (superclass) => .publicMethodsOfSubclasses(
+            superclass,
+            reason: reason,
+            files: scoped,
+          ),
+        ) ??
+        .new(name: name, reason: reason, files: scoped);
   }
 
   /// The text that shows the rule to the user. It is the [name] of the rule,
   /// or, for a [superclass] rule, a description of what the rule matches.
-  String get label => switch (superclass) {
-    final superclass? => 'public methods of `$superclass` subclasses',
-    null => name,
-  };
+  String get label =>
+      superclass?.let(
+        (superclass) => 'public methods of `$superclass` subclasses',
+      ) ??
+      name;
 
   @override
   String toString() =>
