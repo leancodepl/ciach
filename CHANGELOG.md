@@ -25,6 +25,11 @@
 - A top-level getter named only in a `show` or `hide` combinator is no longer
   reported, so `--remove` no longer leaves the combinator naming nothing.
   ([#93](https://github.com/leancodepl/ciach/pull/93))
+- Declarations with the same name in the variants of a conditional import
+  (`import 'io.dart' if (dart.library.js_interop) 'web.dart'`) are checked
+  together. Before, every declaration outside the default variant was reported,
+  and `--remove` broke the build on the other platforms.
+  ([#94](https://github.com/leancodepl/ciach/pull/94))
 
 ## 0.6.0
 
