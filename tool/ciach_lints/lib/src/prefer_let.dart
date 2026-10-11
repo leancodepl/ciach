@@ -70,13 +70,13 @@ class _Visitor(final AnalysisRule rule, final TypeSystem typeSystem)
 /// body that stand for the variable (each `target!` when the target is not
 /// promotable), and the `fallback` produced for null when it is not `null`
 /// itself.
-typedef LetShape = ({
-  Expression target,
-  String variable,
-  TypeAnnotation? type,
-  Expression body,
-  List<Expression> aliases,
-  Expression? fallback,
+class const LetShape({
+  required final Expression target,
+  required final String variable,
+  required final TypeAnnotation? type,
+  required final Expression body,
+  required final List<Expression> aliases,
+  required final Expression? fallback,
 });
 
 /// [node]'s [LetShape], or `null` when it is not one.
@@ -128,7 +128,7 @@ LetShape? _switchShape(SwitchExpression node, TypeSystem typeSystem) {
   if (variable == null) {
     return null;
   }
-  return (
+  return .new(
     target: target,
     variable: variable.name.lexeme,
     type: variable.type,
@@ -198,7 +198,7 @@ LetShape? _conditionalShape(ConditionalExpression node) {
     if (_identifiersNamed(whenNotNull, name) == 0) {
       return null;
     }
-    return (
+    return .new(
       target: target,
       variable: name,
       type: null,
@@ -210,7 +210,8 @@ LetShape? _conditionalShape(ConditionalExpression node) {
   // The check promotes nothing, so the branch can only use the value through
   // `target!`; each of those becomes the variable, named after the target
   // unless the branch already mentions that name.
-  final uses = _Uses(target.toSource())..visit(whenNotNull);
+  final uses = _Uses(target.toSource());
+  whenNotNull.accept(uses);
   if (uses.aliases.isEmpty || uses.bare > 0) {
     return null;
   }
@@ -224,7 +225,7 @@ LetShape? _conditionalShape(ConditionalExpression node) {
   if (variable == null) {
     return null;
   }
-  return (
+  return .new(
     target: target,
     variable: variable,
     type: null,
@@ -248,7 +249,7 @@ String? _lastName(Expression expression) => switch (expression) {
   PrefixedIdentifier(identifier: SimpleIdentifier(:final name)) => name,
   PropertyAccess(propertyName: SimpleIdentifier(:final name)) => name,
   MethodInvocation(methodName: SimpleIdentifier(:final name)) => name,
-  IndexExpression(target: final target?) => _lastName(target),
+  IndexExpression(:final target?) => _lastName(target),
   PostfixExpression(:final operand) => _lastName(operand),
   ParenthesizedExpression(:final expression) => _lastName(expression),
   _ => null,
@@ -260,8 +261,6 @@ String? _lastName(Expression expression) => switch (expression) {
 class _Uses(final String source) extends GeneralizingAstVisitor<void> {
   final List<Expression> aliases = [];
   int bare = 0;
-
-  void visit(Expression branch) => branch.accept(this);
 
   @override
   void visitPostfixExpression(PostfixExpression node) {
@@ -321,23 +320,24 @@ class _Counter(final String name, final List<Expression> aliases)
 /// What a [LetShape] becomes: the `code` to write, a `sketch` of it for
 /// messages, with a lambda body and a fallback elided, and whether it uses
 /// `let`.
-typedef Rewrite = ({String code, String sketch, bool usesLet});
+class const Rewrite({
+  required final String code,
+  required final String sketch,
+  required final bool usesLet,
+});
 
 /// The shortest equivalent of [shape], with [text] giving a node's source: a
 /// null-aware chain when the body only selects from the variable, `?.let`
 /// with a tear-off when it only calls a function on it, `?.let` with a
 /// lambda otherwise; `?? fallback` appended when the null case had a value.
 Rewrite rewriteOf(LetShape shape, String Function(AstNode node) text) {
-  final target = shape.target;
+  final LetShape(:target, :variable, :type, :body, :aliases, :fallback) = shape;
   final receiver = target.precedence < Precedence.postfix
       ? '(${text(target)})'
       : text(target);
-  final body = shape.body;
   final String code;
   final String sketch;
   final bool usesLet;
-  final variable = shape.variable;
-  final aliases = shape.aliases;
   if (_chainRoot(body, aliases) case final root?
       when (root is! SimpleIdentifier || root.name == variable) &&
           _mentions(body, variable, aliases) == 1) {
@@ -351,7 +351,7 @@ Rewrite rewriteOf(LetShape shape, String Function(AstNode node) text) {
     sketch = code;
     usesLet = true;
   } else {
-    final parameter = switch (shape.type) {
+    final parameter = switch (type) {
       final type? => '${text(type)} $variable',
       null => variable,
     };
@@ -360,14 +360,13 @@ Rewrite rewriteOf(LetShape shape, String Function(AstNode node) text) {
     sketch = '$receiver?.let(($parameter) => …)';
     usesLet = true;
   }
-  final fallback = shape.fallback;
   if (fallback == null) {
-    return (code: code, sketch: sketch, usesLet: usesLet);
+    return .new(code: code, sketch: sketch, usesLet: usesLet);
   }
   final fallbackCode = fallback.precedence < Precedence.ifNull
       ? '(${text(fallback)})'
       : text(fallback);
-  return (
+  return .new(
     code: '$code ?? $fallbackCode',
     sketch: '$sketch ?? …',
     usesLet: usesLet,
