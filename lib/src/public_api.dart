@@ -166,7 +166,8 @@ final class _Directives {
     }
     return uriLiteral
         .firstMatch(body)
-        ?.let((uri) => _resolve(uri.namedGroup('uri')!, from, packages));
+        ?.namedGroup('uri')!
+        .let((uri) => _resolve(uri, from, packages));
   }
 
   /// The export an `export` directive's [body] makes; `null` without a URI.

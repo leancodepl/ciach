@@ -52,7 +52,8 @@ void recordProblem(
     summary: summary,
     cause: cause,
     detail: detail,
-    filePath: collector?.let((c) => relativePosix(path, c.rootPath)) ?? path,
+    filePath:
+        collector?.rootPath.let((root) => relativePosix(path, root)) ?? path,
     line: position?.line.let((line) => line + 1),
     column: position?.character.let((character) => character + 1),
     name: name,

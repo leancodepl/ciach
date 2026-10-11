@@ -57,8 +57,7 @@ List<String> changelogErrors(
 }
 
 /// The pull request linked at the end of [entry].
-int? _linkedPr(String entry) =>
-    _link.firstMatch(entry)?.let((link) => int.parse(link[1]!));
+int? _linkedPr(String entry) => _link.firstMatch(entry)?[1]!.let(int.parse);
 
 const _pulls = 'https://github.com/leancodepl/ciach/pull';
 
