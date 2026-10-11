@@ -23,8 +23,7 @@
   - New flags: `--no-project-config` and `--unused-translations`.
   ([#86](https://github.com/leancodepl/ciach/pull/86))
 - A top-level getter named only in a `show` or `hide` combinator is no longer
-  reported, so `--remove` no longer leaves the combinator naming a missing
-  declaration. This works around an analysis server bug that Dart 3.14 fixes.
+  reported, so `--remove` no longer leaves the combinator naming nothing.
   ([#93](https://github.com/leancodepl/ciach/pull/93))
 
 ## 0.6.0
