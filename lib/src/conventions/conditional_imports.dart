@@ -6,8 +6,8 @@ import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location;
 
-/// The files a conditional `import` or `export` chooses between, such as
-/// `io.dart` and `web.dart` in
+/// The variants of conditional imports and exports: the libraries one
+/// chooses between, such as `io.dart` and `web.dart` in
 /// `import 'io.dart' if (dart.library.js_interop) 'web.dart';`.
 ///
 /// The analysis server resolves every use to the default file, so namesakes in
@@ -17,9 +17,6 @@ final class ConditionalImports {
   ConditionalImports._(this._counterparts);
 
   /// Reads the conditional directives in every Dart file under [rootPath].
-  ///
-  /// A variant spans the files it exports or owns as parts, as long as they
-  /// are under [rootPath].
   factory ConditionalImports.scan(String rootPath) {
     final counterparts = <String, Set<String>>{};
     for (final variants in _Tree(rootPath).conditionalVariants()) {
@@ -41,10 +38,11 @@ final class ConditionalImports {
 
   static final empty = ConditionalImports._(const {});
 
-  /// The files of the other variants, by file.
+  /// The files of the other variants, by file of a variant; see
+  /// [_Tree.libraryFiles].
   final Map<String, Set<String>> _counterparts;
 
-  /// Whether [path] is part of a variant of a conditional directive.
+  /// Whether [path] belongs to a variant of a conditional directive.
   bool contains(String path) => _counterparts.containsKey(path);
 
   /// The files of the other variants of the directives that name [path].
@@ -169,7 +167,9 @@ final class _Tree {
   final _packages = PackageResolver();
   final _directives = <String, List<Directive>>{};
 
-  /// The [span] of each variant, for every conditional directive.
+  /// The variants of each conditional directive, as their [libraryFiles]:
+  /// `[libraryFiles('io.dart'), libraryFiles('web.dart')]` for the directive
+  /// in [ConditionalImports].
   Iterable<List<Set<String>>> conditionalVariants() sync* {
     for (final path in _files) {
       // Only a file that may hold one is parsed: stripping comments is slow.
@@ -179,19 +179,21 @@ final class _Tree {
       }
       for (final directive in _directivesOf(path, content)) {
         if (directive.isConditional) {
-          yield directive.pathsFrom(path, _packages).map(span).toList();
+          yield directive.pathsFrom(path, _packages).map(libraryFiles).toList();
         }
       }
     }
   }
 
-  /// [variant] and the files under the root it exports or owns as parts.
-  Set<String> span(String variant) {
-    final spanned = <String>{};
-    final pending = [variant];
+  /// The files whose declarations importing [library] gives: [library], its
+  /// parts and the files it exports, through further exports. Files outside
+  /// the root are left out.
+  Set<String> libraryFiles(String library) {
+    final files = <String>{};
+    final pending = [library];
     while (pending.isNotEmpty) {
       final path = pending.removeLast();
-      if (!spanned.add(path)) {
+      if (!files.add(path)) {
         continue;
       }
       for (final directive in _directivesOf(path)) {
@@ -202,7 +204,7 @@ final class _Tree {
         }
       }
     }
-    return spanned;
+    return files;
   }
 
   List<Directive> _directivesOf(String path, [String? content]) =>

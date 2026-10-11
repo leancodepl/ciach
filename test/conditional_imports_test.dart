@@ -50,7 +50,7 @@ import 'web.dart' if (dart.library.ffi) 'native.dart';
     expect(counterpartsOf('io.dart'), {'web.dart'});
   });
 
-  test('a variant spans the files it exports and its parts', () {
+  test('a variant includes its parts and the files it exports', () {
     write('lib/a.dart', '''
 import 'io.dart' if (dart.library.js_interop) 'web.dart';
 ''');
