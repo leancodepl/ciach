@@ -274,6 +274,9 @@ const s = 'a\n\'\'\'\n"""';
     expect(await _applyFix(code), isNull);
   }
 
+  // Runs the fix by hand: analyzer_testing has no fix test base class yet.
+  // Replace this with the one https://github.com/dart-lang/sdk/issues/61785
+  // adds once it ships.
   Future<String?> _applyFix(String code) async {
     final file = newFile(testFile.path, code);
     final unit = await resolveFile(file.path);
