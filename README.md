@@ -57,14 +57,14 @@ scanning code needs an SDK new enough to parse it.
 ## Usage
 
 ```bash
-ciach                                      # current package
-ciach path/to/package                      # another package
-ciach --no-public -f json                  # private-only, as JSON
-ciach --no-exported                        # skip the package's public API
-ciach -f github --set-exit-if-changed -v   # what CI gets by default; see below
-ciach --remove                             # delete findings, asks first
-ciach --remove --force                     # …without asking
-ciach --verbose                            # explain each step
+ciach                                     # current package
+ciach path/to/package                     # another package
+ciach --no-public -f json                 # private-only, as JSON
+ciach --no-exported                       # skip the package's public API
+ciach -f github --set-exit-if-changed -v  # what CI gets by default; see below
+ciach --remove                            # delete findings, asks first
+ciach --remove --force                    # …without asking
+ciach --verbose                           # explain each step
 ```
 
 ### Options
