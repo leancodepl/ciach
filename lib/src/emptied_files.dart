@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:ciach/src/comment_stripping.dart';
 import 'package:ciach/src/directives.dart';
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/packages.dart';
@@ -108,12 +109,14 @@ final class _Package {
   final _contents = <String, String?>{};
   final _directives = <String, List<Directive>>{};
 
-  String? content(String path) {
-    if (_contents.containsKey(path)) {
-      return _contents[path];
-    }
-    return _contents[path] = readSource(path);
-  }
+  String? content(String path) =>
+      _contents.putIfAbsent(path, () => readSource(path));
+
+  /// The directives in [path], none when it can't be read.
+  List<Directive> directives(String path) => _directives.putIfAbsent(
+    path,
+    () => content(path)?.let(Directive.allIn).toList() ?? const [],
+  );
 
   /// Spans to drop per file, or `null` when a directive naming [target] can't
   /// be dropped.
@@ -123,12 +126,7 @@ final class _Package {
       if (path == target) {
         continue;
       }
-      final source = content(path);
-      if (source == null) {
-        continue;
-      }
-      final directives = _directives[path] ??= Directive.allIn(source).toList();
-      for (final directive in directives) {
+      for (final directive in directives(path)) {
         switch (_link(directive, path, target)) {
           case .none:
             break;
