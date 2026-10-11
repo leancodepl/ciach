@@ -17,19 +17,26 @@ final class ConditionalImports {
   ConditionalImports._(this._counterparts);
 
   /// Reads the conditional directives in every Dart file under [rootPath].
+  ///
+  /// Each variant's files get the files of the directive's other variants as
+  /// counterparts. For
+  /// `import 'stub.dart' if (dart.library.io) 'io.dart' if (dart.library.js_interop) 'web.dart';`
+  /// the files of `io.dart` get those of `stub.dart` and `web.dart`, and so
+  /// on. A file that several directives name collects the counterparts of each.
   factory ConditionalImports.scan(String rootPath) {
     final counterparts = <String, Set<String>>{};
     for (final variants in _DirectiveIndex(rootPath).conditionalVariants()) {
-      for (final (i, variant) in variants.indexed) {
-        final others = {
+      for (final (i, files) in variants.indexed) {
+        final otherFiles = {
           for (final (j, other) in variants.indexed)
             if (j != i) ...other,
         };
-        for (final file in variant) {
-          counterparts.putIfAbsent(file, () => {}).addAll(others);
+        for (final file in files) {
+          counterparts.putIfAbsent(file, () => {}).addAll(otherFiles);
         }
       }
     }
+    // A file that two variants both export is not its own counterpart.
     return ._({
       for (final MapEntry(key: file, value: others) in counterparts.entries)
         file: others.difference({file}),
