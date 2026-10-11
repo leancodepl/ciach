@@ -25,8 +25,7 @@ class PreferLet() extends AnalysisRule {
   static const code = LintCode(
     'prefer_let',
     "This {0} only checks for null; a null-aware chain or '?.let' says the same in one expression.",
-    correctionMessage:
-        "Try replacing the {0} with 'x?.member…' or 'x?.let((v) => …)'.",
+    correctionMessage: "Try replacing the {0} with '{1}'.",
     severity: .WARNING,
   );
 
@@ -55,9 +54,12 @@ class _Visitor(final AnalysisRule rule, final TypeSystem typeSystem)
       _check(node, 'conditional');
 
   void _check(Expression node, String kind) {
-    if (letShapeOf(node, typeSystem) != null) {
-      rule.reportAtNode(node, arguments: [kind]);
+    final shape = letShapeOf(node, typeSystem);
+    if (shape == null) {
+      return;
     }
+    final rewrite = rewriteOf(shape, (node) => node.toSource());
+    rule.reportAtNode(node, arguments: [kind, rewrite.sketch]);
   }
 }
 
@@ -225,22 +227,149 @@ class _Counter(final void Function(SimpleIdentifier) onIdentifier)
   void visitSimpleIdentifier(SimpleIdentifier node) => onIdentifier(node);
 }
 
-/// Rewrites the flagged expression into the shortest equivalent: a null-aware
-/// chain when the body only selects from the variable, `?.let` with a
-/// tear-off when it only calls a function on it, `?.let` with a lambda
-/// otherwise; `?? fallback` appended when the null case had a value. The
-/// extension is imported when `let` is used and the file lacks it.
+/// What a [LetShape] becomes: the `code` to write, a `sketch` of it for
+/// messages, with a lambda body and a fallback elided, and whether it uses
+/// `let`.
+typedef Rewrite = ({String code, String sketch, bool usesLet});
+
+/// The shortest equivalent of [shape], with [text] giving a node's source: a
+/// null-aware chain when the body only selects from the variable, `?.let`
+/// with a tear-off when it only calls a function on it, `?.let` with a
+/// lambda otherwise; `?? fallback` appended when the null case had a value.
+Rewrite rewriteOf(LetShape shape, String Function(AstNode node) text) {
+  final target = shape.target;
+  final receiver = target.precedence < Precedence.postfix
+      ? '(${text(target)})'
+      : text(target);
+  final body = shape.body;
+  final String code;
+  final String sketch;
+  final bool usesLet;
+  if (_chainRoot(body) case final root?
+      when root.name == shape.variable &&
+          _mentions(body, shape.variable) == 1) {
+    code = root == body
+        ? receiver
+        : '$receiver?${text(body).substring(root.length)}';
+    sketch = code;
+    usesLet = false;
+  } else if (_tearOff(body, shape.variable, text) case final function?) {
+    code = '$receiver?.let($function)';
+    sketch = code;
+    usesLet = true;
+  } else {
+    final parameter = switch (shape.type) {
+      final type? => '${text(type)} ${shape.variable}',
+      null => shape.variable,
+    };
+    code = '$receiver?.let(($parameter) => ${text(body)})';
+    sketch = '$receiver?.let(($parameter) => …)';
+    usesLet = true;
+  }
+  final fallback = shape.fallback;
+  if (fallback == null) {
+    return (code: code, sketch: sketch, usesLet: usesLet);
+  }
+  final fallbackCode = fallback.precedence < Precedence.ifNull
+      ? '(${text(fallback)})'
+      : text(fallback);
+  return (
+    code: '$code ?? $fallbackCode',
+    sketch: '$sketch ?? …',
+    usesLet: usesLet,
+  );
+}
+
+/// The identifier [body] selects from when it is one selector chain,
+/// `v.a.b(c)`, `v[0]`, `v.a!.b`, or `v` itself: the chain's root, which a
+/// `?` after the receiver turns null-aware. The first selector has to be a
+/// `.` or an index, since `?` cannot precede `!` or another `?.`.
+SimpleIdentifier? _chainRoot(Expression body) => switch (body) {
+  final SimpleIdentifier root => root,
+  PrefixedIdentifier(prefix: final root) => root,
+  PropertyAccess(
+    target: final SimpleIdentifier root,
+    operator: Token(type: TokenType.PERIOD),
+  ) =>
+    root,
+  PropertyAccess(
+    target: final target?,
+    isCascaded: false,
+    operator: Token(type: TokenType.PERIOD || TokenType.QUESTION_PERIOD),
+  )
+      when target is! SimpleIdentifier =>
+    _chainRoot(target),
+  MethodInvocation(
+    target: final SimpleIdentifier root,
+    operator: Token(type: TokenType.PERIOD),
+  ) =>
+    root,
+  MethodInvocation(
+    target: final target?,
+    isCascaded: false,
+    operator: Token(type: TokenType.PERIOD || TokenType.QUESTION_PERIOD),
+  )
+      when target is! SimpleIdentifier =>
+    _chainRoot(target),
+  IndexExpression(
+    target: final SimpleIdentifier root,
+    question: null,
+    isCascaded: false,
+  ) =>
+    root,
+  IndexExpression(target: final target?, isCascaded: false)
+      when target is! SimpleIdentifier =>
+    _chainRoot(target),
+  PostfixExpression(operator: Token(type: TokenType.BANG), :final operand)
+      when operand is! SimpleIdentifier =>
+    _chainRoot(operand),
+  _ => null,
+};
+
+/// The function [body] calls with the [variable] as its only argument,
+/// `int.parse(v)` or `f(v)`, as a tear-off; `null` for any other body.
+String? _tearOff(
+  Expression body,
+  String variable,
+  String Function(AstNode node) text,
+) {
+  if (body
+      case MethodInvocation(
+        typeArguments: null,
+        isCascaded: false,
+        argumentList: ArgumentList(
+          arguments: [SimpleIdentifier(name: final argument)],
+        ),
+        :final target,
+        :final methodName,
+      )
+      when argument == variable) {
+    return switch (target) {
+      null => methodName.name,
+      Identifier(element: InterfaceElement() || PrefixElement()) =>
+        '${text(target)}.${methodName.name}',
+      _ => null,
+    };
+  }
+  return null;
+}
+
+/// Applies [rewriteOf] to the flagged expression, importing the extension
+/// when `let` is used and the file lacks it.
 class ReplaceWithLet({required super.context})
     extends ResolvedCorrectionProducer {
   static const kind = FixKind(
     'ciach_lints.fix.replaceWithLet',
     DartFixKindPriority.standard,
-    'Replace with {0}',
+    "Replace with '{0}'",
   );
 
   static final _extensions = Uri.parse('package:ciach/src/extensions.dart');
 
-  late final _plan = _rewrite(letShapeOf(node as Expression, typeSystem)!);
+  late final _rewrite = rewriteOf(
+    letShapeOf(node as Expression, typeSystem)!,
+    (node) => getRangeText(range.node(node)),
+  );
 
   @override
   CorrectionApplicability get applicability => .automatically;
@@ -249,129 +378,15 @@ class ReplaceWithLet({required super.context})
   FixKind get fixKind => kind;
 
   @override
-  List<String> get fixArguments => [
-    if (_plan.usesLet) "'?.let'" else 'a null-aware chain',
-  ];
+  List<String> get fixArguments => [_rewrite.sketch];
 
   @override
   Future<void> compute(ChangeBuilder builder) async {
     await builder.addDartFileEdit(file, (builder) {
-      if (_plan.usesLet) {
+      if (_rewrite.usesLet) {
         builder.importLibrary(_extensions);
       }
-      builder.addSimpleReplacement(range.node(node), _plan.code);
+      builder.addSimpleReplacement(range.node(node), _rewrite.code);
     });
   }
-
-  ({String code, bool usesLet}) _rewrite(LetShape shape) {
-    final target = shape.target;
-    final receiver = target.precedence < Precedence.postfix
-        ? '(${_text(target)})'
-        : _text(target);
-    final body = shape.body;
-    final (String code, bool usesLet) = switch (_chainRoot(body)) {
-      final root?
-          when root.name == shape.variable &&
-              _mentions(body, shape.variable) == 1 =>
-        (
-          root == body
-              ? receiver
-              : '$receiver?${_text(body).substring(root.length)}',
-          false,
-        ),
-      _ => switch (_tearOff(body, shape.variable)) {
-        final function? => ('$receiver?.let($function)', true),
-        null => (
-          '$receiver?.let((${_parameter(shape)}) => ${_text(body)})',
-          true,
-        ),
-      },
-    };
-    final fallback = shape.fallback;
-    if (fallback == null) {
-      return (code: code, usesLet: usesLet);
-    }
-    final fallbackCode = fallback.precedence < Precedence.ifNull
-        ? '(${_text(fallback)})'
-        : _text(fallback);
-    return (code: '$code ?? $fallbackCode', usesLet: usesLet);
-  }
-
-  String _parameter(LetShape shape) => switch (shape.type) {
-    final type? => '${_text(type)} ${shape.variable}',
-    null => shape.variable,
-  };
-
-  /// The identifier [body] selects from when it is one selector chain,
-  /// `v.a.b(c)`, `v[0]`, `v.a!.b`, or `v` itself: the chain's root, which a
-  /// `?` after the receiver turns null-aware. The first selector has to be a
-  /// `.` or an index, since `?` cannot precede `!` or another `?.`.
-  SimpleIdentifier? _chainRoot(Expression body) => switch (body) {
-    final SimpleIdentifier root => root,
-    PrefixedIdentifier(prefix: final root) => root,
-    PropertyAccess(
-      target: final SimpleIdentifier root,
-      operator: Token(type: TokenType.PERIOD),
-    ) =>
-      root,
-    PropertyAccess(
-      target: final target?,
-      isCascaded: false,
-      operator: Token(type: TokenType.PERIOD || TokenType.QUESTION_PERIOD),
-    )
-        when target is! SimpleIdentifier =>
-      _chainRoot(target),
-    MethodInvocation(
-      target: final SimpleIdentifier root,
-      operator: Token(type: TokenType.PERIOD),
-    ) =>
-      root,
-    MethodInvocation(
-      target: final target?,
-      isCascaded: false,
-      operator: Token(type: TokenType.PERIOD || TokenType.QUESTION_PERIOD),
-    )
-        when target is! SimpleIdentifier =>
-      _chainRoot(target),
-    IndexExpression(
-      target: final SimpleIdentifier root,
-      question: null,
-      isCascaded: false,
-    ) =>
-      root,
-    IndexExpression(target: final target?, isCascaded: false)
-        when target is! SimpleIdentifier =>
-      _chainRoot(target),
-    PostfixExpression(operator: Token(type: TokenType.BANG), :final operand)
-        when operand is! SimpleIdentifier =>
-      _chainRoot(operand),
-    _ => null,
-  };
-
-  /// The function [body] calls with the [variable] as its only argument,
-  /// `int.parse(v)` or `f(v)`, as a tear-off; `null` for any other body.
-  String? _tearOff(Expression body, String variable) {
-    if (body
-        case MethodInvocation(
-          typeArguments: null,
-          isCascaded: false,
-          argumentList: ArgumentList(
-            arguments: [SimpleIdentifier(name: final argument)],
-          ),
-          :final target,
-          :final methodName,
-        )
-        when argument == variable) {
-      final callee = switch (target) {
-        null => methodName.name,
-        Identifier(element: InterfaceElement() || PrefixElement()) =>
-          '${_text(target)}.${methodName.name}',
-        _ => null,
-      };
-      return callee;
-    }
-    return null;
-  }
-
-  String _text(AstNode node) => getRangeText(range.node(node));
 }

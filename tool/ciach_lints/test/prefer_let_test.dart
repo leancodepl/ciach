@@ -48,11 +48,13 @@ extension Let<T extends Object> on T {
 
   /// Checks that [code] gets one `prefer_let` diagnostic per snippet in
   /// [flagged], in order of appearance, each spanning the snippet or, for one
-  /// starting with `switch`, the whole switch up to its closing brace; and
-  /// that applying every offered [ReplaceWithLet] yields [fixed].
+  /// starting with `switch`, the whole switch up to its closing brace, and
+  /// each suggesting the matching entry of [sketches] when given; and that
+  /// applying every offered [ReplaceWithLet] yields [fixed].
   Future<void> assertRewrites(
     String code,
     List<String> flagged, {
+    List<String> sketches = const [],
     required String fixed,
   }) async {
     final spans = <(int, int)>[];
@@ -65,8 +67,14 @@ extension Let<T extends Object> on T {
       spans.add((start, end));
       from = end;
     }
+    final quoted = [for (final sketch in sketches) "'$sketch'"];
     await assertDiagnostics(code, [
-      for (final (start, end) in spans) lint(start, end - start),
+      for (final (i, (start, end)) in spans.indexed)
+        lint(
+          start,
+          end - start,
+          correctionContains: i < quoted.length ? quoted[i] : null,
+        ),
     ]);
     final library = await result.session.getResolvedLibrary(
       testFile.path,
@@ -118,6 +126,7 @@ Box? h(Box? b) => switch (b) {
 };
 ''',
       ['switch (b)', 'switch (l)', 'switch (b)'],
+      sketches: ['b?.inner!.size', 'l?[0]', 'b'],
       fixed: '''
 class Box {
   Box? inner;
@@ -139,6 +148,7 @@ int? f(String? s) => switch (s) {
 };
 ''',
       ['switch (s)'],
+      sketches: ['s?.let(int.parse)'],
       fixed:
           '''
 ${_import}int? f(String? s) => s?.let(int.parse);
@@ -155,6 +165,7 @@ int? f(String? s) => switch (s) {
 };
 ''',
       ['switch (s)'],
+      sketches: ['s?.let((v) => …)'],
       fixed:
           '''
 ${_import}int? f(String? s) => s?.let((v) => v.length + 1);
@@ -265,6 +276,12 @@ int i(String? s) => null != s ? s.length : s.hashCode;
         's == null ? 0 : s.length + 1',
         'null != s ? s.length : s.hashCode',
       ],
+      sketches: [
+        's?.length',
+        's?.let(int.parse)',
+        's?.let((s) => …) ?? …',
+        's?.length ?? …',
+      ],
       fixed:
           '''
 ${_import}int? f(String? s) => s?.length;
@@ -329,6 +346,7 @@ int g(String? s) => switch (s) {
 };
 ''',
       ['switch (s)', 'switch (s)'],
+      sketches: ['s?.length ?? …', 's?.let((v) => …) ?? …'],
       fixed:
           '''
 ${_import}int f(String? s) => s?.length ?? 0;
