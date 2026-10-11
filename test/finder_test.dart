@@ -1271,6 +1271,21 @@ void main() {
     expect(names, isNot(contains('liveReady')));
   });
 
+  test('a top-level getter named in a show combinator is used', () async {
+    final result = await runFinder(
+      include: const ['lib/scenarios/show_combinator*.dart'],
+      exclude: const [],
+    );
+    final unused = result.unused.map((d) => d.qualifiedName).toSet();
+    final recovered = result.recoveredReferences
+        .map((w) => w.qualifiedName)
+        .toSet();
+
+    expect(unused, contains('deadUnshownGetter'));
+    expect(unused, isNot(contains('liveShownGetter')));
+    expect(recovered, contains('liveShownGetter'));
+  });
+
   group('same-simple-name collision recovery', () {
     // Two members share the simple name `status`: one used only from another
     // file (must be recovered) and one never used (must stay flagged). Guards

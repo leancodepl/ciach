@@ -53,6 +53,7 @@ class CrossLibraryReferences {
     'enum',
     'enumMember',
     'property',
+    'variable',
     'function',
     'type',
   };
