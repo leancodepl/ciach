@@ -13,6 +13,7 @@ library;
 
 import 'dart:io';
 
+import 'package:ciach/src/cli/ci.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -87,8 +88,9 @@ void main() {
   });
 
   group('CI', () {
-    // A local run, even where the test itself runs on CI.
-    const local = {'CI': '', 'GITHUB_ACTIONS': ''};
+    // Blanks every runner's variable, so that the CI the test itself runs on
+    // neither shows through nor outranks the one a test sets.
+    final local = {for (final runner in CiRunner.values) runner.variable: ''};
 
     test('without it, findings are reported as text and exit 0', () async {
       final result = await runCli(
@@ -129,7 +131,7 @@ void main() {
     test('GITHUB_ACTIONS turns on annotations and the exit code', () async {
       final result = await runCli(
         publicOnly,
-        environment: {'GITHUB_ACTIONS': 'true'},
+        environment: {...local, 'GITHUB_ACTIONS': 'true'},
         detectCi: true,
       );
       expect(result.exitCode, 1, reason: '${result.stdout}\n${result.stderr}');
@@ -140,7 +142,7 @@ void main() {
     test('--no-ci keeps the local defaults on GitHub Actions', () async {
       final result = await runCli(
         [...publicOnly, '--no-ci'],
-        environment: {'GITHUB_ACTIONS': 'true'},
+        environment: {...local, 'GITHUB_ACTIONS': 'true'},
         detectCi: true,
       );
       expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
@@ -150,14 +152,14 @@ void main() {
     test('-v says which service was detected', () async {
       final result = await runCli(
         publicOnly,
-        environment: {'GITLAB_CI': 'true'},
+        environment: {...local, 'GITLAB_CI': 'true'},
         detectCi: true,
       );
       expect(result.exitCode, 1, reason: '${result.stdout}\n${result.stderr}');
       // Verbose goes to stderr.
       final verbose = await runCli(
         [...publicOnly, '-v'],
-        environment: {'GITLAB_CI': 'true'},
+        environment: {...local, 'GITLAB_CI': 'true'},
         detectCi: true,
       );
       expect(verbose.stderr, contains('On GitLab CI (GITLAB_CI is set)'));
