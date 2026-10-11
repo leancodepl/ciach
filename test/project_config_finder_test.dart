@@ -194,6 +194,7 @@ void unusedRouteHelper() {}
           const .empty(),
         ),
         progressDefault: false,
+        detectedCi: null,
       );
       final result = await Ciach(resolved.finderOptions()).run();
       final translations = [

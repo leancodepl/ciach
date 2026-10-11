@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/args.dart';
+import 'package:ciach/src/cli/ci.dart';
 import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/options.dart';
 import 'package:ciach/src/cli/verbose.dart';
@@ -89,13 +90,62 @@ entry-points: [{name: bootstrap}, {name: registerWith, glob: [lib/**, bin/**]}]'
     });
   });
 
+  group('describeCi', () {
+    List<String> describe(List<String> arguments, {CiRunner? detected}) {
+      final resolved = resolveOptions(
+        resolveConfiguration(parser.parse(arguments), const .empty()),
+        progressDefault: false,
+        detectedCi: detected,
+      );
+      return describeCi(resolved, detected: detected);
+    }
+
+    test('says the run is local when nothing is set', () {
+      expect(describe(const []), [
+        'Not on CI: no CI environment variable is set; using the local defaults.',
+      ]);
+    });
+
+    test('names the service, its variable and the defaults it changes', () {
+      expect(describe(const [], detected: .githubActions), [
+        'On GitHub Actions (GITHUB_ACTIONS is set): --set-exit-if-changed defaults to on, progress to off, --format to github.',
+      ]);
+      expect(describe(const [], detected: .jenkins), [
+        'On Jenkins (JENKINS_URL is set): --set-exit-if-changed defaults to on, progress to off.',
+      ]);
+    });
+
+    test('credits --ci when nothing was detected', () {
+      expect(describe(const ['--ci']), [
+        'On CI (--ci): --set-exit-if-changed defaults to on, progress to off.',
+      ]);
+      // The variable is the better explanation when both apply.
+      expect(describe(const ['--ci'], detected: .circle), [
+        contains('On CircleCI (CIRCLECI is set)'),
+      ]);
+    });
+
+    test('names the variable --no-ci overruled', () {
+      expect(describe(const ['--no-ci'], detected: .gitlab), [
+        'Treating the run as local (--no-ci), although GITLAB_CI is set.',
+      ]);
+    });
+  });
+
   group('describeSettings', () {
-    List<String> describe([List<String> arguments = const []]) {
+    List<String> describe([
+      List<String> arguments = const [],
+      CiRunner? detectedCi,
+    ]) {
       final configuration = resolveConfiguration(
         parser.parse(arguments),
         const .empty(),
       );
-      final resolved = resolveOptions(configuration, progressDefault: false);
+      final resolved = resolveOptions(
+        configuration,
+        progressDefault: false,
+        detectedCi: detectedCi,
+      );
       return describeSettings(
         configuration,
         resolved,
@@ -138,7 +188,11 @@ entry-points: [{name: bootstrap}, {name: registerWith, glob: [lib/**, bin/**]}]'
           origin: 'c.yaml',
         ),
       );
-      final resolved = resolveOptions(configuration, progressDefault: false);
+      final resolved = resolveOptions(
+        configuration,
+        progressDefault: false,
+        detectedCi: null,
+      );
       final lines = describeSettings(
         configuration,
         resolved,
@@ -155,6 +209,21 @@ entry-points: [{name: bootstrap}, {name: registerWith, glob: [lib/**, bin/**]}]'
       );
       expect(lines, contains('  concurrency: 16 (default)'));
       expect(lines, contains('  color: auto (auto-detected)'));
+    });
+
+    test('shows the CI defaults as detected, and the service as ci', () {
+      final local = describe();
+      expect(local, contains('  ci: false (auto-detected)'));
+      expect(local, contains('  set-exit-if-changed: false (auto-detected)'));
+      expect(local, contains('  format: text (auto-detected)'));
+
+      final onCi = describe(const [], .githubActions);
+      expect(onCi, contains('  ci: true (auto-detected)'));
+      expect(onCi, contains('  set-exit-if-changed: true (auto-detected)'));
+      expect(onCi, contains('  format: github (auto-detected)'));
+      expect(onCi, contains('  progress: false (auto-detected)'));
+
+      expect(describe(const ['--ci']), contains('  ci: true (command line)'));
     });
 
     test('adds what the project config declares, named as such', () {

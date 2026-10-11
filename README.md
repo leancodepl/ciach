@@ -61,7 +61,7 @@ ciach                                  # current package
 ciach path/to/package                  # another package
 ciach --no-public -f json              # private-only, as JSON
 ciach --no-exported                    # skip the package's public API
-ciach -f github --set-exit-if-changed  # CI: annotations, non-zero on finds
+ciach -f github --set-exit-if-changed  # what CI gets by default; see below
 ciach --remove                         # delete findings, asks first
 ciach --remove --force                 # …without asking
 ciach --verbose                        # explain each step
@@ -86,7 +86,8 @@ ciach --verbose                        # explain each step
 | `--[no-]unused-union-members` | off | Also flag a (sealed) supertype member matched only by type patterns, never constructed. Report-only — never touched by `--remove`. |
 | `--[no-]report-tojson` | off | Report an otherwise-unused `toJson()` serialization hook too. Off by default — `jsonEncode` dispatches to it dynamically. |
 | `--[no-]transitive` | off | Also report declarations referenced only from other findings, and dead cycles. See [Transitively dead code](#transitively-dead-code). |
-| `--set-exit-if-changed` | off | Exit with status `1` when anything is found (for CI). Named after `dart format`. |
+| `--[no-]set-exit-if-changed` | off; on in CI | Exit with status `1` when anything is found. Named after `dart format`. |
+| `--[no-]ci` | auto | Assume a CI environment: `--set-exit-if-changed` defaults to on, progress to off, and on GitHub Actions `--format` to `github`. Detected from `CI`, `GITHUB_ACTIONS` and the variables other services set. See [CI](#ci). |
 | `--[no-]exported` | on | Report declarations other packages can import. See [Library packages](#library-packages). |
 | `--[no-]fail-public` | on | Count unused public declarations toward the exit code (with `--set-exit-if-changed`). `--no-fail-public` reports them but fails only on private findings. |
 | `--remove` | off | Remove unused declarations after reporting them. Prompts for confirmation first. |
@@ -96,10 +97,10 @@ ciach --verbose                        # explain each step
 | `--generated-suffix <suffix>` | — | Extra filename suffix (with leading dot) to treat as generated and skip, on top of the built-in set; repeatable. Ignored when `--generated` is set. |
 | `--generated-glob <glob>` | — | Treat files matching the glob as generated: their references count, but nothing in them is reported or removed. For output without a suffix or banner, or code kept as is, like a vendored copy. Repeatable; ignored when `--generated` is set. |
 | `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
-| `-f, --format <fmt>` | `text` | `text`, `json`, or `github` (GitHub Actions `::warning` annotations). |
+| `-f, --format <fmt>` | `text`; `github` on GitHub Actions | `text`, `json`, or `github` (GitHub Actions `::warning` annotations). |
 | `-j, --concurrency <n>` | `16` | Reference queries kept in flight against the analysis server. |
 | `--[no-]color` | auto | Colorize the output. Auto-detected per stream; honors `NO_COLOR`. |
-| `--[no-]progress` | auto | Show scan progress on stderr. |
+| `--[no-]progress` | auto | Show scan progress on stderr. On for a terminal, off in CI. |
 | `-v, --verbose` | off | Explain what's happening on stderr. See [Verbose mode](#verbose-mode). |
 | `--dart <path>` | auto | Path to the `dart` executable to launch the server with. Defaults to the SDK running ciach, or to `dart` from `PATH` for a compiled binary. |
 
@@ -150,6 +151,7 @@ $ ciach -v
 [  0.0s] [cli]       It sets 2 options:
 [  0.0s] [cli]         public: false
 [  0.0s] [cli]         exclude: test/**
+[  0.0s] [cli]     Not on CI: no CI environment variable is set; using the local defaults.
 [  0.0s] [cli]     Settings for this run:
 [  0.0s] [cli]       path: /home/me/pkg (command line)
 [  0.0s] [cli]       public: false (config file)
@@ -216,16 +218,30 @@ lib/report.dart
   42:6  function  _pong  (private)  (only referenced from dead _ping (lib/report.dart:40))
 ```
 
-### GitHub Actions
+### CI
+
+ciach tells a CI runner from a terminal by the environment: the `CI` variable
+most services set, or their own one (`GITHUB_ACTIONS`, `GITLAB_CI`, `CIRCLECI`,
+`TRAVIS`, `BUILDKITE`, `TF_BUILD`, `JENKINS_URL`, `TEAMCITY_VERSION`,
+`CODEBUILD_BUILD_ID`, `BITBUCKET_BUILD_NUMBER`). There, the defaults change:
+`--set-exit-if-changed` is on, so the job fails on findings, and progress is
+off, since a log keeps every overwrite of the progress line. On GitHub Actions
+`--format` defaults to `github` as well. An explicit option, on the command
+line or in the config file, still wins, so `--no-set-exit-if-changed` keeps a
+CI step informational. `--no-ci` keeps the local defaults on a runner, `--ci`
+applies the CI ones elsewhere, and `-v` says which service was detected.
+
+#### GitHub Actions
 
 ```yaml
 - run: dart pub get
-- run: dart run ciach -f github --set-exit-if-changed
+- run: dart run ciach
 ```
 
-Each finding becomes a `::warning` annotation inline on the PR diff. Run it from
-the repository root so paths resolve; when scanning a sub-package (`ciach -f
-github app`), the scan path is prepended automatically.
+Each finding becomes a `::warning` annotation inline on the PR diff, and the job
+fails when anything is found. Run it from the repository root so paths resolve;
+when scanning a sub-package (`ciach app`), the scan path is prepended
+automatically.
 
 For a library or workspace package whose public API is legitimately "unused"
 from its own perspective, add `--no-exported`, or `--no-fail-public` to still
@@ -233,7 +249,7 @@ surface those findings while gating the job on unused *private* declarations
 only:
 
 ```yaml
-- run: dart run ciach -f github --set-exit-if-changed --no-fail-public
+- run: dart run ciach --no-fail-public
 ```
 
 ### Library packages
