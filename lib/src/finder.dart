@@ -169,9 +169,7 @@ class Ciach {
         for (final path in [...discovered.warmOnly, ...files])
           if (_openFile(client, path)) path,
       };
-      emptyFiles = options.reportEmptyFiles
-          ? _emptyFiles(files.where(opened.contains))
-          : const [];
+      emptyFiles = _emptyFiles(files.where(opened.contains));
 
       // Phase 1: collect candidate declarations, concurrently.
       _log.info(

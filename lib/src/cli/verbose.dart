@@ -100,7 +100,6 @@ String _setting(
   .unusedUnionMembers => '${resolved.unusedUnionMembers}',
   .reportToJson => '${resolved.reportToJson}',
   .transitive => '${resolved.transitive}',
-  .emptyFiles => '${resolved.reportEmptyFiles}',
   .setExitIfChanged => '${resolved.setExitIfChanged}',
   .remove => '${resolved.remove}',
   .force => '${resolved.force}',

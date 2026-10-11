@@ -24,16 +24,8 @@ void main() {
 
   bool exists(String path) => File(p.join(root.path, path)).existsSync();
 
-  Future<FinderResult> run({
-    bool reportEmptyFiles = true,
-    bool includeExported = true,
-  }) => Ciach(
-    .new(
-      rootPath: root.path,
-      reportEmptyFiles: reportEmptyFiles,
-      includeExported: includeExported,
-    ),
-  ).run();
+  Future<FinderResult> run({bool includeExported = true}) =>
+      Ciach(.new(rootPath: root.path, includeExported: includeExported)).run();
 
   setUp(() {
     root = .systemTemp.createTempSync('ciach_empty_files_');
@@ -80,11 +72,6 @@ void use() => platform();
       'off', () async {
     final result = await run(includeExported: false);
     expect(result.emptyFiles, ['tool/scratch.dart']);
-  });
-
-  test('reportEmptyFiles off lists none', () async {
-    final result = await run(reportEmptyFiles: false);
-    expect(result.emptyFiles, isEmpty);
   });
 
   test('removal deletes them and drops the directives naming them', () async {

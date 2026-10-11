@@ -86,7 +86,6 @@ ciach --verbose                        # explain each step
 | `--[no-]unused-union-members` | off | Also flag a (sealed) supertype member matched only by type patterns, never constructed. Report-only — never touched by `--remove`. |
 | `--[no-]report-tojson` | off | Report an otherwise-unused `toJson()` serialization hook too. Off by default — `jsonEncode` dispatches to it dynamically. |
 | `--[no-]transitive` | off | Also report declarations referenced only from other findings, and dead cycles. See [Transitively dead code](#transitively-dead-code). |
-| `--[no-]empty-files` | on | Report files with nothing but comments and `library`/`import`/`part of` lines. See [Empty files](#empty-files). |
 | `--set-exit-if-changed` | off | Exit with status `1` when anything is found (for CI). Named after `dart format`. |
 | `--[no-]exported` | on | Report declarations other packages can import. See [Library packages](#library-packages). |
 | `--[no-]fail-public` | on | Count unused public declarations toward the exit code (with `--set-exit-if-changed`). `--no-fail-public` reports them but fails only on private findings. |
@@ -233,7 +232,7 @@ Empty files count toward `--set-exit-if-changed`, get a `::warning` in
 them with the directives naming them, like the files it
 [empties itself](#removing-declarations). A variant of a conditional import is
 never reported, and with `--no-exported` neither is a file another package can
-import. `--no-empty-files` turns the check off.
+import. To keep one, `--exclude` it.
 
 ### GitHub Actions
 

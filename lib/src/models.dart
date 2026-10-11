@@ -60,7 +60,6 @@ class FinderOptions {
     this.unusedUnionMembers = false,
     this.reportToJson = false,
     this.transitive = false,
-    this.reportEmptyFiles = true,
     this.entryPoints = const [],
     this.translations = const [],
     this.concurrency = 16,
@@ -157,10 +156,6 @@ class FinderOptions {
   /// referenced. Dead declarations that only reference each other, in a
   /// cycle, are reported too.
   final bool transitive;
-
-  /// Whether to report scanned files with nothing in them but comments and
-  /// `library`, `import` or `part of` lines; see [FinderResult.emptyFiles].
-  final bool reportEmptyFiles;
 
   /// The project's own entry points, on top of [EntryPoint.builtIn]. A match
   /// is never a candidate, so it is neither reported nor removed.
