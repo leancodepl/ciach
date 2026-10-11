@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/src/emptied_files.dart';
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
@@ -333,7 +334,9 @@ _Span? _partialDeclaratorSpan(
   return switch (_nextTopLevelSeparator(content, baseEnd)) {
     null => null,
     (final commaEnd, ',') => (
-      start: leadingComma == null ? baseStart : lineStart + leadingComma + 1,
+      start:
+          leadingComma?.let((leadingComma) => lineStart + leadingComma + 1) ??
+          baseStart,
       end: commaEnd + 1,
     ),
     // Separator is the statement's `;`: drop the now-orphaned leading comma if

@@ -341,7 +341,7 @@ final class CandidateCollector {
     _skippedEntryPoints.add((
       path: relativePath,
       line: symbol.selectionRange.start.line + 1,
-      name: container == null ? name : '$container.$name',
+      name: container?.let((container) => '$container.$name') ?? name,
       reason: reason,
     ));
     return true;
