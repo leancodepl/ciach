@@ -1,5 +1,6 @@
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/directives.dart';
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/packages.dart';
 import 'package:ciach/src/reachability.dart';
 import 'package:ciach/src/reference_classifier.dart';
@@ -74,7 +75,7 @@ final class ConditionalImports {
       return null;
     }
     final name = symbol.declarationName(container);
-    return container == null ? name : '$container.$name';
+    return container?.let((it) => '$it.$name') ?? name;
   }
 
   /// [candidates] and [refsByCandidate], with each candidate's references
