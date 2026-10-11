@@ -1,9 +1,9 @@
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/directives.dart';
 import 'package:ciach/src/packages.dart';
+import 'package:ciach/src/reachability.dart';
 import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/symbols.dart';
-import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location;
 
 /// The variants of conditional imports and exports: the libraries one
@@ -88,7 +88,7 @@ final class ConditionalImports {
   /// [candidates] and [refsByCandidate] with the references of each
   /// candidate's namesakes added, less the ones inside the namesake itself.
   ///
-  /// Candidates left out by [_withAllNamesakes] go to [onDropped]. [declared]
+  /// Candidates left out by [_dropped] go to [onDropped]. [declared]
   /// holds the [pairingNames] of each variant that was read.
   ({List<Candidate> candidates, List<List<Location>> refsByCandidate}) share(
     List<Candidate> candidates,
@@ -98,61 +98,67 @@ final class ConditionalImports {
     required void Function(Candidate) onDropped,
   }) {
     final names = candidates.map(_pairingNameOf).toList();
-    final kept = _withAllNamesakes(candidates, names, declared);
+    final namesakes = _namesakes(candidates, names);
+    final dropped = _dropped(candidates, names, namesakes, declared);
+    final kept = <Candidate>[];
+    final keptRefs = <List<Location>>[];
     for (final (i, candidate) in candidates.indexed) {
-      if (!kept.contains(i)) {
+      if (dropped.contains(i)) {
         onDropped(candidate);
+        continue;
       }
+      kept.add(candidate);
+      keptRefs.add([
+        ...refsByCandidate[i],
+        for (final j in namesakes[i])
+          ...classifier.externalRefs(candidates[j], refsByCandidate[j]),
+      ]);
     }
-    final byName = groupBy(
-      kept.where((i) => names[i] != null),
-      (i) => names[i]!,
-    );
-    return (
-      candidates: [for (final i in kept) candidates[i]],
-      refsByCandidate: [
-        for (final i in kept)
-          [
-            ...refsByCandidate[i],
-            for (final j in byName[names[i]] ?? const <int>[])
-              if (counterpartFilesOf(
-                candidates[i].path,
-              ).contains(candidates[j].path))
-                ...classifier.externalRefs(candidates[j], refsByCandidate[j]),
-          ],
-      ],
-    );
+    return (candidates: kept, refsByCandidate: keptRefs);
   }
 
-  /// The indices of the [candidates] whose namesakes are all candidates too.
-  /// A dropped candidate can strand its own namesakes, so this repeats.
-  Set<int> _withAllNamesakes(
+  /// The indices of each candidate's namesakes among the [candidates].
+  List<List<int>> _namesakes(List<Candidate> candidates, List<String?> names) {
+    final byName = <String, List<int>>{};
+    for (final (i, name) in names.indexed) {
+      if (name != null) {
+        byName.putIfAbsent(name, () => []).add(i);
+      }
+    }
+    return [
+      for (final (i, candidate) in candidates.indexed)
+        [
+          for (final j in byName[names[i]] ?? const <int>[])
+            if (counterpartFilesOf(candidate.path).contains(candidates[j].path))
+              j,
+        ],
+    ];
+  }
+
+  /// The indices of the [candidates] with a namesake that is not a candidate,
+  /// or in a file that was not read, and of their namesakes in turn.
+  Set<int> _dropped(
     List<Candidate> candidates,
     List<String?> names,
+    List<List<int>> namesakes,
     Map<String, Set<String>> declared,
   ) {
-    final kept = {for (final (i, _) in candidates.indexed) i};
-    while (true) {
-      final keptNames = {
-        for (final i in kept)
-          if (names[i] case final name?) (candidates[i].path, name),
-      };
-      final dropped = kept.where((i) {
-        final name = names[i];
-        return name != null &&
-            counterpartFilesOf(candidates[i].path).any(
-              (file) => switch (declared[file]) {
-                null => true,
-                final inFile =>
-                  inFile.contains(name) && !keptNames.contains((file, name)),
-              },
-            );
-      }).toSet();
-      if (dropped.isEmpty) {
-        return kept;
-      }
-      kept.removeAll(dropped);
-    }
+    bool lacksNamesake(int i, String name, String file) =>
+        switch (declared[file]) {
+          null => true,
+          final inFile =>
+            inFile.contains(name) &&
+                !namesakes[i].any((j) => candidates[j].path == file),
+        };
+
+    return reachableFrom([
+      for (final (i, candidate) in candidates.indexed)
+        if (names[i] case final name?)
+          if (counterpartFilesOf(
+            candidate.path,
+          ).any((file) => lacksNamesake(i, name, file)))
+            i,
+    ], (i) => namesakes[i]);
   }
 
   String? _pairingNameOf(Candidate candidate) => contains(candidate.path)
@@ -188,24 +194,14 @@ final class _DirectiveIndex {
   /// The files whose declarations importing [library] gives: [library], its
   /// parts and the files it exports, through further exports. Files outside
   /// the root are left out.
-  Set<String> libraryFiles(String library) {
-    final files = <String>{};
-    final pending = [library];
-    while (pending.isNotEmpty) {
-      final path = pending.removeLast();
-      if (!files.add(path)) {
-        continue;
-      }
-      for (final directive in _directivesOf(path)) {
-        if (directive.keyword != 'import' && !directive.isPartOf) {
-          pending.addAll(
-            directive.pathsFrom(path, _packages).where(_files.contains),
-          );
-        }
-      }
-    }
-    return files;
-  }
+  Set<String> libraryFiles(String library) => reachableFrom(
+    [library],
+    (path) => [
+      for (final directive in _directivesOf(path))
+        if (directive.keyword != 'import' && !directive.isPartOf)
+          ...directive.pathsFrom(path, _packages).where(_files.contains),
+    ],
+  );
 
   List<Directive> _directivesOf(String path, [String? content]) =>
       _directives.putIfAbsent(
