@@ -177,11 +177,8 @@ DartType? contextTypeOf(Expression node) {
     )
         when argumentExpression == node =>
       _parameterType(parent.correspondingParameter, invocation),
-    VariableDeclaration(
-      :final initializer,
-      parent: final VariableDeclarationList list,
-    )
-        when initializer == node =>
+    VariableDeclaration(:final initializer, parent: final list)
+        when initializer == node && list is VariableDeclarationList =>
       list.type?.type,
     ReturnStatement(:final expression) when expression == node =>
       _returnedTypeOf(parent.thisOrAncestorOfType<FunctionBody>()),
@@ -205,17 +202,11 @@ DartType? contextTypeOf(Expression node) {
     ConditionalExpression(:final thenExpression, :final elseExpression)
         when thenExpression == node || elseExpression == node =>
       contextTypeOf(parent),
-    SwitchExpressionCase(
-      :final expression,
-      parent: final SwitchExpression switch_,
-    )
-        when expression == node =>
+    SwitchExpressionCase(:final expression, parent: final switch_)
+        when expression == node && switch_ is SwitchExpression =>
       contextTypeOf(switch_),
-    FormalParameterDefaultClause(
-      :final value,
-      parent: final FormalParameter parameter,
-    )
-        when value == node =>
+    FormalParameterDefaultClause(:final value, parent: final parameter)
+        when value == node && parameter is FormalParameter =>
       parameter.declaredFragment?.element.type,
     ConstantPattern(:final expression) when expression == node =>
       parent.matchedValueType,
