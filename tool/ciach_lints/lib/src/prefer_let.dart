@@ -5,22 +5,29 @@ import 'package:analyzer/analysis_rule/rule_context.dart';
 import 'package:analyzer/analysis_rule/rule_visitor_registry.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/precedence.dart';
+import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
+import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/dart/element/type_system.dart';
 import 'package:analyzer/error/error.dart';
 import 'package:analyzer_plugin/utilities/change_builder/change_builder_core.dart';
 import 'package:analyzer_plugin/utilities/fixes/fixes.dart';
 import 'package:analyzer_plugin/utilities/range_factory.dart';
 
-/// Flags a switch expression that only maps null to null,
-/// `switch (x) { final v? => f(v), null => null }`, which `x?.let(f)` from
-/// `lib/src/extensions.dart` says in one call.
+/// Flags an expression that only checks a value for null before using it:
+/// `switch (x) { final v? => f(v), null => null }`, `x == null ? null : f(x)`
+/// and `x == null ? d : f(x)`. A null-aware chain (`x?.length`) or `x?.let(f)`
+/// from `lib/src/extensions.dart`, with `?? d` for a fallback, says the same
+/// in one expression.
 class PreferLet() extends AnalysisRule {
   this : super(name: code.lowerCaseName, description: code.problemMessage);
 
   static const code = LintCode(
     'prefer_let',
-    "This switch only maps null to null; '?.let' says the same in one call.",
-    correctionMessage: "Try replacing the switch with '?.let((value) => …)'.",
+    'This {0} only checks for null; a null-aware chain or '
+        "'?.let' says the same in one expression.",
+    correctionMessage:
+        "Try replacing the {0} with 'x?.member…' or 'x?.let((v) => …)'.",
     severity: .WARNING,
   );
 
@@ -32,53 +39,105 @@ class PreferLet() extends AnalysisRule {
     RuleVisitorRegistry registry,
     RuleContext context,
   ) {
-    registry.addSwitchExpression(this, _Visitor(this));
+    final visitor = _Visitor(this, context.typeSystem);
+    registry
+      ..addSwitchExpression(this, visitor)
+      ..addConditionalExpression(this, visitor);
   }
 }
 
-class _Visitor(final AnalysisRule rule) extends SimpleAstVisitor<void> {
+class _Visitor(final AnalysisRule rule, final TypeSystem typeSystem)
+    extends SimpleAstVisitor<void> {
   @override
-  void visitSwitchExpression(SwitchExpression node) {
-    if (letShapeOf(node) != null) {
-      rule.reportAtNode(node);
+  void visitSwitchExpression(SwitchExpression node) => _check(node, 'switch');
+
+  @override
+  void visitConditionalExpression(ConditionalExpression node) =>
+      _check(node, 'conditional');
+
+  void _check(Expression node, String kind) {
+    if (letShapeOf(node, typeSystem) != null) {
+      rule.reportAtNode(node, arguments: [kind]);
     }
   }
 }
 
-/// The parts of a `switch (x) { final v? => body, null => null }` that
-/// `x?.let((v) => body)` keeps: the bound `variable` and the `body`.
-typedef LetShape = ({DeclaredVariablePattern variable, Expression body});
+/// What a null-aware chain or `x?.let(f)` can replace: the `target` checked
+/// against null, the name and, when spelled, the type of the `variable` bound
+/// to its non-null value, the `body` computed from that, and the `fallback`
+/// produced for null when it is not `null` itself.
+typedef LetShape = ({
+  Expression target,
+  String variable,
+  TypeAnnotation? type,
+  Expression body,
+  Expression? fallback,
+});
 
-/// [node]'s [LetShape], or `null` when it is not one. The null arm may come
-/// first, after which the value arm needs no `?`; a wildcard arm counts as the
-/// null arm only when it comes second, since first it would match everything.
-LetShape? letShapeOf(SwitchExpression node) => switch (node.cases) {
-  [final value, final nothing] when _isNullArm(nothing, wildcardOk: true) =>
-    _valueArm(value, checked: true),
-  [final nothing, final value] when _isNullArm(nothing, wildcardOk: false) =>
-    _valueArm(value, checked: false),
+/// [node]'s [LetShape], or `null` when it is not one.
+///
+/// A switch qualifies with a null arm, `null => null` or a trailing
+/// `_ => null`, and a value arm binding the non-null value: `final v?`, or a
+/// plain `final v` once the null arm has matched null first, or `final T v`
+/// when `T` is just the target's own type made non-nullable, which is the
+/// same check. A conditional qualifies when it compares a local variable or
+/// parameter with null and the branch for the non-null case mentions it.
+LetShape? letShapeOf(Expression node, TypeSystem typeSystem) => switch (node) {
+  final SwitchExpression switch_ => _switchShape(switch_, typeSystem),
+  final ConditionalExpression conditional => _conditionalShape(conditional),
   _ => null,
 };
 
-/// [arm] as a value arm: `final v? => body`, or also `final v => body` when
-/// not [checked], after a null arm already matched null.
-LetShape? _valueArm(SwitchExpressionCase arm, {required bool checked}) =>
-    switch (arm.guardedPattern) {
-      GuardedPattern(
-        whenClause: null,
-        pattern: NullCheckPattern(
-          pattern: final DeclaredVariablePattern variable,
-        ),
-      ) =>
-        (variable: variable, body: arm.expression),
-      GuardedPattern(
-        whenClause: null,
-        pattern: final DeclaredVariablePattern variable,
-      )
-          when !checked =>
-        (variable: variable, body: arm.expression),
-      _ => null,
-    };
+LetShape? _switchShape(SwitchExpression node, TypeSystem typeSystem) {
+  final target = node.expression;
+  final (value, nullFirst) = switch (node.cases) {
+    [final value, final nothing] when _isNullArm(nothing, wildcardOk: true) => (
+      value,
+      false,
+    ),
+    [final nothing, final value] when _isNullArm(nothing, wildcardOk: false) =>
+      (value, true),
+    _ => (null, false),
+  };
+  if (value == null || value.guardedPattern.whenClause != null) {
+    return null;
+  }
+  final variable = switch (value.guardedPattern.pattern) {
+    NullCheckPattern(pattern: final DeclaredVariablePattern variable) =>
+      variable,
+    final DeclaredVariablePattern variable
+        when nullFirst
+            ? variable.type == null ||
+                  _justNonNull(variable, target, typeSystem)
+            : _justNonNull(variable, target, typeSystem) =>
+      variable,
+    _ => null,
+  };
+  if (variable == null) {
+    return null;
+  }
+  return (
+    target: target,
+    variable: variable.name.lexeme,
+    type: variable.type,
+    body: value.expression,
+    fallback: null,
+  );
+}
+
+/// Whether [variable]'s declared type is [target]'s own type made
+/// non-nullable, so that matching it only checks for null.
+bool _justNonNull(
+  DeclaredVariablePattern variable,
+  Expression target,
+  TypeSystem typeSystem,
+) {
+  final declared = variable.type?.type;
+  final actual = target.staticType;
+  return declared != null &&
+      actual != null &&
+      declared == typeSystem.promoteToNonNull(actual);
+}
 
 bool _isNullArm(SwitchExpressionCase arm, {required bool wildcardOk}) =>
     arm.expression is NullLiteral &&
@@ -89,14 +148,85 @@ bool _isNullArm(SwitchExpressionCase arm, {required bool wildcardOk}) =>
       _ => false,
     };
 
-/// Rewrites the flagged switch into `x?.let((v) => body)`, importing the
-/// extension when the file lacks it.
+LetShape? _conditionalShape(ConditionalExpression node) {
+  final (variable, equalsNull) = switch (node.condition) {
+    BinaryExpression(
+      leftOperand: final SimpleIdentifier variable,
+      rightOperand: NullLiteral(),
+      :final operator,
+    ) ||
+    BinaryExpression(
+      leftOperand: NullLiteral(),
+      rightOperand: final SimpleIdentifier variable,
+      :final operator,
+    ) when _isLocal(variable) => (
+      variable,
+      switch (operator.type) {
+        TokenType.EQ_EQ => true,
+        TokenType.BANG_EQ => false,
+        _ => null,
+      },
+    ),
+    _ => (null, null),
+  };
+  if (variable == null || equalsNull == null) {
+    return null;
+  }
+  final (whenNull, whenNotNull) = equalsNull
+      ? (node.thenExpression, node.elseExpression)
+      : (node.elseExpression, node.thenExpression);
+  if (_mentions(whenNotNull, variable.name) == 0) {
+    return null;
+  }
+  return (
+    target: variable,
+    variable: variable.name,
+    type: null,
+    body: whenNotNull,
+    fallback: whenNull is NullLiteral ? null : whenNull,
+  );
+}
+
+/// Whether [identifier] names something a null check promotes: a local
+/// variable or a parameter.
+bool _isLocal(SimpleIdentifier identifier) => switch (identifier.element) {
+  LocalVariableElement() || FormalParameterElement() => true,
+  _ => false,
+};
+
+/// How many times [node] mentions a simple identifier called [name].
+int _mentions(AstNode node, String name) {
+  var count = 0;
+  node.visitChildren(
+    _Counter((identifier) {
+      if (identifier.name == name) {
+        count++;
+      }
+    }),
+  );
+  if (node case SimpleIdentifier(name: final found) when found == name) {
+    count++;
+  }
+  return count;
+}
+
+class _Counter(final void Function(SimpleIdentifier) onIdentifier)
+    extends RecursiveAstVisitor<void> {
+  @override
+  void visitSimpleIdentifier(SimpleIdentifier node) => onIdentifier(node);
+}
+
+/// Rewrites the flagged expression into the shortest equivalent: a null-aware
+/// chain when the body only selects from the variable, `?.let` with a
+/// tear-off when it only calls a function on it, `?.let` with a lambda
+/// otherwise; `?? fallback` appended when the null case had a value. The
+/// extension is imported when `let` is used and the file lacks it.
 class ReplaceWithLet({required super.context})
     extends ResolvedCorrectionProducer {
   static const kind = FixKind(
     'ciach_lints.fix.replaceWithLet',
     DartFixKindPriority.standard,
-    "Replace with '?.let'",
+    "Replace with a null-aware chain or '?.let'",
   );
 
   static final _extensions = Uri.parse('package:ciach/src/extensions.dart');
@@ -109,31 +239,125 @@ class ReplaceWithLet({required super.context})
 
   @override
   Future<void> compute(ChangeBuilder builder) async {
-    final switchExpression = node;
-    if (switchExpression is! SwitchExpression) {
-      return;
-    }
-    final shape = letShapeOf(switchExpression);
-    if (shape == null) {
-      return;
-    }
-    final target = switchExpression.expression;
+    final expression = node as Expression;
+    final shape = letShapeOf(expression, typeSystem)!;
+    final (:code, :usesLet) = _rewrite(shape);
+    await builder.addDartFileEdit(file, (builder) {
+      if (usesLet) {
+        builder.importLibrary(_extensions);
+      }
+      builder.addSimpleReplacement(range.node(expression), code);
+    });
+  }
+
+  ({String code, bool usesLet}) _rewrite(LetShape shape) {
+    final target = shape.target;
     final receiver = target.precedence < Precedence.postfix
         ? '(${_text(target)})'
         : _text(target);
-    final variable = shape.variable;
-    final parameter = switch (variable.type) {
-      final type? => '${_text(type)} ${variable.name.lexeme}',
-      null => variable.name.lexeme,
+    final body = shape.body;
+    final (String code, bool usesLet) = switch (_chainRoot(body)) {
+      final root?
+          when root.name == shape.variable &&
+              _mentions(body, shape.variable) == 1 =>
+        (
+          root == body
+              ? receiver
+              : '$receiver?${_text(body).substring(root.length)}',
+          false,
+        ),
+      _ => switch (_tearOff(body, shape.variable)) {
+        final function? => ('$receiver?.let($function)', true),
+        null => (
+          '$receiver?.let((${_parameter(shape)}) => ${_text(body)})',
+          true,
+        ),
+      },
     };
-    await builder.addDartFileEdit(file, (builder) {
-      builder
-        ..importLibrary(_extensions)
-        ..addSimpleReplacement(
-          range.node(switchExpression),
-          '$receiver?.let(($parameter) => ${_text(shape.body)})',
-        );
-    });
+    final fallback = shape.fallback;
+    if (fallback == null) {
+      return (code: code, usesLet: usesLet);
+    }
+    final fallbackCode = fallback.precedence < Precedence.ifNull
+        ? '(${_text(fallback)})'
+        : _text(fallback);
+    return (code: '$code ?? $fallbackCode', usesLet: usesLet);
+  }
+
+  String _parameter(LetShape shape) => switch (shape.type) {
+    final type? => '${_text(type)} ${shape.variable}',
+    null => shape.variable,
+  };
+
+  /// The identifier [body] selects from when it is one selector chain,
+  /// `v.a.b(c)`, `v[0]`, `v.a!.b`, or `v` itself: the chain's root, which a
+  /// `?` after the receiver turns null-aware. The first selector has to be a
+  /// `.` or an index, since `?` cannot precede `!` or another `?.`.
+  SimpleIdentifier? _chainRoot(Expression body) => switch (body) {
+    final SimpleIdentifier root => root,
+    PrefixedIdentifier(prefix: final root) => root,
+    PropertyAccess(
+      target: final SimpleIdentifier root,
+      operator: Token(type: TokenType.PERIOD),
+    ) =>
+      root,
+    PropertyAccess(
+      target: final target?,
+      isCascaded: false,
+      operator: Token(type: TokenType.PERIOD || TokenType.QUESTION_PERIOD),
+    )
+        when target is! SimpleIdentifier =>
+      _chainRoot(target),
+    MethodInvocation(
+      target: final SimpleIdentifier root,
+      operator: Token(type: TokenType.PERIOD),
+    ) =>
+      root,
+    MethodInvocation(
+      target: final target?,
+      isCascaded: false,
+      operator: Token(type: TokenType.PERIOD || TokenType.QUESTION_PERIOD),
+    )
+        when target is! SimpleIdentifier =>
+      _chainRoot(target),
+    IndexExpression(
+      target: final SimpleIdentifier root,
+      question: null,
+      isCascaded: false,
+    ) =>
+      root,
+    IndexExpression(target: final target?, isCascaded: false)
+        when target is! SimpleIdentifier =>
+      _chainRoot(target),
+    PostfixExpression(operator: Token(type: TokenType.BANG), :final operand)
+        when operand is! SimpleIdentifier =>
+      _chainRoot(operand),
+    _ => null,
+  };
+
+  /// The function [body] calls with the [variable] as its only argument,
+  /// `int.parse(v)` or `f(v)`, as a tear-off; `null` for any other body.
+  String? _tearOff(Expression body, String variable) {
+    if (body
+        case MethodInvocation(
+          typeArguments: null,
+          isCascaded: false,
+          argumentList: ArgumentList(
+            arguments: [SimpleIdentifier(name: final argument)],
+          ),
+          :final target,
+          :final methodName,
+        )
+        when argument == variable) {
+      final callee = switch (target) {
+        null => methodName.name,
+        Identifier(element: InterfaceElement() || PrefixElement()) =>
+          '${_text(target)}.${methodName.name}',
+        _ => null,
+      };
+      return callee;
+    }
+    return null;
   }
 
   String _text(AstNode node) => getRangeText(range.node(node));
