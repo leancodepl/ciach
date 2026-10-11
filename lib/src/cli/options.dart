@@ -156,9 +156,7 @@ ResolvedOptions resolveOptions(
     includeGenerated: configuration.value(CiachOption.generated),
     projectConfig: projectConfig,
     unusedTranslations: configuration.value(CiachOption.unusedTranslations),
-    detected: projectConfig
-        ? ProjectConfig.read(rootPath.absoluteNormalized)
-        : ProjectConfig.none,
+    detected: projectConfig ? .read(rootPath.absoluteNormalized) : .none,
     overrides: configuration.value(CiachOption.overrides),
     operators: configuration.value(CiachOption.operators),
     unusedUnionMembers: configuration.value(CiachOption.unusedUnionMembers),

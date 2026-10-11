@@ -11,7 +11,7 @@ typedef PackageTree = ({Set<String> dartFiles, Set<String> libDirs});
 /// Walks [root], never entering a skipped directory. Paths are absolute and
 /// normalized.
 PackageTree scanPackageTree(String root) {
-  final files = _filesUnder(Directory(root));
+  final files = _filesUnder(.new(root));
   return (
     dartFiles: {
       for (final file in files)
@@ -74,11 +74,7 @@ final class PackageResolver {
   /// [file] parsed, skipping malformed entries; `null` when unreadable.
   static PackageConfig? _read(File file) {
     try {
-      return PackageConfig.parseBytes(
-        file.readAsBytesSync(),
-        file.uri,
-        onError: (_) {},
-      );
+      return .parseBytes(file.readAsBytesSync(), file.uri, onError: (_) {});
     } on FileSystemException {
       return null;
     }

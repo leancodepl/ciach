@@ -93,7 +93,7 @@ final class CandidateCollector {
       null,
       null,
       false,
-      _OutlineIndex(outline),
+      .new(outline),
     ).toList();
     return _withoutEntryPointContainers(candidates, relativePath).toList();
   }

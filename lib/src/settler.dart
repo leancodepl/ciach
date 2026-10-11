@@ -210,13 +210,13 @@ final class Settler {
             target: i,
             containers: containers(
               usage.path,
-              Position(line: usage.line, character: usage.character),
+              .new(line: usage.line, character: usage.character),
             ),
           ),
       ],
     ];
     final dead = unreached(removable, uses);
-    return DeadSpans.of([
+    return .of([
       for (final MapEntry(key: finding, value: i) in candidateOf.entries)
         if (dead.contains(i)) finding,
     ], rootPath);
@@ -541,7 +541,7 @@ final class Settler {
       }
       final start = candidate.symbol.selectionRange.start;
       warnings.add(
-        RecoveredReference(
+        .new(
           name: candidate.symbol.declarationName(candidate.container),
           container: candidate.container,
           filePath: relativePosix(candidate.path, rootPath),

@@ -19,7 +19,10 @@ them (`usageLineLength`).
 Use a dot shorthand wherever the context type lets you: `.new(path, c)`
 rather than `DeclKey(path, c)`, `.plain` rather than `Style.plain`, including
 inside lambdas whose return type the context already fixes. Never replace a
-shorthand with the full type name.
+shorthand with the full type name. Annotation arguments are the exception:
+`@Timeout(Duration(minutes: 5))` stays, since `package:test` parses it with
+an evaluator of its own that knows no shorthands. The `prefer_dot_shorthand`
+rule in `tool/ciach_lints` enforces all of this.
 
 # Nullable chains
 
