@@ -1,4 +1,5 @@
 import 'package:ciach/src/candidates.dart';
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/problems.dart';
@@ -130,10 +131,9 @@ final class SuperclassChecks {
     if (symbol.selectionRange.start == position) {
       return symbol;
     }
-    return switch (symbol.children) {
-      final children? => _symbolNamedAt(children, position),
-      _ => null,
-    };
+    return symbol.children?.let(
+      (children) => _symbolNamedAt(children, position),
+    );
   }
 }
 

@@ -5,6 +5,7 @@ import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/conventions/js_interop.dart';
 import 'package:ciach/src/conventions/test_reflective_loader.dart';
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
@@ -323,13 +324,9 @@ final class CandidateCollector {
       relativePath,
       symbol,
       container,
-      containerSuperclass: () => switch (candidate.containerSymbol) {
-        final containerSymbol? => _superclassOf(
-          candidate.path,
-          containerSymbol,
-        ),
-        null => null,
-      },
+      containerSuperclass: () => candidate.containerSymbol?.let(
+        (containerSymbol) => _superclassOf(candidate.path, containerSymbol),
+      ),
     );
     if (rule != null && container != null) {
       _entryPointContainers[DeclKey(relativePath, container)] ??= rule;

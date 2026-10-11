@@ -8,6 +8,7 @@
  *     - mark-ai-provenance
  */
 
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
@@ -85,8 +86,5 @@ final class Candidate {
 
   /// The `(path, container)` key of this candidate's enclosing declaration,
   /// or `null` when it has no container.
-  DeclKey? get containerKey => switch (container) {
-    final c? => .new(path, c),
-    null => null,
-  };
+  DeclKey? get containerKey => container?.let((c) => .new(path, c));
 }

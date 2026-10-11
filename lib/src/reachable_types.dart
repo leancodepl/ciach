@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/src/candidates.dart';
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/public_api.dart';
@@ -256,7 +257,7 @@ final class _Carriers {
     return _signatures[(path, at)] ??= () async {
       try {
         final hover = await _client.hover(File(path).uri, at);
-        return hover == null ? null : _fencedCode.firstMatch(hover)?.group(1);
+        return hover?.let(_fencedCode.firstMatch)?.group(1);
       } on LspRequestException {
         return null;
       }
