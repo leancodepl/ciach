@@ -262,21 +262,17 @@ const s = 'a\n\'\'\'\n"""';
 ''');
   }
 
-  /// Asserts that the fix rewrites [code], which the rule flags once, into
-  /// [expected].
+  /// Asserts that the fix turns [code] into [expected].
   Future<void> assertFix(String code, String expected) async {
     expect(await _applyFix(code), expected);
   }
 
-  /// Asserts that the fix is not offered for [code], which the rule flags
-  /// once.
+  /// Asserts that the fix is not offered for [code].
   Future<void> assertNoFix(String code) async {
     expect(await _applyFix(code), isNull);
   }
 
-  // Runs the fix by hand: analyzer_testing has no fix test base class yet.
-  // Replace this with the one https://github.com/dart-lang/sdk/issues/61785
-  // adds once it ships.
+  // Hand-rolled until https://github.com/dart-lang/sdk/issues/61785 ships.
   Future<String?> _applyFix(String code) async {
     final file = newFile(testFile.path, code);
     final unit = await resolveFile(file.path);

@@ -15,16 +15,12 @@ import 'package:analyzer_plugin/utilities/change_builder/change_builder_core.dar
 import 'package:analyzer_plugin/utilities/fixes/fixes.dart';
 import 'package:analyzer_plugin/utilities/range_factory.dart';
 
-/// Flags a single-line string literal with two or more interior `\n` escapes:
-/// text with that many line breaks is what `CLAUDE.md` asks to be written as a
-/// `'''` multi-line string, where the breaks are real.
+/// Flags a single-line string literal with two or more interior `\n` escapes,
+/// which `CLAUDE.md` wants as a `'''` string.
 ///
-/// A newline is interior when it is not the last character of the string, so
-/// `'line\n'`, `'a\nb'` and `'\n\n'` all pass. One interior newline is allowed
-/// because such a string is usually a reason message or a two-line fixture,
-/// which reads fine inline. The escapes are counted across every literal part
-/// of an interpolated string. Raw strings and existing multi-line strings are
-/// never flagged.
+/// A final `\n` is not interior, and one interior newline is fine: that is
+/// usually a reason message or a two-line fixture, which reads well inline.
+/// Raw and multi-line strings are never flagged.
 class PreferMultilineString() extends AnalysisRule {
   this : super(name: code.lowerCaseName, description: code.problemMessage);
 
@@ -71,10 +67,8 @@ class _Visitor(final AnalysisRule rule, final RuleContext context)
   }
 }
 
-/// Rewrites the literal flagged by [PreferMultilineString] as a `'''` string
-/// (or a `"""` one when the text contains `'''`): the opening quotes are
-/// followed by a newline, each `\n` escape becomes a line break, quote
-/// escapes go, and everything else, interpolations included, stays as it is.
+/// Rewrites the flagged literal as a `'''` string (`"""` if it contains `'''`):
+/// `\n` escapes become line breaks, quote escapes go, the rest stays.
 class ConvertToMultilineString({required super.context})
     extends ResolvedCorrectionProducer {
   @override
@@ -110,14 +104,13 @@ sealed class _Piece();
 /// A `\n` escape.
 final class _Newline() extends _Piece;
 
-/// An escaped quote, which a multi-line string spells without the backslash.
+/// An escaped quote.
 final class _Quote(final String quote) extends _Piece;
 
-/// Source that a multi-line string keeps as it is: plain characters, other
-/// escapes and interpolations.
+/// Source kept as is: plain characters, other escapes, interpolations.
 final class _Verbatim(final String source) extends _Piece;
 
-/// The pieces of [literal], read from [content], the text of its file.
+/// The pieces of [literal] in [content], its file's text.
 List<_Piece> _piecesOf(SingleStringLiteral literal, String content) =>
     switch (literal) {
       SimpleStringLiteral(:final contentsOffset, :final contentsEnd) => _scan(
@@ -135,7 +128,7 @@ List<_Piece> _piecesOf(SingleStringLiteral literal, String content) =>
       ],
     };
 
-/// Splits literal [text], escapes still in source form, into pieces.
+/// Splits literal [text] (escapes in source form) into pieces.
 List<_Piece> _scan(String text) {
   final pieces = <_Piece>[];
   var index = 0;
@@ -156,15 +149,14 @@ List<_Piece> _scan(String text) {
   return pieces;
 }
 
-/// Counts the `\n` escapes in [pieces] other than one ending the string.
+/// The `\n` escapes in [pieces], not counting one ending the string.
 int _interiorNewlines(List<_Piece> pieces) {
   final newlines = pieces.whereType<_Newline>().length;
   return pieces.lastOrNull is _Newline ? newlines - 1 : newlines;
 }
 
-/// The multi-line form of [pieces], or null when none is clean: a line of the
-/// result would end in whitespace, or the text cannot sit between `'''` or
-/// `"""` quotes without escapes.
+/// The multi-line form of [pieces], or null if a line would end in whitespace
+/// or neither triple quote can delimit the text.
 String? _multilineForm(List<_Piece> pieces) {
   final text = pieces
       .map(
