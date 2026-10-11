@@ -14,6 +14,7 @@ import 'dart:io';
 import 'package:ciach/src/candidate_collector.dart';
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/concurrency.dart';
+import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/log.dart';
@@ -74,11 +75,17 @@ class Ciach {
       ? null
       : .scan(options.rootPath);
 
+  /// The variants of the conditional imports under the analysis root.
+  late final _conditionalImports = ConditionalImports.scan(
+    options.analysisRootPath ?? options.rootPath,
+  );
+
   late final _collector = CandidateCollector(
     options: options,
     sources: _sources,
     freezed: _freezed,
     publicApi: _publicApi,
+    conditionalImports: _conditionalImports,
   );
 
   late final _fetch = ReferenceFetch(options: options, sources: _sources);
@@ -172,16 +179,21 @@ class Ciach {
             ? _collector.collect(client, path, rootPath)
             : .value(const <Candidate>[]),
       );
-      final collected = [for (final list in perFile) ...list];
+      final collected = _checkable([for (final list in perFile) ...list]);
       _collector.reportSkipped();
 
       // Phase 2: check references for every candidate through a single global
       // pool, so the server stays saturated instead of stalling between files.
-      final (:candidates, :refsByCandidate) = await _references(
+      final (:candidates, refsByCandidate: ownRefs) = await _references(
         client,
         collected,
         totalFiles: files.length,
         rootPath: rootPath,
+      );
+      final refsByCandidate = _conditionalImports.sharedReferences(
+        candidates,
+        ownRefs,
+        _classifier,
       );
       declarationsChecked = candidates.length;
       await _fetch.selectionRanges(client, candidates, refsByCandidate);
@@ -209,6 +221,24 @@ class Ciach {
       recoveredReferences: settled.recovered,
       problems: problems.problems,
     );
+  }
+
+  /// [collected] less the declarations in conditional-import variants that
+  /// cannot be checked; see [ConditionalImports.uncheckable].
+  List<Candidate> _checkable(List<Candidate> collected) {
+    final uncheckable = _conditionalImports.uncheckable(
+      collected,
+      _collector.declaredInVariants,
+    );
+    for (final candidate in uncheckable) {
+      _log.fine(
+        'Skipped ${relativePosix(candidate.path, options.rootPath)}:'
+        '${candidate.symbol.selectionRange.start.line + 1} '
+        '${candidate.symbol.name}: another variant of a conditional import '
+        'declares it too, and that declaration is not checked.',
+      );
+    }
+    return collected.whereNot(uncheckable.contains).toList();
   }
 
   /// The references of [collected], less the candidates left unchecked.

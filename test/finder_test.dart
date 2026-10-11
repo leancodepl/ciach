@@ -1286,6 +1286,44 @@ void main() {
     expect(recovered, contains('liveShownGetter'));
   });
 
+  group('conditional imports', () {
+    Set<String> unusedIn(FinderResult result) => {
+      for (final d in result.unused)
+        if (d.filePath != 'lib/scenarios/conditional/conditional_uses.dart')
+          '${p.basename(d.filePath)}:${d.qualifiedName}',
+    };
+
+    test('namesakes in the variants share their references', () async {
+      final result = await runFinder(
+        include: const ['lib/scenarios/conditional/**'],
+        exclude: const [],
+      );
+
+      expect(unusedIn(result), {
+        'platform_io.dart:conditionalDeadOnBoth',
+        'platform_web.dart:conditionalDeadOnBoth',
+        'platform_web.dart:conditionalWebOnly',
+        'platform_web.dart:ConditionalPlatform._unusedWebOnly',
+        'web_label.dart:deadWebLabel',
+      });
+    });
+
+    test('a declaration whose namesake is not read is not checked', () async {
+      final result = await runFinder(
+        include: const [
+          'lib/scenarios/conditional/platform_web.dart',
+          'lib/scenarios/conditional/web_label.dart',
+        ],
+        exclude: const [],
+      );
+
+      expect(unusedIn(result), {
+        'platform_web.dart:ConditionalPlatform._unusedWebOnly',
+        'web_label.dart:deadWebLabel',
+      });
+    });
+  });
+
   group('same-simple-name collision recovery', () {
     // Two members share the simple name `status`: one used only from another
     // file (must be recovered) and one never used (must stay flagged). Guards

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/src/candidates.dart';
+import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/conventions/js_interop.dart';
@@ -32,9 +33,11 @@ final class CandidateCollector {
     required SourceIndex sources,
     required FreezedUnions freezed,
     PublicApi? publicApi,
+    ConditionalImports? conditionalImports,
   }) : _sources = sources,
        _freezed = freezed,
-       _publicApi = publicApi;
+       _publicApi = publicApi,
+       _conditionalImports = conditionalImports ?? .empty;
 
   final FinderOptions options;
   final SourceIndex _sources;
@@ -44,6 +47,13 @@ final class CandidateCollector {
 
   /// What other packages can import, when exported declarations are left out.
   final PublicApi? _publicApi;
+
+  final ConditionalImports _conditionalImports;
+
+  /// The pairing names of the public declarations in each variant file of a
+  /// conditional import that was read, checked or not; see
+  /// [ConditionalImports.uncheckable].
+  final declaredInVariants = <String, Set<String>>{};
 
   late final _entryPoints = EntryPoints(options.entryPoints);
 
@@ -81,6 +91,9 @@ final class CandidateCollector {
       return const [];
     }
     _sources.cacheSemanticTokens(path, await pendingTokens);
+    if (_conditionalImports.contains(path)) {
+      declaredInVariants.putIfAbsent(path, () => {});
+    }
     final relativePath = relativePosix(path, rootPath);
     // The whole walk has to run before the filter: it records the entry-point
     // containers the filter drops, and a container comes before its members.
@@ -186,6 +199,7 @@ final class CandidateCollector {
           ? ownMetadata.toList()
           : const [];
       _freezed.noteIfAnnotated(path, symbol, leadingMetadata);
+      _noteDeclared(path, symbol, container);
       final candidate = Candidate(
         uri: uri,
         path: path,
@@ -225,6 +239,17 @@ final class CandidateCollector {
         symbol.kind == .enum$,
         outlines,
       );
+    }
+  }
+
+  /// Records [symbol] in [declaredInVariants] when [path] is a variant of a
+  /// conditional import and [symbol] is public.
+  void _noteDeclared(String path, DocumentSymbol symbol, String? container) {
+    if (!_conditionalImports.contains(path)) {
+      return;
+    }
+    if (ConditionalImports.pairingName(symbol, container) case final name?) {
+      declaredInVariants.putIfAbsent(path, () => {}).add(name);
     }
   }
 

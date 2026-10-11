@@ -307,6 +307,13 @@ that cost.
 | Type parameters | always "used" within their scope | — |
 | dartdoc `[Xxx]` links | not a code reference; reported as [doc-only](#doc-only-findings) instead of hidden | — |
 
+The variants of a conditional import, such as `io.dart` and `web.dart` in
+`import 'io.dart' if (dart.library.js_interop) 'web.dart';`, are not skipped
+either. The analysis server resolves every use to the default file, so a public
+declaration in a variant is checked together with the declarations of the same
+name in the other variants. They are reported, and removed, only together. A
+public declaration whose other variant ciach does not scan is not checked.
+
 Private constructors are **not** skipped: an unused `ClassName._` is dead code
 like any other. A sole zero-parameter `ClassName._()` — the classic
 prevent-instantiation marker — is reported with a hint suggesting `abstract final
