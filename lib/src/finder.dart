@@ -223,8 +223,7 @@ class Ciach {
     );
   }
 
-  /// [collected] less the declarations in conditional-import variants that
-  /// cannot be checked; see [ConditionalImports.uncheckable].
+  /// [collected] less the ones [ConditionalImports.uncheckable] names.
   List<Candidate> _checkable(List<Candidate> collected) {
     final uncheckable = _conditionalImports.uncheckable(
       collected,
@@ -234,8 +233,8 @@ class Ciach {
       _log.fine(
         'Skipped ${relativePosix(candidate.path, options.rootPath)}:'
         '${candidate.symbol.selectionRange.start.line + 1} '
-        '${candidate.symbol.name}: another variant of a conditional import '
-        'declares it too, and that declaration is not checked.',
+        '${candidate.symbol.name}: its namesake in another conditional-import '
+        'variant is not checked.',
       );
     }
     return collected.whereNot(uncheckable.contains).toList();

@@ -8,20 +8,17 @@ import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location;
 
-/// The files that conditional imports and exports choose between, such as
+/// The files a conditional `import` or `export` chooses between, such as
 /// `io.dart` and `web.dart` in
 /// `import 'io.dart' if (dart.library.js_interop) 'web.dart';`.
 ///
-/// The analysis server resolves every use to the default file, so a
-/// declaration in another variant has no references even when another platform
-/// uses it. Declarations with the same name in the variants of one directive
-/// are therefore checked together: they share their references, so they are
-/// either all used or all unused, and `--remove` deletes them together.
+/// The analysis server resolves every use to the default file, so namesakes in
+/// the variants share their references: they are used, or reported and
+/// removed, together.
 final class ConditionalImports {
   ConditionalImports._(this._groupOf);
 
-  /// Reads the conditional imports and exports in every Dart file under
-  /// [rootPath].
+  /// Reads the conditional directives in every Dart file under [rootPath].
   factory ConditionalImports.scan(String rootPath) {
     final packages = PackageResolver();
     final groups = _Groups();
@@ -33,8 +30,8 @@ final class ConditionalImports {
 
   static final empty = ConditionalImports._(const {});
 
-  /// The files of each directive's variants, by the group they belong to. A
-  /// file that two directives name joins their groups.
+  /// The group of each variant. Directives that name the same file share a
+  /// group.
   final Map<String, int> _groupOf;
 
   /// Whether [path] is one of the variants of a conditional directive.
@@ -49,9 +46,8 @@ final class ConditionalImports {
     null => const [],
   };
 
-  /// Returns the name that pairs a public declaration with its counterparts in
-  /// the other variants: `Type.member`, or the top-level name. Returns `null`
-  /// for a private declaration, or for a member of a private type, because no
+  /// The name that pairs [symbol] with its namesakes: `Type.member`, or the
+  /// top-level name. `null` when [symbol] or its type is private, since no
   /// other library can use it.
   static String? pairingName(DocumentSymbol symbol, String? container) {
     if (isPrivateName(symbol.name) ||
@@ -62,10 +58,9 @@ final class ConditionalImports {
     return container == null ? name : '$container.$name';
   }
 
-  /// Returns the candidates that cannot be checked, because a counterpart of
-  /// theirs is declared but is not checked itself, or because the file of a
-  /// counterpart was not read. [declared] holds the pairing names declared in
-  /// each variant file that was read.
+  /// The [candidates] whose namesake is declared but not checked, or whose
+  /// other variant was not read. [declared] holds the pairing names in each
+  /// variant that was read.
   Set<Candidate> uncheckable(
     List<Candidate> candidates,
     Map<String, Set<String>> declared,
@@ -88,9 +83,8 @@ final class ConditionalImports {
     };
   }
 
-  /// Returns [refsByCandidate] with the references of each candidate's
-  /// counterparts added to its own. A counterpart's references inside its own
-  /// declaration are left out, because they do not use the name.
+  /// [refsByCandidate] with the references of each candidate's namesakes
+  /// added, less the ones inside the namesake itself.
   List<List<Location>> sharedReferences(
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
@@ -124,8 +118,8 @@ final class ConditionalImports {
       : null;
 }
 
-/// The variants that each conditional import or export in [path] chooses
-/// between: its default file first, then the file of each `if` clause.
+/// The files that each conditional directive in [path] names, the default one
+/// first.
 Iterable<List<String>> _directivesIn(String path, PackageResolver packages) {
   final String content;
   try {
@@ -146,8 +140,7 @@ Iterable<List<String>> _directivesIn(String path, PackageResolver packages) {
   ];
 }
 
-/// The default URI of a conditional [directive], then the URI after each of
-/// its `if (…)` clauses. A string compared in a condition is not a URI.
+/// The URIs in [directive], less the strings compared in its conditions.
 Iterable<String> _uris(String directive) sync* {
   final conditions = _condition.allMatches(directive).toList();
   for (final uri in uriLiteral.allMatches(directive)) {
@@ -166,8 +159,7 @@ final _conditionalDirective = RegExp(
 /// The parenthesized condition of an `if` clause.
 final _condition = RegExp(r'\bif\s*\([^)]*\)');
 
-/// Files joined into groups, so that every file of a directive, and every
-/// directive that shares a file with it, ends up in one group.
+/// A union-find of files: each directive joins the files it names.
 final class _Groups {
   final _parent = <String, String>{};
 
@@ -188,7 +180,7 @@ final class _Groups {
     return root;
   }
 
-  /// Every file in a group with another file, mapped to the group's number.
+  /// The group number of every file that shares a group with another.
   Map<String, int> groupOf() {
     final byRoot = groupBy(_parent.keys, _root);
     return {

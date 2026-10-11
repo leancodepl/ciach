@@ -50,9 +50,8 @@ final class CandidateCollector {
 
   final ConditionalImports _conditionalImports;
 
-  /// The pairing names of the public declarations in each variant file of a
-  /// conditional import that was read, checked or not; see
-  /// [ConditionalImports.uncheckable].
+  /// The pairing names in each conditional-import variant that was read,
+  /// checked or not; see [ConditionalImports.uncheckable].
   final declaredInVariants = <String, Set<String>>{};
 
   late final _entryPoints = EntryPoints(options.entryPoints);
@@ -242,8 +241,7 @@ final class CandidateCollector {
     }
   }
 
-  /// Records [symbol] in [declaredInVariants] when [path] is a variant of a
-  /// conditional import and [symbol] is public.
+  /// Records [symbol] in [declaredInVariants] when [path] is a variant.
   void _noteDeclared(String path, DocumentSymbol symbol, String? container) {
     if (!_conditionalImports.contains(path)) {
       return;
