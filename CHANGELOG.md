@@ -1,7 +1,7 @@
 ## Unreleased
 
-- Detect CI: there, `--set-exit-if-changed` and `--verbose` default to on,
-  progress to off, and on GitHub Actions `--format` to `github`. `--[no-]ci`
+- Detect CI. In CI, `--set-exit-if-changed` and `--verbose` default to on,
+  progress to off, and on GitHub Actions `--format` to `github`; `--[no-]ci`
   overrides the detection.
   ([#101](https://github.com/leancodepl/ciach/pull/101))
 - `--transitive` also reports dead cycles: declarations that only reference

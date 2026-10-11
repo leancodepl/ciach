@@ -223,7 +223,7 @@ lib/report.dart
 ciach detects CI from the environment: the `CI` variable most services set, or
 their own (`GITHUB_ACTIONS`, `GITLAB_CI`, `CIRCLECI`, `TRAVIS`, `BUILDKITE`,
 `TF_BUILD`, `JENKINS_URL`, `TEAMCITY_VERSION`, `CODEBUILD_BUILD_ID`,
-`BITBUCKET_BUILD_NUMBER`, `CM_BUILD_ID`). There,
+`BITBUCKET_BUILD_NUMBER`, `CM_BUILD_ID`). In CI,
 `--set-exit-if-changed` and `--verbose` default to on, so the job fails on
 findings and the log explains the run; progress defaults to off, since a log
 keeps every overwrite of its line; and on GitHub Actions `--format` defaults to
