@@ -36,20 +36,20 @@ void main() {
     }
   });
 
-  /// Runs ciach as a local run, whatever CI the test itself is on, unless
-  /// [detectCi] lets it look at [environment].
+  /// Runs ciach on the fixture. Every runner's variable is blanked first, so
+  /// the CI the test itself is on neither shows through nor outranks the one
+  /// [environment] sets: a run is local unless a test says otherwise.
   Future<ProcessResult> runCli(
     List<String> args, {
     Map<String, String> environment = const {},
-    bool detectCi = false,
-  }) => Process.run(Platform.resolvedExecutable, [
-    'run',
-    entrypoint,
-    fixturePath,
-    '--no-progress',
-    if (!detectCi) '--no-ci',
-    ...args,
-  ], environment: environment);
+  }) => Process.run(
+    Platform.resolvedExecutable,
+    ['run', entrypoint, fixturePath, '--no-progress', ...args],
+    environment: {
+      for (final runner in CiRunner.values) runner.variable: '',
+      ...environment,
+    },
+  );
 
   // orphans.dart: unused public only; greeting.dart: also an unused private one.
   const publicOnly = ['--include', 'lib/orphans.dart'];
@@ -88,27 +88,15 @@ void main() {
   });
 
   group('CI', () {
-    // Blanks every runner's variable, so that the CI the test itself runs on
-    // neither shows through nor outranks the one a test sets.
-    final local = {for (final runner in CiRunner.values) runner.variable: ''};
-
     test('without it, findings are reported as text and exit 0', () async {
-      final result = await runCli(
-        publicOnly,
-        environment: local,
-        detectCi: true,
-      );
+      final result = await runCli(publicOnly);
       expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
       expect(result.stdout, contains('UnusedClass'));
       expect(result.stdout, isNot(contains('::warning')));
     });
 
     test('--ci fails on findings, --no-set-exit-if-changed opts out', () async {
-      final failing = await runCli(
-        [...publicOnly, '--ci'],
-        environment: local,
-        detectCi: true,
-      );
+      final failing = await runCli([...publicOnly, '--ci']);
       expect(
         failing.exitCode,
         1,
@@ -116,11 +104,11 @@ void main() {
       );
       expect(failing.stdout, isNot(contains('::warning')));
 
-      final reporting = await runCli(
-        [...publicOnly, '--ci', '--no-set-exit-if-changed'],
-        environment: local,
-        detectCi: true,
-      );
+      final reporting = await runCli([
+        ...publicOnly,
+        '--ci',
+        '--no-set-exit-if-changed',
+      ]);
       expect(
         reporting.exitCode,
         0,
@@ -128,45 +116,37 @@ void main() {
       );
     });
 
+    const githubActions = {'GITHUB_ACTIONS': 'true'};
+
     test('GITHUB_ACTIONS turns on annotations and the exit code', () async {
-      final result = await runCli(
-        publicOnly,
-        environment: {...local, 'GITHUB_ACTIONS': 'true'},
-        detectCi: true,
-      );
+      final result = await runCli(publicOnly, environment: githubActions);
       expect(result.exitCode, 1, reason: '${result.stdout}\n${result.stderr}');
       expect(result.stdout, contains('::warning file='));
       expect(result.stdout, contains('UnusedClass'));
     });
 
     test('--no-ci keeps the local defaults on GitHub Actions', () async {
-      final result = await runCli(
-        [...publicOnly, '--no-ci'],
-        environment: {...local, 'GITHUB_ACTIONS': 'true'},
-        detectCi: true,
-      );
+      final result = await runCli([
+        ...publicOnly,
+        '--no-ci',
+      ], environment: githubActions);
       expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
       expect(result.stdout, isNot(contains('::warning')));
     });
 
     test('the log, on by default, says which service was detected', () async {
-      final gitlab = {...local, 'GITLAB_CI': 'true'};
-      final result = await runCli(
-        publicOnly,
-        environment: gitlab,
-        detectCi: true,
-      );
+      const gitlab = {'GITLAB_CI': 'true'};
+      final result = await runCli(publicOnly, environment: gitlab);
       expect(result.exitCode, 1, reason: '${result.stdout}\n${result.stderr}');
       // Verbose goes to stderr, the report to stdout.
       expect(result.stderr, contains('On GitLab CI (GITLAB_CI is set)'));
       expect(result.stderr, contains('Settings for this run:'));
       expect(result.stdout, isNot(contains('Settings for this run:')));
 
-      final quiet = await runCli(
-        [...publicOnly, '--no-verbose'],
-        environment: gitlab,
-        detectCi: true,
-      );
+      final quiet = await runCli([
+        ...publicOnly,
+        '--no-verbose',
+      ], environment: gitlab);
       expect(quiet.stderr, isNot(contains('On GitLab CI')));
     });
   });
