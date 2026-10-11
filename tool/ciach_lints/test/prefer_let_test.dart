@@ -316,13 +316,25 @@ int? f(String? s) => switch (s) {
     );
   }
 
-  Future<void> test_nullMapsToValue() async {
-    await assertNoDiagnostics('''
+  Future<void> test_switchWithFallback() async {
+    await assertRewrites(
+      '''
 int f(String? s) => switch (s) {
   final v? => v.length,
   null => 0,
 };
-''');
+int g(String? s) => switch (s) {
+  final v? => v.length + 1,
+  _ => 0,
+};
+''',
+      ['switch (s)', 'switch (s)'],
+      fixed:
+          '''
+${_import}int f(String? s) => s?.length ?? 0;
+int g(String? s) => s?.let((v) => v.length + 1) ?? 0;
+''',
+    );
   }
 
   Future<void> test_guard() async {

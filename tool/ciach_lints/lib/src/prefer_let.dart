@@ -15,10 +15,10 @@ import 'package:analyzer_plugin/utilities/fixes/fixes.dart';
 import 'package:analyzer_plugin/utilities/range_factory.dart';
 
 /// Flags an expression that only checks a value for null before using it:
-/// `switch (x) { final v? => f(v), null => null }`, `x == null ? null : f(x)`
+/// `switch (x) { final v? => f(v), null => d }`, `x == null ? null : f(x)`
 /// and `x == null ? d : f(x)`. A null-aware chain (`x?.length`) or `x?.let(f)`
-/// from `lib/src/extensions.dart`, with `?? d` for a fallback, says the same
-/// in one expression.
+/// from `lib/src/extensions.dart`, with `?? d` for a fallback other than
+/// `null`, says the same in one expression.
 class PreferLet() extends AnalysisRule {
   this : super(name: code.lowerCaseName, description: code.problemMessage);
 
@@ -76,8 +76,8 @@ typedef LetShape = ({
 
 /// [node]'s [LetShape], or `null` when it is not one.
 ///
-/// A switch qualifies with a null arm, `null => null` or a trailing
-/// `_ => null`, and a value arm binding the non-null value: `final v?`, or a
+/// A switch qualifies with a null arm, `null => d` or a trailing `_ => d`,
+/// and a value arm binding the non-null value: `final v?`, or a
 /// plain `final v` once the null arm has matched null first, or `final T v`
 /// when `T` is just the target's own type made non-nullable, which is the
 /// same check. A conditional qualifies when it compares a local variable or
@@ -90,16 +90,19 @@ LetShape? letShapeOf(Expression node, TypeSystem typeSystem) => switch (node) {
 
 LetShape? _switchShape(SwitchExpression node, TypeSystem typeSystem) {
   final target = node.expression;
-  final (value, nullFirst) = switch (node.cases) {
+  final (value, nothing, nullFirst) = switch (node.cases) {
     [final value, final nothing] when _isNullArm(nothing, wildcardOk: true) => (
       value,
+      nothing,
       false,
     ),
     [final nothing, final value] when _isNullArm(nothing, wildcardOk: false) =>
-      (value, true),
-    _ => (null, false),
+      (value, nothing, true),
+    _ => (null, null, false),
   };
-  if (value == null || value.guardedPattern.whenClause != null) {
+  if (value == null ||
+      nothing == null ||
+      value.guardedPattern.whenClause != null) {
     return null;
   }
   final variable = switch (value.guardedPattern.pattern) {
@@ -121,7 +124,7 @@ LetShape? _switchShape(SwitchExpression node, TypeSystem typeSystem) {
     variable: variable.name.lexeme,
     type: variable.type,
     body: value.expression,
-    fallback: null,
+    fallback: nothing.expression is NullLiteral ? null : nothing.expression,
   );
 }
 
@@ -140,7 +143,6 @@ bool _justNonNull(
 }
 
 bool _isNullArm(SwitchExpressionCase arm, {required bool wildcardOk}) =>
-    arm.expression is NullLiteral &&
     arm.guardedPattern.whenClause == null &&
     switch (arm.guardedPattern.pattern) {
       ConstantPattern(expression: NullLiteral()) => true,
