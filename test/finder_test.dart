@@ -1305,6 +1305,7 @@ void main() {
         'platform_web.dart:conditionalWebOnly',
         'platform_web.dart:ConditionalPlatform._unusedWebOnly',
         'platform_web.dart:extension on String',
+        'unrelated.dart:conditionalIsWeb',
         'web_label.dart:deadWebLabel',
       });
     });

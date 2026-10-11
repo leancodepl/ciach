@@ -117,7 +117,8 @@ final class ConditionalImports {
     return (candidates: kept, refsByCandidate: keptRefs);
   }
 
-  /// The indices of each candidate's namesakes among the [candidates].
+  /// The indices of each candidate's namesakes: the [candidates] with the same
+  /// pairing name in one of its [counterpartFilesOf].
   List<List<int>> _namesakes(List<Candidate> candidates, List<String?> names) {
     final byName = <String, List<int>>{};
     for (final (i, name) in names.indexed) {
