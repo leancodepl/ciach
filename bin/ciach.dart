@@ -13,6 +13,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/args.dart';
+import 'package:ciach/src/cli/ci.dart';
 import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/console.dart';
 import 'package:ciach/src/cli/options.dart';
@@ -29,6 +30,9 @@ import 'package:config/config.dart';
 final _log = Logger('ciach.cli');
 
 final _console = Console.standard();
+
+/// The CI service the environment says this run is on, if any.
+final _detectedCi = CiRunner.detect(Platform.environment);
 
 Future<void> main(List<String> arguments) async {
   final logging = _console.attach();
@@ -95,6 +99,7 @@ ${usage(parser)}''');
     verbose: resolved.verbose,
   );
   describeConfigSource(config, projectDir: projectDir).forEach(_log.config);
+  describeCi(resolved, detected: _detectedCi).forEach(_log.config);
 
   final rootDir = Directory(resolved.rootPath);
   if (!rootDir.existsSync()) {
@@ -262,6 +267,7 @@ _loadOptions(
       configuration,
       // Progress goes to stderr, so default it on only for a terminal.
       progressDefault: _console.errIsTerminal,
+      detectedCi: _detectedCi,
     );
     return (config: config, configuration: configuration, resolved: resolved);
   } on UsageException catch (e) {

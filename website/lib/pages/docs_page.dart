@@ -22,7 +22,7 @@ $ ciach --remove                         # delete findings, asks first''';
 
 const _workflow = '''
 - run: dart pub get
-- run: dart run ciach -f github --set-exit-if-changed''';
+- run: dart run ciach''';
 
 const _config = '''
 # ciach.yaml — every option, keyed by its long name minus the "--".
@@ -508,13 +508,21 @@ class DocsPage extends StatelessComponent {
               children: [
                 p([
                   .text(
-                    'Each finding becomes an annotation on the diff, and the '
-                    'job fails when anything is found. Run from the repository '
-                    'root so paths resolve. For a library whose public API is '
-                    'legitimately unused from the inside, add ',
+                    'ciach detects CI from the environment. On a runner, the '
+                    'job fails when anything is found, the log explains the run, '
+                    'and on GitHub Actions each finding becomes an annotation '
+                    'on the diff, as if ',
+                  ),
+                  code([.text('-f github --set-exit-if-changed -v')]),
+                  .text(
+                    ' were given. Run from the repository root so paths '
+                    'resolve. For a library whose public API is legitimately '
+                    'unused from the inside, add ',
                   ),
                   code([.text('--no-fail-public')]),
-                  .text('.'),
+                  .text('; '),
+                  code([.text('--no-ci')]),
+                  .text(' keeps the local defaults.'),
                 ]),
                 CodeBlock(
                   source: _workflow,

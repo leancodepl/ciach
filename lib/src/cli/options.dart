@@ -1,6 +1,7 @@
 import 'package:args/args.dart';
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/args.dart';
+import 'package:ciach/src/cli/ci.dart';
 import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:config/config.dart';
@@ -30,6 +31,7 @@ class ResolvedOptions {
     required this.transitive,
     required this.entryPoints,
     required this.setExitIfChanged,
+    required this.ci,
     required this.remove,
     required this.force,
     required this.format,
@@ -73,17 +75,29 @@ class ResolvedOptions {
 
   /// The project's own entry points, from `entry-points` in the config file.
   final List<EntryPoint> entryPoints;
+
+  /// Whether findings fail the run. On by default on [ci].
   final bool setExitIfChanged;
+
+  /// The CI service the run is on, or `null` for a local run: `--ci` if given,
+  /// else what the environment says.
+  final CiRunner? ci;
   final bool remove;
   final bool force;
+
+  /// The output format; `github` by default on GitHub Actions.
   final String format;
 
   /// `--color`/`--no-color`, or `null` for auto.
   final bool? color;
 
   /// Whether to show scan progress. Always `false` when [verbose] is set, whose
-  /// durable lines the overwriting progress line would fight with.
+  /// durable lines the overwriting progress line would fight with, and off by
+  /// default on [ci], whose log keeps every overwrite.
   final bool showProgress;
+
+  /// Whether to narrate the run on stderr. On by default on [ci], where the
+  /// log is all there is to go on afterwards.
   final bool verbose;
   final int concurrency;
   final String? dartExecutable;
@@ -129,15 +143,26 @@ CiachConfiguration resolveConfiguration(ArgResults args, ConfigFile config) =>
       configBroker: config,
     );
 
-/// The settings of [configuration]; [progressDefault] applies when progress
-/// is unset.
+/// The settings of [configuration]. [detectedCi] is the service the environment
+/// says the run is on; `--ci` and `--no-ci` overrule it. [progressDefault]
+/// applies when progress is unset, outside CI.
 ResolvedOptions resolveOptions(
   CiachConfiguration configuration, {
   required bool progressDefault,
+  required CiRunner? detectedCi,
 }) {
-  final verbose = configuration.value(CiachOption.verbose);
   final rootPath = configuration.value(CiachOption.path);
   final projectConfig = configuration.value(CiachOption.projectConfig);
+  final ci = switch (configuration.optionalValue(CiachOption.ci)) {
+    null => detectedCi,
+    true => detectedCi ?? .other,
+    false => null,
+  };
+  final defaults = ci?.defaults;
+  final verbose =
+      configuration.optionalValue(CiachOption.verbose) ??
+      defaults?.verbose ??
+      false;
 
   return .new(
     rootPath: rootPath,
@@ -165,14 +190,23 @@ ResolvedOptions resolveOptions(
     reportToJson: configuration.value(CiachOption.reportToJson),
     transitive: configuration.value(CiachOption.transitive),
     entryPoints: configuration.value(CiachOption.entryPoints),
-    setExitIfChanged: configuration.value(CiachOption.setExitIfChanged),
+    setExitIfChanged:
+        configuration.optionalValue(CiachOption.setExitIfChanged) ??
+        defaults?.setExitIfChanged ??
+        false,
+    ci: ci,
     remove: configuration.value(CiachOption.remove),
     force: configuration.value(CiachOption.force),
-    format: configuration.value(CiachOption.format),
+    format:
+        configuration.optionalValue(CiachOption.format) ??
+        defaults?.format ??
+        formatNames.first,
     color: configuration.optionalValue(CiachOption.color),
     showProgress:
         !verbose &&
-        (configuration.optionalValue(CiachOption.progress) ?? progressDefault),
+        (configuration.optionalValue(CiachOption.progress) ??
+            defaults?.showProgress ??
+            progressDefault),
     verbose: verbose,
     concurrency: configuration.value(CiachOption.concurrency),
     dartExecutable: configuration.optionalValue(CiachOption.dart),

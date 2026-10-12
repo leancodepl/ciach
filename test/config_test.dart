@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/args.dart';
+import 'package:ciach/src/cli/ci.dart';
 import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/options.dart';
 import 'package:config/config.dart';
@@ -11,15 +12,17 @@ import 'package:test/test.dart';
 void main() {
   final parser = buildParser();
 
-  /// Resolves [arguments] against [config], the terminal-probed defaults given
-  /// explicitly so no test depends on the terminal it runs in.
+  /// Resolves [arguments] against [config], the environment-probed defaults
+  /// given explicitly so no test depends on the terminal or CI it runs in.
   ResolvedOptions resolveWith(
     List<String> arguments,
     ConfigFile config, {
     required bool progressDefault,
+    CiRunner? detectedCi,
   }) => resolveOptions(
     resolveConfiguration(parser.parse(arguments), config),
     progressDefault: progressDefault,
+    detectedCi: detectedCi,
   );
 
   /// As above, with progress off unless asked for.
@@ -562,6 +565,136 @@ dart: /sdk/bin/dart
       );
       expect(fromArgs.color, isFalse);
       expect(fromArgs.showProgress, isFalse);
+    });
+
+    group('CI', () {
+      test('turns on set-exit-if-changed and off progress', () {
+        final local = resolveWith(
+          const [],
+          const .empty(),
+          progressDefault: true,
+        );
+        expect(local.ci, isNull);
+        expect(local.setExitIfChanged, isFalse);
+        expect(local.verbose, isFalse);
+        expect(local.showProgress, isTrue);
+        expect(local.format, 'text');
+
+        final onCi = resolveWith(
+          const [],
+          const .empty(),
+          progressDefault: true,
+          detectedCi: .gitlab,
+        );
+        expect(onCi.ci, CiRunner.gitlab);
+        expect(onCi.setExitIfChanged, isTrue);
+        expect(onCi.verbose, isTrue);
+        expect(onCi.showProgress, isFalse);
+        // Only GitHub Actions has an annotation format.
+        expect(onCi.format, 'text');
+      });
+
+      test('on GitHub Actions, the format defaults to github', () {
+        final resolved = resolveWith(
+          const [],
+          const .empty(),
+          progressDefault: false,
+          detectedCi: .githubActions,
+        );
+        expect(resolved.format, 'github');
+      });
+
+      test('an explicit value beats the CI default', () {
+        final fromArgs = resolveWith(
+          const [
+            '--no-set-exit-if-changed',
+            '--no-verbose',
+            '--progress',
+            '-f',
+            'json',
+          ],
+          const .empty(),
+          progressDefault: false,
+          detectedCi: .githubActions,
+        );
+        expect(fromArgs.ci, CiRunner.githubActions);
+        expect(fromArgs.setExitIfChanged, isFalse);
+        expect(fromArgs.verbose, isFalse);
+        expect(fromArgs.showProgress, isTrue);
+        expect(fromArgs.format, 'json');
+
+        final fromConfig = resolveWith(
+          const [],
+          .parse('''
+set-exit-if-changed: false
+verbose: false
+progress: true
+format: text''', origin: 'c.yaml'),
+          progressDefault: false,
+          detectedCi: .githubActions,
+        );
+        expect(fromConfig.setExitIfChanged, isFalse);
+        expect(fromConfig.verbose, isFalse);
+        expect(fromConfig.showProgress, isTrue);
+        expect(fromConfig.format, 'text');
+      });
+
+      test('--no-ci keeps the local defaults on a runner', () {
+        for (final resolved in [
+          resolveWith(
+            const ['--no-ci'],
+            const .empty(),
+            progressDefault: true,
+            detectedCi: .githubActions,
+          ),
+          resolveWith(
+            const [],
+            .parse('ci: false', origin: 'c.yaml'),
+            progressDefault: true,
+            detectedCi: .githubActions,
+          ),
+        ]) {
+          expect(resolved.ci, isNull);
+          expect(resolved.setExitIfChanged, isFalse);
+          expect(resolved.verbose, isFalse);
+          expect(resolved.showProgress, isTrue);
+          expect(resolved.format, 'text');
+        }
+      });
+
+      test('--ci applies the CI defaults anywhere', () {
+        final forced = resolveWith(
+          const ['--ci'],
+          const .empty(),
+          progressDefault: true,
+        );
+        expect(forced.ci, CiRunner.other);
+        expect(forced.setExitIfChanged, isTrue);
+        expect(forced.verbose, isTrue);
+        expect(forced.showProgress, isFalse);
+        expect(forced.format, 'text');
+
+        // On a known service, --ci only confirms it.
+        final confirmed = resolveWith(
+          const ['--ci'],
+          const .empty(),
+          progressDefault: false,
+          detectedCi: .githubActions,
+        );
+        expect(confirmed.ci, CiRunner.githubActions);
+        expect(confirmed.format, 'github');
+
+        // The command line beats a config file's opt-out.
+        expect(
+          resolveWith(
+            const ['--ci'],
+            .parse('ci: false', origin: 'c.yaml'),
+            progressDefault: false,
+            detectedCi: .githubActions,
+          ).ci,
+          CiRunner.githubActions,
+        );
+      });
     });
 
     test('verbose comes from the command line or the config', () {

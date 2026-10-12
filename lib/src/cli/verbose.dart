@@ -1,4 +1,5 @@
 import 'package:ciach/src/cli/args.dart';
+import 'package:ciach/src/cli/ci.dart';
 import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/options.dart';
 import 'package:ciach/src/models.dart';
@@ -43,6 +44,33 @@ List<String> describeConfigSource(
     ],
   ];
 }
+
+/// The `--verbose` account of CI detection: the service [resolved] settled on,
+/// how, and the defaults that changes; or the variable `--no-ci` overruled.
+/// Nothing for a plain local run. [detected] is what the environment said.
+List<String> describeCi(
+  ResolvedOptions resolved, {
+  required CiRunner? detected,
+}) {
+  final ci = resolved.ci;
+  if (ci == null) {
+    return [
+      if (detected != null)
+        'Treating the run as local (--no-ci), although ${detected.variable} is set.',
+    ];
+  }
+  final how = ci == detected ? '${ci.variable} is set' : '--ci';
+  final defaults = ci.defaults;
+  final changes = [
+    '--set-exit-if-changed defaults to ${_onOff(defaults.setExitIfChanged)}',
+    '--verbose to ${_onOff(defaults.verbose)}',
+    'progress to ${_onOff(defaults.showProgress)}',
+    if (defaults.format case final format?) '--format to $format',
+  ];
+  return ['On ${ci.label} ($how): ${changes.join(', ')}.'];
+}
+
+String _onOff(bool value) => value ? 'on' : 'off';
 
 /// The `--verbose` rundown of the run's settings: one line per config key, each
 /// naming the layer its value came from.
@@ -101,6 +129,7 @@ String _setting(
   .reportToJson => '${resolved.reportToJson}',
   .transitive => '${resolved.transitive}',
   .setExitIfChanged => '${resolved.setExitIfChanged}',
+  .ci => '${resolved.ci != null}',
   .remove => '${resolved.remove}',
   .force => '${resolved.force}',
   .exclude => _value(resolved.excludeGlobs),

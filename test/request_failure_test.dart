@@ -154,6 +154,8 @@ exec ${_quoted(Platform.resolvedExecutable)} ${_quoted(proxy.path)} "\$@"
           p.join('bin', 'ciach.dart'),
           packagePath,
           '--no-progress',
+          // A local run, whatever CI the test itself is on.
+          '--no-ci',
           '--dart',
           dart,
           ...args,

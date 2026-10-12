@@ -37,7 +37,8 @@ const kindAliases = <String, SymbolKind>{
 /// The `--kinds` alias names, sorted, for help text and error messages.
 String get kindNames => kindAliases.keys.sorted().join(', ');
 
-/// The accepted `--format` values; the first one is the default.
+/// The accepted `--format` values; the first one is the default, except on
+/// GitHub Actions, where it is `github`.
 const formatNames = ['text', 'json', 'github'];
 
 /// The `entry-points` list of `{name, glob}` rules. It has no command-line
@@ -239,10 +240,16 @@ enum CiachOption<V> implements OptionDefinition<V> {
     FlagOption(
       argName: 'set-exit-if-changed',
       configKey: '/set-exit-if-changed',
-      negatable: false,
-      defaultsTo: false,
       helpText:
-          'Exit with a non-zero status when any unused declaration or empty file is found (useful in CI).',
+          'Exit with a non-zero status when any unused declaration or empty file is found. On by default in CI.',
+    ),
+  ),
+  ci(
+    FlagOption(
+      argName: 'ci',
+      configKey: '/ci',
+      helpText:
+          'Assume CI: --set-exit-if-changed and --verbose default to on, progress to off, and --format to github on GitHub Actions. Detected from CI, GITHUB_ACTIONS and the like; explicit options still win.',
     ),
   ),
   remove(
@@ -333,8 +340,8 @@ enum CiachOption<V> implements OptionDefinition<V> {
       argAbbrev: 'f',
       configKey: '/format',
       allowedValues: formatNames,
-      defaultsTo: 'text',
-      helpText: 'Output format.',
+      helpText:
+          'Output format. Defaults to github on GitHub Actions, text elsewhere.',
       allowedHelp: {
         'text': 'Human-readable, grouped by file.',
         'json': 'Machine-readable JSON.',
@@ -362,9 +369,8 @@ enum CiachOption<V> implements OptionDefinition<V> {
       argName: 'verbose',
       argAbbrev: 'v',
       configKey: '/verbose',
-      defaultsTo: false,
       helpText:
-          'Explain what is happening on stderr: which config file was used and what it set, the settings the run ended up with, each scan phase as it starts, and what --remove touches. Supersedes --progress, whose single overwriting line would fight with it.',
+          'Explain what is happening on stderr: the config file and what it set, the resolved settings, each scan phase, and what --remove touches. Supersedes --progress. On by default in CI.',
     ),
   ),
   concurrency(
@@ -465,8 +471,9 @@ Examples:
   # Ignore the package's config file for one run
   ciach --no-config
 
-  # GitHub Actions annotations, fail the job if anything is found
-  ciach -f github --set-exit-if-changed
+  # In CI, --set-exit-if-changed and --verbose are on by default, and on GitHub
+  # Actions each finding is an annotation; spelled out, the same works anywhere
+  ciach -f github --set-exit-if-changed -v
 
   # Remove what's found, after confirming
   ciach --remove
