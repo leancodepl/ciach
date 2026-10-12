@@ -141,6 +141,11 @@ const _skips = [
     null,
   ),
   (
+    '// ciach:ignore markers',
+    'On the line before a declaration or after it, around a range with `ciach:ignore-start` and `ciach:ignore-end`, or for a whole file with `ciach:ignore-file`.',
+    null,
+  ),
+  (
     "@pragma('vm:entry-point'), @JSExport, @reflectiveTest",
     'Reachable from native code, reflection or JavaScript.',
     null,
@@ -727,7 +732,7 @@ class DocsPage extends StatelessComponent {
                   ),
                   li(
                     rich(
-                      "Entry points that the project config does not declare have to be listed under `entry-points` in ciach.yaml or marked with `@pragma('vm:entry-point')`.",
+                      "Entry points that the project config does not declare have to be listed under `entry-points` in ciach.yaml, marked with `@pragma('vm:entry-point')`, or kept with a `// ciach:ignore` comment.",
                     ),
                   ),
                   li(

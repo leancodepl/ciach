@@ -7,6 +7,7 @@ import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/conventions/js_interop.dart';
 import 'package:ciach/src/conventions/test_reflective_loader.dart';
 import 'package:ciach/src/extensions.dart';
+import 'package:ciach/src/ignore_markers.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
@@ -59,10 +60,11 @@ final class CandidateCollector {
   /// Skipped as entry points this run, for `--verbose`.
   final _skippedEntryPoints = <_SkippedEntryPoint>[];
 
-  /// Types whose member is an entry point, by `(relative path, type name)`:
-  /// the generated call that reaches `MyPlugin.registerWith` names `MyPlugin`
-  /// too, so the type is not a candidate either.
-  final _entryPointContainers = <DeclKey, EntryPoint>{};
+  /// Why each type whose member is an entry point or kept by a marker is not
+  /// a candidate, by `(relative path, type name)`: the generated call that
+  /// reaches `MyPlugin.registerWith` names `MyPlugin` too, and removing the
+  /// type would take the kept member with it.
+  final _entryPointContainers = <DeclKey, String>{};
 
   /// The declarations of the open file [path] worth checking.
   Future<List<Candidate>> collect(
@@ -94,6 +96,7 @@ final class CandidateCollector {
       declaredInVariants[path] = ConditionalImports.pairingNames(symbols);
     }
     final relativePath = relativePosix(path, rootPath);
+    final markers = _Markers(IgnoreMarkers.parse(_sources.content(path)));
     // The whole walk has to run before the filter: it records the entry-point
     // containers the filter drops, and a container comes before its members.
     final candidates = _collect(
@@ -106,7 +109,9 @@ final class CandidateCollector {
       null,
       false,
       _OutlineIndex(outline),
+      markers,
     ).toList();
+    markers.warnAbout(relativePath);
     return _withoutEntryPointContainers(candidates, relativePath).toList();
   }
 
@@ -137,11 +142,11 @@ final class CandidateCollector {
   ) sync* {
     for (final candidate in candidates) {
       final symbol = candidate.symbol;
-      final rule =
+      final reason =
           candidate.container == null && typeLikeKinds.contains(symbol.kind)
           ? _entryPointContainers[DeclKey(relativePath, symbol.name)]
           : null;
-      if (rule == null) {
+      if (reason == null) {
         yield candidate;
         continue;
       }
@@ -149,12 +154,7 @@ final class CandidateCollector {
         path: relativePath,
         line: symbol.selectionRange.start.line + 1,
         name: symbol.name,
-        reason:
-            rule.superclass?.let(
-              (superclass) =>
-                  'extends `$superclass`, so its public methods are entry points',
-            ) ??
-            'declares the entry point ${rule.name}',
+        reason: reason,
       ));
     }
   }
@@ -174,26 +174,18 @@ final class CandidateCollector {
     _ExportedMembers? containerExports,
     bool parentIsEnum,
     _OutlineIndex outlines,
+    _Markers markers,
   ) sync* {
-    // A field statement's doc comment, annotations and modifiers sit on its
-    // first declarator, so a later one (`b` in `@override final int a, b;`)
-    // reads that statement's instead of its own, which are empty.
-    var statementMetadata = const <SemanticToken>[];
+    final statement = _Statement();
     for (final (symbol, outline) in _declarations(
       relativePath,
       symbols,
       outlines,
     )) {
-      final ownMetadata = _sources.leadingMetadata(path, outline);
-      final isField = outline.element.kind == .field;
-      final continuesStatement =
-          isField && outline.range.start == outline.codeRange.start;
-      final leadingMetadata = continuesStatement
-          ? statementMetadata
-          : ownMetadata;
-      statementMetadata = isField && !continuesStatement
-          ? ownMetadata.toList()
-          : const [];
+      final (:leadingMetadata, :start) = statement.next(
+        outline,
+        _sources.leadingMetadata(path, outline),
+      );
       _freezed.noteIfAnnotated(path, symbol, leadingMetadata);
       final candidate = Candidate(
         uri: uri,
@@ -209,11 +201,13 @@ final class CandidateCollector {
         ),
       );
       final exports = _exportsOf(symbol, leadingMetadata) ?? containerExports;
-      if (_shouldConsider(
+      if (_isCandidate(
         relativePath,
         candidate,
         leadingMetadata,
         containerExports: containerExports,
+        markers: markers,
+        start: start,
       )) {
         yield candidate;
       }
@@ -233,6 +227,7 @@ final class CandidateCollector {
         exports,
         symbol.kind == .enum$,
         outlines,
+        markers,
       );
     }
   }
@@ -368,7 +363,12 @@ final class CandidateCollector {
       ),
     );
     if (rule != null && container != null) {
-      _entryPointContainers[DeclKey(relativePath, container)] ??= rule;
+      _entryPointContainers[DeclKey(relativePath, container)] ??=
+          rule.superclass?.let(
+            (superclass) =>
+                'extends `$superclass`, so its public methods are entry points',
+          ) ??
+          'declares the entry point ${rule.name}';
     }
     final reason =
         rule?.reason ??
@@ -384,6 +384,50 @@ final class CandidateCollector {
       reason: reason,
     ));
     return true;
+  }
+
+  /// Returns whether [candidate], whose doc comment and annotations start on
+  /// line [start], is checked: neither kept by one of [markers] nor left out.
+  bool _isCandidate(
+    String relativePath,
+    Candidate candidate,
+    Iterable<SemanticToken> leadingMetadata, {
+    required _ExportedMembers? containerExports,
+    required _Markers markers,
+    required int start,
+  }) {
+    final kept = markers.keeping(
+      start: start,
+      nameLine: candidate.symbol.selectionRange.start.line,
+    );
+    if (kept != null) {
+      _keep(relativePath, candidate, kept);
+      return false;
+    }
+    return _shouldConsider(
+      relativePath,
+      candidate,
+      leadingMetadata,
+      containerExports: containerExports,
+    );
+  }
+
+  /// Records [candidate] as kept by the marker [kept], and its type too.
+  void _keep(String relativePath, Candidate candidate, MarkerAt kept) {
+    final symbol = candidate.symbol;
+    final container = candidate.container;
+    final name = symbol.declarationName(container);
+    final qualified = container?.let((container) => '$container.$name') ?? name;
+    if (container != null) {
+      _entryPointContainers[DeclKey(relativePath, container)] ??=
+          'declares $qualified, kept by `// ${kept.marker}`';
+    }
+    _skippedEntryPoints.add((
+      path: relativePath,
+      line: symbol.selectionRange.start.line + 1,
+      name: qualified,
+      reason: 'kept by `// ${kept.marker}` on line ${kept.line + 1}',
+    ));
   }
 
   /// Returns whether the references to [candidate] should be checked.
@@ -442,6 +486,76 @@ final class CandidateCollector {
       return false;
     }
     return true;
+  }
+}
+
+/// The statement a walk is in, for the declarators after the first.
+///
+/// A field statement's doc comment, annotations and modifiers sit on its first
+/// declarator, so a later one (`b` in `@override final int a, b;`) reads that
+/// statement's instead of its own, which are empty. Likewise, a marker above
+/// the statement keeps every declarator.
+final class _Statement {
+  var _metadata = const <SemanticToken>[];
+  var _start = 0;
+
+  /// The leading metadata of the declaration [outline], whose own is
+  /// [ownMetadata], and the line its statement starts on.
+  ({Iterable<SemanticToken> leadingMetadata, int start}) next(
+    Outline outline,
+    Iterable<SemanticToken> ownMetadata,
+  ) {
+    final isField = outline.element.kind == .field;
+    if (isField && outline.range.start == outline.codeRange.start) {
+      final metadata = _metadata;
+      _metadata = const [];
+      return (leadingMetadata: metadata, start: _start);
+    }
+    _metadata = isField ? ownMetadata.toList() : const [];
+    _start = outline.range.start.line;
+    return (leadingMetadata: ownMetadata, start: _start);
+  }
+}
+
+/// The markers of one file, and which of them kept a declaration.
+final class _Markers {
+  _Markers(this._markers);
+
+  final IgnoreMarkers _markers;
+  final _used = <MarkerAt>{};
+
+  /// The marker keeping the declaration that starts on [start] and is named
+  /// on [nameLine]; see [IgnoreMarkers.keeping].
+  MarkerAt? keeping({required int start, required int nameLine}) {
+    if (_markers.isEmpty) {
+      return null;
+    }
+    final kept = _markers.keeping(start: start, nameLine: nameLine);
+    if (kept != null) {
+      _used.add(kept);
+    }
+    return kept;
+  }
+
+  /// Warns about the malformed markers in the file at [relativePath], and
+  /// those that kept nothing.
+  void warnAbout(String relativePath) {
+    final warnings = [
+      ..._markers.issues,
+      for (final marker in _markers.all)
+        if (!_used.contains(marker))
+          (
+            line: marker.line,
+            message: switch (marker.marker) {
+              ignoreMarker =>
+                '`// $ignoreMarker` keeps no declaration: on a line of its own it applies to the declaration on the next line, after code to the one named on its line',
+              _ => 'the `// ${marker.marker}` range keeps no declaration',
+            },
+          ),
+    ]..sort((a, b) => a.line.compareTo(b.line));
+    for (final (:line, :message) in warnings) {
+      _log.warning('$relativePath:${line + 1}: $message.');
+    }
   }
 }
 

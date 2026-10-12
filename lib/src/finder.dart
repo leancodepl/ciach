@@ -18,6 +18,7 @@ import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/directives.dart';
 import 'package:ciach/src/file_discovery.dart';
+import 'package:ciach/src/ignore_markers.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/member_probe.dart';
@@ -135,6 +136,11 @@ class Ciach {
     _log.info(
       'Discovered ${plural(files.length, 'Dart file', 'Dart files')} to scan.',
     );
+    for (final path in discovered.ignored) {
+      _log.fine(
+        'Skipped ${relativePosix(path, rootPath)}: marked `// $ignoreFileMarker`.',
+      );
+    }
 
     if (files.isEmpty) {
       return .new(

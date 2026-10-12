@@ -12,6 +12,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:ciach/src/ignore_markers.dart';
 import 'package:ciach/src/models.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
@@ -41,9 +42,13 @@ typedef DiscoveredDartFiles = ({
 
   /// Generated files excluded from [candidates] but still opened to keep the
   /// analysis server's units warm, so a declaration referenced *only* from
-  /// generated code isn't misreported as unused. Empty when generated files
-  /// are themselves candidates.
+  /// generated code isn't misreported as unused. Files marked
+  /// `// ciach:ignore-file` are among them, even when generated files are
+  /// candidates.
   List<String> warmOnly,
+
+  /// The files of [warmOnly] that a `// ciach:ignore-file` marker put there.
+  List<String> ignored,
 });
 
 /// Discovers the `.dart` files under the configured root that should be
@@ -73,6 +78,7 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
 
   final candidates = <String>[];
   final warmOnly = <String>[];
+  final ignored = <String>[];
   for (final entity in root.listSync(recursive: true, followLinks: false)) {
     if (entity is! File || !entity.path.endsWith('.dart')) {
       continue;
@@ -97,11 +103,12 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
       warmOnly.add(absolute);
       continue;
     }
-    if (includeGlobs.isNotEmpty &&
-        !includeGlobs.any((glob) => glob.matches(relative))) {
+    if (!_isSelected(relative, includeGlobs, excludeGlobs)) {
       continue;
     }
-    if (excludeGlobs.any((glob) => glob.matches(relative))) {
+    if (_isIgnored(entity)) {
+      warmOnly.add(absolute);
+      ignored.add(absolute);
       continue;
     }
 
@@ -110,8 +117,15 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
 
   candidates.sort();
   warmOnly.sort();
-  return (candidates: candidates, warmOnly: warmOnly);
+  ignored.sort();
+  return (candidates: candidates, warmOnly: warmOnly, ignored: ignored);
 }
+
+/// Whether [relative] matches an [include] glob, when there are any, and no
+/// [exclude] glob.
+bool _isSelected(String relative, List<Glob> include, List<Glob> exclude) =>
+    (include.isEmpty || include.any((glob) => glob.matches(relative))) &&
+    !exclude.any((glob) => glob.matches(relative));
 
 List<Glob> _globs(List<String> patterns, p.Context context) => [
   for (final pattern in patterns) Glob(pattern, context: context),
@@ -119,6 +133,15 @@ List<Glob> _globs(List<String> patterns, p.Context context) => [
 
 bool isInSkippedDir(String relativePath) =>
     p.split(relativePath).any(_skippedDirs.contains);
+
+/// Whether a `// ciach:ignore-file` marker keeps the whole [file].
+bool _isIgnored(File file) {
+  try {
+    return IgnoreMarkers.parse(file.readAsStringSync()).ignoresFile;
+  } on FileSystemException {
+    return false;
+  }
+}
 
 bool _isGenerated(
   File file,
