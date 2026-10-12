@@ -253,9 +253,11 @@ An explicit option still wins. `--no-ci` keeps the local defaults on a runner,
 ```
 
 Each finding becomes a `::warning` annotation inline on the PR diff, and the job
-fails when anything is found. Run it from the repository root so paths resolve;
-when scanning a sub-package (`ciach app`), the scan path is prepended
-automatically.
+fails when anything is found. Paths start at the repository root, wherever ciach
+runs from: on GitHub Actions, GitLab CI and Azure Pipelines ciach finds the root
+in the checkout the service names (the outermost repository there, so a
+submodule maps to its superproject). Elsewhere they start at the current
+directory, so run ciach from the repository root; `ciach app` still works.
 
 For a library or workspace package whose public API is legitimately "unused"
 from its own perspective, add `--no-exported`, or `--no-fail-public` to still
@@ -275,7 +277,7 @@ only:
 On Azure Pipelines each finding becomes a warning in the run's summary
 (doc-only ones too: Azure has nothing below a warning). On TeamCity each one is
 an inspection on the build's Inspections tab, a doc-only one a weak warning.
-Paths resolve from the checkout root, as on GitHub Actions.
+On TeamCity, which names no checkout to ciach, run it from the checkout root.
 
 #### Reports for other tools
 

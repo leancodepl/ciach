@@ -518,9 +518,9 @@ class DocsPage extends StatelessComponent {
                   ),
                   code([.text('-f github --set-exit-if-changed -v')]),
                   .text(
-                    ' were given. Run from the repository root so paths '
-                    'resolve. For a library whose public API is legitimately '
-                    'unused from the inside, add ',
+                    ' were given, with paths from the repository root. For a '
+                    'library whose public API is legitimately unused from the '
+                    'inside, add ',
                   ),
                   code([.text('--no-fail-public')]),
                   .text('; '),

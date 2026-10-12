@@ -20,7 +20,7 @@ import 'package:test/test.dart';
 void main() {
   // Drives the real binary and asserts its exit code.
   final fixturePath = p.join(Directory.current.path, 'example');
-  final entrypoint = p.join('bin', 'ciach.dart');
+  final entrypoint = p.join(Directory.current.path, 'bin', 'ciach.dart');
 
   setUpAll(() async {
     // pub get first: the analyzer needs the fixture's package_config.json.
@@ -42,11 +42,16 @@ void main() {
   Future<ProcessResult> runCli(
     List<String> args, {
     Map<String, String> environment = const {},
+    String? workingDirectory,
   }) => Process.run(
     Platform.resolvedExecutable,
     ['run', entrypoint, fixturePath, '--no-progress', ...args],
+    workingDirectory: workingDirectory,
     environment: {
-      for (final runner in CiRunner.values) runner.variable: '',
+      for (final runner in CiRunner.values) ...{
+        runner.variable: '',
+        ?runner.checkoutVariable: '',
+      },
       ...environment,
     },
   );
@@ -123,6 +128,18 @@ void main() {
       expect(result.exitCode, 1, reason: '${result.stdout}\n${result.stderr}');
       expect(result.stdout, contains('::warning file='));
       expect(result.stdout, contains('UnusedClass'));
+    });
+
+    test('paths start at the checkout, wherever ciach runs from', () async {
+      final result = await runCli(
+        publicOnly,
+        environment: {
+          ...githubActions,
+          'GITHUB_WORKSPACE': p.dirname(fixturePath),
+        },
+        workingDirectory: fixturePath,
+      );
+      expect(result.stdout, contains('file=example/lib/orphans.dart,'));
     });
 
     test('--no-ci keeps the local defaults on GitHub Actions', () async {
