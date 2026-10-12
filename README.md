@@ -503,9 +503,10 @@ ciach pkgs/core --analysis-root .    # scan pkgs/core, count uses from the whole
   unaffected: private declarations stay library-scoped.
 
 A pub workspace needs no setting — the analyzer roots its context there already.
-Without one, ciach warns when a package in the same git repository depends on
-the scanned one by `path:` from outside the analysis root, and names the
-`--analysis-root` that would count it.
+Without one, `-v` (on by default in CI) notes a package in the same git
+repository that depends on the scanned one by `path:` from outside the analysis
+root, and names the `--analysis-root` that would count it. An explicit
+`--analysis-root`, even the scanned package's own path, silences it.
 
 ## Limitations
 

@@ -123,16 +123,18 @@ class Ciach {
     return problems.collect(() => _run(problems));
   }
 
-  /// Warns when packages outside [rootPath] depend on it by `path:`: their
-  /// uses are not counted, so what only they use reads as dead.
-  void _warnAboutPathDependents(String rootPath) {
+  /// Notes, for `-v`, the packages outside [rootPath] that depend on it by
+  /// `path:`: their uses are not counted, so what only they use reads as dead.
+  /// Not a warning, as scanning a package on its own can be the point; an
+  /// explicit --analysis-root, even the package itself, says it is.
+  void _notePathDependents(String rootPath) {
     final dependents = pathDependentsOutside(rootPath, rootPath);
     if (dependents.isEmpty) {
       return;
     }
     final common = commonAncestor([rootPath, ...dependents]);
-    _log.warning(
-      'Not counting uses in ${dependents.map(p.relative).join(', ')}, which depend on this package by `path:` from outside the analysis root, so what only they use reads as unused. --analysis-root ${p.relative(common)} counts them.',
+    _log.config(
+      'Not counting uses in ${dependents.map(p.relative).join(', ')}, which depend on this package by `path:` from outside the analysis root, so what only they use reads as unused. --analysis-root ${p.relative(common)} counts them; --analysis-root ${p.relative(rootPath)} says the package is meant to be scanned on its own.',
     );
   }
 
@@ -194,7 +196,7 @@ class Ciach {
       ]);
     }
     if (options.includePublic && options.analysisRootPath == null) {
-      _warnAboutPathDependents(rootPath);
+      _notePathDependents(rootPath);
     }
 
     _log.info('Starting Dart analysis server…');

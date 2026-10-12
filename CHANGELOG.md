@@ -1,22 +1,22 @@
 ## Unreleased
 
-- **Breaking:** ciach works out more from the project, with fewer options:
-  - `--exported` decides per package by default: the API other packages can
-    import is left out for a package that can be published, and checked for
-    one with `publish_to: none`.
-  - `--unused-translations` is on by default.
-  - `--also overrides,operators,tojson,union-members` replaces `--overrides`,
-    `--operators`, `--report-tojson` and `--unused-union-members`.
-  - `--fail-public` and `--generated-suffix` are removed; `--generated-glob`
-    covers a custom suffix.
-  - A removed option, on the command line or in `ciach.yaml`, is an error
-    that names what replaced it.
-  - A package an `analysis_options.yaml` loads as a plugin by `path:` has its
-    `plugin` entry point, and the files `flutterfire configure` wrote are
-    generated, read from `firebase.json` or by their banner.
-  - A warning names the `--analysis-root` to pass when a package in the same
-    git repository depends on the scanned one by `path:`.
-  - `--help` groups the options.
+- **Breaking:** `--overrides`, `--operators`, `--report-tojson` and
+  `--unused-union-members` are now one option, `--also`. `--fail-public` and
+  `--generated-suffix` are gone. Using a removed option is an error that says
+  what to use instead.
+  ([#105](https://github.com/leancodepl/ciach/pull/105))
+- By default, ciach leaves out the public API of a package that can be
+  published, and checks it in a package with `publish_to: none`.
+  ([#105](https://github.com/leancodepl/ciach/pull/105))
+- Unused translations are reported by default when an `l10n.yaml` is present.
+  ([#105](https://github.com/leancodepl/ciach/pull/105))
+- An analyzer plugin that `analysis_options.yaml` loads by path, and the files
+  that `flutterfire configure` writes, are no longer reported as unused.
+  ([#105](https://github.com/leancodepl/ciach/pull/105))
+- With `-v`, ciach suggests an `--analysis-root` when another package in the
+  repository uses the scanned one through a `path:` dependency.
+  ([#105](https://github.com/leancodepl/ciach/pull/105))
+- `--help` lists the options in groups.
   ([#105](https://github.com/leancodepl/ciach/pull/105))
 - If a class, enum, mixin or extension type is mentioned only in doc comments
   and has unused members, ciach now reports the type once, and `--remove`
