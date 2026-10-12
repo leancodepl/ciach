@@ -7,6 +7,7 @@
 import 'package:analysis_server_plugin/plugin.dart';
 import 'package:analysis_server_plugin/registry.dart';
 import 'package:ciach_lints/src/prefer_let.dart';
+import 'package:ciach_lints/src/prefer_multiline_string.dart';
 import 'package:ciach_lints/src/version_matches_pubspec.dart';
 
 final plugin = CiachLintsPlugin();
@@ -25,9 +26,11 @@ final class CiachLintsPlugin() extends Plugin {
         VersionMatchesPubspec.code,
         UpdateConstantVersion.new,
       )
+      ..registerFixForRule(VersionMatchesPubspec.code, UpdatePubspecVersion.new)
+      ..registerWarningRule(PreferMultilineString())
       ..registerFixForRule(
-        VersionMatchesPubspec.code,
-        UpdatePubspecVersion.new,
+        PreferMultilineString.code,
+        ConvertToMultilineString.new,
       );
   }
 }
