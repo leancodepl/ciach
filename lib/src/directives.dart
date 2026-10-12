@@ -50,7 +50,7 @@ extension type Directive._(RegExpMatch _match) {
 bool isDirectiveOnly(String content) {
   var i = skipCommentsAndWhitespace(content, 0);
   while (i < content.length) {
-    switch (_skipDirective(content, i)) {
+    switch (_skipInertDirective(content, i)) {
       case final end?:
         i = skipCommentsAndWhitespace(content, end);
       case null:
@@ -60,19 +60,20 @@ bool isDirectiveOnly(String content) {
   return true;
 }
 
-/// The index just past the `library`, `import` or `part of` directive at
-/// [from], or `null` when none starts there.
-int? _skipDirective(String content, int from) {
+/// The index just past the inert directive at [from], or `null` when none
+/// starts there. Inert ones pass nothing on: `library`, `import` and
+/// `part of`, unlike `export` and `part`.
+int? _skipInertDirective(String content, int from) {
   final keyword = _wordAt(content, from);
   final rest = skipCommentsAndWhitespace(content, from + keyword.length);
-  final isDirective = switch (keyword) {
+  final isInert = switch (keyword) {
     'library' => true,
     'import' =>
       rest < content.length && stringLiteralEnd(content, rest) != null,
     'part' => _wordAt(content, rest) == 'of',
     _ => false,
   };
-  return isDirective ? _statementEnd(content, rest) : null;
+  return isInert ? _statementEnd(content, rest) : null;
 }
 
 /// The index just past the first `;` at or after [from] outside comments and
