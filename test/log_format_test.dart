@@ -68,11 +68,20 @@ void main() {
 
   test('verbose lines up continuation lines under the message', () {
     const verbose = LogFormatter(verbose: true);
-    expect(verbose.line(record(.WARNING, 'first\n\nsecond'), elapsed), '''
+    expect(
+      verbose.line(
+        record(.WARNING, '''
+first
+
+second'''),
+        elapsed,
+      ),
+      '''
 [  1.2s] [finder]  warning: first
 
                    second
-''');
+''',
+    );
   });
 
   test('the progress line is dim', () {

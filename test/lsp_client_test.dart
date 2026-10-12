@@ -19,9 +19,12 @@ void main() {
   // A `dart` that complains and dies, like a compiled ciach spawned as its own
   // server did (#42).
   String fakeDart(String stderrText, int exitCode) {
-    final script = File(
-      p.join(tmp.path, 'dart'),
-    )..writeAsStringSync('#!/bin/sh\necho "$stderrText" >&2\nexit $exitCode\n');
+    final script = File(p.join(tmp.path, 'dart'))
+      ..writeAsStringSync('''
+#!/bin/sh
+echo "$stderrText" >&2
+exit $exitCode
+''');
     Process.runSync('chmod', ['+x', script.path]);
     return script.path;
   }
