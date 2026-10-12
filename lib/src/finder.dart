@@ -148,7 +148,7 @@ class Ciach {
 
     final Settled settled;
     final int declarationsChecked;
-    final List<String> emptyFiles;
+    final ({List<String> files, List<String> variants}) empty;
     try {
       if (analysisRoot != rootPath) {
         _log.config(
@@ -169,7 +169,7 @@ class Ciach {
         for (final path in [...discovered.warmOnly, ...files])
           if (_openFile(client, path)) path,
       };
-      emptyFiles = _emptyFiles(files.where(opened.contains));
+      empty = _emptyFiles(files.where(opened.contains));
 
       // Phase 1: collect candidate declarations, concurrently.
       _log.info(
@@ -223,29 +223,37 @@ class Ciach {
       filesScanned: files.length,
       declarationsChecked: declarationsChecked,
       elapsed: stopwatch.elapsed,
-      emptyFiles: emptyFiles,
+      emptyFiles: empty.files,
+      emptyVariants: empty.variants,
       recoveredReferences: settled.recovered,
       problems: problems.problems,
     );
   }
 
-  /// The [paths] with nothing but directives and comments, root-relative. A
-  /// conditional-import variant is chosen by a directive, and a file another
-  /// package can import may be imported there, so neither is listed.
-  List<String> _emptyFiles(Iterable<String> paths) {
+  /// The [paths] with nothing but directives and comments, root-relative,
+  /// split off the conditional-import variants. A file another package can
+  /// import may be imported there, so it is not listed.
+  ({List<String> files, List<String> variants}) _emptyFiles(
+    Iterable<String> paths,
+  ) {
     final empty = [
       for (final path in paths)
         if (isDirectiveOnly(_sources.content(path)) &&
-            !_conditionalImports.contains(path) &&
             !(_publicApi?.isImportable(path) ?? false))
-          relativePosix(path, options.rootPath),
+          path,
+    ];
+    List<String> relative(Iterable<String> paths) => [
+      for (final path in paths) relativePosix(path, options.rootPath),
     ];
     if (empty.isNotEmpty) {
       _log.fine(
-        'Found ${plural(empty.length, 'empty file', 'empty files')}, with $emptyFileContents: ${empty.join(', ')}.',
+        'Found ${plural(empty.length, 'empty file', 'empty files')}, with $emptyFileContents: ${relative(empty).join(', ')}.',
       );
     }
-    return empty;
+    return (
+      files: relative(empty.whereNot(_conditionalImports.contains)),
+      variants: relative(empty.where(_conditionalImports.contains)),
+    );
   }
 
   void _logDropped(Candidate candidate) => _log.fine(

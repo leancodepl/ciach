@@ -66,6 +66,7 @@ void use() => platform();
       'lib/zero.dart',
       'tool/scratch.dart',
     ]);
+    expect(result.emptyVariants, ['lib/web.dart']);
   });
 
   test(
@@ -73,6 +74,7 @@ void use() => platform();
     () async {
       final result = await run(includeExported: false);
       expect(result.emptyFiles, ['tool/scratch.dart']);
+      expect(result.emptyVariants, isEmpty);
     },
   );
 
@@ -96,6 +98,8 @@ import 'io.dart' if (dart.library.js_interop) 'web.dart';
 void use() => platform();
 ''');
     expect(exists('lib/web.dart'), isTrue);
-    expect((await run()).emptyFiles, isEmpty);
+    final again = await run();
+    expect(again.emptyFiles, isEmpty);
+    expect(again.emptyVariants, ['lib/web.dart']);
   });
 }

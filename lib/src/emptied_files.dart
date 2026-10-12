@@ -91,6 +91,10 @@ final _directiveOnly = RegExp(
 const emptyFileContents =
     'nothing but comments and library, import or part-of directives';
 
+/// Why `--remove` leaves an empty conditional-import variant, for reports.
+const emptyVariantNote =
+    'a conditional-import variant: remove its `if` clause and the file by hand';
+
 /// Whether [content] has nothing but comments and `library`, `import` or
 /// `part of` directives.
 bool isDirectiveOnly(String content) =>

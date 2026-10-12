@@ -472,6 +472,7 @@ class FinderResult {
     required this.declarationsChecked,
     required this.elapsed,
     this.emptyFiles = const [],
+    this.emptyVariants = const [],
     this.recoveredReferences = const [],
     this.problems = const [],
   });
@@ -490,11 +491,16 @@ class FinderResult {
   final List<UnusedDeclaration> docOnly;
 
   /// Scanned files with nothing in them but comments and `library`, `import`
-  /// or `part of` directives, as sorted root-relative `/`-paths. `--remove` deletes
-  /// them as it does the files it empties. A conditional-import variant, and
-  /// with [FinderOptions.includeExported] off a file other packages can
-  /// import, is never listed.
+  /// or `part of` directives, as sorted root-relative `/`-paths. `--remove`
+  /// deletes them as it does the files it empties. With
+  /// [FinderOptions.includeExported] off, a file other packages can import is
+  /// never listed.
   final List<String> emptyFiles;
+
+  /// Empty files, as in [emptyFiles], that a conditional import or export
+  /// chooses between. Report-only: deleting one means rewriting that
+  /// directive, which changes what another platform loads.
+  final List<String> emptyVariants;
 
   /// Whether there is anything `--remove` would act on.
   bool get hasFindings => unused.isNotEmpty || emptyFiles.isNotEmpty;

@@ -30,16 +30,22 @@ abstract final class Reporter {
     final buffer = StringBuffer();
     _writeDeclarations(buffer, result.unused, style);
 
-    if (result.emptyFiles.isNotEmpty) {
+    final empty = [...result.emptyFiles, ...result.emptyVariants].sorted();
+    if (empty.isNotEmpty) {
       _writeHeading(
         buffer,
         'Empty files',
-        result.emptyFiles.length,
+        empty.length,
         emptyFileContents,
         style,
       );
-      for (final file in result.emptyFiles) {
-        buffer.writeln(style.path(file));
+      final variants = result.emptyVariants.toSet();
+      for (final file in empty) {
+        buffer.writeln(
+          variants.contains(file)
+              ? '${style.path(file)}  ${style.caution('($emptyVariantNote)')}'
+              : style.path(file),
+        );
       }
       buffer.writeln();
     }
@@ -294,11 +300,13 @@ abstract final class Reporter {
         'unusedCount': result.unused.length,
         'docOnlyCount': result.docOnly.length,
         'emptyFileCount': result.emptyFiles.length,
+        'emptyVariantCount': result.emptyVariants.length,
         'elapsedMs': result.elapsed.inMilliseconds,
       },
       'unused': [for (final decl in result.unused) decl.toJson()],
       'docOnly': [for (final decl in result.docOnly) decl.toJson()],
       'emptyFiles': result.emptyFiles,
+      'emptyVariants': result.emptyVariants,
       'warnings': [for (final w in result.recoveredReferences) w.toJson()],
       'problems': [for (final problem in result.problems) problem.toJson()],
     });
@@ -339,6 +347,17 @@ abstract final class Reporter {
         level: 'warning',
         title: 'Empty file',
         message: 'Has $emptyFileContents',
+      );
+    }
+    for (final file in result.emptyVariants) {
+      _writeAnnotationRaw(
+        buffer,
+        _annotationFile(file, pathPrefix),
+        1,
+        1,
+        level: 'warning',
+        title: 'Empty file',
+        message: 'Has $emptyFileContents — $emptyVariantNote',
       );
     }
     for (final decl in result.docOnly) {
@@ -446,10 +465,9 @@ abstract final class Reporter {
       '${plural(result.declarationsChecked, 'declaration', 'declarations')}, ${seconds}s)',
     );
     final sections = [
-      if (result.emptyFiles.isNotEmpty)
-        style.attention(
-          plural(result.emptyFiles.length, 'empty file', 'empty files'),
-        ),
+      if (result.emptyFiles.length + result.emptyVariants.length
+          case final empty when empty > 0)
+        style.attention(plural(empty, 'empty file', 'empty files')),
       if (result.docOnly.isNotEmpty) '${result.docOnly.length} doc-only',
       if (result.recoveredReferences.isNotEmpty)
         style.caution('${result.recoveredReferences.length} recovered'),

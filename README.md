@@ -230,9 +230,15 @@ lib/legacy/helpers.dart
 Empty files count toward `--set-exit-if-changed`, get a `::warning` in
 `-f github`, and are listed under `emptyFiles` in `-f json`. `--remove` deletes
 them with the directives naming them, like the files it
-[empties itself](#removing-declarations). A variant of a conditional import is
-never reported, and with `--no-exported` neither is a file another package can
-import. To keep one, `--exclude` it.
+[empties itself](#removing-declarations). With `--no-exported`, a file another
+package can import is not reported. To keep one, `--exclude` it.
+
+An empty variant of a conditional import (`web.dart` in
+`import 'io.dart' if (dart.library.js_interop) 'web.dart';`) is reported too,
+marked `a conditional-import variant: remove its if clause and the file by
+hand`, and listed under `emptyVariants` in `-f json`. It counts like any empty
+file, but `--remove` leaves it: deleting it means dropping the `if` clause, so
+the other platform would load `io.dart` instead, which may not compile there.
 
 ### GitHub Actions
 

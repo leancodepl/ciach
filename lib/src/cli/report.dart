@@ -17,6 +17,12 @@ void logSummary(FinderResult result) {
     '${result.docOnly.length} referenced only from doc comments',
     if (result.emptyFiles.isNotEmpty)
       plural(result.emptyFiles.length, 'empty file', 'empty files'),
+    if (result.emptyVariants.isNotEmpty)
+      plural(
+        result.emptyVariants.length,
+        'empty conditional-import variant',
+        'empty conditional-import variants',
+      ),
     if (result.recoveredReferences.isNotEmpty)
       '${result.recoveredReferences.length} recovered',
     if (result.problems.isNotEmpty) '${result.problems.length} not analyzed',
@@ -58,14 +64,17 @@ void writeReport(
 }
 
 /// The exit code for [result]: 1 when `--set-exit-if-changed` and a counted
-/// finding or an empty file remain, else 0.
+/// finding or an empty file, conditional-import variants included, remain,
+/// else 0.
 int exitCodeFor(FinderResult result, ResolvedOptions resolved) {
   if (resolved.setExitIfChanged) {
     // Public findings are still reported; --no-fail-public only drops them from the exit code.
     final failing = resolved.failPublic
         ? result.unused
         : result.unused.where((d) => d.isPrivate);
-    if (failing.isNotEmpty || result.emptyFiles.isNotEmpty) {
+    if (failing.isNotEmpty ||
+        result.emptyFiles.isNotEmpty ||
+        result.emptyVariants.isNotEmpty) {
       return 1;
     }
   }

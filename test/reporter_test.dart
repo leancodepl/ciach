@@ -20,6 +20,7 @@ void main() {
     List<UnusedDeclaration> unused, {
     List<UnusedDeclaration> docOnly = const [],
     List<String> emptyFiles = const [],
+    List<String> emptyVariants = const [],
     List<RecoveredReference> recoveredReferences = const [],
     List<AnalysisProblem> problems = const [],
   }) => .new(
@@ -29,6 +30,7 @@ void main() {
     declarationsChecked: 10,
     elapsed: const .new(seconds: 1),
     emptyFiles: emptyFiles,
+    emptyVariants: emptyVariants,
     recoveredReferences: recoveredReferences,
     problems: problems,
   );
@@ -154,14 +156,17 @@ void main() {
       'emits a ::warning annotation on the first line of each empty file',
       () {
         final out = Reporter.github(
-          resultWith(const [], emptyFiles: ['lib/blank.dart']),
+          resultWith(
+            const [],
+            emptyFiles: ['lib/blank.dart'],
+            emptyVariants: ['lib/web.dart'],
+          ),
           pathPrefix: 'app',
         );
-        expect(
-          out,
-          '::warning file=app/lib/blank.dart,line=1,col=1,title=Empty file::'
-          'Has nothing but comments and library, import or part-of directives\n',
-        );
+        expect(out, '''
+::warning file=app/lib/blank.dart,line=1,col=1,title=Empty file::Has nothing but comments and library, import or part-of directives
+::warning file=app/lib/web.dart,line=1,col=1,title=Empty file::Has nothing but comments and library, import or part-of directives — a conditional-import variant: remove its `if` clause and the file by hand
+''');
       },
     );
 
@@ -337,12 +342,19 @@ lib/c.dart
       final json =
           jsonDecode(
                 Reporter.json(
-                  resultWith(const [], emptyFiles: ['lib/blank.dart']),
+                  resultWith(
+                    const [],
+                    emptyFiles: ['lib/blank.dart'],
+                    emptyVariants: ['lib/web.dart'],
+                  ),
                 ),
               )
               as Map<String, Object?>;
-      expect((json['summary']! as Map<String, Object?>)['emptyFileCount'], 1);
+      final summary = json['summary']! as Map<String, Object?>;
+      expect(summary['emptyFileCount'], 1);
+      expect(summary['emptyVariantCount'], 1);
       expect(json['emptyFiles'], ['lib/blank.dart']);
+      expect(json['emptyVariants'], ['lib/web.dart']);
     });
 
     test('warnings array is empty when there are no recovered references', () {
@@ -401,6 +413,7 @@ lib/c.dart
           ],
           docOnly: [decl(name: 'docOnly', line: 41)],
           emptyFiles: ['lib/blank.dart', 'lib/zero.dart'],
+          emptyVariants: ['lib/web.dart'],
           recoveredReferences: [warning()],
           problems: [
             problem(filePath: 'lib/b.dart', line: 65, column: 11),
@@ -423,8 +436,9 @@ lib/a.dart
   3:5   function  dangling  (public)
   18:5  function  _private  (private)
 
-Empty files (2) · nothing but comments and library, import or part-of directives
+Empty files (3) · nothing but comments and library, import or part-of directives
 lib/blank.dart
+lib/web.dart  (a conditional-import variant: remove its `if` clause and the file by hand)
 lib/zero.dart
 
 Referenced only from doc comments (1) · not counted, never removed
@@ -445,7 +459,7 @@ Not analyzed (2) · the analysis failed here
     lib/secret.dart
   Likely a Dart SDK bug; -v shows the stack traces.
 
-Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) · 2 empty files · 1 doc-only · 1 recovered · 2 not analyzed''',
+Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) · 3 empty files · 1 doc-only · 1 recovered · 2 not analyzed''',
       );
     });
 
