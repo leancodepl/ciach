@@ -452,8 +452,10 @@ class Catalog {                       // everything named in the range
 still count, but nothing in it is reported, removed or edited, as for a
 [generated](#generated-files-from-the-project-config) file.
 
-A kept declaration works like an [entry point](#entry-points): a kept member
-also keeps its type, while the type's other members are still checked. Free
+A marker on a member also keeps its type, which would otherwise be reported,
+and deleted by `--remove` with the member inside it; the type's other members
+are still checked. This works for every kind: enum values, constructors, and
+the members of mixins, extensions and extension types too. Free
 text may follow a marker, as a reason. A marker in a doc comment, a block
 comment or a string does nothing. ciach warns about a marker that keeps no
 declaration, such as one separated from it by a blank line, an unclosed
