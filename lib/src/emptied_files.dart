@@ -11,10 +11,9 @@ import 'package:path/path.dart' as p;
 
 final _log = Logger('ciach.remover');
 
-/// Deletes the [paths] (absolute; rewritten, or empty to begin with) left with
-/// only `library`/`import`/`part of` directives, dropping the directives naming
-/// them under [rootPath]. One that `export`s, owns a `part`, or sits in a
-/// conditional import stays.
+/// Deletes the [paths] (absolute) left with only `library`/`import`/`part of`
+/// directives, dropping the directives naming them under [rootPath]. One that
+/// `export`s, owns a `part`, or sits in a conditional import stays.
 List<DeletedFile> deleteEmptiedFiles(Set<String> paths, String rootPath) {
   if (paths.isEmpty) {
     return const [];

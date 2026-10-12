@@ -58,8 +58,7 @@ void writeReport(
 }
 
 /// The exit code for [result]: 1 when `--set-exit-if-changed` and a counted
-/// finding or an empty file, conditional-import variants included, remain,
-/// else 0.
+/// finding or an empty file remain, else 0.
 int exitCodeFor(FinderResult result, ResolvedOptions resolved) {
   if (resolved.setExitIfChanged) {
     // Public findings are still reported; --no-fail-public only drops them from the exit code.

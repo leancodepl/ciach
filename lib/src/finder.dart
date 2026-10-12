@@ -236,9 +236,8 @@ class Ciach {
     );
   }
 
-  /// The opened candidate files with nothing but directives and comments,
-  /// root-relative, split off the conditional-import variants. A file another
-  /// package can import may be imported there, so it is not listed.
+  /// The empty candidate files, root-relative, with the conditional-import
+  /// variants apart. One another package can import is left out.
   ({List<String> files, List<String> variants}) _emptyFiles() {
     final files = <String>[];
     final variants = <String>[];

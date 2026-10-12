@@ -218,27 +218,17 @@ lib/report.dart
 
 ### Empty files
 
-A file with nothing in it but comments and `library`, `import` or `part of`
-directives declares nothing, so no finding points at it. It is reported in a section
-of its own:
+A file with nothing but comments and `library`, `import` or `part of`
+directives is reported in a section of its own:
 
 ```
-Empty files (1) · nothing but comments and library, import or part-of directives
+Empty files (2) · nothing but comments and library, import or part-of directives
 lib/legacy/helpers.dart
+lib/web.dart  (a conditional-import variant: remove its `if` clause and the file by hand)
 ```
 
-Empty files count toward `--set-exit-if-changed`, get a `::warning` in
-`-f github`, and are listed under `emptyFiles` in `-f json`. `--remove` deletes
-them with the directives naming them, like the files it
-[empties itself](#removing-declarations). With `--no-exported`, a file another
-package can import is not reported. To keep one, `--exclude` it.
-
-An empty variant of a conditional import (`web.dart` in
-`import 'io.dart' if (dart.library.js_interop) 'web.dart';`) is reported too,
-marked `a conditional-import variant: remove its if clause and the file by
-hand`, and listed under `emptyVariants` in `-f json`. It counts like any empty
-file, but `--remove` leaves it: deleting it means dropping the `if` clause, so
-the other platform would load `io.dart` instead, which may not compile there.
+These count toward `--set-exit-if-changed`. `--remove` deletes them with the
+`import`s of them, except a conditional-import variant, which is left to you.
 
 ### GitHub Actions
 

@@ -30,9 +30,8 @@ typedef _Span = ({int start, int end});
 /// only removed on its own when that can be done unambiguously; otherwise it
 /// is left in place rather than risk producing invalid source.
 ///
-/// A rewritten file left with nothing but directives is then deleted, and so
-/// are the [emptyFiles] (root-relative `/`-paths, see
-/// [FinderResult.emptyFiles]); see `deleteEmptiedFiles`.
+/// A rewritten file left with nothing but directives is then deleted, as are
+/// the [emptyFiles]; see `deleteEmptiedFiles`.
 RemovalResult removeDeclarations(
   List<UnusedDeclaration> declarations,
   String rootPath, {

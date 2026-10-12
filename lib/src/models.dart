@@ -490,16 +490,14 @@ class FinderResult {
   /// only from documentation. Sorted by file then position.
   final List<UnusedDeclaration> docOnly;
 
-  /// Scanned files with nothing in them but comments and `library`, `import`
-  /// or `part of` directives, as sorted root-relative `/`-paths. `--remove`
-  /// deletes them as it does the files it empties. With
-  /// [FinderOptions.includeExported] off, a file other packages can import is
-  /// never listed.
+  /// Scanned files with nothing but comments and `library`, `import` or
+  /// `part of` directives, as sorted root-relative `/`-paths. With
+  /// [FinderOptions.includeExported] off, one other packages can import is
+  /// left out.
   final List<String> emptyFiles;
 
-  /// Empty files, as in [emptyFiles], that a conditional import or export
-  /// chooses between. Report-only: deleting one means rewriting that
-  /// directive, which changes what another platform loads.
+  /// Empty files a conditional import or export chooses between. Report-only:
+  /// deleting one means rewriting that directive.
   final List<String> emptyVariants;
 
   /// [emptyFiles] and [emptyVariants] together, sorted.
