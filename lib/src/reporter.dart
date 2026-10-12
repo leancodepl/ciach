@@ -545,19 +545,19 @@ abstract final class Reporter {
     return encoder.convert(issues);
   }
 
-  /// A 64-bit hash of [key], in hex: two 32-bit FNV-1a hashes from different
-  /// offsets, since the 64-bit FNV constants don't fit a JavaScript number.
+  /// A 64-bit FNV-1a hash of [key], in hex.
   static String _fingerprint(String key) {
-    final bytes = utf8.encode(key);
-    String fnv1a(int offset) {
-      var hash = offset;
-      for (final byte in bytes) {
-        hash = ((hash ^ byte) * 0x01000193) & 0xffffffff;
-      }
-      return hash.toRadixString(16).padLeft(8, '0');
+    // ciach runs on the VM only, where an int holds the whole offset.
+    // ignore: avoid_js_rounded_ints
+    var hash = 0xcbf29ce484222325;
+    for (final byte in utf8.encode(key)) {
+      hash = (hash ^ byte) * 0x100000001b3;
     }
-
-    return '${fnv1a(0x811c9dc5)}${fnv1a(0x050c5d1f)}';
+    // Unsigned, in halves: a 64-bit int with the top bit set is negative.
+    return [
+      hash >>> 32,
+      hash & 0xffffffff,
+    ].map((half) => half.toRadixString(16).padLeft(8, '0')).join();
   }
 
   /// Every finding of [result] as an annotation, its path prefixed with
