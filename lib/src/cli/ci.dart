@@ -1,5 +1,14 @@
 import 'package:collection/collection.dart';
 
+/// What a run on CI defaults to where nothing says otherwise: the one list the
+/// option resolution and the verbose log both read.
+typedef CiDefaults = ({
+  bool setExitIfChanged,
+  bool verbose,
+  bool showProgress,
+  String? format,
+});
+
 /// The CI service a run is on, told from the environment variable each one
 /// sets, so the defaults can suit a runner rather than a terminal.
 enum CiRunner {
@@ -26,12 +35,19 @@ enum CiRunner {
   /// The environment variable that identifies it.
   final String variable;
 
-  /// The `--format` whose output this service turns into annotations, or
-  /// `null` where plain text is the best there is.
-  String? get annotationFormat => switch (this) {
-    .githubActions => 'github',
-    _ => null,
-  };
+  /// The defaults a run on this service changes: findings fail the run, the
+  /// log explains it, the progress line stays off since a log keeps every
+  /// overwrite, and the format is the one this service turns into annotations,
+  /// where it has one.
+  CiDefaults get defaults => (
+    setExitIfChanged: true,
+    verbose: true,
+    showProgress: false,
+    format: switch (this) {
+      .githubActions => 'github',
+      _ => null,
+    },
+  );
 
   /// The service [environment] says the process runs on, or `null` for a
   /// local run. A variable counts as set when it is not empty, `false` or `0`.

@@ -60,14 +60,17 @@ List<String> describeCi(
     ];
   }
   final how = ci == detected ? '${ci.variable} is set' : '--ci';
-  final defaults = [
-    '--set-exit-if-changed defaults to on',
-    '--verbose to on',
-    'progress to off',
-    if (ci.annotationFormat case final format?) '--format to $format',
+  final defaults = ci.defaults;
+  final changes = [
+    '--set-exit-if-changed defaults to ${_onOff(defaults.setExitIfChanged)}',
+    '--verbose to ${_onOff(defaults.verbose)}',
+    'progress to ${_onOff(defaults.showProgress)}',
+    if (defaults.format case final format?) '--format to $format',
   ];
-  return ['On ${ci.label} ($how): ${defaults.join(', ')}.'];
+  return ['On ${ci.label} ($how): ${changes.join(', ')}.'];
 }
+
+String _onOff(bool value) => value ? 'on' : 'off';
 
 /// The `--verbose` rundown of the run's settings: one line per config key, each
 /// naming the layer its value came from.

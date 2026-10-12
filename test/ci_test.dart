@@ -52,12 +52,18 @@ void main() {
     });
   });
 
-  test('only GitHub Actions has an annotation format', () {
-    expect(CiRunner.githubActions.annotationFormat, 'github');
+  test('the defaults are the same everywhere, bar the format', () {
     for (final runner in CiRunner.values) {
-      if (runner != .githubActions) {
-        expect(runner.annotationFormat, isNull, reason: runner.label);
-      }
+      final defaults = runner.defaults;
+      expect(defaults.setExitIfChanged, isTrue, reason: runner.label);
+      expect(defaults.verbose, isTrue, reason: runner.label);
+      expect(defaults.showProgress, isFalse, reason: runner.label);
+      // Only GitHub Actions has an annotation format.
+      expect(
+        defaults.format,
+        runner == .githubActions ? 'github' : isNull,
+        reason: runner.label,
+      );
     }
   });
 }

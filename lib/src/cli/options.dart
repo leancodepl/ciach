@@ -158,8 +158,11 @@ ResolvedOptions resolveOptions(
     true => detectedCi ?? .other,
     false => null,
   };
+  final defaults = ci?.defaults;
   final verbose =
-      configuration.optionalValue(CiachOption.verbose) ?? (ci != null);
+      configuration.optionalValue(CiachOption.verbose) ??
+      defaults?.verbose ??
+      false;
 
   return .new(
     rootPath: rootPath,
@@ -189,19 +192,21 @@ ResolvedOptions resolveOptions(
     entryPoints: configuration.value(CiachOption.entryPoints),
     setExitIfChanged:
         configuration.optionalValue(CiachOption.setExitIfChanged) ??
-        (ci != null),
+        defaults?.setExitIfChanged ??
+        false,
     ci: ci,
     remove: configuration.value(CiachOption.remove),
     force: configuration.value(CiachOption.force),
     format:
         configuration.optionalValue(CiachOption.format) ??
-        ci?.annotationFormat ??
+        defaults?.format ??
         formatNames.first,
     color: configuration.optionalValue(CiachOption.color),
     showProgress:
         !verbose &&
         (configuration.optionalValue(CiachOption.progress) ??
-            (ci == null && progressDefault)),
+            defaults?.showProgress ??
+            progressDefault),
     verbose: verbose,
     concurrency: configuration.value(CiachOption.concurrency),
     dartExecutable: configuration.optionalValue(CiachOption.dart),
