@@ -89,7 +89,7 @@ ciach --verbose                        # explain each step
 | `--set-exit-if-changed` | off | Exit with status `1` when anything is found (for CI). Named after `dart format`. |
 | `--[no-]exported` | on | Report declarations other packages can import. See [Library packages](#library-packages). |
 | `--[no-]fail-public` | on | Count unused public declarations toward the exit code (with `--set-exit-if-changed`). `--no-fail-public` reports them but fails only on private findings. |
-| `--remove` | off | Remove unused declarations after reporting them. Prompts for confirmation first. |
+| `--remove` | off | Remove unused declarations, and delete empty files, after reporting them. Prompts for confirmation first. |
 | `--force` | off | Skip the confirmation prompt for `--remove`. Requires `--remove`. |
 | `-e, --exclude <glob>` | — | Skip files matching the glob (repeatable). They are not opened, so a declaration used only from them is reported; see `--generated-glob`. |
 | `-i, --include <glob>` | — | Only scan files matching the glob (repeatable). |
@@ -103,8 +103,8 @@ ciach --verbose                        # explain each step
 | `-v, --verbose` | off | Explain what's happening on stderr. See [Verbose mode](#verbose-mode). |
 | `--dart <path>` | auto | Path to the `dart` executable to launch the server with. Defaults to the SDK running ciach, or to `dart` from `PATH` for a compiled binary. |
 
-Exit codes: `0` success, `1` unused found with `--set-exit-if-changed`, `2`
-usage or analysis error.
+Exit codes: `0` success, `1` unused code or an empty file found with
+`--set-exit-if-changed`, `2` usage or analysis error.
 
 The result goes to stdout; progress, `-v` output, warnings, errors and the
 `--remove` prompt go to stderr.
@@ -216,6 +216,20 @@ lib/report.dart
   42:6  function  _pong  (private)  (only referenced from dead _ping (lib/report.dart:40))
 ```
 
+### Empty files
+
+A file with nothing but comments and `library`, `import` or `part of`
+directives is reported in a section of its own:
+
+```
+Empty files (2) · nothing but comments and library, import or part-of directives
+lib/legacy/helpers.dart
+lib/web.dart  (a conditional-import variant: remove its `if` clause and the file by hand)
+```
+
+These count toward `--set-exit-if-changed`. `--remove` deletes them with the
+`import`s of them, except a conditional-import variant, which is left to you.
+
 ### GitHub Actions
 
 ```yaml
@@ -265,9 +279,10 @@ false-positive risk, which `--overrides` and `--operators` widen considerably.
 [Doc-only findings](#doc-only-findings) are never included. Review the diff, as
 you would after any automated refactor.
 
-A file left with only `library`/`import`/`part of` lines is deleted too, and so
-are the `import`s of it elsewhere, so nothing points at a file that is gone. One
-that still `export`s or owns a `part` stays.
+A file left with only `library`/`import`/`part of` directives is deleted too, as
+is an [empty file](#empty-files) found before removal, and so are the `import`s
+of them elsewhere, so nothing points at a file that is gone. One that still
+`export`s or owns a `part` stays.
 
 A dead member's overrides are dead too — a call through any subclass would have
 referenced the member — so `--remove` deletes them with it, wherever they live.
