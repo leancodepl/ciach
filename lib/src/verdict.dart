@@ -1,6 +1,7 @@
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/conventions/gen_l10n.dart';
 import 'package:ciach/src/conventions/serialization.dart';
+import 'package:ciach/src/finder_options.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/reference_classifier.dart';

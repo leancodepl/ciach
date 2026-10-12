@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/extensions.dart';
+import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/public_api.dart';

@@ -1,24 +1,23 @@
 import 'package:ciach/src/candidates.dart';
-import 'package:ciach/src/concurrency.dart';
 import 'package:ciach/src/conventions/flutter_widgets.dart';
 import 'package:ciach/src/conventions/freezed.dart';
+import 'package:ciach/src/cross_library_recovery.dart';
 import 'package:ciach/src/cross_library_refs.dart';
 import 'package:ciach/src/dead_spans.dart';
+import 'package:ciach/src/finder_options.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/overrides.dart';
-import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/plural.dart';
-import 'package:ciach/src/reachability.dart';
 import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/remove_safety.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/superclasses.dart';
-import 'package:ciach/src/symbols.dart';
+import 'package:ciach/src/transitive_sweep.dart';
 import 'package:ciach/src/verdict.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
+import 'package:pro_lsp/pro_lsp.dart' show Location;
 
 final _log = Logger('ciach.finder');
 
@@ -32,11 +31,11 @@ typedef Settled = ({
 /// From references to findings: settles each candidate's verdict — classifies
 /// it, applies the conventions and remove-safety, couples overrides — and
 /// builds the sorted report. With `transitive`, every candidate starts dead
-/// and only what live code reaches is revived (see [unreached]), so dead
-/// cycles are reported too. Each round then settles the verdicts, and what a
-/// round keeps revives what it reaches, until the dead set stops changing.
-/// Rounds reuse the fetched references and cached override lookups, and probe
-/// only the names a round newly leaves unreferenced.
+/// and only what live code reaches is revived (see [TransitiveSweep]), so
+/// dead cycles are reported too. Each round then settles the verdicts, and
+/// what a round keeps revives what it reaches, until the dead set stops
+/// changing. Rounds reuse the fetched references and cached override lookups,
+/// and probe only the names a round newly leaves unreferenced.
 final class Settler {
   Settler({
     required this.options,
@@ -47,19 +46,21 @@ final class Settler {
   }) : _sources = sources,
        _freezed = freezed,
        _classifier = classifier,
-       _verdict = verdict;
+       _verdict = verdict,
+       _sweep = TransitiveSweep(classifier: classifier, verdict: verdict),
+       _recovery = CrossLibraryRecovery(
+         sources: sources,
+         classifier: classifier,
+         concurrency: options.concurrency,
+       );
 
   final FinderOptions options;
   final SourceIndex _sources;
   final FreezedUnions _freezed;
   final ReferenceClassifier _classifier;
   final Verdict _verdict;
-
-  /// Names the cross-library recovery has already probed.
-  final _probedNames = <String>{};
-
-  /// Override lookups by candidate index, cached across rounds.
-  final _overridesByMember = <int, OverriddenMember>{};
+  final TransitiveSweep _sweep;
+  final CrossLibraryRecovery _recovery;
 
   /// Candidates an earlier round found removable. A group guard (every value
   /// of an enum, every constructor of a class) doesn't block them later: the
@@ -91,13 +92,13 @@ final class Settler {
 
     var crossLib = CrossLibraryReferences.empty;
     var deadSpans = options.transitive
-        ? _unreachedCandidates(candidates, refsByCandidate, rootPath)
+        ? _sweep.unreachedCandidates(candidates, refsByCandidate, rootPath)
         : DeadSpans.empty;
     Settled settled;
     for (var round = 1; ; round++) {
-      final liveRefs = _liveRefs(refsByCandidate, deadSpans);
+      final liveRefs = TransitiveSweep.liveRefs(refsByCandidate, deadSpans);
       crossLib = crossLib.merged(
-        await _recoverCrossLibraryRefs(client, candidates, liveRefs),
+        await _recovery.recover(client, candidates, liveRefs),
       );
       final result = await _round(
         candidates,
@@ -114,7 +115,7 @@ final class Settler {
       if (!options.transitive) {
         break;
       }
-      final next = _sweep(
+      final next = _sweep.sweep(
         candidates,
         refsByCandidate,
         crossLib,
@@ -152,97 +153,9 @@ final class Settler {
     );
   }
 
-  /// The spans of every candidate no live code reaches, all of them assumed
-  /// dead to begin with.
-  DeadSpans _unreachedCandidates(
-    List<Candidate> candidates,
-    List<List<Location>> refsByCandidate,
-    String rootPath,
-  ) {
-    final allDead = {
-      for (var i = 0; i < candidates.length; i++)
-        _verdict.finding(candidates[i], rootPath): i,
-    };
-    final unreached = _sweep(
-      candidates,
-      refsByCandidate,
-      .empty,
-      allDead,
-      rootPath,
-    );
-    _log.info(
-      'Round 1: checking the ${plural(unreached.length, 'declaration', 'declarations')} no live code reaches…',
-    );
-    return unreached;
-  }
-
-  /// The removable findings no live reference reaches. [candidateOf] maps
-  /// each finding to its candidate's index. [crossLib] sites count as
-  /// references.
-  DeadSpans _sweep(
-    List<Candidate> candidates,
-    List<List<Location>> refsByCandidate,
-    CrossLibraryReferences crossLib,
-    Map<UnusedDeclaration, int> candidateOf,
-    String rootPath,
-  ) {
-    final spans = DeadSpans.of(candidateOf.keys, rootPath);
-    final removable = {
-      for (final MapEntry(key: finding, value: i) in candidateOf.entries)
-        if (!finding.removalBlocked) i,
-    };
-    Iterable<int> containers(String path, Position position) => [
-      for (final owner in spans.ownersOf(path, position)) candidateOf[owner]!,
-    ];
-    final uses = [
-      for (final i in removable) ...[
-        for (final loc in refsByCandidate[i])
-          if (_classifier.classify(candidates[i], [loc], .empty) == .used)
-            (
-              target: i,
-              containers: containers(
-                SourceIndex.pathOf(loc.uri),
-                loc.range.start,
-              ),
-            ),
-        for (final usage in crossLib.recoveredUsages(candidates[i]))
-          (
-            target: i,
-            containers: containers(
-              usage.path,
-              Position(line: usage.line, character: usage.character),
-            ),
-          ),
-      ],
-    ];
-    final dead = unreached(removable, uses);
-    return DeadSpans.of([
-      for (final MapEntry(key: finding, value: i) in candidateOf.entries)
-        if (dead.contains(i)) finding,
-    ], rootPath);
-  }
-
-  /// [refsByCandidate] less the references inside [deadSpans].
-  List<List<Location>> _liveRefs(
-    List<List<Location>> refsByCandidate,
-    DeadSpans deadSpans,
-  ) => deadSpans.isEmpty
-      ? refsByCandidate
-      : [
-          for (final refs in refsByCandidate)
-            [
-              for (final loc in refs)
-                if (!deadSpans.covers(
-                  SourceIndex.pathOf(loc.uri),
-                  loc.range.start,
-                ))
-                  loc,
-            ],
-        ];
-
   /// One round, classifying from [liveRefs], with each unused finding's
   /// candidate index. [refsByCandidate] still holds the references into
-  /// [deadSpans], for [_onlyReferencedFrom].
+  /// [deadSpans], for [TransitiveSweep.onlyReferencedFrom].
   Future<({Settled settled, Map<UnusedDeclaration, int> candidateOf})> _round(
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
@@ -259,7 +172,7 @@ final class Settler {
         _classifier.classify(candidates[i], liveRefs[i], crossLib),
     ];
 
-    final recovered = _recoveredWarnings(
+    final recovered = _recovery.warnings(
       candidates,
       liveRefs,
       crossLib,
@@ -301,7 +214,10 @@ final class Settler {
 
     // Couple a dead member's overrides to its removal, or let one that has to
     // stay block it.
-    final overridden = await _coupleOverrides(candidates, reported, overrides);
+    final overridden = await overrides.couple(candidates, [
+      for (final index in reported)
+        if (_verdict.canBeOverridden(candidates[index])) index,
+    ], concurrency: options.concurrency);
 
     final unused = <UnusedDeclaration>[];
     final candidateOf = <UnusedDeclaration, int>{};
@@ -409,197 +325,11 @@ final class Settler {
           _verdict.hintFor(candidate) ??
           (blockedByOverride ? Verdict.overriddenHint : null) ??
           (blockedByState ? Verdict.pairedStateHint : null),
-      onlyReferencedFrom: _onlyReferencedFrom(
+      onlyReferencedFrom: _sweep.onlyReferencedFrom(
         candidate,
         refsByCandidate[i],
         deadSpans,
       ),
     );
   }
-
-  /// The findings in [deadSpans] that contain a reference to [candidate], in
-  /// source order.
-  List<DeadReferrer> _onlyReferencedFrom(
-    Candidate candidate,
-    List<Location> refs,
-    DeadSpans deadSpans,
-  ) {
-    if (deadSpans.isEmpty) {
-      return const [];
-    }
-    final owners = <UnusedDeclaration>[];
-    for (final loc in refs) {
-      if (_classifier.isSelfReference(candidate, loc)) {
-        continue;
-      }
-      final owner = deadSpans.ownerOf(
-        SourceIndex.pathOf(loc.uri),
-        loc.range.start,
-      );
-      if (owner != null && !owners.any((seen) => identical(seen, owner))) {
-        owners.add(owner);
-      }
-    }
-    owners.sort(compareByLocation);
-    return [
-      for (final owner in owners)
-        (
-          qualifiedName: owner.qualifiedName,
-          filePath: owner.filePath,
-          line: owner.line,
-        ),
-    ];
-  }
-
-  /// The overrides to delete along with each reported dead member, by
-  /// candidate index. Members with nothing to say are left out.
-  Future<Map<int, OverriddenMember>> _coupleOverrides(
-    List<Candidate> candidates,
-    Set<int> reported,
-    OverrideRemovals overrides,
-  ) async {
-    final members = [
-      for (final index in reported)
-        if (_verdict.canBeOverridden(candidates[index])) index,
-    ];
-    final unchecked = members.whereNot(_overridesByMember.containsKey).toList();
-    await _checkOverrides(unchecked, candidates, overrides);
-    final byCandidate = <int, OverriddenMember>{};
-    var coupled = 0;
-    var couplingMembers = 0;
-    var blocked = 0;
-    for (final index in members) {
-      final result = _overridesByMember[index]!;
-      if (result.removals.isEmpty && !result.blocked) {
-        continue;
-      }
-      byCandidate[index] = result;
-      coupled += result.removals.length;
-      if (result.removals.isNotEmpty) {
-        couplingMembers++;
-      }
-      if (result.blocked) {
-        blocked++;
-      }
-    }
-    if (coupled > 0) {
-      _log.fine(
-        'Coupling ${plural(coupled, 'override', 'overrides')} to '
-        '${plural(couplingMembers, 'dead member', 'dead members')}.',
-      );
-    }
-    if (blocked > 0) {
-      _log.fine(
-        '${plural(blocked, 'dead member', 'dead members')} ${pluralWord(blocked, 'is', 'are')} '
-        'overridden where --remove cannot follow; left in place.',
-      );
-    }
-    return byCandidate;
-  }
-
-  Future<void> _checkOverrides(
-    List<int> unchecked,
-    List<Candidate> candidates,
-    OverrideRemovals overrides,
-  ) async {
-    if (unchecked.isEmpty) {
-      return;
-    }
-    _log.info(
-      'Checking ${plural(unchecked.length, 'dead member', 'dead members')} for overrides…',
-    );
-    final results = await mapPooled(
-      unchecked,
-      options.concurrency,
-      (index) => overrides.of(candidates[index]),
-    );
-    for (final (i, index) in unchecked.indexed) {
-      _overridesByMember[index] = results[i];
-    }
-  }
-
-  /// One warning per declaration the secondary check kept alive: it had no
-  /// reported references outside itself, yet a use resolved back to it.
-  List<RecoveredReference> _recoveredWarnings(
-    List<Candidate> candidates,
-    List<List<Location>> refsByCandidate,
-    CrossLibraryReferences crossLib,
-    String rootPath,
-    String analysisRoot,
-  ) {
-    final warnings = <RecoveredReference>[];
-    for (var i = 0; i < candidates.length; i++) {
-      final candidate = candidates[i];
-      if (_classifier.externalRefs(candidate, refsByCandidate[i]).isNotEmpty ||
-          candidate.symbol.kind == .class$ ||
-          candidate.isExtension) {
-        continue;
-      }
-      final usage = crossLib.recoveredUsage(candidate);
-      if (usage == null) {
-        continue;
-      }
-      final start = candidate.symbol.selectionRange.start;
-      warnings.add(
-        RecoveredReference(
-          name: candidate.symbol.declarationName(candidate.container),
-          container: candidate.container,
-          filePath: relativePosix(candidate.path, rootPath),
-          line: start.line + 1,
-          column: start.character + 1,
-          usageFilePath: relativeUsagePosix(usage.path, rootPath, analysisRoot),
-          usageLine: usage.line + 1,
-          usageColumn: usage.character + 1,
-        ),
-      );
-    }
-    warnings.sort((a, b) {
-      final byFile = a.filePath.compareTo(b.filePath);
-      if (byFile != 0) {
-        return byFile;
-      }
-      final byLine = a.line.compareTo(b.line);
-      return byLine != 0 ? byLine : a.column.compareTo(b.column);
-    });
-    return warnings;
-  }
-
-  /// Runs the secondary definition check for the candidates with no reference
-  /// outside their own span — the potential false positives. Names probed in an
-  /// earlier round are skipped.
-  Future<CrossLibraryReferences> _recoverCrossLibraryRefs(
-    LspClient client,
-    List<Candidate> candidates,
-    List<List<Location>> liveRefs,
-  ) {
-    final emptyRefNames = <String>{
-      for (var i = 0; i < candidates.length; i++)
-        if (_classifier.externalRefs(candidates[i], liveRefs[i]).isEmpty &&
-            candidates[i].symbol.kind != .class$ &&
-            !candidates[i].isExtension) ...[
-          _simpleName(candidates[i].symbol.name),
-          // An unnamed constructor is spelled by the class name at an
-          // ordinary `Foo(…)` site but as `new` at a dot-shorthand one
-          // (`.new(…)`), so probe for both spellings.
-          candidates[i].symbol.declarationName(candidates[i].container),
-        ],
-    }..removeAll(_probedNames);
-    if (emptyRefNames.isEmpty) {
-      return .value(.empty);
-    }
-    _probedNames.addAll(emptyRefNames);
-    _log.info('Recovering cross-library references…');
-    return CrossLibraryReferences.resolve(
-      client: client,
-      sources: _sources,
-      candidates: candidates,
-      emptyRefNames: emptyRefNames,
-      concurrency: options.concurrency,
-    );
-  }
-
-  /// The last-segment name — `bar` for a constructor reported as `Foo.bar` —
-  /// which is the identifier a usage site spells.
-  static String _simpleName(String name) =>
-      name.contains('.') ? name.split('.').last : name;
 }

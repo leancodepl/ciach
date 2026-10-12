@@ -4,7 +4,7 @@ library;
 import 'dart:io';
 
 import 'package:ciach/src/finder.dart';
-import 'package:ciach/src/models.dart';
+import 'package:ciach/src/finder_options.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 

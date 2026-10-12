@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/log.dart';
-import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position;

@@ -3,6 +3,7 @@ library;
 
 import 'dart:io';
 
+import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';

@@ -31,7 +31,8 @@ export 'src/conventions/entry_points.dart' show EntryPoint;
 export 'src/dart_executable.dart'
     show DartSdkNotFoundException, findDartExecutable;
 export 'src/finder.dart' show Ciach;
-export 'src/lsp/lsp_client.dart'
+export 'src/finder_options.dart' show FinderOptions;
+export 'src/lsp/exceptions.dart'
     show AnalysisServerExitedException, LspRequestException;
 export 'src/models.dart'
     show
@@ -40,7 +41,6 @@ export 'src/models.dart'
         DeadReferrer,
         DeclarationRange,
         DeletedFile,
-        FinderOptions,
         FinderResult,
         RecoveredReference,
         RemovalResult,

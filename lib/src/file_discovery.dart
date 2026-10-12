@@ -12,7 +12,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:ciach/src/models.dart';
+import 'package:ciach/src/finder_options.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
 

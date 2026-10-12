@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:ciach/ciach.dart';
 import 'package:test/test.dart';
 
-import 'support/removal.dart';
+import '../support/removal.dart';
 
 /// `--remove` on enum values: the commas, `;` and members around them.
 void main() {

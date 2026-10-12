@@ -1,14 +1,22 @@
 import 'package:ciach/src/candidates.dart';
+import 'package:ciach/src/concurrency.dart';
+import 'package:ciach/src/finder_options.dart';
+import 'package:ciach/src/log.dart';
+import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
+import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/problems.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:ciach/src/syntax_rules.dart';
+import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart'
     show Location, Position, SelectionRange, SymbolKind;
+
+final _log = Logger('ciach.finder');
 
 /// The overrides of a dead member: spans to delete with it, or `blocked` when
 /// one of them has to stay.
@@ -56,6 +64,76 @@ final class OverrideRemovals {
 
   static const _none = (removals: <CoupledRemoval>[], blocked: false);
   static const _blocked = (removals: <CoupledRemoval>[], blocked: true);
+
+  /// Lookups by candidate index, cached across the settler's rounds.
+  final _byMember = <int, OverriddenMember>{};
+
+  /// The overrides to delete along with each of the dead [members] (candidate
+  /// indexes into [candidates]), by index. Members with nothing to say are
+  /// left out. A member checked in an earlier round is not checked again.
+  Future<Map<int, OverriddenMember>> couple(
+    List<Candidate> candidates,
+    List<int> members, {
+    required int concurrency,
+  }) async {
+    await _check(
+      members.whereNot(_byMember.containsKey).toList(),
+      candidates,
+      concurrency,
+    );
+    final byCandidate = <int, OverriddenMember>{};
+    var coupled = 0;
+    var couplingMembers = 0;
+    var blocked = 0;
+    for (final index in members) {
+      final result = _byMember[index]!;
+      if (result.removals.isEmpty && !result.blocked) {
+        continue;
+      }
+      byCandidate[index] = result;
+      coupled += result.removals.length;
+      if (result.removals.isNotEmpty) {
+        couplingMembers++;
+      }
+      if (result.blocked) {
+        blocked++;
+      }
+    }
+    if (coupled > 0) {
+      _log.fine(
+        'Coupling ${plural(coupled, 'override', 'overrides')} to '
+        '${plural(couplingMembers, 'dead member', 'dead members')}.',
+      );
+    }
+    if (blocked > 0) {
+      _log.fine(
+        '${plural(blocked, 'dead member', 'dead members')} ${pluralWord(blocked, 'is', 'are')} '
+        'overridden where --remove cannot follow; left in place.',
+      );
+    }
+    return byCandidate;
+  }
+
+  Future<void> _check(
+    List<int> unchecked,
+    List<Candidate> candidates,
+    int concurrency,
+  ) async {
+    if (unchecked.isEmpty) {
+      return;
+    }
+    _log.info(
+      'Checking ${plural(unchecked.length, 'dead member', 'dead members')} for overrides…',
+    );
+    final results = await mapPooled(
+      unchecked,
+      concurrency,
+      (index) => of(candidates[index]),
+    );
+    for (final (i, index) in unchecked.indexed) {
+      _byMember[index] = results[i];
+    }
+  }
 
   /// The overrides of the dead [member], as spans to remove with it.
   Future<OverriddenMember> of(Candidate member) async {

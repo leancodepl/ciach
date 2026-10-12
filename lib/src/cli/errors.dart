@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/remover.dart';
 import 'package:ciach/src/style.dart';
 import 'package:ciach/src/version.dart';

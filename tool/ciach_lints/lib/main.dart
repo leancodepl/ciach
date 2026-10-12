@@ -6,6 +6,7 @@
 
 import 'package:analysis_server_plugin/plugin.dart';
 import 'package:analysis_server_plugin/registry.dart';
+import 'package:ciach_lints/src/file_length.dart';
 import 'package:ciach_lints/src/prefer_multiline_string.dart';
 import 'package:ciach_lints/src/version_matches_pubspec.dart';
 
@@ -28,6 +29,7 @@ final class CiachLintsPlugin() extends Plugin {
       ..registerFixForRule(
         PreferMultilineString.code,
         ConvertToMultilineString.new,
-      );
+      )
+      ..registerWarningRule(FileLength());
   }
 }
