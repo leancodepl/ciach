@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:ciach/src/cached_map.dart';
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
@@ -155,7 +156,9 @@ final class _Carriers {
   final SourceIndex _sources;
   final PublicApi _api;
   final Map<String, Outline> _outlines;
-  final _signatures = <(String, Position), Future<String?>>{};
+  late final _signatures = CachedMap<(String, Position), Future<String?>>(
+    (at) => _hoverSignature(at.$1, at.$2),
+  );
 
   /// The types holding a reference to [type], and [_root] for a reference
   /// that hands it to everyone.
@@ -252,16 +255,16 @@ final class _Carriers {
 
   /// [node]'s signature as the analyzer resolved it, e.g.
   /// `void f(dynamic cb)` for `void f(cb)`, from its hover.
-  Future<String?> _signature(String path, Outline node) {
-    final at = node.element.range?.start ?? node.codeRange.start;
-    return _signatures[(path, at)] ??= () async {
-      try {
-        final hover = await _client.hover(File(path).uri, at);
-        return hover?.let(_fencedCode.firstMatch)?.group(1);
-      } on LspRequestException {
-        return null;
-      }
-    }();
+  Future<String?> _signature(String path, Outline node) =>
+      _signatures[(path, node.element.range?.start ?? node.codeRange.start)];
+
+  Future<String?> _hoverSignature(String path, Position at) async {
+    try {
+      final hover = await _client.hover(File(path).uri, at);
+      return hover?.let(_fencedCode.firstMatch)?.group(1);
+    } on LspRequestException {
+      return null;
+    }
   }
 }
 

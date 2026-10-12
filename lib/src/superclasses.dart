@@ -1,3 +1,4 @@
+import 'package:ciach/src/cached_map.dart';
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
@@ -20,7 +21,9 @@ final class SuperclassChecks {
       'Could not read the superclass; constructors reported, not removed.';
 
   /// Verdicts by superclass location.
-  final _bySuperclass = <String, Future<bool>>{};
+  late final _bySuperclass = CachedMap<(String, Position), Future<bool>>(
+    (at) => _needsArguments(at.$1, at.$2),
+  );
 
   /// Whether an implicit default constructor for [cls] would fail to compile.
   /// `true` when the superclass cannot be read.
@@ -44,13 +47,11 @@ final class SuperclassChecks {
     if (superclass == null) {
       return false;
     }
-    final start = superclass.range.start;
-    final key = '${superclass.uri}:${start.line}:${start.character}';
-    return _bySuperclass.putIfAbsent(key, () => _needsArguments(superclass!));
+    return _bySuperclass[(superclass.uri, superclass.range.start)];
   }
 
-  Future<bool> _needsArguments(Location superclass) async {
-    final uri = Uri.parse(superclass.uri);
+  Future<bool> _needsArguments(String superclassUri, Position start) async {
+    final uri = Uri.parse(superclassUri);
     final List<DocumentSymbol> symbols;
     try {
       symbols = await _client.documentSymbol(uri);
@@ -59,11 +60,11 @@ final class SuperclassChecks {
         _unreadSuperclass,
         e,
         path: uri.toFilePath(),
-        position: superclass.range.start,
+        position: start,
       );
       return true;
     }
-    final declaration = _symbolNamedAt(symbols, superclass.range.start);
+    final declaration = _symbolNamedAt(symbols, start);
     if (declaration == null) {
       return true;
     }

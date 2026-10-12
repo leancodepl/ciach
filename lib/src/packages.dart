@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:ciach/src/cached_map.dart';
 import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/file_discovery.dart';
 import 'package:package_config/package_config.dart';
@@ -51,7 +52,7 @@ const unknownPackage = '';
 /// Resolves URIs as Dart does: `package:` ones through the
 /// `.dart_tool/package_config.json` nearest the file that names them.
 final class PackageResolver {
-  final _configByDir = <String, PackageConfig?>{};
+  late final _configByDir = CachedMap<String, PackageConfig?>(_findConfig);
 
   /// [uri], written in [from], as an absolute path; [unknownPackage] for a
   /// package [from]'s config doesn't list; `null` for any other scheme.
@@ -69,13 +70,12 @@ final class PackageResolver {
 
   /// The package config of [dir]: its own, or its nearest ancestor's, as in a
   /// pub workspace.
-  PackageConfig? configOf(String dir) {
-    if (_configByDir.containsKey(dir)) {
-      return _configByDir[dir];
-    }
+  PackageConfig? configOf(String dir) => _configByDir[dir];
+
+  PackageConfig? _findConfig(String dir) {
     final file = File(p.join(dir, '.dart_tool', 'package_config.json'));
     final parent = p.dirname(dir);
-    return _configByDir[dir] = file.existsSync()
+    return file.existsSync()
         ? _read(file)
         : (parent == dir ? null : configOf(parent));
   }

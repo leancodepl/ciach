@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:ciach/src/cached_map.dart';
 import 'package:ciach/src/directives.dart';
 import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/log.dart';
@@ -91,17 +92,15 @@ final class _Package {
 
   final Set<String> _files;
   final _packages = PackageResolver();
-  final _contents = <String, String?>{};
-  final _directives = <String, List<Directive>>{};
+  final _contents = CachedMap<String, String?>(readSource);
+  late final _directives = CachedMap<String, List<Directive>>(
+    (path) => content(path)?.let(Directive.allIn).toList() ?? const [],
+  );
 
-  String? content(String path) =>
-      _contents.putIfAbsent(path, () => readSource(path));
+  String? content(String path) => _contents[path];
 
   /// The directives in [path], none when it can't be read.
-  List<Directive> directives(String path) => _directives.putIfAbsent(
-    path,
-    () => content(path)?.let(Directive.allIn).toList() ?? const [],
-  );
+  List<Directive> directives(String path) => _directives[path];
 
   /// Spans to drop per file, or `null` when a directive naming [target] can't
   /// be dropped.
@@ -173,14 +172,14 @@ final class _Package {
     final updated = buffer.toString();
     File(path).writeAsStringSync(updated);
     _contents[path] = updated;
-    _directives.remove(path);
+    _directives.invalidate(path);
   }
 
   void delete(String path) {
     File(path).deleteSync();
     _files.remove(path);
     _contents[path] = null;
-    _directives.remove(path);
+    _directives[path] = const [];
   }
 }
 
