@@ -47,17 +47,30 @@ Future<void> main(List<String> arguments) async {
   }
 }
 
-Future<int> _run(List<String> arguments) async {
-  final parser = buildParser();
-
-  final ArgResults args;
+/// [arguments] parsed by [parser], or `null` after logging why they don't
+/// parse: a removed option is named with its replacement, anything else comes
+/// with the usage.
+ArgResults? _parse(ArgParser parser, List<String> arguments) {
+  if (removedOptionMessage(arguments) case final message?) {
+    _log.severe(message);
+    return null;
+  }
   try {
-    args = parser.parse(arguments);
+    return parser.parse(arguments);
   } on FormatException catch (e) {
     _log.severe('''
 ${e.message}
 
 ${usage(parser)}''');
+    return null;
+  }
+}
+
+Future<int> _run(List<String> arguments) async {
+  final parser = buildParser();
+
+  final args = _parse(parser, arguments);
+  if (args == null) {
     return 2;
   }
 

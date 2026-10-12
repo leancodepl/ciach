@@ -166,6 +166,32 @@ concurrency: 4
       );
     });
 
+    test('names what replaced a removed option', () {
+      expect(
+        () => ConfigFile.parse('overrides: true', origin: 'ciach.yaml'),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            'ciach.yaml: overrides was removed: use also: [overrides].',
+          ),
+        ),
+      );
+    });
+
+    test('removedOptionMessage names what replaced a removed flag', () {
+      expect(
+        removedOptionMessage(['lib', '--no-fail-public']),
+        startsWith('--no-fail-public was removed: '),
+      );
+      expect(
+        removedOptionMessage(['--report-tojson=true']),
+        '--report-tojson was removed: use --also tojson.',
+      );
+      expect(removedOptionMessage(['--', '--overrides']), isNull);
+      expect(removedOptionMessage(['--also', 'overrides']), isNull);
+    });
+
     test('rejects a top-level document that is not a map', () {
       expect(
         () => ConfigFile.parse('- public', origin: 'ciach.yaml'),

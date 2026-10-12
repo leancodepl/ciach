@@ -9,6 +9,8 @@
     `--operators`, `--report-tojson` and `--unused-union-members`.
   - `--fail-public` and `--generated-suffix` are removed; `--generated-glob`
     covers a custom suffix.
+  - A removed option, on the command line or in `ciach.yaml`, is an error
+    that names what replaced it.
   - A package an `analysis_options.yaml` loads as a plugin by `path:` has its
     `plugin` entry point, and the files `flutterfire configure` wrote are
     generated, read from `firebase.json` or by their banner.

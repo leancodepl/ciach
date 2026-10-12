@@ -41,6 +41,51 @@ String get kindNames => kindAliases.keys.sorted().join(', ');
 /// source of false positives.
 const alsoNames = ['overrides', 'operators', 'tojson', 'union-members'];
 
+/// What to use instead of each removed option, by its config key: on the
+/// command line and in the config file.
+const removedOptions = <String, ({String argument, String config})>{
+  'fail-public': (
+    argument:
+        'the API of a package that can be published is left out by default, and --set-exit-if-changed counts every finding',
+    config:
+        'the API of a package that can be published is left out by default, and set-exit-if-changed counts every finding',
+  ),
+  'generated-suffix': (
+    argument: "use --generated-glob '**/*<suffix>'",
+    config: "use generated-glob: ['**/*<suffix>']",
+  ),
+  'overrides': (
+    argument: 'use --also overrides',
+    config: 'use also: [overrides]',
+  ),
+  'operators': (
+    argument: 'use --also operators',
+    config: 'use also: [operators]',
+  ),
+  'report-tojson': (
+    argument: 'use --also tojson',
+    config: 'use also: [tojson]',
+  ),
+  'unused-union-members': (
+    argument: 'use --also union-members',
+    config: 'use also: [union-members]',
+  ),
+};
+
+final _longOption = RegExp(r'^--(?:no-)?([\w-]+)');
+
+/// Why the first removed option in [arguments] is gone and what replaced it,
+/// or `null` when they name none.
+String? removedOptionMessage(List<String> arguments) {
+  for (final argument in arguments.takeWhile((argument) => argument != '--')) {
+    final name = _longOption.firstMatch(argument)?.group(1);
+    if (removedOptions[name] case (argument: final instead, config: _)) {
+      return '${argument.split('=').first} was removed: $instead.';
+    }
+  }
+  return null;
+}
+
 /// The accepted `--format` values; the first one is the default, except on a
 /// CI service with an annotation format, where it is that one.
 const formatNames = [

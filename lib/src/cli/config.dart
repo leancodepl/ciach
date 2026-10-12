@@ -51,6 +51,11 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
         .map((key) => '$key')
         .whereNot(configKeys.contains)
         .toList();
+    for (final key in unknown) {
+      if (removedOptions[key] case (:final config, argument: _)) {
+        throw FormatException('$origin: $key was removed: $config.');
+      }
+    }
     if (unknown.isNotEmpty) {
       final valid = (configKeys.toList()..sort()).join(', ');
       throw FormatException(
