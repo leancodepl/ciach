@@ -48,10 +48,12 @@ abstract final class Reporter {
       );
       final variants = result.emptyVariants.toSet();
       for (final file in empty) {
-        final note = variants.contains(file)
-            ? '  ${style.caution('($_emptyVariantNote)')}'
-            : '';
-        buffer.writeln('${style.path(file)}$note');
+        buffer.writeln(
+          [
+            style.path(file),
+            if (variants.contains(file)) style.caution('($_emptyVariantNote)'),
+          ].join('  '),
+        );
       }
       buffer.writeln();
     }
