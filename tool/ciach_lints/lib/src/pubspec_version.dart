@@ -4,6 +4,7 @@
  *   harness: Claude Code
  */
 
+import 'package:analyzer/file_system/file_system.dart';
 import 'package:analyzer/source/source_range.dart';
 import 'package:analyzer/workspace/workspace.dart';
 import 'package:yaml/yaml.dart';
@@ -17,8 +18,10 @@ class const PubspecVersion({
 /// The `version` in [package]'s `pubspec.yaml`, or `null` when there is no
 /// readable pubspec or it declares no version.
 PubspecVersion? readPubspecVersion(WorkspacePackage? package) {
-  final pubspec = package?.root.getFile('pubspec.yaml');
-  if (pubspec == null || !pubspec.exists) {
+  // `getChild`, not `getFile`: the plugin also builds against analyzer 12
+  // (see pubspec.yaml), which has no `Folder.getFile`.
+  final pubspec = package?.root.getChild('pubspec.yaml');
+  if (pubspec is! File || !pubspec.exists) {
     return null;
   }
   try {

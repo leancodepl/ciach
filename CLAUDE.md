@@ -34,11 +34,11 @@ possible before the `let`, in the null-aware chain: `x?.y.let(f)`, not
 # File size
 
 Keep every Dart file under 500 lines (`wc -l`); the `file_length` rule in
-`tool/ciach_lints` flags a longer one, and `dart analyze` fails on it. Past
-about 400 lines, split before adding more, along a seam the file already
-has; never grow one past the limit and never add `// ignore` for the rule.
-List the largest files with
-`find lib bin test tool -name '*.dart' | xargs wc -l | sort -rn | head`.
+`tool/ciach_lints` flags a longer one, in the package and in `website/`
+alike, and `dart analyze` fails on it. Past about 400 lines, split before
+adding more, along a seam the file already has; never grow one past the
+limit and never add `// ignore` for the rule. List the largest files with
+`find lib bin test tool website/lib website/test -name '*.dart' | xargs wc -l | sort -rn | head`.
 
 - A test file: one file per `group` or per scenario fixture, in a directory
   named after the unit under test (`test/finder/widgets_test.dart`), with the
@@ -51,6 +51,11 @@ List the largest files with
   `lsp/exceptions.dart` out of `lsp/lsp_client.dart`). Move the doc comments
   with it, and update the importers; never re-export the moved names from
   the old file, and never use `part`.
+- A website page: its text and table rows as a `static const` holder
+  (`pages/docs_content.dart`), its sections as functions returning
+  components (`pages/docs_sections.dart`), and a repeated piece of markup
+  with its styles as a `@scopedCss` component under `components/`, whose
+  `.scopes.dart` part `dart run build_runner build` generates.
 - Never split mid-concept: a class stays in one file, a `group` in one test
   file. A table that is long by nature, like the option enum in
   `lib/src/cli/args.dart`, stays whole under the limit.

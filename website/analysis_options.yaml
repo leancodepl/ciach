@@ -15,6 +15,9 @@ linter:
     unnecessary_type_name_in_constructor: false
 
 plugins:
+  # The repository's own rules, `file_length` among them.
+  ciach_lints:
+    path: ../tool/ciach_lints
   jaspr_lints:
     version: ^0.7.2
     diagnostics:
