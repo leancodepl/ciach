@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:ciach/src/comment_stripping.dart';
 import 'package:ciach/src/directives.dart';
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/packages.dart';
@@ -11,17 +11,16 @@ import 'package:path/path.dart' as p;
 
 final _log = Logger('ciach.remover');
 
-/// Deletes the [rewritten] files (absolute paths) left with only
-/// `library`/`import`/`part of` lines, dropping the directives naming them
-/// under [rootPath]. One that `export`s, owns a `part`, or sits in a
-/// conditional import stays.
-List<DeletedFile> deleteEmptiedFiles(Set<String> rewritten, String rootPath) {
-  if (rewritten.isEmpty) {
+/// Deletes the [paths] (absolute) left with only `library`/`import`/`part of`
+/// directives, dropping the directives naming them under [rootPath]. One that
+/// `export`s, owns a `part`, or sits in a conditional import stays.
+List<DeletedFile> deleteEmptiedFiles(Set<String> paths, String rootPath) {
+  if (paths.isEmpty) {
     return const [];
   }
   final root = rootPath.absoluteNormalized;
   final package = _Package(root);
-  final pending = rewritten.map(p.normalize).toSet();
+  final pending = paths.map(p.normalize).toSet();
   final deleted = <DeletedFile>[];
 
   // Dropping a `part`/`export` line can empty that file in turn.
@@ -52,7 +51,7 @@ DeletedFile? _deleteIfEmptied(
     pending.remove(path);
     return null;
   }
-  if (!_isDirectiveOnly(content)) {
+  if (!isDirectiveOnly(content)) {
     return null;
   }
   final links = package.linksTo(path);
@@ -74,20 +73,13 @@ DeletedFile? _deleteIfEmptied(
   );
   _log.fine(
     [
-      'Deleted ${file.filePath}: nothing left but library/import/part-of lines.',
+      'Deleted ${file.filePath}: nothing left but library/import/part-of directives.',
       if (file.unlinkedFrom.isNotEmpty)
         'Dropped the directives naming it from ${file.unlinkedFrom.join(', ')}.',
     ].join(' '),
   );
   return file;
 }
-
-final _directiveOnly = RegExp(
-  r'''^(?:\s*(?:library\b[^;]*|import\s+r?['"][^;]*|part\s+of\b[^;]*);)*\s*$''',
-);
-
-bool _isDirectiveOnly(String content) =>
-    _directiveOnly.hasMatch(stripComments(content));
 
 typedef _Span = ({int start, int end});
 
@@ -100,13 +92,16 @@ final class _Package {
   final Set<String> _files;
   final _packages = PackageResolver();
   final _contents = <String, String?>{};
+  final _directives = <String, List<Directive>>{};
 
-  String? content(String path) {
-    if (_contents.containsKey(path)) {
-      return _contents[path];
-    }
-    return _contents[path] = readSource(path);
-  }
+  String? content(String path) =>
+      _contents.putIfAbsent(path, () => readSource(path));
+
+  /// The directives in [path], none when it can't be read.
+  List<Directive> directives(String path) => _directives.putIfAbsent(
+    path,
+    () => content(path)?.let(Directive.allIn).toList() ?? const [],
+  );
 
   /// Spans to drop per file, or `null` when a directive naming [target] can't
   /// be dropped.
@@ -116,11 +111,7 @@ final class _Package {
       if (path == target) {
         continue;
       }
-      final source = content(path);
-      if (source == null) {
-        continue;
-      }
-      for (final directive in Directive.allIn(source)) {
+      for (final directive in directives(path)) {
         switch (_link(directive, path, target)) {
           case .none:
             break;
@@ -182,12 +173,14 @@ final class _Package {
     final updated = buffer.toString();
     File(path).writeAsStringSync(updated);
     _contents[path] = updated;
+    _directives.remove(path);
   }
 
   void delete(String path) {
     File(path).deleteSync();
     _files.remove(path);
     _contents[path] = null;
+    _directives.remove(path);
   }
 }
 

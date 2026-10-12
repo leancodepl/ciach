@@ -625,10 +625,11 @@ dart: /sdk/bin/dart
 
         final fromConfig = resolveWith(
           const [],
-          .parse(
-            'set-exit-if-changed: false\nverbose: false\nprogress: true\nformat: text',
-            origin: 'c.yaml',
-          ),
+          .parse('''
+set-exit-if-changed: false
+verbose: false
+progress: true
+format: text''', origin: 'c.yaml'),
           progressDefault: false,
           detectedCi: .githubActions,
         );

@@ -17,7 +17,11 @@ void main() {
     packagePath = p.join(tmp.path, 'pkg');
     File(p.join(packagePath, 'pubspec.yaml'))
       ..createSync(recursive: true)
-      ..writeAsStringSync('name: pkg\nenvironment:\n  sdk: ^3.10.0\n');
+      ..writeAsStringSync('''
+name: pkg
+environment:
+  sdk: ^3.10.0
+''');
     File(p.join(packagePath, '.dart_tool', 'package_config.json'))
       ..createSync(recursive: true)
       ..writeAsStringSync(

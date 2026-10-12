@@ -181,10 +181,10 @@ entry-points: [{name: bootstrap}, {name: registerWith, glob: [lib/**, bin/**]}]'
     test('names the layer each value came from', () {
       final configuration = resolveConfiguration(
         parser.parse(const ['--no-public', '--no-project-config']),
-        .parse(
-          'format: json\nremove: true\nentry-points: [{name: registerWith, glob: lib/**}]',
-          origin: 'c.yaml',
-        ),
+        .parse('''
+format: json
+remove: true
+entry-points: [{name: registerWith, glob: lib/**}]''', origin: 'c.yaml'),
       );
       final resolved = resolveOptions(
         configuration,
