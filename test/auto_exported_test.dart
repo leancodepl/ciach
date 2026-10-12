@@ -42,6 +42,8 @@ publish_to: none
 environment: {sdk: ^3.10.0}
 ''');
     write('internal/lib/internal.dart', 'void internalApi() {}');
+    // A workspace root has no API, so no verdict either.
+    write('pubspec.yaml', 'name: _');
   });
 
   tearDownAll(() => root.deleteSync(recursive: true));
@@ -75,6 +77,7 @@ environment: {sdk: ^3.10.0}
           'published can be published, so the API other packages can import is left out; `publish_to: none` in its pubspec, or --exported, checks it.',
         ]),
       );
+      expect(lines, isNot(contains(startsWith('The scanned package'))));
     },
   );
 

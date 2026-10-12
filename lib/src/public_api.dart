@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:ciach/src/directives.dart';
 import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/packages.dart';
@@ -23,7 +25,8 @@ final class PublicApi {
     final tree = scanPackageTree(rootPath);
     final packages = {
       for (final libDir in tree.libDirs.sorted())
-        p.dirname(libDir): isPublishable(p.dirname(libDir)),
+        if (Directory(libDir).existsSync())
+          p.dirname(libDir): isPublishable(p.dirname(libDir)),
     };
     final libDirs = {
       for (final MapEntry(key: dir, value: publishable) in packages.entries)
@@ -124,8 +127,8 @@ final class PublicApi {
   final Map<String, String> _libraryOf;
   final Map<String, _Names> _visible;
 
-  /// The directory of every package under the root, with whether it can be
-  /// published.
+  /// The directory of every package with a `lib/` under the root, with
+  /// whether it can be published.
   final Map<String, bool> packages;
 
   /// Whether no package's API is part of this.
