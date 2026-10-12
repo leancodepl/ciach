@@ -12,7 +12,7 @@ final class PublicApi {
   factory PublicApi.scan(String rootPath) {
     final tree = scanPackageTree(rootPath);
     final libDirOf = _libDirOf(tree);
-    final libraries = _readDirectives(libDirOf.keys, PackageResolver());
+    final libraries = _readDirectives(libDirOf.keys, .new());
     final libraryOf = _libraryOfParts(libraries);
     return ._(
       rootPath,
@@ -47,7 +47,7 @@ final class PublicApi {
   ) => {
     for (final path in paths)
       if (readSource(path) case final content?)
-        path: _Directives.parse(content, path, packages),
+        path: .parse(content, path, packages),
   };
 
   /// The library each part belongs to, through parts of parts.
@@ -167,7 +167,7 @@ final class _Names {
               name.trim(),
           },
         );
-    return all.intersection(_Names(clause(_show), clause(_hide) ?? const {}));
+    return all.intersection(.new(clause(_show), clause(_hide) ?? const {}));
   }
 
   static const all = _Names(null, {});
@@ -180,18 +180,18 @@ final class _Names {
 
   /// The names both let through.
   _Names intersection(_Names other) => switch ((shown, other.shown)) {
-    (null, null) => _Names(null, hidden.union(other.hidden)),
-    (final a?, null) => _Names(a.difference(other.hidden), const {}),
-    (null, final b?) => _Names(b.difference(hidden), const {}),
-    (final a?, final b?) => _Names(a.intersection(b), const {}),
+    (null, null) => .new(null, hidden.union(other.hidden)),
+    (final a?, null) => .new(a.difference(other.hidden), const {}),
+    (null, final b?) => .new(b.difference(hidden), const {}),
+    (final a?, final b?) => .new(a.intersection(b), const {}),
   };
 
   /// The names either lets through.
   _Names union(_Names other) => switch ((shown, other.shown)) {
-    (null, null) => _Names(null, hidden.intersection(other.hidden)),
-    (final a?, null) => _Names(null, other.hidden.difference(a)),
-    (null, final b?) => _Names(null, hidden.difference(b)),
-    (final a?, final b?) => _Names(a.union(b), const {}),
+    (null, null) => .new(null, hidden.intersection(other.hidden)),
+    (final a?, null) => .new(null, other.hidden.difference(a)),
+    (null, final b?) => .new(null, hidden.difference(b)),
+    (final a?, final b?) => .new(a.union(b), const {}),
   };
 
   @override

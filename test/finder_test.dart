@@ -840,7 +840,7 @@ void main() {
       () async {
         final copy = Directory.systemTemp.createTempSync('ciach_transitive_');
         addTearDown(() => copy.deleteSync(recursive: true));
-        copyTree(Directory(fixturePath), copy);
+        copyTree(.new(fixturePath), copy);
         Future<FinderResult> run() => Ciach(
           .new(rootPath: copy.path, includeGlobs: fixture, transitive: true),
         ).run();

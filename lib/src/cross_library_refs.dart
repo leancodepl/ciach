@@ -193,12 +193,11 @@ class CrossLibraryReferences {
       _usageByDecl.containsKey(_positionOf(candidate));
 
   /// These recoveries plus [other]'s; this one's sites come first.
-  CrossLibraryReferences merged(CrossLibraryReferences other) =>
-      CrossLibraryReferences._({
-        ...other._usageByDecl,
-        for (final MapEntry(key: decl, value: sites) in _usageByDecl.entries)
-          decl: {...sites, ...?other._usageByDecl[decl]},
-      });
+  CrossLibraryReferences merged(CrossLibraryReferences other) => ._({
+    ...other._usageByDecl,
+    for (final MapEntry(key: decl, value: sites) in _usageByDecl.entries)
+      decl: {...sites, ...?other._usageByDecl[decl]},
+  });
 
   /// The recoveries less the usage sites (absolute path, position) that pass
   /// [test].

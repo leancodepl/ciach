@@ -100,11 +100,7 @@ class Ciach {
     sources: _sources,
     freezed: _freezed,
     classifier: _classifier,
-    verdict: Verdict(
-      options: options,
-      sources: _sources,
-      classifier: _classifier,
-    ),
+    verdict: .new(options: options, sources: _sources, classifier: _classifier),
   );
 
   /// Runs the analysis and returns the declarations that are never referenced.

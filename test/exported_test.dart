@@ -4,7 +4,6 @@ library;
 import 'dart:io';
 
 import 'package:ciach/src/finder.dart';
-import 'package:ciach/src/models.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -200,7 +199,7 @@ void main() => Helper().used();
 
   Future<Set<String>> dead({required bool includeExported}) async {
     final result = await Ciach(
-      FinderOptions(rootPath: root.path, includeExported: includeExported),
+      .new(rootPath: root.path, includeExported: includeExported),
     ).run();
     return {for (final decl in result.unused) decl.qualifiedName};
   }
