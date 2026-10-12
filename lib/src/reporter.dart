@@ -17,6 +17,14 @@ import 'package:ciach/src/style.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
+/// What an empty file holds.
+const _emptyFileContents =
+    'nothing but comments and library, import or part-of directives';
+
+/// Why `--remove` leaves an empty conditional-import variant.
+const _emptyVariantNote =
+    'a conditional-import variant: remove its `if` clause and the file by hand';
+
 /// Renders a [FinderResult] for humans or machines.
 abstract final class Reporter {
   /// The human-readable report: findings, extra sections, summary. Unless
@@ -29,6 +37,27 @@ abstract final class Reporter {
   }) {
     final buffer = StringBuffer();
     _writeDeclarations(buffer, result.unused, style);
+
+    final empty = result.allEmptyFiles;
+    if (empty.isNotEmpty) {
+      _writeHeading(
+        buffer,
+        'Empty files',
+        empty.length,
+        _emptyFileContents,
+        style,
+      );
+      final variants = result.emptyVariants.toSet();
+      for (final file in empty) {
+        buffer.writeln(
+          [
+            style.path(file),
+            if (variants.contains(file)) style.caution('($_emptyVariantNote)'),
+          ].join('  '),
+        );
+      }
+      buffer.writeln();
+    }
 
     if (result.docOnly.isNotEmpty) {
       _writeHeading(
@@ -82,24 +111,19 @@ abstract final class Reporter {
     }
     final files = removal.filesChanged;
     final deleted = removal.deletedFiles;
-    final buffer = StringBuffer(
-      style.success(
-        'Removed ${plural(removed, 'unused declaration', 'unused declarations')} from '
-        '${plural(files, 'file', 'files')}.',
-      ),
-    );
-    if (blocked > 0) {
-      buffer.write(
-        ' ${style.caution('$blocked left in place — unsafe to auto-remove.')}',
-      );
-    }
-    if (deleted.isNotEmpty) {
-      buffer.write(
-        ' Deleted ${plural(deleted.length, 'now-empty file', 'now-empty files')}: '
-        '${deleted.map((d) => d.filePath).join(', ')}.',
-      );
-    }
-    buffer.write(" ${style.note("Run 'dart format' to tidy up spacing.")}");
+    final sentences = [
+      if (removed > 0)
+        style.success(
+          'Removed ${plural(removed, 'unused declaration', 'unused declarations')} from '
+          '${plural(files, 'file', 'files')}.',
+        ),
+      if (blocked > 0)
+        style.caution('$blocked left in place — unsafe to auto-remove.'),
+      if (deleted.isNotEmpty)
+        'Deleted ${plural(deleted.length, 'empty file', 'empty files')}: ${deleted.map((d) => d.filePath).join(', ')}.',
+      style.note("Run 'dart format' to tidy up spacing."),
+    ];
+    final buffer = StringBuffer(sentences.join(' '));
     for (final note in notes) {
       buffer.write('\n${style.heading('Note:')} $note');
     }
@@ -284,18 +308,22 @@ abstract final class Reporter {
         'declarationsChecked': result.declarationsChecked,
         'unusedCount': result.unused.length,
         'docOnlyCount': result.docOnly.length,
+        'emptyFileCount': result.emptyFiles.length,
+        'emptyVariantCount': result.emptyVariants.length,
         'elapsedMs': result.elapsed.inMilliseconds,
       },
       'unused': [for (final decl in result.unused) decl.toJson()],
       'docOnly': [for (final decl in result.docOnly) decl.toJson()],
+      'emptyFiles': result.emptyFiles,
+      'emptyVariants': result.emptyVariants,
       'warnings': [for (final w in result.recoveredReferences) w.toJson()],
       'problems': [for (final problem in result.problems) problem.toJson()],
     });
   }
 
   /// [GitHub Actions workflow commands][] — one `::warning` annotation per
-  /// unused finding (surfacing them inline on the PR diff and Checks tab) and
-  /// one lower-severity `::notice` per doc-only finding.
+  /// unused finding and empty file (surfacing them inline on the PR diff and
+  /// Checks tab) and one lower-severity `::notice` per doc-only finding.
   ///
   /// Annotation paths are resolved relative to the repository root. [pathPrefix]
   /// (POSIX, `/`-separated) is prepended to each finding's path so that scans of
@@ -316,6 +344,21 @@ abstract final class Reporter {
           "Unused ${decl.isPrivate ? 'private ' : ''}${decl.kind.label} '${decl.qualifiedName}'",
           ?decl.hint,
           ?_onlyReferencedFrom(decl),
+        ].join(' — '),
+      );
+    }
+    final variants = result.emptyVariants.toSet();
+    for (final file in result.allEmptyFiles) {
+      _writeAnnotationRaw(
+        buffer,
+        _annotationFile(file, pathPrefix),
+        1,
+        1,
+        level: 'warning',
+        title: 'Empty file',
+        message: [
+          'Has $_emptyFileContents',
+          if (variants.contains(file)) _emptyVariantNote,
         ].join(' — '),
       );
     }
@@ -424,6 +467,10 @@ abstract final class Reporter {
       '${plural(result.declarationsChecked, 'declaration', 'declarations')}, ${seconds}s)',
     );
     final sections = [
+      if (result.allEmptyFiles.isNotEmpty)
+        style.attention(
+          plural(result.allEmptyFiles.length, 'empty file', 'empty files'),
+        ),
       if (result.docOnly.isNotEmpty) '${result.docOnly.length} doc-only',
       if (result.recoveredReferences.isNotEmpty)
         style.caution('${result.recoveredReferences.length} recovered'),

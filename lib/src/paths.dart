@@ -20,6 +20,11 @@ extension AbsolutePath on String {
 String relativePosix(String absPath, String rootPath) =>
     p.split(p.relative(absPath, from: rootPath)).join('/');
 
+/// The absolute, normalized path of [posixPath], a root-relative `/`-path such
+/// as a finding's `filePath`, under [rootPath]. The inverse of [relativePosix].
+String absoluteUnder(String posixPath, String rootPath) =>
+    p.joinAll([rootPath, ...p.posix.split(posixPath)]).absoluteNormalized;
+
 /// A usage site's path for display: relative to [rootPath] inside the scanned
 /// package, to [analysisRoot] outside it — `pkgs/app/lib/x.dart`, not
 /// `../app/lib/x.dart`.

@@ -1,7 +1,7 @@
 import 'package:ciach/src/models.dart';
+import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
-import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show Position;
 
 /// The source `--remove` would delete: each removable finding's
@@ -20,14 +20,13 @@ final class DeadSpans {
       if (finding.removalBlocked) {
         continue;
       }
-      byPath.putIfAbsent(_absolute(finding.filePath, rootPath), () => []).add((
-        range: finding.fullRange,
-        owner: finding,
-      ));
+      byPath
+          .putIfAbsent(absoluteUnder(finding.filePath, rootPath), () => [])
+          .add((range: finding.fullRange, owner: finding));
       for (final coupled in finding.coupledRemovals) {
-        byPath.putIfAbsent(_absolute(coupled.filePath, rootPath), () => []).add(
-          (range: coupled.fullRange, owner: finding),
-        );
+        byPath
+            .putIfAbsent(absoluteUnder(coupled.filePath, rootPath), () => [])
+            .add((range: coupled.fullRange, owner: finding));
       }
     }
     return DeadSpans._(byPath);
@@ -75,7 +74,7 @@ final class DeadSpans {
 
   /// Whether another finding's removal deletes [finding] too.
   bool enclosesInAnother(UnusedDeclaration finding, String rootPath) {
-    final spans = _byPath[_absolute(finding.filePath, rootPath)];
+    final spans = _byPath[absoluteUnder(finding.filePath, rootPath)];
     if (spans == null) {
       return false;
     }
@@ -108,9 +107,6 @@ final class DeadSpans {
 
   static Position _end(DeclarationRange range) =>
       Position(line: range.endLine, character: range.endColumn);
-
-  static String _absolute(String filePath, String rootPath) =>
-      p.normalize(p.joinAll([rootPath, ...p.posix.split(filePath)]));
 }
 
 typedef _Span = ({DeclarationRange range, UnusedDeclaration owner});

@@ -44,6 +44,59 @@ extension type Directive._(RegExpMatch _match) {
   ];
 }
 
+/// Whether [content] has nothing but comments and `library`, `import` or
+/// `part of` directives. An `export` or `part` directive counts as content: the
+/// file passes something on. Reads only up to the first other token.
+bool isDirectiveOnly(String content) {
+  var i = skipCommentsAndWhitespace(content, 0);
+  while (i < content.length) {
+    switch (_skipInertDirective(content, i)) {
+      case final end?:
+        i = skipCommentsAndWhitespace(content, end);
+      case null:
+        return false;
+    }
+  }
+  return true;
+}
+
+/// The index just past the inert directive at [from], or `null` when none
+/// starts there. Inert ones pass nothing on: `library`, `import` and
+/// `part of`, unlike `export` and `part`.
+int? _skipInertDirective(String content, int from) {
+  final keyword = _wordAt(content, from);
+  final rest = skipCommentsAndWhitespace(content, from + keyword.length);
+  final isInert = switch (keyword) {
+    'library' => true,
+    'import' =>
+      rest < content.length && stringLiteralEnd(content, rest) != null,
+    'part' => _wordAt(content, rest) == 'of',
+    _ => false,
+  };
+  return isInert ? _statementEnd(content, rest) : null;
+}
+
+/// The index just past the first `;` at or after [from] outside comments and
+/// strings, or `null` when there is none.
+int? _statementEnd(String content, int from) {
+  for (var i = skipCommentsAndWhitespace(content, from); i < content.length;) {
+    if (content[i] == ';') {
+      return i + 1;
+    }
+    i = skipCommentsAndWhitespace(
+      content,
+      stringLiteralEnd(content, i) ?? i + 1,
+    );
+  }
+  return null;
+}
+
+/// The identifier at [from], or `''` when none starts there.
+String _wordAt(String content, int from) =>
+    _identifier.matchAsPrefix(content, from)?.group(0) ?? '';
+
+final _identifier = RegExp(r'[A-Za-z_$][A-Za-z0-9_$]*');
+
 final _directive = RegExp(
   r'^[ \t]*(?<keyword>import|export|part)\s+(?<body>[^;]*);',
   multiLine: true,

@@ -7,7 +7,6 @@ import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/plural.dart';
 import 'package:collection/collection.dart';
-import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
 final _log = Logger('ciach.remover');
@@ -32,12 +31,13 @@ typedef _Span = ({int start, int end});
 /// only removed on its own when that can be done unambiguously; otherwise it
 /// is left in place rather than risk producing invalid source.
 ///
-/// A rewritten file left with nothing but directives is then deleted; see
-/// `deleteEmptiedFiles`.
+/// A rewritten file left with nothing but directives is then deleted, as are
+/// the [emptyFiles]; see `deleteEmptiedFiles`.
 RemovalResult removeDeclarations(
   List<UnusedDeclaration> declarations,
-  String rootPath,
-) {
+  String rootPath, {
+  List<String> emptyFiles = const [],
+}) {
   final byFile = <String, List<UnusedDeclaration>>{};
   for (final decl in declarations) {
     // A blocked finding is reported but never auto-removed: deleting it safely
@@ -81,13 +81,14 @@ RemovalResult removeDeclarations(
   );
 
   for (final entry in byFile.entries) {
-    final file = File(p.joinAll([rootPath, ...p.posix.split(entry.key)]));
+    final path = absoluteUnder(entry.key, rootPath);
+    final file = File(path);
     try {
       final content = file.readAsStringSync();
       final updated = _removeFromContent(content, entry.value);
       if (updated != content) {
         file.writeAsStringSync(updated);
-        rewritten.add(p.normalize(file.absolute.path));
+        rewritten.add(path);
         _log.fine(
           'Rewrote ${entry.key}: removed ${plural(entry.value.length, 'declaration', 'declarations')}.',
         );
@@ -99,7 +100,10 @@ RemovalResult removeDeclarations(
   try {
     return .new(
       filesChanged: rewritten.length,
-      deletedFiles: deleteEmptiedFiles(rewritten, rootPath),
+      deletedFiles: deleteEmptiedFiles({
+        ...rewritten,
+        for (final path in emptyFiles) absoluteUnder(path, rootPath),
+      }, rootPath),
     );
   } on FileSystemException catch (e) {
     throw failure(e, e.path ?? rootPath);
