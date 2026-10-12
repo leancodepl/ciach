@@ -23,15 +23,21 @@ final class PublicApi {
   /// repository.
   factory PublicApi.scan(String rootPath, {bool publishedOnly = false}) {
     final tree = scanPackageTree(rootPath);
-    final packages = {
-      for (final libDir in tree.libDirs.sorted())
-        if (Directory(libDir).existsSync())
-          p.dirname(libDir): isPublishable(p.dirname(libDir)),
-    };
-    final libDirs = {
-      for (final MapEntry(key: dir, value: publishable) in packages.entries)
-        if (publishable || !publishedOnly) p.join(dir, 'lib'),
-    };
+    // Whether each package can be published matters only when it decides.
+    final packages = publishedOnly
+        ? {
+            for (final libDir in tree.libDirs.sorted())
+              if (Directory(libDir).existsSync())
+                p.dirname(libDir): isPublishable(p.dirname(libDir)),
+          }
+        : const <String, bool>{};
+    final libDirs = publishedOnly
+        ? {
+            for (final MapEntry(key: dir, value: publishable)
+                in packages.entries)
+              if (publishable) p.join(dir, 'lib'),
+          }
+        : tree.libDirs;
     final libDirOf = _libDirOf(tree.dartFiles, libDirs);
     final libraries = _readDirectives(libDirOf.keys, PackageResolver());
     final libraryOf = _libraryOfParts(libraries);
@@ -127,8 +133,8 @@ final class PublicApi {
   final Map<String, String> _libraryOf;
   final Map<String, _Names> _visible;
 
-  /// The directory of every package with a `lib/` under the root, with
-  /// whether it can be published.
+  /// With `publishedOnly`, the directory of every package with a `lib/` under
+  /// the root, with whether it can be published; otherwise empty.
   final Map<String, bool> packages;
 
   /// Whether no package's API is part of this.
@@ -146,12 +152,11 @@ final class PublicApi {
 }
 
 /// Whether the package in [dir] can be published: its pubspec has no
-/// `publish_to: none`. Without a pubspec, it cannot.
+/// `publish_to: none`. One that doesn't parse might be published, so it can,
+/// which leaves its API out rather than report what its importers use.
 bool isPublishable(String dir) =>
-    readYamlMap(
-      p.join(dir, 'pubspec.yaml'),
-    )?.let((pubspec) => pubspec['publish_to'] != 'none') ??
-    false;
+    readPubspec(dir).yaml?.let((pubspec) => pubspec['publish_to'] != 'none') ??
+    true;
 
 final _show = RegExp(r'\bshow\b(?<names>[^;]*?)(?=\b(?:show|hide)\b|$)');
 final _hide = RegExp(r'\bhide\b(?<names>[^;]*?)(?=\b(?:show|hide)\b|$)');

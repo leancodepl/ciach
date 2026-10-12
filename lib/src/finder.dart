@@ -130,12 +130,7 @@ class Ciach {
     if (dependents.isEmpty) {
       return;
     }
-    var common = rootPath;
-    for (final dir in dependents) {
-      while (!p.isWithin(common, dir)) {
-        common = p.dirname(common);
-      }
-    }
+    final common = commonAncestor([rootPath, ...dependents]);
     _log.warning(
       'Not counting uses in ${dependents.map(p.relative).join(', ')}, which depend on this package by `path:` from outside the analysis root, so what only they use reads as unused. --analysis-root ${p.relative(common)} counts them.',
     );

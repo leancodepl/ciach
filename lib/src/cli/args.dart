@@ -10,6 +10,7 @@
 
 import 'package:args/args.dart';
 import 'package:ciach/ciach.dart';
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/version.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
@@ -41,46 +42,93 @@ String get kindNames => kindAliases.keys.sorted().join(', ');
 /// source of false positives.
 const alsoNames = ['overrides', 'operators', 'tojson', 'union-members'];
 
-/// What to use instead of each removed option, by its config key: on the
-/// command line and in the config file.
-const removedOptions = <String, ({String argument, String config})>{
+/// Parses the `--also` values (comma-separated, repeatable).
+///
+/// Throws a [FormatException] naming the offending value on an unknown one,
+/// which the command line would catch by itself, but a config file would not.
+Set<String> parseAlso(List<String> raw) {
+  final names = {
+    for (final entry in raw)
+      for (final name in entry.split(','))
+        if (name.trim() case final trimmed when trimmed.isNotEmpty) trimmed,
+  };
+  if (names.whereNot(alsoNames.contains).firstOrNull case final unknown?) {
+    throw FormatException(
+      "Unknown value '$unknown' for also. Valid values: ${alsoNames.join(', ')}.",
+    );
+  }
+  return names;
+}
+
+/// A removed option: what to use instead, on the command line and in the
+/// config file, and the value that is the default now, which needs nothing.
+typedef RemovedOption = ({String argument, String config, bool? nowDefault});
+
+/// The removed options, by config key.
+const removedOptions = <String, RemovedOption>{
   'fail-public': (
     argument:
         'the API of a package that can be published is left out by default, and --set-exit-if-changed counts every finding',
     config:
         'the API of a package that can be published is left out by default, and set-exit-if-changed counts every finding',
+    nowDefault: true,
   ),
   'generated-suffix': (
     argument: "use --generated-glob '**/*<suffix>'",
     config: "use generated-glob: ['**/*<suffix>']",
+    nowDefault: null,
   ),
   'overrides': (
     argument: 'use --also overrides',
     config: 'use also: [overrides]',
+    nowDefault: false,
   ),
   'operators': (
     argument: 'use --also operators',
     config: 'use also: [operators]',
+    nowDefault: false,
   ),
   'report-tojson': (
     argument: 'use --also tojson',
     config: 'use also: [tojson]',
+    nowDefault: false,
   ),
   'unused-union-members': (
     argument: 'use --also union-members',
     config: 'use also: [union-members]',
+    nowDefault: false,
   ),
 };
 
-final _longOption = RegExp(r'^--(?:no-)?([\w-]+)');
+/// What to do instead of setting the removed option [key] to [value], in the
+/// config file when [inConfig]; `null` when [key] was not removed.
+String? removedOptionAdvice(
+  String key,
+  Object? value, {
+  required bool inConfig,
+}) => removedOptions[key]?.let(
+  (removed) => value == removed.nowDefault
+      ? 'that is the default now, so drop it'
+      : inConfig
+      ? removed.config
+      : removed.argument,
+);
 
-/// Why the first removed option in [arguments] is gone and what replaced it,
-/// or `null` when they name none.
+final _longOption = RegExp(r'^--(no-)?([\w-]+)');
+
+/// Why the first removed option in [arguments] is gone and what to do
+/// instead, or `null` when they name none.
 String? removedOptionMessage(List<String> arguments) {
   for (final argument in arguments.takeWhile((argument) => argument != '--')) {
-    final name = _longOption.firstMatch(argument)?.group(1);
-    if (removedOptions[name] case (argument: final instead, config: _)) {
-      return '${argument.split('=').first} was removed: $instead.';
+    if (_longOption.firstMatch(argument) case final match?) {
+      final advice = removedOptionAdvice(
+        match[2]!,
+        match[1] == null,
+        inConfig: false,
+      );
+      if (advice != null) {
+        return '${argument.split('=').first} was removed: $advice.';
+      }
     }
   }
   return null;
@@ -230,6 +278,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       defaultsTo: [],
       valueHelp: 'what,what',
       allowedValues: alsoNames,
+      customValidator: parseAlso,
       helpText:
           'Also report declarations skipped by default because a reference search misses some of their uses (comma-separated).',
       allowedHelp: {

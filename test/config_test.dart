@@ -179,6 +179,33 @@ concurrency: 4
       );
     });
 
+    test('says to drop a removed option set to what is the default now', () {
+      expect(
+        () => ConfigFile.parse('operators: false', origin: 'ciach.yaml'),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            'ciach.yaml: operators was removed: that is the default now, so drop it.',
+          ),
+        ),
+      );
+    });
+
+    test('rejects an unknown value under also', () {
+      expect(
+        () =>
+            resolve(const [], .parse('also: [override]', origin: 'ciach.yaml')),
+        throwsA(
+          isA<UsageException>().having(
+            (e) => e.message,
+            'message',
+            contains("Unknown value 'override' for also."),
+          ),
+        ),
+      );
+    });
+
     test('removedOptionMessage names what replaced a removed flag', () {
       expect(
         removedOptionMessage(['lib', '--no-fail-public']),
@@ -187,6 +214,14 @@ concurrency: 4
       expect(
         removedOptionMessage(['--report-tojson=true']),
         '--report-tojson was removed: use --also tojson.',
+      );
+      expect(
+        removedOptionMessage(['--no-operators']),
+        '--no-operators was removed: that is the default now, so drop it.',
+      );
+      expect(
+        removedOptionMessage(['--fail-public']),
+        '--fail-public was removed: that is the default now, so drop it.',
       );
       expect(removedOptionMessage(['--', '--overrides']), isNull);
       expect(removedOptionMessage(['--also', 'overrides']), isNull);

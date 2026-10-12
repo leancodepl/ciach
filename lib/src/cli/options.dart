@@ -157,7 +157,8 @@ ResolvedOptions resolveOptions(
     false => null,
   };
   final defaults = ci?.defaults;
-  final also = configuration.value(CiachOption.also).toSet();
+  // Already validated by the option; this only splits the values.
+  final also = parseAlso(configuration.value(CiachOption.also));
   final verbose =
       configuration.optionalValue(CiachOption.verbose) ??
       defaults?.verbose ??

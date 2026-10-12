@@ -39,6 +39,23 @@ dependencies:
     ]);
   });
 
+  test('names a dependent above the scanned package', () {
+    write('pubspec.yaml', '''
+name: root_app
+dependencies:
+  core: {path: pkgs/core}
+''');
+    final dependents = pathDependentsOutside(core, core);
+    expect(dependents, [repository, p.join(repository, 'pkgs', 'app')]);
+    // The analysis root to suggest is the repository, not its parent.
+    expect(commonAncestor([core, ...dependents]), repository);
+  });
+
+  test('is empty for a package at the repository root', () {
+    write('pubspec.yaml', 'name: root_app');
+    expect(pathDependentsOutside(repository, repository), isEmpty);
+  });
+
   test('is empty when the analysis root covers them', () {
     expect(pathDependentsOutside(core, p.join(repository, 'pkgs')), isEmpty);
   });

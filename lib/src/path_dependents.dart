@@ -10,12 +10,13 @@ import 'package:path/path.dart' as p;
 /// normalized. Empty for a member of a pub workspace, whose analysis covers
 /// the workspace, and outside a git repository.
 List<String> pathDependentsOutside(String rootPath, String analysisRoot) {
-  if (readYamlMap(p.join(rootPath, 'pubspec.yaml'))
-      case null || {'resolution': 'workspace'}) {
+  if (readPubspec(rootPath).yaml case null || {'resolution': 'workspace'}) {
     return const [];
   }
   final repository = _repositoryOf(rootPath);
-  if (repository == null || p.isWithin(analysisRoot, repository)) {
+  if (repository == null ||
+      p.equals(analysisRoot, repository) ||
+      p.isWithin(analysisRoot, repository)) {
     return const [];
   }
   return [
@@ -28,11 +29,22 @@ List<String> pathDependentsOutside(String rootPath, String analysisRoot) {
   ];
 }
 
+/// The nearest directory that is or contains each of [dirs], absolute and
+/// normalized.
+String commonAncestor(List<String> dirs) {
+  var common = dirs.first;
+  for (final dir in dirs.skip(1)) {
+    while (!p.equals(common, dir) && !p.isWithin(common, dir)) {
+      common = p.dirname(common);
+    }
+  }
+  return common;
+}
+
 /// The nearest directory at or above [dir] with a `.git`.
 String? _repositoryOf(String dir) {
   for (var current = dir; ; current = p.dirname(current)) {
-    if (FileSystemEntity.typeSync(p.join(current, '.git')) !=
-        FileSystemEntityType.notFound) {
+    if (FileSystemEntity.typeSync(p.join(current, '.git')) != .notFound) {
       return current;
     }
     if (p.dirname(current) == current) {
@@ -44,7 +56,7 @@ String? _repositoryOf(String dir) {
 /// Whether the pubspec in [dir] depends on the package at [target] by
 /// `path:`.
 bool _dependsByPath(String dir, String target) {
-  final pubspec = readYamlMap(p.join(dir, 'pubspec.yaml'));
+  final pubspec = readPubspec(dir).yaml;
   for (final section in const [
     'dependencies',
     'dev_dependencies',
