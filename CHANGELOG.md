@@ -1,5 +1,10 @@
 ## Unreleased
 
+- Keep declarations from being reported or removed with `//` comments:
+  `// ciach:ignore` on the line before a declaration or after it,
+  `// ciach:ignore-start` and `// ciach:ignore-end` around a range, and
+  `// ciach:ignore-file` for a whole file. A kept member keeps its type.
+  ([#104](https://github.com/leancodepl/ciach/pull/104))
 - If a scanned package hasn't had `dart pub get`, ciach now stops with exit
   code 2 and lists that package. Before, it reported code used by that package
   as unused.
