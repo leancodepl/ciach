@@ -50,7 +50,10 @@ Future<int> _run(List<String> arguments) async {
   try {
     args = parser.parse(arguments);
   } on FormatException catch (e) {
-    _log.severe('${e.message}\n\n${usage(parser)}');
+    _log.severe('''
+${e.message}
+
+${usage(parser)}''');
     return 2;
   }
 
