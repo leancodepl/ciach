@@ -1,5 +1,21 @@
 ## Unreleased
 
+- **Breaking:** ciach works out more from the project, with fewer options:
+  - `--exported` decides per package by default: the API other packages can
+    import is left out for a package that can be published, and checked for
+    one with `publish_to: none`.
+  - `--unused-translations` is on by default.
+  - `--also overrides,operators,tojson,union-members` replaces `--overrides`,
+    `--operators`, `--report-tojson` and `--unused-union-members`.
+  - `--fail-public` and `--generated-suffix` are removed; `--generated-glob`
+    covers a custom suffix.
+  - A package an `analysis_options.yaml` loads as a plugin by `path:` has its
+    `plugin` entry point, and the files `flutterfire configure` wrote are
+    generated, read from `firebase.json` or by their banner.
+  - A warning names the `--analysis-root` to pass when a package in the same
+    git repository depends on the scanned one by `path:`.
+  - `--help` groups the options.
+  ([#105](https://github.com/leancodepl/ciach/pull/105))
 - If a class, enum, mixin or extension type is mentioned only in doc comments
   and has unused members, ciach now reports the type once, and `--remove`
   leaves it alone. Before, ciach reported each unused member, and `--remove`
