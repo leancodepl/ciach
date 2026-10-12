@@ -21,22 +21,22 @@ const faqEntries = [
     'Does ciach work with Flutter apps?',
     'Yes, with any Dart package. `@override` members such as `build` and '
         '`initState` are skipped by default because frameworks reach them '
-        'polymorphically; pass `--overrides` to report them anyway.',
+        'polymorphically; pass `--also overrides` to report them anyway.',
   ),
   FaqEntry(
     'Is it safe to run `ciach --remove`?',
     'It shows the list and asks first, leaves ambiguous multi-declarator '
         'statements alone and marks findings whose removal would not compile '
         'as report-only. Still review the diff, as after any automated '
-        'refactor. `--overrides` and `--operators` widen the false-positive '
+        'refactor. `--also overrides,operators` widens the false-positive '
         'risk.',
   ),
   FaqEntry(
     'My library’s public API is reported as unused.',
-    'That is expected from inside the package. Use `--no-exported` to skip '
-        'it, `--no-public` to report only private declarations, or keep public '
-        'findings visible but out '
-        'of the exit code with `--set-exit-if-changed` `--no-fail-public`.',
+    'It should not be: a package that can be published has its exported API '
+        'left out by default. If it has `publish_to: none` but is still '
+        'imported from elsewhere, say as a git dependency, pass '
+        '`--no-exported`.',
   ),
   FaqEntry(
     'How fast is it?',

@@ -34,6 +34,7 @@ void main() {
     package = .systemTemp.createTempSync('ciach_project_config_');
     write('pubspec.yaml', '''
 name: server
+publish_to: none
 environment: {sdk: ^3.10.0}
 dependencies: {dart_frog: any, serverpod: any}
 ''');
@@ -189,31 +190,25 @@ void unusedRouteHelper() {}
     expect(unused, isNot(contains('lib/js.dart:Counter')));
   });
 
-  test(
-    'with --unused-translations, the gen-l10n template is report-only',
-    () async {
-      final resolved = resolveOptions(
-        resolveConfiguration(
-          buildParser().parse([package.path, '--unused-translations']),
-          const .empty(),
-        ),
-        progressDefault: false,
-        detectedCi: null,
-      );
-      final result = await Ciach(resolved.finderOptions()).run();
-      final translations = [
-        for (final d in result.unused)
-          if (d.filePath.startsWith('lib/l10n/')) d,
-      ];
+  test('by default, the gen-l10n template is report-only', () async {
+    final resolved = resolveOptions(
+      resolveConfiguration(buildParser().parse([package.path]), const .empty()),
+      progressDefault: false,
+      detectedCi: null,
+    );
+    final result = await Ciach(resolved.finderOptions()).run();
+    final translations = [
+      for (final d in result.unused)
+        if (d.filePath.startsWith('lib/l10n/')) d,
+    ];
 
-      expect(translations.map((d) => d.qualifiedName), [
-        'Strings',
-        'Strings.unusedMessage',
-      ]);
-      for (final d in translations) {
-        expect(d.removalBlocked, isTrue);
-        expect(d.hint, contains('remove the message from lib/l10n/app_en.arb'));
-      }
-    },
-  );
+    expect(translations.map((d) => d.qualifiedName), [
+      'Strings',
+      'Strings.unusedMessage',
+    ]);
+    for (final d in translations) {
+      expect(d.removalBlocked, isTrue);
+      expect(d.hint, contains('remove the message from lib/l10n/app_en.arb'));
+    }
+  });
 }

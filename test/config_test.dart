@@ -43,11 +43,8 @@ public: false
 exported: false
 generated: true
 project-config: false
-unused-translations: true
-overrides: true
-operators: true
-unused-union-members: true
-report-tojson: true
+unused-translations: false
+also: [overrides, operators, union-members, tojson]
 transitive: true
 set-exit-if-changed: true
 remove: true
@@ -57,8 +54,6 @@ exclude:
   - 'tool/**'
 include:
   - 'lib/**'
-generated-suffix:
-  - .gc.dart
 generated-glob:
   - 'lib/l10n/**'
 entry-points:
@@ -81,7 +76,7 @@ dart: /sdk/bin/dart
       expect(resolved.includeExported, isFalse);
       expect(resolved.includeGenerated, isTrue);
       expect(resolved.projectConfig, isFalse);
-      expect(resolved.unusedTranslations, isTrue);
+      expect(resolved.unusedTranslations, isFalse);
       expect(resolved.overrides, isTrue);
       expect(resolved.operators, isTrue);
       expect(resolved.unusedUnionMembers, isTrue);
@@ -97,7 +92,6 @@ dart: /sdk/bin/dart
         'bootstrap',
         'Harness.start in test/a.dart or test/b.dart',
       ]);
-      expect(resolved.additionalGeneratedSuffixes, ['.gc.dart']);
       expect(resolved.additionalGeneratedGlobs, ['lib/l10n/**']);
       expect(resolved.kinds, <SymbolKind>{.class$, .function});
       expect(resolved.format, 'github');
@@ -276,10 +270,8 @@ concurrency: 4
         '--generated',
         '--project-config',
         '--unused-translations',
-        '--overrides',
-        '--operators',
-        '--unused-union-members',
-        '--report-tojson',
+        '--also',
+        'overrides',
         '--set-exit-if-changed',
         '--remove',
         '--force',
@@ -287,8 +279,6 @@ concurrency: 4
         'test/**',
         '-i',
         'lib/**',
-        '--generated-suffix',
-        '.gc.dart',
         '--generated-glob',
         'lib/l10n/**',
         '-k',
@@ -444,10 +434,10 @@ concurrency: 4
 
       expect(resolved.rootPath, '.');
       expect(resolved.includePublic, isTrue);
-      expect(resolved.includeExported, isTrue);
+      expect(resolved.includeExported, isNull);
       expect(resolved.includeGenerated, isFalse);
       expect(resolved.projectConfig, isTrue);
-      expect(resolved.unusedTranslations, isFalse);
+      expect(resolved.unusedTranslations, isTrue);
       expect(resolved.overrides, isFalse);
       expect(resolved.operators, isFalse);
       expect(resolved.unusedUnionMembers, isFalse);
@@ -458,7 +448,6 @@ concurrency: 4
       expect(resolved.force, isFalse);
       expect(resolved.includeGlobs, isEmpty);
       expect(resolved.excludeGlobs, isEmpty);
-      expect(resolved.additionalGeneratedSuffixes, isEmpty);
       expect(resolved.additionalGeneratedGlobs, isEmpty);
       expect(resolved.kinds, FinderOptions.defaultKinds);
       expect(resolved.format, 'text');
@@ -521,10 +510,6 @@ dart: /sdk/bin/dart
         'test/**',
         '-e',
         'tool/**',
-        '--generated-suffix',
-        '.gc.dart',
-        '--generated-suffix',
-        '.pb.dart',
         '--generated-glob',
         'lib/l10n/**',
         '--generated-glob',
@@ -532,7 +517,6 @@ dart: /sdk/bin/dart
       ]);
 
       expect(resolved.excludeGlobs, ['test/**', 'tool/**']);
-      expect(resolved.additionalGeneratedSuffixes, ['.gc.dart', '.pb.dart']);
       expect(resolved.additionalGeneratedGlobs, [
         'lib/l10n/**',
         'third_party/**',
@@ -785,7 +769,8 @@ format: text''', origin: 'c.yaml'),
       final resolved = resolve(const [
         '--no-public',
         '--no-project-config',
-        '--overrides',
+        '--also',
+        'overrides',
         '-e',
         'test/**',
         '-j',
@@ -830,10 +815,10 @@ dependencies:
         options.entryPoints.map((e) => e.name),
         containsAllInOrder(['bootstrap', 'onRequest']),
       );
+      // The template is scanned for unused messages, so it isn't generated.
       expect(options.additionalGeneratedGlobs, [
         'gen/**',
         'lib/l10n/app_localizations_*.dart',
-        'lib/l10n/app_localizations.dart',
       ]);
     });
 

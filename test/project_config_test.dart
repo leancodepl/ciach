@@ -274,6 +274,54 @@ flutter: {plugin: {platforms: {linux: {dartPluginClass: LinuxPlugin}}}}
     expect(config.translations.single.arbFile, 'pkgs/app/lib/l10n/app_en.arb');
   });
 
+  test('a package analysis_options.yaml loads by path is a plugin', () {
+    write('pubspec.yaml', 'name: ws\nworkspace: [app, packages/app_lint]\n');
+    write('analysis_options.yaml', '''
+plugins:
+  app_lint:
+    path: packages/app_lint
+  published_lint: ^1.0.0
+''');
+    write('app/pubspec.yaml', 'name: app');
+    // It reaches analysis_server_plugin only through another package.
+    write('packages/app_lint/pubspec.yaml', '''
+name: app_lint
+dependencies: {leancode_lint: any}
+''');
+
+    expect(rules(read()), {'plugin in packages/app_lint/lib/main.dart'});
+  });
+
+  test('the Dart files flutterfire configure wrote, from firebase.json', () {
+    write('pubspec.yaml', 'name: ws\nworkspace: [app]\n');
+    write('app/pubspec.yaml', 'name: app');
+    write('app/firebase.json', '''
+{
+  "flutter": {
+    "platforms": {
+      "android": {"default": {"fileOutput": "android/app/google-services.json"}},
+      "dart": {
+        "lib/firebase_options_dev.dart": {"projectId": "dev"},
+        "lib/firebase_options_prod.dart": {"projectId": "prod"}
+      }
+    }
+  }
+}
+''');
+
+    expect(read().generatedGlobs, [
+      'app/lib/firebase_options_dev.dart',
+      'app/lib/firebase_options_prod.dart',
+    ]);
+  });
+
+  test('a firebase.json that does not parse is ignored', () {
+    write('pubspec.yaml', 'name: app');
+    write('firebase.json', '{"flutter": ');
+
+    expect(read().generatedGlobs, isEmpty);
+  });
+
   test('every build.<name>.yaml counts, as build_runner --config picks it', () {
     write('pubspec.yaml', 'name: app');
     write('build.release.yaml', r'''

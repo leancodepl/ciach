@@ -168,7 +168,7 @@ void _removeUnused(
   final emptyCount = result.emptyFiles.length;
   if (blocked > 0) {
     _log.fine(
-      'Skipping $blocked of ${plural(result.unused.length, 'finding', 'findings')}: removing them safely would need a source rewrite (see --unused-union-members and remove safety).',
+      'Skipping $blocked of ${plural(result.unused.length, 'finding', 'findings')}: removing them safely would need a source rewrite (see --also union-members and remove safety).',
     );
   }
   if (count == 0 && emptyCount == 0) {

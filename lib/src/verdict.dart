@@ -90,7 +90,7 @@ final class Verdict {
   /// Whether a dead [candidate] is real but must *not* be auto-removed, because
   /// doing so would break the build:
   ///
-  /// * a class kept dead only by type patterns under `--unused-union-members`
+  /// * a class kept dead only by type patterns under `--also union-members`
   ///   (never constructed, only matched): deleting a sealed member and its
   ///   scattered `case`s is a source rewrite this tool won't attempt;
   /// * an enum value whose removal would empty a still-referenced enum;

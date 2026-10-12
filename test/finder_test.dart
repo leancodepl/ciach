@@ -514,7 +514,7 @@ void main() {
     });
   });
 
-  group('unused union members (opt-in --unused-union-members)', () {
+  group('unused union members (opt-in --also union-members)', () {
     // Scan only the union fixture; cross-file references (the live member
     // constructed in bin/app.dart) still resolve, since the analysis server
     // analyzes the whole package regardless of the candidate filter.
@@ -568,7 +568,7 @@ void main() {
       final decl = findByName(result, 'IfCaseOnlySignal');
       expect(decl, isNotNull, reason: 'still reported as dead');
       expect(decl!.removalBlocked, isTrue);
-      // Nothing is coupled: `--unused-union-members` never removes arms.
+      // Nothing is coupled: `--also union-members` never removes arms.
       expect(decl.coupledRemovals, isEmpty);
     });
 
@@ -1195,7 +1195,7 @@ void main() {
       },
     );
 
-    test('--report-tojson re-enables reporting a dead toJson', () async {
+    test('--also tojson re-enables reporting a dead toJson', () async {
       final names = await runSerialization(reportToJson: true);
       expect(names, contains('Plain.toJson'));
       expect(names, contains('Profile.toJson'));

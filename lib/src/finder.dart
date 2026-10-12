@@ -24,6 +24,7 @@ import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/member_probe.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/packages.dart';
+import 'package:ciach/src/path_dependents.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/problems.dart';
@@ -35,6 +36,7 @@ import 'package:ciach/src/settler.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/verdict.dart';
 import 'package:collection/collection.dart';
+import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show Location;
 
 final _log = Logger('ciach.finder');
@@ -78,9 +80,11 @@ class Ciach {
   );
 
   /// What other packages can import, when exported declarations are left out.
-  late final PublicApi? _publicApi = options.includeExported
-      ? null
-      : .scan(options.rootPath);
+  late final PublicApi? _publicApi = switch (options.includeExported) {
+    true => null,
+    false => .scan(options.rootPath),
+    null => _publishedApi(),
+  };
 
   /// The variants of the conditional imports under the analysis root.
   late final _conditionalImports = ConditionalImports.scan(
@@ -117,6 +121,40 @@ class Ciach {
   Future<FinderResult> run() {
     final problems = ProblemCollector(options.rootPath);
     return problems.collect(() => _run(problems));
+  }
+
+  /// Warns when packages outside [rootPath] depend on it by `path:`: their
+  /// uses are not counted, so what only they use reads as dead.
+  void _warnAboutPathDependents(String rootPath) {
+    final dependents = pathDependentsOutside(rootPath, rootPath);
+    if (dependents.isEmpty) {
+      return;
+    }
+    var common = rootPath;
+    for (final dir in dependents) {
+      while (!p.isWithin(common, dir)) {
+        common = p.dirname(common);
+      }
+    }
+    _log.warning(
+      'Not counting uses in ${dependents.map(p.relative).join(', ')}, which depend on this package by `path:` from outside the analysis root, so what only they use reads as unused. --analysis-root ${p.relative(common)} counts them.',
+    );
+  }
+
+  /// The API of the packages that can be published, each package's verdict
+  /// logged; `null` when none can.
+  PublicApi? _publishedApi() {
+    final api = PublicApi.scan(options.rootPath, publishedOnly: true);
+    for (final MapEntry(key: dir, value: publishable) in api.packages.entries) {
+      final name = relativePosix(dir, options.rootPath);
+      final package = name == '.' ? 'The scanned package' : name;
+      _log.config(
+        publishable
+            ? '$package can be published, so the API other packages can import is left out; `publish_to: none` in its pubspec, or --exported, checks it.'
+            : '$package has `publish_to: none`, so its API is checked like the rest of the code.',
+      );
+    }
+    return api.isEmpty ? null : api;
   }
 
   Future<FinderResult> _run(ProblemCollector problems) async {
@@ -159,6 +197,9 @@ class Ciach {
       throw UnresolvedPackagesException([
         for (final package in unresolved) relativePosix(package, rootPath),
       ]);
+    }
+    if (options.includePublic && options.analysisRootPath == null) {
+      _warnAboutPathDependents(rootPath);
     }
 
     _log.info('Starting Dart analysis server…');

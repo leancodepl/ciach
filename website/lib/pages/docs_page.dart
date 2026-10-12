@@ -66,8 +66,8 @@ const _toc = [
 const _options = [
   ('--no-public', 'Report private declarations only. Cheapest mode.'),
   (
-    '--no-exported',
-    'Skip what other packages can import. The right one for library packages.',
+    '--[no-]exported',
+    'Check or skip what other packages can import. By default each package decides: skipped when it can be published, checked with `publish_to: none`.',
   ),
   (
     '--remove, --force',
@@ -79,7 +79,7 @@ const _options = [
   ),
   (
     '--set-exit-if-changed',
-    'Exit 1 when anything is found. Add `--no-fail-public` to count only private findings.',
+    'Exit 1 when anything is found. On by default in CI.',
   ),
   (
     '-k, --kinds',
@@ -98,9 +98,10 @@ const _options = [
     'Also report what only other findings reference, and dead cycles.',
   ),
   (
-    '--overrides, --operators, --generated, --report-tojson',
+    '--also overrides,operators,tojson,union-members',
     'Opt back into a category skipped by default.',
   ),
+  ('--generated', 'Scan generated files too.'),
   ('-v', 'Narrate the run on stderr with timings.'),
 ];
 
@@ -128,12 +129,12 @@ const _skips = [
   (
     '@override members',
     'Reached polymorphically or by a framework.',
-    '--overrides',
+    '--also overrides',
   ),
   (
     'Operator overloads',
     'The server does not resolve `a + b` to the declaration.',
-    '--operators',
+    '--also operators',
   ),
   (
     'call methods',
@@ -158,13 +159,13 @@ const _skips = [
   (
     'toJson()',
     '`jsonEncode(obj)` calls it by dynamic dispatch.',
-    '--report-tojson',
+    '--also tojson',
   ),
   ('dartdoc [Xxx] links', 'Not a code reference; reported as doc-only.', null),
 ];
 
 const _reportOnly = [
-  'A sealed member matched only by type patterns (`--unused-union-members`).',
+  'A sealed member matched only by type patterns (`--also union-members`).',
   'Every value of a still-referenced enum.',
   'The sole constructor of a live class with final fields or super forwarding.',
   'A primary constructor or its declaring parameters.',
@@ -522,13 +523,7 @@ class DocsPage extends StatelessComponent {
                     'on the diff, as if ',
                   ),
                   code([.text('-f github --set-exit-if-changed -v')]),
-                  .text(
-                    ' were given, with paths from the repository root. For a '
-                    'library whose public API is legitimately unused from the '
-                    'inside, add ',
-                  ),
-                  code([.text('--no-fail-public')]),
-                  .text('; '),
+                  .text(' were given, with paths from the repository root; '),
                   code([.text('--no-ci')]),
                   .text(' keeps the local defaults.'),
                 ]),
@@ -717,10 +712,10 @@ class DocsPage extends StatelessComponent {
                 ul(classes: Prose.checklist.name, [
                   li(
                     rich(
-                      'A library package’s public API is legitimately unused '
-                      'from the inside: prefer `--no-exported` there. In a '
-                      'monorepo, `--analysis-root` recovers uses that live in '
-                      'a sibling package.',
+                      'A published package’s consumers are invisible, so its '
+                      'exported API is left out unless its pubspec says '
+                      '`publish_to: none`. In a monorepo, `--analysis-root` '
+                      'recovers uses that live in a sibling package.',
                     ),
                   ),
                   li(

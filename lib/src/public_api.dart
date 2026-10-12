@@ -1,17 +1,35 @@
 import 'package:ciach/src/directives.dart';
 import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/packages.dart';
+import 'package:ciach/src/project_config/project_files.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
 /// Declarations importable by other packages, read from directives only.
 final class PublicApi {
-  PublicApi._(this._rootPath, this._inLib, this._libraryOf, this._visible);
+  PublicApi._(
+    this._rootPath,
+    this._inLib,
+    this._libraryOf,
+    this._visible,
+    this.packages,
+  );
 
-  factory PublicApi.scan(String rootPath) {
+  /// The API of every package under [rootPath], or with [publishedOnly], of
+  /// those that can be published: the others have no importers outside the
+  /// repository.
+  factory PublicApi.scan(String rootPath, {bool publishedOnly = false}) {
     final tree = scanPackageTree(rootPath);
-    final libDirOf = _libDirOf(tree);
+    final packages = {
+      for (final libDir in tree.libDirs.sorted())
+        p.dirname(libDir): isPublishable(p.dirname(libDir)),
+    };
+    final libDirs = {
+      for (final MapEntry(key: dir, value: publishable) in packages.entries)
+        if (publishable || !publishedOnly) p.join(dir, 'lib'),
+    };
+    final libDirOf = _libDirOf(tree.dartFiles, libDirs);
     final libraries = _readDirectives(libDirOf.keys, PackageResolver());
     final libraryOf = _libraryOfParts(libraries);
     return ._(
@@ -19,14 +37,15 @@ final class PublicApi {
       libDirOf.keys.toSet(),
       libraryOf,
       _visibleNames(libraries, libraryOf, libDirOf),
+      packages,
     );
   }
 
   /// The `lib/` each Dart file under one sits in: the nearest above it.
-  static Map<String, String> _libDirOf(PackageTree tree) => {
-    for (final path in tree.dartFiles)
-      path: ?_nearestLibDir(path, tree.libDirs),
-  };
+  static Map<String, String> _libDirOf(
+    Set<String> dartFiles,
+    Set<String> libDirs,
+  ) => {for (final path in dartFiles) path: ?_nearestLibDir(path, libDirs)};
 
   static String? _nearestLibDir(String path, Set<String> libDirs) {
     for (
@@ -105,6 +124,13 @@ final class PublicApi {
   final Map<String, String> _libraryOf;
   final Map<String, _Names> _visible;
 
+  /// The directory of every package under the root, with whether it can be
+  /// published.
+  final Map<String, bool> packages;
+
+  /// Whether no package's API is part of this.
+  bool get isEmpty => _inLib.isEmpty;
+
   /// Whether another package could import the file at [path]: one under a
   /// package's `lib/`, or anywhere outside the scanned root.
   bool isImportable(String path) =>
@@ -115,6 +141,14 @@ final class PublicApi {
     return !isPrivateName(name) && (_visible[library]?.admits(name) ?? false);
   }
 }
+
+/// Whether the package in [dir] can be published: its pubspec has no
+/// `publish_to: none`. Without a pubspec, it cannot.
+bool isPublishable(String dir) =>
+    readYamlMap(
+      p.join(dir, 'pubspec.yaml'),
+    )?.let((pubspec) => pubspec['publish_to'] != 'none') ??
+    false;
 
 final _show = RegExp(r'\bshow\b(?<names>[^;]*?)(?=\b(?:show|hide)\b|$)');
 final _hide = RegExp(r'\bhide\b(?<names>[^;]*?)(?=\b(?:show|hide)\b|$)');

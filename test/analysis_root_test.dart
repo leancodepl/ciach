@@ -51,11 +51,13 @@ ${entries.join(',\n')}
     write('pkgs/core/pubspec.yaml', '''
 name: core
 version: 1.0.0
+publish_to: none
 environment:
   sdk: ^3.10.0
 ''');
     write('pkgs/app/pubspec.yaml', '''
 name: app
+publish_to: none
 environment:
   sdk: ^3.10.0
 dependencies:

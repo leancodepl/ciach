@@ -238,7 +238,7 @@ entry-points: [{name: registerWith, glob: lib/**}]''', origin: 'c.yaml'),
       expect(
         lines,
         contains(
-          '  generated-glob: gen/** (command line); lib/l10n/app_localizations_*.dart, lib/l10n/app_localizations.dart (project config)',
+          '  generated-glob: gen/** (command line); lib/l10n/app_localizations_*.dart (project config)',
         ),
       );
       expect(
@@ -254,7 +254,7 @@ entry-points: [{name: registerWith, glob: lib/**}]''', origin: 'c.yaml'),
 
       expect(lines, contains('  exclude: (none) (default)'));
       expect(lines, contains('  include: (none) (default)'));
-      expect(lines, contains('  generated-suffix: (none) (default)'));
+      expect(lines, contains('  also: (none) (default)'));
       expect(lines, contains('  generated-glob: (none) (default)'));
       expect(lines, contains('  entry-points: (none) (default)'));
     });

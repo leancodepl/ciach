@@ -19,6 +19,7 @@ void main() {
       ..createSync(recursive: true)
       ..writeAsStringSync('''
 name: pkg
+publish_to: none
 environment:
   sdk: ^3.10.0
 ''');

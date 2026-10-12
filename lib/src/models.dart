@@ -52,9 +52,8 @@ class FinderOptions {
     this.excludeGlobs = const [],
     this.kinds = defaultKinds,
     this.includePublic = true,
-    this.includeExported = true,
+    this.includeExported,
     this.includeGenerated = false,
-    this.additionalGeneratedSuffixes = const [],
     this.additionalGeneratedGlobs = const [],
     this.skipOverrides = true,
     this.skipOperators = true,
@@ -95,17 +94,14 @@ class FinderOptions {
   /// Private declarations are always reported when unused.
   final bool includePublic;
 
-  /// Whether to report declarations importable by other packages.
-  final bool includeExported;
+  /// Whether to report declarations importable by other packages. `null`
+  /// (the default) decides per package: the API of one that can be published
+  /// is left out, since its importers are elsewhere, and the API of one with
+  /// `publish_to: none` is checked, since its importers are in the repository.
+  final bool? includeExported;
 
   /// Whether to scan generated files (`*.g.dart`, `*.freezed.dart`, …).
   final bool includeGenerated;
-
-  /// Extra filename suffixes to treat as generated, beyond the built-in set
-  /// (`.g.dart`, `.freezed.dart`, …) — for projects whose generators emit a
-  /// custom suffix. Matched with `endsWith`, so include the leading dot and
-  /// `.dart` (e.g. `.gc.dart`). Ignored when [includeGenerated] is set.
-  final List<String> additionalGeneratedSuffixes;
 
   /// Globs, relative to [rootPath], of more files to treat as generated: read
   /// for references, never reported or edited. For output a suffix can't pick
@@ -294,7 +290,7 @@ class UnusedDeclaration {
   /// must *not* delete it automatically, because doing so safely would require
   /// a source rewrite this tool won't attempt.
   ///
-  /// Set for every dead sealed member surfaced by `--unused-union-members` (a
+  /// Set for every dead sealed member surfaced by `--also union-members` (a
   /// class that is only ever *matched* by a type pattern, never constructed):
   /// deleting it would mean removing the member and rewriting every now-non-
   /// exhaustive `switch`/`if`-`case` over its supertype. Also set for a member
@@ -495,8 +491,8 @@ class FinderResult {
 
   /// Scanned files with nothing but comments and `library`, `import` or
   /// `part of` directives, as sorted root-relative `/`-paths. With
-  /// [FinderOptions.includeExported] off, one other packages can import is
-  /// left out.
+  /// [FinderOptions.includeExported] off or left to each package, one other
+  /// packages can import is left out.
   final List<String> emptyFiles;
 
   /// Empty files a conditional import or export chooses between. Report-only:

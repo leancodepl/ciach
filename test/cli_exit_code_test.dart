@@ -60,32 +60,11 @@ void main() {
   const publicOnly = ['--include', 'lib/orphans.dart'];
   const withPrivate = ['--include', 'lib/greeting.dart'];
 
-  test(
-    '--set-exit-if-changed --no-fail-public: only public unused -> exit 0',
-    () async {
-      final result = await runCli([
-        ...publicOnly,
-        '--set-exit-if-changed',
-        '--no-fail-public',
-      ]);
-      expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
-      // Public findings are still reported, just not counted toward the exit.
-      expect(result.stdout, contains('UnusedClass'));
-    },
-  );
-
-  test(
-    '--set-exit-if-changed --no-fail-public: an unused private -> exit 1',
-    () async {
-      final result = await runCli([
-        ...withPrivate,
-        '--set-exit-if-changed',
-        '--no-fail-public',
-      ]);
-      expect(result.exitCode, 1, reason: '${result.stdout}\n${result.stderr}');
-      expect(result.stdout, contains('_danglingPrivate'));
-    },
-  );
+  test('--set-exit-if-changed: an unused private -> exit 1', () async {
+    final result = await runCli([...withPrivate, '--set-exit-if-changed']);
+    expect(result.exitCode, 1, reason: '${result.stdout}\n${result.stderr}');
+    expect(result.stdout, contains('_danglingPrivate'));
+  });
 
   test('--set-exit-if-changed alone: public counts -> exit 1', () async {
     final result = await runCli([...publicOnly, '--set-exit-if-changed']);

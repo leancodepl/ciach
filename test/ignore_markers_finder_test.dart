@@ -24,6 +24,7 @@ void main() {
     package = .systemTemp.createTempSync('ciach_ignore_markers_');
     write('pubspec.yaml', '''
 name: markers
+publish_to: none
 environment: {sdk: ^3.10.0}
 ''');
     write('.dart_tool/package_config.json', packageConfig({'markers': '.'}));
