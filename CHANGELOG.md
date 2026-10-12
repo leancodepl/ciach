@@ -1,5 +1,9 @@
 ## Unreleased
 
+- Add `--format` values `azure` and `teamcity`, the default on their service
+  as `github` is on GitHub Actions, and `sarif`, `checkstyle` and `gitlab`
+  (Code Quality) reports for other tools to import.
+  ([#103](https://github.com/leancodepl/ciach/pull/103))
 - On CI, detected from the environment, `--set-exit-if-changed` and
   `--verbose` default to on, progress to off, and on GitHub Actions `--format`
   to `github`; `--[no-]ci` overrides the detection.
