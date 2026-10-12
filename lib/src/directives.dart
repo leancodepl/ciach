@@ -45,13 +45,52 @@ extension type Directive._(RegExpMatch _match) {
 }
 
 /// Whether [content] has nothing but comments and `library`, `import` or
-/// `part of` directives.
-bool isDirectiveOnly(String content) =>
-    _directiveOnly.hasMatch(stripComments(content));
+/// `part of` directives. Reads only up to the first other token.
+bool isDirectiveOnly(String content) {
+  var i = skipTrivia(content, 0);
+  while (i < content.length) {
+    switch (_directiveEnd(content, i)) {
+      case final end?:
+        i = skipTrivia(content, end);
+      case null:
+        return false;
+    }
+  }
+  return true;
+}
 
-final _directiveOnly = RegExp(
-  r'''^(?:\s*(?:library\b[^;]*|import\s+r?['"][^;]*|part\s+of\b[^;]*);)*\s*$''',
-);
+/// The index just past the `;` of the `library`, `import` or `part of`
+/// directive at [from], or `null` when none starts there.
+int? _directiveEnd(String content, int from) {
+  final keyword = _wordAt(content, from);
+  final rest = skipTrivia(content, from + keyword.length);
+  final isDirective = switch (keyword) {
+    'library' => true,
+    'import' =>
+      rest < content.length && stringLiteralEnd(content, rest) != null,
+    'part' => _wordAt(content, rest) == 'of',
+    _ => false,
+  };
+  return isDirective ? _statementEnd(content, rest) : null;
+}
+
+/// The index just past the first `;` at or after [from] outside comments and
+/// strings, or `null` when there is none.
+int? _statementEnd(String content, int from) {
+  for (var i = skipTrivia(content, from); i < content.length;) {
+    if (content[i] == ';') {
+      return i + 1;
+    }
+    i = skipTrivia(content, stringLiteralEnd(content, i) ?? i + 1);
+  }
+  return null;
+}
+
+/// The identifier at [from], or `''` when none starts there.
+String _wordAt(String content, int from) =>
+    _identifier.matchAsPrefix(content, from)?.group(0) ?? '';
+
+final _identifier = RegExp(r'[A-Za-z_$][A-Za-z0-9_$]*');
 
 final _directive = RegExp(
   r'^[ \t]*(?<keyword>import|export|part)\s+(?<body>[^;]*);',

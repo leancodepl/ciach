@@ -24,7 +24,7 @@ String stripComments(String content) {
   var i = 0;
   while (i < n) {
     final start = i;
-    if (_stringLiteralEnd(content, i) case final end?) {
+    if (stringLiteralEnd(content, i) case final end?) {
       out.write(content.substring(start, end));
       i = end;
       continue;
@@ -42,6 +42,24 @@ String stripComments(String content) {
     }
   }
   return out.toString();
+}
+
+/// The index of the first character at or after [from] that is neither
+/// whitespace nor in a comment.
+int skipTrivia(String content, int from) {
+  var i = from;
+  while (i < content.length) {
+    if (content.startsWith('//', i)) {
+      i = content.indexOfOrNull('\n', i) ?? content.length;
+    } else if (content.startsWith('/*', i)) {
+      i = _skipBlockComment(content, i);
+    } else if (content[i].trim().isEmpty) {
+      i++;
+    } else {
+      break;
+    }
+  }
+  return i;
 }
 
 bool _isIdentStart(String ch) =>
@@ -75,7 +93,9 @@ int _skipBlockComment(String content, int from) {
 
 bool _isQuote(String c) => c == "'" || c == '"';
 
-int? _stringLiteralEnd(String content, int i) => switch (content[i]) {
+/// The index just past the string literal that starts at [i], or `null` when
+/// none does.
+int? stringLiteralEnd(String content, int i) => switch (content[i]) {
   final c when _isQuote(c) => _skipString(content, i, raw: false),
   'r' when i + 1 < content.length && _isQuote(content[i + 1]) => _skipString(
     content,
