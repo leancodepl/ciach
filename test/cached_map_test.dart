@@ -24,7 +24,7 @@ void main() {
 
   test('lets a value read others', () {
     late final CachedMap<int, int> sums;
-    sums = CachedMap((n) => n == 0 ? 0 : n + sums[n - 1]);
+    sums = .new((n) => n == 0 ? 0 : n + sums[n - 1]);
     expect(sums[4], 10);
     expect(sums[3], 6);
   });

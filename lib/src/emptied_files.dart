@@ -179,7 +179,7 @@ final class _Package {
     File(path).deleteSync();
     _files.remove(path);
     _contents[path] = null;
-    _directives.invalidate(path);
+    _directives[path] = const [];
   }
 }
 

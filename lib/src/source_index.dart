@@ -84,6 +84,8 @@ class SourceIndex {
   /// its content isn't re-read from disk, and marks the file as scanned.
   void cacheLines(String path, List<String> lines) {
     _lines[path] = lines;
+    _content.invalidate(path);
+    _lineStarts.invalidate(path);
     _scanned.add(path);
   }
 
