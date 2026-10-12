@@ -1,5 +1,11 @@
 ## Unreleased
 
+- Report files with nothing but comments and `library`, `import` or
+  `part of` directives, in an "Empty files" section. They count toward
+  `--set-exit-if-changed`, and `--remove` deletes them with the directives
+  naming them. An empty conditional-import variant is reported for removal by
+  hand.
+  ([#100](https://github.com/leancodepl/ciach/pull/100))
 - `--transitive` also reports dead cycles: declarations that only reference
   each other.
   ([#87](https://github.com/leancodepl/ciach/pull/87))

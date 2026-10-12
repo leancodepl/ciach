@@ -16,6 +16,7 @@ import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/concurrency.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/freezed.dart';
+import 'package:ciach/src/directives.dart';
 import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
@@ -61,6 +62,10 @@ class Ciach {
   /// Lazily-cached source text and tokens for every file touched this run,
   /// shared by the classification and the structural detectors.
   final _sources = SourceIndex();
+
+  /// The candidate files with nothing but directives and comments, as they
+  /// are opened.
+  final _directiveOnly = <String>[];
 
   /// Freezed-union tracking, fed as candidates are collected.
   final _freezed = FreezedUnions();
@@ -143,6 +148,7 @@ class Ciach {
 
     final Settled settled;
     final int declarationsChecked;
+    final ({List<String> files, List<String> variants}) empty;
     try {
       if (analysisRoot != rootPath) {
         _log.config(
@@ -160,9 +166,12 @@ class Ciach {
         'Opening ${plural(files.length + discovered.warmOnly.length, 'file', 'files')}…',
       );
       final opened = <String>{
-        for (final path in [...discovered.warmOnly, ...files])
+        for (final path in discovered.warmOnly)
           if (_openFile(client, path)) path,
+        for (final path in files)
+          if (_openFile(client, path, checkEmpty: true)) path,
       };
+      empty = _emptyFiles();
 
       // Phase 1: collect candidate declarations, concurrently.
       _log.info(
@@ -216,9 +225,32 @@ class Ciach {
       filesScanned: files.length,
       declarationsChecked: declarationsChecked,
       elapsed: stopwatch.elapsed,
+      emptyFiles: empty.files,
+      emptyVariants: empty.variants,
       recoveredReferences: settled.recovered,
       problems: problems.problems,
     );
+  }
+
+  /// The empty candidate files, root-relative, with the conditional-import
+  /// variants apart. One another package can import is left out.
+  ({List<String> files, List<String> variants}) _emptyFiles() {
+    final files = <String>[];
+    final variants = <String>[];
+    for (final path in _directiveOnly) {
+      if (_publicApi?.isImportable(path) ?? false) {
+        continue;
+      }
+      (_conditionalImports.contains(path) ? variants : files).add(
+        relativePosix(path, options.rootPath),
+      );
+    }
+    if (files.length + variants.length case final count && > 0) {
+      _log.fine(
+        'Found ${plural(count, 'empty file', 'empty files')}: ${[...files, ...variants].join(', ')}.',
+      );
+    }
+    return (files: files, variants: variants);
   }
 
   void _logDropped(Candidate candidate) => _log.fine(
@@ -290,8 +322,9 @@ class Ciach {
     return (candidates: candidates, refsByCandidate: refsByCandidate);
   }
 
-  /// Opens [path] in the server. `false` if the file cannot be read.
-  bool _openFile(LspClient client, String path) {
+  /// Opens [path] in the server, noting it in [_directiveOnly] if [checkEmpty]
+  /// and it has nothing but directives. `false` if the file cannot be read.
+  bool _openFile(LspClient client, String path, {bool checkEmpty = false}) {
     final String content;
     try {
       content = File(path).readAsStringSync();
@@ -301,6 +334,9 @@ class Ciach {
     }
     client.didOpen(File(path).uri, content);
     _sources.cacheLines(path, content.split('\n'));
+    if (checkEmpty && isDirectiveOnly(content)) {
+      _directiveOnly.add(path);
+    }
     return true;
   }
 }
