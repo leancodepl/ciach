@@ -29,7 +29,14 @@ void main() {
       for (final name in packages)
         '    { "name": "$name", "rootUri": "${name == packages.first ? '../' : '../../$name'}", "packageUri": "lib/", "languageVersion": "3.10" }',
     ];
-    return '{\n  "configVersion": 2,\n  "packages": [\n${entries.join(',\n')}\n  ]\n}\n';
+    return '''
+{
+  "configVersion": 2,
+  "packages": [
+${entries.join(',\n')}
+  ]
+}
+''';
   }
 
   void write(String path, String contents) => File(p.join(repo.path, path))
