@@ -261,6 +261,92 @@ lib/c.dart
     );
   });
 
+  group('Reporter.azure', () {
+    test('emits one task.logissue warning per finding, doc-only too', () {
+      final out = Reporter.azure(
+        resultWith(
+          [decl()],
+          docOnly: [decl(name: 'docOnlyThing', line: 9)],
+          emptyFiles: ['lib/blank.dart'],
+        ),
+        pathPrefix: 'app',
+      );
+      expect(out, '''
+##vso[task.logissue type=warning;sourcepath=app/lib/a.dart;linenumber=3;columnnumber=5]Unused declaration: Unused function 'foo'
+##vso[task.logissue type=warning;sourcepath=app/lib/blank.dart;linenumber=1;columnnumber=1]Empty file: Has nothing but comments and library, import or part-of directives
+##vso[task.logissue type=warning;sourcepath=app/lib/a.dart;linenumber=9;columnnumber=5]Referenced only from a doc comment: function 'docOnlyThing' has no code references, only a dartdoc link
+''');
+    });
+
+    test('escapes percent signs, semicolons and brackets', () {
+      final out = Reporter.azure(
+        resultWith([decl(name: '50%', filePath: 'lib/a;b].dart')]),
+      );
+      expect(out, contains('sourcepath=lib/a%3Bb%5D.dart;'));
+      expect(out, contains("Unused function '50%AZP25'"));
+    });
+
+    test('leaves out the position a problem lacks', () {
+      final out = Reporter.azure(
+        resultWith(
+          const [],
+          problems: [problem(line: null, column: null, name: null)],
+        ),
+      );
+      expect(
+        out,
+        '##vso[task.logissue type=warning;sourcepath=lib/a.dart]Could not analyze: '
+        'Could not find the references; kept. '
+        'Cause: Null check operator used on a null value\n',
+      );
+    });
+
+    test('produces no output when nothing is found', () {
+      expect(Reporter.azure(resultWith(const [])), isEmpty);
+    });
+  });
+
+  group('Reporter.teamCity', () {
+    test('declares each inspection type once, before its first use', () {
+      final out = Reporter.teamCity(
+        resultWith(
+          [decl(), decl(name: 'bar', line: 7)],
+          docOnly: [decl(name: 'docOnlyThing', line: 9)],
+        ),
+        pathPrefix: 'app',
+      );
+      expect(out, '''
+##teamcity[inspectionType id='ciach.unused-declaration' name='Unused declaration' category='ciach' description='Unused declaration']
+##teamcity[inspection typeId='ciach.unused-declaration' message='Unused function |'foo|'' file='app/lib/a.dart' line='3' SEVERITY='WARNING']
+##teamcity[inspection typeId='ciach.unused-declaration' message='Unused function |'bar|'' file='app/lib/a.dart' line='7' SEVERITY='WARNING']
+##teamcity[inspectionType id='ciach.doc-only' name='Referenced only from a doc comment' category='ciach' description='Referenced only from a doc comment']
+##teamcity[inspection typeId='ciach.doc-only' message='function |'docOnlyThing|' has no code references, only a dartdoc link' file='app/lib/a.dart' line='9' SEVERITY='WEAK WARNING']
+''');
+    });
+
+    test('escapes bars, brackets and newlines', () {
+      final out = Reporter.teamCity(
+        resultWith([decl(name: 'a|b', hint: '[x]\ny')]),
+      );
+      expect(out, contains("message='Unused function |'a||b|' — |[x|]|ny'"));
+    });
+
+    test('leaves out the line a problem lacks', () {
+      final out = Reporter.teamCity(
+        resultWith(
+          const [],
+          problems: [problem(line: null, column: null, name: null)],
+        ),
+      );
+      expect(out, isNot(contains('line=')));
+      expect(out, contains("file='lib/a.dart' SEVERITY='WARNING'"));
+    });
+
+    test('produces no output when nothing is found', () {
+      expect(Reporter.teamCity(resultWith(const [])), isEmpty);
+    });
+  });
+
   test('Reporter.github joins the hint and the dead referrer with dashes', () {
     final out = Reporter.github(
       resultWith([

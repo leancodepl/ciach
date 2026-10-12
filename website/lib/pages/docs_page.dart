@@ -73,7 +73,7 @@ const _options = [
     '--remove, --force',
     'Delete what was found after confirming. `--force` skips the prompt.',
   ),
-  ('-f text|json|github', 'Output format.'),
+  ('-f text|json|github|azure|teamcity', 'Output format.'),
   (
     '--set-exit-if-changed',
     'Exit 1 when anything is found. Add `--no-fail-public` to count only private findings.',

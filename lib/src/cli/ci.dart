@@ -45,6 +45,8 @@ enum CiRunner {
     showProgress: false,
     format: switch (this) {
       .githubActions => 'github',
+      .azurePipelines => 'azure',
+      .teamCity => 'teamcity',
       _ => null,
     },
   );

@@ -37,9 +37,9 @@ const kindAliases = <String, SymbolKind>{
 /// The `--kinds` alias names, sorted, for help text and error messages.
 String get kindNames => kindAliases.keys.sorted().join(', ');
 
-/// The accepted `--format` values; the first one is the default, except on
-/// GitHub Actions, where it is `github`.
-const formatNames = ['text', 'json', 'github'];
+/// The accepted `--format` values; the first one is the default, except on a
+/// CI service with an annotation format, where it is that one.
+const formatNames = ['text', 'json', 'github', 'azure', 'teamcity'];
 
 /// The `entry-points` list of `{name, glob}` rules. It has no command-line
 /// form; `ConfigFile` hands it over already parsed and validated.
@@ -249,7 +249,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       argName: 'ci',
       configKey: '/ci',
       helpText:
-          'Assume CI: --set-exit-if-changed and --verbose default to on, progress to off, and --format to github on GitHub Actions. Detected from CI, GITHUB_ACTIONS and the like; explicit options still win.',
+          'Assume CI: --set-exit-if-changed and --verbose default to on, progress to off, and --format to annotations on GitHub Actions, Azure Pipelines and TeamCity. Detected from CI, GITHUB_ACTIONS and the like; explicit options still win.',
     ),
   ),
   remove(
@@ -341,11 +341,13 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/format',
       allowedValues: formatNames,
       helpText:
-          'Output format. Defaults to github on GitHub Actions, text elsewhere.',
+          'Output format. Defaults to github, azure or teamcity on that CI service, text elsewhere.',
       allowedHelp: {
         'text': 'Human-readable, grouped by file.',
         'json': 'Machine-readable JSON.',
         'github': 'GitHub Actions `::warning` annotations.',
+        'azure': 'Azure Pipelines `##vso[task.logissue]` warnings.',
+        'teamcity': 'TeamCity `##teamcity[inspection]` service messages.',
       },
     ),
   ),

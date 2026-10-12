@@ -58,12 +58,12 @@ void main() {
       expect(defaults.setExitIfChanged, isTrue, reason: runner.label);
       expect(defaults.verbose, isTrue, reason: runner.label);
       expect(defaults.showProgress, isFalse, reason: runner.label);
-      // Only GitHub Actions has an annotation format.
-      expect(
-        defaults.format,
-        runner == .githubActions ? 'github' : isNull,
-        reason: runner.label,
-      );
+      expect(defaults.format, switch (runner) {
+        .githubActions => 'github',
+        .azurePipelines => 'azure',
+        .teamCity => 'teamcity',
+        _ => isNull,
+      }, reason: runner.label);
     }
   });
 }

@@ -38,14 +38,19 @@ void writeReport(
   switch (resolved.format) {
     case 'json':
       console.output(Reporter.json(result));
-    case 'github':
-      // GitHub resolves annotation paths from the repo root, so prepend the
-      // scan root's path from here.
+    case 'github' || 'azure' || 'teamcity':
+      // CI services resolve annotation paths from the checkout root, so
+      // prepend the scan root's path from here.
       final prefix = p
           .split(p.relative(rootPath, from: Directory.current.path))
           .join('/');
       _log.config("Prefixing annotation paths with '$prefix/'.");
-      console.output(Reporter.github(result, pathPrefix: prefix));
+      final annotate = switch (resolved.format) {
+        'azure' => Reporter.azure,
+        'teamcity' => Reporter.teamCity,
+        _ => Reporter.github,
+      };
+      console.output(annotate(result, pathPrefix: prefix));
     case _:
       console.output(
         Reporter.text(

@@ -87,7 +87,7 @@ ciach --verbose                           # explain each step
 | `--[no-]report-tojson` | off | Report an otherwise-unused `toJson()` serialization hook too. Off by default — `jsonEncode` dispatches to it dynamically. |
 | `--[no-]transitive` | off | Also report declarations referenced only from other findings, and dead cycles. See [Transitively dead code](#transitively-dead-code). |
 | `--[no-]set-exit-if-changed` | off; on in CI | Exit with status `1` when anything is found. Named after `dart format`. |
-| `--[no-]ci` | auto | Assume CI: `--set-exit-if-changed` and `--verbose` default to on, progress to off, and `--format` to `github` on GitHub Actions. Detected from `CI`, `GITHUB_ACTIONS` and the like. See [CI](#ci). |
+| `--[no-]ci` | auto | Assume CI: `--set-exit-if-changed` and `--verbose` default to on, progress to off, and `--format` to annotations on GitHub Actions, Azure Pipelines and TeamCity. Detected from `CI`, `GITHUB_ACTIONS` and the like. See [CI](#ci). |
 | `--[no-]exported` | on | Report declarations other packages can import. See [Library packages](#library-packages). |
 | `--[no-]fail-public` | on | Count unused public declarations toward the exit code (with `--set-exit-if-changed`). `--no-fail-public` reports them but fails only on private findings. |
 | `--remove` | off | Remove unused declarations, and delete empty files, after reporting them. Prompts for confirmation first. |
@@ -97,7 +97,7 @@ ciach --verbose                           # explain each step
 | `--generated-suffix <suffix>` | — | Extra filename suffix (with leading dot) to treat as generated and skip, on top of the built-in set; repeatable. Ignored when `--generated` is set. |
 | `--generated-glob <glob>` | — | Treat files matching the glob as generated: their references count, but nothing in them is reported or removed. For output without a suffix or banner, or code kept as is, like a vendored copy. Repeatable; ignored when `--generated` is set. |
 | `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
-| `-f, --format <fmt>` | `text`; `github` on GitHub Actions | `text`, `json`, or `github` (GitHub Actions `::warning` annotations). |
+| `-f, --format <fmt>` | `text`; the service's on CI | `text`, `json`, `github` (GitHub Actions `::warning` annotations), `azure` (Azure Pipelines `task.logissue` warnings) or `teamcity` (TeamCity inspections). Each is the default on its service. |
 | `-j, --concurrency <n>` | `16` | Reference queries kept in flight against the analysis server. |
 | `--[no-]color` | auto | Colorize the output. Auto-detected per stream; honors `NO_COLOR`. |
 | `--[no-]progress` | auto | Show scan progress on stderr. On for a terminal, off in CI. |
@@ -239,7 +239,8 @@ ciach detects CI from the environment (`CI`, or a service's own variable such as
 - `--set-exit-if-changed` on: the job fails on findings.
 - `--verbose` on: the log explains the run.
 - `--progress` off.
-- `--format github` on GitHub Actions.
+- `--format github` on GitHub Actions, `azure` on Azure Pipelines, `teamcity`
+  on TeamCity.
 
 An explicit option still wins. `--no-ci` keeps the local defaults on a runner,
 `--ci` applies the CI ones elsewhere.
@@ -264,6 +265,17 @@ only:
 ```yaml
 - run: dart run ciach --no-fail-public
 ```
+
+#### Azure Pipelines and TeamCity
+
+```yaml
+- script: dart pub get && dart run ciach
+```
+
+On Azure Pipelines each finding becomes a warning in the run's summary
+(doc-only ones too: Azure has nothing below a warning). On TeamCity each one is
+an inspection on the build's Inspections tab, a doc-only one a weak warning.
+Paths resolve from the checkout root, as on GitHub Actions.
 
 ### Library packages
 
