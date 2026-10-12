@@ -80,6 +80,58 @@ void helper() {}
 
   tearDown(() => package.deleteSync(recursive: true));
 
+  test('a marker keeps every declarator of a field statement', () async {
+    write('lib/fields.dart', '''
+abstract interface class Shape {
+  int get a;
+  int get b;
+  int get c;
+}
+
+class Square implements Shape {
+  @override
+  final int a = 1, b = 2, c = 3;
+
+  // ciach:ignore
+  static int x = 1, y = 2, z = 3;
+}
+
+int area(Shape shape) => shape.a + shape.b + shape.c;
+
+void main() => print(area(Square()));
+''');
+
+    final result = await Ciach(.new(rootPath: package.path)).run();
+
+    expect([
+      for (final d in result.unused)
+        if (d.filePath == 'lib/fields.dart') d.qualifiedName,
+    ], isEmpty);
+  });
+
+  test('--remove keeps a marked override, and its dead member', () async {
+    write('lib/hooks.dart', '''
+abstract class Base {
+  void hook() {}
+}
+
+class Impl extends Base {
+  // ciach:ignore
+  @override
+  void hook() {}
+}
+
+void main() => print(Impl());
+''');
+
+    final result = await Ciach(.new(rootPath: package.path)).run();
+    final hook = result.unused.singleWhere(
+      (d) => d.qualifiedName == 'Base.hook',
+    );
+
+    expect(hook.removalBlocked, isTrue);
+  });
+
   test('marked declarations are not reported, and the log says why', () async {
     final lines = <String>[];
     final warnings = <String>[];

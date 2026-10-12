@@ -2,7 +2,7 @@
 library;
 
 import 'package:ciach/src/comment_stripping.dart';
-import 'package:ciach/src/extensions.dart';
+import 'package:collection/collection.dart';
 
 /// The marker comment that keeps the declaration on the next line, or on its
 /// own line when it trails code.
@@ -15,8 +15,9 @@ const ignoreFileMarker = 'ciach:ignore-file';
 const ignoreStartMarker = 'ciach:ignore-start';
 const ignoreEndMarker = 'ciach:ignore-end';
 
-/// A `// ciach:<word>` comment; the word is checked against the markers.
-final _marker = RegExp(r'^//\s*(ciach:[\w-]+)(?=\s|$)');
+/// A `// ciach:<word>` comment; the word is checked against the markers, and
+/// anything after it is free text.
+final _marker = RegExp(r'^//\s*(ciach:[\w-]+)');
 
 /// A marker comment and its zero-based line.
 typedef MarkerAt = ({int line, String marker});
@@ -47,11 +48,12 @@ final class IgnoreMarkers {
     final ranges = <(int, int)>[];
     final issues = <MarkerIssue>[];
     int? openedAt;
-    final lines = content.split('\n');
-    final code = stripComments(content).split('\n');
-    for (final (line, text) in lines.indexed) {
-      final (:comment, :ownLine) = _lineComment(text, code[line]);
-      final marker = comment?.let(_marker.firstMatch)?.group(1);
+    final lines = _Lines(content);
+    for (final (:offset, :text) in lineComments(content)) {
+      final (:line, :ownLine) = lines.at(offset);
+      final marker = text.startsWith('///')
+          ? null
+          : _marker.firstMatch(text)?.group(1);
       switch (marker) {
         case null:
           continue;
@@ -91,7 +93,7 @@ final class IgnoreMarkers {
       }
     }
     if (openedAt != null) {
-      ranges.add((openedAt, lines.length));
+      ranges.add((openedAt, lines.count));
       issues.add((
         line: openedAt,
         message:
@@ -135,30 +137,26 @@ final class IgnoreMarkers {
   /// Whether this file has markers for single declarations or ranges.
   bool get isEmpty => _nextLine.isEmpty && _sameLine.isEmpty && _ranges.isEmpty;
 
-  /// The marker that keeps a declaration whose doc comment and annotations
-  /// start on [start] and whose name is on [nameLine], both zero-based; `null`
-  /// when none does.
+  /// The markers that keep a declaration whose doc comment and annotations
+  /// start on [start] and whose name is on [nameLine], both zero-based.
   ///
   /// A marker on its own line keeps the declaration that starts on the next
   /// line, or one whose doc comment or annotations it sits among; a trailing
   /// one, the declaration named on its line; a range, every declaration named
   /// inside it.
-  MarkerAt? keeping({required int start, required int nameLine}) {
-    for (final line in _nextLine) {
-      if (line >= start - 1 && line < nameLine) {
-        return (line: line, marker: ignoreMarker);
-      }
-    }
-    if (_sameLine.contains(nameLine)) {
-      return (line: nameLine, marker: ignoreMarker);
-    }
-    for (final (open, close) in _ranges) {
-      if (open < nameLine && nameLine < close) {
-        return (line: open, marker: ignoreStartMarker);
-      }
-    }
-    return null;
-  }
+  List<MarkerAt> keepers({required int start, required int nameLine}) => [
+    for (final line in _nextLine)
+      if (line >= start - 1 && line < nameLine)
+        (line: line, marker: ignoreMarker),
+    if (_sameLine.contains(nameLine)) (line: nameLine, marker: ignoreMarker),
+    for (final (open, close) in _ranges)
+      if (open < nameLine && nameLine < close)
+        (line: open, marker: ignoreStartMarker),
+  ];
+
+  /// The first of [keepers], or `null` when no marker keeps the declaration.
+  MarkerAt? keeping({required int start, required int nameLine}) =>
+      keepers(start: start, nameLine: nameLine).firstOrNull;
 
   /// The single-declaration markers and range starts, for telling which kept
   /// nothing.
@@ -167,23 +165,30 @@ final class IgnoreMarkers {
     for (final line in _sameLine) (line: line, marker: ignoreMarker),
     for (final (open, _) in _ranges) (line: open, marker: ignoreStartMarker),
   ];
+}
 
-  /// The `//` comment [text] holds, if any, and whether it is all the line
-  /// holds besides whitespace. [code] is [text] with comments blanked.
-  static ({String? comment, bool ownLine}) _lineComment(
-    String text,
-    String code,
-  ) {
-    for (var i = 0; i < text.length; i++) {
-      if (text[i] == code[i]) {
-        continue;
-      }
-      // A comment begins here; a block comment or a doc comment is no marker.
-      final comment = text.substring(i);
-      return comment.startsWith('//') && !comment.startsWith('///')
-          ? (comment: comment, ownLine: code.substring(0, i).trim().isEmpty)
-          : (comment: null, ownLine: false);
-    }
-    return (comment: null, ownLine: false);
+/// The lines of a file, for placing a comment by its offset.
+final class _Lines {
+  _Lines(this._content)
+    : _starts = [
+        0,
+        for (final (i, char) in _content.split('').indexed)
+          if (char == '\n') i + 1,
+      ];
+
+  final String _content;
+  final List<int> _starts;
+
+  /// How many lines there are.
+  int get count => _starts.length;
+
+  /// The zero-based line of [offset], and whether only whitespace comes
+  /// before it on that line.
+  ({int line, bool ownLine}) at(int offset) {
+    final line = lowerBound(_starts, offset + 1) - 1;
+    return (
+      line: line,
+      ownLine: _content.substring(_starts[line], offset).trim().isEmpty,
+    );
   }
 }

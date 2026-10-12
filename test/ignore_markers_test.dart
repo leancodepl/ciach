@@ -149,6 +149,48 @@ void c() {}
     expect(markers.issues, isEmpty);
   });
 
+  test('a marker in commented-out code is text', () {
+    const source = '''
+/*
+// ciach:ignore-file
+// ciach:ignore
+void old() {}
+*/
+void f() {}
+''';
+    final markers = IgnoreMarkers.parse(source);
+    expect(markers.ignoresFile, isFalse);
+    expect(markers.isEmpty, isTrue);
+  });
+
+  test('punctuation may follow a marker', () {
+    const source = '''
+// ciach:ignore: kept for the widgetbook
+void kept() {}
+''';
+    expect(keeping(source, 2), 'ciach:ignore@1');
+  });
+
+  test('a marker after a block comment on the same line counts', () {
+    const source = '''
+void kept() {} /* legacy */ // ciach:ignore
+''';
+    expect(keeping(source, 1), 'ciach:ignore@1');
+  });
+
+  test('every marker keeping a declaration is among its keepers', () {
+    final markers = IgnoreMarkers.parse('''
+// ciach:ignore-start
+// ciach:ignore
+void kept() {}
+// ciach:ignore-end
+''');
+    expect(markers.keepers(start: 2, nameLine: 2), [
+      (line: 1, marker: 'ciach:ignore'),
+      (line: 0, marker: 'ciach:ignore-start'),
+    ]);
+  });
+
   test('a mention of ciach that is no marker is ignored', () {
     final markers = IgnoreMarkers.parse('''
 // ciach: the tool

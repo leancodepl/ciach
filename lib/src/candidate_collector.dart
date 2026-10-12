@@ -19,6 +19,7 @@ import 'package:ciach/src/public_api.dart';
 import 'package:ciach/src/reference_fetch.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
+import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Range;
 
 final _log = Logger('ciach.finder');
@@ -507,9 +508,7 @@ final class _Statement {
   ) {
     final isField = outline.element.kind == .field;
     if (isField && outline.range.start == outline.codeRange.start) {
-      final metadata = _metadata;
-      _metadata = const [];
-      return (leadingMetadata: metadata, start: _start);
+      return (leadingMetadata: _metadata, start: _start);
     }
     _metadata = isField ? ownMetadata.toList() : const [];
     _start = outline.range.start.line;
@@ -530,11 +529,9 @@ final class _Markers {
     if (_markers.isEmpty) {
       return null;
     }
-    final kept = _markers.keeping(start: start, nameLine: nameLine);
-    if (kept != null) {
-      _used.add(kept);
-    }
-    return kept;
+    final keepers = _markers.keepers(start: start, nameLine: nameLine);
+    _used.addAll(keepers);
+    return keepers.firstOrNull;
   }
 
   /// Warns about the malformed markers in the file at [relativePath], and

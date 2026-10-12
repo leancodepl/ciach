@@ -1,4 +1,5 @@
 import 'package:ciach/src/candidates.dart';
+import 'package:ciach/src/ignore_markers.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/models.dart';
@@ -38,6 +39,9 @@ final class OverrideRemovals {
   final Set<String> _scannedPaths;
 
   final String _rootPath;
+
+  /// The `// ciach:` markers of each file an override lives in.
+  final _markers = <String, IgnoreMarkers>{};
 
   static const _unlistedOverrides =
       'Could not find overrides; reported, not removed.';
@@ -91,8 +95,8 @@ final class OverrideRemovals {
   }
 
   /// The span to delete for the override at [location], or `null` when it has
-  /// to stay: an unscanned file, a declaration that cannot be read, or a kind
-  /// this tool won't delete.
+  /// to stay: an unscanned file, a declaration that cannot be read, a kind
+  /// this tool won't delete, or one a `// ciach:` marker keeps.
   Future<CoupledRemoval?> _removalFor(Location location) async {
     final path = SourceIndex.pathOf(location.uri);
     if (!_scannedPaths.contains(path)) {
@@ -110,6 +114,11 @@ final class OverrideRemovals {
       return null;
     }
     final node = found.node;
+    final markers = _markers[path] ??= .parse(_sources.content(path));
+    if (markers.keeping(start: node.range.start.line, nameLine: start.line) !=
+        null) {
+      return null;
+    }
     // Deleting a declaring parameter changes the constructor signature at
     // every call site.
     if (kind == .field &&
