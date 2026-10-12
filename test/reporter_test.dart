@@ -331,6 +331,13 @@ lib/c.dart
       expect(out, contains("message='Unused function |'a||b|' — |[x|]|ny'"));
     });
 
+    test('escapes the Unicode line breaks', () {
+      final out = Reporter.teamCity(
+        resultWith([decl(hint: 'a\u0085b\u2028c\u2029d')]),
+      );
+      expect(out, contains('a|xb|lc|pd'));
+    });
+
     test('leaves out the line a problem lacks', () {
       final out = Reporter.teamCity(
         resultWith(
@@ -414,6 +421,13 @@ lib/c.dart
       ]);
     });
 
+    test('percent-encodes the uri', () {
+      final out = Reporter.sarif(
+        resultWith([decl(filePath: 'lib/my widget#1.dart')]),
+      );
+      expect(out, contains('"uri": "lib/my%20widget%231.dart"'));
+    });
+
     test('leaves out the region a problem lacks', () {
       final log =
           jsonDecode(
@@ -460,6 +474,13 @@ lib/c.dart
       expect(out, contains('&apos;a&lt;b&gt;&amp;&quot;c&quot;&apos;'));
     });
 
+    test('keeps whitespace and drops what XML cannot hold', () {
+      final out = Reporter.checkstyle(
+        resultWith([decl(hint: 'a\r\n\tb\x1Bc')]),
+      );
+      expect(out, contains('a&#13;&#10;&#9;bc"'));
+    });
+
     test('has no files when nothing is found', () {
       expect(Reporter.checkstyle(resultWith(const [])), '''
 <?xml version="1.0" encoding="UTF-8"?>
@@ -496,6 +517,7 @@ lib/c.dart
                   as Map<String, Object?>)['fingerprint']!
               as String;
       expect(fingerprintAt(3), fingerprintAt(30));
+      expect(fingerprintAt(3), matches(RegExp(r'^[0-9a-f]{16}$')));
     });
 
     test('tells identical findings in one file apart', () {

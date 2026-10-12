@@ -345,8 +345,7 @@ abstract final class Reporter {
         'title=${_escapeProperty(check.title)}',
       ];
       buffer.writeln(
-        '::${check.notice ? 'notice' : 'warning'} '
-        '${properties.join(',')}::${_escapeData(message)}',
+        "::${check.notice ? 'notice' : 'warning'} ${properties.join(',')}::${_escapeData(message)}",
       );
     }
     return buffer.toString();
@@ -372,8 +371,7 @@ abstract final class Reporter {
         ?column?.let((column) => 'columnnumber=$column'),
       ];
       buffer.writeln(
-        '##vso[task.logissue ${properties.join(';')}]'
-        '${_escapeAzure('${check.title}: $message')}',
+        "##vso[task.logissue ${properties.join(';')}]${_escapeAzure('${check.title}: $message')}",
       );
     }
     return buffer.toString();
@@ -454,7 +452,7 @@ abstract final class Reporter {
                 'locations': [
                   {
                     'physicalLocation': {
-                      'artifactLocation': {'uri': file},
+                      'artifactLocation': {'uri': Uri(path: file).toString()},
                       'region': ?line?.let(
                         (line) => {'startLine': line, 'startColumn': ?column},
                       ),
@@ -514,36 +512,41 @@ abstract final class Reporter {
   static String gitlab(FinderResult result, {String pathPrefix = '.'}) {
     const encoder = JsonEncoder.withIndent('  ');
     final seen = <String, int>{};
-    final issues = [
-      for (final (:check, :file, :line, column: _, :message) in _annotations(
-        result,
-        pathPrefix,
-      ))
-        if ([check.id, file, message].join('\n') case final key)
-          {
-            'description': message,
-            'check_name': check.id,
-            // The occurrence tells identical findings in one file apart.
-            'fingerprint': _fingerprint(
-              '$key\n${seen.update(key, (n) => n + 1, ifAbsent: () => 0)}',
-            ),
-            'severity': check.notice ? 'info' : 'minor',
-            'location': {
-              'path': file,
-              'lines': {'begin': line ?? 1},
-            },
-          },
-    ];
+    final issues = <Map<String, Object?>>[];
+    for (final (:check, :file, :line, column: _, :message) in _annotations(
+      result,
+      pathPrefix,
+    )) {
+      final key = [check.id, file, message].join('\n');
+      // The occurrence tells identical findings in one file apart.
+      final occurrence = seen.update(key, (n) => n + 1, ifAbsent: () => 0);
+      issues.add({
+        'description': message,
+        'check_name': check.id,
+        'fingerprint': _fingerprint('$key\n$occurrence'),
+        'severity': check.notice ? 'info' : 'minor',
+        'location': {
+          'path': file,
+          'lines': {'begin': line ?? 1},
+        },
+      });
+    }
     return encoder.convert(issues);
   }
 
-  /// A 32-bit FNV-1a hash of [key], in hex.
+  /// A 64-bit hash of [key], in hex: two 32-bit FNV-1a hashes from different
+  /// offsets, since the 64-bit FNV constants don't fit a JavaScript number.
   static String _fingerprint(String key) {
-    var hash = 0x811c9dc5;
-    for (final byte in utf8.encode(key)) {
-      hash = ((hash ^ byte) * 0x01000193) & 0xffffffff;
+    final bytes = utf8.encode(key);
+    String fnv1a(int offset) {
+      var hash = offset;
+      for (final byte in bytes) {
+        hash = ((hash ^ byte) * 0x01000193) & 0xffffffff;
+      }
+      return hash.toRadixString(16).padLeft(8, '0');
     }
-    return hash.toRadixString(16).padLeft(8, '0');
+
+    return '${fnv1a(0x811c9dc5)}${fnv1a(0x050c5d1f)}';
   }
 
   /// Every finding of [result] as an annotation, its path prefixed with
@@ -631,7 +634,11 @@ abstract final class Reporter {
       .replaceAll('>', '&gt;')
       .replaceAll('"', '&quot;')
       .replaceAll("'", '&apos;')
-      .replaceAll('\n', '&#10;');
+      .replaceAll('\n', '&#10;')
+      .replaceAll('\r', '&#13;')
+      .replaceAll('\t', '&#9;')
+      // XML 1.0 has no way to write the other control characters.
+      .replaceAll(RegExp('[\x00-\x08\x0B\x0C\x0E-\x1F]'), '');
 
   // Escaping per the Azure Pipelines agent, which unescapes `%AZP25` last.
   static String _escapeAzure(String value, {bool property = false}) {
@@ -660,7 +667,10 @@ abstract final class Reporter {
       .replaceAll('\n', '|n')
       .replaceAll('\r', '|r')
       .replaceAll('[', '|[')
-      .replaceAll(']', '|]');
+      .replaceAll(']', '|]')
+      .replaceAll('\u0085', '|x')
+      .replaceAll('\u2028', '|l')
+      .replaceAll('\u2029', '|p');
 
   static String _summary(FinderResult result, Style style) {
     final count = result.unused.length;

@@ -59,7 +59,8 @@ void writeReport(
         'sarif' => Reporter.sarif,
         'checkstyle' => Reporter.checkstyle,
         'gitlab' => Reporter.gitlab,
-        _ => Reporter.github,
+        'github' => Reporter.github,
+        _ => throw StateError("No reporter for the format '$format'."),
       };
       console.output(report(result, pathPrefix: prefix));
   }
