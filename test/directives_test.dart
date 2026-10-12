@@ -6,7 +6,13 @@ void main() {
     test('holds for nothing, whitespace and comments', () {
       expect(isDirectiveOnly(''), isTrue);
       expect(isDirectiveOnly(' \n\t\r\n'), isTrue);
-      expect(isDirectiveOnly('// a\n/* b /* nested */ c */\n/// d'), isTrue);
+      expect(
+        isDirectiveOnly('''
+// a
+/* b /* nested */ c */
+/// d'''),
+        isTrue,
+      );
     });
 
     test('holds for library, import and part-of directives', () {

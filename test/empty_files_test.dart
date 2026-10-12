@@ -29,7 +29,11 @@ void main() {
 
   setUp(() {
     root = .systemTemp.createTempSync('ciach_empty_files_');
-    write('pubspec.yaml', 'name: pkg\nenvironment:\n  sdk: ^3.10.0\n');
+    write('pubspec.yaml', '''
+name: pkg
+environment:
+  sdk: ^3.10.0
+''');
     write('.dart_tool/package_config.json', packageConfig({'pkg': '.'}));
     write('lib/blank.dart', '''
 // Everything that was here moved to user.dart.
