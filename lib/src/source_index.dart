@@ -10,6 +10,7 @@
 
 import 'dart:io';
 
+import 'package:ciach/src/cached_map.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position, SelectionRange;
@@ -18,11 +19,17 @@ import 'package:pro_lsp/pro_lsp.dart' show Position, SelectionRange;
 /// starts, plus the server's semantic tokens and selection ranges, each cached
 /// on first use.
 class SourceIndex {
-  final _lines = <String, List<String>>{};
+  final _lines = CachedMap<String, List<String>>(
+    (path) => readFile(path)?.split('\n') ?? const [],
+  );
   final _semanticTokens = <String, List<SemanticToken>>{};
   final _selectionRanges = <String, Map<(int, int), SelectionRange>>{};
-  final _content = <String, String>{};
-  final _lineStarts = <String, List<int>>{};
+  late final _content = CachedMap<String, String>(
+    (path) => lines(path).join('\n'),
+  );
+  late final _lineStarts = CachedMap<String, List<int>>(
+    (path) => _computeLineStarts(content(path)),
+  );
   final _scanned = <String>{};
 
   /// The absolute file path a reference [uri] points at.
@@ -41,8 +48,7 @@ class SourceIndex {
   }
 
   /// The lines of the file at [path], read (and cached) on demand.
-  List<String> lines(String path) =>
-      _lines[path] ??= readFile(path)?.split('\n') ?? const [];
+  List<String> lines(String path) => _lines[path];
 
   void cacheSemanticTokens(String path, List<SemanticToken> tokens) {
     _semanticTokens[path] = tokens;
@@ -83,10 +89,9 @@ class SourceIndex {
 
   /// The full text of [path], reconstructed from the cached lines so it matches
   /// the document content the analysis server resolved positions against.
-  String content(String path) => _content[path] ??= lines(path).join('\n');
+  String content(String path) => _content[path];
 
-  List<int> lineStarts(String path) =>
-      _lineStarts[path] ??= _computeLineStarts(content(path));
+  List<int> lineStarts(String path) => _lineStarts[path];
 
   /// Absolute offset of an LSP [position] in [path]'s content, or `null` if out
   /// of range. LSP columns are UTF-16 code units, which is exactly how Dart

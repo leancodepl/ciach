@@ -1,3 +1,4 @@
+import 'package:ciach/src/cached_map.dart';
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/directives.dart';
 import 'package:ciach/src/extensions.dart';
@@ -171,7 +172,9 @@ final class _DirectiveIndex {
 
   final Set<String> _files;
   final _packages = PackageResolver();
-  final _directives = <String, List<Directive>>{};
+  final _directives = CachedMap<String, List<Directive>>(
+    (path) => [...Directive.allIn(readSource(path) ?? '')],
+  );
 
   /// The [libraryFiles] of each variant, for every conditional directive.
   Iterable<List<Set<String>>> conditionalVariants() sync* {
@@ -181,7 +184,7 @@ final class _DirectiveIndex {
       if (content == null || !_maybeConditional.hasMatch(content)) {
         continue;
       }
-      for (final directive in _directivesOf(path, content)) {
+      for (final directive in _directives[path]) {
         if (directive.isConditional) {
           yield directive.pathsFrom(path, _packages).map(libraryFiles).toList();
         }
@@ -195,17 +198,11 @@ final class _DirectiveIndex {
   Set<String> libraryFiles(String library) => reachableFrom(
     [library],
     (path) => [
-      for (final directive in _directivesOf(path))
+      for (final directive in _directives[path])
         if (directive.keyword != 'import' && !directive.isPartOf)
           ...directive.pathsFrom(path, _packages).where(_files.contains),
     ],
   );
-
-  List<Directive> _directivesOf(String path, [String? content]) =>
-      _directives.putIfAbsent(
-        path,
-        () => [...Directive.allIn(content ?? readSource(path) ?? '')],
-      );
 }
 
 /// What may start a conditional `import` or `export`.
