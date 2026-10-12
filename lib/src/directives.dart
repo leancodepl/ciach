@@ -50,7 +50,7 @@ extension type Directive._(RegExpMatch _match) {
 bool isDirectiveOnly(String content) {
   var i = skipCommentsAndWhitespace(content, 0);
   while (i < content.length) {
-    switch (_libraryImportOrPartOfEnd(content, i)) {
+    switch (_skipDirective(content, i)) {
       case final end?:
         i = skipCommentsAndWhitespace(content, end);
       case null:
@@ -60,9 +60,9 @@ bool isDirectiveOnly(String content) {
   return true;
 }
 
-/// The index just past the `;` of the `library`, `import` or `part of`
-/// directive at [from], or `null` when none starts there.
-int? _libraryImportOrPartOfEnd(String content, int from) {
+/// The index just past the `library`, `import` or `part of` directive at
+/// [from], or `null` when none starts there.
+int? _skipDirective(String content, int from) {
   final keyword = _wordAt(content, from);
   final rest = skipCommentsAndWhitespace(content, from + keyword.length);
   final isDirective = switch (keyword) {
