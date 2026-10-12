@@ -142,12 +142,12 @@ final class ConditionalImports {
     Map<String, Set<String>> declared,
   ) {
     bool lacksNamesake(int i, String name, String file) =>
-        switch (declared[file]) {
-          null => true,
-          final inFile =>
-            inFile.contains(name) &&
-                !namesakes[i].any((j) => candidates[j].path == file),
-        };
+        declared[file]?.let(
+          (inFile) =>
+              inFile.contains(name) &&
+              !namesakes[i].any((j) => candidates[j].path == file),
+        ) ??
+        true;
 
     return reachableFrom([
       for (final (i, candidate) in candidates.indexed)

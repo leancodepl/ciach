@@ -27,6 +27,7 @@ shorthand with the full type name.
 
 Use `x?.let(f)` from `lib/src/extensions.dart` rather than
 `switch (x) { final v? => f(v), null => null }` or `x == null ? null : f(x)`,
-and `x?.let(f) ?? d` rather than `x == null ? d : f(x)`. Read as much as
-possible before the `let`, in the null-aware chain: `x?.y.let(f)`, not
-`x?.let((it) => f(it.y))`.
+and `x?.let(f) ?? d` rather than `x == null ? d : f(x)`, also for a value a
+null check cannot promote: `a.b?.let(f) ?? d`, never `a.b == null ? d :
+f(a.b!)`. Read as much as possible before the `let`, in the null-aware chain:
+`x?.y.let(f)`, not `x?.let((it) => f(it.y))`.

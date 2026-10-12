@@ -10,6 +10,7 @@
 
 import 'dart:convert';
 
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/style.dart';
@@ -270,7 +271,7 @@ abstract final class Reporter {
     for (final p in rows) {
       final loc = '${p.line}:${p.column ?? 1}'.padRight(locWidth);
       buffer.writeln(
-        '      ${style.position(loc)}${p.name == null ? '' : '  ${p.name}'}',
+        '      ${style.position(loc)}${p.name?.let((name) => '  $name') ?? ''}',
       );
     }
   }
@@ -391,7 +392,7 @@ abstract final class Reporter {
         if (problem.line case final line?) 'line=$line',
         if (problem.column case final column?) 'col=$column',
       ];
-      final name = problem.name == null ? '' : "'${problem.name}': ";
+      final name = problem.name?.let((name) => "'$name': ") ?? '';
       buffer.writeln(
         '::warning '
         '${['file=$file', ...position, 'title=Could not analyze'].join(',')}'

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/concurrency.dart';
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
@@ -90,9 +91,8 @@ final class ReferenceFetch {
         e,
         path: candidate.path,
         position: start,
-        name: candidate.container == null
-            ? name
-            : '${candidate.container}.$name',
+        name:
+            candidate.container?.let((container) => '$container.$name') ?? name,
       );
       return null;
     }
