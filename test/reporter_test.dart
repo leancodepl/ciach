@@ -14,6 +14,7 @@ import 'package:ciach/ciach.dart';
 import 'package:ciach/src/reporter.dart';
 import 'package:ciach/src/style.dart';
 import 'package:test/test.dart';
+import 'package:xml/xml.dart';
 
 void main() {
   FinderResult resultWith(
@@ -452,40 +453,51 @@ lib/c.dart
         ),
         pathPrefix: 'app',
       );
-      expect(out, '''
+      expect(out, """
 <?xml version="1.0" encoding="UTF-8"?>
 <checkstyle version="4.3">
   <file name="app/lib/a.dart">
-    <error line="3" column="5" severity="warning" message="Unused function &apos;foo&apos;" source="ciach.unused-declaration"/>
-    <error line="9" column="5" severity="info" message="function &apos;docOnlyThing&apos; has no code references, only a dartdoc link" source="ciach.doc-only"/>
+    <error line="3" column="5" severity="warning" message="Unused function 'foo'" source="ciach.unused-declaration"/>
+    <error line="9" column="5" severity="info" message="function 'docOnlyThing' has no code references, only a dartdoc link" source="ciach.doc-only"/>
   </file>
   <file name="app/lib/b.dart">
-    <error line="7" column="5" severity="warning" message="Unused function &apos;bar&apos;" source="ciach.unused-declaration"/>
+    <error line="7" column="5" severity="warning" message="Unused function 'bar'" source="ciach.unused-declaration"/>
   </file>
 </checkstyle>
-''');
+""");
     });
+
+    /// The `name` of the only file and the `message` of its only error.
+    (String, String) nameAndMessage(String out) {
+      final file = XmlDocument.parse(out).findAllElements('file').single;
+      return (
+        file.getAttribute('name')!,
+        file.findElements('error').single.getAttribute('message')!,
+      );
+    }
 
     test('escapes markup', () {
       final out = Reporter.checkstyle(
         resultWith([decl(name: 'a<b>&"c"', filePath: 'lib/a&b.dart')]),
       );
-      expect(out, contains('<file name="lib/a&amp;b.dart">'));
-      expect(out, contains('&apos;a&lt;b&gt;&amp;&quot;c&quot;&apos;'));
+      expect(nameAndMessage(out), (
+        'lib/a&b.dart',
+        """Unused function 'a<b>&"c"'""",
+      ));
     });
 
     test('keeps whitespace and drops what XML cannot hold', () {
       final out = Reporter.checkstyle(
         resultWith([decl(hint: 'a\r\n\tb\x1Bc')]),
       );
-      expect(out, contains('a&#13;&#10;&#9;bc"'));
+      expect(out, isNot(contains('&#x1B;')));
+      expect(nameAndMessage(out).$2, endsWith('a\r\n\tbc'));
     });
 
     test('has no files when nothing is found', () {
       expect(Reporter.checkstyle(resultWith(const [])), '''
 <?xml version="1.0" encoding="UTF-8"?>
-<checkstyle version="4.3">
-</checkstyle>
+<checkstyle version="4.3"/>
 ''');
     });
   });

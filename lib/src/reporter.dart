@@ -17,6 +17,7 @@ import 'package:ciach/src/style.dart';
 import 'package:ciach/src/version.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
+import 'package:xml/xml.dart';
 
 /// What an empty file holds.
 const _emptyFileContents =
@@ -479,25 +480,35 @@ abstract final class Reporter {
       result,
       pathPrefix,
     ).groupListsBy((annotation) => annotation.file);
-    final buffer = StringBuffer()
-      ..writeln('<?xml version="1.0" encoding="UTF-8"?>')
-      ..writeln('<checkstyle version="4.3">');
-    for (final MapEntry(key: file, value: annotations) in byFile.entries) {
-      buffer.writeln('  <file name="${_escapeXml(file)}">');
-      for (final (:check, file: _, :line, :column, :message) in annotations) {
-        final attributes = [
-          ?line?.let((line) => 'line="$line"'),
-          ?column?.let((column) => 'column="$column"'),
-          'severity="${check.notice ? 'info' : 'warning'}"',
-          'message="${_escapeXml(message)}"',
-          'source="ciach.${check.id}"',
-        ];
-        buffer.writeln('    <error ${attributes.join(' ')}/>');
-      }
-      buffer.writeln('  </file>');
-    }
-    buffer.writeln('</checkstyle>');
-    return buffer.toString();
+    final builder = XmlBuilder()..declaration(encoding: 'UTF-8');
+    builder.element(
+      'checkstyle',
+      attributes: {'version': '4.3'},
+      nest: () {
+        for (final MapEntry(key: file, value: annotations) in byFile.entries) {
+          builder.element(
+            'file',
+            attributes: {'name': _xmlText(file)},
+            nest: () {
+              for (final (:check, file: _, :line, :column, :message)
+                  in annotations) {
+                builder.element(
+                  'error',
+                  attributes: {
+                    'line': ?line?.toString(),
+                    'column': ?column?.toString(),
+                    'severity': check.notice ? 'info' : 'warning',
+                    'message': _xmlText(message),
+                    'source': 'ciach.${check.id}',
+                  },
+                );
+              }
+            },
+          );
+        }
+      },
+    );
+    return '${builder.buildDocument().toXmlString(pretty: true, indent: '  ')}\n';
   }
 
   /// A [GitLab Code Quality][] report, for a job's `codequality` artifact,
@@ -628,17 +639,9 @@ abstract final class Reporter {
   static String _escapeProperty(String value) =>
       _escapeData(value).replaceAll(':', '%3A').replaceAll(',', '%2C');
 
-  static String _escapeXml(String value) => value
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&apos;')
-      .replaceAll('\n', '&#10;')
-      .replaceAll('\r', '&#13;')
-      .replaceAll('\t', '&#9;')
-      // XML 1.0 has no way to write the other control characters.
-      .replaceAll(RegExp('[\x00-\x08\x0B\x0C\x0E-\x1F]'), '');
+  // XML 1.0 can't hold the other control characters, even as references.
+  static String _xmlText(String value) =>
+      value.replaceAll(RegExp('[\x00-\x08\x0B\x0C\x0E-\x1F]'), '');
 
   // Escaping per the Azure Pipelines agent, which unescapes `%AZP25` last.
   static String _escapeAzure(String value, {bool property = false}) {
