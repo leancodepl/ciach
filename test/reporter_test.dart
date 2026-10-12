@@ -347,6 +347,180 @@ lib/c.dart
     });
   });
 
+  group('Reporter.sarif', () {
+    test('lists every rule and one result per finding', () {
+      final log =
+          jsonDecode(
+                Reporter.sarif(
+                  resultWith(
+                    [decl()],
+                    docOnly: [decl(name: 'docOnlyThing', line: 9)],
+                  ),
+                  pathPrefix: 'app',
+                ),
+              )
+              as Map<String, Object?>;
+      expect(log['version'], '2.1.0');
+      final [run as Map<String, Object?>] = log['runs']! as List<Object?>;
+      final driver =
+          (run['tool']! as Map<String, Object?>)['driver']!
+              as Map<String, Object?>;
+      expect(driver['name'], 'ciach');
+      expect(
+        [
+          for (final rule in driver['rules']! as List<Object?>)
+            (rule! as Map<String, Object?>)['id'],
+        ],
+        [
+          'unused-declaration',
+          'empty-file',
+          'doc-only',
+          'recovered-reference',
+          'not-analyzed',
+        ],
+      );
+      expect(run['results'], [
+        {
+          'ruleId': 'unused-declaration',
+          'ruleIndex': 0,
+          'level': 'warning',
+          'message': {'text': "Unused function 'foo'"},
+          'locations': [
+            {
+              'physicalLocation': {
+                'artifactLocation': {'uri': 'app/lib/a.dart'},
+                'region': {'startLine': 3, 'startColumn': 5},
+              },
+            },
+          ],
+        },
+        {
+          'ruleId': 'doc-only',
+          'ruleIndex': 2,
+          'level': 'note',
+          'message': {
+            'text':
+                "function 'docOnlyThing' has no code references, only a dartdoc link",
+          },
+          'locations': [
+            {
+              'physicalLocation': {
+                'artifactLocation': {'uri': 'app/lib/a.dart'},
+                'region': {'startLine': 9, 'startColumn': 5},
+              },
+            },
+          ],
+        },
+      ]);
+    });
+
+    test('leaves out the region a problem lacks', () {
+      final log =
+          jsonDecode(
+                Reporter.sarif(
+                  resultWith(
+                    const [],
+                    problems: [problem(line: null, column: null)],
+                  ),
+                ),
+              )
+              as Map<String, Object?>;
+      expect(jsonEncode(log), isNot(contains('region')));
+    });
+  });
+
+  group('Reporter.checkstyle', () {
+    test('groups the findings by file', () {
+      final out = Reporter.checkstyle(
+        resultWith(
+          [decl(), decl(name: 'bar', filePath: 'lib/b.dart', line: 7)],
+          docOnly: [decl(name: 'docOnlyThing', line: 9)],
+        ),
+        pathPrefix: 'app',
+      );
+      expect(out, '''
+<?xml version="1.0" encoding="UTF-8"?>
+<checkstyle version="4.3">
+  <file name="app/lib/a.dart">
+    <error line="3" column="5" severity="warning" message="Unused function &apos;foo&apos;" source="ciach.unused-declaration"/>
+    <error line="9" column="5" severity="info" message="function &apos;docOnlyThing&apos; has no code references, only a dartdoc link" source="ciach.doc-only"/>
+  </file>
+  <file name="app/lib/b.dart">
+    <error line="7" column="5" severity="warning" message="Unused function &apos;bar&apos;" source="ciach.unused-declaration"/>
+  </file>
+</checkstyle>
+''');
+    });
+
+    test('escapes markup', () {
+      final out = Reporter.checkstyle(
+        resultWith([decl(name: 'a<b>&"c"', filePath: 'lib/a&b.dart')]),
+      );
+      expect(out, contains('<file name="lib/a&amp;b.dart">'));
+      expect(out, contains('&apos;a&lt;b&gt;&amp;&quot;c&quot;&apos;'));
+    });
+
+    test('has no files when nothing is found', () {
+      expect(Reporter.checkstyle(resultWith(const [])), '''
+<?xml version="1.0" encoding="UTF-8"?>
+<checkstyle version="4.3">
+</checkstyle>
+''');
+    });
+  });
+
+  group('Reporter.gitlab', () {
+    List<Object?> issues(FinderResult result) =>
+        jsonDecode(Reporter.gitlab(result, pathPrefix: 'app')) as List<Object?>;
+
+    test('emits one Code Quality issue per finding', () {
+      final [unused, docOnly] = issues(
+        resultWith([decl()], docOnly: [decl(name: 'docOnlyThing', line: 9)]),
+      );
+      expect(unused, {
+        'description': "Unused function 'foo'",
+        'check_name': 'unused-declaration',
+        'fingerprint': isA<String>(),
+        'severity': 'minor',
+        'location': {
+          'path': 'app/lib/a.dart',
+          'lines': {'begin': 3},
+        },
+      });
+      expect(docOnly, containsPair('severity', 'info'));
+    });
+
+    test('keeps a fingerprint when only the line changes', () {
+      String fingerprintAt(int line) =>
+          (issues(resultWith([decl(line: line)])).single!
+                  as Map<String, Object?>)['fingerprint']!
+              as String;
+      expect(fingerprintAt(3), fingerprintAt(30));
+    });
+
+    test('tells identical findings in one file apart', () {
+      final fingerprints = {
+        for (final issue in issues(resultWith([decl(), decl(line: 8)])))
+          (issue! as Map<String, Object?>)['fingerprint'],
+      };
+      expect(fingerprints, hasLength(2));
+    });
+
+    test('puts a finding without a line on the first one', () {
+      final [issue as Map<String, Object?>] = issues(
+        resultWith(const [], problems: [problem(line: null, column: null)]),
+      );
+      expect(issue['location'], {
+        'path': 'app/lib/a.dart',
+        'lines': {'begin': 1},
+      });
+    });
+
+    test('is an empty list when nothing is found', () {
+      expect(issues(resultWith(const [])), isEmpty);
+    });
+  });
+
   test('Reporter.github joins the hint and the dead referrer with dashes', () {
     final out = Reporter.github(
       resultWith([

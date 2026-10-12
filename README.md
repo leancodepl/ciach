@@ -97,7 +97,7 @@ ciach --verbose                           # explain each step
 | `--generated-suffix <suffix>` | — | Extra filename suffix (with leading dot) to treat as generated and skip, on top of the built-in set; repeatable. Ignored when `--generated` is set. |
 | `--generated-glob <glob>` | — | Treat files matching the glob as generated: their references count, but nothing in them is reported or removed. For output without a suffix or banner, or code kept as is, like a vendored copy. Repeatable; ignored when `--generated` is set. |
 | `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
-| `-f, --format <fmt>` | `text`; the service's on CI | `text`, `json`, `github` (GitHub Actions `::warning` annotations), `azure` (Azure Pipelines `task.logissue` warnings) or `teamcity` (TeamCity inspections). Each is the default on its service. |
+| `-f, --format <fmt>` | `text`; the service's on CI | `text`, `json`, `github` (GitHub Actions `::warning` annotations), `azure` (Azure Pipelines `task.logissue` warnings), `teamcity` (TeamCity inspections), `sarif`, `checkstyle` (XML) or `gitlab` (Code Quality JSON). `github`, `azure` and `teamcity` are the default on their service. See [Reports for other tools](#reports-for-other-tools). |
 | `-j, --concurrency <n>` | `16` | Reference queries kept in flight against the analysis server. |
 | `--[no-]color` | auto | Colorize the output. Auto-detected per stream; honors `NO_COLOR`. |
 | `--[no-]progress` | auto | Show scan progress on stderr. On for a terminal, off in CI. |
@@ -276,6 +276,28 @@ On Azure Pipelines each finding becomes a warning in the run's summary
 (doc-only ones too: Azure has nothing below a warning). On TeamCity each one is
 an inspection on the build's Inspections tab, a doc-only one a weak warning.
 Paths resolve from the checkout root, as on GitHub Actions.
+
+#### Reports for other tools
+
+Three formats are files for another tool to import, so redirect them:
+
+| Format | For |
+|--------|-----|
+| `sarif` | GitHub code scanning (`github/codeql-action/upload-sarif`), Azure DevOps, SonarQube and other SARIF dashboards. |
+| `checkstyle` | Jenkins Warnings Next Generation and other Checkstyle report plugins. |
+| `gitlab` | A GitLab Code Quality report, shown on the merge request. |
+
+```yaml
+ciach:
+  script: dart run ciach -f gitlab > gl-code-quality-report.json
+  artifacts:
+    reports:
+      codequality: gl-code-quality-report.json
+```
+
+Unused findings and empty files are warnings (`minor` in GitLab), doc-only
+findings a severity lower. GitLab fingerprints leave out the line, so a finding
+that only moved is not reported as new.
 
 ### Library packages
 

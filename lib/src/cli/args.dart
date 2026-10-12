@@ -39,7 +39,16 @@ String get kindNames => kindAliases.keys.sorted().join(', ');
 
 /// The accepted `--format` values; the first one is the default, except on a
 /// CI service with an annotation format, where it is that one.
-const formatNames = ['text', 'json', 'github', 'azure', 'teamcity'];
+const formatNames = [
+  'text',
+  'json',
+  'github',
+  'azure',
+  'teamcity',
+  'sarif',
+  'checkstyle',
+  'gitlab',
+];
 
 /// The `entry-points` list of `{name, glob}` rules. It has no command-line
 /// form; `ConfigFile` hands it over already parsed and validated.
@@ -348,6 +357,9 @@ enum CiachOption<V> implements OptionDefinition<V> {
         'github': 'GitHub Actions `::warning` annotations.',
         'azure': 'Azure Pipelines `##vso[task.logissue]` warnings.',
         'teamcity': 'TeamCity `##teamcity[inspection]` service messages.',
+        'sarif': 'SARIF 2.1.0, for GitHub code scanning and other dashboards.',
+        'checkstyle': 'Checkstyle XML, for Jenkins and other report plugins.',
+        'gitlab': 'GitLab Code Quality JSON, for a `codequality` artifact.',
       },
     ),
   ),

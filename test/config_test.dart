@@ -213,7 +213,9 @@ concurrency: 4
         throwsA(
           isFormatException(
             'ciach.yaml',
-            contains('text, json, github, azure, teamcity'),
+            contains(
+              'text, json, github, azure, teamcity, sarif, checkstyle, gitlab',
+            ),
           ),
         ),
       );

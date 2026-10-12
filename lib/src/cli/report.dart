@@ -36,22 +36,7 @@ void writeReport(
   String rootPath,
 ) {
   switch (resolved.format) {
-    case 'json':
-      console.output(Reporter.json(result));
-    case 'github' || 'azure' || 'teamcity':
-      // CI services resolve annotation paths from the checkout root, so
-      // prepend the scan root's path from here.
-      final prefix = p
-          .split(p.relative(rootPath, from: Directory.current.path))
-          .join('/');
-      _log.config("Prefixing annotation paths with '$prefix/'.");
-      final annotate = switch (resolved.format) {
-        'azure' => Reporter.azure,
-        'teamcity' => Reporter.teamCity,
-        _ => Reporter.github,
-      };
-      console.output(annotate(result, pathPrefix: prefix));
-    case _:
+    case 'text':
       console.output(
         Reporter.text(
           result,
@@ -59,6 +44,24 @@ void writeReport(
           verbose: resolved.verbose,
         ),
       );
+    case 'json':
+      console.output(Reporter.json(result));
+    case final format:
+      // The other formats are read by tools that resolve paths from the
+      // checkout root, so prepend the scan root's path from here.
+      final prefix = p
+          .split(p.relative(rootPath, from: Directory.current.path))
+          .join('/');
+      _log.config("Prefixing report paths with '$prefix/'.");
+      final report = switch (format) {
+        'azure' => Reporter.azure,
+        'teamcity' => Reporter.teamCity,
+        'sarif' => Reporter.sarif,
+        'checkstyle' => Reporter.checkstyle,
+        'gitlab' => Reporter.gitlab,
+        _ => Reporter.github,
+      };
+      console.output(report(result, pathPrefix: prefix));
   }
 }
 

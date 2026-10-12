@@ -14,6 +14,7 @@ import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/style.dart';
+import 'package:ciach/src/version.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
@@ -414,6 +415,137 @@ abstract final class Reporter {
     return buffer.toString();
   }
 
+  /// A [SARIF 2.1.0][] log, which GitHub code scanning, Azure DevOps and most
+  /// static-analysis dashboards import: one result per finding, a `warning`
+  /// for each unused finding and empty file, a `note` for each doc-only one.
+  ///
+  /// [pathPrefix] is prepended to each path, as in [github].
+  ///
+  /// [SARIF 2.1.0]: https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html
+  static String sarif(FinderResult result, {String pathPrefix = '.'}) {
+    const encoder = JsonEncoder.withIndent('  ');
+    return encoder.convert({
+      r'$schema': 'https://json.schemastore.org/sarif-2.1.0.json',
+      'version': '2.1.0',
+      'runs': [
+        {
+          'tool': {
+            'driver': {
+              'name': 'ciach',
+              'version': ciachVersion,
+              'informationUri': 'https://github.com/leancodepl/ciach',
+              'rules': [
+                for (final check in _Check.values)
+                  {
+                    'id': check.id,
+                    'shortDescription': {'text': check.title},
+                  },
+              ],
+            },
+          },
+          'results': [
+            for (final (:check, :file, :line, :column, :message)
+                in _annotations(result, pathPrefix))
+              {
+                'ruleId': check.id,
+                'ruleIndex': check.index,
+                'level': check.notice ? 'note' : 'warning',
+                'message': {'text': message},
+                'locations': [
+                  {
+                    'physicalLocation': {
+                      'artifactLocation': {'uri': file},
+                      'region': ?line?.let(
+                        (line) => {'startLine': line, 'startColumn': ?column},
+                      ),
+                    },
+                  },
+                ],
+              },
+          ],
+        },
+      ],
+    });
+  }
+
+  /// A [Checkstyle][] XML report, which Jenkins (Warnings Next Generation),
+  /// SonarQube and most CI report plugins read: findings grouped by file, a
+  /// `warning` for each unused finding and empty file, an `info` for each
+  /// doc-only one.
+  ///
+  /// [pathPrefix] is prepended to each path, as in [github].
+  ///
+  /// [Checkstyle]: https://checkstyle.org
+  static String checkstyle(FinderResult result, {String pathPrefix = '.'}) {
+    final byFile = _annotations(
+      result,
+      pathPrefix,
+    ).groupListsBy((annotation) => annotation.file);
+    final buffer = StringBuffer()
+      ..writeln('<?xml version="1.0" encoding="UTF-8"?>')
+      ..writeln('<checkstyle version="4.3">');
+    for (final MapEntry(key: file, value: annotations) in byFile.entries) {
+      buffer.writeln('  <file name="${_escapeXml(file)}">');
+      for (final (:check, file: _, :line, :column, :message) in annotations) {
+        final attributes = [
+          ?line?.let((line) => 'line="$line"'),
+          ?column?.let((column) => 'column="$column"'),
+          'severity="${check.notice ? 'info' : 'warning'}"',
+          'message="${_escapeXml(message)}"',
+          'source="ciach.${check.id}"',
+        ];
+        buffer.writeln('    <error ${attributes.join(' ')}/>');
+      }
+      buffer.writeln('  </file>');
+    }
+    buffer.writeln('</checkstyle>');
+    return buffer.toString();
+  }
+
+  /// A [GitLab Code Quality][] report, for a job's `codequality` artifact,
+  /// which GitLab shows on the merge request: a `minor` issue for each unused
+  /// finding and empty file, an `info` one for each doc-only one. Each
+  /// fingerprint hashes the finding without its line, so a finding that only
+  /// moved is not reported as new.
+  ///
+  /// [pathPrefix] is prepended to each path, as in [github].
+  ///
+  /// [GitLab Code Quality]: https://docs.gitlab.com/ci/testing/code_quality/#code-quality-report-format
+  static String gitlab(FinderResult result, {String pathPrefix = '.'}) {
+    const encoder = JsonEncoder.withIndent('  ');
+    final seen = <String, int>{};
+    final issues = [
+      for (final (:check, :file, :line, column: _, :message) in _annotations(
+        result,
+        pathPrefix,
+      ))
+        if ([check.id, file, message].join('\n') case final key)
+          {
+            'description': message,
+            'check_name': check.id,
+            // The occurrence tells identical findings in one file apart.
+            'fingerprint': _fingerprint(
+              '$key\n${seen.update(key, (n) => n + 1, ifAbsent: () => 0)}',
+            ),
+            'severity': check.notice ? 'info' : 'minor',
+            'location': {
+              'path': file,
+              'lines': {'begin': line ?? 1},
+            },
+          },
+    ];
+    return encoder.convert(issues);
+  }
+
+  /// A 32-bit FNV-1a hash of [key], in hex.
+  static String _fingerprint(String key) {
+    var hash = 0x811c9dc5;
+    for (final byte in utf8.encode(key)) {
+      hash = ((hash ^ byte) * 0x01000193) & 0xffffffff;
+    }
+    return hash.toRadixString(16).padLeft(8, '0');
+  }
+
   /// Every finding of [result] as an annotation, its path prefixed with
   /// [pathPrefix]: unused declarations, empty files, doc-only findings,
   /// recovered references and problems, in that order.
@@ -492,6 +624,14 @@ abstract final class Reporter {
 
   static String _escapeProperty(String value) =>
       _escapeData(value).replaceAll(':', '%3A').replaceAll(',', '%2C');
+
+  static String _escapeXml(String value) => value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&apos;')
+      .replaceAll('\n', '&#10;');
 
   // Escaping per the Azure Pipelines agent, which unescapes `%AZP25` last.
   static String _escapeAzure(String value, {bool property = false}) {
