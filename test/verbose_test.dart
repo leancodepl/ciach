@@ -100,10 +100,8 @@ entry-points: [{name: bootstrap}, {name: registerWith, glob: [lib/**, bin/**]}]'
       return describeCi(resolved, detected: detected);
     }
 
-    test('says the run is local when nothing is set', () {
-      expect(describe(const []), [
-        'Not on CI: no CI environment variable is set; using the local defaults.',
-      ]);
+    test('says nothing for a plain local run', () {
+      expect(describe(const []), isEmpty);
     });
 
     test('names the service, its variable and the defaults it changes', () {

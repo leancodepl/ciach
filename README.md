@@ -151,7 +151,6 @@ $ ciach -v
 [  0.0s] [cli]       It sets 2 options:
 [  0.0s] [cli]         public: false
 [  0.0s] [cli]         exclude: test/**
-[  0.0s] [cli]     Not on CI: no CI environment variable is set; using the local defaults.
 [  0.0s] [cli]     Settings for this run:
 [  0.0s] [cli]       path: /home/me/pkg (command line)
 [  0.0s] [cli]       public: false (config file)

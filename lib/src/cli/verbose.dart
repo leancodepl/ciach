@@ -46,8 +46,8 @@ List<String> describeConfigSource(
 }
 
 /// The `--verbose` account of CI detection: the service [resolved] settled on,
-/// how, and the defaults that changes; or that the run counts as local, naming
-/// the variable `--no-ci` overruled. [detected] is what the environment said.
+/// how, and the defaults that changes; or the variable `--no-ci` overruled.
+/// Nothing for a plain local run. [detected] is what the environment said.
 List<String> describeCi(
   ResolvedOptions resolved, {
   required CiRunner? detected,
@@ -56,9 +56,7 @@ List<String> describeCi(
   if (ci == null) {
     return [
       if (detected != null)
-        'Treating the run as local (--no-ci), although ${detected.variable} is set.'
-      else
-        'Not on CI: no CI environment variable is set; using the local defaults.',
+        'Treating the run as local (--no-ci), although ${detected.variable} is set.',
     ];
   }
   final how = ci == detected ? '${ci.variable} is set' : '--ci';
