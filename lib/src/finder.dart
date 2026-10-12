@@ -249,7 +249,7 @@ class Ciach {
         relativePosix(path, options.rootPath),
       );
     }
-    if (files.length + variants.length case final count when count > 0) {
+    if (files.length + variants.length case final count && > 0) {
       _log.fine(
         'Found ${plural(count, 'empty file', 'empty files')}: ${[...files, ...variants].join(', ')}.',
       );

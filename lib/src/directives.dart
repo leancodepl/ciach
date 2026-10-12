@@ -45,13 +45,14 @@ extension type Directive._(RegExpMatch _match) {
 }
 
 /// Whether [content] has nothing but comments and `library`, `import` or
-/// `part of` directives. Reads only up to the first other token.
+/// `part of` directives. An `export` or `part` directive counts as content: the
+/// file passes something on. Reads only up to the first other token.
 bool isDirectiveOnly(String content) {
-  var i = skipTrivia(content, 0);
+  var i = skipCommentsAndWhitespace(content, 0);
   while (i < content.length) {
     switch (_directiveEnd(content, i)) {
       case final end?:
-        i = skipTrivia(content, end);
+        i = skipCommentsAndWhitespace(content, end);
       case null:
         return false;
     }
@@ -63,7 +64,7 @@ bool isDirectiveOnly(String content) {
 /// directive at [from], or `null` when none starts there.
 int? _directiveEnd(String content, int from) {
   final keyword = _wordAt(content, from);
-  final rest = skipTrivia(content, from + keyword.length);
+  final rest = skipCommentsAndWhitespace(content, from + keyword.length);
   final isDirective = switch (keyword) {
     'library' => true,
     'import' =>
@@ -77,11 +78,14 @@ int? _directiveEnd(String content, int from) {
 /// The index just past the first `;` at or after [from] outside comments and
 /// strings, or `null` when there is none.
 int? _statementEnd(String content, int from) {
-  for (var i = skipTrivia(content, from); i < content.length;) {
+  for (var i = skipCommentsAndWhitespace(content, from); i < content.length;) {
     if (content[i] == ';') {
       return i + 1;
     }
-    i = skipTrivia(content, stringLiteralEnd(content, i) ?? i + 1);
+    i = skipCommentsAndWhitespace(
+      content,
+      stringLiteralEnd(content, i) ?? i + 1,
+    );
   }
   return null;
 }

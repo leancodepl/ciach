@@ -46,7 +46,7 @@ String stripComments(String content) {
 
 /// The index of the first character at or after [from] that is neither
 /// whitespace nor in a comment.
-int skipTrivia(String content, int from) {
+int skipCommentsAndWhitespace(String content, int from) {
   var i = from;
   while (i < content.length) {
     if (content.startsWith('//', i)) {
