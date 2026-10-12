@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:ciach/src/comment_stripping.dart';
 import 'package:ciach/src/directives.dart';
 import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/log.dart';
@@ -82,23 +81,6 @@ DeletedFile? _deleteIfEmptied(
   );
   return file;
 }
-
-final _directiveOnly = RegExp(
-  r'''^(?:\s*(?:library\b[^;]*|import\s+r?['"][^;]*|part\s+of\b[^;]*);)*\s*$''',
-);
-
-/// What an empty file holds, for reports: what [isDirectiveOnly] admits.
-const emptyFileContents =
-    'nothing but comments and library, import or part-of directives';
-
-/// Why `--remove` leaves an empty conditional-import variant, for reports.
-const emptyVariantNote =
-    'a conditional-import variant: remove its `if` clause and the file by hand';
-
-/// Whether [content] has nothing but comments and `library`, `import` or
-/// `part of` directives.
-bool isDirectiveOnly(String content) =>
-    _directiveOnly.hasMatch(stripComments(content));
 
 typedef _Span = ({int start, int end});
 

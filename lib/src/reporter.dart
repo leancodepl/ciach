@@ -10,12 +10,19 @@
 
 import 'dart:convert';
 
-import 'package:ciach/src/emptied_files.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/style.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
+
+/// What an empty file holds.
+const _emptyFileContents =
+    'nothing but comments and library, import or part-of directives';
+
+/// Why `--remove` leaves an empty conditional-import variant.
+const _emptyVariantNote =
+    'a conditional-import variant: remove its `if` clause and the file by hand';
 
 /// Renders a [FinderResult] for humans or machines.
 abstract final class Reporter {
@@ -30,20 +37,20 @@ abstract final class Reporter {
     final buffer = StringBuffer();
     _writeDeclarations(buffer, result.unused, style);
 
-    final empty = [...result.emptyFiles, ...result.emptyVariants].sorted();
+    final empty = result.allEmptyFiles;
     if (empty.isNotEmpty) {
       _writeHeading(
         buffer,
         'Empty files',
         empty.length,
-        emptyFileContents,
+        _emptyFileContents,
         style,
       );
       final variants = result.emptyVariants.toSet();
       for (final file in empty) {
         buffer.writeln(
           variants.contains(file)
-              ? '${style.path(file)}  ${style.caution('($emptyVariantNote)')}'
+              ? '${style.path(file)}  ${style.caution('($_emptyVariantNote)')}'
               : style.path(file),
         );
       }
@@ -338,7 +345,8 @@ abstract final class Reporter {
         ].join(' — '),
       );
     }
-    for (final file in result.emptyFiles) {
+    final variants = result.emptyVariants.toSet();
+    for (final file in result.allEmptyFiles) {
       _writeAnnotationRaw(
         buffer,
         _annotationFile(file, pathPrefix),
@@ -346,18 +354,10 @@ abstract final class Reporter {
         1,
         level: 'warning',
         title: 'Empty file',
-        message: 'Has $emptyFileContents',
-      );
-    }
-    for (final file in result.emptyVariants) {
-      _writeAnnotationRaw(
-        buffer,
-        _annotationFile(file, pathPrefix),
-        1,
-        1,
-        level: 'warning',
-        title: 'Empty file',
-        message: 'Has $emptyFileContents — $emptyVariantNote',
+        message: [
+          'Has $_emptyFileContents',
+          if (variants.contains(file)) _emptyVariantNote,
+        ].join(' — '),
       );
     }
     for (final decl in result.docOnly) {
@@ -465,9 +465,10 @@ abstract final class Reporter {
       '${plural(result.declarationsChecked, 'declaration', 'declarations')}, ${seconds}s)',
     );
     final sections = [
-      if (result.emptyFiles.length + result.emptyVariants.length
-          case final empty when empty > 0)
-        style.attention(plural(empty, 'empty file', 'empty files')),
+      if (result.allEmptyFiles.isNotEmpty)
+        style.attention(
+          plural(result.allEmptyFiles.length, 'empty file', 'empty files'),
+        ),
       if (result.docOnly.isNotEmpty) '${result.docOnly.length} doc-only',
       if (result.recoveredReferences.isNotEmpty)
         style.caution('${result.recoveredReferences.length} recovered'),

@@ -502,6 +502,9 @@ class FinderResult {
   /// directive, which changes what another platform loads.
   final List<String> emptyVariants;
 
+  /// [emptyFiles] and [emptyVariants] together, sorted.
+  List<String> get allEmptyFiles => [...emptyFiles, ...emptyVariants]..sort();
+
   /// Whether there is anything `--remove` would act on.
   bool get hasFindings => unused.isNotEmpty || emptyFiles.isNotEmpty;
 

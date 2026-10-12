@@ -157,13 +157,13 @@ void _removeUnused(
   final removable = result.unused.whereNot((d) => d.removalBlocked).toList();
   final count = removable.length;
   final blocked = result.unused.length - count;
-  final emptyFiles = result.emptyFiles.length;
+  final emptyCount = result.emptyFiles.length;
   if (blocked > 0) {
     _log.fine(
       'Skipping $blocked of ${plural(result.unused.length, 'finding', 'findings')}: removing them safely would need a source rewrite (see --unused-union-members and remove safety).',
     );
   }
-  if (count == 0 && emptyFiles == 0) {
+  if (count == 0 && emptyCount == 0) {
     _log.warning(
       blocked == 1
           ? 'Nothing removed: the finding is unsafe to auto-remove — remove it manually.'
@@ -182,7 +182,7 @@ void _removeUnused(
     _log.fine('Asking for confirmation; pass --force to skip the prompt.');
     final what = [
       if (count > 0) plural(count, 'unused declaration', 'unused declarations'),
-      if (emptyFiles > 0) plural(emptyFiles, 'empty file', 'empty files'),
+      if (emptyCount > 0) plural(emptyCount, 'empty file', 'empty files'),
     ].join(' and ');
     final proceed = _console.confirm(
       'Remove $what?',

@@ -44,6 +44,15 @@ extension type Directive._(RegExpMatch _match) {
   ];
 }
 
+/// Whether [content] has nothing but comments and `library`, `import` or
+/// `part of` directives.
+bool isDirectiveOnly(String content) =>
+    _directiveOnly.hasMatch(stripComments(content));
+
+final _directiveOnly = RegExp(
+  r'''^(?:\s*(?:library\b[^;]*|import\s+r?['"][^;]*|part\s+of\b[^;]*);)*\s*$''',
+);
+
 final _directive = RegExp(
   r'^[ \t]*(?<keyword>import|export|part)\s+(?<body>[^;]*);',
   multiLine: true,

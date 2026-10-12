@@ -15,14 +15,8 @@ void logSummary(FinderResult result) {
   final counts = [
     '${result.unused.length} unused',
     '${result.docOnly.length} referenced only from doc comments',
-    if (result.emptyFiles.isNotEmpty)
-      plural(result.emptyFiles.length, 'empty file', 'empty files'),
-    if (result.emptyVariants.isNotEmpty)
-      plural(
-        result.emptyVariants.length,
-        'empty conditional-import variant',
-        'empty conditional-import variants',
-      ),
+    if (result.allEmptyFiles.isNotEmpty)
+      plural(result.allEmptyFiles.length, 'empty file', 'empty files'),
     if (result.recoveredReferences.isNotEmpty)
       '${result.recoveredReferences.length} recovered',
     if (result.problems.isNotEmpty) '${result.problems.length} not analyzed',
@@ -72,9 +66,7 @@ int exitCodeFor(FinderResult result, ResolvedOptions resolved) {
     final failing = resolved.failPublic
         ? result.unused
         : result.unused.where((d) => d.isPrivate);
-    if (failing.isNotEmpty ||
-        result.emptyFiles.isNotEmpty ||
-        result.emptyVariants.isNotEmpty) {
+    if (failing.isNotEmpty || result.allEmptyFiles.isNotEmpty) {
       return 1;
     }
   }
