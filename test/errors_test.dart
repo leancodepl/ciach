@@ -69,7 +69,7 @@ Likely a Dart SDK bug; -v shows the stack trace.
 error: Pub has not resolved these packages, so code used only from their files would read as unused:
   .
   packages/ds
-Run `dart pub get` (or `flutter pub get`) there, or leave them out with --exclude.
+Run `dart pub get` (or `flutter pub get`) there.
 ''',
     );
     expect(
@@ -81,7 +81,7 @@ Run `dart pub get` (or `flutter pub get`) there, or leave them out with --exclud
       '''
 error: Pub has not resolved this package, so code used only from its files would read as unused:
   packages/ds
-Run `dart pub get` (or `flutter pub get`) there, or leave it out with --exclude.
+Run `dart pub get` (or `flutter pub get`) there, or leave it out with `--exclude`.
 ''',
     );
   });

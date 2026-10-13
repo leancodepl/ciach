@@ -24,7 +24,7 @@ void main() {
 
   /// The packages of [files] pub has not resolved, root-relative.
   List<String> unresolved(List<String> files) => [
-    for (final package in unresolvedPackages(files.map(abs)))
+    for (final package in unresolvedPackages(files.map(abs), root.path))
       relativePosix(package, root.path),
   ];
 
@@ -81,8 +81,23 @@ void main() {
       expect(unresolved(['packages/ds/lib/ds.dart']), ['packages/ds']);
     });
 
+    test("a workspace member missing from the workspace's config is not", () {
+      write('pubspec.yaml', 'name: root\nworkspace: [packages/ds]\n');
+      write('.dart_tool/package_config.json', packageConfig({'root': '.'}));
+      write('packages/ds/pubspec.yaml', 'name: ds\nresolution: workspace\n');
+
+      expect(unresolved(['packages/ds/lib/ds.dart']), ['packages/ds']);
+    });
+
     test('a file under no pubspec belongs to no package', () {
       expect(unresolved(['tool/script.dart']), isEmpty);
+    });
+
+    test('a pubspec above the scanned root is not a scanned package', () {
+      write('pubspec.yaml', 'name: outer\n');
+      final scripts = abs('scripts');
+
+      expect(unresolvedPackages([p.join(scripts, 'a.dart')], scripts), isEmpty);
     });
   });
 
@@ -109,18 +124,12 @@ void main() {
     });
 
     test('skips an unresolved package whose files are excluded', () {
-      // With nothing left to scan, the run ends before starting a server, so
-      // getting past the check is enough to show it.
       expect(
         Ciach(
-          .new(
-            rootPath: root.path,
-            includeGlobs: ['packages/**'],
-            excludeGlobs: ['packages/ds/**'],
-          ),
+          .new(rootPath: root.path, excludeGlobs: ['packages/ds/**']),
         ).run(),
         completion(
-          isA<FinderResult>().having((r) => r.filesScanned, 'filesScanned', 0),
+          isA<FinderResult>().having((r) => r.filesScanned, 'filesScanned', 1),
         ),
       );
     });

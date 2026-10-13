@@ -115,8 +115,8 @@ code is kept and listed under "Not analyzed" (`problems` in JSON).
 
 Every package with a scanned file, nested ones included, needs `dart pub get`
 first; otherwise its imports don't resolve and code it uses reads as unused.
-ciach then exits with `2` and lists those packages; `--exclude` leaves one out.
-A pub workspace member is covered by the workspace's `pub get`.
+ciach then exits with `2` and lists those packages; `--exclude` leaves a nested
+one out. A pub workspace member is covered by the workspace's `pub get`.
 
 ### Configuration file
 

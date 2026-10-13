@@ -96,17 +96,21 @@ final class PackageResolver {
   }
 
   /// Whether pub has resolved the package at [root]: it has its own package
-  /// config or, as a pub workspace member, the workspace has one. The config
-  /// of an enclosing package does not count otherwise, as it lacks the
-  /// nested package's dev_dependencies.
+  /// config or, as a pub workspace member, the workspace's config lists it.
+  /// The config of an enclosing package does not count otherwise, as it lacks
+  /// the nested package's dev_dependencies.
   bool isResolved(String root) =>
-      _configFile(root).existsSync() ||
-      (readYamlMap(p.join(root, 'pubspec.yaml'))?['resolution'] ==
-              'workspace' &&
-          configOf(p.dirname(root)) != null);
+      _configFile(root).existsSync() || _isListedWorkspaceMember(root);
+
+  bool _isListedWorkspaceMember(String root) =>
+      readYamlMap(p.join(root, 'pubspec.yaml'))?['resolution'] == 'workspace' &&
+      (configOf(p.dirname(root))?.packages.any(
+            (package) => p.equals(package.root.toFilePath(), root),
+          ) ??
+          false);
 
   static File _configFile(String dir) =>
-      File(p.join(dir, '.dart_tool', 'package_config.json'));
+      .new(p.join(dir, '.dart_tool', 'package_config.json'));
 
   /// [file] parsed, skipping malformed entries; `null` when unreadable.
   static PackageConfig? _read(File file) {
@@ -123,11 +127,15 @@ final class PackageResolver {
 }
 
 /// The roots of the packages holding [files] that pub has not resolved,
-/// sorted. A file under no `pubspec.yaml` belongs to no package.
-List<String> unresolvedPackages(Iterable<String> files) {
+/// sorted. Only packages within [root] count: a file under no `pubspec.yaml`
+/// there belongs to none.
+List<String> unresolvedPackages(Iterable<String> files, String root) {
   final packages = PackageResolver();
   final roots = {
-    for (final file in files) ?packages.packageRootOf(p.dirname(file)),
+    for (final file in files)
+      if (packages.packageRootOf(p.dirname(file)) case final package?
+          when p.equals(root, package) || p.isWithin(root, package))
+        package,
   };
   return roots.whereNot(packages.isResolved).toList()..sort();
 }
@@ -144,10 +152,14 @@ class UnresolvedPackagesException implements Exception {
     final these = pluralWord(packages.length, 'this package', 'these packages');
     final their = pluralWord(packages.length, 'its', 'their');
     final them = pluralWord(packages.length, 'it', 'them');
+    // Leaving out the root would leave nothing to scan.
+    final exclude = packages.contains('.')
+        ? ''
+        : ', or leave $them out with `--exclude`';
     return '''
 Pub has not resolved $these, so code used only from $their files would read as unused:
 ${packages.map((package) => '  $package').join('\n')}
-Run `dart pub get` (or `flutter pub get`) there, or leave $them out with --exclude.''';
+Run `dart pub get` (or `flutter pub get`) there$exclude.''';
   }
 
   @override

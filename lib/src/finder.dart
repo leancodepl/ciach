@@ -148,7 +148,7 @@ class Ciach {
 
     // Before the server starts: without its package config, a package's
     // imports don't resolve, and what only its files use reads as unused.
-    final unresolved = unresolvedPackages(files);
+    final unresolved = unresolvedPackages(files, rootPath);
     if (unresolved.isNotEmpty) {
       throw UnresolvedPackagesException([
         for (final package in unresolved) relativePosix(package, rootPath),
