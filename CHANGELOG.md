@@ -1,5 +1,10 @@
 ## Unreleased
 
+- Stop with exit code 2, listing the packages, when a scanned package has
+  not had `pub get`. Analyzed through its parent's package config, such a
+  package (say, a nested `path:` dependency) lost its test imports, and code
+  used only from them was reported as unused.
+  ([#120](https://github.com/leancodepl/ciach/pull/120))
 - Stop reporting test calls as declarations. `test(...)`, `group(...)` and
   calls to `@isTest` functions such as `testWidgets` were listed as unused
   or doc-only, and `--remove` could delete them.
