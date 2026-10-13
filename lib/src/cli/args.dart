@@ -144,41 +144,55 @@ final _longOption = RegExp(r'^--(no-)?([\w-]+)(?:=(.*))?$');
     }
     final match = _longOption.firstMatch(argument);
     final key = match?[2];
-    if (match == null || !deprecatedKeys.contains(key)) {
+    if (match == null || key == null || !deprecatedKeys.contains(key)) {
       translated.add(argument);
       continue;
     }
-    final name = '`${argument.split('=').first}`';
     final Object value = switch (key) {
-      'generated-suffix' =>
-        match[3] ?? (++i < arguments.length ? arguments[i] : ''),
+      // The value of `--generated-suffix` may be the next argument.
+      'generated-suffix' => match[3] ?? arguments.elementAtOrNull(++i) ?? '',
       _ => match[1] == null,
     };
-    final Replacement? replacement;
-    try {
-      replacement = replacementFor(key!, value);
-    } on FormatException catch (e) {
-      throw FormatException('$name was removed: ${e.message}.');
-    }
-    if (replacement == null) {
-      warnings.add(
-        '$name is deprecated and does nothing: that is the default now, so drop it.',
-      );
-      continue;
-    }
-    translated.addAll(
-      replacement.values.isEmpty
-          ? ['--${replacement.key}=']
-          : [
-              for (final value in replacement.values)
-                '--${replacement.key}=$value',
-            ],
+    final (:replaced, :warning) = _translated(
+      '`${argument.split('=').first}`',
+      key,
+      value,
     );
-    warnings.add(
-      '$name is deprecated: use ${replacementArgument(replacement)}.',
-    );
+    translated.addAll(replaced);
+    warnings.add(warning);
   }
   return (arguments: translated, warnings: warnings);
+}
+
+/// The arguments that setting the deprecated option [key], written as [name],
+/// to [value] now stands for, and the warning saying so.
+({List<String> replaced, String warning}) _translated(
+  String name,
+  String key,
+  Object value,
+) {
+  final Replacement? replacement;
+  try {
+    replacement = replacementFor(key, value);
+  } on FormatException catch (e) {
+    throw FormatException('$name was removed: ${e.message}.');
+  }
+  if (replacement == null) {
+    return (
+      replaced: const [],
+      warning:
+          '$name is deprecated and does nothing: that is the default now, so drop it.',
+    );
+  }
+  return (
+    replaced: replacement.values.isEmpty
+        ? ['--${replacement.key}=']
+        : [
+            for (final value in replacement.values)
+              '--${replacement.key}=$value',
+          ],
+    warning: '$name is deprecated: use ${replacementArgument(replacement)}.',
+  );
 }
 
 /// The accepted `--format` values; the first one is the default, except on a

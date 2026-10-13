@@ -36,17 +36,16 @@ environment: {sdk: ^3.10.0}
 
   tearDownAll(() => root.deleteSync(recursive: true));
 
-  Future<Set<String>> unused({List<String>? exportedPackages}) async {
-    final result = await Ciach(
-      exportedPackages == null
-          ? .new(rootPath: root.path)
-          : .new(rootPath: root.path, exportedPackages: exportedPackages),
-    ).run();
+  Future<Set<String>> unused(FinderOptions options) async {
+    final result = await Ciach(options).run();
     return {for (final d in result.unused) d.name};
   }
 
   test("by default, every package's exported API is left out", () async {
-    expect(await unused(), {'sharedInternals', 'appInternals'});
+    expect(await unused(.new(rootPath: root.path)), {
+      'sharedInternals',
+      'appInternals',
+    });
   });
 
   test("only the listed packages' exported API is left out", () async {
@@ -61,11 +60,10 @@ environment: {sdk: ^3.10.0}
       return logging.cancel();
     });
 
-    expect(await unused(exportedPackages: ['shared']), {
-      'sharedInternals',
-      'appApi',
-      'appInternals',
-    });
+    expect(
+      await unused(.new(rootPath: root.path, exportedPackages: ['shared'])),
+      {'sharedInternals', 'appApi', 'appInternals'},
+    );
     expect(
       lines,
       containsAll(const [
@@ -77,11 +75,9 @@ environment: {sdk: ^3.10.0}
   });
 
   test('none listed checks every API', () async {
-    expect(await unused(exportedPackages: const []), {
-      'sharedApi',
-      'sharedInternals',
-      'appApi',
-      'appInternals',
-    });
+    expect(
+      await unused(.new(rootPath: root.path, exportedPackages: const [])),
+      {'sharedApi', 'sharedInternals', 'appApi', 'appInternals'},
+    );
   });
 }
