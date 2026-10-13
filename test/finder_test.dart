@@ -13,6 +13,7 @@ library;
 
 import 'dart:io';
 
+import 'package:ciach/src/clause_entries.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/finder.dart';
 import 'package:ciach/src/log.dart';
@@ -416,6 +417,13 @@ void main() {
     UnusedDeclaration finding(FinderResult result, String name) =>
         result.unused.firstWhere((d) => d.qualifiedName == name);
 
+    // A type that only `implements` clauses use is reported instead of its
+    // dead members, and its finding carries their overrides.
+    List<CoupledRemoval> overridesOf(UnusedDeclaration type) => [
+      for (final removal in type.coupledRemovals)
+        if (removal.kind != clauseCutKind) removal,
+    ];
+
     test('couples every override of a dead member to its removal', () async {
       final result = await runOverrides();
       final prime = finding(result, 'Pump.prime');
@@ -436,12 +444,14 @@ void main() {
     });
 
     test('couples an override that lives in another file', () async {
-      final close = finding(await runOverrides(), 'Valve.close');
-      expect(close.removalBlocked, isFalse);
+      final result = await runOverrides();
+      final valve = finding(result, 'Valve');
+      expect(valve.removalBlocked, isFalse);
       expect(
-        close.coupledRemovals.single.filePath,
+        overridesOf(valve).single.filePath,
         'lib/scenarios/overrides_impl.dart',
       );
+      expect(findByQualified(result, 'Valve.close'), isNull);
     });
 
     test('keeps a member whose override is in an unscanned file', () async {
@@ -455,9 +465,9 @@ void main() {
     });
 
     test('couples an override declared as a plain field', () async {
-      final reading = finding(await runOverrides(), 'Gauge.reading');
-      expect(reading.removalBlocked, isFalse);
-      expect(reading.coupledRemovals, hasLength(1));
+      final gauge = finding(await runOverrides(), 'Gauge');
+      expect(gauge.removalBlocked, isFalse);
+      expect(overridesOf(gauge).single.kind, SymbolKind.field);
     });
 
     test('keeps a member whose override is a declaring parameter', () async {
@@ -470,15 +480,12 @@ void main() {
       // `final int left = 1, right = 2;`: each variable is coupled as a field,
       // and since both go, the cut is the whole statement.
       final result = await runOverrides();
-      for (final name in ['Paired.left', 'Paired.right']) {
-        final declarator = finding(result, name);
-        expect(declarator.removalBlocked, isFalse, reason: name);
-        expect(
-          declarator.coupledRemovals.single.kind,
-          SymbolKind.field,
-          reason: name,
-        );
-      }
+      final paired = finding(result, 'Paired');
+      expect(paired.removalBlocked, isFalse);
+      expect(overridesOf(paired).map((r) => r.kind), [
+        SymbolKind.field,
+        SymbolKind.field,
+      ]);
       // Both are overrides, including the one with no annotation of its own.
       final names = result.unused.map((d) => d.qualifiedName).toSet();
       expect(names, isNot(contains('Pair.left')));
@@ -689,9 +696,8 @@ void main() {
             'EmptyableStatus',
             SymbolKind.enum$,
             true,
-            'all values are unused, but the enum is still used and needs at '
-                'least one value, so remove the extra values or the uses of the '
-                'enum by hand',
+            'the enum is used, but none of its values are, and an enum needs '
+                'at least one value',
           ),
         ],
       );
@@ -947,8 +953,13 @@ void main() {
       addTearDown(() => copy.deleteSync(recursive: true));
       copyTree(Directory(fixturePath), copy);
       final file = File(p.join(copy.path, fixture.single));
-      Future<FinderResult> run() =>
-          Ciach(.new(rootPath: copy.path, includeGlobs: fixture)).run();
+      Future<FinderResult> run() => Ciach(
+        .new(
+          rootPath: copy.path,
+          exportedPackages: const [],
+          includeGlobs: fixture,
+        ),
+      ).run();
 
       removeDeclarations((await run()).unused, copy.path);
 
@@ -1119,18 +1130,14 @@ void main() {
       final result = await runFinder(include: fixture, exclude: const []);
       expect(result.unused.map((d) => (d.qualifiedName, d.hint)).toSet(), {
         ('Painter', Verdict.namedOnlyInClausesHint),
-        ('Painter.paint', null),
         ('Drawable', Verdict.namedOnlyInClausesHint),
-        ('Drawable.draw', null),
         ('Plain', Verdict.namedOnlyInClausesHint),
         ('Checked.check', null),
         ('Primed.prime', null),
         ('Frame.frame', null),
         ('Holder.hold', null),
         ('Sketch', Verdict.namedOnlyInClausesHint),
-        ('Sketch.sketch', null),
         ('Glazed', Verdict.namedOnlyInClausesHint),
-        ('Glazed.glaze', null),
         ('Lacquer.lacquer', null),
         ('useClauses', null),
       });
@@ -1205,11 +1212,10 @@ void main() {
           ),
       };
       const painter = ('Painter', Verdict.namedOnlyInClausesHint, '');
-      const paint = ('Painter.paint', null, '');
 
-      expect(findings(await run(transitive: false)), {painter, paint});
+      expect(findings(await run(transitive: false)), {painter});
       final result = await run(transitive: true);
-      expect(findings(result), {('Shape', null, 'Painter'), painter, paint});
+      expect(findings(result), {('Shape', null, 'Painter'), painter});
       expect(messages, isNot(contains(startsWith('Stopping after'))));
 
       removeDeclarations(result.unused, copy.path);
@@ -1710,10 +1716,9 @@ void main() {
         // Reported without its members.
         'lib/scenarios/entry_points.dart:Plugin',
         'lib/scenarios/entry_points.dart:bootstrap',
+        // Unused classes, also reported without their members.
         'lib/scenarios/entry_points.dart:Parked',
-        // An unused class is reported without its constructors.
         'lib/scenarios/entry_points.dart:ParkedCard',
-        'lib/scenarios/entry_points.dart:ParkedCard.flip',
         'lib/scenarios/entry_points.dart:ParkedSlot',
         // The right file exempts `testExecutable` whatever its shape, and
         // nothing beside it.
@@ -1742,7 +1747,6 @@ void main() {
           'lib/scenarios/entry_points.dart:Plugin.other',
           'lib/scenarios/entry_points.dart:Parked',
           'lib/scenarios/entry_points.dart:ParkedCard',
-          'lib/scenarios/entry_points.dart:ParkedCard.flip',
           'lib/scenarios/entry_points.dart:ParkedSlot',
           'lib/scenarios/entry_points/flutter_test_config.dart:deadHelperNextToConfig',
         });
