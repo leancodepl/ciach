@@ -10,6 +10,7 @@
 
 import 'package:args/args.dart';
 import 'package:ciach/ciach.dart';
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/version.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
@@ -59,11 +60,11 @@ Set<String> parseAlso(List<String> raw) {
   return names;
 }
 
-/// What setting a deprecated option now means: the values for the option with
-/// the config key `key` to take. No values set it to an empty list.
+/// What a removed option became: the values for the option with the config
+/// key `key` to take. No values set it to an empty list.
 typedef Replacement = ({String key, List<String> values});
 
-/// The deprecated flags that became a value of `--also`, by config key.
+/// The removed flags that became a value of `--also`, by config key.
 const _alsoFlags = {
   'overrides': 'overrides',
   'operators': 'operators',
@@ -71,8 +72,8 @@ const _alsoFlags = {
   'unused-union-members': 'union-members',
 };
 
-/// The config keys of the options ciach still accepts but no longer documents.
-const deprecatedKeys = {
+/// The config keys of the options ciach no longer has.
+const removedKeys = {
   'overrides',
   'operators',
   'report-tojson',
@@ -82,43 +83,43 @@ const deprecatedKeys = {
   'generated-suffix',
 };
 
-/// What setting the deprecated option [key] to [value] (`true` or `false` for
-/// a flag) now means, or `null` when [value] is the default now and needs
-/// nothing.
-///
-/// Throws a [FormatException] when nothing replaces it: `fail-public` off,
-/// which counted only private findings toward the exit code.
-Replacement? replacementFor(String key, Object? value) {
-  if (_alsoFlags[key] case final also?) {
-    return value == true ? (key: 'also', values: [also]) : null;
+/// Why setting the removed option [key] to [value] (`true` or `false` for a
+/// flag) is not needed any more, or what to use instead, in the config file
+/// when [inConfig].
+String removedOptionAdvice(
+  String key,
+  Object? value, {
+  required bool inConfig,
+}) {
+  if (key == 'fail-public' && value == false) {
+    return 'every finding counts toward the exit code, and what other packages can import is left out by default';
   }
-  return switch (key) {
-    'exported' => value == true ? (key: 'exported-packages', values: []) : null,
-    'fail-public' when value == false => throw const FormatException(
-      'every finding counts toward the exit code, and what other packages can import is left out by default',
-    ),
-    'fail-public' => null,
-    'generated-suffix' => (
-      key: 'generated-glob',
-      values: [
-        for (final suffix in value is Iterable ? value : [value]) '**/*$suffix',
-      ],
-    ),
-    _ => throw ArgumentError.value(key, 'key', 'not deprecated'),
+  return switch (_replacementFor(key, value)) {
+    null => 'that is the default now, so drop it',
+    final replacement when inConfig =>
+      'use `${replacement.key}: [${replacement.values.map(_quoted).join(', ')}]`',
+    (:final key, values: []) => 'use `--$key=`',
+    (:final key, :final values) =>
+      'use ${values.map((value) => '`--$key ${_quoted(value)}`').join(' ')}',
   };
 }
 
-/// How to write [replacement] on the command line.
-String replacementArgument(Replacement replacement) =>
-    replacement.values.isEmpty
-    ? '`--${replacement.key}=`'
-    : replacement.values
-          .map((value) => '`--${replacement.key} ${_quoted(value)}`')
-          .join(' ');
-
-/// How to write [replacement] in the config file.
-String replacementConfig(Replacement replacement) =>
-    '`${replacement.key}: [${replacement.values.map(_quoted).join(', ')}]`';
+/// What setting the removed option [key] to [value] became, or `null` when
+/// that is the default now.
+Replacement? _replacementFor(String key, Object? value) => switch (key) {
+  'exported' when value == true => (key: 'exported-packages', values: []),
+  'generated-suffix' => (
+    key: 'generated-glob',
+    values: [
+      for (final suffix in value is Iterable ? value : [value ?? '<suffix>'])
+        '**/*$suffix',
+    ],
+  ),
+  _ when value == true => _alsoFlags[key]?.let(
+    (also) => (key: 'also', values: [also]),
+  ),
+  _ => null,
+};
 
 /// [value], single-quoted when a shell or YAML would read it otherwise.
 String _quoted(String value) =>
@@ -126,73 +127,26 @@ String _quoted(String value) =>
 
 final _longOption = RegExp(r'^--(no-)?([\w-]+)(?:=(.*))?$');
 
-/// [arguments] with every deprecated option rewritten to what it now means,
-/// and a warning for each.
-///
-/// Throws a [FormatException] naming a deprecated option that nothing
-/// replaces.
-({List<String> arguments, List<String> warnings}) translateDeprecated(
-  List<String> arguments,
-) {
-  final translated = <String>[];
-  final warnings = <String>[];
-  for (var i = 0; i < arguments.length; i++) {
-    final argument = arguments[i];
+/// Why the first removed option in [arguments] is gone and what to do
+/// instead, or `null` when they name none.
+String? removedOptionMessage(List<String> arguments) {
+  for (final (i, argument) in arguments.indexed) {
     if (argument == '--') {
-      translated.addAll(arguments.skip(i));
       break;
     }
     final match = _longOption.firstMatch(argument);
     final key = match?[2];
-    if (match == null || key == null || !deprecatedKeys.contains(key)) {
-      translated.add(argument);
+    if (match == null || key == null || !removedKeys.contains(key)) {
       continue;
     }
-    final Object value = switch (key) {
+    final Object? value = switch (key) {
       // The value of `--generated-suffix` may be the next argument.
-      'generated-suffix' => match[3] ?? arguments.elementAtOrNull(++i) ?? '',
+      'generated-suffix' => match[3] ?? arguments.elementAtOrNull(i + 1),
       _ => match[1] == null,
     };
-    final (:replaced, :warning) = _translated(
-      '`${argument.split('=').first}`',
-      key,
-      value,
-    );
-    translated.addAll(replaced);
-    warnings.add(warning);
+    return '`${argument.split('=').first}` was removed: ${removedOptionAdvice(key, value, inConfig: false)}.';
   }
-  return (arguments: translated, warnings: warnings);
-}
-
-/// The arguments that setting the deprecated option [key], written as [name],
-/// to [value] now stands for, and the warning saying so.
-({List<String> replaced, String warning}) _translated(
-  String name,
-  String key,
-  Object value,
-) {
-  final Replacement? replacement;
-  try {
-    replacement = replacementFor(key, value);
-  } on FormatException catch (e) {
-    throw FormatException('$name was removed: ${e.message}.');
-  }
-  if (replacement == null) {
-    return (
-      replaced: const [],
-      warning:
-          '$name is deprecated and does nothing: that is the default now, so drop it.',
-    );
-  }
-  return (
-    replaced: replacement.values.isEmpty
-        ? ['--${replacement.key}=']
-        : [
-            for (final value in replacement.values)
-              '--${replacement.key}=$value',
-          ],
-    warning: '$name is deprecated: use ${replacementArgument(replacement)}.',
-  );
+  return null;
 }
 
 /// The accepted `--format` values; the first one is the default, except on a

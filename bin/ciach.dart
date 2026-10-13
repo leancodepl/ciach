@@ -49,21 +49,19 @@ Future<void> main(List<String> arguments) async {
 
 /// [arguments] parsed by [parser], or `null` after logging why they don't
 /// parse: a removed option is named with what replaced it, anything else comes
-/// with the usage. A deprecated option is parsed as what it now means, with a
-/// warning.
+/// with the usage.
 ArgResults? _parse(ArgParser parser, List<String> arguments) {
+  if (removedOptionMessage(arguments) case final message?) {
+    _log.severe(message);
+    return null;
+  }
   try {
-    final translated = translateDeprecated(arguments);
-    translated.warnings.forEach(_log.warning);
-    return parser.parse(translated.arguments);
-  } on ArgParserException catch (e) {
+    return parser.parse(arguments);
+  } on FormatException catch (e) {
     _log.severe('''
 ${e.message}
 
 ${usage(parser)}''');
-    return null;
-  } on FormatException catch (e) {
-    _log.severe(e.message);
     return null;
   }
 }
@@ -113,7 +111,6 @@ Future<int> _run(List<String> arguments) async {
     progress: resolved.showProgress,
     verbose: resolved.verbose,
   );
-  config.deprecations.forEach(_log.warning);
   describeConfigSource(config, projectDir: projectDir).forEach(_log.config);
   describeCi(resolved, detected: _detectedCi).forEach(_log.config);
 

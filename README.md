@@ -135,8 +135,8 @@ default (`ciach --public` overrides `public: false`), and a repeatable option on
 the command line replaces the config's list rather than adding to it. Unknown
 keys and wrong-typed values are usage errors naming the file and the key.
 
-Options from earlier versions still work, on the command line and in the
-config file, with a warning that says what to use instead:
+Options from earlier versions are errors, on the command line and in the
+config file, that say what to use instead:
 
 | Old option | Use instead |
 | --- | --- |
@@ -146,8 +146,7 @@ config file, with a warning that says what to use instead:
 | `--exported` | `--exported-packages=` |
 | `--generated-suffix <suffix>` | `--generated-glob '**/*<suffix>'` |
 | `--fail-public`, `--no-exported` and the `--no-` forms above | nothing: that is the default now |
-
-`--no-fail-public` is an error: every finding counts toward the exit code now.
+| `--no-fail-public` | nothing: every finding counts toward the exit code now |
 
 Discovery looks for that one file name in the analyzed package root, never in a
 parent, so each package in a monorepo owns its config. `--config <path>` reads
