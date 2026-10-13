@@ -469,6 +469,12 @@ Config file:
     kinds: [class, function]
     format: json
 
+Ignore markers:
+  A `// ciach:ignore` comment keeps the declaration on the next line, or the
+  one named on its line when it trails code. `// ciach:ignore-start` and
+  `// ciach:ignore-end` keep everything named between them, and
+  `// ciach:ignore-file` keeps the whole file.
+
 Examples:
   # Scan the current package
   ciach

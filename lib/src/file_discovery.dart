@@ -12,7 +12,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:ciach/src/ignore_markers.dart';
 import 'package:ciach/src/models.dart';
+import 'package:collection/collection.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
 
@@ -41,9 +43,13 @@ typedef DiscoveredDartFiles = ({
 
   /// Generated files excluded from [candidates] but still opened to keep the
   /// analysis server's units warm, so a declaration referenced *only* from
-  /// generated code isn't misreported as unused. Empty when generated files
-  /// are themselves candidates.
+  /// generated code isn't misreported as unused. Files marked
+  /// `// ciach:ignore-file` are among them, even when generated files are
+  /// candidates.
   List<String> warmOnly,
+
+  /// The files of [warmOnly] that a `// ciach:ignore-file` marker put there.
+  List<String> ignored,
 });
 
 /// Discovers the `.dart` files under the configured root that should be
@@ -73,6 +79,7 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
 
   final candidates = <String>[];
   final warmOnly = <String>[];
+  final ignored = <String>[];
   for (final entity in root.listSync(recursive: true, followLinks: false)) {
     if (entity is! File || !entity.path.endsWith('.dart')) {
       continue;
@@ -87,21 +94,24 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
     if (isInSkippedDir(relative)) {
       continue;
     }
+    // Read once, and only when a check needs it.
+    late final source = _read(entity);
     if (!options.includeGenerated &&
         (generatedGlobs.any((glob) => glob.matches(relative)) ||
             _isGenerated(
-              entity,
               relative,
+              () => source,
               options.additionalGeneratedSuffixes,
             ))) {
       warmOnly.add(absolute);
       continue;
     }
-    if (includeGlobs.isNotEmpty &&
-        !includeGlobs.any((glob) => glob.matches(relative))) {
+    if (!_isSelected(relative, includeGlobs, excludeGlobs)) {
       continue;
     }
-    if (excludeGlobs.any((glob) => glob.matches(relative))) {
+    if (IgnoreMarkers.parse(source).ignoresFile) {
+      warmOnly.add(absolute);
+      ignored.add(absolute);
       continue;
     }
 
@@ -110,8 +120,15 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
 
   candidates.sort();
   warmOnly.sort();
-  return (candidates: candidates, warmOnly: warmOnly);
+  ignored.sort();
+  return (candidates: candidates, warmOnly: warmOnly, ignored: ignored);
 }
+
+/// Whether [relative] matches an [include] glob, when there are any, and no
+/// [exclude] glob.
+bool _isSelected(String relative, List<Glob> include, List<Glob> exclude) =>
+    (include.isEmpty || include.any((glob) => glob.matches(relative))) &&
+    exclude.none((glob) => glob.matches(relative));
 
 List<Glob> _globs(List<String> patterns, p.Context context) => [
   for (final pattern in patterns) Glob(pattern, context: context),
@@ -120,9 +137,11 @@ List<Glob> _globs(List<String> patterns, p.Context context) => [
 bool isInSkippedDir(String relativePath) =>
     p.split(relativePath).any(_skippedDirs.contains);
 
+/// Whether the file at [relativePath] is generated: by its name, or by the
+/// banner atop its [source].
 bool _isGenerated(
-  File file,
   String relativePath,
+  String Function() source,
   List<String> additionalSuffixes,
 ) {
   final name = p.basename(relativePath);
@@ -130,7 +149,8 @@ bool _isGenerated(
       additionalSuffixes.any(name.endsWith)) {
     return true;
   }
-  return isGeneratedBanner(_readPrefix(file, 2000));
+  final content = source();
+  return isGeneratedBanner(content.substring(0, min(content.length, 2000)));
 }
 
 /// The banner that build_runner writes at the top of a generated file. It is
@@ -171,12 +191,10 @@ bool isGeneratedBanner(String source) {
   return _banner.hasMatch(comments.toString());
 }
 
-String _readPrefix(File file, int maxChars) {
+/// The text of [file]; empty when it cannot be read.
+String _read(File file) {
   try {
-    final content = file.readAsStringSync();
-    return content.length <= maxChars
-        ? content
-        : content.substring(0, maxChars);
+    return file.readAsStringSync();
   } on FileSystemException {
     return '';
   }
