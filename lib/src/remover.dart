@@ -180,9 +180,9 @@ class RemovalException implements Exception {
   );
 }
 
-/// The containers of [decls] whose whole body is one of the [merged] spans:
-/// only whitespace and comments separate the span from the body's `{` and
-/// `}`.
+/// The containers of [decls] whose whole body the [merged] spans remove: only
+/// whitespace and comments separate a run of spans from the body's `{` and
+/// `}`, and the spans in the run from each other.
 List<String> _emptiedContainers(
   String content,
   List<_Span> merged,
@@ -190,8 +190,17 @@ List<String> _emptiedContainers(
   int Function(int line, int column) offsetOf,
 ) {
   final code = stripComments(content);
-  final names = <String>{};
+  final runs = <_Span>[];
   for (final span in merged) {
+    if (runs.lastOrNull case final last?
+        when code.substring(last.end, span.start).trim().isEmpty) {
+      runs.last = (start: last.start, end: span.end);
+    } else {
+      runs.add(span);
+    }
+  }
+  final names = <String>{};
+  for (final span in runs) {
     final before = _previousNonWhitespace(code, span.start);
     final after = _nextNonWhitespace(code, span.end);
     if (before == null ||

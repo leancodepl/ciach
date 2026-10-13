@@ -564,6 +564,26 @@ extension Parsing on String {
       ]);
     });
 
+    test('lists a container emptied of members a blank line and a comment '
+        'separate', () {
+      final result = remove(
+        '''
+mixin Painter {
+  int paint() => 1;
+
+  // Kept between the members.
+  int paint() => 1;
+}
+
+class Tile with Painter {}
+''',
+        [paint('Painter'), paint('Painter', line: 4)],
+      );
+      expect(result.emptiedContainers, [
+        (filePath: 'lib.dart', name: 'Painter'),
+      ]);
+    });
+
     test('a container with a member left is not listed', () {
       final result = remove(
         '''
