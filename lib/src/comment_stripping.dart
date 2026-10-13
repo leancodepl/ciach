@@ -44,6 +44,26 @@ String stripComments(String content) {
   return out.toString();
 }
 
+/// The `//` comments of [content], doc comments included, by offset: none in a
+/// string or a block comment.
+Iterable<({int offset, String text})> lineComments(String content) sync* {
+  final n = content.length;
+  var i = 0;
+  while (i < n) {
+    if (stringLiteralEnd(content, i) case final end?) {
+      i = end;
+    } else if (content.startsWith('//', i)) {
+      final end = content.indexOfOrNull('\n', i) ?? n;
+      yield (offset: i, text: content.substring(i, end));
+      i = end;
+    } else if (content.startsWith('/*', i)) {
+      i = _skipBlockComment(content, i);
+    } else {
+      i++;
+    }
+  }
+}
+
 /// The index of the first character at or after [from] that is neither
 /// whitespace nor in a comment.
 int skipCommentsAndWhitespace(String content, int from) {

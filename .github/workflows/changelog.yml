@@ -1,0 +1,37 @@
+name: changelog
+
+on:
+  pull_request:
+    # `edited` re-runs the check when the PR's base branch changes, because the
+    # check compares against it. It also fires for a new title or description;
+    # the check takes a few seconds, so it runs then too.
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  changelog:
+    name: Check changelog entries
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
+        with:
+          sdk: '3.13'
+
+      - name: Download pub dependencies
+        run: dart pub get
+
+      - name: Check changelog entries
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          git fetch --depth=1 origin "$BASE_REF"
+          dart run tool/check_changelog.dart --base FETCH_HEAD --pr "$PR"
