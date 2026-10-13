@@ -399,9 +399,12 @@ final class CandidateCollector {
     return true;
   }
 
-  /// Returns the rule that names the type of [symbol] when [symbol] is that
-  /// type's unnamed constructor, which `Type()` calls. Returns `null` for
-  /// anything else, named constructors included.
+  /// Returns the `entry-points` rule that keeps the class [symbol] creates,
+  /// when [symbol] is that class's unnamed constructor.
+  ///
+  /// A rule naming a class keeps its unnamed constructor too: whoever uses
+  /// the class by convention creates it with `MyClass()`. Returns `null` for
+  /// any other symbol, including a named constructor.
   EntryPoint? _constructedType(
     String relativePath,
     DocumentSymbol symbol,
