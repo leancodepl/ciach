@@ -5,6 +5,7 @@ import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/file_discovery.dart';
 import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/project_config/project_files.dart';
+import 'package:collection/collection.dart';
 import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
 
@@ -128,7 +129,7 @@ List<String> unresolvedPackages(Iterable<String> files) {
   final roots = {
     for (final file in files) ?packages.packageRootOf(p.dirname(file)),
   };
-  return roots.where((root) => !packages.isResolved(root)).toList()..sort();
+  return roots.whereNot(packages.isResolved).toList()..sort();
 }
 
 /// Scanned files belong to packages pub has not resolved: their imports would
