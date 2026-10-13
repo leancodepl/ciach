@@ -372,13 +372,11 @@ final class CandidateCollector {
         (containerSymbol) => _superclassOf(candidate.path, containerSymbol),
       ),
     );
-    if (rule != null && container != null) {
-      _entryPointContainers[DeclKey(relativePath, container)] ??= rule;
-    }
-    if (rule != null &&
-        container == null &&
-        typeLikeKinds.contains(symbol.kind)) {
-      _entryPointTypes[DeclKey(relativePath, symbol.name)] ??= rule;
+    switch ((rule, container)) {
+      case (final rule?, final container?):
+        _entryPointContainers[DeclKey(relativePath, container)] ??= rule;
+      case (final rule?, null) when typeLikeKinds.contains(symbol.kind):
+        _entryPointTypes[DeclKey(relativePath, symbol.name)] ??= rule;
     }
     final reason =
         rule?.reason ??
