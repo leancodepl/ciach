@@ -6,6 +6,7 @@ import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/cross_library_refs.dart';
 import 'package:ciach/src/dead_spans.dart';
 import 'package:ciach/src/declarator_cuts.dart';
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
@@ -459,7 +460,12 @@ final class Settler {
           break;
       }
     }
-    for (final (i, finding) in _namedOnlyInClauses(
+    _removableBefore.addAll([
+      for (final MapEntry(key: finding, value: i) in candidateOf.entries)
+        if (!finding.removalBlocked) i,
+    ]);
+    for (final (i, finding) in await _namedOnlyInClauses(
+      client,
       candidates,
       statuses,
       refsByCandidate,
@@ -538,7 +544,8 @@ final class Settler {
   ///
   /// Each finding also removes those clause entries and comes with its
   /// candidate index.
-  Iterable<(int, UnusedDeclaration)> _namedOnlyInClauses(
+  Future<Iterable<(int, UnusedDeclaration)>> _namedOnlyInClauses(
+    LspClient client,
     List<Candidate> candidates,
     List<RefStatus> statuses,
     List<List<Location>> refsByCandidate,
@@ -547,7 +554,7 @@ final class Settler {
     DeadSpans deadSpans,
     Set<String> scannedPaths,
     String rootPath,
-  ) {
+  ) async {
     final removableMembers = <DeclKey, int>{};
     for (final MapEntry(key: finding, value: i) in candidateOf.entries) {
       if (candidates[i].containerKey case final key?
@@ -569,7 +576,10 @@ final class Settler {
       final entries = [
         for (final loc in refs)
           if (scannedPaths.contains(SourceIndex.pathOf(loc.uri)))
-            ?_sources.clauseEntryAt(loc, candidate.symbol.name),
+            ?(await _outlineOf(client, loc))?.let(
+              (unit) =>
+                  _sources.clauseEntryAt(loc, candidate.symbol.name, unit),
+            ),
       ];
       if (entries.length == refs.length) {
         entriesOf[i] = entries;
@@ -604,6 +614,17 @@ final class Settler {
           ),
         ),
     ];
+  }
+
+  /// The outline of the file that holds [loc], or `null` if the server sent
+  /// none. Every scanned file's outline was awaited while collecting
+  /// candidates, so this is usually a cache hit.
+  static Future<Outline?> _outlineOf(LspClient client, Location loc) async {
+    try {
+      return await client.outline(Uri.parse(loc.uri));
+    } on LspRequestException {
+      return null;
+    }
   }
 
   /// Names of classes flagged unused, per file. A whole dead class is removed

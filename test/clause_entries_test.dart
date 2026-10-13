@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:ciach/src/clause_entries.dart';
+import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/remover.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:path/path.dart' as p;
+import 'package:pro_lsp/pro_lsp.dart' show Range;
 import 'package:test/test.dart';
 
 void main() {
@@ -119,5 +121,56 @@ class A
         D {}
 ''',
     );
+  });
+
+  test('reads from the outline whether a clause belongs to a type alias', () {
+    const source = '''
+class A = B with C;
+class D extends B with C {}
+''';
+    final path = p.join(tempDir.path, 'lib.dart');
+    File(path).writeAsStringSync(source);
+    Range range(int line, int start, int end) => .new(
+      start: .new(line: line, character: start),
+      end: .new(line: line, character: end),
+    );
+    Outline declaration(String kind, String name, int line, int end) => .new(
+      element: .new(kind: .fromWire(kind), name: name),
+      range: range(line, 0, end),
+      codeRange: range(line, 0, end),
+      children: const [],
+    );
+    final unit = Outline(
+      element: const .new(kind: .compilationUnit, name: ''),
+      range: range(0, 0, 0),
+      codeRange: range(0, 0, 0),
+      children: [
+        declaration('CLASS_TYPE_ALIAS', 'A', 0, 19),
+        declaration('CLASS', 'D', 1, 27),
+      ],
+    );
+    final sources = SourceIndex()..cacheLines(path, source.split('\n'));
+    ClauseEntry? entryAt(int line, int clauseStart, int end) {
+      final name = range(line, end - 1, end);
+      sources.cacheSelectionRange(
+        path,
+        name.start,
+        .new(
+          range: name,
+          parent: .new(
+            range: range(line, clauseStart, end),
+            parent: .new(range: range(line, 0, end + 1)),
+          ),
+        ),
+      );
+      return sources.clauseEntryAt(
+        .new(uri: File(path).uri.toString(), range: name),
+        'C',
+        unit,
+      );
+    }
+
+    expect(entryAt(0, 12, 18)?.keepsOne, isTrue);
+    expect(entryAt(1, 18, 24)?.keepsOne, isFalse);
   });
 }

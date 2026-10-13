@@ -3,9 +3,11 @@
 library;
 
 import 'package:ciach/src/comment_stripping.dart';
+import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/source_index.dart';
+import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location, Position, SymbolKind;
 
@@ -31,26 +33,24 @@ final _clauseKeyword = RegExp(r'(with|implements)\s');
 extension ClauseEntries on SourceIndex {
   /// Returns the clause entry at [loc] if it names [name] directly.
   ///
-  /// Returns `null` for any other reference, such as a type annotation, an
-  /// `extends` or `on` clause, or a prefixed or generic name.
-  ClauseEntry? clauseEntryAt(Location loc, String name) {
+  /// [unit] is the outline of the file that holds [loc]. Returns `null` for
+  /// any other reference, such as a type annotation, an `extends` or `on`
+  /// clause, or a prefixed or generic name.
+  ClauseEntry? clauseEntryAt(Location loc, String name, Outline unit) {
     final path = SourceIndex.pathOf(loc.uri);
     final type = selectionRangeAt(path, loc.range.start);
     final clause = type?.parent;
-    final declaration = clause?.parent;
-    if (type == null || clause == null || declaration == null) {
+    if (type == null || clause == null) {
       return null;
     }
     final start = offsetOf(path, type.range.start);
     final end = offsetOf(path, type.range.end);
     final clauseStart = offsetOf(path, clause.range.start);
     final clauseEnd = offsetOf(path, clause.range.end);
-    final declarationStart = offsetOf(path, declaration.range.start);
     if (start == null ||
         end == null ||
         clauseStart == null ||
-        clauseEnd == null ||
-        declarationStart == null) {
+        clauseEnd == null) {
       return null;
     }
     final content = this.content(path);
@@ -67,7 +67,7 @@ extension ClauseEntries on SourceIndex {
       start: start,
       keepsOne:
           keyword == 'with' &&
-          _isTypeAlias(content.substring(declarationStart, clauseStart)),
+          unit.childAt(loc.range.start)?.element.kind == .classTypeAlias,
     );
   }
 
@@ -197,27 +197,6 @@ Iterable<(int, int)> _runs(
     yield (i, j);
     i = j;
   }
-}
-
-/// Whether [header], the declaration text before its clause, belongs to a
-/// class type alias such as `class A = B`.
-///
-/// It looks for an `=` outside brackets. The default values of a primary
-/// constructor are always inside brackets.
-bool _isTypeAlias(String header) {
-  final code = stripComments(header);
-  var depth = 0;
-  for (var i = 0; i < code.length; i++) {
-    switch (code[i]) {
-      case '<' || '(' || '[' || '{':
-        depth++;
-      case '>' || ')' || ']' || '}':
-        depth--;
-      case '=' when depth == 0:
-        return true;
-    }
-  }
-  return false;
 }
 
 /// The offset just past the last non-whitespace character before [offset].
