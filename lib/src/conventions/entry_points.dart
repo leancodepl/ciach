@@ -35,6 +35,9 @@ final class EntryPoint {
   /// Creates a rule that comes from the `entry-points` setting or from the
   /// project config.
   ///
+  /// A constructor is `Class.new` or `Class.named`, as the report prints it;
+  /// `Class.Class` is read as `Class.new`.
+  ///
   /// Throws a [FormatException] for a [name] that is not an identifier
   /// (optionally `Container.member`); the constructor throws for a glob that
   /// does not parse.
@@ -53,7 +56,15 @@ final class EntryPoint {
         "'$name' is not a declaration name; expected an identifier such as 'registerWith' or 'MyPlugin.registerWith'.",
       );
     }
-    return .new(name: name, files: files, reason: reason);
+    return .new(
+      // Only a constructor can share its class's name.
+      name: switch (name.split('.')) {
+        [final type, final member] when member == type => '$type.new',
+        _ => name,
+      },
+      files: files,
+      reason: reason,
+    );
   }
 
   static final _posix = p.Context(style: .posix);
@@ -61,8 +72,9 @@ final class EntryPoint {
     r'^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)?$',
   );
 
-  /// `name` for a top-level declaration, `Container.member` for a member;
-  /// type parameters are not part of either.
+  /// `name` for a top-level declaration, `Container.member` for a member
+  /// (`Class.new` for the unnamed constructor); type parameters are not part
+  /// of either.
   final String name;
 
   /// The superclass that a [EntryPoint.publicMethodsOfSubclasses] rule
@@ -107,17 +119,12 @@ final class EntryPoint {
           !symbol.name.startsWith('_') &&
           containerSuperclass?.call() == superclass;
     } else {
-      // A constructor goes by the name the report prints, `Class.new` or
-      // `Class.named`; the unnamed one also answers to `Class.Class`.
       final qualified =
           container?.let(
-            (container) => [
-              '$container.${symbol.declarationName(container)}',
-              '$container.${symbol.name}',
-            ],
+            (container) => '$container.${symbol.declarationName(container)}',
           ) ??
-          [symbol.name];
-      named = qualified.contains(name);
+          symbol.name;
+      named = qualified == name;
     }
     return named &&
         (_globs.isEmpty || _globs.any((glob) => glob.matches(relativePath)));

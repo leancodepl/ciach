@@ -1537,7 +1537,7 @@ void main() {
         for (final d in located(
           await runEntryPoints(entryPoints: [.fromConfig(rule)]),
         ))
-          if (d.startsWith('lib/scenarios/entry_points.dart:Parked')) d,
+          if (d.startsWith('lib/scenarios/entry_points.dart:Parked.')) d,
       };
 
       // A constructor rule keeps its type, as any member rule does.

@@ -75,13 +75,12 @@ void main() {
       );
     });
 
-    test('the unnamed constructor also answers to Class.Class', () {
-      final unnamed = symbol('Parked', kind: .constructor);
+    test('Class.Class is read as the unnamed constructor', () {
+      final rule = EntryPoint.fromConfig('Parked.Parked');
 
+      expect(rule.name, 'Parked.new');
       expect(
-        EntryPoint.fromConfig(
-          'Parked.Parked',
-        ).matches('a.dart', unnamed, 'Parked'),
+        rule.matches('a.dart', symbol('Parked', kind: .constructor), 'Parked'),
         isTrue,
       );
     });
