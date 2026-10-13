@@ -80,11 +80,9 @@ class Ciach {
   );
 
   /// What other packages can import, when exported declarations are left out.
-  late final PublicApi? _publicApi = switch (options.includeExported) {
-    true => null,
-    false => .scan(options.rootPath),
-    null => _publishedApi(),
-  };
+  late final PublicApi? _publicApi = options.exportedPackages.isEmpty
+      ? null
+      : _exportedApi();
 
   /// The variants of the conditional imports under the analysis root.
   late final _conditionalImports = ConditionalImports.scan(
@@ -138,17 +136,20 @@ class Ciach {
     );
   }
 
-  /// The API of the packages that can be published, each package's verdict
-  /// logged; `null` when none can.
-  PublicApi? _publishedApi() {
-    final api = PublicApi.scan(options.rootPath, publishedOnly: true);
-    for (final MapEntry(key: dir, value: publishable) in api.packages.entries) {
+  /// The API of the packages that [FinderOptions.exportedPackages] match,
+  /// each package's verdict logged; `null` when none does.
+  PublicApi? _exportedApi() {
+    final api = PublicApi.scan(
+      options.rootPath,
+      exportedPackages: options.exportedPackages,
+    );
+    for (final MapEntry(key: dir, value: exported) in api.packages.entries) {
       final name = relativePosix(dir, options.rootPath);
       final package = name == '.' ? 'The scanned package' : name;
       _log.config(
-        publishable
-            ? '$package can be published: its exported API is left out (`--exported` checks it).'
-            : '$package has `publish_to: none`: its API is checked.',
+        exported
+            ? '$package is in `exported-packages`: what other packages can import is left out.'
+            : '$package is not in `exported-packages`: its API is checked.',
       );
     }
     return api.isEmpty ? null : api;

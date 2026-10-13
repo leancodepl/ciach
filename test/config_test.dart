@@ -40,7 +40,7 @@ void main() {
 path: packages/app
 analysis-root: .
 public: false
-exported: false
+exported-packages: [packages/shared]
 generated: true
 project-config: false
 unused-translations: false
@@ -73,7 +73,7 @@ dart: /sdk/bin/dart
       expect(resolved.rootPath, 'packages/app');
       expect(resolved.analysisRootPath, '.');
       expect(resolved.includePublic, isFalse);
-      expect(resolved.includeExported, isFalse);
+      expect(resolved.exportedPackages, ['packages/shared']);
       expect(resolved.includeGenerated, isTrue);
       expect(resolved.projectConfig, isFalse);
       expect(resolved.unusedTranslations, isFalse);
@@ -166,27 +166,43 @@ concurrency: 4
       );
     });
 
-    test('names what replaced a removed option', () {
-      expect(
-        () => ConfigFile.parse('overrides: true', origin: 'ciach.yaml'),
-        throwsA(
-          isA<FormatException>().having(
-            (e) => e.message,
-            'message',
-            'ciach.yaml: `overrides` was removed: use `also: [overrides]`.',
-          ),
-        ),
-      );
+    test('reads a deprecated option as what it now means, with a warning', () {
+      final config = ConfigFile.parse('''
+also: [operators]
+overrides: true
+exported: true
+generated-suffix: .gc.dart
+''', origin: 'ciach.yaml');
+      final resolved = resolve(const [], config);
+
+      expect(resolved.overrides, isTrue);
+      expect(resolved.operators, isTrue);
+      expect(resolved.exportedPackages, isEmpty);
+      expect(resolved.additionalGeneratedGlobs, ['**/*.gc.dart']);
+      expect(config.deprecations, [
+        'ciach.yaml: `overrides` is deprecated: use `also: [overrides]`.',
+        'ciach.yaml: `exported` is deprecated: use `exported-packages: []`.',
+        "ciach.yaml: `generated-suffix` is deprecated: use `generated-glob: ['**/*.gc.dart']`.",
+      ]);
     });
 
-    test('says to drop a removed option set to what is the default now', () {
+    test('says to drop a deprecated option set to what is the default now', () {
+      final config = ConfigFile.parse('operators: false', origin: 'ciach.yaml');
+
+      expect(resolve(const [], config).operators, isFalse);
+      expect(config.deprecations, [
+        'ciach.yaml: `operators` is deprecated and does nothing: that is the default now, so drop it.',
+      ]);
+    });
+
+    test('rejects a deprecated option that nothing replaces', () {
       expect(
-        () => ConfigFile.parse('operators: false', origin: 'ciach.yaml'),
+        () => ConfigFile.parse('fail-public: false', origin: 'ciach.yaml'),
         throwsA(
           isA<FormatException>().having(
             (e) => e.message,
             'message',
-            'ciach.yaml: `operators` was removed: that is the default now, so drop it.',
+            startsWith('ciach.yaml: `fail-public` was removed: '),
           ),
         ),
       );
@@ -206,25 +222,53 @@ concurrency: 4
       );
     });
 
-    test('removedOptionMessage names what replaced a removed flag', () {
+    test('translateDeprecated rewrites a deprecated flag, with a warning', () {
+      final translated = translateDeprecated([
+        'lib',
+        '--report-tojson',
+        '--no-operators',
+        '--exported',
+        '--generated-suffix',
+        '.gc.dart',
+        '--',
+        '--overrides',
+      ]);
+
+      expect(translated.arguments, [
+        'lib',
+        '--also=tojson',
+        '--exported-packages=',
+        '--generated-glob=**/*.gc.dart',
+        '--',
+        '--overrides',
+      ]);
+      expect(translated.warnings, [
+        '`--report-tojson` is deprecated: use `--also tojson`.',
+        '`--no-operators` is deprecated and does nothing: that is the default now, so drop it.',
+        '`--exported` is deprecated: use `--exported-packages=`.',
+        "`--generated-suffix` is deprecated: use `--generated-glob '**/*.gc.dart'`.",
+      ]);
+      expect(translateDeprecated(['--also', 'overrides']).warnings, isEmpty);
+    });
+
+    test('translateDeprecated rejects a flag that nothing replaces', () {
       expect(
-        removedOptionMessage(['lib', '--no-fail-public']),
-        startsWith('`--no-fail-public` was removed: '),
+        () => translateDeprecated(['lib', '--no-fail-public']),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            startsWith('`--no-fail-public` was removed: '),
+          ),
+        ),
       );
-      expect(
-        removedOptionMessage(['--report-tojson=true']),
-        '`--report-tojson` was removed: use `--also tojson`.',
-      );
-      expect(
-        removedOptionMessage(['--no-operators']),
-        '`--no-operators` was removed: that is the default now, so drop it.',
-      );
-      expect(
-        removedOptionMessage(['--fail-public']),
-        '`--fail-public` was removed: that is the default now, so drop it.',
-      );
-      expect(removedOptionMessage(['--', '--overrides']), isNull);
-      expect(removedOptionMessage(['--also', 'overrides']), isNull);
+    });
+
+    test('an empty --exported-packages checks the API of every package', () {
+      expect(resolve(['--exported-packages=']).exportedPackages, isEmpty);
+      expect(resolve(['--exported-packages', 'packages/*']).exportedPackages, [
+        'packages/*',
+      ]);
     });
 
     test('rejects a top-level document that is not a map', () {
@@ -495,7 +539,7 @@ concurrency: 4
 
       expect(resolved.rootPath, '.');
       expect(resolved.includePublic, isTrue);
-      expect(resolved.includeExported, isNull);
+      expect(resolved.exportedPackages, ['**']);
       expect(resolved.includeGenerated, isFalse);
       expect(resolved.projectConfig, isTrue);
       expect(resolved.unusedTranslations, isTrue);

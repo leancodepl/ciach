@@ -10,7 +10,6 @@
 
 import 'package:args/args.dart';
 import 'package:ciach/ciach.dart';
-import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/version.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
@@ -60,78 +59,126 @@ Set<String> parseAlso(List<String> raw) {
   return names;
 }
 
-/// A removed option: what to use instead, on the command line and in the
-/// config file, and the value that is the default now, which needs nothing.
-typedef RemovedOption = ({String argument, String config, bool? nowDefault});
+/// What setting a deprecated option now means: the values for the option with
+/// the config key `key` to take. No values set it to an empty list.
+typedef Replacement = ({String key, List<String> values});
 
-/// The removed options, by config key.
-const removedOptions = <String, RemovedOption>{
-  'fail-public': (
-    argument:
-        'the API of a package that can be published is left out by default, and `--set-exit-if-changed` counts every finding',
-    config:
-        'the API of a package that can be published is left out by default, and `set-exit-if-changed` counts every finding',
-    nowDefault: true,
-  ),
-  'generated-suffix': (
-    argument: "use `--generated-glob '**/*<suffix>'`",
-    config: "use `generated-glob: ['**/*<suffix>']`",
-    nowDefault: null,
-  ),
-  'overrides': (
-    argument: 'use `--also overrides`',
-    config: 'use `also: [overrides]`',
-    nowDefault: false,
-  ),
-  'operators': (
-    argument: 'use `--also operators`',
-    config: 'use `also: [operators]`',
-    nowDefault: false,
-  ),
-  'report-tojson': (
-    argument: 'use `--also tojson`',
-    config: 'use `also: [tojson]`',
-    nowDefault: false,
-  ),
-  'unused-union-members': (
-    argument: 'use `--also union-members`',
-    config: 'use `also: [union-members]`',
-    nowDefault: false,
-  ),
+/// The deprecated flags that became a value of `--also`, by config key.
+const _alsoFlags = {
+  'overrides': 'overrides',
+  'operators': 'operators',
+  'report-tojson': 'tojson',
+  'unused-union-members': 'union-members',
 };
 
-/// What to do instead of setting the removed option [key] to [value], in the
-/// config file when [inConfig]; `null` when [key] was not removed.
-String? removedOptionAdvice(
-  String key,
-  Object? value, {
-  required bool inConfig,
-}) => removedOptions[key]?.let(
-  (removed) => value == removed.nowDefault
-      ? 'that is the default now, so drop it'
-      : inConfig
-      ? removed.config
-      : removed.argument,
-);
+/// The config keys of the options ciach still accepts but no longer documents.
+const deprecatedKeys = {
+  'overrides',
+  'operators',
+  'report-tojson',
+  'unused-union-members',
+  'exported',
+  'fail-public',
+  'generated-suffix',
+};
 
-final _longOption = RegExp(r'^--(no-)?([\w-]+)');
-
-/// Why the first removed option in [arguments] is gone and what to do
-/// instead, or `null` when they name none.
-String? removedOptionMessage(List<String> arguments) {
-  for (final argument in arguments.takeWhile((argument) => argument != '--')) {
-    if (_longOption.firstMatch(argument) case final match?) {
-      final advice = removedOptionAdvice(
-        match[2]!,
-        match[1] == null,
-        inConfig: false,
-      );
-      if (advice != null) {
-        return '`${argument.split('=').first}` was removed: $advice.';
-      }
-    }
+/// What setting the deprecated option [key] to [value] (`true` or `false` for
+/// a flag) now means, or `null` when [value] is the default now and needs
+/// nothing.
+///
+/// Throws a [FormatException] when nothing replaces it: `fail-public` off,
+/// which counted only private findings toward the exit code.
+Replacement? replacementFor(String key, Object? value) {
+  if (_alsoFlags[key] case final also?) {
+    return value == true ? (key: 'also', values: [also]) : null;
   }
-  return null;
+  return switch (key) {
+    'exported' => value == true ? (key: 'exported-packages', values: []) : null,
+    'fail-public' when value == false => throw const FormatException(
+      'every finding counts toward the exit code, and what other packages can import is left out by default',
+    ),
+    'fail-public' => null,
+    'generated-suffix' => (
+      key: 'generated-glob',
+      values: [
+        for (final suffix in value is Iterable ? value : [value]) '**/*$suffix',
+      ],
+    ),
+    _ => throw ArgumentError.value(key, 'key', 'not deprecated'),
+  };
+}
+
+/// How to write [replacement] on the command line.
+String replacementArgument(Replacement replacement) =>
+    replacement.values.isEmpty
+    ? '`--${replacement.key}=`'
+    : replacement.values
+          .map((value) => '`--${replacement.key} ${_quoted(value)}`')
+          .join(' ');
+
+/// How to write [replacement] in the config file.
+String replacementConfig(Replacement replacement) =>
+    '`${replacement.key}: [${replacement.values.map(_quoted).join(', ')}]`';
+
+/// [value], single-quoted when a shell or YAML would read it otherwise.
+String _quoted(String value) =>
+    RegExp(r'^[\w.-]+$').hasMatch(value) ? value : "'$value'";
+
+final _longOption = RegExp(r'^--(no-)?([\w-]+)(?:=(.*))?$');
+
+/// [arguments] with every deprecated option rewritten to what it now means,
+/// and a warning for each.
+///
+/// Throws a [FormatException] naming a deprecated option that nothing
+/// replaces.
+({List<String> arguments, List<String> warnings}) translateDeprecated(
+  List<String> arguments,
+) {
+  final translated = <String>[];
+  final warnings = <String>[];
+  for (var i = 0; i < arguments.length; i++) {
+    final argument = arguments[i];
+    if (argument == '--') {
+      translated.addAll(arguments.skip(i));
+      break;
+    }
+    final match = _longOption.firstMatch(argument);
+    final key = match?[2];
+    if (match == null || !deprecatedKeys.contains(key)) {
+      translated.add(argument);
+      continue;
+    }
+    final name = '`${argument.split('=').first}`';
+    final Object value = switch (key) {
+      'generated-suffix' =>
+        match[3] ?? (++i < arguments.length ? arguments[i] : ''),
+      _ => match[1] == null,
+    };
+    final Replacement? replacement;
+    try {
+      replacement = replacementFor(key!, value);
+    } on FormatException catch (e) {
+      throw FormatException('$name was removed: ${e.message}.');
+    }
+    if (replacement == null) {
+      warnings.add(
+        '$name is deprecated and does nothing: that is the default now, so drop it.',
+      );
+      continue;
+    }
+    translated.addAll(
+      replacement.values.isEmpty
+          ? ['--${replacement.key}=']
+          : [
+              for (final value in replacement.values)
+                '--${replacement.key}=$value',
+            ],
+    );
+    warnings.add(
+      '$name is deprecated: use ${replacementArgument(replacement)}.',
+    );
+  }
+  return (arguments: translated, warnings: warnings);
 }
 
 /// The accepted `--format` values; the first one is the default, except on a
@@ -251,13 +298,15 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'Report unused public declarations too. Disable to report only private (underscore-prefixed) declarations, which are the highest-confidence dead code.',
     ),
   ),
-  exported(
-    FlagOption(
+  exportedPackages(
+    MultiStringOption.noSplit(
       group: _reportGroup,
-      argName: 'exported',
-      configKey: '/exported',
+      argName: 'exported-packages',
+      configKey: '/exported-packages',
+      defaultsTo: ['**'],
+      valueHelp: 'glob',
       helpText:
-          'Report declarations other packages can import. Defaults to each package: off for one that can be published, on for one with `publish_to: none`, whose importers are all in the repository.',
+          'Glob, relative to the root, of a package that code outside the analysis imports. What other packages can import from it is not reported. Defaults to every package; an empty value (--exported-packages=) checks the API of every package. Repeatable.',
     ),
   ),
   unusedTranslations(

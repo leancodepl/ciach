@@ -24,7 +24,6 @@ void main() {
     package = .systemTemp.createTempSync('ciach_ignore_markers_');
     write('pubspec.yaml', '''
 name: markers
-publish_to: none
 environment: {sdk: ^3.10.0}
 ''');
     write('.dart_tool/package_config.json', packageConfig({'markers': '.'}));
@@ -105,7 +104,9 @@ int area(Shape shape) => shape.a + shape.b + shape.c;
 void main() => print(area(Square()));
 ''');
 
-    final result = await Ciach(.new(rootPath: package.path)).run();
+    final result = await Ciach(
+      .new(rootPath: package.path, exportedPackages: const []),
+    ).run();
 
     expect([
       for (final d in result.unused)
@@ -128,7 +129,9 @@ class Impl extends Base {
 void main() => print(Impl());
 ''');
 
-    final result = await Ciach(.new(rootPath: package.path)).run();
+    final result = await Ciach(
+      .new(rootPath: package.path, exportedPackages: const []),
+    ).run();
     final hook = result.unused.singleWhere(
       (d) => d.qualifiedName == 'Base.hook',
     );
@@ -149,7 +152,9 @@ void main() => print(Impl());
       return logging.cancel();
     });
 
-    final result = await Ciach(.new(rootPath: package.path)).run();
+    final result = await Ciach(
+      .new(rootPath: package.path, exportedPackages: const []),
+    ).run();
 
     expect(
       {for (final d in result.unused) '${d.filePath}:${d.qualifiedName}'},

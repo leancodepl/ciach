@@ -52,7 +52,7 @@ class FinderOptions {
     this.excludeGlobs = const [],
     this.kinds = defaultKinds,
     this.includePublic = true,
-    this.includeExported,
+    this.exportedPackages = const ['**'],
     this.includeGenerated = false,
     this.additionalGeneratedGlobs = const [],
     this.skipOverrides = true,
@@ -94,11 +94,11 @@ class FinderOptions {
   /// Private declarations are always reported when unused.
   final bool includePublic;
 
-  /// Whether to report declarations importable by other packages. `null`
-  /// (the default) decides per package: the API of one that can be published
-  /// is left out, since its importers are elsewhere, and the API of one with
-  /// `publish_to: none` is checked, since its importers are in the repository.
-  final bool? includeExported;
+  /// Globs, relative to [rootPath], of the packages that packages outside the
+  /// analysis import, so what they can import is not reported: libraries in
+  /// `lib/` outside `lib/src/`, and what those export. By default every
+  /// package; an empty list checks the API of every package.
+  final List<String> exportedPackages;
 
   /// Whether to scan generated files (`*.g.dart`, `*.freezed.dart`, …).
   final bool includeGenerated;
@@ -490,9 +490,9 @@ class FinderResult {
   final List<UnusedDeclaration> docOnly;
 
   /// Scanned files with nothing but comments and `library`, `import` or
-  /// `part of` directives, as sorted root-relative `/`-paths. With
-  /// [FinderOptions.includeExported] off or left to each package, one other
-  /// packages can import is left out.
+  /// `part of` directives, as sorted root-relative `/`-paths. One that
+  /// packages outside the analysis can import, by
+  /// [FinderOptions.exportedPackages], is left out.
   final List<String> emptyFiles;
 
   /// Empty files a conditional import or export chooses between. Report-only:

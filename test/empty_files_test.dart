@@ -24,8 +24,12 @@ void main() {
 
   bool exists(String path) => File(p.join(root.path, path)).existsSync();
 
-  Future<FinderResult> run({bool includeExported = true}) =>
-      Ciach(.new(rootPath: root.path, includeExported: includeExported)).run();
+  Future<FinderResult> run({bool leaveOutApi = false}) => Ciach(
+    .new(
+      rootPath: root.path,
+      exportedPackages: leaveOutApi ? const ['**'] : const [],
+    ),
+  ).run();
 
   setUp(() {
     root = .systemTemp.createTempSync('ciach_empty_files_');
@@ -74,9 +78,9 @@ void use() => platform();
   });
 
   test(
-    'a file other packages can import is left out with includeExported off',
+    'a file other packages can import is left out when its package is exported',
     () async {
-      final result = await run(includeExported: false);
+      final result = await run(leaveOutApi: true);
       expect(result.emptyFiles, ['tool/scratch.dart']);
       expect(result.emptyVariants, isEmpty);
     },

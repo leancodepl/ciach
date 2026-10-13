@@ -79,7 +79,7 @@ ciach --verbose                           # explain each step
 | `--analysis-root <path>` | the scanned path | Count references from this whole directory, not just the scanned package — for a monorepo wired by `path:` dependencies. See [Monorepos](#monorepos). |
 | `--[no-]public` | on | Report unused public declarations too. Disable to report only private (`_`-prefixed) ones. |
 | `--[no-]generated` | off | Scan generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, …). |
-| `--[no-]exported` | per package | Report declarations other packages can import. By default, off for a package that can be published and on for one with `publish_to: none`. See [Library packages](#library-packages). |
+| `--exported-packages <glob>` | every package | Packages that code outside the analysis imports. What other packages can import from them is not reported. `--exported-packages=` checks the API of every package. Repeatable. See [Library packages](#library-packages). |
 | `--[no-]project-config` | on | Read [entry points](#entry-points) and [generated files](#generated-files-from-the-project-config) from `pubspec.yaml`, `build.yaml`, `l10n.yaml`, `analysis_options.yaml` and `firebase.json`. |
 | `--[no-]unused-translations` | on | Scan the gen-l10n template file an `l10n.yaml` configures and report its unused messages. They are only reported, never removed: remove them from the template ARB file instead. |
 | `--also <list>` | — | Also report what is [skipped by default](#what-it-skips-by-default) as a known source of false positives: `overrides`, `operators`, `tojson` (an otherwise-unused `toJson()`), `union-members` (a sealed supertype's member matched only by type patterns, never constructed; report-only). |
@@ -134,6 +134,20 @@ Command line beats config file beats default, even when the flag matches the
 default (`ciach --public` overrides `public: false`), and a repeatable option on
 the command line replaces the config's list rather than adding to it. Unknown
 keys and wrong-typed values are usage errors naming the file and the key.
+
+Options from earlier versions still work, on the command line and in the
+config file, with a warning that says what to use instead:
+
+| Old option | Use instead |
+| --- | --- |
+| `--overrides`, `--operators` | `--also overrides`, `--also operators` |
+| `--report-tojson` | `--also tojson` |
+| `--unused-union-members` | `--also union-members` |
+| `--exported` | `--exported-packages=` |
+| `--generated-suffix <suffix>` | `--generated-glob '**/*<suffix>'` |
+| `--fail-public`, `--no-exported` and the `--no-` forms above | nothing: that is the default now |
+
+`--no-fail-public` is an error: every finding counts toward the exit code now.
 
 Discovery looks for that one file name in the analyzed package root, never in a
 parent, so each package in a monorepo owns its config. `--config <path>` reads
@@ -300,21 +314,27 @@ that only moved is not reported as new.
 
 ### Library packages
 
-A package that can be published has importers ciach never sees, so by default
-its API is left out: libraries under `lib/` outside `lib/src/`, what they export
-(`show`/`hide` respected), and the members of any type named outside a function
-body in an exported signature, field or supertype, even through other types, or
-in the body of one whose signature is `dynamic`.
+By default, ciach doesn't report what other packages can import, because
+ciach can't see importers outside the analysis. That covers the libraries
+under `lib/` outside `lib/src/`, what they export (`show`/`hide` respected),
+and the members of any type named outside a function body in an exported
+signature, field or supertype, even through other types, or in the body of one
+whose signature is `dynamic`.
 
-A package with `publish_to: none` in its pubspec, like an app or a member of a
-monorepo, has all its importers in the repository, so its API is checked like
-the rest of the code. In a pub workspace the analysis covers every member, and
-without one [`--analysis-root`](#monorepos) does.
+When all the importers of a package are in the analysis, its API can be
+checked too. In a pub workspace the analysis covers every member, and without
+one [`--analysis-root`](#monorepos) does. List in `exported-packages` only the
+packages that code outside the analysis imports, such as a package published
+to pub.dev or used as a git dependency. Each entry is a glob of a package's
+directory, relative to the scanned path:
 
-Each package under the scanned path is decided on its own; `-v` says which way.
-`--exported` checks every package's API, `--no-exported` leaves out every
-package's. A `publish_to: none` package that is still imported from elsewhere,
-say as a git dependency, wants `exported: false` in its `ciach.yaml`.
+```yaml
+# ciach.yaml
+exported-packages: [packages/shared_api]
+```
+
+`exported-packages: []` checks the API of every package. `-v` says which
+packages are left out.
 
 ### Removing declarations
 

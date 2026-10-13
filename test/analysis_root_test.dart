@@ -51,13 +51,11 @@ ${entries.join(',\n')}
     write('pkgs/core/pubspec.yaml', '''
 name: core
 version: 1.0.0
-publish_to: none
 environment:
   sdk: ^3.10.0
 ''');
     write('pkgs/app/pubspec.yaml', '''
 name: app
-publish_to: none
 environment:
   sdk: ^3.10.0
 dependencies:
@@ -86,8 +84,13 @@ void main() => usedByApp();
 
   tearDown(() => repo.deleteSync(recursive: true));
 
-  Future<FinderResult> run({String? analysisRoot}) =>
-      Ciach(.new(rootPath: corePath, analysisRootPath: analysisRoot)).run();
+  Future<FinderResult> run({String? analysisRoot}) => Ciach(
+    .new(
+      rootPath: corePath,
+      analysisRootPath: analysisRoot,
+      exportedPackages: const [],
+    ),
+  ).run();
 
   Set<String> namesOf(FinderResult result) => {
     for (final decl in result.unused) decl.name,

@@ -17,7 +17,7 @@ class ResolvedOptions {
     required this.additionalGeneratedGlobs,
     required this.kinds,
     required this.includePublic,
-    required this.includeExported,
+    required this.exportedPackages,
     required this.includeGenerated,
     required this.projectConfig,
     required this.unusedTranslations,
@@ -52,8 +52,9 @@ class ResolvedOptions {
   final Set<SymbolKind> kinds;
   final bool includePublic;
 
-  /// `--exported`/`--no-exported`, or `null` to decide per package.
-  final bool? includeExported;
+  /// Globs of the packages whose API is left out; empty to check every
+  /// package's.
+  final List<String> exportedPackages;
   final bool includeGenerated;
   final bool projectConfig;
   final bool unusedTranslations;
@@ -116,7 +117,7 @@ class ResolvedOptions {
     ],
     kinds: kinds,
     includePublic: includePublic,
-    includeExported: includeExported,
+    exportedPackages: exportedPackages,
     includeGenerated: includeGenerated,
     skipOverrides: !overrides,
     skipOperators: !operators,
@@ -173,7 +174,11 @@ ResolvedOptions resolveOptions(
     // Already validated by the option; this only converts the names.
     kinds: parseKinds(configuration.value(CiachOption.kinds)),
     includePublic: configuration.value(CiachOption.public),
-    includeExported: configuration.optionalValue(CiachOption.exported),
+    // An empty value, the command line's way to give none, is no glob.
+    exportedPackages: [
+      for (final glob in configuration.value(CiachOption.exportedPackages))
+        if (glob.isNotEmpty) glob,
+    ],
     includeGenerated: configuration.value(CiachOption.generated),
     projectConfig: projectConfig,
     unusedTranslations: configuration.value(CiachOption.unusedTranslations),

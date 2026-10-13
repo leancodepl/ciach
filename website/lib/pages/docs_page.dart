@@ -66,8 +66,8 @@ const _toc = [
 const _options = [
   ('--no-public', 'Report private declarations only. Cheapest mode.'),
   (
-    '--[no-]exported',
-    'Check or skip what other packages can import. By default each package decides: skipped when it can be published, checked with `publish_to: none`.',
+    '--exported-packages <glob>',
+    'Packages that code outside the analysis imports, whose API is not reported. Every package by default; `--exported-packages=` checks them all.',
   ),
   (
     '--remove, --force',
@@ -712,10 +712,10 @@ class DocsPage extends StatelessComponent {
                 ul(classes: Prose.checklist.name, [
                   li(
                     rich(
-                      'A published package’s consumers are invisible, so its '
-                      'exported API is left out unless its pubspec says '
-                      '`publish_to: none`. In a monorepo, `--analysis-root` '
-                      'recovers uses that live in a sibling package.',
+                      'Importers outside the analysis are invisible, so what '
+                      'other packages can import is left out unless '
+                      '`exported-packages` says otherwise. In a monorepo, '
+                      '`--analysis-root` recovers uses in a sibling package.',
                     ),
                   ),
                   li(

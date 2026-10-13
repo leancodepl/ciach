@@ -34,7 +34,6 @@ void main() {
     package = .systemTemp.createTempSync('ciach_project_config_');
     write('pubspec.yaml', '''
 name: server
-publish_to: none
 environment: {sdk: ^3.10.0}
 dependencies: {dart_frog: any, serverpod: any}
 ''');
@@ -126,6 +125,7 @@ void unusedRouteHelper() {}
     final config = ProjectConfig.read(package.path);
     return .new(
       rootPath: package.path,
+      exportedPackages: const [],
       entryPoints: config.entryPoints,
       additionalGeneratedGlobs: config.generatedGlobs,
     );
@@ -172,7 +172,9 @@ void unusedRouteHelper() {}
   );
 
   test('without them, it is all reported', () async {
-    final result = await Ciach(.new(rootPath: package.path)).run();
+    final result = await Ciach(
+      .new(rootPath: package.path, exportedPackages: const []),
+    ).run();
     final unused = {
       for (final d in result.unused) '${d.filePath}:${d.qualifiedName}',
     };
@@ -192,7 +194,10 @@ void unusedRouteHelper() {}
 
   test('by default, the gen-l10n template is report-only', () async {
     final resolved = resolveOptions(
-      resolveConfiguration(buildParser().parse([package.path]), const .empty()),
+      resolveConfiguration(
+        buildParser().parse([package.path, '--exported-packages=']),
+        const .empty(),
+      ),
       progressDefault: false,
       detectedCi: null,
     );

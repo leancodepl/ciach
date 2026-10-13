@@ -22,10 +22,15 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     required this.settings,
     required this.path,
     required this.ignored,
+    this.deprecations = const [],
   });
 
   /// Creates a config that sets nothing, from nowhere.
-  const ConfigFile.empty() : settings = const {}, path = null, ignored = false;
+  const ConfigFile.empty()
+    : settings = const {},
+      path = null,
+      ignored = false,
+      deprecations = const [];
 
   /// Parses [source], read from the file [origin], which names it in errors.
   ///
@@ -47,16 +52,16 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
       throw FormatException('$origin: the top level must be a map of options.');
     }
 
-    final unknown = document.keys
-        .map((key) => '$key')
-        .whereNot(configKeys.contains)
-        .toList();
-    for (final key in unknown) {
-      if (removedOptionAdvice(key, document[key], inConfig: true)
-          case final advice?) {
-        throw FormatException('$origin: `$key` was removed: $advice.');
-      }
-    }
+    final settings = <String, Object?>{
+      for (final entry in document.entries)
+        // A valueless key (`public:`) counts as unset, and YAML collections
+        // are unwrapped to plain Dart ones.
+        if (entry.value case final value?)
+          '${entry.key}': value is Iterable ? value.toList() : value,
+    };
+    final deprecations = _translateDeprecated(settings, origin: origin);
+
+    final unknown = settings.keys.whereNot(configKeys.contains).toList();
     if (unknown.isNotEmpty) {
       final valid = (configKeys.toList()..sort()).join(', ');
       throw FormatException(
@@ -65,15 +70,10 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     }
 
     final file = ConfigFile._(
-      settings: {
-        for (final entry in document.entries)
-          // A valueless key (`public:`) counts as unset, and YAML collections
-          // are unwrapped to plain Dart ones.
-          if (entry.value case final value?)
-            '${entry.key}': value is Iterable ? value.toList() : value,
-      },
+      settings: settings,
       path: origin,
       ignored: false,
+      deprecations: deprecations,
     );
 
     // Resolution only asks for the keys it needs, so without checking the whole
@@ -135,6 +135,47 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
 
   /// Whether `--no-config` skipped a file, leaving it unread.
   final bool ignored;
+
+  /// A warning for each deprecated option the file set, which [settings] holds
+  /// as what it now means.
+  final List<String> deprecations;
+
+  /// Rewrites the deprecated options in [settings] to what they now mean,
+  /// returning a warning for each. [origin] names the file in them.
+  ///
+  /// Throws a [FormatException] on a deprecated option that nothing replaces.
+  static List<String> _translateDeprecated(
+    Map<String, Object?> settings, {
+    required String origin,
+  }) {
+    final warnings = <String>[];
+    for (final key in deprecatedKeys.where(settings.containsKey)) {
+      final Replacement? replacement;
+      try {
+        replacement = replacementFor(key, settings.remove(key));
+      } on FormatException catch (e) {
+        throw FormatException('$origin: `$key` was removed: ${e.message}.');
+      }
+      if (replacement == null) {
+        warnings.add(
+          '$origin: `$key` is deprecated and does nothing: that is the default now, so drop it.',
+        );
+        continue;
+      }
+      // Added to what the file sets the option to itself; `exported-packages`
+      // set there wins over `exported`.
+      settings[replacement.key] = switch (settings[replacement.key]) {
+        null => replacement.values,
+        _ when replacement.values.isEmpty => settings[replacement.key],
+        final List<Object?> values => [...values, ...replacement.values],
+        final value => [value, ...replacement.values],
+      };
+      warnings.add(
+        '$origin: `$key` is deprecated: use ${replacementConfig(replacement)}.',
+      );
+    }
+    return warnings;
+  }
 
   /// The value for [key], a JSON pointer such as `/public`.
   @override

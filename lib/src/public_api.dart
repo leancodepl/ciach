@@ -3,9 +3,10 @@ import 'dart:io';
 import 'package:ciach/src/directives.dart';
 import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/packages.dart';
-import 'package:ciach/src/project_config/project_files.dart';
+import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
+import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
 
 /// Declarations importable by other packages, read from directives only.
@@ -18,26 +19,28 @@ final class PublicApi {
     this.packages,
   );
 
-  /// The API of every package under [rootPath], or with [publishedOnly], of
-  /// those that can be published: the others have no importers outside the
-  /// repository.
-  factory PublicApi.scan(String rootPath, {bool publishedOnly = false}) {
+  /// The API of the packages under [rootPath] that [exportedPackages] match:
+  /// globs, relative to [rootPath], of the packages that packages outside the
+  /// analysis import.
+  factory PublicApi.scan(
+    String rootPath, {
+    required List<String> exportedPackages,
+  }) {
     final tree = scanPackageTree(rootPath);
-    // Whether each package can be published matters only when it decides.
-    final packages = publishedOnly
-        ? {
-            for (final libDir in tree.libDirs.sorted())
-              if (Directory(libDir).existsSync())
-                p.dirname(libDir): isPublishable(p.dirname(libDir)),
-          }
-        : const <String, bool>{};
-    final libDirs = publishedOnly
-        ? {
-            for (final MapEntry(key: dir, value: publishable)
-                in packages.entries)
-              if (publishable) p.join(dir, 'lib'),
-          }
-        : tree.libDirs;
+    final globs = [
+      for (final pattern in exportedPackages) Glob(pattern, context: p.posix),
+    ];
+    final packages = {
+      for (final libDir in tree.libDirs.sorted())
+        if (Directory(libDir).existsSync())
+          p.dirname(libDir): globs.any(
+            (glob) => glob.matches(relativePosix(p.dirname(libDir), rootPath)),
+          ),
+    };
+    final libDirs = {
+      for (final MapEntry(key: dir, value: exported) in packages.entries)
+        if (exported) p.join(dir, 'lib'),
+    };
     final libDirOf = _libDirOf(tree.dartFiles, libDirs);
     final libraries = _readDirectives(libDirOf.keys, PackageResolver());
     final libraryOf = _libraryOfParts(libraries);
@@ -133,8 +136,8 @@ final class PublicApi {
   final Map<String, String> _libraryOf;
   final Map<String, _Names> _visible;
 
-  /// With `publishedOnly`, the directory of every package with a `lib/` under
-  /// the root, with whether it can be published; otherwise empty.
+  /// The directory of every package with a `lib/` under the root, with
+  /// whether [PublicApi.scan]'s globs match it.
   final Map<String, bool> packages;
 
   /// Whether no package's API is part of this.
@@ -150,13 +153,6 @@ final class PublicApi {
     return !isPrivateName(name) && (_visible[library]?.admits(name) ?? false);
   }
 }
-
-/// Whether the package in [dir] can be published: its pubspec has no
-/// `publish_to: none`. One that doesn't parse might be published, so it can,
-/// which leaves its API out rather than report what its importers use.
-bool isPublishable(String dir) =>
-    readPubspec(dir).yaml?.let((pubspec) => pubspec['publish_to'] != 'none') ??
-    true;
 
 final _show = RegExp(r'\bshow\b(?<names>[^;]*?)(?=\b(?:show|hide)\b|$)');
 final _hide = RegExp(r'\bhide\b(?<names>[^;]*?)(?=\b(?:show|hide)\b|$)');
