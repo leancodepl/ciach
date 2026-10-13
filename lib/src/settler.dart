@@ -287,10 +287,11 @@ final class Settler {
     );
 
     // A type only doc comments link is kept, so its members are kept with it.
-    final docOnlyTypes = {
+    final docOnlyTypes = [
       for (final (i, candidate) in candidates.indexed)
-        if (statuses[i] == .docOnly && candidate.isType) candidate.key,
-    };
+        if (statuses[i] == .docOnly && candidate.isType) candidate,
+    ];
+    final docOnlyTypeKeys = {for (final type in docOnlyTypes) type.key};
 
     final reported = <int>{
       for (var i = 0; i < candidates.length; i++)
@@ -305,21 +306,23 @@ final class Settler {
           i,
     };
 
-    // A doc-only type with dead members is reported once, as a whole, in
-    // place of them; --remove keeps it until the doc link goes.
-    final hollowDocOnlyTypes = {
-      for (final i in reported)
-        if (candidates[i].containerKey case final key?
-            when docOnlyTypes.contains(key))
-          key,
-    };
-    reported.removeWhere(
-      (i) => hollowDocOnlyTypes.contains(candidates[i].containerKey),
+    final hollowDocOnlyTypes = _foldIntoDocOnlyTypes(
+      candidates,
+      reported,
+      docOnlyTypeKeys,
     );
 
     // Couple a dead member's overrides to its removal, or let one that has to
-    // stay block it.
-    final overridden = await _coupleOverrides(candidates, reported, overrides);
+    // stay, such as one in a doc-only type, block it.
+    final overridden = await _coupleOverrides(
+      candidates,
+      reported,
+      overrides,
+      kept: DeadSpans.of([
+        for (final type in docOnlyTypes) _verdict.finding(type, rootPath),
+      ], rootPath),
+      rootPath: rootPath,
+    );
 
     final unused = <UnusedDeclaration>[];
     final candidateOf = <UnusedDeclaration, int>{};
@@ -342,7 +345,8 @@ final class Settler {
           if (!finding.removalBlocked) {
             _removableBefore.add(i);
           }
-        case .docOnly when hollowDocOnlyTypes.contains(candidate.key):
+        case .docOnly
+            when candidate.isType && hollowDocOnlyTypes.contains(candidate.key):
           final finding = _verdict.finding(
             candidate,
             rootPath,
@@ -351,6 +355,9 @@ final class Settler {
           );
           unused.add(finding);
           candidateOf[finding] = i;
+        // Reported with its type.
+        case .docOnly when hollowDocOnlyTypes.contains(candidate.containerKey):
+          break;
         case .docOnly:
           docOnly.add(_verdict.finding(candidate, rootPath));
         case .unused || .used:
@@ -375,6 +382,24 @@ final class Settler {
         for (final finding in unused) finding: candidateOf[finding]!,
       },
     );
+  }
+
+  /// The doc-only types among [docOnlyTypes] with a member in [reported],
+  /// taking those members out of it: such a type is reported once, as a
+  /// whole, in their place, and `--remove` keeps it until the doc links go.
+  static Set<DeclKey> _foldIntoDocOnlyTypes(
+    List<Candidate> candidates,
+    Set<int> reported,
+    Set<DeclKey> docOnlyTypes,
+  ) {
+    final hollow = {
+      for (final i in reported)
+        if (candidates[i].containerKey case final key?
+            when docOnlyTypes.contains(key))
+          key,
+    };
+    reported.removeWhere((i) => hollow.contains(candidates[i].containerKey));
+    return hollow;
   }
 
   /// Names of classes flagged unused, per file. A whole dead class is removed
@@ -483,8 +508,10 @@ final class Settler {
   Future<Map<int, OverriddenMember>> _coupleOverrides(
     List<Candidate> candidates,
     Set<int> reported,
-    OverrideRemovals overrides,
-  ) async {
+    OverrideRemovals overrides, {
+    required DeadSpans kept,
+    required String rootPath,
+  }) async {
     final members = [
       for (final index in reported)
         if (_verdict.canBeOverridden(candidates[index])) index,
@@ -496,7 +523,10 @@ final class Settler {
     var couplingMembers = 0;
     var blocked = 0;
     for (final index in members) {
-      final result = _overridesByMember[index]!;
+      var result = _overridesByMember[index]!;
+      if (result.removals.any((removal) => _isIn(kept, removal, rootPath))) {
+        result = OverrideRemovals.blocked;
+      }
       if (result.removals.isEmpty && !result.blocked) {
         continue;
       }
@@ -523,6 +553,16 @@ final class Settler {
     }
     return byCandidate;
   }
+
+  /// Whether [spans] cover the start of [removal].
+  static bool _isIn(DeadSpans spans, CoupledRemoval removal, String rootPath) =>
+      spans.covers(
+        absoluteUnder(removal.filePath, rootPath),
+        .new(
+          line: removal.range.startLine,
+          character: removal.range.startColumn,
+        ),
+      );
 
   Future<void> _checkOverrides(
     List<int> unchecked,

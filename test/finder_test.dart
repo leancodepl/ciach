@@ -625,11 +625,15 @@ void main() {
           exclude: const [],
           transitive: transitive,
         );
-        expect(result.docOnly.map((d) => d.qualifiedName).toSet(), {'Bare'});
+        expect(result.docOnly.map((d) => d.qualifiedName).toSet(), {
+          'Bare',
+          'Tinted',
+        });
         expect(findings(result), {
           ('SafeInset', true, Verdict.docOnlyTypeHint),
           ('Hue', true, Verdict.docOnlyTypeHint),
           ('Padded', true, Verdict.docOnlyTypeHint),
+          ('Shade.tint', true, Verdict.overriddenHint),
         });
       });
     }
