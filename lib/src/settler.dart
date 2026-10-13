@@ -276,8 +276,7 @@ final class Settler {
     final spans = DeadSpans.of(candidateOf.keys, rootPath);
     final removable = {
       for (final MapEntry(key: finding, value: i) in candidateOf.entries)
-        // Its clause entries are cut, not dead: they keep naming it.
-        if (!finding.removalBlocked && !finding.cutsClauses) i,
+        if (!finding.removalBlocked) i,
     };
     Iterable<int> containers(String path, Position position) => [
       for (final owner in spans.ownersOf(path, position)) candidateOf[owner]!,
@@ -304,10 +303,16 @@ final class Settler {
       ],
     ];
     final dead = unreached(removable, uses);
-    return DeadSpans.of([
-      for (final MapEntry(key: finding, value: i) in candidateOf.entries)
-        if (dead.contains(i)) finding,
-    ], rootPath);
+    // A clause entry a dead type's removal cuts doesn't revive it, but the next
+    // round still reads it: the type stays a clause-only finding, not unused.
+    return DeadSpans.of(
+      [
+        for (final MapEntry(key: finding, value: i) in candidateOf.entries)
+          if (dead.contains(i)) finding,
+      ],
+      rootPath,
+      clauseCuts: false,
+    );
   }
 
   /// [refsByCandidate] less the references inside [deadSpans].

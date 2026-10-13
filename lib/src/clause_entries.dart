@@ -218,10 +218,3 @@ int _endOfPrevious(String content, int offset) {
   }
   return i;
 }
-
-extension CutsClauses on UnusedDeclaration {
-  /// Whether removing this finding cuts it out of `with` and `implements`
-  /// clauses that keep naming it until then.
-  bool get cutsClauses =>
-      coupledRemovals.any((removal) => removal.kind == clauseCutKind);
-}

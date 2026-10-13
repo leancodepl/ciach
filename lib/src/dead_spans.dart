@@ -1,3 +1,4 @@
+import 'package:ciach/src/clause_entries.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/symbols.dart';
@@ -11,7 +12,13 @@ final class DeadSpans {
   DeadSpans._(this._byPath);
 
   /// The spans of the findings `--remove` would delete, by absolute path.
-  factory DeadSpans.of(Iterable<UnusedDeclaration> findings, String rootPath) {
+  /// Without [clauseCuts], the `with` and `implements` entries they cut stay
+  /// live, still naming their types.
+  factory DeadSpans.of(
+    Iterable<UnusedDeclaration> findings,
+    String rootPath, {
+    bool clauseCuts = true,
+  }) {
     final byPath = <String, List<_Span>>{};
     for (final finding in findings) {
       if (finding.removalBlocked) {
@@ -21,6 +28,9 @@ final class DeadSpans {
           .putIfAbsent(absoluteUnder(finding.filePath, rootPath), () => [])
           .add((range: finding.fullRange, owner: finding));
       for (final coupled in finding.coupledRemovals) {
+        if (!clauseCuts && coupled.kind == clauseCutKind) {
+          continue;
+        }
         byPath
             .putIfAbsent(absoluteUnder(coupled.filePath, rootPath), () => [])
             .add((range: coupled.fullRange, owner: finding));
