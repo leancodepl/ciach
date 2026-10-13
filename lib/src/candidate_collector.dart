@@ -368,6 +368,9 @@ final class CandidateCollector {
     required _ExportedMembers? containerExports,
   }) {
     final symbol = candidate.symbol;
+    if (candidate.outline.element.isUnitTest) {
+      return false;
+    }
     if (!options.kinds.contains(
       symbol.reportedKind(
         parentIsEnum: candidate.isEnumValue,
