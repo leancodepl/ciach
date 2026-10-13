@@ -4,6 +4,10 @@
   unnamed constructor. Before, ciach still reported that constructor as
   unused. Named constructors and other members are still checked.
   ([#115](https://github.com/leancodepl/ciach/pull/115))
+- If a scanned package hasn't had `dart pub get`, ciach now stops with exit
+  code 2 and lists that package. Before, it reported code used by that package
+  as unused.
+  ([#120](https://github.com/leancodepl/ciach/pull/120))
 - Stop reporting test calls as declarations. `test(...)`, `group(...)` and
   calls to `@isTest` functions such as `testWidgets` were listed as unused
   or doc-only, and `--remove` could delete them.

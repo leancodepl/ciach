@@ -58,6 +58,35 @@ Likely a Dart SDK bug; -v shows the stack trace.
     );
   });
 
+  test('an unresolved package error lists the packages and the fix', () {
+    expect(
+      describeFatalError(
+        const UnresolvedPackagesException(['.', 'packages/ds']),
+        stack,
+        verbose: false,
+      ),
+      '''
+error: Run `dart pub get` (or `flutter pub get`) in these packages first:
+  .
+  packages/ds
+Without it, ciach would report code they use as unused.
+''',
+    );
+    expect(
+      describeFatalError(
+        const UnresolvedPackagesException(['packages/ds']),
+        stack,
+        verbose: false,
+      ),
+      '''
+error: Run `dart pub get` (or `flutter pub get`) in this package first:
+  packages/ds
+Without it, ciach would report code it uses as unused.
+To skip it instead, use `--exclude`.
+''',
+    );
+  });
+
   test('a file system error reads as one line', () {
     expect(
       describeFatalError(
