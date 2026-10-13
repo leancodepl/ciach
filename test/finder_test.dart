@@ -1068,6 +1068,57 @@ void main() {
     });
   });
 
+  group('classes and mixins named only in clauses', () {
+    const fixture = ['lib/scenarios/clause_only.dart'];
+
+    test("reports exactly the fixture's dead declarations", () async {
+      final result = await runFinder(include: fixture, exclude: const []);
+      expect(result.unused.map((d) => (d.qualifiedName, d.hint)).toSet(), {
+        ('Painter', Verdict.namedOnlyInClausesHint),
+        ('Painter.paint', null),
+        ('Drawable', Verdict.namedOnlyInClausesHint),
+        ('Drawable.draw', null),
+        ('Plain', Verdict.namedOnlyInClausesHint),
+        ('Checked.check', null),
+        ('Primed.prime', null),
+        ('Frame.frame', null),
+        ('Holder.hold', null),
+        ('useClauses', null),
+      });
+    });
+
+    test(
+      '--remove cuts them out of their clauses and keeps the rest',
+      () async {
+        final copy = Directory.systemTemp.createTempSync('ciach_clauses_');
+        addTearDown(() => copy.deleteSync(recursive: true));
+        copyTree(Directory(fixturePath), copy);
+        final result = await Ciach(
+          .new(rootPath: copy.path, includeGlobs: fixture),
+        ).run();
+
+        final removal = removeDeclarations(result.unused, copy.path);
+
+        final source = File(
+          p.join(copy.path, fixture.single),
+        ).readAsStringSync();
+        expect(source, contains('class Canvas {\n}\n'));
+        expect(source, contains('class Easel extends Object with Tidy {}\n'));
+        expect(source, contains('class Checker with Checked {}\n'));
+        expect(source, contains('class Brushed with Primed, Brush {}\n'));
+        expect(source, isNot(contains('Painter')));
+        expect(source, isNot(contains('Drawable')));
+        expect(source, isNot(contains('Plain')));
+        expect(removal.emptiedContainers.map((c) => c.name), [
+          'Checked',
+          'Primed',
+          'Frame',
+          'Holder',
+        ]);
+      },
+    );
+  });
+
   group('enum `.values` detection fix', () {
     // Scan only the enum-`.values` fixture (enums kept alive by in-file refs).
     Future<FinderResult> runEnumValues() => runFinder(

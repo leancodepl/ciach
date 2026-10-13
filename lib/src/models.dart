@@ -286,7 +286,7 @@ class UnusedDeclaration {
   /// this declaration to keep the source compiling, but that are not
   /// themselves reported as findings.
   ///
-  /// Two uses today:
+  /// Three uses today:
   ///
   /// - a dead `StatefulWidget`'s paired private `State<Widget>` subclass, which
   ///   is not independently "unused" (the widget's own `createState` references
@@ -294,6 +294,8 @@ class UnusedDeclaration {
   ///   (`State<DeletedWidget>` no longer resolves).
   /// - every override of a dead member, which `skipOverrides` keeps out of the
   ///   findings and which would be left overriding nothing.
+  /// - each `with` or `implements` clause entry naming a class or mixin
+  ///   removed with its dead members, cut out exactly.
   ///
   /// Coupling a removal keeps `--remove` from breaking the build without
   /// surfacing the coupled span as a separate report entry.
@@ -401,8 +403,8 @@ class RemovalResult {
 
   final List<DeletedFile> deletedFiles;
 
-  /// Declarations left in place with an empty body: they may still be named
-  /// elsewhere (a `with` clause, a type), so they are not removed.
+  /// Declarations left in place with an empty body: code still names them
+  /// (a type, an `extends` clause), so they are not removed.
   final List<EmptiedContainer> emptiedContainers;
 }
 

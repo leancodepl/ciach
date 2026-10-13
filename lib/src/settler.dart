@@ -1,4 +1,5 @@
 import 'package:ciach/src/candidates.dart';
+import 'package:ciach/src/clause_entries.dart';
 import 'package:ciach/src/concurrency.dart';
 import 'package:ciach/src/conventions/flutter_widgets.dart';
 import 'package:ciach/src/conventions/freezed.dart';
@@ -7,6 +8,7 @@ import 'package:ciach/src/dead_spans.dart';
 import 'package:ciach/src/declarator_cuts.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/overrides.dart';
 import 'package:ciach/src/paths.dart';
@@ -113,6 +115,7 @@ final class Settler {
         deadSpans,
         superclasses,
         overrides,
+        scannedPaths,
         rootPath,
         analysisRoot,
       );
@@ -273,7 +276,8 @@ final class Settler {
     final spans = DeadSpans.of(candidateOf.keys, rootPath);
     final removable = {
       for (final MapEntry(key: finding, value: i) in candidateOf.entries)
-        if (!finding.removalBlocked) i,
+        // Its clause entries are cut, not dead: they keep naming it.
+        if (!finding.removalBlocked && !finding.cutsClauses) i,
     };
     Iterable<int> containers(String path, Position position) => [
       for (final owner in spans.ownersOf(path, position)) candidateOf[owner]!,
@@ -336,6 +340,7 @@ final class Settler {
     DeadSpans deadSpans,
     SuperclassChecks superclasses,
     OverrideRemovals overrides,
+    Set<String> scannedPaths,
     String rootPath,
     String analysisRoot,
   ) async {
@@ -448,6 +453,19 @@ final class Settler {
           break;
       }
     }
+    for (final (i, finding) in _namedOnlyInClauses(
+      candidates,
+      statuses,
+      refsByCandidate,
+      liveRefs,
+      candidateOf,
+      deadSpans,
+      scannedPaths,
+      rootPath,
+    )) {
+      unused.add(finding);
+      candidateOf[finding] = i;
+    }
 
     // Make the fields and variables `--remove` can't cut out report-only now,
     // so that the next `--transitive` round keeps alive what they reference.
@@ -506,6 +524,75 @@ final class Settler {
           finding.onlyReferencedFrom.isNotEmpty &&
           removable.enclosesInAnother(finding, rootPath),
     );
+  }
+
+  /// The used classes and mixins whose every member is a removable finding
+  /// and that only `with` and `implements` clauses in scanned files name, as
+  /// findings that cut those clause entries, with their candidate indexes.
+  Iterable<(int, UnusedDeclaration)> _namedOnlyInClauses(
+    List<Candidate> candidates,
+    List<RefStatus> statuses,
+    List<List<Location>> refsByCandidate,
+    List<List<Location>> liveRefs,
+    Map<UnusedDeclaration, int> candidateOf,
+    DeadSpans deadSpans,
+    Set<String> scannedPaths,
+    String rootPath,
+  ) {
+    final removableMembers = <DeclKey, int>{};
+    for (final MapEntry(key: finding, value: i) in candidateOf.entries) {
+      if (candidates[i].containerKey case final key?
+          when !finding.removalBlocked) {
+        removableMembers.update(key, (n) => n + 1, ifAbsent: () => 1);
+      }
+    }
+    final entriesOf = <int, List<ClauseEntry>>{};
+    for (final (i, candidate) in candidates.indexed) {
+      final outline = candidate.outline.element;
+      if (statuses[i] != .used ||
+          !const <OutlineKind>{.class$, .mixin}.contains(outline.kind) ||
+          (outline.typeParameters?.isNotEmpty ?? false) ||
+          (candidate.symbol.children?.length ?? 0) !=
+              (removableMembers[candidate.key] ?? 0)) {
+        continue;
+      }
+      final refs = _classifier.externalRefs(candidate, liveRefs[i]);
+      final entries = [
+        for (final loc in refs)
+          if (scannedPaths.contains(SourceIndex.pathOf(loc.uri)))
+            ?_sources.clauseEntryAt(loc, candidate.symbol.name),
+      ];
+      if (entries.length == refs.length) {
+        entriesOf[i] = entries;
+      }
+    }
+    // A clause the cuts cannot parse keeps every type it names.
+    var cuts = _sources.clauseCuts(entriesOf.values.flattened, rootPath);
+    bool uncut(List<ClauseEntry> entries) =>
+        entries.any((e) => !cuts.containsKey(e));
+    while (entriesOf.values.any(uncut)) {
+      entriesOf.removeWhere((_, entries) => uncut(entries));
+      cuts = _sources.clauseCuts(entriesOf.values.flattened, rootPath);
+    }
+    return [
+      for (final MapEntry(key: i, value: entries) in entriesOf.entries)
+        (
+          i,
+          _verdict.finding(
+            candidates[i],
+            rootPath,
+            coupledRemovals: {
+              for (final entry in entries) cuts[entry]!,
+            }.toList(),
+            hint: Verdict.namedOnlyInClausesHint,
+            onlyReferencedFrom: _onlyReferencedFrom(
+              candidates[i],
+              refsByCandidate[i],
+              deadSpans,
+            ),
+          ),
+        ),
+    ];
   }
 
   /// Names of classes flagged unused, per file. A whole dead class is removed

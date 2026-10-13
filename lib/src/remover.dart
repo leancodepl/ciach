@@ -1,7 +1,9 @@
 import 'dart:io';
 
+import 'package:ciach/src/clause_entries.dart';
 import 'package:ciach/src/comment_stripping.dart';
 import 'package:ciach/src/emptied_files.dart';
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
@@ -253,6 +255,9 @@ _Span? _spanFor(
   final range = decl.range;
   final baseStart = offsetOf(range.startLine, range.startColumn);
   final baseEnd = offsetOf(range.endLine, range.endColumn);
+  if (decl.kind == clauseCutKind) {
+    return (start: baseStart, end: baseEnd);
+  }
   final fullStart = _startWithIndentation(decl.fullRange, lines, offsetOf);
 
   var start = fullStart;
