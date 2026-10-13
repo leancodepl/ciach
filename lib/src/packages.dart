@@ -95,10 +95,10 @@ final class PackageResolver {
         : (parent == dir ? null : packageRootOf(parent));
   }
 
-  /// Whether pub has resolved the package at [root]: it has its own package
-  /// config or, as a pub workspace member, the workspace's config lists it.
-  /// The config of an enclosing package does not count otherwise, as it lacks
-  /// the nested package's dev_dependencies.
+  /// Whether `pub get` has run for the package at [root]: it has its own
+  /// package config, or it is a workspace member that the workspace's config
+  /// lists. A parent package's config doesn't count, because it doesn't
+  /// include this package's dev_dependencies.
   bool isResolved(String root) =>
       _configFile(root).existsSync() || _isListedWorkspaceMember(root);
 
@@ -126,9 +126,8 @@ final class PackageResolver {
   }
 }
 
-/// The roots of the packages holding [files] that pub has not resolved,
-/// sorted. Only packages within [root] count: a file under no `pubspec.yaml`
-/// there belongs to none.
+/// The roots of the packages under [root] that hold some of [files] and that
+/// `pub get` hasn't run for, sorted. Files outside any package are ignored.
 List<String> unresolvedPackages(Iterable<String> files, String root) {
   final packages = PackageResolver();
   final roots = {
@@ -140,8 +139,7 @@ List<String> unresolvedPackages(Iterable<String> files, String root) {
   return roots.whereNot(packages.isResolved).toList()..sort();
 }
 
-/// Scanned files belong to packages pub has not resolved: their imports would
-/// not resolve, and code only they use would read as unused.
+/// Thrown when some scanned packages haven't had `pub get`.
 class UnresolvedPackagesException implements Exception {
   const UnresolvedPackagesException(this.packages);
 
@@ -150,16 +148,16 @@ class UnresolvedPackagesException implements Exception {
 
   String get message {
     final these = pluralWord(packages.length, 'this package', 'these packages');
-    final their = pluralWord(packages.length, 'its', 'their');
+    final they = pluralWord(packages.length, 'it uses', 'they use');
     final them = pluralWord(packages.length, 'it', 'them');
-    // Leaving out the root would leave nothing to scan.
+    // Excluding the root would leave nothing to scan.
     final exclude = packages.contains('.')
         ? ''
-        : ', or leave $them out with `--exclude`';
+        : '\nTo skip $them instead, use `--exclude`.';
     return '''
-Pub has not resolved $these, so code used only from $their files would read as unused:
+Run `dart pub get` (or `flutter pub get`) in $these first:
 ${packages.map((package) => '  $package').join('\n')}
-Run `dart pub get` (or `flutter pub get`) there$exclude.''';
+Without it, ciach would report code $they as unused.$exclude''';
   }
 
   @override

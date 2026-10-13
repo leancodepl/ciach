@@ -113,10 +113,10 @@ The result goes to stdout; progress, `-v` output, warnings, errors and the
 If the analysis server fails on a declaration or file, the run continues: that
 code is kept and listed under "Not analyzed" (`problems` in JSON).
 
-Every package with a scanned file, nested ones included, needs `dart pub get`
-first; otherwise its imports don't resolve and code it uses reads as unused.
-ciach then exits with `2` and lists those packages; `--exclude` leaves a nested
-one out. A pub workspace member is covered by the workspace's `pub get`.
+Run `dart pub get` in every package ciach scans, including nested ones. If a
+package hasn't had it, ciach exits with `2` and lists the package. Use
+`--exclude` to skip a nested package instead. For a pub workspace, `pub get` in
+the workspace root covers its members.
 
 ### Configuration file
 

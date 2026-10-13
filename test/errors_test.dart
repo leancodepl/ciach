@@ -66,10 +66,10 @@ Likely a Dart SDK bug; -v shows the stack trace.
         verbose: false,
       ),
       '''
-error: Pub has not resolved these packages, so code used only from their files would read as unused:
+error: Run `dart pub get` (or `flutter pub get`) in these packages first:
   .
   packages/ds
-Run `dart pub get` (or `flutter pub get`) there.
+Without it, ciach would report code they use as unused.
 ''',
     );
     expect(
@@ -79,9 +79,10 @@ Run `dart pub get` (or `flutter pub get`) there.
         verbose: false,
       ),
       '''
-error: Pub has not resolved this package, so code used only from its files would read as unused:
+error: Run `dart pub get` (or `flutter pub get`) in this package first:
   packages/ds
-Run `dart pub get` (or `flutter pub get`) there, or leave it out with `--exclude`.
+Without it, ciach would report code it uses as unused.
+To skip it instead, use `--exclude`.
 ''',
     );
   });

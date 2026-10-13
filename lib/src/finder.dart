@@ -146,8 +146,8 @@ class Ciach {
       );
     }
 
-    // Before the server starts: without its package config, a package's
-    // imports don't resolve, and what only its files use reads as unused.
+    // Stop before analysis if a package hasn't had `pub get`: its imports
+    // wouldn't resolve, so code it uses would be reported as unused.
     final unresolved = unresolvedPackages(files, rootPath);
     if (unresolved.isNotEmpty) {
       throw UnresolvedPackagesException([
