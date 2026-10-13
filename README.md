@@ -191,6 +191,10 @@ These never count toward `--set-exit-if-changed`, are never touched by
 `--remove`, and get a `::notice` rather than a `::warning` in `-f github`. Drop
 the doc link to have one reported as properly unused.
 
+If a class, enum, mixin or extension type is mentioned only in doc comments and
+has unused members, ciach reports the type once. It counts as a finding, but
+`--remove` doesn't delete it while doc comments still link to it.
+
 ### Transitively dead code
 
 A reference from a finding still counts as a use, so a helper called only by
@@ -422,8 +426,11 @@ entry-points:
 
 A matching declaration is neither reported nor removed, whatever its signature.
 A member rule also keeps its type, while the type's other members are still
-checked. `-v` names each skipped entry point. `entry-points:` can't be
-set on the command line.
+checked. A rule that names a class or extension type also keeps its unnamed
+constructor, but not its named ones. Name a constructor the way the report
+does: `MyWidget.new` or `MyWidget.named`. A class with no declared constructor
+has no `MyWidget.new`, so name the class instead. `-v` names each skipped entry
+point. `entry-points:` can't be set on the command line.
 
 ### Ignore markers
 

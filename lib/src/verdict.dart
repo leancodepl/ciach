@@ -45,6 +45,10 @@ final class Verdict {
   static const overriddenHint =
       'overridden by a declaration --remove will not delete — that override would be left overriding nothing';
 
+  /// The hint for a type with unused members that only doc comments mention.
+  static const docOnlyTypeHint =
+      'only doc comments mention it; remove those mentions and `--remove` deletes it';
+
   /// Whether an unused [candidate] should be silently suppressed (never
   /// reported): a live freezed-union arm, an exempt `toJson` hook, a
   /// constructor removed with its already-dead class, an extension or its

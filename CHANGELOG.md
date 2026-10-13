@@ -1,5 +1,19 @@
 ## Unreleased
 
+- If a class, enum, mixin or extension type is mentioned only in doc comments
+  and has unused members, ciach now reports the type once, and `--remove`
+  leaves it alone. Before, ciach reported each unused member, and `--remove`
+  deleted them and left an empty type.
+  ([#116](https://github.com/leancodepl/ciach/pull/116))
+- In `entry-points`, you now write a constructor the way the report shows it:
+  `MyWidget.new` or `MyWidget.named`. Before, `MyWidget.new` matched nothing
+  and named constructors could not be listed at all. `MyWidget.MyWidget` is
+  now an error.
+  ([#117](https://github.com/leancodepl/ciach/pull/117))
+- An `entry-points` rule for a class or extension type now also keeps its
+  unnamed constructor. Before, ciach still reported that constructor as
+  unused. Named constructors and other members are still checked.
+  ([#115](https://github.com/leancodepl/ciach/pull/115))
 - Add `// ciach:ignore` comments that keep code from being reported or
   removed. Put one above a declaration or at the end of its line, put
   `// ciach:ignore-start` and `// ciach:ignore-end` around a range, or keep a

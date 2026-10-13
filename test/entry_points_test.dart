@@ -55,6 +55,50 @@ void main() {
       expect(rule.matches('lib/a.dart', symbol('registerWith'), null), isFalse);
     });
 
+    test('a constructor rule uses the name the report prints', () {
+      final unnamed = symbol('Parked', kind: .constructor);
+      final named = symbol('Parked.make', kind: .constructor);
+
+      expect(
+        EntryPoint.fromConfig(
+          'Parked.new',
+        ).matches('a.dart', unnamed, 'Parked'),
+        isTrue,
+      );
+      expect(
+        EntryPoint.fromConfig('Parked.make').matches('a.dart', named, 'Parked'),
+        isTrue,
+      );
+      expect(
+        EntryPoint.fromConfig('Parked.new').matches('a.dart', named, 'Parked'),
+        isFalse,
+      );
+    });
+
+    test('a type name matches its unnamed constructor, except in an enum', () {
+      final rule = EntryPoint.fromConfig('Card');
+      final unnamed = symbol('Card', kind: .constructor);
+      final named = symbol('Card.blank', kind: .constructor);
+
+      expect(rule.matches('lib/a.dart', unnamed, 'Card'), isTrue);
+      expect(
+        rule.matches('lib/a.dart', unnamed, 'Card', inEnum: true),
+        isFalse,
+      );
+      expect(rule.matches('lib/a.dart', named, 'Card'), isFalse);
+      expect(
+        rule.matches('lib/a.dart', symbol('Card', kind: .method), 'Card'),
+        isFalse,
+      );
+    });
+
+    test('Class.Class is rejected with a hint to write Class.new', () {
+      expect(
+        () => EntryPoint.fromConfig('Parked.Parked'),
+        throwsA(isFormatException(contains('`Parked.new`'))),
+      );
+    });
+
     test('a bare name never matches a member', () {
       final rule = EntryPoint.fromConfig('registerWith');
 

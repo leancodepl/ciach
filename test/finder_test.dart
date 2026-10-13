@@ -18,6 +18,7 @@ import 'package:ciach/src/finder.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/remover.dart';
+import 'package:ciach/src/verdict.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
@@ -606,6 +607,52 @@ void main() {
       ),
       {'_countdown', 'Walker._depth', 'Chain', 'Chain.next'},
     );
+  });
+
+  group('doc-only types', () {
+    const fixture = ['lib/scenarios/doc_only_types.dart'];
+
+    Set<(String, bool, String?)> findings(FinderResult result) => {
+      for (final d in result.unused)
+        (d.qualifiedName, d.removalBlocked, d.hint),
+    };
+
+    for (final transitive in [false, true]) {
+      test('reports a doc-only type with unused members once and blocks its '
+          'removal (transitive: $transitive)', () async {
+        final result = await runFinder(
+          include: fixture,
+          exclude: const [],
+          transitive: transitive,
+        );
+        expect(result.docOnly.map((d) => d.qualifiedName).toSet(), {
+          'Bare',
+          'Tinted',
+        });
+        expect(findings(result), {
+          ('SafeInset', true, Verdict.docOnlyTypeHint),
+          ('Hue', true, Verdict.docOnlyTypeHint),
+          ('Padded', true, Verdict.docOnlyTypeHint),
+          ('Shade.tint', true, Verdict.overriddenHint),
+        });
+      });
+    }
+
+    test('--remove keeps a doc-only type and its members', () async {
+      final copy = Directory.systemTemp.createTempSync('ciach_doc_only_');
+      addTearDown(() => copy.deleteSync(recursive: true));
+      copyTree(Directory(fixturePath), copy);
+      final file = File(p.join(copy.path, fixture.single));
+      final before = file.readAsStringSync();
+
+      final result = await Ciach(
+        .new(rootPath: copy.path, includeGlobs: fixture),
+      ).run();
+      expect(result.unused, isNotEmpty);
+      removeDeclarations(result.unused, copy.path);
+
+      expect(file.readAsStringSync(), before);
+    });
   });
 
   group('remove-safety guards', () {
@@ -1499,6 +1546,11 @@ void main() {
         'lib/scenarios/entry_points.dart:Plugin.registerWith',
         'lib/scenarios/entry_points.dart:Plugin.other',
         'lib/scenarios/entry_points.dart:bootstrap',
+        'lib/scenarios/entry_points.dart:Parked',
+        // An unused class is reported without its constructors.
+        'lib/scenarios/entry_points.dart:ParkedCard',
+        'lib/scenarios/entry_points.dart:ParkedCard.flip',
+        'lib/scenarios/entry_points.dart:ParkedSlot',
         // The right file exempts `testExecutable` whatever its shape, and
         // nothing beside it.
         'lib/scenarios/entry_points/flutter_test_config.dart:deadHelperNextToConfig',
@@ -1524,10 +1576,66 @@ void main() {
           // The member rule keeps the type it lives in — the generated call
           // names it too — but not the type's other members.
           'lib/scenarios/entry_points.dart:Plugin.other',
+          'lib/scenarios/entry_points.dart:Parked',
+          'lib/scenarios/entry_points.dart:ParkedCard',
+          'lib/scenarios/entry_points.dart:ParkedCard.flip',
+          'lib/scenarios/entry_points.dart:ParkedSlot',
           'lib/scenarios/entry_points/flutter_test_config.dart:deadHelperNextToConfig',
         });
       },
     );
+
+    test('a constructor rule uses the name the report prints', () async {
+      /// Returns the `Parked` constructors still reported with [rule] set.
+      Future<Set<String>> parked(String rule) async => {
+        for (final d in located(
+          await runEntryPoints(entryPoints: [.fromConfig(rule)]),
+        ))
+          if (d.startsWith('lib/scenarios/entry_points.dart:Parked.')) d,
+      };
+
+      // Like any member rule, a constructor rule also keeps its class.
+      expect(await parked('Parked.new'), {
+        'lib/scenarios/entry_points.dart:Parked.make',
+      });
+      expect(await parked('Parked.make'), {
+        'lib/scenarios/entry_points.dart:Parked.new',
+      });
+    });
+
+    test('a rule naming a class keeps its unnamed constructor but not its '
+        'named constructors or other members', () async {
+      final result = await runEntryPoints(
+        entryPoints: [.fromConfig('ParkedCard'), .fromConfig('ParkedSlot')],
+      );
+
+      expect(
+        located(result).where((d) => d.contains(':Parked')),
+        unorderedEquals([
+          // No rule names `Parked`.
+          'lib/scenarios/entry_points.dart:Parked',
+          'lib/scenarios/entry_points.dart:ParkedCard.blank',
+          'lib/scenarios/entry_points.dart:ParkedCard.flip',
+        ]),
+      );
+    });
+
+    test('a rule naming a class keeps its unnamed constructor when only '
+        'constructors are reported', () async {
+      final result = await runFinder(
+        include: ['lib/scenarios/entry_points.dart'],
+        exclude: const [],
+        kinds: {.constructor},
+        entryPoints: [.fromConfig('ParkedCard'), .fromConfig('ParkedSlot')],
+      );
+
+      expect(located(result), {
+        // No rule names `Parked`.
+        'lib/scenarios/entry_points.dart:Parked.new',
+        'lib/scenarios/entry_points.dart:Parked.make',
+        'lib/scenarios/entry_points.dart:ParkedCard.blank',
+      });
+    });
 
     test(
       'a project rule whose globs match no scanned file changes nothing',
@@ -1559,23 +1667,36 @@ void main() {
         entryPoints: [
           .fromConfig('bootstrap'),
           .fromConfig('Plugin.registerWith'),
+          .fromConfig('ParkedCard'),
         ],
       );
 
       final skipped = lines.where((l) => l.startsWith('Skipped ')).toList();
       const plugin =
-          'Skipped lib/scenarios/entry_points.dart:15 Plugin: declares the entry point Plugin.registerWith.';
+          'Skipped lib/scenarios/entry_points.dart:19 Plugin: declares the entry point Plugin.registerWith.';
       const registerWith =
-          'Skipped lib/scenarios/entry_points.dart:16 Plugin.registerWith: '
+          'Skipped lib/scenarios/entry_points.dart:20 Plugin.registerWith: '
           'listed under `entry-points` in the config file.';
       const bootstrap =
-          'Skipped lib/scenarios/entry_points.dart:21 bootstrap: listed under `entry-points` in the config file.';
+          'Skipped lib/scenarios/entry_points.dart:25 bootstrap: listed under `entry-points` in the config file.';
+      const parkedCard =
+          'Skipped lib/scenarios/entry_points.dart:35 ParkedCard: listed under `entry-points` in the config file.';
+      const parkedCardNew =
+          'Skipped lib/scenarios/entry_points.dart:36 ParkedCard.new: the unnamed constructor of the entry point ParkedCard.';
       const byShape =
           'Skipped lib/scenarios/entry_points/flutter_test_config.dart:4 '
           'testExecutable: called by the `flutter test` bootstrap.';
       const real =
           'Skipped test/flutter_test_config.dart:6 testExecutable: called by the `flutter test` bootstrap.';
-      expect(skipped, [plugin, registerWith, bootstrap, byShape, real]);
+      expect(skipped, [
+        plugin,
+        registerWith,
+        bootstrap,
+        parkedCard,
+        parkedCardNew,
+        byShape,
+        real,
+      ]);
       expect(lines, isNot(contains(contains(' main:'))));
     });
   });

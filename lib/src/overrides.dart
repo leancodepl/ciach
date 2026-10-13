@@ -62,7 +62,7 @@ final class OverrideRemovals {
   };
 
   static const _none = (removals: <CoupledRemoval>[], blocked: false);
-  static const _blocked = (removals: <CoupledRemoval>[], blocked: true);
+  static const blocked = (removals: <CoupledRemoval>[], blocked: true);
 
   /// The overrides of the dead [member], as spans to remove with it.
   Future<OverriddenMember> of(Candidate member) async {
@@ -80,7 +80,7 @@ final class OverrideRemovals {
         position: member.symbol.selectionRange.start,
         name: [?member.container, member.symbol.name].join('.'),
       );
-      return _blocked;
+      return blocked;
     }
     if (overrides.isEmpty) {
       return _none;
@@ -90,7 +90,7 @@ final class OverrideRemovals {
       // An override that has to stay blocks the member.
       final removal = await _removalFor(override);
       if (removal == null) {
-        return _blocked;
+        return blocked;
       }
       removals.add(removal);
     }

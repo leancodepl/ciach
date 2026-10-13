@@ -362,6 +362,7 @@ final class CandidateCollector {
       containerSuperclass: () => candidate.containerSymbol?.let(
         (containerSymbol) => _superclassOf(candidate.path, containerSymbol),
       ),
+      inEnum: candidate.containerSymbol?.kind == .enum$,
     );
     if (rule != null && container != null) {
       _entryPointContainers[DeclKey(relativePath, container)] ??=
@@ -372,7 +373,11 @@ final class CandidateCollector {
           'declares the entry point ${rule.name}';
     }
     final reason =
-        rule?.reason ??
+        rule?.let(
+          (rule) => rule.name == container
+              ? 'the unnamed constructor of the entry point ${rule.name}'
+              : rule.reason,
+        ) ??
         _calledFromOutside(candidate, leadingMetadata, containerExports);
     if (reason == null) {
       return false;
