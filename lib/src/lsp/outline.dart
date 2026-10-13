@@ -101,6 +101,11 @@ final class OutlineElement {
   /// `extension on List<T>`.
   bool get isUnnamedExtension =>
       kind == .extension && name.startsWith('extension on ');
+
+  /// Whether this declares something. The server also lists `test(...)` and
+  /// `group(...)` calls, and calls to functions annotated `@isTest` or
+  /// `@isTestGroup`, which the document symbols mirror as methods.
+  bool get isDeclaration => kind != .unitTestGroup && kind != .unitTestTest;
 }
 
 /// Declaration kinds as the outline sends them.
@@ -121,6 +126,8 @@ enum OutlineKind {
   setter('SETTER'),
   topLevelVariable('TOP_LEVEL_VARIABLE'),
   typeAlias('TYPE_ALIAS'),
+  unitTestGroup('UNIT_TEST_GROUP'),
+  unitTestTest('UNIT_TEST_TEST'),
 
   other('');
 

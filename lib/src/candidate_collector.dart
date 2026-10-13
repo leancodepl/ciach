@@ -179,15 +179,11 @@ final class CandidateCollector {
     // first declarator, so a later one (`b` in `@override final int a, b;`)
     // reads that statement's instead of its own, which are empty.
     var statementMetadata = const <SemanticToken>[];
-    for (final symbol in symbols) {
-      final outline = outlines[symbol];
-      if (outline == null) {
-        _log.fine(
-          'Skipped $relativePath:${symbol.selectionRange.start.line + 1} '
-          "${symbol.name}: the analysis server's outline has no entry for it.",
-        );
-        continue;
-      }
+    for (final (symbol, outline) in _declarations(
+      relativePath,
+      symbols,
+      outlines,
+    )) {
       final ownMetadata = _sources.leadingMetadata(path, outline);
       final isField = outline.element.kind == .field;
       final continuesStatement =
@@ -238,6 +234,36 @@ final class CandidateCollector {
         symbol.kind == .enum$,
         outlines,
       );
+    }
+  }
+
+  /// Pairs each of [symbols] with its outline entry, and skips a symbol the
+  /// outline doesn't list.
+  ///
+  /// A `test(...)` or `group(...)` call is not a declaration, and removing it
+  /// would delete the test, so it is replaced by the declarations inside its
+  /// closure.
+  Iterable<(DocumentSymbol, Outline)> _declarations(
+    String relativePath,
+    List<DocumentSymbol> symbols,
+    _OutlineIndex outlines,
+  ) sync* {
+    for (final symbol in symbols) {
+      final outline = outlines[symbol];
+      if (outline == null) {
+        _log.fine(
+          'Skipped $relativePath:${symbol.selectionRange.start.line + 1} '
+          "${symbol.name}: the analysis server's outline has no entry for it.",
+        );
+      } else if (outline.element.isDeclaration) {
+        yield (symbol, outline);
+      } else {
+        yield* _declarations(
+          relativePath,
+          symbol.children ?? const [],
+          outlines,
+        );
+      }
     }
   }
 

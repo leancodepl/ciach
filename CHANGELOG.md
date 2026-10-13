@@ -1,5 +1,9 @@
 ## Unreleased
 
+- Stop reporting test calls as declarations. `test(...)`, `group(...)` and
+  calls to `@isTest` functions such as `testWidgets` were listed as unused
+  or doc-only, and `--remove` could delete them.
+  ([#119](https://github.com/leancodepl/ciach/pull/119))
 - Add `--format` values `azure` and `teamcity`, the default on their service
   as `github` is on GitHub Actions, and `sarif`, `checkstyle` and `gitlab`
   (Code Quality) reports for other tools to import.
