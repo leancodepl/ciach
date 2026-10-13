@@ -1,9 +1,9 @@
 ## Unreleased
 
-- An `entry-points` rule names a constructor as the report prints it:
-  `MyWidget.new` or `MyWidget.named`. `MyWidget.new` used to match nothing,
-  and a named constructor could not be listed at all. `MyWidget.MyWidget` is
-  now an error that names the right spelling.
+- `entry-points` rules now name constructors the way the report does:
+  `MyWidget.new` for the unnamed constructor, `MyWidget.named` for a named
+  one. Before, `MyWidget.new` matched nothing and named constructors couldn't
+  be listed. `MyWidget.MyWidget` is now rejected.
   ([#117](https://github.com/leancodepl/ciach/pull/117))
 - If a scanned package hasn't had `dart pub get`, ciach now stops with exit
   code 2 and lists that package. Before, it reported code used by that package

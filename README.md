@@ -421,8 +421,8 @@ entry-points:
 
 A matching declaration is neither reported nor removed, whatever its signature.
 A member rule also keeps its type, while the type's other members are still
-checked. Name a constructor as the report does: `MyWidget.new` or
-`MyWidget.named`; a class with no constructor declared has no `MyWidget.new`,
+checked. Name a constructor the way the report does: `MyWidget.new` or
+`MyWidget.named`. A class with no declared constructor has no `MyWidget.new`,
 so name the class instead. `-v` names each skipped entry point.
 `entry-points:` can't be set on the command line.
 
