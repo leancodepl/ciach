@@ -276,7 +276,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       argName: 'also',
       configKey: '/also',
       defaultsTo: [],
-      valueHelp: 'what,what',
+      valueHelp: 'category,category',
       allowedValues: alsoNames,
       customValidator: parseAlso,
       helpText:
