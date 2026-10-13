@@ -9,7 +9,8 @@ import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location, Position, SymbolKind;
+import 'package:pro_lsp/pro_lsp.dart'
+    show Location, Position, Range, SymbolKind;
 
 /// The `kind` of a [CoupledRemoval] that removes a type from a `with` or
 /// `implements` clause. The remover deletes exactly its range.
@@ -29,6 +30,8 @@ typedef ClauseEntry = ({
 });
 
 final _clauseKeyword = RegExp(r'(with|implements)\s');
+
+final _whitespace = RegExp(r'\s');
 
 extension ClauseEntries on SourceIndex {
   /// Returns the clause entry at [loc] if it names [name] directly.
@@ -109,7 +112,10 @@ extension ClauseEntries on SourceIndex {
           ? (all[i].start, all[j].start)
           : i > 0
           ? (all[i - 1].end, all[j - 1].end)
-          : (_endOfPrevious(content, clauseStart), clauseEnd);
+          : (
+              (previousNonWhitespace(content, clauseStart) ?? -1) + 1,
+              clauseEnd,
+            );
       final range = _rangeOf(path, start, end);
       final removal = (
         filePath: relativePosix(path, rootPath),
@@ -126,19 +132,13 @@ extension ClauseEntries on SourceIndex {
   }
 
   DeclarationRange _rangeOf(String path, int start, int end) {
+    final starts = lineStarts(path);
     Position at(int offset) {
-      final starts = lineStarts(path);
       final line = lowerBound(starts, offset + 1) - 1;
-      return Position(line: line, character: offset - starts[line]);
+      return .new(line: line, character: offset - starts[line]);
     }
 
-    final (from, to) = (at(start), at(end));
-    return (
-      startLine: from.line,
-      startColumn: from.character,
-      endLine: to.line,
-      endColumn: to.character,
-    );
+    return Range(start: at(start), end: at(end)).toDeclarationRange;
   }
 }
 
@@ -150,7 +150,7 @@ List<({int start, int end})> _entrySpans(
   int clauseEnd,
 ) {
   final code = stripComments(content.substring(clauseStart, clauseEnd));
-  final keywordEnd = code.indexOf(RegExp(r'\s'));
+  final keywordEnd = code.indexOf(_whitespace);
   final spans = <({int start, int end})>[];
   void add(int from, int to) {
     final text = code.substring(from, to);
@@ -197,13 +197,4 @@ Iterable<(int, int)> _runs(
     yield (i, j);
     i = j;
   }
-}
-
-/// The offset just past the last non-whitespace character before [offset].
-int _endOfPrevious(String content, int offset) {
-  var i = offset;
-  while (i > 0 && content[i - 1].trim().isEmpty) {
-    i--;
-  }
-  return i;
 }

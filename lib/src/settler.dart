@@ -313,7 +313,7 @@ final class Settler {
           if (dead.contains(i)) finding,
       ],
       rootPath,
-      clauseCuts: false,
+      includeClauseCuts: false,
     );
   }
 
@@ -460,17 +460,18 @@ final class Settler {
           break;
       }
     }
-    _removableBefore.addAll([
+    final removable = {
       for (final MapEntry(key: finding, value: i) in candidateOf.entries)
         if (!finding.removalBlocked) i,
-    ]);
+    };
+    _removableBefore.addAll(removable);
     for (final (i, finding) in await _namedOnlyInClauses(
       client,
       candidates,
       statuses,
       refsByCandidate,
       liveRefs,
-      candidateOf,
+      removable,
       deadSpans,
       scannedPaths,
       rootPath,
@@ -539,8 +540,8 @@ final class Settler {
   }
 
   /// Returns findings for the used classes and mixins whose members are all
-  /// removable findings and that only `with` and `implements` clauses in
-  /// scanned files use.
+  /// removable findings, by candidate index in [removable], and that only
+  /// `with` and `implements` clauses in scanned files use.
   ///
   /// Each finding also removes those clause entries and comes with its
   /// candidate index.
@@ -550,15 +551,14 @@ final class Settler {
     List<RefStatus> statuses,
     List<List<Location>> refsByCandidate,
     List<List<Location>> liveRefs,
-    Map<UnusedDeclaration, int> candidateOf,
+    Set<int> removable,
     DeadSpans deadSpans,
     Set<String> scannedPaths,
     String rootPath,
   ) async {
     final removableMembers = <DeclKey, int>{};
-    for (final MapEntry(key: finding, value: i) in candidateOf.entries) {
-      if (candidates[i].containerKey case final key?
-          when !finding.removalBlocked) {
+    for (final i in removable) {
+      if (candidates[i].containerKey case final key?) {
         removableMembers.update(key, (n) => n + 1, ifAbsent: () => 1);
       }
     }

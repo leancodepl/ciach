@@ -216,8 +216,8 @@ Set<String> _emptiedContainers(
   }
   return {
     for (final run in runs)
-      if (_previousNonWhitespace(code, run.start)?.let((i) => code[i]) == '{' &&
-          _nextNonWhitespace(code, run.end)?.let((i) => code[i]) == '}')
+      if (previousNonWhitespace(code, run.start)?.let((i) => code[i]) == '{' &&
+          nextNonWhitespace(code, run.end)?.let((i) => code[i]) == '}')
         for (final member in members)
           if (run.start <= member.start && member.start < run.end)
             member.container,
@@ -323,13 +323,13 @@ int _startWithIndentation(
   required int baseStart,
   required int baseEnd,
 }) {
-  final forward = _nextNonWhitespace(content, baseEnd);
+  final forward = nextNonWhitespace(content, baseEnd);
   if (forward != null && content[forward] == ',') {
     // Swallow the blank after the comma too, but stop at a line break so a
     // multi-line enum's indentation stays intact.
     return (valueStart, _skipSameLineBlank(content, forward + 1));
   }
-  final backward = _previousNonWhitespace(content, valueStart);
+  final backward = previousNonWhitespace(content, valueStart);
   if (backward != null && content[backward] == ',') {
     return (backward, baseEnd);
   }
@@ -388,29 +388,6 @@ int _consumeTrailingBlankLine(String content, int end) {
   }
   return nextNewline == -1 ? content.length : nextNewline + 1;
 }
-
-int? _nextNonWhitespace(String content, int from) {
-  for (var i = from; i < content.length; i++) {
-    if (!_isWhitespace(content[i])) {
-      return i;
-    }
-  }
-  return null;
-}
-
-int? _previousNonWhitespace(String content, int before) {
-  for (var i = before - 1; i >= 0; i--) {
-    if (!_isWhitespace(content[i])) {
-      return i;
-    }
-  }
-  return null;
-}
-
-bool _isWhitespace(String ch) => switch (ch) {
-  ' ' || '\t' || '\n' || '\r' => true,
-  _ => false,
-};
 
 List<_Span> _mergeSpans(List<_Span> spans) {
   final merged = <_Span>[];

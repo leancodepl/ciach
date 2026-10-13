@@ -817,6 +817,7 @@ Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) Â
         const .new(
           filesChanged: 2,
           deletedFiles: [(filePath: 'lib/empty.dart', unlinkedFrom: [])],
+          emptiedContainers: [],
         ),
         removed: 3,
         blocked: 1,
@@ -836,6 +837,7 @@ Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) Â
         const .new(
           filesChanged: 0,
           deletedFiles: [(filePath: 'lib/blank.dart', unlinkedFrom: [])],
+          emptiedContainers: [],
         ),
       );
       expect(

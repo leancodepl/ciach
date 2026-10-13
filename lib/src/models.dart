@@ -395,7 +395,7 @@ class RemovalResult {
   const RemovalResult({
     required this.filesChanged,
     required this.deletedFiles,
-    this.emptiedContainers = const [],
+    required this.emptiedContainers,
   });
 
   /// Files declarations were removed from, deleted ones included.

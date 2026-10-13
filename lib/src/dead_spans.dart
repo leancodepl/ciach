@@ -12,13 +12,13 @@ final class DeadSpans {
   DeadSpans._(this._byPath);
 
   /// The spans of the findings `--remove` would delete, by absolute path.
-  /// If [clauseCuts] is false, the spans leave out the removals of `with` and
-  /// `implements` clause entries. Those entries then still count as
+  /// If [includeClauseCuts] is false, the spans leave out the removals of
+  /// `with` and `implements` clause entries. Those entries then still count as
   /// references to their types.
   factory DeadSpans.of(
     Iterable<UnusedDeclaration> findings,
     String rootPath, {
-    bool clauseCuts = true,
+    bool includeClauseCuts = true,
   }) {
     final byPath = <String, List<_Span>>{};
     for (final finding in findings) {
@@ -29,7 +29,7 @@ final class DeadSpans {
           .putIfAbsent(absoluteUnder(finding.filePath, rootPath), () => [])
           .add((range: finding.fullRange, owner: finding));
       for (final coupled in finding.coupledRemovals) {
-        if (!clauseCuts && coupled.kind == clauseCutKind) {
+        if (!includeClauseCuts && coupled.kind == clauseCutKind) {
           continue;
         }
         byPath
