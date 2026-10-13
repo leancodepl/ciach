@@ -55,7 +55,7 @@ void main() {
       expect(rule.matches('lib/a.dart', symbol('registerWith'), null), isFalse);
     });
 
-    test('a type name matches its unnamed constructor, unless in an enum', () {
+    test('a type name matches its unnamed constructor, except in an enum', () {
       final rule = EntryPoint.fromConfig('Card');
       final unnamed = symbol('Card', kind: .constructor);
       final named = symbol('Card.blank', kind: .constructor);

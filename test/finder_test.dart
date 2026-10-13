@@ -1499,7 +1499,7 @@ void main() {
         'lib/scenarios/entry_points.dart:Plugin.registerWith',
         'lib/scenarios/entry_points.dart:Plugin.other',
         'lib/scenarios/entry_points.dart:bootstrap',
-        // A dead class's constructors go with it.
+        // An unused class is reported without its constructors.
         'lib/scenarios/entry_points.dart:ParkedCard',
         'lib/scenarios/entry_points.dart:ParkedCard.flip',
         'lib/scenarios/entry_points.dart:ParkedSlot',
@@ -1536,8 +1536,8 @@ void main() {
       },
     );
 
-    test('a class rule keeps its unnamed constructor, not its named ones or '
-        'other members', () async {
+    test('a rule naming a class keeps its unnamed constructor but not its '
+        'named constructors or other members', () async {
       final result = await runEntryPoints(
         entryPoints: [.fromConfig('ParkedCard'), .fromConfig('ParkedSlot')],
       );
@@ -1551,8 +1551,8 @@ void main() {
       );
     });
 
-    test('a class rule keeps its unnamed constructor when only constructors '
-        'are reported', () async {
+    test('a rule naming a class keeps its unnamed constructor when only '
+        'constructors are reported', () async {
       final result = await runFinder(
         include: ['lib/scenarios/entry_points.dart'],
         exclude: const [],
@@ -1610,7 +1610,7 @@ void main() {
       const parkedCard =
           'Skipped lib/scenarios/entry_points.dart:26 ParkedCard: listed under `entry-points` in the config file.';
       const parkedCardNew =
-          'Skipped lib/scenarios/entry_points.dart:27 ParkedCard.new: constructs the entry point ParkedCard.';
+          'Skipped lib/scenarios/entry_points.dart:27 ParkedCard.new: the unnamed constructor of the entry point ParkedCard.';
       const byShape =
           'Skipped lib/scenarios/entry_points/flutter_test_config.dart:4 '
           'testExecutable: called by the `flutter test` bootstrap.';

@@ -374,7 +374,7 @@ final class CandidateCollector {
     final reason =
         rule?.let(
           (rule) => rule.name == container
-              ? 'constructs the entry point ${rule.name}'
+              ? 'the unnamed constructor of the entry point ${rule.name}'
               : rule.reason,
         ) ??
         _calledFromOutside(candidate, leadingMetadata, containerExports);

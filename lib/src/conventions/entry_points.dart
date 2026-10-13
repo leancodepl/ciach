@@ -94,9 +94,10 @@ final class EntryPoint {
   /// Returns whether this rule matches [symbol]. [containerSuperclass] is
   /// called only for a [superclass] rule, because it has to parse the source.
   ///
-  /// A rule naming a class or an extension type also matches its unnamed
-  /// constructor, which whoever reaches the type calls as `Type()`. An enum's
-  /// is called by its values alone, so [inEnum] leaves it out.
+  /// A rule that names a class or an extension type also matches the type's
+  /// unnamed constructor, because code that uses the type calls `Type()`.
+  /// Pass [inEnum] when [container] is an enum. Only the enum's own values
+  /// call its constructor, so the rule does not match it.
   bool matches(
     String relativePath,
     DocumentSymbol symbol,
