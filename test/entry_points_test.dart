@@ -75,13 +75,10 @@ void main() {
       );
     });
 
-    test('Class.Class is read as the unnamed constructor', () {
-      final rule = EntryPoint.fromConfig('Parked.Parked');
-
-      expect(rule.name, 'Parked.new');
+    test('Class.Class is rejected in favour of Class.new', () {
       expect(
-        rule.matches('a.dart', symbol('Parked', kind: .constructor), 'Parked'),
-        isTrue,
+        () => EntryPoint.fromConfig('Parked.Parked'),
+        throwsA(isFormatException(contains('`Parked.new`'))),
       );
     });
 

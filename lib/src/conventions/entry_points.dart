@@ -35,12 +35,11 @@ final class EntryPoint {
   /// Creates a rule that comes from the `entry-points` setting or from the
   /// project config.
   ///
-  /// A constructor is `Class.new` or `Class.named`, as the report prints it;
-  /// `Class.Class` is read as `Class.new`.
+  /// A constructor is `Class.new` or `Class.named`, as the report prints it.
   ///
   /// Throws a [FormatException] for a [name] that is not an identifier
-  /// (optionally `Container.member`); the constructor throws for a glob that
-  /// does not parse.
+  /// (optionally `Container.member`) or that spells the unnamed constructor
+  /// `Class.Class`; the constructor throws for a glob that does not parse.
   factory EntryPoint.fromConfig(
     String name, {
     List<String> files = const [],
@@ -56,15 +55,12 @@ final class EntryPoint {
         "'$name' is not a declaration name; expected an identifier such as 'registerWith' or 'MyPlugin.registerWith'.",
       );
     }
-    return .new(
-      // Only a constructor can share its class's name.
-      name: switch (name.split('.')) {
-        [final type, final member] when member == type => '$type.new',
-        _ => name,
-      },
-      files: files,
-      reason: reason,
-    );
+    if (name.split('.') case [final type, final member] when member == type) {
+      throw FormatException(
+        "'$name': write the unnamed constructor as `$type.new`, the way the report prints it.",
+      );
+    }
+    return .new(name: name, files: files, reason: reason);
   }
 
   static final _posix = p.Context(style: .posix);

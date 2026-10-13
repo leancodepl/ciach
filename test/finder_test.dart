@@ -1547,10 +1547,6 @@ void main() {
       expect(await parked('Parked.make'), {
         'lib/scenarios/entry_points.dart:Parked.new',
       });
-      // The analysis server's own name for the unnamed constructor.
-      expect(await parked('Parked.Parked'), {
-        'lib/scenarios/entry_points.dart:Parked.make',
-      });
     });
 
     test(
