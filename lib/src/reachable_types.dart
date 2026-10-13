@@ -33,7 +33,7 @@ final class ReachableTypes {
   }) async {
     final types = <DeclKey, _Type>{
       for (final (i, candidate) in candidates.indexed)
-        if (_isType(candidate))
+        if (candidate.isType)
           candidate.key: (candidate: candidate, refs: refs[i]),
     };
     final positionsIn = _importableRefs(types.values, sources, api);
@@ -136,11 +136,6 @@ final class ReachableTypes {
       member.container != null &&
       member.containerOutline?.element.kind != .extension &&
       !isPrivateName(member.symbol.name);
-
-  static bool _isType(Candidate candidate) =>
-      candidate.container == null &&
-      typeLikeKinds.contains(candidate.symbol.kind) &&
-      !candidate.isExtension;
 }
 
 /// A carrier no type matches, so whatever it carries is reachable.

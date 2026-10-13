@@ -10,6 +10,7 @@
 
 import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/lsp/outline.dart';
+import 'package:ciach/src/symbols.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
 /// A file path paired with a declaration name, used as a map key to look up
@@ -80,6 +81,11 @@ final class Candidate {
   bool get isExtension => outline.element.kind == .extension;
 
   bool get isExtensionMember => containerSymbol?.kind == .namespace;
+
+  /// A class, enum, mixin or extension type: a type its members are used
+  /// through. An extension's members are used without naming it.
+  bool get isType =>
+      container == null && typeLikeKinds.contains(symbol.kind) && !isExtension;
 
   /// This candidate's own `(path, name)` key.
   DeclKey get key => .new(path, symbol.name);

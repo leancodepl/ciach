@@ -286,6 +286,12 @@ final class Settler {
       superclasses.needsConstructorArguments,
     );
 
+    // A type only doc comments link stays, so its members stay with it.
+    final docOnlyTypes = {
+      for (final (i, candidate) in candidates.indexed)
+        if (statuses[i] == .docOnly && candidate.isType) candidate.key,
+    };
+
     final reported = <int>{
       for (var i = 0; i < candidates.length; i++)
         if (statuses[i] == .unused &&
@@ -316,6 +322,7 @@ final class Settler {
             liveRefs: liveRefs,
             overridden: overridden[i],
             safety: safety,
+            docOnlyTypes: docOnlyTypes,
             deadSpans: deadSpans,
             rootPath: rootPath,
           );
@@ -375,10 +382,12 @@ final class Settler {
     required List<List<Location>> liveRefs,
     required OverriddenMember? overridden,
     required RemoveSafety safety,
+    required Set<DeclKey> docOnlyTypes,
     required DeadSpans deadSpans,
     required String rootPath,
   }) {
     final candidate = candidates[i];
+    final inDocOnlyType = docOnlyTypes.contains(candidate.containerKey);
     final refs = liveRefs[i];
     final blockedByOverride = overridden?.blocked ?? false;
     final pairedState = candidate.symbol.kind == .class$
@@ -404,8 +413,10 @@ final class Settler {
             groupGuards: !_removableBefore.contains(i),
           ) ||
           blockedByOverride ||
-          blockedByState,
+          blockedByState ||
+          inDocOnlyType,
       hint:
+          (inDocOnlyType ? Verdict.docOnlyTypeHint(candidate) : null) ??
           _verdict.hintFor(candidate) ??
           (blockedByOverride ? Verdict.overriddenHint : null) ??
           (blockedByState ? Verdict.pairedStateHint : null),

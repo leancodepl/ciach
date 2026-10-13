@@ -191,6 +191,9 @@ These never count toward `--set-exit-if-changed`, are never touched by
 `--remove`, and get a `::notice` rather than a `::warning` in `-f github`. Drop
 the doc link to have one reported as properly unused.
 
+A doc-only class, enum, mixin or extension type is kept whole: its unused
+members are still reported, but `--remove` leaves them in place.
+
 ### Transitively dead code
 
 A reference from a finding still counts as a use, so a helper called only by

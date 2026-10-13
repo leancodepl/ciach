@@ -45,6 +45,18 @@ final class Verdict {
   static const overriddenHint =
       'overridden by a declaration --remove will not delete — that override would be left overriding nothing';
 
+  /// The hint for an unused member of a type referenced only from doc
+  /// comments: `--remove` keeps the type, so it keeps the member too.
+  static String docOnlyTypeHint(Candidate member) {
+    final kind = switch (member.containerOutline?.element.kind) {
+      .enum$ => 'enum',
+      .mixin => 'mixin',
+      .extensionType => 'extension type',
+      _ => 'class',
+    };
+    return 'its $kind ${member.container} is referenced only from doc comments: drop the doc link and --remove deletes the $kind whole';
+  }
+
   /// Whether an unused [candidate] should be silently suppressed (never
   /// reported): a live freezed-union arm, an exempt `toJson` hook, a
   /// constructor removed with its already-dead class, an extension or its

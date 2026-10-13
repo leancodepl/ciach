@@ -3,6 +3,7 @@ import 'package:sample_pkg/extensions.dart';
 import 'package:sample_pkg/greeting.dart';
 import 'package:sample_pkg/orphans.dart';
 import 'package:sample_pkg/private_ctors.dart';
+import 'package:sample_pkg/scenarios/doc_only_types.dart';
 import 'package:sample_pkg/scenarios/freezed_unions.dart';
 import 'package:sample_pkg/scenarios/overrides.dart';
 import 'package:sample_pkg/scenarios/overrides_impl.dart';
@@ -25,6 +26,7 @@ void main() {
   print(usedConstant);
   print(factorial(5));
   print(Walker().walk(3));
+  linksDocOnlyTypes();
   visitCount += 1;
 
   // Dog is instantiated (so both classes are used), but sound() is never
