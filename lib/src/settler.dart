@@ -465,7 +465,7 @@ final class Settler {
         if (!finding.removalBlocked) i,
     };
     _removableBefore.addAll(removable);
-    for (final (i, finding) in await _namedOnlyInClauses(
+    for (final (i, finding) in _namedOnlyInClauses(
       client,
       candidates,
       statuses,
@@ -545,7 +545,7 @@ final class Settler {
   ///
   /// Each finding also removes those clause entries and comes with its
   /// candidate index.
-  Future<Iterable<(int, UnusedDeclaration)>> _namedOnlyInClauses(
+  Iterable<(int, UnusedDeclaration)> _namedOnlyInClauses(
     LspClient client,
     List<Candidate> candidates,
     List<RefStatus> statuses,
@@ -555,7 +555,7 @@ final class Settler {
     DeadSpans deadSpans,
     Set<String> scannedPaths,
     String rootPath,
-  ) async {
+  ) {
     final removableMembers = <DeclKey, int>{};
     for (final i in removable) {
       if (candidates[i].containerKey case final key?) {
@@ -573,13 +573,16 @@ final class Settler {
         continue;
       }
       final refs = _classifier.externalRefs(candidate, liveRefs[i]);
+      // Every scanned file's outline arrived while collecting candidates.
       final entries = [
         for (final loc in refs)
           if (scannedPaths.contains(SourceIndex.pathOf(loc.uri)))
-            ?(await _outlineOf(client, loc))?.let(
-              (unit) =>
-                  _sources.clauseEntryAt(loc, candidate.symbol.name, unit),
-            ),
+            ?client
+                .cachedOutline(Uri.parse(loc.uri))
+                ?.let(
+                  (unit) =>
+                      _sources.clauseEntryAt(loc, candidate.symbol.name, unit),
+                ),
       ];
       if (entries.length == refs.length) {
         entriesOf[i] = entries;
@@ -614,17 +617,6 @@ final class Settler {
           ),
         ),
     ];
-  }
-
-  /// The outline of the file that holds [loc], or `null` if the server sent
-  /// none. Every scanned file's outline was awaited while collecting
-  /// candidates, so this is usually a cache hit.
-  static Future<Outline?> _outlineOf(LspClient client, Location loc) async {
-    try {
-      return await client.outline(Uri.parse(loc.uri));
-    } on LspRequestException {
-      return null;
-    }
   }
 
   /// Names of classes flagged unused, per file. A whole dead class is removed

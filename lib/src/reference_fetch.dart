@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/src/candidates.dart';
+import 'package:ciach/src/clause_entries.dart';
 import 'package:ciach/src/concurrency.dart';
 import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/log.dart';
@@ -125,6 +126,9 @@ final class ReferenceFetch {
 
   /// Fetches the selection ranges the structural checks need, one request per
   /// file.
+  ///
+  /// A type named in a `with` or `implements` clause also needs the syntax
+  /// nodes of the clause's other entries, so those come in a second request.
   Future<void> selectionRanges(
     LspClient client,
     List<Candidate> candidates,
@@ -137,6 +141,15 @@ final class ReferenceFetch {
       }
     }
     await fetchSelectionRanges(client, positionsByPath);
+    await fetchSelectionRanges(client, {
+      for (final MapEntry(key: path, value: positions)
+          in positionsByPath.entries)
+        path: {
+          for (final position in positions)
+            if (_sources.clauseAt(path, position) case final clause?)
+              ..._sources.entryProbes(path, clause.range),
+        },
+    });
   }
 
   /// Fetches and caches the selection ranges at [positionsByPath] not cached
