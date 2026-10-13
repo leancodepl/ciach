@@ -374,6 +374,7 @@ that cost.
 | `@override` members — never reported, but removed with a dead member | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses, so none of them are findings. One that overrides a dead member is dead too, so `--remove` [takes both](#removing-declarations) | `--overrides` |
 | Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--operators` |
 | `call` methods | implicit-call syntax (`obj(…)`) is unresolvable the same way | — |
+| Declarations and files marked [`// ciach:ignore`](#ignore-markers) | the marker says that they are kept on purpose | — |
 | `@pragma('vm:entry-point')` | reachable from native code or reflection | — |
 | `@JSExport`, and the public members of a `@JSExport` class | they can be called from JavaScript | — |
 | `test_…` methods of a `@reflectiveTest` class | they are run through `dart:mirrors` | — |
@@ -430,6 +431,44 @@ constructor, but not its named ones. Name a constructor the way the report
 does: `MyWidget.new` or `MyWidget.named`. A class with no declared constructor
 has no `MyWidget.new`, so name the class instead. `-v` names each skipped entry
 point. `entry-points:` can't be set on the command line.
+
+### Ignore markers
+
+A `// ciach:ignore` comment keeps a declaration from being reported or
+removed:
+
+```dart
+// ciach:ignore
+void keptForTheWidgetbook() {}        // the declaration on the next line
+
+/// Its doc comment and annotations may sit around the marker.
+// ciach:ignore
+@visibleForTesting
+void alsoKept() {}
+
+void keptToo() {} // ciach:ignore    // after code: the one named on its line
+
+// ciach:ignore-start
+class Catalog {                       // everything named in the range
+  void member() {}
+}
+// ciach:ignore-end
+```
+
+`// ciach:ignore-file` anywhere in a file keeps the whole file. ciach still
+counts the uses of other code in it, but reports and changes nothing in it, as
+for a [generated](#generated-files-from-the-project-config) file.
+
+- Marking a member also keeps the class or other type that it belongs to. The
+  type's other members are still checked.
+- Any declaration can be marked: enum values, constructors, and members of
+  mixins, extensions and extension types too.
+- Free text may follow a marker, as a reason.
+- Only `//` comments count: a marker in a doc comment, a block comment or a
+  string does nothing.
+- ciach warns about a marker that keeps nothing (say, one a blank line away
+  from the declaration), an unclosed range, and an unknown `// ciach:` word.
+- `-v` names each kept declaration.
 
 ### Generated files from the project config
 

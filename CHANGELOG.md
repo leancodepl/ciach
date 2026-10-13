@@ -14,6 +14,11 @@
   unnamed constructor. Before, ciach still reported that constructor as
   unused. Named constructors and other members are still checked.
   ([#115](https://github.com/leancodepl/ciach/pull/115))
+- Add `// ciach:ignore` comments that keep code from being reported or
+  removed. Put one above a declaration or at the end of its line, put
+  `// ciach:ignore-start` and `// ciach:ignore-end` around a range, or keep a
+  whole file with `// ciach:ignore-file`.
+  ([#104](https://github.com/leancodepl/ciach/pull/104))
 - If a scanned package hasn't had `dart pub get`, ciach now stops with exit
   code 2 and lists that package. Before, it reported code used by that package
   as unused.

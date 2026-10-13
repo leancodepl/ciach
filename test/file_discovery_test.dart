@@ -44,6 +44,26 @@ void main() {
     expect(rel(result.warmOnly), {'lib/model.g.dart', 'lib/mapper.dart'});
   });
 
+  test('a file marked ciach:ignore-file is opened but not scanned', () {
+    write('lib/model.dart', 'class Model {}');
+    write('lib/catalog.dart', '''
+// ciach:ignore-file
+class Catalog {}
+''');
+    write('lib/excluded.dart', '''
+// ciach:ignore-file
+class Excluded {}
+''');
+
+    final result = discoverDartFilesSplit(
+      .new(rootPath: tempDir.path, excludeGlobs: const ['lib/excluded.dart']),
+    );
+
+    expect(rel(result.candidates), {'lib/model.dart'});
+    expect(rel(result.warmOnly), {'lib/catalog.dart'});
+    expect(rel(result.ignored), {'lib/catalog.dart'});
+  });
+
   test('warm set ignores include/exclude globs (references can live '
       'anywhere)', () {
     write('lib/model.dart', 'class Model {}');
