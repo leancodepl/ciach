@@ -84,8 +84,10 @@ final class PackageResolver {
         : (parent == dir ? null : configOf(parent));
   }
 
-  /// The root of the package holding [dir]: the nearest directory at or above
-  /// it with a `pubspec.yaml`; `null` when there is none.
+  /// The root of the package that contains [dir], or `null` if there is none.
+  ///
+  /// The root is the nearest directory at or above [dir] with a
+  /// `pubspec.yaml`.
   String? packageRootOf(String dir) => _packageRootByDir[dir];
 
   String? _findPackageRoot(String dir) {
@@ -95,9 +97,11 @@ final class PackageResolver {
         : (parent == dir ? null : packageRootOf(parent));
   }
 
-  /// Whether `pub get` has run for the package at [root]: it has its own
-  /// package config, or it is a workspace member that the workspace's config
-  /// lists. A parent package's config doesn't count, because it doesn't
+  /// Whether `pub get` has run for the package at [root].
+  ///
+  /// This is true if the package has its own package config. It is also true
+  /// if the package is a workspace member and the workspace's package config
+  /// lists it. A parent package's config doesn't count, because it doesn't
   /// include this package's dev_dependencies.
   bool isResolved(String root) =>
       _configFile(root).existsSync() || _isListedWorkspaceMember(root);
@@ -143,7 +147,8 @@ List<String> unresolvedPackages(Iterable<String> files, String root) {
 class UnresolvedPackagesException implements Exception {
   const UnresolvedPackagesException(this.packages);
 
-  /// Root-relative `/`-paths of the packages, `.` for the root.
+  /// The paths of the packages, relative to the root and separated by `/`.
+  /// The root itself is `.`.
   final List<String> packages;
 
   String get message {

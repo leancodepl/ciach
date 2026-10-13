@@ -58,7 +58,7 @@ Likely a Dart SDK bug; -v shows the stack trace.
     );
   });
 
-  test('unresolved packages are listed with the fix, not as a bug', () {
+  test('an unresolved package error lists the packages and the fix', () {
     expect(
       describeFatalError(
         const UnresolvedPackagesException(['.', 'packages/ds']),

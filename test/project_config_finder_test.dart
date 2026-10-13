@@ -20,8 +20,9 @@ import 'support/package_config.dart';
 ///   `@reflectiveTest` (`test/reflective_test.dart`).
 ///
 /// Beside them, declarations nothing calls stay reported.
-/// No dependency is resolved: local `Endpoint`, `JSExport` and
-/// `reflectiveTest` stand in for the real ones, which ciach matches by name.
+/// The dependencies are not fetched. Local `Endpoint`, `JSExport` and
+/// `reflectiveTest` stand in for the real ones, because ciach matches them by
+/// name.
 void main() {
   late Directory package;
 

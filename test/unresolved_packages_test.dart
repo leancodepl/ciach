@@ -22,7 +22,7 @@ void main() {
     ..createSync(recursive: true)
     ..writeAsStringSync(contents);
 
-  /// The packages of [files] pub has not resolved, root-relative.
+  /// The root-relative paths of the unresolved packages that hold [files].
   List<String> unresolved(List<String> files) => [
     for (final package in unresolvedPackages(files.map(abs), root.path))
       relativePosix(package, root.path),
@@ -36,13 +36,13 @@ void main() {
       expect(unresolved(['lib/a.dart', 'test/a_test.dart']), isEmpty);
     });
 
-    test('a package without one is not', () {
+    test('a package without its own package config is unresolved', () {
       write('pubspec.yaml', 'name: app\n');
 
       expect(unresolved(['lib/a.dart', 'test/a_test.dart']), ['.']);
     });
 
-    test("a nested path dependency is not covered by its parent's config", () {
+    test('a nested package needs its own package config', () {
       write(
         'pubspec.yaml',
         'name: app\ndependencies: {ds: {path: packages/ds}}\n',
@@ -63,7 +63,7 @@ void main() {
       );
     });
 
-    test("a workspace member is covered by the workspace's config", () {
+    test('a workspace member listed in the workspace config is resolved', () {
       write('pubspec.yaml', 'name: root\nworkspace: [packages/ds]\n');
       write(
         '.dart_tool/package_config.json',
@@ -74,14 +74,14 @@ void main() {
       expect(unresolved(['packages/ds/lib/ds.dart']), isEmpty);
     });
 
-    test('a workspace member of an unresolved workspace is not resolved', () {
+    test('a workspace member is unresolved if the workspace has no config', () {
       write('pubspec.yaml', 'name: root\nworkspace: [packages/ds]\n');
       write('packages/ds/pubspec.yaml', 'name: ds\nresolution: workspace\n');
 
       expect(unresolved(['packages/ds/lib/ds.dart']), ['packages/ds']);
     });
 
-    test("a workspace member missing from the workspace's config is not", () {
+    test('a workspace member the workspace config omits is unresolved', () {
       write('pubspec.yaml', 'name: root\nworkspace: [packages/ds]\n');
       write('.dart_tool/package_config.json', packageConfig({'root': '.'}));
       write('packages/ds/pubspec.yaml', 'name: ds\nresolution: workspace\n');
@@ -89,11 +89,11 @@ void main() {
       expect(unresolved(['packages/ds/lib/ds.dart']), ['packages/ds']);
     });
 
-    test('a file under no pubspec belongs to no package', () {
+    test('ignores a file outside any package', () {
       expect(unresolved(['tool/script.dart']), isEmpty);
     });
 
-    test('a pubspec above the scanned root is not a scanned package', () {
+    test('ignores a package whose pubspec is above the scanned root', () {
       write('pubspec.yaml', 'name: outer\n');
       final scripts = abs('scripts');
 
@@ -110,7 +110,7 @@ void main() {
       write('packages/ds/test/helpers.dart', 'void helper() {}\n');
     });
 
-    test('fails before analysis on a scanned unresolved package', () {
+    test('throws before analysis when a scanned package is unresolved', () {
       expect(
         Ciach(.new(rootPath: root.path)).run(),
         throwsA(
@@ -123,7 +123,7 @@ void main() {
       );
     });
 
-    test('skips an unresolved package whose files are excluded', () {
+    test('runs when the unresolved package is excluded', () {
       expect(
         Ciach(
           .new(rootPath: root.path, excludeGlobs: ['packages/ds/**']),
