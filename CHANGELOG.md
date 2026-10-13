@@ -1,5 +1,10 @@
 ## Unreleased
 
+- An `entry-points` rule naming a class also keeps the class's unnamed
+  constructor (`Class()`, a `const` or `factory` one, or a primary
+  constructor), which was still reported as `Class.new`. Named constructors
+  and the other members are still checked.
+  ([#115](https://github.com/leancodepl/ciach/pull/115))
 - Stop reporting test calls as declarations. `test(...)`, `group(...)` and
   calls to `@isTest` functions such as `testWidgets` were listed as unused
   or doc-only, and `--remove` could delete them.
