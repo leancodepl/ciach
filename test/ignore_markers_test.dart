@@ -4,11 +4,11 @@ import 'package:test/test.dart';
 
 void main() {
   /// The marker keeping a declaration that starts on [start] and is named on
-  /// [nameLine], both one-based, as `marker@line`.
-  String? keeping(String source, int start, [int? nameLine]) =>
+  /// [nameLine], with every line one-based.
+  MarkerAt? keeping(String source, int start, [int? nameLine]) =>
       IgnoreMarkers.parse(source)
           .keeping(start: start - 1, nameLine: (nameLine ?? start) - 1)
-          ?.let((kept) => '${kept.marker}@${kept.line + 1}');
+          ?.let((kept) => (line: kept.line + 1, marker: kept.marker));
 
   group('// ciach:ignore', () {
     test('on a line of its own keeps the declaration on the next line', () {
@@ -17,7 +17,7 @@ void main() {
 void kept() {}
 void notKept() {}
 ''';
-      expect(keeping(source, 2), 'ciach:ignore@1');
+      expect(keeping(source, 2), (line: 1, marker: 'ciach:ignore'));
       expect(keeping(source, 3), isNull);
     });
 
@@ -28,7 +28,7 @@ void notKept() {}
 @deprecated
 void kept() {}
 ''';
-      expect(keeping(source, 1, 4), 'ciach:ignore@2');
+      expect(keeping(source, 1, 4), (line: 2, marker: 'ciach:ignore'));
     });
 
     test('above the doc comment keeps the declaration', () {
@@ -37,7 +37,7 @@ void kept() {}
 /// Docs.
 void kept() {}
 ''';
-      expect(keeping(source, 2, 3), 'ciach:ignore@1');
+      expect(keeping(source, 2, 3), (line: 1, marker: 'ciach:ignore'));
     });
 
     test('keeps nothing across a blank line', () {
@@ -54,7 +54,7 @@ void notKept() {}
 void kept() {} // ciach:ignore
 void notKept() {}
 ''';
-      expect(keeping(source, 1), 'ciach:ignore@1');
+      expect(keeping(source, 1), (line: 1, marker: 'ciach:ignore'));
       expect(keeping(source, 2), isNull);
     });
 
@@ -63,7 +63,7 @@ void notKept() {}
 // ciach:ignore kept for the widgetbook
 void kept() {}
 ''';
-      expect(keeping(source, 2), 'ciach:ignore@1');
+      expect(keeping(source, 2), (line: 1, marker: 'ciach:ignore'));
     });
   });
 
@@ -80,8 +80,8 @@ class Kept {
 void after() {}
 ''';
       expect(keeping(source, 1), isNull);
-      expect(keeping(source, 3), 'ciach:ignore-start@2');
-      expect(keeping(source, 5), 'ciach:ignore-start@2');
+      expect(keeping(source, 3), (line: 2, marker: 'ciach:ignore-start'));
+      expect(keeping(source, 5), (line: 2, marker: 'ciach:ignore-start'));
       expect(keeping(source, 8), isNull);
     });
 
@@ -168,14 +168,14 @@ void f() {}
 // ciach:ignore: kept for the widgetbook
 void kept() {}
 ''';
-    expect(keeping(source, 2), 'ciach:ignore@1');
+    expect(keeping(source, 2), (line: 1, marker: 'ciach:ignore'));
   });
 
   test('a marker after a block comment on the same line counts', () {
     const source = '''
 void kept() {} /* legacy */ // ciach:ignore
 ''';
-    expect(keeping(source, 1), 'ciach:ignore@1');
+    expect(keeping(source, 1), (line: 1, marker: 'ciach:ignore'));
   });
 
   test('every marker keeping a declaration is among its keepers', () {

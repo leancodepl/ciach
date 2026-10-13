@@ -14,6 +14,7 @@ import 'dart:math';
 
 import 'package:ciach/src/ignore_markers.dart';
 import 'package:ciach/src/models.dart';
+import 'package:collection/collection.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
 
@@ -127,7 +128,7 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
 /// [exclude] glob.
 bool _isSelected(String relative, List<Glob> include, List<Glob> exclude) =>
     (include.isEmpty || include.any((glob) => glob.matches(relative))) &&
-    !exclude.any((glob) => glob.matches(relative));
+    exclude.none((glob) => glob.matches(relative));
 
 List<Glob> _globs(List<String> patterns, p.Context context) => [
   for (final pattern in patterns) Glob(pattern, context: context),

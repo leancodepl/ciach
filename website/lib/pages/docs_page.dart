@@ -142,7 +142,7 @@ const _skips = [
   ),
   (
     '// ciach:ignore markers',
-    'On the line before a declaration or after it, around a range with `ciach:ignore-start` and `ciach:ignore-end`, or for a whole file with `ciach:ignore-file`.',
+    'On its own line above a declaration, at the end of the line naming it, around a range with `ciach:ignore-start` and `ciach:ignore-end`, or for a whole file with `ciach:ignore-file`.',
     null,
   ),
   (

@@ -1,3 +1,4 @@
+import 'package:ciach/src/cached_map.dart';
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/ignore_markers.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
@@ -41,7 +42,9 @@ final class OverrideRemovals {
   final String _rootPath;
 
   /// The `// ciach:` markers of each file an override lives in.
-  final _markers = <String, IgnoreMarkers>{};
+  late final _markers = CachedMap<String, IgnoreMarkers>(
+    (path) => .parse(_sources.content(path)),
+  );
 
   static const _unlistedOverrides =
       'Could not find overrides; reported, not removed.';
@@ -114,8 +117,10 @@ final class OverrideRemovals {
       return null;
     }
     final node = found.node;
-    final markers = _markers[path] ??= .parse(_sources.content(path));
-    if (markers.keeping(start: node.range.start.line, nameLine: start.line) !=
+    if (_markers[path].keeping(
+          start: node.range.start.line,
+          nameLine: start.line,
+        ) !=
         null) {
       return null;
     }

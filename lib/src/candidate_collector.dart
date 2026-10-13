@@ -490,7 +490,8 @@ final class CandidateCollector {
   }
 }
 
-/// The statement a walk is in, for the declarators after the first.
+/// The field statement the symbols being collected belong to, for the
+/// declarators after the first.
 ///
 /// A field statement's doc comment, annotations and modifiers sit on its first
 /// declarator, so a later one (`b` in `@override final int a, b;`) reads that

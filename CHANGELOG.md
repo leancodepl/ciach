@@ -1,7 +1,8 @@
 ## Unreleased
 
 - Keep declarations from being reported or removed with `//` comments:
-  `// ciach:ignore` on the line before a declaration or after it,
+  `// ciach:ignore` on its own line above a declaration or at the end of the
+  line naming it,
   `// ciach:ignore-start` and `// ciach:ignore-end` around a range, and
   `// ciach:ignore-file` for a whole file. A kept member keeps its type.
   ([#104](https://github.com/leancodepl/ciach/pull/104))

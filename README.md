@@ -452,14 +452,16 @@ class Catalog {                       // everything named in the range
 still count, but nothing in it is reported, removed or edited, as for a
 [generated](#generated-files-from-the-project-config) file.
 
-A marker on a member also keeps its type, which would otherwise be reported,
-and deleted by `--remove` with the member inside it; the type's other members
-are still checked. This works for every kind: enum values, constructors, and
-the members of mixins, extensions and extension types too. Free
-text may follow a marker, as a reason. A marker in a doc comment, a block
-comment or a string does nothing. ciach warns about a marker that keeps no
-declaration, such as one separated from it by a blank line, an unclosed
-range, and an unknown `// ciach:` word. `-v` names each kept declaration.
+- A marker on a member also keeps its type, so `--remove` can't delete the
+  member with it. The type's other members are still checked.
+- Any declaration can be marked: enum values, constructors, and members of
+  mixins, extensions and extension types too.
+- Free text may follow a marker, as a reason.
+- Only `//` comments count: a marker in a doc comment, a block comment or a
+  string does nothing.
+- ciach warns about a marker that keeps nothing (say, one a blank line away
+  from the declaration), an unclosed range, and an unknown `// ciach:` word.
+- `-v` names each kept declaration.
 
 ### Generated files from the project config
 
