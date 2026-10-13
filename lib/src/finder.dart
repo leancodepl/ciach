@@ -22,6 +22,7 @@ import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/member_probe.dart';
 import 'package:ciach/src/models.dart';
+import 'package:ciach/src/packages.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/problems.dart';
@@ -143,6 +144,15 @@ class Ciach {
         declarationsChecked: 0,
         elapsed: stopwatch.elapsed,
       );
+    }
+
+    // Before the server starts: without its package config, a package's
+    // imports don't resolve, and what only its files use reads as unused.
+    final unresolved = unresolvedPackages(files);
+    if (unresolved.isNotEmpty) {
+      throw UnresolvedPackagesException([
+        for (final package in unresolved) relativePosix(package, rootPath),
+      ]);
     }
 
     _log.info('Starting Dart analysis server…');

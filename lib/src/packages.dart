@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:ciach/src/cached_map.dart';
 import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/file_discovery.dart';
+import 'package:ciach/src/plural.dart';
+import 'package:ciach/src/project_config/project_files.dart';
 import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
 
@@ -53,6 +55,7 @@ const unknownPackage = '';
 /// `.dart_tool/package_config.json` nearest the file that names them.
 final class PackageResolver {
   late final _configByDir = CachedMap<String, PackageConfig?>(_findConfig);
+  late final _packageRootByDir = CachedMap<String, String?>(_findPackageRoot);
 
   /// [uri], written in [from], as an absolute path; [unknownPackage] for a
   /// package [from]'s config doesn't list; `null` for any other scheme.
@@ -73,12 +76,36 @@ final class PackageResolver {
   PackageConfig? configOf(String dir) => _configByDir[dir];
 
   PackageConfig? _findConfig(String dir) {
-    final file = File(p.join(dir, '.dart_tool', 'package_config.json'));
+    final file = _configFile(dir);
     final parent = p.dirname(dir);
     return file.existsSync()
         ? _read(file)
         : (parent == dir ? null : configOf(parent));
   }
+
+  /// The root of the package holding [dir]: the nearest directory at or above
+  /// it with a `pubspec.yaml`; `null` when there is none.
+  String? packageRootOf(String dir) => _packageRootByDir[dir];
+
+  String? _findPackageRoot(String dir) {
+    final parent = p.dirname(dir);
+    return File(p.join(dir, 'pubspec.yaml')).existsSync()
+        ? dir
+        : (parent == dir ? null : packageRootOf(parent));
+  }
+
+  /// Whether pub has resolved the package at [root]: it has its own package
+  /// config or, as a pub workspace member, the workspace has one. The config
+  /// of an enclosing package does not count otherwise, as it lacks the
+  /// nested package's dev_dependencies.
+  bool isResolved(String root) =>
+      _configFile(root).existsSync() ||
+      (readYamlMap(p.join(root, 'pubspec.yaml'))?['resolution'] ==
+              'workspace' &&
+          configOf(p.dirname(root)) != null);
+
+  static File _configFile(String dir) =>
+      File(p.join(dir, '.dart_tool', 'package_config.json'));
 
   /// [file] parsed, skipping malformed entries; `null` when unreadable.
   static PackageConfig? _read(File file) {
@@ -92,4 +119,36 @@ final class PackageResolver {
       return null;
     }
   }
+}
+
+/// The roots of the packages holding [files] that pub has not resolved,
+/// sorted. A file under no `pubspec.yaml` belongs to no package.
+List<String> unresolvedPackages(Iterable<String> files) {
+  final packages = PackageResolver();
+  final roots = {
+    for (final file in files) ?packages.packageRootOf(p.dirname(file)),
+  };
+  return roots.where((root) => !packages.isResolved(root)).toList()..sort();
+}
+
+/// Scanned files belong to packages pub has not resolved: their imports would
+/// not resolve, and code only they use would read as unused.
+class UnresolvedPackagesException implements Exception {
+  const UnresolvedPackagesException(this.packages);
+
+  /// Root-relative `/`-paths of the packages, `.` for the root.
+  final List<String> packages;
+
+  String get message {
+    final these = pluralWord(packages.length, 'this package', 'these packages');
+    final their = pluralWord(packages.length, 'its', 'their');
+    final them = pluralWord(packages.length, 'it', 'them');
+    return '''
+Pub has not resolved $these, so code used only from $their files would read as unused:
+${packages.map((package) => '  $package').join('\n')}
+Run `dart pub get` (or `flutter pub get`) there, or leave $them out with --exclude.''';
+  }
+
+  @override
+  String toString() => message;
 }
