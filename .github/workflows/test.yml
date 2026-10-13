@@ -5,6 +5,11 @@ on:
     branches: [main]
     tags-ignore: ['v*']
   pull_request:
+    # `edited` re-runs the checks when the PR's base branch changes, because the
+    # changelog check compares against it. It also fires for a new title or
+    # description. A job skipped on those would replace a failed check with a
+    # skipped one, so every edit runs the checks.
+    types: [opened, synchronize, reopened, edited]
 
 jobs:
   test:
