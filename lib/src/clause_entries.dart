@@ -73,10 +73,10 @@ extension ClauseEntries on SourceIndex {
 
   /// Returns the removals that delete [entries] from their clauses, by entry.
   ///
-  /// Adjacent entries are removed together with the comma after them. At the
-  /// end of a clause, the comma before them is removed instead. If no entry is
-  /// left, the whole clause is removed. Adjacent entries share one removal, so
-  /// the code still compiles when only one of their types is removed.
+  /// An entry is removed together with the comma after it, or with the comma
+  /// before it when it is last in the clause. When every entry goes, the whole
+  /// clause goes, keyword included. Entries that are next to each other are
+  /// cut as one range, so that their cuts never overlap.
   Map<ClauseEntry, CoupledRemoval> clauseCuts(
     Iterable<ClauseEntry> entries,
     String rootPath,

@@ -357,11 +357,12 @@ They are not reported separately: the finder [skips](#what-it-skips-by-default)
 `@override` declarations.
 
 If every member of a class or mixin is unused and only `with` or `implements`
-clauses name it, ciach reports it, and `--remove` also removes it from those
-clauses. If anything else names it (a type annotation, an `is` check, `extends`
-or a mixin's `on`), `--remove` leaves it with an empty body and lists it in the
-summary. The same happens to the only mixin of a class type alias
-(`class A = B with M;`), because the alias needs at least one.
+clauses name it, ciach reports it, and `--remove` deletes it and also removes it
+from those clauses. If other code names it too, for example as a type, in an
+`is` check, after `extends` or after a mixin's `on`, `--remove` deletes only its
+members. It keeps the empty declaration and lists it in the summary. The same
+happens to the only mixin of a class type alias (`class A = B with M;`),
+because an alias needs at least one mixin.
 
 Findings whose removal wouldn't compile are **report-only**: marked `unsafe to
 auto-remove — remove manually` and skipped, along with anything coupled to them.
