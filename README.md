@@ -416,8 +416,8 @@ entry-points:
 
 A matching declaration is neither reported nor removed, whatever its signature.
 A member rule also keeps its type, while the type's other members are still
-checked. A class or extension type rule also keeps its unnamed constructor, but
-not the named ones. `-v` names each skipped entry point. `entry-points:` can't
+checked. A rule that names a class or extension type also keeps its unnamed
+constructor, but not its named ones. `-v` names each skipped entry point. `entry-points:` can't
 be set on the command line.
 
 ### Generated files from the project config
