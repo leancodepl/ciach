@@ -5,6 +5,15 @@
   leaves it alone. Before, ciach reported each unused member, and `--remove`
   deleted them and left an empty type.
   ([#116](https://github.com/leancodepl/ciach/pull/116))
+- In `entry-points`, you now write a constructor the way the report shows it:
+  `MyWidget.new` or `MyWidget.named`. Before, `MyWidget.new` matched nothing
+  and named constructors could not be listed at all. `MyWidget.MyWidget` is
+  now an error.
+  ([#117](https://github.com/leancodepl/ciach/pull/117))
+- An `entry-points` rule for a class or extension type now also keeps its
+  unnamed constructor. Before, ciach still reported that constructor as
+  unused. Named constructors and other members are still checked.
+  ([#115](https://github.com/leancodepl/ciach/pull/115))
 - If a scanned package hasn't had `dart pub get`, ciach now stops with exit
   code 2 and lists that package. Before, it reported code used by that package
   as unused.
