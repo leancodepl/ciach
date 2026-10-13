@@ -10,6 +10,8 @@ import 'package:ciach/src/log.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import 'support/package_config.dart';
+
 /// A package whose config declares entry points and generated files:
 /// - pubspec.yaml: dart_frog (`routes/`) and serverpod (`lib/endpoint.dart`);
 /// - build.yaml: a builder factory (`lib/builder.dart`) writing `.stamp.dart`;
@@ -18,8 +20,9 @@ import 'package:test/test.dart';
 ///   `@reflectiveTest` (`test/reflective_test.dart`).
 ///
 /// Beside them, declarations nothing calls stay reported.
-/// Nothing is resolved: local `Endpoint`, `JSExport` and `reflectiveTest`
-/// stand in for the real ones, which ciach matches by name.
+/// The dependencies are not fetched. Local `Endpoint`, `JSExport` and
+/// `reflectiveTest` stand in for the real ones, because ciach matches them by
+/// name.
 void main() {
   late Directory package;
 
@@ -34,6 +37,7 @@ name: server
 environment: {sdk: ^3.10.0}
 dependencies: {dart_frog: any, serverpod: any}
 ''');
+    write('.dart_tool/package_config.json', packageConfig({'server': '.'}));
     write('build.yaml', '''
 builders:
   stamp:

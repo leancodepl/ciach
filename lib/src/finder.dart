@@ -22,6 +22,7 @@ import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/member_probe.dart';
 import 'package:ciach/src/models.dart';
+import 'package:ciach/src/packages.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/problems.dart';
@@ -143,6 +144,15 @@ class Ciach {
         declarationsChecked: 0,
         elapsed: stopwatch.elapsed,
       );
+    }
+
+    // Stop before analysis if a package hasn't had `pub get`: its imports
+    // wouldn't resolve, so code it uses would be reported as unused.
+    final unresolved = unresolvedPackages(files, rootPath);
+    if (unresolved.isNotEmpty) {
+      throw UnresolvedPackagesException([
+        for (final package in unresolved) relativePosix(package, rootPath),
+      ]);
     }
 
     _log.info('Starting Dart analysis server…');

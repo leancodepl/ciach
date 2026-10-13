@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/packages.dart';
 import 'package:ciach/src/remover.dart';
 import 'package:ciach/src/style.dart';
 import 'package:ciach/src/version.dart';
@@ -18,6 +19,7 @@ String describeFatalError(
     AnalysisServerExitedException(:final message) => (message, null, false),
     LspRequestException(:final detail) => ('$error.', detail, false),
     RemovalException(:final message) => (message, null, false),
+    UnresolvedPackagesException(:final message) => (message, null, false),
     ProcessException(:final executable, :final message) => (
       'Could not start `$executable`: $message',
       null,
