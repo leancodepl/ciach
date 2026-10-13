@@ -1,8 +1,8 @@
 ## Unreleased
 
-- Exit with code 2 and list the packages when a scanned package hasn't had
-  `dart pub get`. Before, ciach analyzed such a package anyway and reported
-  code used only from it as unused.
+- If a scanned package hasn't had `dart pub get`, ciach now stops with exit
+  code 2 and lists that package. Before, it reported code used by that package
+  as unused.
   ([#120](https://github.com/leancodepl/ciach/pull/120))
 - Stop reporting test calls as declarations. `test(...)`, `group(...)` and
   calls to `@isTest` functions such as `testWidgets` were listed as unused
