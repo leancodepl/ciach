@@ -237,9 +237,12 @@ final class CandidateCollector {
     }
   }
 
-  /// [symbols] with their outlines, less those the outline lacks. A
-  /// `test(...)` or `group(...)` call gives way to the declarations in its
-  /// closure: it declares nothing, and removing it would delete the test.
+  /// Pairs each of [symbols] with its outline entry, and skips a symbol the
+  /// outline doesn't list.
+  ///
+  /// A `test(...)` or `group(...)` call is not a declaration, and removing it
+  /// would delete the test, so it is replaced by the declarations inside its
+  /// closure.
   Iterable<(DocumentSymbol, Outline)> _declarations(
     String relativePath,
     List<DocumentSymbol> symbols,
