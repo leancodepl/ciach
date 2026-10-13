@@ -15,11 +15,14 @@ jobs:
 
     permissions:
       contents: read
-      pull-requests: read
 
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # The checkout is the PR merged into its base. Its first parent is
+          # what the PR adds to, which the check compares against.
+          fetch-depth: 2
 
       - name: Set up Dart
         uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
@@ -31,11 +34,8 @@ jobs:
 
       - name: Check changelog entries
         env:
-          GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
-        # The event can still carry the old base for a while after the base
-        # changes, so the current base is read from the pull request itself.
-        run: |
-          base=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json baseRefName --jq .baseRefName)
-          git fetch --depth=1 origin "$base"
-          dart run tool/check_changelog.dart --base FETCH_HEAD --pr "$PR"
+        # Not `github.base_ref`: in a stack of PRs it names the branch at the
+        # bottom of the stack, so the entries of the PRs below would count as
+        # this PR's. The first parent already has those PRs merged in.
+        run: dart run tool/check_changelog.dart --base HEAD^1 --pr "$PR"
