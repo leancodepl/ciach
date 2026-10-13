@@ -64,6 +64,11 @@ final class CandidateCollector {
   /// too, so the type is not a candidate either.
   final _entryPointContainers = <DeclKey, EntryPoint>{};
 
+  /// Types a rule names, by `(relative path, type name)`: whoever reaches the
+  /// type by convention constructs it with `Type()`, so its unnamed
+  /// constructor is not a candidate either.
+  final _entryPointTypes = <DeclKey, EntryPoint>{};
+
   /// The declarations of the open file [path] worth checking.
   Future<List<Candidate>> collect(
     LspClient client,
@@ -370,8 +375,18 @@ final class CandidateCollector {
     if (rule != null && container != null) {
       _entryPointContainers[DeclKey(relativePath, container)] ??= rule;
     }
+    if (rule != null &&
+        container == null &&
+        typeLikeKinds.contains(symbol.kind)) {
+      _entryPointTypes[DeclKey(relativePath, symbol.name)] ??= rule;
+    }
     final reason =
         rule?.reason ??
+        _constructedType(
+          relativePath,
+          symbol,
+          container,
+        )?.let((type) => 'constructs the entry point ${type.name}') ??
         _calledFromOutside(candidate, leadingMetadata, containerExports);
     if (reason == null) {
       return false;
@@ -386,6 +401,19 @@ final class CandidateCollector {
     return true;
   }
 
+  /// Returns the rule that names the type of [symbol] when [symbol] is that
+  /// type's unnamed constructor, which `Type()` calls. Returns `null` for
+  /// anything else, named constructors included.
+  EntryPoint? _constructedType(
+    String relativePath,
+    DocumentSymbol symbol,
+    String? container,
+  ) => symbol.kind == .constructor && symbol.declarationName(container) == 'new'
+      ? container?.let(
+          (container) => _entryPointTypes[DeclKey(relativePath, container)],
+        )
+      : null;
+
   /// Returns whether the references to [candidate] should be checked.
   bool _shouldConsider(
     String relativePath,
@@ -394,19 +422,21 @@ final class CandidateCollector {
     required _ExportedMembers? containerExports,
   }) {
     final symbol = candidate.symbol;
-    if (!options.kinds.contains(
-      symbol.reportedKind(
-        parentIsEnum: candidate.isEnumValue,
-        isExtensionType: candidate.isExtensionType,
-      ),
-    )) {
-      return false;
-    }
+    // Ahead of the kinds: a type rule has to be recorded even when types are
+    // not reported, so that `-k constructor` still keeps its constructor.
     if (_isEntryPoint(
       relativePath,
       candidate,
       leadingMetadata,
       containerExports,
+    )) {
+      return false;
+    }
+    if (!options.kinds.contains(
+      symbol.reportedKind(
+        parentIsEnum: candidate.isEnumValue,
+        isExtensionType: candidate.isExtensionType,
+      ),
     )) {
       return false;
     }
