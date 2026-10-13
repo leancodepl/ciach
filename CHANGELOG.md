@@ -2,7 +2,8 @@
 
 - `--remove` lists a class, mixin or extension it left with an empty body
   ("Left 1 now-empty declaration in place: …") instead of leaving it
-  silently. It stays, since a `with` or `implements` clause may still name it.
+  silently. It stays because code still named it; if only removed code did,
+  `--transitive` removes it too, and otherwise the next run reports it.
   ([#118](https://github.com/leancodepl/ciach/pull/118))
 - `--remove` no longer breaks a field or variable statement with a comment
   inside, such as `int a = 1, /* note */ b = 2;`. Before, it left `int ;`
