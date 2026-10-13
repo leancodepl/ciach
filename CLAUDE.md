@@ -4,6 +4,14 @@ End every entry with a link to its pull request, never to an issue:
 `([#N](https://github.com/leancodepl/ciach/pull/N))`. Before committing an
 entry, run `dart run tool/check_changelog.dart --pr N`; CI runs the same check.
 
+Write an entry for the people who use ciach. In one to three short, plain
+sentences, say what was added, fixed or changed, as they will see it. For a
+fix, say what went wrong before. Leave out how it was implemented: no class or
+method names, internal terms or reasoning about the code.
+
+The same goes for README.md and other user docs: describe what ciach does and
+how to use it, in short, easy-to-follow sentences, not how it works inside.
+
 # String literals
 
 Write a string as one literal. Use a `'''` multi-line string for text with
