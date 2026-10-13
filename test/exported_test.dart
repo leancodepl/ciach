@@ -206,8 +206,8 @@ void main() => Helper().used();
   }
 
   // Reported either way: private, unexported, or a member of a type no
-  // exported signature hands out. `DocOnly` only a doc comment links, so it is
-  // reported whole in place of its dead member.
+  // exported signature hands out. Only a doc comment mentions `DocOnly`, so it
+  // is reported instead of its unused member.
   const internal = {
     'Client._clientPrivateDead',
     'DocOnly',

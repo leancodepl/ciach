@@ -82,8 +82,8 @@ final class Candidate {
 
   bool get isExtensionMember => containerSymbol?.kind == .namespace;
 
-  /// A class, enum, mixin or extension type: a type its members are used
-  /// through. An extension's members are used without naming it.
+  /// Whether this is a class, enum, mixin or extension type. Extensions are
+  /// left out because code uses their members without naming them.
   bool get isType =>
       container == null && typeLikeKinds.contains(symbol.kind) && !isExtension;
 

@@ -618,8 +618,8 @@ void main() {
     };
 
     for (final transitive in [false, true]) {
-      test('a doc-only type with unused members is reported once, as a '
-          'whole, and kept (transitive: $transitive)', () async {
+      test('reports a doc-only type with unused members once and blocks its '
+          'removal (transitive: $transitive)', () async {
         final result = await runFinder(
           include: fixture,
           exclude: const [],
@@ -638,7 +638,7 @@ void main() {
       });
     }
 
-    test('--remove leaves a doc-only type whole', () async {
+    test('--remove keeps a doc-only type and its members', () async {
       final copy = Directory.systemTemp.createTempSync('ciach_doc_only_');
       addTearDown(() => copy.deleteSync(recursive: true));
       copyTree(Directory(fixturePath), copy);

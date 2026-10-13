@@ -1,15 +1,16 @@
-// Fixtures for types referenced only from a doc comment. A type with unused
-// members is reported once, as a whole, and never removed, so --remove cannot
-// leave an empty type behind; one with nothing unused stays doc-only. Scanned
-// only by the dedicated tests in test/finder_test.dart.
+// Fixtures for types that only doc comments mention. A type with unused
+// members is reported once, as the type, and --remove does not delete it. This
+// way --remove cannot leave an empty type behind. A type with no unused
+// members is reported as doc-only. Only tests in test/finder_test.dart scan
+// this file.
 
-/// Pad the bottom yourself or use [SafeInset.new] and [SafeInset.height];
-/// tint it with [Hue] or [Tinted], mix in [Padded], or mark it with [Bare].
+/// Mentions [SafeInset.new], [SafeInset.height], [Hue], [Tinted], [Padded]
+/// and [Bare].
 /// Called from bin/app.dart -> USED.
 void linksDocOnlyTypes() => Shade();
 
-/// Linked only from a doc comment, with unused members -> UNUSED once, as a
-/// whole; --remove keeps it.
+/// Only a doc comment mentions it, and its members are unused -> UNUSED once,
+/// as the type. --remove keeps it.
 class SafeInset {
   SafeInset();
 
@@ -20,31 +21,30 @@ class SafeInset {
   static void reset() => _resetAll();
 }
 
-/// Called only from a member of the doc-only [SafeInset] -> USED, even under
-/// --transitive.
+/// Called only from a member of [SafeInset] -> USED, also with --transitive.
 void _resetAll() {}
 
-/// Linked only from a doc comment, with unused members -> UNUSED once, as a
-/// whole; --remove keeps it.
+/// Only a doc comment mentions it, and its members are unused -> UNUSED once,
+/// as the type. --remove keeps it.
 enum Hue { warm, cool }
 
-/// Linked only from a doc comment, with unused members -> UNUSED once, as a
-/// whole; --remove keeps it.
+/// Only a doc comment mentions it, and its members are unused -> UNUSED once,
+/// as the type. --remove keeps it.
 mixin Padded {
   void pad() {}
 }
 
-/// Linked only from a doc comment, with no members -> DOC-ONLY.
+/// Only a doc comment mentions it, and it has no members -> DOC-ONLY.
 class Bare {}
 
-/// Constructed above; its `tint` is overridden in the doc-only [Tinted] ->
-/// UNUSED, but --remove keeps it with that override.
+/// Constructed above. Its `tint` -> UNUSED, but --remove keeps it because
+/// the override in [Tinted] stays.
 class Shade {
   void tint() {}
 }
 
-/// Linked only from a doc comment, with nothing unused -> DOC-ONLY; --remove
-/// keeps its override.
+/// Only a doc comment mentions it, and nothing in it is unused -> DOC-ONLY.
+/// --remove keeps its override.
 class Tinted extends Shade {
   @override
   void tint() {}

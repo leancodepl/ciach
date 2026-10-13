@@ -286,7 +286,7 @@ final class Settler {
       superclasses.needsConstructorArguments,
     );
 
-    // A type only doc comments link is kept, so its members are kept with it.
+    // `--remove` keeps a type that only doc comments mention, and its members.
     final docOnlyTypes = [
       for (final (i, candidate) in candidates.indexed)
         if (statuses[i] == .docOnly && candidate.isType) candidate,
@@ -306,14 +306,14 @@ final class Settler {
           i,
     };
 
-    final hollowDocOnlyTypes = _foldIntoDocOnlyTypes(
+    final docOnlyTypesWithUnused = _reportDocOnlyTypesWhole(
       candidates,
       reported,
       docOnlyTypeKeys,
     );
 
-    // Couple a dead member's overrides to its removal, or let one that has to
-    // stay, such as one in a doc-only type, block it.
+    // Remove a dead member's overrides with it. If an override has to stay,
+    // for example because it is in a doc-only type, keep the member too.
     final overridden = await _coupleOverrides(
       candidates,
       reported,
@@ -346,7 +346,8 @@ final class Settler {
             _removableBefore.add(i);
           }
         case .docOnly
-            when candidate.isType && hollowDocOnlyTypes.contains(candidate.key):
+            when candidate.isType &&
+                docOnlyTypesWithUnused.contains(candidate.key):
           final finding = _verdict.finding(
             candidate,
             rootPath,
@@ -355,8 +356,9 @@ final class Settler {
           );
           unused.add(finding);
           candidateOf[finding] = i;
-        // Reported with its type.
-        case .docOnly when hollowDocOnlyTypes.contains(candidate.containerKey):
+        // Reported as part of its type.
+        case .docOnly
+            when docOnlyTypesWithUnused.contains(candidate.containerKey):
           break;
         case .docOnly:
           docOnly.add(_verdict.finding(candidate, rootPath));
@@ -375,26 +377,28 @@ final class Settler {
     );
   }
 
-  /// The doc-only types among [docOnlyTypes] with a member in [reported],
-  /// taking those members out of it: such a type is reported once, as a
-  /// whole, in their place, and `--remove` keeps it until the doc links go.
-  static Set<DeclKey> _foldIntoDocOnlyTypes(
+  /// Returns the types in [docOnlyTypes] that have a member in [reported],
+  /// and removes those members from [reported].
+  ///
+  /// Each such type is reported once, instead of its members.
+  static Set<DeclKey> _reportDocOnlyTypesWhole(
     List<Candidate> candidates,
     Set<int> reported,
     Set<DeclKey> docOnlyTypes,
   ) {
-    final hollow = {
+    final types = {
       for (final i in reported)
         if (candidates[i].containerKey case final key?
             when docOnlyTypes.contains(key))
           key,
     };
-    reported.removeWhere((i) => hollow.contains(candidates[i].containerKey));
-    return hollow;
+    reported.removeWhere((i) => types.contains(candidates[i].containerKey));
+    return types;
   }
 
-  /// Drops from [unused] a member reported only because its class died: it is
-  /// removed with the class, so it isn't reported on its own.
+  /// Removes from [unused] each member reported only because its class is
+  /// unused. Removing the class removes the member, so the member is not
+  /// reported separately.
   static void _dropEnclosedInDead(
     List<UnusedDeclaration> unused,
     DeadSpans deadSpans,
