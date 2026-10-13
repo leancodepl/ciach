@@ -1,4 +1,5 @@
-/// Types named in `with` and `implements` clauses, and how to cut them out.
+/// Finds types named in `with` and `implements` clauses and builds the
+/// removals that delete them from those clauses.
 library;
 
 import 'package:ciach/src/comment_stripping.dart';
@@ -8,13 +9,15 @@ import 'package:ciach/src/source_index.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location, Position, SymbolKind;
 
-/// The `kind` of a [CoupledRemoval] that cuts a type out of a `with` or
+/// The `kind` of a [CoupledRemoval] that removes a type from a `with` or
 /// `implements` clause. The remover deletes exactly its range.
 const clauseCutKind = SymbolKind.typeParameter;
 
-/// A type named in a `with` or `implements` clause: the clause's file and
-/// `[clauseStart, clauseEnd)` offsets, the offset of the name, and whether the
-/// clause must keep an entry: a class type alias's `with`.
+/// A type named in a `with` or `implements` clause.
+///
+/// `path` is the file. `[clauseStart, clauseEnd)` are the offsets of the
+/// clause, and `start` is the offset of the type's name. `keepsOne` is true for
+/// the `with` clause of a class type alias, which must keep at least one mixin.
 typedef ClauseEntry = ({
   String path,
   int clauseStart,
@@ -26,9 +29,10 @@ typedef ClauseEntry = ({
 final _clauseKeyword = RegExp(r'(with|implements)\s');
 
 extension ClauseEntries on SourceIndex {
-  /// The clause entry reference [loc] names [name] by, or `null` for any other
-  /// reference: a type annotation, an `extends` or `on` clause, a prefixed or
-  /// generic name.
+  /// Returns the clause entry at [loc] if it names [name] directly.
+  ///
+  /// Returns `null` for any other reference, such as a type annotation, an
+  /// `extends` or `on` clause, or a prefixed or generic name.
   ClauseEntry? clauseEntryAt(Location loc, String name) {
     final path = SourceIndex.pathOf(loc.uri);
     final type = selectionRangeAt(path, loc.range.start);
@@ -67,10 +71,12 @@ extension ClauseEntries on SourceIndex {
     );
   }
 
-  /// The cuts that take [entries] out of their clauses, by entry. A run of
-  /// entries goes with the comma after it, or before it when it ends the
-  /// clause; a clause left empty goes whole. Each entry of a run gets the
-  /// run's cut, so removing any one of their types alone still compiles.
+  /// Returns the removals that delete [entries] from their clauses, by entry.
+  ///
+  /// Adjacent entries are removed together with the comma after them. At the
+  /// end of a clause, the comma before them is removed instead. If no entry is
+  /// left, the whole clause is removed. Adjacent entries share one removal, so
+  /// the code still compiles when only one of their types is removed.
   Map<ClauseEntry, CoupledRemoval> clauseCuts(
     Iterable<ClauseEntry> entries,
     String rootPath,
@@ -82,7 +88,7 @@ extension ClauseEntries on SourceIndex {
       ..._clauseCuts(clause, rootPath),
   };
 
-  /// [clauseCuts] for the [cut] entries of one clause.
+  /// Does [clauseCuts] for the [cut] entries of one clause.
   Map<ClauseEntry, CoupledRemoval> _clauseCuts(
     List<ClauseEntry> cut,
     String rootPath,
@@ -93,8 +99,9 @@ extension ClauseEntries on SourceIndex {
     final byStart = {for (final entry in cut) entry.start: entry};
     final cuts = <ClauseEntry, CoupledRemoval>{};
     for (final (i, j) in _runs(all, byStart.containsKey)) {
+      // Keep the mixins of a type alias if all of them would go.
       // `class A = B;` doesn't parse, and `extends B` would lose the
-      // constructors the alias forwards, so a type alias's only mixins stay.
+      // constructors that the alias forwards.
       if (keepsOne && i == 0 && j == all.length) {
         continue;
       }
@@ -135,8 +142,8 @@ extension ClauseEntries on SourceIndex {
   }
 }
 
-/// The `[start, end)` offsets of the types a clause names, comments and
-/// whitespace trimmed.
+/// Returns the `[start, end)` offsets of each type in a clause, without the
+/// comments and whitespace around it.
 List<({int start, int end})> _entrySpans(
   String content,
   int clauseStart,
@@ -171,7 +178,8 @@ List<({int start, int end})> _entrySpans(
   return spans;
 }
 
-/// The `[i, j)` index ranges of the runs of [spans] that [isCut] by start.
+/// Returns the `[i, j)` index ranges of consecutive [spans] whose start
+/// [isCut] accepts.
 Iterable<(int, int)> _runs(
   List<({int start, int end})> spans,
   bool Function(int start) isCut,
@@ -191,9 +199,11 @@ Iterable<(int, int)> _runs(
   }
 }
 
-/// Whether a declaration [header] up to its clause is a class type alias's,
-/// `class A = B`: it has an `=` outside brackets, where a primary
-/// constructor's default values can't be.
+/// Whether [header], the declaration text before its clause, belongs to a
+/// class type alias such as `class A = B`.
+///
+/// It looks for an `=` outside brackets. The default values of a primary
+/// constructor are always inside brackets.
 bool _isTypeAlias(String header) {
   final code = stripComments(header);
   var depth = 0;

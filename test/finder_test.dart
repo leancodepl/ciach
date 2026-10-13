@@ -1068,7 +1068,7 @@ void main() {
     });
   });
 
-  group('classes and mixins named only in clauses', () {
+  group('classes and mixins used only in clauses', () {
     const fixture = ['lib/scenarios/clause_only.dart'];
 
     test("reports exactly the fixture's dead declarations", () async {
@@ -1093,7 +1093,7 @@ void main() {
     });
 
     test(
-      '--remove cuts them out of their clauses and keeps the rest',
+      '--remove removes them and their clause entries and keeps the rest',
       () async {
         final copy = Directory.systemTemp.createTempSync('ciach_clauses_');
         addTearDown(() => copy.deleteSync(recursive: true));
@@ -1129,8 +1129,8 @@ void main() {
       },
     );
 
-    test('with --transitive, removes a type only their headers name, and '
-        'the rounds settle', () async {
+    test('with --transitive, removes a type that only their headers use, '
+        'without reaching the round limit', () async {
       const fixture = ['lib/scenarios/clause_only_transitive.dart'];
       final messages = <String>[];
       final logging = Logger.root.onRecord

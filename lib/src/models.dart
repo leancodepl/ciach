@@ -294,8 +294,8 @@ class UnusedDeclaration {
   ///   (`State<DeletedWidget>` no longer resolves).
   /// - every override of a dead member, which `skipOverrides` keeps out of the
   ///   findings and which would be left overriding nothing.
-  /// - each `with` or `implements` clause entry naming a class or mixin
-  ///   removed with its dead members, cut out exactly.
+  /// - each `with` or `implements` clause entry that names a removed class or
+  ///   mixin.
   ///
   /// Coupling a removal keeps `--remove` from breaking the build without
   /// surfacing the coupled span as a separate report entry.
@@ -386,8 +386,8 @@ typedef DeadReferrer = ({String qualifiedName, String filePath, int line});
 /// `/`-paths.
 typedef DeletedFile = ({String filePath, List<String> unlinkedFrom});
 
-/// A class, mixin or extension `--remove` emptied by removing every member it
-/// had, and its file, a root-relative `/`-path.
+/// A class, mixin or extension that `--remove` emptied by removing all its
+/// members. `filePath` is relative to the root and uses `/`.
 typedef EmptiedContainer = ({String filePath, String name});
 
 /// What `removeDeclarations` did.
@@ -403,8 +403,9 @@ class RemovalResult {
 
   final List<DeletedFile> deletedFiles;
 
-  /// Declarations left in place with an empty body: code still names them
-  /// (a type, an `extends` clause), so they are not removed.
+  /// Declarations whose members were all removed. They stay in place with an
+  /// empty body because other code still uses them, for example as a type or
+  /// in an `extends` clause.
   final List<EmptiedContainer> emptiedContainers;
 }
 

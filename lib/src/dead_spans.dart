@@ -12,8 +12,9 @@ final class DeadSpans {
   DeadSpans._(this._byPath);
 
   /// The spans of the findings `--remove` would delete, by absolute path.
-  /// Without [clauseCuts], the `with` and `implements` entries they cut stay
-  /// live, still naming their types.
+  /// If [clauseCuts] is false, the spans leave out the removals of `with` and
+  /// `implements` clause entries. Those entries then still count as
+  /// references to their types.
   factory DeadSpans.of(
     Iterable<UnusedDeclaration> findings,
     String rootPath, {

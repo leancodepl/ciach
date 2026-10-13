@@ -1,20 +1,20 @@
-// Classes and mixins whose members are all dead and that only `with` or
-// `implements` clauses name: `--remove` drops them with those clause entries.
+// Classes and mixins whose members are all unused and that only `with` or
+// `implements` clauses use. `--remove` removes them and their clause entries.
 // Scanned by its own test.
 
-/// Named only in `with` clauses, its one member dead -> UNUSED (class),
-/// with the method.
+/// Used only in `with` clauses, and its one member is unused -> UNUSED
+/// (class), with the method.
 mixin Painter {
   void paint() {}
 }
 
-/// Named only in an `implements` clause -> UNUSED (class), with the method
+/// Used only in an `implements` clause -> UNUSED (class), with the method
 /// and its override in `Canvas`.
 abstract class Drawable {
   void draw();
 }
 
-/// No members, named only in a `with` clause -> UNUSED (class).
+/// Has no members and is used only in a `with` clause -> UNUSED (class).
 mixin Plain {}
 
 /// Called through `Easel` -> USED.
@@ -62,15 +62,15 @@ mixin Holder<T> {
 
 class Held with Holder<int> {}
 
-/// Named only in a body-less class's `with` clause -> UNUSED (class), with
-/// the method.
+/// Used only in the `with` clause of a class without a body -> UNUSED
+/// (class), with the method.
 mixin Sketch {
   void sketch() {}
 }
 
 class Sketched(final int size) with Sketch;
 
-/// Named in a class type alias's `with` clause next to another mixin ->
+/// Used in the `with` clause of a class type alias that has another mixin ->
 /// UNUSED (class), with the method.
 mixin Glazed {
   void glaze() {}

@@ -12,7 +12,7 @@ void main() {
   setUp(() => tempDir = Directory.systemTemp.createTempSync('ciach_clauses_'));
   tearDown(() => tempDir.deleteSync(recursive: true));
 
-  /// [source] with the [cut] names cut out of its [clause], through
+  /// Returns [source] after removing the [cut] names from [clause] with
   /// `clauseCuts` and the remover.
   String cutFrom(
     String source,
@@ -50,21 +50,21 @@ void main() {
     return File(path).readAsStringSync();
   }
 
-  test('cuts the only entry with its keyword', () {
+  test('removes the only entry together with the keyword', () {
     expect(
       cutFrom('class A extends B with C {}\n', 'with C', ['C']),
       'class A extends B {}\n',
     );
   });
 
-  test('cuts entries with the comma after them', () {
+  test('removes entries together with the comma after them', () {
     expect(
       cutFrom('class A with C, D, E {}\n', 'with C, D, E', ['C', 'D']),
       'class A with E {}\n',
     );
   });
 
-  test('cuts the last entries with the comma before them', () {
+  test('removes entries at the end together with the comma before them', () {
     expect(
       cutFrom(
         'class A implements Comparable<A>, C, D;\n',
@@ -75,14 +75,14 @@ void main() {
     );
   });
 
-  test('cuts every entry as the whole clause', () {
+  test('removes the whole clause when every entry goes', () {
     expect(
       cutFrom('class A with C, D implements E {}\n', 'with C, D', ['C', 'D']),
       'class A implements E {}\n',
     );
   });
 
-  test("cuts a type alias's mixins but the last one standing", () {
+  test('keeps at least one mixin of a type alias', () {
     expect(
       cutFrom('class A = B with C, D;\n', 'with C, D', ['C'], keepsOne: true),
       'class A = B with D;\n',
@@ -96,7 +96,7 @@ void main() {
     );
   });
 
-  test('cuts entries a comment and line breaks separate', () {
+  test('removes entries separated by a comment and line breaks', () {
     expect(
       cutFrom(
         '''

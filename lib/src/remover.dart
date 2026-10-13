@@ -26,7 +26,7 @@ typedef _Span = ({int start, int end});
 ///
 /// A rewritten file left with nothing but directives is then deleted, as are
 /// the [emptyFiles]; see `deleteEmptiedFiles`. A class, mixin or extension
-/// left with an empty body stays, but is listed in
+/// whose members are all removed stays in place and is listed in
 /// [RemovalResult.emptiedContainers].
 RemovalResult removeDeclarations(
   List<UnusedDeclaration> declarations,
@@ -137,8 +137,8 @@ class RemovalException implements Exception {
   String toString() => message;
 }
 
-/// [content] without [decls], and the containers that leaves with an empty
-/// body.
+/// Returns [content] with [decls] removed, and the names of the containers
+/// this leaves with an empty body.
 (String, Set<String>) _removeFromContent(
   String content,
   List<UnusedDeclaration> decls,
@@ -182,9 +182,11 @@ class RemovalException implements Exception {
   );
 }
 
-/// The containers of [decls] whose whole body the [merged] spans remove: only
-/// whitespace and comments separate a run of spans from the body's `{` and
-/// `}`, and the spans in the run from each other.
+/// Returns the containers of [decls] whose whole body the [merged] spans
+/// remove.
+///
+/// A body counts as removed when the spans cover everything between its `{`
+/// and `}` except whitespace and comments.
 Set<String> _emptiedContainers(
   String content,
   List<_Span> merged,

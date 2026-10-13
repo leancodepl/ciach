@@ -303,8 +303,9 @@ final class Settler {
       ],
     ];
     final dead = unreached(removable, uses);
-    // A clause entry a dead type's removal cuts doesn't revive it, but the next
-    // round still reads it: the type stays a clause-only finding, not unused.
+    // Removing a dead type also removes its clause entries. Keep those entries
+    // as references here, so the next round reports the type as used only in
+    // clauses and not as unused.
     return DeadSpans.of(
       [
         for (final MapEntry(key: finding, value: i) in candidateOf.entries)
@@ -531,9 +532,12 @@ final class Settler {
     );
   }
 
-  /// The used classes and mixins whose every member is a removable finding
-  /// and that only `with` and `implements` clauses in scanned files name, as
-  /// findings that cut those clause entries, with their candidate indexes.
+  /// Returns findings for the used classes and mixins whose members are all
+  /// removable findings and that only `with` and `implements` clauses in
+  /// scanned files use.
+  ///
+  /// Each finding also removes those clause entries and comes with its
+  /// candidate index.
   Iterable<(int, UnusedDeclaration)> _namedOnlyInClauses(
     List<Candidate> candidates,
     List<RefStatus> statuses,
@@ -571,8 +575,9 @@ final class Settler {
         entriesOf[i] = entries;
       }
     }
-    // A clause the cuts cannot parse keeps every type it names, and a type
-    // alias's `with` keeps its last mixins.
+    // Drop a type if any of its clause entries can't be removed. This happens
+    // when a clause can't be parsed, or when the entry is among the last
+    // mixins of a type alias.
     var cuts = _sources.clauseCuts(entriesOf.values.flattened, rootPath);
     bool uncut(List<ClauseEntry> entries) =>
         entries.any((e) => !cuts.containsKey(e));

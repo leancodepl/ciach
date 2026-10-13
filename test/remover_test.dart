@@ -514,7 +514,7 @@ class Registry {
       return removeDeclarations(decls, tempDir.path);
     }
 
-    /// The method `  int paint() => 1;` of [container] on line index [line].
+    /// The method `int paint() => 1;` of [container] on the zero-based [line].
     UnusedDeclaration paint(String container, {int line = 1}) => .new(
       name: 'paint',
       kind: .method,
@@ -526,7 +526,7 @@ class Registry {
       range: (startLine: line, startColumn: 2, endLine: line, endColumn: 18),
     );
 
-    test('keeps a mixin whose only member went, and lists it', () {
+    test('keeps a mixin whose only member is removed and lists it', () {
       final result = remove(
         '''
 mixin Painter {
@@ -564,8 +564,8 @@ extension Parsing on String {
       ]);
     });
 
-    test('lists a container emptied of members a blank line and a comment '
-        'separate', () {
+    test('lists an emptied container when a blank line and a comment '
+        'separate the removed members', () {
       final result = remove(
         '''
 mixin Painter {
