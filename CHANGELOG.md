@@ -1,11 +1,10 @@
 ## Unreleased
 
-- `--remove` reports and removes a class or mixin whose members are all dead
-  and that only `with` and `implements` clauses name, cutting it out of those
-  clauses too. It lists any other class, mixin or extension it left with an
-  empty body ("Left 1 now-empty declaration in place: …"): code still names
-  it, so it stays; if only removed code did, `--transitive` removes it too,
-  and otherwise the next run reports it.
+- A class or mixin whose members are all unused, and that only `with` or
+  `implements` clauses name, is now reported, and `--remove` deletes it and
+  removes it from those clauses. If other code still names it, `--remove`
+  leaves it empty and lists it in the summary. Before, `--remove` left such
+  classes and mixins empty without saying so.
   ([#118](https://github.com/leancodepl/ciach/pull/118))
 - `--remove` no longer breaks a field or variable statement with a comment
   inside, such as `int a = 1, /* note */ b = 2;`. Before, it left `int ;`
