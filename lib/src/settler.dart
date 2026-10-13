@@ -566,7 +566,8 @@ final class Settler {
         entriesOf[i] = entries;
       }
     }
-    // A clause the cuts cannot parse keeps every type it names.
+    // A clause the cuts cannot parse keeps every type it names, and a type
+    // alias's `with` keeps its last mixins.
     var cuts = _sources.clauseCuts(entriesOf.values.flattened, rootPath);
     bool uncut(List<ClauseEntry> entries) =>
         entries.any((e) => !cuts.containsKey(e));

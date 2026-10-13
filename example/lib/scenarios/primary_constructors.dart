@@ -75,7 +75,7 @@ void usePrimaryConstructors() {
   print(Delta(1, 2).to);
   print(Shifted(3).at);
   print(Suit.hearts.glyph);
-  print(Marked());
+  print(<Marker>[Marked()]);
   print(Registry().tag);
   print(Registry.tagged('t'));
   print(Endpoint('localhost', 8080).host);

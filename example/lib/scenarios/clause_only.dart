@@ -62,6 +62,34 @@ mixin Holder<T> {
 
 class Held with Holder<int> {}
 
+/// Named only in a body-less class's `with` clause -> UNUSED (class), with
+/// the method.
+mixin Sketch {
+  void sketch() {}
+}
+
+class Sketched(final int size) with Sketch;
+
+/// Named in a class type alias's `with` clause next to another mixin ->
+/// UNUSED (class), with the method.
+mixin Glazed {
+  void glaze() {}
+}
+
+/// Called through `Varnished` -> USED.
+mixin Varnish {
+  int varnish() => 0;
+}
+
+class Varnished = Object with Glazed, Varnish;
+
+/// A class type alias's only mixin -> stays; only its method is reported.
+mixin Lacquer {
+  void lacquer() {}
+}
+
+class Lacquered = Object with Lacquer;
+
 /// Reached from nothing -> UNUSED (function).
 int useClauses(Object any) {
   Canvas();
@@ -69,5 +97,9 @@ int useClauses(Object any) {
   Checker();
   Picture();
   Held();
-  return Easel().tidy() + (any is Checked ? 1 : 0);
+  const Lacquered();
+  return Easel().tidy() +
+      const Varnished().varnish() +
+      Sketched(1).size +
+      (any is Checked ? 1 : 0);
 }

@@ -14,7 +14,12 @@ void main() {
 
   /// [source] with the [cut] names cut out of its [clause], through
   /// `clauseCuts` and the remover.
-  String cutFrom(String source, String clause, List<String> cut) {
+  String cutFrom(
+    String source,
+    String clause,
+    List<String> cut, {
+    bool keepsOne = false,
+  }) {
     final path = p.join(tempDir.path, 'lib.dart');
     File(path).writeAsStringSync(source);
     final clauseStart = source.indexOf(clause);
@@ -26,6 +31,7 @@ void main() {
           clauseStart: clauseStart,
           clauseEnd: clauseEnd,
           start: source.indexOf(RegExp('\\b$name\\b'), clauseStart),
+          keepsOne: keepsOne,
         ),
     ];
     final removals = SourceIndex().clauseCuts(entries, tempDir.path).values;
@@ -73,6 +79,20 @@ void main() {
     expect(
       cutFrom('class A with C, D implements E {}\n', 'with C, D', ['C', 'D']),
       'class A implements E {}\n',
+    );
+  });
+
+  test("cuts a type alias's mixins but the last one standing", () {
+    expect(
+      cutFrom('class A = B with C, D;\n', 'with C, D', ['C'], keepsOne: true),
+      'class A = B with D;\n',
+    );
+    expect(
+      cutFrom('class A = B with C, D;\n', 'with C, D', [
+        'C',
+        'D',
+      ], keepsOne: true),
+      'class A = B with C, D;\n',
     );
   });
 

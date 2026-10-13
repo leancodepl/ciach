@@ -13,12 +13,14 @@ import 'package:pro_lsp/pro_lsp.dart' show Location, Position, SymbolKind;
 const clauseCutKind = SymbolKind.typeParameter;
 
 /// A type named in a `with` or `implements` clause: the clause's file and
-/// `[clauseStart, clauseEnd)` offsets, and the offset of the name.
+/// `[clauseStart, clauseEnd)` offsets, the offset of the name, and whether the
+/// clause must keep an entry: a class type alias's `with`.
 typedef ClauseEntry = ({
   String path,
   int clauseStart,
   int clauseEnd,
   int start,
+  bool keepsOne,
 });
 
 final _clauseKeyword = RegExp(r'(with|implements)\s');
@@ -26,8 +28,7 @@ final _clauseKeyword = RegExp(r'(with|implements)\s');
 extension ClauseEntries on SourceIndex {
   /// The clause entry reference [loc] names [name] by, or `null` for any other
   /// reference: a type annotation, an `extends` or `on` clause, a prefixed or
-  /// generic name. A `with` clause counts only in a declaration with a body,
-  /// so a class type alias (`class A = B with C;`) keeps its mixin.
+  /// generic name.
   ClauseEntry? clauseEntryAt(Location loc, String name) {
     final path = SourceIndex.pathOf(loc.uri);
     final type = selectionRangeAt(path, loc.range.start);
@@ -40,20 +41,19 @@ extension ClauseEntries on SourceIndex {
     final end = offsetOf(path, type.range.end);
     final clauseStart = offsetOf(path, clause.range.start);
     final clauseEnd = offsetOf(path, clause.range.end);
-    final declarationEnd = offsetOf(path, declaration.range.end);
+    final declarationStart = offsetOf(path, declaration.range.start);
     if (start == null ||
         end == null ||
         clauseStart == null ||
         clauseEnd == null ||
-        declarationEnd == null) {
+        declarationStart == null) {
       return null;
     }
     final content = this.content(path);
     final keyword = _clauseKeyword.matchAsPrefix(content, clauseStart)?[1];
     if (start != offsetOf(path, loc.range.start) ||
         content.substring(start, end) != name ||
-        keyword == null ||
-        (keyword == 'with' && content[declarationEnd - 1] != '}')) {
+        keyword == null) {
       return null;
     }
     return (
@@ -61,6 +61,9 @@ extension ClauseEntries on SourceIndex {
       clauseStart: clauseStart,
       clauseEnd: clauseEnd,
       start: start,
+      keepsOne:
+          keyword == 'with' &&
+          _isTypeAlias(content.substring(declarationStart, clauseStart)),
     );
   }
 
@@ -84,22 +87,17 @@ extension ClauseEntries on SourceIndex {
     List<ClauseEntry> cut,
     String rootPath,
   ) {
-    final (:path, :clauseStart, :clauseEnd, start: _) = cut.first;
+    final (:path, :clauseStart, :clauseEnd, start: _, :keepsOne) = cut.first;
     final content = this.content(path);
     final all = _entrySpans(content, clauseStart, clauseEnd);
     final byStart = {for (final entry in cut) entry.start: entry};
     final cuts = <ClauseEntry, CoupledRemoval>{};
-    var i = 0;
-    while (i < all.length) {
-      if (!byStart.containsKey(all[i].start)) {
-        i++;
+    for (final (i, j) in _runs(all, byStart.containsKey)) {
+      // `class A = B;` doesn't parse, and `extends B` would lose the
+      // constructors the alias forwards, so a type alias's only mixins stay.
+      if (keepsOne && i == 0 && j == all.length) {
         continue;
       }
-      var j = i + 1;
-      while (j < all.length && byStart.containsKey(all[j].start)) {
-        j++;
-      }
-      // Entries i to j - 1 are a run.
       final (start, end) = j < all.length
           ? (all[i].start, all[j].start)
           : i > 0
@@ -116,7 +114,6 @@ extension ClauseEntries on SourceIndex {
       for (final span in all.sublist(i, j)) {
         cuts[byStart[span.start]!] = removal;
       }
-      i = j;
     }
     return cuts;
   }
@@ -172,6 +169,45 @@ List<({int start, int end})> _entrySpans(
   }
   add(from, code.length);
   return spans;
+}
+
+/// The `[i, j)` index ranges of the runs of [spans] that [isCut] by start.
+Iterable<(int, int)> _runs(
+  List<({int start, int end})> spans,
+  bool Function(int start) isCut,
+) sync* {
+  var i = 0;
+  while (i < spans.length) {
+    if (!isCut(spans[i].start)) {
+      i++;
+      continue;
+    }
+    var j = i + 1;
+    while (j < spans.length && isCut(spans[j].start)) {
+      j++;
+    }
+    yield (i, j);
+    i = j;
+  }
+}
+
+/// Whether a declaration [header] up to its clause is a class type alias's,
+/// `class A = B`: it has an `=` outside brackets, where a primary
+/// constructor's default values can't be.
+bool _isTypeAlias(String header) {
+  final code = stripComments(header);
+  var depth = 0;
+  for (var i = 0; i < code.length; i++) {
+    switch (code[i]) {
+      case '<' || '(' || '[' || '{':
+        depth++;
+      case '>' || ')' || ']' || '}':
+        depth--;
+      case '=' when depth == 0:
+        return true;
+    }
+  }
+  return false;
 }
 
 /// The offset just past the last non-whitespace character before [offset].

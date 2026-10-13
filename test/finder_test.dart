@@ -1083,6 +1083,11 @@ void main() {
         ('Primed.prime', null),
         ('Frame.frame', null),
         ('Holder.hold', null),
+        ('Sketch', Verdict.namedOnlyInClausesHint),
+        ('Sketch.sketch', null),
+        ('Glazed', Verdict.namedOnlyInClausesHint),
+        ('Glazed.glaze', null),
+        ('Lacquer.lacquer', null),
         ('useClauses', null),
       });
     });
@@ -1106,14 +1111,20 @@ void main() {
         expect(source, contains('class Easel extends Object with Tidy {}\n'));
         expect(source, contains('class Checker with Checked {}\n'));
         expect(source, contains('class Brushed with Primed, Brush {}\n'));
+        expect(source, contains('class Sketched(final int size);\n'));
+        expect(source, contains('class Varnished = Object with Varnish;\n'));
+        expect(source, contains('class Lacquered = Object with Lacquer;\n'));
         expect(source, isNot(contains('Painter')));
         expect(source, isNot(contains('Drawable')));
         expect(source, isNot(contains('Plain')));
+        expect(source, isNot(contains('Sketch ')));
+        expect(source, isNot(contains('Glazed')));
         expect(removal.emptiedContainers.map((c) => c.name), [
           'Checked',
           'Primed',
           'Frame',
           'Holder',
+          'Lacquer',
         ]);
       },
     );
