@@ -55,6 +55,37 @@ void main() {
       expect(rule.matches('lib/a.dart', symbol('registerWith'), null), isFalse);
     });
 
+    test('a constructor goes by the name the report prints', () {
+      final unnamed = symbol('Parked', kind: .constructor);
+      final named = symbol('Parked.make', kind: .constructor);
+
+      expect(
+        EntryPoint.fromConfig(
+          'Parked.new',
+        ).matches('a.dart', unnamed, 'Parked'),
+        isTrue,
+      );
+      expect(
+        EntryPoint.fromConfig('Parked.make').matches('a.dart', named, 'Parked'),
+        isTrue,
+      );
+      expect(
+        EntryPoint.fromConfig('Parked.new').matches('a.dart', named, 'Parked'),
+        isFalse,
+      );
+    });
+
+    test('the unnamed constructor also answers to Class.Class', () {
+      final unnamed = symbol('Parked', kind: .constructor);
+
+      expect(
+        EntryPoint.fromConfig(
+          'Parked.Parked',
+        ).matches('a.dart', unnamed, 'Parked'),
+        isTrue,
+      );
+    });
+
     test('a bare name never matches a member', () {
       final rule = EntryPoint.fromConfig('registerWith');
 

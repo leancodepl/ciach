@@ -1,4 +1,5 @@
 import 'package:ciach/src/extensions.dart';
+import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
@@ -106,10 +107,17 @@ final class EntryPoint {
           !symbol.name.startsWith('_') &&
           containerSuperclass?.call() == superclass;
     } else {
+      // A constructor goes by the name the report prints, `Class.new` or
+      // `Class.named`; the unnamed one also answers to `Class.Class`.
       final qualified =
-          container?.let((container) => '$container.${symbol.name}') ??
-          symbol.name;
-      named = qualified == name;
+          container?.let(
+            (container) => [
+              '$container.${symbol.declarationName(container)}',
+              '$container.${symbol.name}',
+            ],
+          ) ??
+          [symbol.name];
+      named = qualified.contains(name);
     }
     return named &&
         (_globs.isEmpty || _globs.any((glob) => glob.matches(relativePath)));

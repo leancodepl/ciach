@@ -1499,6 +1499,7 @@ void main() {
         'lib/scenarios/entry_points.dart:Plugin.registerWith',
         'lib/scenarios/entry_points.dart:Plugin.other',
         'lib/scenarios/entry_points.dart:bootstrap',
+        'lib/scenarios/entry_points.dart:Parked',
         // The right file exempts `testExecutable` whatever its shape, and
         // nothing beside it.
         'lib/scenarios/entry_points/flutter_test_config.dart:deadHelperNextToConfig',
@@ -1524,10 +1525,33 @@ void main() {
           // The member rule keeps the type it lives in — the generated call
           // names it too — but not the type's other members.
           'lib/scenarios/entry_points.dart:Plugin.other',
+          'lib/scenarios/entry_points.dart:Parked',
           'lib/scenarios/entry_points/flutter_test_config.dart:deadHelperNextToConfig',
         });
       },
     );
+
+    test('a constructor rule names it as the report does', () async {
+      /// What is left of `Parked` once [rule] exempts one of its constructors.
+      Future<Set<String>> parked(String rule) async => {
+        for (final d in located(
+          await runEntryPoints(entryPoints: [.fromConfig(rule)]),
+        ))
+          if (d.startsWith('lib/scenarios/entry_points.dart:Parked')) d,
+      };
+
+      // A constructor rule keeps its type, as any member rule does.
+      expect(await parked('Parked.new'), {
+        'lib/scenarios/entry_points.dart:Parked.make',
+      });
+      expect(await parked('Parked.make'), {
+        'lib/scenarios/entry_points.dart:Parked.new',
+      });
+      // The analysis server's own name for the unnamed constructor.
+      expect(await parked('Parked.Parked'), {
+        'lib/scenarios/entry_points.dart:Parked.make',
+      });
+    });
 
     test(
       'a project rule whose globs match no scanned file changes nothing',

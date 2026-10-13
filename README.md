@@ -421,7 +421,8 @@ entry-points:
 
 A matching declaration is neither reported nor removed, whatever its signature.
 A member rule also keeps its type, while the type's other members are still
-checked. `-v` names each skipped entry point. `entry-points:` can't be
+checked. Name a constructor as the report does: `MyWidget.new` or
+`MyWidget.named`. `-v` names each skipped entry point. `entry-points:` can't be
 set on the command line.
 
 ### Generated files from the project config
