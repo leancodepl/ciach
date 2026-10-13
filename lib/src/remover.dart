@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:ciach/src/comment_stripping.dart';
 import 'package:ciach/src/emptied_files.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
@@ -22,7 +23,9 @@ typedef _Span = ({int start, int end});
 /// finder works out; one without a cut is left in place.
 ///
 /// A rewritten file left with nothing but directives is then deleted, as are
-/// the [emptyFiles]; see `deleteEmptiedFiles`.
+/// the [emptyFiles]; see `deleteEmptiedFiles`. A class, mixin or extension
+/// left with an empty body stays, but is listed in
+/// [RemovalResult.emptiedContainers].
 RemovalResult removeDeclarations(
   List<UnusedDeclaration> declarations,
   String rootPath, {
@@ -64,6 +67,7 @@ RemovalResult removeDeclarations(
   }
 
   final rewritten = <String>{};
+  final emptied = <EmptiedContainer>[];
   RemovalException failure(FileSystemException e, String path) => .new(
     filePath: relativePosix(path, rootPath),
     cause: e.osError?.message ?? e.message,
@@ -75,7 +79,10 @@ RemovalResult removeDeclarations(
     final file = File(path);
     try {
       final content = file.readAsStringSync();
-      final updated = _removeFromContent(content, entry.value);
+      final (updated, emptiedNames) = _removeFromContent(content, entry.value);
+      emptied.addAll([
+        for (final name in emptiedNames) (filePath: entry.key, name: name),
+      ]);
       if (updated != content) {
         file.writeAsStringSync(updated);
         rewritten.add(path);
@@ -94,6 +101,7 @@ RemovalResult removeDeclarations(
         ...rewritten,
         for (final path in emptyFiles) absoluteUnder(path, rootPath),
       }, rootPath),
+      emptiedContainers: emptied,
     );
   } on FileSystemException catch (e) {
     throw failure(e, e.path ?? rootPath);
@@ -127,7 +135,12 @@ class RemovalException implements Exception {
   String toString() => message;
 }
 
-String _removeFromContent(String content, List<UnusedDeclaration> decls) {
+/// [content] without [decls], and the containers that leaves with an empty
+/// body.
+(String, List<String>) _removeFromContent(
+  String content,
+  List<UnusedDeclaration> decls,
+) {
   final lines = content.split('\n');
   final lineStarts = List<int>.filled(lines.length, 0);
   for (var i = 1; i < lines.length; i++) {
@@ -150,17 +163,52 @@ String _removeFromContent(String content, List<UnusedDeclaration> decls) {
   }
 
   if (spans.isEmpty) {
-    return content;
+    return (content, const []);
   }
 
+  final merged = _mergeSpans(spans);
   final buffer = StringBuffer();
   var cursor = 0;
-  for (final span in _mergeSpans(spans)) {
+  for (final span in merged) {
     buffer.write(content.substring(cursor, span.start));
     cursor = span.end;
   }
   buffer.write(content.substring(cursor));
-  return buffer.toString();
+  return (
+    buffer.toString(),
+    _emptiedContainers(content, merged, decls, offsetOf),
+  );
+}
+
+/// The containers of [decls] whose whole body is one of the [merged] spans:
+/// only whitespace and comments separate the span from the body's `{` and
+/// `}`.
+List<String> _emptiedContainers(
+  String content,
+  List<_Span> merged,
+  List<UnusedDeclaration> decls,
+  int Function(int line, int column) offsetOf,
+) {
+  final code = stripComments(content);
+  final names = <String>{};
+  for (final span in merged) {
+    final before = _previousNonWhitespace(code, span.start);
+    final after = _nextNonWhitespace(code, span.end);
+    if (before == null ||
+        after == null ||
+        code[before] != '{' ||
+        code[after] != '}') {
+      continue;
+    }
+    for (final decl in decls) {
+      final start = offsetOf(decl.range.startLine, decl.range.startColumn);
+      if (decl.container case final container?
+          when span.start <= start && start < span.end) {
+        names.add(container);
+      }
+    }
+  }
+  return names.toList();
 }
 
 /// Returns the span to delete for [decl], which isn't an enum value: the

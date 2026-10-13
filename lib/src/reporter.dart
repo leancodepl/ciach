@@ -113,6 +113,7 @@ abstract final class Reporter {
     }
     final files = removal.filesChanged;
     final deleted = removal.deletedFiles;
+    final emptied = removal.emptiedContainers;
     final sentences = [
       if (removed > 0)
         style.success(
@@ -123,6 +124,10 @@ abstract final class Reporter {
         style.caution('$blocked left in place — unsafe to auto-remove.'),
       if (deleted.isNotEmpty)
         'Deleted ${plural(deleted.length, 'empty file', 'empty files')}: ${deleted.map((d) => d.filePath).join(', ')}.',
+      if (emptied.isNotEmpty)
+        style.caution(
+          'Left ${plural(emptied.length, 'now-empty declaration', 'now-empty declarations')} in place: ${emptied.map((e) => '${e.name} (${e.filePath})').join(', ')}.',
+        ),
       style.note("Run 'dart format' to tidy up spacing."),
     ];
     final buffer = StringBuffer(sentences.join(' '));

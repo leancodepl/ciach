@@ -384,14 +384,26 @@ typedef DeadReferrer = ({String qualifiedName, String filePath, int line});
 /// `/`-paths.
 typedef DeletedFile = ({String filePath, List<String> unlinkedFrom});
 
+/// A class, mixin or extension `--remove` emptied by removing every member it
+/// had, and its file, a root-relative `/`-path.
+typedef EmptiedContainer = ({String filePath, String name});
+
 /// What `removeDeclarations` did.
 class RemovalResult {
-  const RemovalResult({required this.filesChanged, required this.deletedFiles});
+  const RemovalResult({
+    required this.filesChanged,
+    required this.deletedFiles,
+    this.emptiedContainers = const [],
+  });
 
   /// Files declarations were removed from, deleted ones included.
   final int filesChanged;
 
   final List<DeletedFile> deletedFiles;
+
+  /// Declarations left in place with an empty body: they may still be named
+  /// elsewhere (a `with` clause, a type), so they are not removed.
+  final List<EmptiedContainer> emptiedContainers;
 }
 
 /// A declaration that had no reported references but was confirmed used by the
