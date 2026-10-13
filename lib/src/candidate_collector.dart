@@ -64,11 +64,6 @@ final class CandidateCollector {
   /// too, so the type is not a candidate either.
   final _entryPointContainers = <DeclKey, EntryPoint>{};
 
-  /// Types a rule names, by `(relative path, type name)`: whoever reaches the
-  /// type by convention constructs it with `Type()`, so its unnamed
-  /// constructor is not a candidate either.
-  final _entryPointTypes = <DeclKey, EntryPoint>{};
-
   /// The declarations of the open file [path] worth checking.
   Future<List<Candidate>> collect(
     LspClient client,
@@ -371,20 +366,17 @@ final class CandidateCollector {
       containerSuperclass: () => candidate.containerSymbol?.let(
         (containerSymbol) => _superclassOf(candidate.path, containerSymbol),
       ),
+      inEnum: candidate.containerSymbol?.kind == .enum$,
     );
-    switch ((rule, container)) {
-      case (final rule?, final container?):
-        _entryPointContainers[DeclKey(relativePath, container)] ??= rule;
-      case (final rule?, null) when typeLikeKinds.contains(symbol.kind):
-        _entryPointTypes[DeclKey(relativePath, symbol.name)] ??= rule;
+    if (rule != null && container != null) {
+      _entryPointContainers[DeclKey(relativePath, container)] ??= rule;
     }
     final reason =
-        rule?.reason ??
-        _constructedType(
-          relativePath,
-          symbol,
-          container,
-        )?.let((type) => 'constructs the entry point ${type.name}') ??
+        rule?.let(
+          (rule) => rule.name == container
+              ? 'constructs the entry point ${rule.name}'
+              : rule.reason,
+        ) ??
         _calledFromOutside(candidate, leadingMetadata, containerExports);
     if (reason == null) {
       return false;
@@ -399,22 +391,6 @@ final class CandidateCollector {
     return true;
   }
 
-  /// Returns the `entry-points` rule that keeps the class [symbol] creates,
-  /// when [symbol] is that class's unnamed constructor.
-  ///
-  /// A rule naming a class keeps its unnamed constructor too: whoever uses
-  /// the class by convention creates it with `MyClass()`. Returns `null` for
-  /// any other symbol, including a named constructor.
-  EntryPoint? _constructedType(
-    String relativePath,
-    DocumentSymbol symbol,
-    String? container,
-  ) => symbol.kind == .constructor && symbol.declarationName(container) == 'new'
-      ? container?.let(
-          (container) => _entryPointTypes[DeclKey(relativePath, container)],
-        )
-      : null;
-
   /// Returns whether the references to [candidate] should be checked.
   bool _shouldConsider(
     String relativePath,
@@ -423,21 +399,19 @@ final class CandidateCollector {
     required _ExportedMembers? containerExports,
   }) {
     final symbol = candidate.symbol;
-    // Ahead of the kinds: a type rule has to be recorded even when types are
-    // not reported, so that `-k constructor` still keeps its constructor.
-    if (_isEntryPoint(
-      relativePath,
-      candidate,
-      leadingMetadata,
-      containerExports,
-    )) {
-      return false;
-    }
     if (!options.kinds.contains(
       symbol.reportedKind(
         parentIsEnum: candidate.isEnumValue,
         isExtensionType: candidate.isExtensionType,
       ),
+    )) {
+      return false;
+    }
+    if (_isEntryPoint(
+      relativePath,
+      candidate,
+      leadingMetadata,
+      containerExports,
     )) {
       return false;
     }

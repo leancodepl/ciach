@@ -1,7 +1,7 @@
 ## Unreleased
 
-- An `entry-points` rule naming a class also keeps the class's unnamed
-  constructor (`Class()`, a `const` or `factory` one, or a primary
+- An `entry-points` rule naming a class or an extension type also keeps its
+  unnamed constructor (`Class()`, a `const` or `factory` one, or a primary
   constructor), which was still reported as `Class.new`. Named constructors
   and the other members are still checked.
   ([#115](https://github.com/leancodepl/ciach/pull/115))

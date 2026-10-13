@@ -1,4 +1,5 @@
 import 'package:ciach/src/extensions.dart';
+import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
@@ -92,11 +93,16 @@ final class EntryPoint {
   /// root) inside [container] (`null` at the top level), meets this rule.
   /// Returns whether this rule matches [symbol]. [containerSuperclass] is
   /// called only for a [superclass] rule, because it has to parse the source.
+  ///
+  /// A rule naming a class or an extension type also matches its unnamed
+  /// constructor, which whoever reaches the type calls as `Type()`. An enum's
+  /// is called by its values alone, so [inEnum] leaves it out.
   bool matches(
     String relativePath,
     DocumentSymbol symbol,
     String? container, {
     String? Function()? containerSuperclass,
+    bool inEnum = false,
   }) {
     final bool named;
     if (superclass case final superclass?) {
@@ -109,7 +115,12 @@ final class EntryPoint {
       final qualified =
           container?.let((container) => '$container.${symbol.name}') ??
           symbol.name;
-      named = qualified == name;
+      named =
+          qualified == name ||
+          (container == name &&
+              !inEnum &&
+              symbol.kind == .constructor &&
+              symbol.declarationName(container) == 'new');
     }
     return named &&
         (_globs.isEmpty || _globs.any((glob) => glob.matches(relativePath)));
@@ -162,12 +173,14 @@ final class EntryPoints {
     DocumentSymbol symbol,
     String? container, {
     String? Function()? containerSuperclass,
+    bool inEnum = false,
   }) => _rules.firstWhereOrNull(
     (rule) => rule.matches(
       relativePath,
       symbol,
       container,
       containerSuperclass: containerSuperclass,
+      inEnum: inEnum,
     ),
   );
 }

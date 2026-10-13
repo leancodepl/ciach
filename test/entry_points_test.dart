@@ -55,6 +55,23 @@ void main() {
       expect(rule.matches('lib/a.dart', symbol('registerWith'), null), isFalse);
     });
 
+    test('a type name matches its unnamed constructor, unless in an enum', () {
+      final rule = EntryPoint.fromConfig('Card');
+      final unnamed = symbol('Card', kind: .constructor);
+      final named = symbol('Card.blank', kind: .constructor);
+
+      expect(rule.matches('lib/a.dart', unnamed, 'Card'), isTrue);
+      expect(
+        rule.matches('lib/a.dart', unnamed, 'Card', inEnum: true),
+        isFalse,
+      );
+      expect(rule.matches('lib/a.dart', named, 'Card'), isFalse);
+      expect(
+        rule.matches('lib/a.dart', symbol('Card', kind: .method), 'Card'),
+        isFalse,
+      );
+    });
+
     test('a bare name never matches a member', () {
       final rule = EntryPoint.fromConfig('registerWith');
 
