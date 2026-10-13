@@ -8,6 +8,8 @@ import 'package:ciach/src/log.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import 'support/package_config.dart';
+
 /// A package whose declarations nothing calls, some of them kept by
 /// `// ciach:` markers: on the line before, trailing, in a range, and for a
 /// whole file.
@@ -24,6 +26,7 @@ void main() {
 name: markers
 environment: {sdk: ^3.10.0}
 ''');
+    write('.dart_tool/package_config.json', packageConfig({'markers': '.'}));
     write('lib/single.dart', '''
 // ciach:ignore
 void keptNextLine() {}

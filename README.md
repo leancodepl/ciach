@@ -427,8 +427,8 @@ set on the command line.
 
 ### Ignore markers
 
-A `//` comment keeps a declaration from being reported or removed, wherever
-the run finds it:
+A `// ciach:ignore` comment keeps a declaration from being reported or
+removed:
 
 ```dart
 // ciach:ignore
@@ -448,12 +448,12 @@ class Catalog {                       // everything named in the range
 // ciach:ignore-end
 ```
 
-`// ciach:ignore-file` anywhere in a file keeps the whole file: its references
-still count, but nothing in it is reported, removed or edited, as for a
-[generated](#generated-files-from-the-project-config) file.
+`// ciach:ignore-file` anywhere in a file keeps the whole file. ciach still
+counts the uses of other code in it, but reports and changes nothing in it, as
+for a [generated](#generated-files-from-the-project-config) file.
 
-- A marker on a member also keeps its type, so `--remove` can't delete the
-  member with it. The type's other members are still checked.
+- Marking a member also keeps the class or other type that it belongs to. The
+  type's other members are still checked.
 - Any declaration can be marked: enum values, constructors, and members of
   mixins, extensions and extension types too.
 - Free text may follow a marker, as a reason.
