@@ -25,7 +25,7 @@ class ExpressionOnlySignal extends Signal {}
 /// but its removal is BLOCKED (deleting the branch would rewrite control flow),
 /// so it is reported without a coupled removal.
 class IfCaseOnlySignal extends Signal {
-  /// Never read -> UNUSED: reported on its own, since the class stays.
+  /// Never read -> UNUSED. Reported on its own because the class stays.
   int get strength => 0;
 }
 

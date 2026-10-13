@@ -13,8 +13,8 @@
 
 /// Neither value is referenced, but the enum TYPE is (as a parameter type
 /// below), so removing both would leave `enum EmptyableStatus {}` — a compile
-/// error. The enum is therefore reported once, report-only (removalBlocked),
-/// in place of its values.
+/// error. So the enum is reported once instead of its values, and it is
+/// report-only (removalBlocked).
 enum EmptyableStatus { pending, settled }
 
 /// Uses the enum TYPE (keeping it alive) without naming either value.
