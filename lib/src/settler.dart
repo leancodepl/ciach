@@ -286,7 +286,7 @@ final class Settler {
       superclasses.needsConstructorArguments,
     );
 
-    // A type only doc comments link stays, so its members stay with it.
+    // A type only doc comments link is kept, so its members are kept with it.
     final docOnlyTypes = {
       for (final (i, candidate) in candidates.indexed)
         if (statuses[i] == .docOnly && candidate.isType) candidate.key,
@@ -305,6 +305,18 @@ final class Settler {
           i,
     };
 
+    // A doc-only type with dead members is reported once, as a whole, in
+    // place of them; --remove keeps it until the doc link goes.
+    final hollowDocOnlyTypes = {
+      for (final i in reported)
+        if (candidates[i].containerKey case final key?
+            when docOnlyTypes.contains(key))
+          key,
+    };
+    reported.removeWhere(
+      (i) => hollowDocOnlyTypes.contains(candidates[i].containerKey),
+    );
+
     // Couple a dead member's overrides to its removal, or let one that has to
     // stay block it.
     final overridden = await _coupleOverrides(candidates, reported, overrides);
@@ -322,7 +334,6 @@ final class Settler {
             liveRefs: liveRefs,
             overridden: overridden[i],
             safety: safety,
-            docOnlyTypes: docOnlyTypes,
             deadSpans: deadSpans,
             rootPath: rootPath,
           );
@@ -331,6 +342,15 @@ final class Settler {
           if (!finding.removalBlocked) {
             _removableBefore.add(i);
           }
+        case .docOnly when hollowDocOnlyTypes.contains(candidate.key):
+          final finding = _verdict.finding(
+            candidate,
+            rootPath,
+            removalBlocked: true,
+            hint: Verdict.docOnlyTypeHint,
+          );
+          unused.add(finding);
+          candidateOf[finding] = i;
         case .docOnly:
           docOnly.add(_verdict.finding(candidate, rootPath));
         case .unused || .used:
@@ -382,12 +402,10 @@ final class Settler {
     required List<List<Location>> liveRefs,
     required OverriddenMember? overridden,
     required RemoveSafety safety,
-    required Set<DeclKey> docOnlyTypes,
     required DeadSpans deadSpans,
     required String rootPath,
   }) {
     final candidate = candidates[i];
-    final inDocOnlyType = docOnlyTypes.contains(candidate.containerKey);
     final refs = liveRefs[i];
     final blockedByOverride = overridden?.blocked ?? false;
     final pairedState = candidate.symbol.kind == .class$
@@ -413,10 +431,8 @@ final class Settler {
             groupGuards: !_removableBefore.contains(i),
           ) ||
           blockedByOverride ||
-          blockedByState ||
-          inDocOnlyType,
+          blockedByState,
       hint:
-          (inDocOnlyType ? Verdict.docOnlyTypeHint(candidate) : null) ??
           _verdict.hintFor(candidate) ??
           (blockedByOverride ? Verdict.overriddenHint : null) ??
           (blockedByState ? Verdict.pairedStateHint : null),

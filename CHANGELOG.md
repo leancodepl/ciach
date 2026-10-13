@@ -1,9 +1,9 @@
 ## Unreleased
 
 - `--remove` no longer hollows out a class, enum, mixin or extension type
-  referenced only from doc comments. Its unused members are still reported
-  and counted, but left in place, with a hint to drop the doc link so the
-  whole type goes.
+  referenced only from doc comments. One with unused members is reported
+  once, as a whole, and left in place, with a hint to drop the doc links so
+  `--remove` deletes it.
   ([#116](https://github.com/leancodepl/ciach/pull/116))
 - If a scanned package hasn't had `dart pub get`, ciach now stops with exit
   code 2 and lists that package. Before, it reported code used by that package

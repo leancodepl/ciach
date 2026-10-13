@@ -18,6 +18,7 @@ import 'package:ciach/src/finder.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/remover.dart';
+import 'package:ciach/src/verdict.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
@@ -611,39 +612,24 @@ void main() {
   group('doc-only types', () {
     const fixture = ['lib/scenarios/doc_only_types.dart'];
 
-    const classHint =
-        'its class SafeInset is referenced only from doc comments: drop the doc link and --remove deletes the class whole';
-    const enumHint =
-        'its enum Hue is referenced only from doc comments: drop the doc link and --remove deletes the enum whole';
-    const mixinHint =
-        'its mixin Padded is referenced only from doc comments: drop the doc link and --remove deletes the mixin whole';
-
     Set<(String, bool, String?)> findings(FinderResult result) => {
       for (final d in result.unused)
         (d.qualifiedName, d.removalBlocked, d.hint),
     };
 
     for (final transitive in [false, true]) {
-      test('a type linked only from a doc comment is doc-only, and its unused '
-          'members are reported but kept (transitive: $transitive)', () async {
+      test('a doc-only type with unused members is reported once, as a '
+          'whole, and kept (transitive: $transitive)', () async {
         final result = await runFinder(
           include: fixture,
           exclude: const [],
           transitive: transitive,
         );
-        expect(result.docOnly.map((d) => d.qualifiedName).toSet(), {
-          'SafeInset',
-          'Hue',
-          'Padded',
-        });
+        expect(result.docOnly.map((d) => d.qualifiedName).toSet(), {'Bare'});
         expect(findings(result), {
-          ('SafeInset.new', true, classHint),
-          ('SafeInset.named', true, classHint),
-          ('SafeInset.height', true, classHint),
-          ('SafeInset.reset', true, classHint),
-          ('Hue.warm', true, enumHint),
-          ('Hue.cool', true, enumHint),
-          ('Padded.pad', true, mixinHint),
+          ('SafeInset', true, Verdict.docOnlyTypeHint),
+          ('Hue', true, Verdict.docOnlyTypeHint),
+          ('Padded', true, Verdict.docOnlyTypeHint),
         });
       });
     }
