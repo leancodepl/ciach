@@ -490,7 +490,7 @@ final class CandidateCollector {
   }
 }
 
-/// The field statement the symbols being collected belong to, for the
+/// The field statement that the symbols being collected belong to, for the
 /// declarators after the first.
 ///
 /// A field statement's doc comment, annotations and modifiers sit on its first

@@ -370,7 +370,7 @@ that cost.
 | `@override` members — never reported, but removed with a dead member | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses, so none of them are findings. One that overrides a dead member is dead too, so `--remove` [takes both](#removing-declarations) | `--overrides` |
 | Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--operators` |
 | `call` methods | implicit-call syntax (`obj(…)`) is unresolvable the same way | — |
-| Declarations and files marked [`// ciach:ignore`](#ignore-markers) | you said so | — |
+| Declarations and files marked [`// ciach:ignore`](#ignore-markers) | the marker says that they are kept on purpose | — |
 | `@pragma('vm:entry-point')` | reachable from native code or reflection | — |
 | `@JSExport`, and the public members of a `@JSExport` class | they can be called from JavaScript | — |
 | `test_…` methods of a `@reflectiveTest` class | they are run through `dart:mirrors` | — |
