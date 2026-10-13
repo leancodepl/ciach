@@ -103,6 +103,21 @@ void main() {
     });
   });
 
+  group('OutlineElement.isUnitTest', () {
+    OutlineElement element(String kind) =>
+        .new(kind: .fromWire(kind), name: 'test("a")');
+
+    test('recognizes test and test-group calls', () {
+      expect(element('UNIT_TEST_TEST').isUnitTest, isTrue);
+      expect(element('UNIT_TEST_GROUP').isUnitTest, isTrue);
+    });
+
+    test('a declaration is not one', () {
+      expect(element('METHOD').isUnitTest, isFalse);
+      expect(element('FUNCTION').isUnitTest, isFalse);
+    });
+  });
+
   group('isJsonValueType', () {
     test('accepts JSON value types, nullable or parameterized', () {
       for (final type in [

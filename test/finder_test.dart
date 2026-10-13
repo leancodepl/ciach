@@ -1580,6 +1580,15 @@ void main() {
     });
   });
 
+  test('test and test-group calls are not declarations', () async {
+    final result = await runFinder(
+      include: const ['lib/scenarios/test_calls.dart'],
+      exclude: const [],
+    );
+    expect(result.unused.map((d) => d.qualifiedName), ['deadNextToTests']);
+    expect(result.docOnly, isEmpty);
+  });
+
   group('primary constructors (Dart 3.13)', () {
     Future<FinderResult> runPrimary() => runFinder(
       include: ['lib/scenarios/primary_constructors.dart'],

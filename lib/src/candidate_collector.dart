@@ -180,12 +180,8 @@ final class CandidateCollector {
     // reads that statement's instead of its own, which are empty.
     var statementMetadata = const <SemanticToken>[];
     for (final symbol in symbols) {
-      final outline = outlines[symbol];
+      final outline = _declarationOutline(relativePath, symbol, outlines);
       if (outline == null) {
-        _log.fine(
-          'Skipped $relativePath:${symbol.selectionRange.start.line + 1} '
-          "${symbol.name}: the analysis server's outline has no entry for it.",
-        );
         continue;
       }
       final ownMetadata = _sources.leadingMetadata(path, outline);
@@ -239,6 +235,27 @@ final class CandidateCollector {
         outlines,
       );
     }
+  }
+
+  /// The outline of [symbol], or `null` when the symbol declares nothing to
+  /// check.
+  Outline? _declarationOutline(
+    String relativePath,
+    DocumentSymbol symbol,
+    _OutlineIndex outlines,
+  ) {
+    final outline = outlines[symbol];
+    if (outline == null) {
+      _log.fine(
+        'Skipped $relativePath:${symbol.selectionRange.start.line + 1} '
+        "${symbol.name}: the analysis server's outline has no entry for it.",
+      );
+      return null;
+    }
+    // A `test(...)` or `group(...)` call, not a declaration: its references
+    // are the test function's, and removing it would delete the test. The
+    // server lists only more such calls in it, no local declarations.
+    return outline.element.isUnitTest ? null : outline;
   }
 
   /// Whether [candidate] is public and left out: by `--no-public`, or as part
