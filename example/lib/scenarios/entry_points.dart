@@ -1,7 +1,7 @@
 // Entry points. Expected findings: everything, by default; with `entry-points`
 // rules for `integrationMain`, `Plugin.registerWith` and `bootstrap`, only
-// `testExecutable` (wrong file), `Parked` (no rule) and `Plugin.other`: the
-// member rule keeps `Plugin`, which nothing names, but not its other members.
+// `testExecutable` (in the wrong file), `Parked` (no rule) and `Plugin.other`.
+// The `Plugin.registerWith` rule also keeps the unused `Plugin` class.
 // Type parameters are not part of a name: `Plugin<T>` is still `Plugin`.
 
 import 'dart:async';
@@ -20,8 +20,8 @@ class Plugin<T extends Object> {
 
 void bootstrap<T>() {}
 
-// A constructor rule names it as the report does: `Parked.new` keeps the
-// unnamed constructor and, like any member rule, `Parked` itself, but not
+// The report prints the unnamed constructor as `Parked.new`. A rule for
+// `Parked.new` keeps that constructor and the `Parked` class, but not
 // `Parked.make`.
 class Parked {
   Parked();

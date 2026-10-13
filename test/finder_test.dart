@@ -1531,8 +1531,8 @@ void main() {
       },
     );
 
-    test('a constructor rule names it as the report does', () async {
-      /// What is left of `Parked` once [rule] exempts one of its constructors.
+    test('a constructor rule uses the name the report prints', () async {
+      /// Returns the `Parked` constructors still reported with [rule] set.
       Future<Set<String>> parked(String rule) async => {
         for (final d in located(
           await runEntryPoints(entryPoints: [.fromConfig(rule)]),
@@ -1540,7 +1540,7 @@ void main() {
           if (d.startsWith('lib/scenarios/entry_points.dart:Parked.')) d,
       };
 
-      // A constructor rule keeps its type, as any member rule does.
+      // Like any member rule, a constructor rule also keeps its class.
       expect(await parked('Parked.new'), {
         'lib/scenarios/entry_points.dart:Parked.make',
       });

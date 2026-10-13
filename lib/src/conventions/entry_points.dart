@@ -35,11 +35,12 @@ final class EntryPoint {
   /// Creates a rule that comes from the `entry-points` setting or from the
   /// project config.
   ///
-  /// A constructor is `Class.new` or `Class.named`, as the report prints it.
+  /// Name a constructor the way the report prints it, such as `Class.new` or
+  /// `Class.named`.
   ///
-  /// Throws a [FormatException] for a [name] that is not an identifier
-  /// (optionally `Container.member`) or that spells the unnamed constructor
-  /// `Class.Class`; the constructor throws for a glob that does not parse.
+  /// Throws a [FormatException] if [name] is not an identifier or
+  /// `Container.member`, or if it is `Class.Class`. The constructor throws for
+  /// a glob that does not parse.
   factory EntryPoint.fromConfig(
     String name, {
     List<String> files = const [],
@@ -57,7 +58,7 @@ final class EntryPoint {
     }
     if (name.split('.') case [final type, final member] when member == type) {
       throw FormatException(
-        "'$name': write the unnamed constructor as `$type.new`, the way the report prints it.",
+        "'$name' is not a valid name. Write the unnamed constructor as `$type.new`.",
       );
     }
     return .new(name: name, files: files, reason: reason);
@@ -68,9 +69,9 @@ final class EntryPoint {
     r'^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)?$',
   );
 
-  /// `name` for a top-level declaration, `Container.member` for a member
-  /// (`Class.new` for the unnamed constructor); type parameters are not part
-  /// of either.
+  /// The name of the declaration. A top-level declaration is `name` and a
+  /// member is `Container.member`. The unnamed constructor is `Class.new`.
+  /// Type parameters are not part of the name.
   final String name;
 
   /// The superclass that a [EntryPoint.publicMethodsOfSubclasses] rule

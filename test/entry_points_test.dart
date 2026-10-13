@@ -55,7 +55,7 @@ void main() {
       expect(rule.matches('lib/a.dart', symbol('registerWith'), null), isFalse);
     });
 
-    test('a constructor goes by the name the report prints', () {
+    test('a constructor rule uses the name the report prints', () {
       final unnamed = symbol('Parked', kind: .constructor);
       final named = symbol('Parked.make', kind: .constructor);
 
@@ -75,7 +75,7 @@ void main() {
       );
     });
 
-    test('Class.Class is rejected in favour of Class.new', () {
+    test('Class.Class is rejected with a hint to write Class.new', () {
       expect(
         () => EntryPoint.fromConfig('Parked.Parked'),
         throwsA(isFormatException(contains('`Parked.new`'))),
