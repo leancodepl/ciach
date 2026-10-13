@@ -67,6 +67,11 @@ ciach --remove --force                    # …without asking
 ciach --verbose                           # explain each step
 ```
 
+An unused class, mixin, extension type, enum or extension is reported once,
+without its members, and `--remove` deletes it with its members. If an enum is
+used but none of its values are, ciach reports the enum once and doesn't remove
+anything, because an enum needs at least one value.
+
 ### Options
 
 | Option | Default | Description |
@@ -371,7 +376,7 @@ auto-remove — remove manually` and skipped, along with anything coupled to the
 | Report-only finding | Why |
 | --- | --- |
 | A sealed member matched only by type patterns (`--also union-members`) | its `case` arms would need rewriting |
-| Every value of a still-referenced enum | `enum E {}` doesn't compile |
+| A used enum whose values are all unused | `enum E {}` doesn't compile |
 | The sole constructor of a live class with `final` fields, or whose superclass needs constructor arguments | the implicit default constructor can't replace it |
 | A primary constructor or its declaring parameters | only part of the class header |
 | A member whose override is a declaring parameter, or is in a file the run didn't scan | that override can't be deleted, and would be left overriding nothing |

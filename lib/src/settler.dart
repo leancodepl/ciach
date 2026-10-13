@@ -183,8 +183,6 @@ final class Settler {
     String rootPath,
   ) {
     final removable = _removableIndices(candidateOf);
-    final removed = {for (final i in removable) candidates[i].key};
-
     final members = _removableMembers(candidates, removable);
     return [
       for (final MapEntry(key: container, value: (:outline, :removable))
@@ -193,8 +191,7 @@ final class Settler {
             // An extension type keeps its representation field, like `value` in
             // `extension type Id(int value)`. The outline leaves that field
             // out, so the type would wrongly look emptied.
-            outline!.element.kind != .extensionType &&
-            !removed.contains(container))
+            outline!.element.kind != .extensionType)
           (
             filePath: relativePosix(container.path, rootPath),
             name: container.name,
@@ -470,10 +467,12 @@ final class Settler {
           i,
     };
 
-    final docOnlyTypesWithUnused = _reportDocOnlyTypesWhole(
+    final reportOnlyTypes = _reportOnlyTypes(
       candidates,
+      statuses,
       reported,
       docOnlyTypeKeys,
+      safety,
     );
 
     // Remove a dead member's overrides with it. If an override has to stay,
@@ -506,20 +505,11 @@ final class Settler {
           );
           unused.add(finding);
           candidateOf[finding] = i;
+        // A doc-only type reported once instead of its members, or one of its
+        // members: [_reportTypesWhole] reports the type.
         case .docOnly
-            when candidate.isType &&
-                docOnlyTypesWithUnused.contains(candidate.key):
-          final finding = _verdict.finding(
-            candidate,
-            rootPath,
-            removalBlocked: true,
-            hint: Verdict.docOnlyTypeHint,
-          );
-          unused.add(finding);
-          candidateOf[finding] = i;
-        // Reported as part of its type.
-        case .docOnly
-            when docOnlyTypesWithUnused.contains(candidate.containerKey):
+            when reportOnlyTypes.containsKey(candidate.key) ||
+                reportOnlyTypes.containsKey(candidate.containerKey):
           break;
         case .docOnly:
           docOnly.add(_verdict.finding(candidate, rootPath));
@@ -534,7 +524,12 @@ final class Settler {
     final cutCandidateOf = {
       for (final (k, finding) in cut.indexed) finding: candidateOf[unused[k]]!,
     };
-    final removable = _removableIndices(cutCandidateOf);
+    // Members of a type reported once as report-only aren't reported, so
+    // `--remove` must not count them as removed.
+    final removable = _removableIndices(cutCandidateOf)
+      ..removeWhere(
+        (i) => reportOnlyTypes.containsKey(candidates[i].containerKey),
+      );
     _removableBefore.addAll(removable);
     for (final (i, finding) in await _namedOnlyInClauses(
       client,
@@ -550,6 +545,13 @@ final class Settler {
       cut.add(finding);
       cutCandidateOf[finding] = i;
     }
+    _reportTypesWhole(
+      cut,
+      candidates,
+      cutCandidateOf,
+      reportOnlyTypes,
+      rootPath,
+    );
 
     _dropEnclosedInDead(cut, deadSpans, rootPath);
 
@@ -559,6 +561,77 @@ final class Settler {
         for (final finding in cut) finding: cutCandidateOf[finding]!,
       },
     );
+  }
+
+  /// Reports a type once, instead of a finding for each of its members.
+  ///
+  /// - A type in [reportOnlyTypes] gets one report-only finding with its hint.
+  ///   Its members are not reported, so `--remove` keeps them all.
+  /// - A type that is itself a removable finding, because it is unused or used
+  ///   only in `with` and `implements` clauses, also removes what its members'
+  ///   findings removed, like their overrides. Its members are not reported.
+  ///
+  /// Members of other types are still reported, and so is a member an earlier
+  /// round found removable (see [_removableBefore]).
+  void _reportTypesWhole(
+    List<UnusedDeclaration> unused,
+    List<Candidate> candidates,
+    Map<UnusedDeclaration, int> candidateOf,
+    Map<DeclKey, ({int type, String hint})> reportOnlyTypes,
+    String rootPath,
+  ) {
+    Candidate candidateFor(UnusedDeclaration finding) =>
+        candidates[candidateOf[finding]!];
+    final deadTypes = {
+      for (final finding in unused)
+        if (candidateFor(finding) case final candidate
+            when !finding.removalBlocked && candidate.container == null)
+          candidate.key,
+    };
+    bool goesWithType(UnusedDeclaration finding) {
+      final key = candidateFor(finding).containerKey;
+      return deadTypes.contains(key) ||
+          (reportOnlyTypes.containsKey(key) &&
+              !_removableBefore.contains(candidateOf[finding]));
+    }
+
+    final removalsOf = unused
+        .where(
+          (finding) =>
+              goesWithType(finding) &&
+              deadTypes.contains(candidateFor(finding).containerKey) &&
+              !finding.removalBlocked,
+        )
+        .groupFoldBy<DeclKey?, List<CoupledRemoval>>(
+          (member) => candidateFor(member).containerKey,
+          (removals, member) =>
+              (removals ?? [])..addAll(member.coupledRemovals),
+        );
+    unused.removeWhere(goesWithType);
+    for (final (j, finding) in unused.indexed.toList()) {
+      final candidate = candidateFor(finding);
+      if (candidate.container != null) {
+        continue;
+      }
+      if (removalsOf[candidate.key] case final removals?
+          when removals.isNotEmpty) {
+        final folded = finding.copyWith(
+          coupledRemovals: {...finding.coupledRemovals, ...removals}.toList(),
+        );
+        unused[j] = folded;
+        candidateOf[folded] = candidateOf[finding]!;
+      }
+    }
+    for (final (:type, :hint) in reportOnlyTypes.values) {
+      final finding = _verdict.finding(
+        candidates[type],
+        rootPath,
+        removalBlocked: true,
+        hint: hint,
+      );
+      unused.add(finding);
+      candidateOf[finding] = type;
+    }
   }
 
   /// Returns a finding, with its candidate index, for each used class or mixin
@@ -650,23 +723,44 @@ final class Settler {
     ];
   }
 
-  /// Returns the types in [docOnlyTypes] that have a member in [reported],
-  /// and removes those members from [reported].
+  /// Returns the types reported once, as report-only, instead of their members,
+  /// by key, with their candidate index and hint (see [_reportTypesWhole]):
   ///
-  /// Each such type is reported once, instead of its members.
-  static Set<DeclKey> _reportDocOnlyTypesWhole(
+  /// - a type that only doc comments mention, with a member in [reported];
+  /// - a used enum whose values are all unused, like `enum E { a, b }` with
+  ///   only `E` named, since removing the values would leave `enum E {}`.
+  ///
+  /// A member that an earlier round found removable doesn't count (see
+  /// [_removableBefore]).
+  Map<DeclKey, ({int type, String hint})> _reportOnlyTypes(
     List<Candidate> candidates,
+    List<RefStatus> statuses,
     Set<int> reported,
     Set<DeclKey> docOnlyTypes,
+    RemoveSafety safety,
   ) {
     final types = {
-      for (final i in reported)
-        if (candidates[i].containerKey case final key?
-            when docOnlyTypes.contains(key))
-          key,
+      for (final (i, candidate) in candidates.indexed)
+        if (candidate.isType &&
+            ((statuses[i] == .docOnly &&
+                    docOnlyTypes.contains(candidate.key)) ||
+                (statuses[i] == .used &&
+                    candidate.symbol.kind == .enum$ &&
+                    safety.emptiedEnums.contains(candidate.key))))
+          candidate.key: i,
     };
-    reported.removeWhere((i) => types.contains(candidates[i].containerKey));
-    return types;
+    final reportOnlyTypes = <DeclKey, ({int type, String hint})>{};
+    for (final i in reported.whereNot(_removableBefore.contains)) {
+      if (types[candidates[i].containerKey] case final type?) {
+        reportOnlyTypes[candidates[type].key] = (
+          type: type,
+          hint: statuses[type] == .docOnly
+              ? Verdict.docOnlyTypeHint
+              : Verdict.emptiedEnumHint,
+        );
+      }
+    }
+    return reportOnlyTypes;
   }
 
   /// Removes from [unused] each member reported only because its class is

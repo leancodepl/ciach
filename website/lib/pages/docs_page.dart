@@ -166,7 +166,7 @@ const _skips = [
 
 const _reportOnly = [
   'A sealed member matched only by type patterns (`--also union-members`).',
-  'Every value of a still-referenced enum.',
+  'A used enum whose values are all unused.',
   'The sole constructor of a live class with final fields or super forwarding.',
   'A primary constructor or its declaring parameters.',
 ];

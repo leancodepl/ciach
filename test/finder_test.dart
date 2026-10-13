@@ -108,8 +108,8 @@ void main() {
       'UsedClass.shout',
       'UsedClass.unusedMethod',
       'UsedClass._unusedField',
+      // A dead class is reported once: its dead members go with it.
       'UnusedClass',
-      'UnusedClass.orphanMethod',
       // A fully dead class is reported as the whole CLASS, not just its
       // constructor (which is removed with it).
       'FullyDeadClass',
@@ -572,6 +572,8 @@ void main() {
       expect(decl!.removalBlocked, isTrue);
       // Nothing is coupled: `--also union-members` never removes arms.
       expect(decl.coupledRemovals, isEmpty);
+      // The class stays, so its dead member is a finding of its own.
+      expect(findByName(result, 'strength')?.removalBlocked, isFalse);
     });
 
     test('flag ON: a member that is also constructed is never flagged, nor is '
@@ -600,14 +602,15 @@ void main() {
 
   test('a reference from inside its own span keeps nothing alive', () async {
     // `_countdown` and `Walker._depth` only call themselves, and `Chain` is
-    // named only by its own field. `factorial` and `Walker._step` call
-    // themselves as well, but something else calls them, so they stay.
+    // named only by its own field, which goes with it. `factorial` and
+    // `Walker._step` call themselves as well, but something else calls them,
+    // so they stay.
     expect(
       await findUnused(
         include: ['lib/scenarios/self_references.dart'],
         exclude: const [],
       ),
-      {'_countdown', 'Walker._depth', 'Chain', 'Chain.next'},
+      {'_countdown', 'Walker._depth', 'Chain'},
     );
   });
 
@@ -667,31 +670,31 @@ void main() {
     Future<FinderResult> runGuards() =>
         runFinder(include: ['lib/scenarios/guards.dart'], exclude: const []);
 
-    test(
-      'emptying a still-referenced enum is reported but removal-blocked',
-      () async {
-        final result = await runGuards();
-        // No value is named individually and `.values` is never iterated, but
-        // the enum TYPE stays referenced, so the empty-enum guard blocks removal
-        // instead of emptying the enum. (Enums reached via `.values` are
-        // instead treated as used and never reported — see the `enum `.values`
-        // detection fix` group.)
-        for (final qualified in const [
-          'EmptyableStatus.pending',
-          'EmptyableStatus.settled',
-        ]) {
-          final decl = findByQualified(result, qualified);
-          expect(decl, isNotNull, reason: '$qualified should be flagged dead');
-          // Removing every value would leave `enum EmptyableStatus {}`, so the
-          // finding is surfaced but --remove must leave it in place.
-          expect(
-            decl!.removalBlocked,
-            isTrue,
-            reason: '$qualified would empty a still-referenced enum',
-          );
-        }
-      },
-    );
+    test('a still-referenced enum with every value unused is reported once, '
+        'removal-blocked', () async {
+      final result = await runGuards();
+      // No value is named individually and `.values` is never iterated, but
+      // the enum TYPE stays referenced, so removing the values would leave
+      // `enum EmptyableStatus {}`. (Enums reached via `.values` are instead
+      // treated as used and never reported — see the `enum `.values`
+      // detection fix` group.)
+      expect(
+        [
+          for (final d in result.unused)
+            if (d.qualifiedName.startsWith('EmptyableStatus'))
+              (d.qualifiedName, d.kind, d.removalBlocked, d.hint),
+        ],
+        [
+          (
+            'EmptyableStatus',
+            SymbolKind.enum$,
+            true,
+            'every value is unused, but the enum is used and Dart needs at '
+                'least one value',
+          ),
+        ],
+      );
+    });
 
     test(
       'the sole constructor of a live class with final fields is reported but '
@@ -759,7 +762,7 @@ void main() {
       expect(names(result.unused), {
         '_deadRoot',
         '_secondDeadRoot',
-        'Lone.only',
+        'Lone',
         'Token.fromJson',
       });
       expect(names(result.docOnly), {'_docLinkedFromDead'});
@@ -779,7 +782,7 @@ void main() {
         '_Egg',
         '_deadRoot',
         '_secondDeadRoot',
-        'Lone.only',
+        'Lone',
         '_onlyFromDeadRoot',
         '_deeper',
         '_sharedByDeadRoots',
@@ -795,7 +798,7 @@ void main() {
       List<DeadReferrer> via(String name) =>
           findByQualified(result, name)!.onlyReferencedFrom;
       expect(via('_deadRoot'), isEmpty, reason: 'dead in its own right');
-      expect(via('Lone.only'), isEmpty);
+      expect(via('Lone'), isEmpty);
       expect(via('_onlyFromDeadRoot'), [asOwner(result, '_deadRoot')]);
       expect(via('_deeper'), [asOwner(result, '_onlyFromDeadRoot')]);
       expect(via('_docLinkedFromDead'), [asOwner(result, '_deadRoot')]);
@@ -855,9 +858,10 @@ void main() {
     test('flag ON: a report-only finding stays, and keeps what it alone '
         'references', () async {
       final result = await runTransitive();
-      final only = findByQualified(result, 'Lone.only');
-      expect(only, isNotNull);
-      expect(only!.removalBlocked, isTrue, reason: 'would empty the enum');
+      final lone = findByQualified(result, 'Lone');
+      expect(lone, isNotNull);
+      expect(lone!.removalBlocked, isTrue, reason: 'its only value is unused');
+      expect(findByQualified(result, 'Lone.only'), isNull);
       expect(findByQualified(result, '_loneArg'), isNull);
     });
 
@@ -914,6 +918,47 @@ void main() {
     );
   });
 
+  group('dead types', () {
+    const fixture = ['lib/scenarios/dead_types.dart'];
+
+    for (final transitive in [false, true]) {
+      test('a dead class, mixin, extension type or enum is reported once, '
+          'without its members (transitive: $transitive)', () async {
+        final result = await runFinder(
+          include: fixture,
+          exclude: const [],
+          transitive: transitive,
+        );
+        expect(
+          [for (final d in result.unused) (d.qualifiedName, d.removalBlocked)],
+          [
+            ('DeadBox', false),
+            ('DeadTrait', false),
+            ('DeadId', false),
+            ('DeadLevel', false),
+          ],
+        );
+      });
+    }
+
+    test('--remove deletes each type with its members', () async {
+      final copy = Directory.systemTemp.createTempSync('ciach_dead_types_');
+      addTearDown(() => copy.deleteSync(recursive: true));
+      copyTree(Directory(fixturePath), copy);
+      final file = File(p.join(copy.path, fixture.single));
+      Future<FinderResult> run() =>
+          Ciach(.new(rootPath: copy.path, includeGlobs: fixture)).run();
+
+      removeDeclarations((await run()).unused, copy.path);
+
+      expect(
+        file.existsSync() ? file.readAsStringSync() : '',
+        isNot(contains('Dead')),
+      );
+      expect((await run()).unused, isEmpty);
+    });
+  });
+
   const extensionFixture = [
     'lib/scenarios/extensions_emptied.dart',
     'lib/scenarios/extensions_emptied_uses.dart',
@@ -940,9 +985,7 @@ void main() {
         'extension on List<T>',
         'extension on T',
         'DeadMeters',
-        'DeadMeters.scaled',
         'SelfMeters',
-        'SelfMeters.next',
         'useEmptiedExtensions',
       });
     });
@@ -1012,14 +1055,14 @@ void main() {
     });
 
     test('an extension type is a type: dead when nothing names it, reported '
-        'whole with its members, like a dead class', () async {
+        'once with its members, like a dead class', () async {
       final result = await runExtensions();
       final decl = findByQualified(result, 'DeadMeters');
       expect(decl, isNotNull);
       expect(decl!.kind, SymbolKind.struct);
       expect(decl.kind.label, 'extension type');
       expect(decl.removalBlocked, isFalse);
-      expect(findByQualified(result, 'DeadMeters.scaled'), isNotNull);
+      expect(findByQualified(result, 'DeadMeters.scaled'), isNull);
     });
 
     test(
@@ -1663,9 +1706,8 @@ void main() {
         // Wrong file.
         'lib/scenarios/entry_points.dart:testExecutable',
         'lib/scenarios/entry_points.dart:integrationMain',
+        // Reported once: its dead members go with it.
         'lib/scenarios/entry_points.dart:Plugin',
-        'lib/scenarios/entry_points.dart:Plugin.registerWith',
-        'lib/scenarios/entry_points.dart:Plugin.other',
         'lib/scenarios/entry_points.dart:bootstrap',
         'lib/scenarios/entry_points.dart:Parked',
         // An unused class is reported without its constructors.
