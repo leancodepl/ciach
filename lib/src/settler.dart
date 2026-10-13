@@ -365,16 +365,7 @@ final class Settler {
       }
     }
 
-    // A member reported only because its class died is removed with the class,
-    // so it isn't reported on its own.
-    if (deadSpans.isNotEmpty) {
-      final removable = DeadSpans.of(unused, rootPath);
-      unused.removeWhere(
-        (finding) =>
-            finding.onlyReferencedFrom.isNotEmpty &&
-            removable.enclosesInAnother(finding, rootPath),
-      );
-    }
+    _dropEnclosedInDead(unused, deadSpans, rootPath);
 
     return (
       settled: (unused: unused, docOnly: docOnly, recovered: recovered),
@@ -400,6 +391,24 @@ final class Settler {
     };
     reported.removeWhere((i) => hollow.contains(candidates[i].containerKey));
     return hollow;
+  }
+
+  /// Drops from [unused] a member reported only because its class died: it is
+  /// removed with the class, so it isn't reported on its own.
+  static void _dropEnclosedInDead(
+    List<UnusedDeclaration> unused,
+    DeadSpans deadSpans,
+    String rootPath,
+  ) {
+    if (deadSpans.isEmpty) {
+      return;
+    }
+    final removable = DeadSpans.of(unused, rootPath);
+    unused.removeWhere(
+      (finding) =>
+          finding.onlyReferencedFrom.isNotEmpty &&
+          removable.enclosesInAnother(finding, rootPath),
+    );
   }
 
   /// Names of classes flagged unused, per file. A whole dead class is removed
