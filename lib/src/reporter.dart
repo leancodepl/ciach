@@ -14,8 +14,10 @@ import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/style.dart';
+import 'package:ciach/src/version.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
+import 'package:xml/xml.dart';
 
 /// What an empty file holds.
 const _emptyFileContents =
@@ -333,13 +335,245 @@ abstract final class Reporter {
   /// [GitHub Actions workflow commands]: https://docs.github.com/actions/reference/workflow-commands-for-github-actions
   static String github(FinderResult result, {String pathPrefix = '.'}) {
     final buffer = StringBuffer();
+    for (final (:check, :file, :line, :column, :message) in _annotations(
+      result,
+      pathPrefix,
+    )) {
+      final properties = [
+        'file=${_escapeProperty(file)}',
+        ?line?.let((line) => 'line=$line'),
+        ?column?.let((column) => 'col=$column'),
+        'title=${_escapeProperty(check.title)}',
+      ];
+      buffer.writeln(
+        "::${check.notice ? 'notice' : 'warning'} ${properties.join(',')}::${_escapeData(message)}",
+      );
+    }
+    return buffer.toString();
+  }
+
+  /// [Azure Pipelines logging commands][] — one `task.logissue` warning per
+  /// finding, which the run's summary lists with its file and line. Azure has
+  /// no severity below a warning, so doc-only findings are warnings too.
+  ///
+  /// [pathPrefix] is prepended to each path, as in [github].
+  ///
+  /// [Azure Pipelines logging commands]: https://learn.microsoft.com/azure/devops/pipelines/scripts/logging-commands
+  static String azure(FinderResult result, {String pathPrefix = '.'}) {
+    final buffer = StringBuffer();
+    for (final (:check, :file, :line, :column, :message) in _annotations(
+      result,
+      pathPrefix,
+    )) {
+      final properties = [
+        'type=warning',
+        'sourcepath=${_escapeAzure(file, property: true)}',
+        ?line?.let((line) => 'linenumber=$line'),
+        ?column?.let((column) => 'columnnumber=$column'),
+      ];
+      buffer.writeln(
+        "##vso[task.logissue ${properties.join(';')}]${_escapeAzure('${check.title}: $message')}",
+      );
+    }
+    return buffer.toString();
+  }
+
+  /// [TeamCity inspections][] — one `inspection` service message per finding,
+  /// which the build's Inspections tab groups by type: a `WARNING` for each
+  /// unused finding and empty file, a `WEAK WARNING` for each doc-only one.
+  /// Each type is declared by an `inspectionType` message before its first
+  /// use.
+  ///
+  /// [pathPrefix] is prepended to each path, as in [github].
+  ///
+  /// [TeamCity inspections]: https://www.jetbrains.com/help/teamcity/service-messages.html#Reporting+Inspections
+  static String teamCity(FinderResult result, {String pathPrefix = '.'}) {
+    final buffer = StringBuffer();
+    final declared = <_Check>{};
+    for (final (:check, :file, :line, column: _, :message) in _annotations(
+      result,
+      pathPrefix,
+    )) {
+      final typeId = 'ciach.${check.id}';
+      if (declared.add(check)) {
+        _writeTeamCity(buffer, 'inspectionType', [
+          ('id', typeId),
+          ('name', check.title),
+          ('category', 'ciach'),
+          ('description', check.title),
+        ]);
+      }
+      _writeTeamCity(buffer, 'inspection', [
+        ('typeId', typeId),
+        ('message', message),
+        ('file', file),
+        ?line?.let((line) => ('line', '$line')),
+        ('SEVERITY', check.notice ? 'WEAK WARNING' : 'WARNING'),
+      ]);
+    }
+    return buffer.toString();
+  }
+
+  /// A [SARIF 2.1.0][] log, which GitHub code scanning, Azure DevOps and most
+  /// static-analysis dashboards import: one result per finding, a `warning`
+  /// for each unused finding and empty file, a `note` for each doc-only one.
+  ///
+  /// [pathPrefix] is prepended to each path, as in [github].
+  ///
+  /// [SARIF 2.1.0]: https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html
+  static String sarif(FinderResult result, {String pathPrefix = '.'}) {
+    const encoder = JsonEncoder.withIndent('  ');
+    return encoder.convert({
+      r'$schema': 'https://json.schemastore.org/sarif-2.1.0.json',
+      'version': '2.1.0',
+      'runs': [
+        {
+          'tool': {
+            'driver': {
+              'name': 'ciach',
+              'version': ciachVersion,
+              'informationUri': 'https://github.com/leancodepl/ciach',
+              'rules': [
+                for (final check in _Check.values)
+                  {
+                    'id': check.id,
+                    'shortDescription': {'text': check.title},
+                  },
+              ],
+            },
+          },
+          'results': [
+            for (final (:check, :file, :line, :column, :message)
+                in _annotations(result, pathPrefix))
+              {
+                'ruleId': check.id,
+                'ruleIndex': check.index,
+                'level': check.notice ? 'note' : 'warning',
+                'message': {'text': message},
+                'locations': [
+                  {
+                    'physicalLocation': {
+                      'artifactLocation': {'uri': Uri(path: file).toString()},
+                      'region': ?line?.let(
+                        (line) => {'startLine': line, 'startColumn': ?column},
+                      ),
+                    },
+                  },
+                ],
+              },
+          ],
+        },
+      ],
+    });
+  }
+
+  /// A [Checkstyle][] XML report, which Jenkins (Warnings Next Generation),
+  /// SonarQube and most CI report plugins read: findings grouped by file, a
+  /// `warning` for each unused finding and empty file, an `info` for each
+  /// doc-only one.
+  ///
+  /// [pathPrefix] is prepended to each path, as in [github].
+  ///
+  /// [Checkstyle]: https://checkstyle.org
+  static String checkstyle(FinderResult result, {String pathPrefix = '.'}) {
+    final byFile = _annotations(
+      result,
+      pathPrefix,
+    ).groupListsBy((annotation) => annotation.file);
+    final builder = XmlBuilder()..declaration(encoding: 'UTF-8');
+    builder.element(
+      'checkstyle',
+      attributes: {'version': '4.3'},
+      nest: () {
+        for (final MapEntry(key: file, value: annotations) in byFile.entries) {
+          builder.element(
+            'file',
+            attributes: {'name': _xmlText(file)},
+            nest: () {
+              for (final (:check, file: _, :line, :column, :message)
+                  in annotations) {
+                builder.element(
+                  'error',
+                  attributes: {
+                    'line': ?line?.toString(),
+                    'column': ?column?.toString(),
+                    'severity': check.notice ? 'info' : 'warning',
+                    'message': _xmlText(message),
+                    'source': 'ciach.${check.id}',
+                  },
+                );
+              }
+            },
+          );
+        }
+      },
+    );
+    return '${builder.buildDocument().toXmlString(pretty: true, indent: '  ')}\n';
+  }
+
+  /// A [GitLab Code Quality][] report, for a job's `codequality` artifact,
+  /// which GitLab shows on the merge request: a `minor` issue for each unused
+  /// finding and empty file, an `info` one for each doc-only one. Each
+  /// fingerprint hashes the finding without its line, so a finding that only
+  /// moved is not reported as new.
+  ///
+  /// [pathPrefix] is prepended to each path, as in [github].
+  ///
+  /// [GitLab Code Quality]: https://docs.gitlab.com/ci/testing/code_quality/#code-quality-report-format
+  static String gitlab(FinderResult result, {String pathPrefix = '.'}) {
+    const encoder = JsonEncoder.withIndent('  ');
+    final seen = <String, int>{};
+    final issues = <Map<String, Object?>>[];
+    for (final (:check, :file, :line, column: _, :message) in _annotations(
+      result,
+      pathPrefix,
+    )) {
+      final key = [check.id, file, message].join('\n');
+      // The occurrence tells identical findings in one file apart.
+      final occurrence = seen.update(key, (n) => n + 1, ifAbsent: () => 0);
+      issues.add({
+        'description': message,
+        'check_name': check.id,
+        'fingerprint': _fingerprint('$key\n$occurrence'),
+        'severity': check.notice ? 'info' : 'minor',
+        'location': {
+          'path': file,
+          'lines': {'begin': line ?? 1},
+        },
+      });
+    }
+    return encoder.convert(issues);
+  }
+
+  /// A 64-bit FNV-1a hash of [key], in hex.
+  static String _fingerprint(String key) {
+    // ciach runs on the VM only, where an int holds the whole offset.
+    // ignore: avoid_js_rounded_ints
+    var hash = 0xcbf29ce484222325;
+    for (final byte in utf8.encode(key)) {
+      hash = (hash ^ byte) * 0x100000001b3;
+    }
+    // Unsigned, in halves: a 64-bit int with the top bit set is negative.
+    return [
+      hash >>> 32,
+      hash & 0xffffffff,
+    ].map((half) => half.toRadixString(16).padLeft(8, '0')).join();
+  }
+
+  /// Every finding of [result] as an annotation, its path prefixed with
+  /// [pathPrefix]: unused declarations, empty files, doc-only findings,
+  /// recovered references and problems, in that order.
+  static Iterable<_Annotation> _annotations(
+    FinderResult result,
+    String pathPrefix,
+  ) sync* {
+    String file(String filePath) => _annotationFile(filePath, pathPrefix);
     for (final decl in result.unused) {
-      _writeAnnotation(
-        buffer,
-        decl,
-        pathPrefix,
-        level: 'warning',
-        title: 'Unused declaration',
+      yield (
+        check: .unused,
+        file: file(decl.filePath),
+        line: decl.line,
+        column: decl.column,
         message: [
           "Unused ${decl.isPrivate ? 'private ' : ''}${decl.kind.label} '${decl.qualifiedName}'",
           ?decl.hint,
@@ -348,100 +582,53 @@ abstract final class Reporter {
       );
     }
     final variants = result.emptyVariants.toSet();
-    for (final file in result.allEmptyFiles) {
-      _writeAnnotationRaw(
-        buffer,
-        _annotationFile(file, pathPrefix),
-        1,
-        1,
-        level: 'warning',
-        title: 'Empty file',
+    for (final emptyFile in result.allEmptyFiles) {
+      yield (
+        check: .emptyFile,
+        file: file(emptyFile),
+        line: 1,
+        column: 1,
         message: [
           'Has $_emptyFileContents',
-          if (variants.contains(file)) _emptyVariantNote,
+          if (variants.contains(emptyFile)) _emptyVariantNote,
         ].join(' — '),
       );
     }
     for (final decl in result.docOnly) {
-      _writeAnnotation(
-        buffer,
-        decl,
-        pathPrefix,
-        level: 'notice',
-        title: 'Referenced only from a doc comment',
+      yield (
+        check: .docOnly,
+        file: file(decl.filePath),
+        line: decl.line,
+        column: decl.column,
         message:
             "${decl.kind.label} '${decl.qualifiedName}' has no code references, only a dartdoc link",
       );
     }
     for (final w in result.recoveredReferences) {
-      _writeAnnotationRaw(
-        buffer,
-        _annotationFile(w.filePath, pathPrefix),
-        w.line,
-        w.column,
-        level: 'warning',
-        title: 'Recovered reference (possible analyzer bug)',
+      yield (
+        check: .recovered,
+        file: file(w.filePath),
+        line: w.line,
+        column: w.column,
         message: "'${w.qualifiedName}' ${w.message}",
       );
     }
     for (final problem in result.problems) {
-      final file = _escapeProperty(
-        _annotationFile(problem.filePath, pathPrefix),
-      );
-      final position = [
-        if (problem.line case final line?) 'line=$line',
-        if (problem.column case final column?) 'col=$column',
-      ];
       final name = problem.name?.let((name) => "'$name': ") ?? '';
-      buffer.writeln(
-        '::warning '
-        '${['file=$file', ...position, 'title=Could not analyze'].join(',')}'
-        '::${_escapeData('$name${problem.summary} Cause: ${problem.cause}')}',
+      yield (
+        check: .notAnalyzed,
+        file: file(problem.filePath),
+        line: problem.line,
+        column: problem.column,
+        message: '$name${problem.summary} Cause: ${problem.cause}',
       );
     }
-    return buffer.toString();
   }
 
   static String _annotationFile(String filePath, String pathPrefix) =>
       pathPrefix == '.' || pathPrefix.isEmpty
       ? filePath
       : p.posix.normalize('$pathPrefix/$filePath');
-
-  static void _writeAnnotation(
-    StringBuffer buffer,
-    UnusedDeclaration decl,
-    String pathPrefix, {
-    required String level,
-    required String title,
-    required String message,
-  }) => _writeAnnotationRaw(
-    buffer,
-    _annotationFile(decl.filePath, pathPrefix),
-    decl.line,
-    decl.column,
-    level: level,
-    title: title,
-    message: message,
-  );
-
-  static void _writeAnnotationRaw(
-    StringBuffer buffer,
-    String file,
-    int line,
-    int col, {
-    required String level,
-    required String title,
-    required String message,
-  }) {
-    buffer.writeln(
-      '::$level '
-      'file=${_escapeProperty(file)},'
-      'line=$line,'
-      'col=$col,'
-      'title=${_escapeProperty(title)}'
-      '::${_escapeData(message)}',
-    );
-  }
 
   // Escaping per the workflow-command spec.
   static String _escapeData(String value) => value
@@ -451,6 +638,42 @@ abstract final class Reporter {
 
   static String _escapeProperty(String value) =>
       _escapeData(value).replaceAll(':', '%3A').replaceAll(',', '%2C');
+
+  // XML 1.0 can't hold the other control characters, even as references.
+  static String _xmlText(String value) =>
+      value.replaceAll(RegExp('[\x00-\x08\x0B\x0C\x0E-\x1F]'), '');
+
+  // Escaping per the Azure Pipelines agent, which unescapes `%AZP25` last.
+  static String _escapeAzure(String value, {bool property = false}) {
+    final data = value
+        .replaceAll('%', '%AZP25')
+        .replaceAll('\r', '%0D')
+        .replaceAll('\n', '%0A');
+    return property ? data.replaceAll(';', '%3B').replaceAll(']', '%5D') : data;
+  }
+
+  static void _writeTeamCity(
+    StringBuffer buffer,
+    String name,
+    List<(String, String)> attributes,
+  ) {
+    final rendered = [
+      for (final (key, value) in attributes) "$key='${_escapeTeamCity(value)}'",
+    ];
+    buffer.writeln('##teamcity[$name ${rendered.join(' ')}]');
+  }
+
+  // Escaping per the service-message spec; `|` goes first.
+  static String _escapeTeamCity(String value) => value
+      .replaceAll('|', '||')
+      .replaceAll("'", "|'")
+      .replaceAll('\n', '|n')
+      .replaceAll('\r', '|r')
+      .replaceAll('[', '|[')
+      .replaceAll(']', '|]')
+      .replaceAll('\u0085', '|x')
+      .replaceAll('\u2028', '|l')
+      .replaceAll('\u2029', '|p');
 
   static String _summary(FinderResult result, Style style) {
     final count = result.unused.length;
@@ -480,3 +703,31 @@ abstract final class Reporter {
     return ['$headline $scanned', ...sections].join(style.note(' · '));
   }
 }
+
+/// What kind of finding an annotation is: its id and title, as the CI
+/// services group and label it, and whether it is below a warning.
+enum _Check {
+  unused('unused-declaration', 'Unused declaration'),
+  emptyFile('empty-file', 'Empty file'),
+  docOnly('doc-only', 'Referenced only from a doc comment', notice: true),
+  recovered(
+    'recovered-reference',
+    'Recovered reference (possible analyzer bug)',
+  ),
+  notAnalyzed('not-analyzed', 'Could not analyze');
+
+  const _Check(this.id, this.title, {this.notice = false});
+
+  final String id;
+  final String title;
+  final bool notice;
+}
+
+/// One finding, where it is, and what to say about it.
+typedef _Annotation = ({
+  _Check check,
+  String file,
+  int? line,
+  int? column,
+  String message,
+});

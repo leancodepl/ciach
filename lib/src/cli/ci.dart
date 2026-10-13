@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:collection/collection.dart';
+import 'package:path/path.dart' as p;
 
 /// What a run on CI defaults to where nothing says otherwise: the one list the
 /// option resolution and the verbose log both read.
@@ -45,9 +48,20 @@ enum CiRunner {
     showProgress: false,
     format: switch (this) {
       .githubActions => 'github',
+      .azurePipelines => 'azure',
+      .teamCity => 'teamcity',
       _ => null,
     },
   );
+
+  /// The environment variable naming the directory this service checked the
+  /// repository out to, where it sets one.
+  String? get checkoutVariable => switch (this) {
+    .githubActions => 'GITHUB_WORKSPACE',
+    .gitlab => 'CI_PROJECT_DIR',
+    .azurePipelines => 'BUILD_SOURCESDIRECTORY',
+    _ => null,
+  };
 
   /// The service [environment] says the process runs on, or `null` for a
   /// local run. A variable counts as set when it is not empty, `false` or `0`.
@@ -58,4 +72,31 @@ enum CiRunner {
     null || '' || 'false' || '0' => false,
     _ => true,
   };
+}
+
+/// The repository root a CI service resolves report paths from, for a scan of
+/// [scanRoot] in a checkout at [checkoutDir]: the outermost directory with a
+/// `.git` from [scanRoot] up to [checkoutDir], so a submodule or a nested clone
+/// still maps to the checked-out repository, or [checkoutDir] itself when none
+/// has one. `null` when [checkoutDir] is unknown or does not hold [scanRoot].
+String? checkoutRoot(String scanRoot, {required String? checkoutDir}) {
+  if (checkoutDir == null || checkoutDir.isEmpty) {
+    return null;
+  }
+  final checkout = p.normalize(p.absolute(checkoutDir));
+  var dir = p.normalize(p.absolute(scanRoot));
+  if (!p.equals(dir, checkout) && !p.isWithin(checkout, dir)) {
+    return null;
+  }
+  String? outermost;
+  while (true) {
+    // A file in a submodule or worktree, a directory in a plain clone.
+    if (FileSystemEntity.typeSync(p.join(dir, '.git')) != .notFound) {
+      outermost = dir;
+    }
+    if (p.equals(dir, checkout)) {
+      return outermost ?? checkout;
+    }
+    dir = p.dirname(dir);
+  }
 }

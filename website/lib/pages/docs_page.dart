@@ -73,7 +73,10 @@ const _options = [
     '--remove, --force',
     'Delete what was found after confirming. `--force` skips the prompt.',
   ),
-  ('-f text|json|github', 'Output format.'),
+  (
+    '-f <format>',
+    'text, json, github, azure, teamcity, sarif, checkstyle or gitlab.',
+  ),
   (
     '--set-exit-if-changed',
     'Exit 1 when anything is found. Add `--no-fail-public` to count only private findings.',
@@ -515,9 +518,9 @@ class DocsPage extends StatelessComponent {
                   ),
                   code([.text('-f github --set-exit-if-changed -v')]),
                   .text(
-                    ' were given. Run from the repository root so paths '
-                    'resolve. For a library whose public API is legitimately '
-                    'unused from the inside, add ',
+                    ' were given, with paths from the repository root. For a '
+                    'library whose public API is legitimately unused from the '
+                    'inside, add ',
                   ),
                   code([.text('--no-fail-public')]),
                   .text('; '),

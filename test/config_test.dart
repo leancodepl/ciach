@@ -211,7 +211,12 @@ concurrency: 4
       expect(
         () => resolveFile('format: xml'),
         throwsA(
-          isFormatException('ciach.yaml', contains('text, json, github')),
+          isFormatException(
+            'ciach.yaml',
+            contains(
+              'text, json, github, azure, teamcity, sarif, checkstyle, gitlab',
+            ),
+          ),
         ),
       );
     });
@@ -590,7 +595,7 @@ dart: /sdk/bin/dart
         expect(onCi.setExitIfChanged, isTrue);
         expect(onCi.verbose, isTrue);
         expect(onCi.showProgress, isFalse);
-        // Only GitHub Actions has an annotation format.
+        // GitLab has no annotation format.
         expect(onCi.format, 'text');
       });
 

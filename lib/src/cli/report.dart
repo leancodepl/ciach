@@ -1,7 +1,9 @@
 import 'dart:io';
 
+import 'package:ciach/src/cli/ci.dart';
 import 'package:ciach/src/cli/console.dart';
 import 'package:ciach/src/cli/options.dart';
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/plural.dart';
@@ -36,17 +38,7 @@ void writeReport(
   String rootPath,
 ) {
   switch (resolved.format) {
-    case 'json':
-      console.output(Reporter.json(result));
-    case 'github':
-      // GitHub resolves annotation paths from the repo root, so prepend the
-      // scan root's path from here.
-      final prefix = p
-          .split(p.relative(rootPath, from: Directory.current.path))
-          .join('/');
-      _log.config("Prefixing annotation paths with '$prefix/'.");
-      console.output(Reporter.github(result, pathPrefix: prefix));
-    case _:
+    case 'text':
       console.output(
         Reporter.text(
           result,
@@ -54,6 +46,36 @@ void writeReport(
           verbose: resolved.verbose,
         ),
       );
+    case 'json':
+      console.output(Reporter.json(result));
+    case final format:
+      // The other formats are read by tools that resolve paths from the
+      // repository root, so prepend the scan root's path from there: from the
+      // checkout the CI service names, or else from here.
+      final repositoryRoot =
+          checkoutRoot(
+            rootPath,
+            checkoutDir: resolved.ci?.checkoutVariable?.let(
+              (variable) => Platform.environment[variable],
+            ),
+          ) ??
+          Directory.current.path;
+      final prefix = p
+          .split(p.relative(rootPath, from: repositoryRoot))
+          .join('/');
+      _log.config(
+        "Prefixing report paths with '$prefix/', the scan root's path from $repositoryRoot.",
+      );
+      final report = switch (format) {
+        'azure' => Reporter.azure,
+        'teamcity' => Reporter.teamCity,
+        'sarif' => Reporter.sarif,
+        'checkstyle' => Reporter.checkstyle,
+        'gitlab' => Reporter.gitlab,
+        'github' => Reporter.github,
+        _ => throw StateError("No reporter for the format '$format'."),
+      };
+      console.output(report(result, pathPrefix: prefix));
   }
 }
 

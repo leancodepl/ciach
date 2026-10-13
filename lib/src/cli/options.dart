@@ -85,7 +85,8 @@ class ResolvedOptions {
   final bool remove;
   final bool force;
 
-  /// The output format; `github` by default on GitHub Actions.
+  /// The output format; by default the CI service's annotation format, where
+  /// it has one.
   final String format;
 
   /// `--color`/`--no-color`, or `null` for auto.

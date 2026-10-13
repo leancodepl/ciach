@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:ciach/src/cli/ci.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 void main() {
@@ -58,12 +61,72 @@ void main() {
       expect(defaults.setExitIfChanged, isTrue, reason: runner.label);
       expect(defaults.verbose, isTrue, reason: runner.label);
       expect(defaults.showProgress, isFalse, reason: runner.label);
-      // Only GitHub Actions has an annotation format.
-      expect(
-        defaults.format,
-        runner == .githubActions ? 'github' : isNull,
-        reason: runner.label,
-      );
+      expect(defaults.format, switch (runner) {
+        .githubActions => 'github',
+        .azurePipelines => 'azure',
+        .teamCity => 'teamcity',
+        _ => isNull,
+      }, reason: runner.label);
     }
+  });
+
+  group('checkoutRoot', () {
+    late String tmp;
+    setUp(() {
+      tmp = Directory.systemTemp.createTempSync('ciach_checkout').path;
+      addTearDown(() => Directory(tmp).deleteSync(recursive: true));
+    });
+
+    String dir(String path) =>
+        (Directory(p.join(tmp, path))..createSync(recursive: true)).path;
+    void gitFile(String path) =>
+        File(p.join(dir(path), '.git')).writeAsStringSync('gitdir: x');
+
+    test('is unknown without a checkout, or outside it', () {
+      expect(checkoutRoot(dir('repo/pkg'), checkoutDir: null), isNull);
+      expect(checkoutRoot(dir('repo/pkg'), checkoutDir: ''), isNull);
+      expect(checkoutRoot(dir('other'), checkoutDir: dir('repo')), isNull);
+    });
+
+    test('is the checkout of a plain clone', () {
+      dir('repo/.git');
+      expect(
+        checkoutRoot(dir('repo/pkg'), checkoutDir: dir('repo')),
+        dir('repo'),
+      );
+    });
+
+    test('is the superproject, not a submodule in it', () {
+      dir('repo/.git');
+      gitFile('repo/sub');
+      expect(
+        checkoutRoot(dir('repo/sub/pkg'), checkoutDir: dir('repo')),
+        dir('repo'),
+      );
+    });
+
+    test('is the clone in a subdirectory of the checkout', () {
+      // actions/checkout with `path:`, or one of several Azure repositories.
+      dir('workspace/repo/.git');
+      expect(
+        checkoutRoot(dir('workspace/repo/pkg'), checkoutDir: dir('workspace')),
+        dir('workspace/repo'),
+      );
+    });
+
+    test('is the checkout when there is no repository', () {
+      expect(
+        checkoutRoot(dir('workspace/pkg'), checkoutDir: dir('workspace')),
+        dir('workspace'),
+      );
+    });
+
+    test('stops at the checkout', () {
+      dir('.git');
+      expect(
+        checkoutRoot(dir('workspace/pkg'), checkoutDir: dir('workspace')),
+        dir('workspace'),
+      );
+    });
   });
 }
