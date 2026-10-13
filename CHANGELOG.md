@@ -1,5 +1,10 @@
 ## Unreleased
 
+- Calls to `test`, `group` and functions annotated `@isTest` or
+  `@isTestGroup` (`testWidgets`, `patrolTest`) are not declarations. A
+  `test('…')` call was listed as doc-only, and a call to a custom test
+  function as unused, so `--remove` could delete it.
+  ([#119](https://github.com/leancodepl/ciach/pull/119))
 - Add `--format` values `azure` and `teamcity`, the default on their service
   as `github` is on GitHub Actions, and `sarif`, `checkstyle` and `gitlab`
   (Code Quality) reports for other tools to import.
