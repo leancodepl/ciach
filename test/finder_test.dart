@@ -1500,6 +1500,10 @@ void main() {
         'lib/scenarios/entry_points.dart:Plugin.other',
         'lib/scenarios/entry_points.dart:bootstrap',
         'lib/scenarios/entry_points.dart:Parked',
+        // An unused class is reported without its constructors.
+        'lib/scenarios/entry_points.dart:ParkedCard',
+        'lib/scenarios/entry_points.dart:ParkedCard.flip',
+        'lib/scenarios/entry_points.dart:ParkedSlot',
         // The right file exempts `testExecutable` whatever its shape, and
         // nothing beside it.
         'lib/scenarios/entry_points/flutter_test_config.dart:deadHelperNextToConfig',
@@ -1526,6 +1530,9 @@ void main() {
           // names it too — but not the type's other members.
           'lib/scenarios/entry_points.dart:Plugin.other',
           'lib/scenarios/entry_points.dart:Parked',
+          'lib/scenarios/entry_points.dart:ParkedCard',
+          'lib/scenarios/entry_points.dart:ParkedCard.flip',
+          'lib/scenarios/entry_points.dart:ParkedSlot',
           'lib/scenarios/entry_points/flutter_test_config.dart:deadHelperNextToConfig',
         });
       },
@@ -1546,6 +1553,40 @@ void main() {
       });
       expect(await parked('Parked.make'), {
         'lib/scenarios/entry_points.dart:Parked.new',
+      });
+    });
+
+    test('a rule naming a class keeps its unnamed constructor but not its '
+        'named constructors or other members', () async {
+      final result = await runEntryPoints(
+        entryPoints: [.fromConfig('ParkedCard'), .fromConfig('ParkedSlot')],
+      );
+
+      expect(
+        located(result).where((d) => d.contains(':Parked')),
+        unorderedEquals([
+          // No rule names `Parked`.
+          'lib/scenarios/entry_points.dart:Parked',
+          'lib/scenarios/entry_points.dart:ParkedCard.blank',
+          'lib/scenarios/entry_points.dart:ParkedCard.flip',
+        ]),
+      );
+    });
+
+    test('a rule naming a class keeps its unnamed constructor when only '
+        'constructors are reported', () async {
+      final result = await runFinder(
+        include: ['lib/scenarios/entry_points.dart'],
+        exclude: const [],
+        kinds: {.constructor},
+        entryPoints: [.fromConfig('ParkedCard'), .fromConfig('ParkedSlot')],
+      );
+
+      expect(located(result), {
+        // No rule names `Parked`.
+        'lib/scenarios/entry_points.dart:Parked.new',
+        'lib/scenarios/entry_points.dart:Parked.make',
+        'lib/scenarios/entry_points.dart:ParkedCard.blank',
       });
     });
 
@@ -1579,23 +1620,36 @@ void main() {
         entryPoints: [
           .fromConfig('bootstrap'),
           .fromConfig('Plugin.registerWith'),
+          .fromConfig('ParkedCard'),
         ],
       );
 
       final skipped = lines.where((l) => l.startsWith('Skipped ')).toList();
       const plugin =
-          'Skipped lib/scenarios/entry_points.dart:15 Plugin: declares the entry point Plugin.registerWith.';
+          'Skipped lib/scenarios/entry_points.dart:19 Plugin: declares the entry point Plugin.registerWith.';
       const registerWith =
-          'Skipped lib/scenarios/entry_points.dart:16 Plugin.registerWith: '
+          'Skipped lib/scenarios/entry_points.dart:20 Plugin.registerWith: '
           'listed under `entry-points` in the config file.';
       const bootstrap =
-          'Skipped lib/scenarios/entry_points.dart:21 bootstrap: listed under `entry-points` in the config file.';
+          'Skipped lib/scenarios/entry_points.dart:25 bootstrap: listed under `entry-points` in the config file.';
+      const parkedCard =
+          'Skipped lib/scenarios/entry_points.dart:35 ParkedCard: listed under `entry-points` in the config file.';
+      const parkedCardNew =
+          'Skipped lib/scenarios/entry_points.dart:36 ParkedCard.new: the unnamed constructor of the entry point ParkedCard.';
       const byShape =
           'Skipped lib/scenarios/entry_points/flutter_test_config.dart:4 '
           'testExecutable: called by the `flutter test` bootstrap.';
       const real =
           'Skipped test/flutter_test_config.dart:6 testExecutable: called by the `flutter test` bootstrap.';
-      expect(skipped, [plugin, registerWith, bootstrap, byShape, real]);
+      expect(skipped, [
+        plugin,
+        registerWith,
+        bootstrap,
+        parkedCard,
+        parkedCardNew,
+        byShape,
+        real,
+      ]);
       expect(lines, isNot(contains(contains(' main:'))));
     });
   });

@@ -75,6 +75,23 @@ void main() {
       );
     });
 
+    test('a type name matches its unnamed constructor, except in an enum', () {
+      final rule = EntryPoint.fromConfig('Card');
+      final unnamed = symbol('Card', kind: .constructor);
+      final named = symbol('Card.blank', kind: .constructor);
+
+      expect(rule.matches('lib/a.dart', unnamed, 'Card'), isTrue);
+      expect(
+        rule.matches('lib/a.dart', unnamed, 'Card', inEnum: true),
+        isFalse,
+      );
+      expect(rule.matches('lib/a.dart', named, 'Card'), isFalse);
+      expect(
+        rule.matches('lib/a.dart', symbol('Card', kind: .method), 'Card'),
+        isFalse,
+      );
+    });
+
     test('Class.Class is rejected with a hint to write Class.new', () {
       expect(
         () => EntryPoint.fromConfig('Parked.Parked'),
