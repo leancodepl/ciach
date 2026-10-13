@@ -80,9 +80,9 @@ RemovalResult removeDeclarations(
     try {
       final content = file.readAsStringSync();
       final (updated, emptiedNames) = _removeFromContent(content, entry.value);
-      emptied.addAll([
-        for (final name in emptiedNames) (filePath: entry.key, name: name),
-      ]);
+      emptied.addAll(
+        emptiedNames.map((name) => (filePath: entry.key, name: name)),
+      );
       if (updated != content) {
         file.writeAsStringSync(updated);
         rewritten.add(path);
@@ -137,7 +137,7 @@ class RemovalException implements Exception {
 
 /// [content] without [decls], and the containers that leaves with an empty
 /// body.
-(String, List<String>) _removeFromContent(
+(String, Set<String>) _removeFromContent(
   String content,
   List<UnusedDeclaration> decls,
 ) {
@@ -163,7 +163,7 @@ class RemovalException implements Exception {
   }
 
   if (spans.isEmpty) {
-    return (content, const []);
+    return (content, const {});
   }
 
   final merged = _mergeSpans(spans);
@@ -183,12 +183,23 @@ class RemovalException implements Exception {
 /// The containers of [decls] whose whole body the [merged] spans remove: only
 /// whitespace and comments separate a run of spans from the body's `{` and
 /// `}`, and the spans in the run from each other.
-List<String> _emptiedContainers(
+Set<String> _emptiedContainers(
   String content,
   List<_Span> merged,
   List<UnusedDeclaration> decls,
   int Function(int line, int column) offsetOf,
 ) {
+  final members = [
+    for (final decl in decls)
+      if (decl.container case final container?)
+        (
+          container: container,
+          start: offsetOf(decl.range.startLine, decl.range.startColumn),
+        ),
+  ];
+  if (members.isEmpty) {
+    return const {};
+  }
   final code = stripComments(content);
   final runs = <_Span>[];
   for (final span in merged) {
@@ -199,25 +210,14 @@ List<String> _emptiedContainers(
       runs.add(span);
     }
   }
-  final names = <String>{};
-  for (final span in runs) {
-    final before = _previousNonWhitespace(code, span.start);
-    final after = _nextNonWhitespace(code, span.end);
-    if (before == null ||
-        after == null ||
-        code[before] != '{' ||
-        code[after] != '}') {
-      continue;
-    }
-    for (final decl in decls) {
-      final start = offsetOf(decl.range.startLine, decl.range.startColumn);
-      if (decl.container case final container?
-          when span.start <= start && start < span.end) {
-        names.add(container);
-      }
-    }
-  }
-  return names.toList();
+  return {
+    for (final run in runs)
+      if (_previousNonWhitespace(code, run.start)?.let((i) => code[i]) == '{' &&
+          _nextNonWhitespace(code, run.end)?.let((i) => code[i]) == '}')
+        for (final member in members)
+          if (run.start <= member.start && member.start < run.end)
+            member.container,
+  };
 }
 
 /// Returns the span to delete for [decl], which isn't an enum value: the
