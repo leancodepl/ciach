@@ -255,7 +255,7 @@ final class CandidateCollector {
     // A `test(...)` or `group(...)` call, not a declaration: its references
     // are the test function's, and removing it would delete the test. The
     // server lists only more such calls in it, no local declarations.
-    return outline.element.isUnitTest ? null : outline;
+    return outline.element.isDeclaration ? outline : null;
   }
 
   /// Whether [candidate] is public and left out: by `--no-public`, or as part

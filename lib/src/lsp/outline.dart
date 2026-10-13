@@ -102,10 +102,10 @@ final class OutlineElement {
   bool get isUnnamedExtension =>
       kind == .extension && name.startsWith('extension on ');
 
-  /// Whether this is a test or test-group call rather than a declaration. The
-  /// server lists these too, as `test("name")`, and the document symbols
-  /// mirror them as methods.
-  bool get isUnitTest => kind == .unitTestGroup || kind == .unitTestTest;
+  /// Whether this declares something. The server also lists `test(...)` and
+  /// `group(...)` calls, and calls to functions annotated `@isTest` or
+  /// `@isTestGroup`, which the document symbols mirror as methods.
+  bool get isDeclaration => kind != .unitTestGroup && kind != .unitTestTest;
 }
 
 /// Declaration kinds as the outline sends them.
@@ -126,12 +126,7 @@ enum OutlineKind {
   setter('SETTER'),
   topLevelVariable('TOP_LEVEL_VARIABLE'),
   typeAlias('TYPE_ALIAS'),
-
-  /// A `group(...)` call, or one to any function annotated `@isTestGroup`.
   unitTestGroup('UNIT_TEST_GROUP'),
-
-  /// A `test(...)` call, or one to any function annotated `@isTest`
-  /// (`testWidgets`, `patrolTest`, …).
   unitTestTest('UNIT_TEST_TEST'),
 
   other('');
