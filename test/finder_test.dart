@@ -1585,7 +1585,10 @@ void main() {
       include: const ['lib/scenarios/test_calls.dart'],
       exclude: const [],
     );
-    expect(result.unused.map((d) => d.qualifiedName), ['deadNextToTests']);
+    expect(result.unused.map((d) => d.qualifiedName), [
+      'deadLocalHelper',
+      'deadNextToTests',
+    ]);
     expect(result.docOnly, isEmpty);
   });
 

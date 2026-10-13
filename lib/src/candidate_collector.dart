@@ -179,11 +179,11 @@ final class CandidateCollector {
     // first declarator, so a later one (`b` in `@override final int a, b;`)
     // reads that statement's instead of its own, which are empty.
     var statementMetadata = const <SemanticToken>[];
-    for (final symbol in symbols) {
-      final outline = _declarationOutline(relativePath, symbol, outlines);
-      if (outline == null) {
-        continue;
-      }
+    for (final (symbol, outline) in _declarations(
+      relativePath,
+      symbols,
+      outlines,
+    )) {
       final ownMetadata = _sources.leadingMetadata(path, outline);
       final isField = outline.element.kind == .field;
       final continuesStatement =
@@ -237,25 +237,31 @@ final class CandidateCollector {
     }
   }
 
-  /// The outline of [symbol], or `null` when the symbol declares nothing to
-  /// check.
-  Outline? _declarationOutline(
+  /// [symbols] with their outlines, less those the outline lacks. A
+  /// `test(...)` or `group(...)` call gives way to the declarations in its
+  /// closure: it declares nothing, and removing it would delete the test.
+  Iterable<(DocumentSymbol, Outline)> _declarations(
     String relativePath,
-    DocumentSymbol symbol,
+    List<DocumentSymbol> symbols,
     _OutlineIndex outlines,
-  ) {
-    final outline = outlines[symbol];
-    if (outline == null) {
-      _log.fine(
-        'Skipped $relativePath:${symbol.selectionRange.start.line + 1} '
-        "${symbol.name}: the analysis server's outline has no entry for it.",
-      );
-      return null;
+  ) sync* {
+    for (final symbol in symbols) {
+      final outline = outlines[symbol];
+      if (outline == null) {
+        _log.fine(
+          'Skipped $relativePath:${symbol.selectionRange.start.line + 1} '
+          "${symbol.name}: the analysis server's outline has no entry for it.",
+        );
+      } else if (outline.element.isDeclaration) {
+        yield (symbol, outline);
+      } else {
+        yield* _declarations(
+          relativePath,
+          symbol.children ?? const [],
+          outlines,
+        );
+      }
     }
-    // A `test(...)` or `group(...)` call, not a declaration: its references
-    // are the test function's, and removing it would delete the test. The
-    // server lists only more such calls in it, no local declarations.
-    return outline.element.isDeclaration ? outline : null;
   }
 
   /// Whether [candidate] is public and left out: by `--no-public`, or as part
