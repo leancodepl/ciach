@@ -134,7 +134,7 @@ class Ciach {
     }
     final common = commonAncestor([rootPath, ...dependents]);
     _log.config(
-      'Not counting uses in ${dependents.map(p.relative).join(', ')}, which depend on this package by `path:` from outside the analysis root, so what only they use reads as unused. --analysis-root ${p.relative(common)} counts them; --analysis-root ${p.relative(rootPath)} says the package is meant to be scanned on its own.',
+      'Not counting uses in ${dependents.map(p.relative).join(', ')}, which depend on this package by `path:`: `--analysis-root ${p.relative(common)}` counts them, `--analysis-root ${p.relative(rootPath)}` silences this.',
     );
   }
 
@@ -147,8 +147,8 @@ class Ciach {
       final package = name == '.' ? 'The scanned package' : name;
       _log.config(
         publishable
-            ? '$package can be published, so the API other packages can import is left out; `publish_to: none` in its pubspec, or --exported, checks it.'
-            : '$package has `publish_to: none`, so its API is checked like the rest of the code.',
+            ? '$package can be published: its exported API is left out (`--exported` checks it).'
+            : '$package has `publish_to: none`: its API is checked.',
       );
     }
     return api.isEmpty ? null : api;

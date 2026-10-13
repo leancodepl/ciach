@@ -173,7 +173,7 @@ concurrency: 4
           isA<FormatException>().having(
             (e) => e.message,
             'message',
-            'ciach.yaml: overrides was removed: use also: [overrides].',
+            'ciach.yaml: `overrides` was removed: use `also: [overrides]`.',
           ),
         ),
       );
@@ -186,7 +186,7 @@ concurrency: 4
           isA<FormatException>().having(
             (e) => e.message,
             'message',
-            'ciach.yaml: operators was removed: that is the default now, so drop it.',
+            'ciach.yaml: `operators` was removed: that is the default now, so drop it.',
           ),
         ),
       );
@@ -200,7 +200,7 @@ concurrency: 4
           isA<UsageException>().having(
             (e) => e.message,
             'message',
-            contains("Unknown value 'override' for also."),
+            contains("Unknown value 'override' for `also`."),
           ),
         ),
       );
@@ -209,19 +209,19 @@ concurrency: 4
     test('removedOptionMessage names what replaced a removed flag', () {
       expect(
         removedOptionMessage(['lib', '--no-fail-public']),
-        startsWith('--no-fail-public was removed: '),
+        startsWith('`--no-fail-public` was removed: '),
       );
       expect(
         removedOptionMessage(['--report-tojson=true']),
-        '--report-tojson was removed: use --also tojson.',
+        '`--report-tojson` was removed: use `--also tojson`.',
       );
       expect(
         removedOptionMessage(['--no-operators']),
-        '--no-operators was removed: that is the default now, so drop it.',
+        '`--no-operators` was removed: that is the default now, so drop it.',
       );
       expect(
         removedOptionMessage(['--fail-public']),
-        '--fail-public was removed: that is the default now, so drop it.',
+        '`--fail-public` was removed: that is the default now, so drop it.',
       );
       expect(removedOptionMessage(['--', '--overrides']), isNull);
       expect(removedOptionMessage(['--also', 'overrides']), isNull);

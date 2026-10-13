@@ -73,8 +73,8 @@ environment: {sdk: ^3.10.0}
       expect(
         lines,
         containsAll(const [
-          'internal has `publish_to: none`, so its API is checked like the rest of the code.',
-          'published can be published, so the API other packages can import is left out; `publish_to: none` in its pubspec, or --exported, checks it.',
+          'internal has `publish_to: none`: its API is checked.',
+          'published can be published: its exported API is left out (`--exported` checks it).',
         ]),
       );
       expect(lines, isNot(contains(startsWith('The scanned package'))));

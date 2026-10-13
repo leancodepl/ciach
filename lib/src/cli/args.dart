@@ -54,7 +54,7 @@ Set<String> parseAlso(List<String> raw) {
   };
   if (names.whereNot(alsoNames.contains).firstOrNull case final unknown?) {
     throw FormatException(
-      "Unknown value '$unknown' for also. Valid values: ${alsoNames.join(', ')}.",
+      "Unknown value '$unknown' for `also`. Valid values: ${alsoNames.join(', ')}.",
     );
   }
   return names;
@@ -68,34 +68,34 @@ typedef RemovedOption = ({String argument, String config, bool? nowDefault});
 const removedOptions = <String, RemovedOption>{
   'fail-public': (
     argument:
-        'the API of a package that can be published is left out by default, and --set-exit-if-changed counts every finding',
+        'the API of a package that can be published is left out by default, and `--set-exit-if-changed` counts every finding',
     config:
-        'the API of a package that can be published is left out by default, and set-exit-if-changed counts every finding',
+        'the API of a package that can be published is left out by default, and `set-exit-if-changed` counts every finding',
     nowDefault: true,
   ),
   'generated-suffix': (
-    argument: "use --generated-glob '**/*<suffix>'",
-    config: "use generated-glob: ['**/*<suffix>']",
+    argument: "use `--generated-glob '**/*<suffix>'`",
+    config: "use `generated-glob: ['**/*<suffix>']`",
     nowDefault: null,
   ),
   'overrides': (
-    argument: 'use --also overrides',
-    config: 'use also: [overrides]',
+    argument: 'use `--also overrides`',
+    config: 'use `also: [overrides]`',
     nowDefault: false,
   ),
   'operators': (
-    argument: 'use --also operators',
-    config: 'use also: [operators]',
+    argument: 'use `--also operators`',
+    config: 'use `also: [operators]`',
     nowDefault: false,
   ),
   'report-tojson': (
-    argument: 'use --also tojson',
-    config: 'use also: [tojson]',
+    argument: 'use `--also tojson`',
+    config: 'use `also: [tojson]`',
     nowDefault: false,
   ),
   'unused-union-members': (
-    argument: 'use --also union-members',
-    config: 'use also: [union-members]',
+    argument: 'use `--also union-members`',
+    config: 'use `also: [union-members]`',
     nowDefault: false,
   ),
 };
@@ -127,7 +127,7 @@ String? removedOptionMessage(List<String> arguments) {
         inConfig: false,
       );
       if (advice != null) {
-        return '${argument.split('=').first} was removed: $advice.';
+        return '`${argument.split('=').first}` was removed: $advice.';
       }
     }
   }
@@ -280,7 +280,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       allowedValues: alsoNames,
       customValidator: parseAlso,
       helpText:
-          'Also report declarations skipped by default because a reference search misses some of their uses (comma-separated).',
+          'Also report what is skipped by default because a reference search misses some of its uses, so it brings false positives. A comma-separated list of:',
       allowedHelp: {
         'overrides':
             '@override members, often reached polymorphically or by a framework.',

@@ -54,7 +54,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     for (final key in unknown) {
       if (removedOptionAdvice(key, document[key], inConfig: true)
           case final advice?) {
-        throw FormatException('$origin: $key was removed: $advice.');
+        throw FormatException('$origin: `$key` was removed: $advice.');
       }
     }
     if (unknown.isNotEmpty) {
