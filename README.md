@@ -135,18 +135,8 @@ default (`ciach --public` overrides `public: false`), and a repeatable option on
 the command line replaces the config's list rather than adding to it. Unknown
 keys and wrong-typed values are usage errors naming the file and the key.
 
-Options from earlier versions are errors, on the command line and in the
-config file, that say what to use instead:
-
-| Old option | Use instead |
-| --- | --- |
-| `--overrides`, `--operators` | `--also overrides`, `--also operators` |
-| `--report-tojson` | `--also tojson` |
-| `--unused-union-members` | `--also union-members` |
-| `--exported` | `--exported-packages=` |
-| `--generated-suffix <suffix>` | `--generated-glob '**/*<suffix>'` |
-| `--fail-public`, `--no-exported` and the `--no-` forms above | nothing: that is the default now |
-| `--no-fail-public` | nothing: every finding counts toward the exit code now |
+Options from earlier versions are errors that say what to use instead. See
+[MIGRATION.md](MIGRATION.md) for the list.
 
 Discovery looks for that one file name in the analyzed package root, never in a
 parent, so each package in a monorepo owns its config. `--config <path>` reads

@@ -3,7 +3,8 @@
 - **Breaking:** `--overrides`, `--operators`, `--report-tojson` and
   `--unused-union-members` are now one option, `--also`, and
   `--generated-suffix` is replaced by `--generated-glob`. `--fail-public` is
-  gone. Using a removed option is an error that says what to use instead.
+  gone. Using a removed option is an error that says what to use instead. See
+  [MIGRATION.md](MIGRATION.md).
   ([#105](https://github.com/leancodepl/ciach/pull/105))
 - **Breaking:** By default, ciach no longer reports what other packages can
   import. To check it, list in `exported-packages` only the packages that code
