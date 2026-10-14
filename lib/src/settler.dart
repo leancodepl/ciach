@@ -181,10 +181,7 @@ final class Settler {
     Map<UnusedDeclaration, int> candidateOf,
     String rootPath,
   ) {
-    final removable = {
-      for (final MapEntry(key: finding, value: i) in candidateOf.entries)
-        if (!finding.removalBlocked) i,
-    };
+    final removable = _removableIndices(candidateOf);
     final removed = {for (final i in removable) candidates[i].key};
     final members = _removableMembers(candidates, removable);
     return [
@@ -303,6 +300,14 @@ final class Settler {
     ];
   }
 
+  /// The candidate indices of the findings in [candidateOf] that `--remove`
+  /// deletes.
+  static Set<int> _removableIndices(Map<UnusedDeclaration, int> candidateOf) =>
+      {
+        for (final MapEntry(key: finding, value: i) in candidateOf.entries)
+          if (!finding.removalBlocked) i,
+      };
+
   /// The spans of every candidate no live code reaches, all of them assumed
   /// dead to begin with.
   DeadSpans _unreachedCandidates(
@@ -338,10 +343,7 @@ final class Settler {
     String rootPath,
   ) {
     final spans = DeadSpans.of(candidateOf.keys, rootPath);
-    final removable = {
-      for (final MapEntry(key: finding, value: i) in candidateOf.entries)
-        if (!finding.removalBlocked) i,
-    };
+    final removable = _removableIndices(candidateOf);
     Iterable<int> containers(String path, Position position) => [
       for (final owner in spans.ownersOf(path, position)) candidateOf[owner]!,
     ];
@@ -530,12 +532,9 @@ final class Settler {
     final cutCandidateOf = {
       for (final (k, finding) in cut.indexed) finding: candidateOf[unused[k]]!,
     };
-    final removable = {
-      for (final MapEntry(key: finding, value: i) in cutCandidateOf.entries)
-        if (!finding.removalBlocked) i,
-    };
+    final removable = _removableIndices(cutCandidateOf);
     _removableBefore.addAll(removable);
-    for (final (i, finding) in _namedOnlyInClauses(
+    for (final (i, finding) in await _namedOnlyInClauses(
       client,
       candidates,
       statuses,
@@ -565,8 +564,9 @@ final class Settler {
   /// `with` and `implements` clauses in scanned files use.
   ///
   /// Each finding also removes those clause entries and comes with its
-  /// candidate index.
-  Iterable<(int, UnusedDeclaration)> _namedOnlyInClauses(
+  /// candidate index. Only here, for these types, are the selection ranges
+  /// fetched that tell the entries of their clauses apart.
+  Future<List<(int, UnusedDeclaration)>> _namedOnlyInClauses(
     LspClient client,
     List<Candidate> candidates,
     List<RefStatus> statuses,
@@ -576,7 +576,7 @@ final class Settler {
     DeadSpans deadSpans,
     Set<String> scannedPaths,
     String rootPath,
-  ) {
+  ) async {
     final members = _removableMembers(candidates, removable);
     final entriesOf = <int, List<ClauseEntry>>{};
     for (final (i, candidate) in candidates.indexed) {
@@ -604,6 +604,15 @@ final class Settler {
         entriesOf[i] = entries;
       }
     }
+    await _fetch.fetchSelectionRanges(
+      client,
+      entriesOf.values.flattened.groupFoldBy(
+        (entry) => entry.path,
+        (probes, entry) =>
+            (probes ?? <Position>{})
+              ..addAll(_sources.entryProbes(entry.path, entry.clause)),
+      ),
+    );
     // Drop a type if any of its clause entries can't be removed. This happens
     // when a clause can't be parsed, or when the entry is among the last
     // mixins of a type alias.

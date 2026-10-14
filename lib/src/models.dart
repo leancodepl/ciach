@@ -286,7 +286,7 @@ class UnusedDeclaration {
   /// this declaration to keep the source compiling, but that are not
   /// themselves reported as findings.
   ///
-  /// Three uses today:
+  /// For example:
   ///
   /// - a dead `StatefulWidget`'s paired private `State<Widget>` subclass, which
   ///   is not independently "unused" (the widget's own `createState` references

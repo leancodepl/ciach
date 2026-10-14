@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:ciach/src/clause_entries.dart';
 import 'package:ciach/src/comment_stripping.dart';
 import 'package:ciach/src/emptied_files.dart';
 import 'package:ciach/src/log.dart';
@@ -166,20 +165,20 @@ String _removeFromContent(String content, List<UnusedDeclaration> decls) {
   return buffer.toString();
 }
 
-/// Returns the span to delete for [decl], which isn't an enum value: the
-/// [UnusedDeclaration.cut] of a field or variable, or [_spanFor] for anything
-/// else. Returns `null` for a field or variable without a cut, which stays.
+/// Returns the span to delete for [decl], which isn't an enum value: its
+/// [UnusedDeclaration.cut] if it has one, else [_spanFor]. Returns `null` for
+/// a field or variable without a cut, which stays.
 _Span? _spanOf(
   UnusedDeclaration decl,
   String content,
   List<String> lines,
   int Function(int line, int column) offsetOf,
 ) {
-  if (!declaratorKinds.contains(decl.kind)) {
-    return _spanFor(decl, content, lines, offsetOf);
-  }
   if (decl.cut case final cut?) {
     return _wholeLines(cut, content, lines, offsetOf);
+  }
+  if (!declaratorKinds.contains(decl.kind)) {
+    return _spanFor(decl, content, lines, offsetOf);
   }
   _log.fine(
     'Left ${decl.qualifiedName} in ${decl.filePath} in place: the finder found no range to cut it out by.',
@@ -199,9 +198,6 @@ _Span? _spanFor(
   final range = decl.range;
   final baseStart = offsetOf(range.startLine, range.startColumn);
   final baseEnd = offsetOf(range.endLine, range.endColumn);
-  if (decl.kind == clauseCutKind) {
-    return (start: baseStart, end: baseEnd);
-  }
   final fullStart = _startWithIndentation(decl.fullRange, lines, offsetOf);
 
   var start = fullStart;

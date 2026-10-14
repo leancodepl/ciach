@@ -3,13 +3,16 @@ library;
 
 import 'dart:io';
 
+import 'package:ciach/ciach.dart';
 import 'package:ciach/src/clause_entries.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
-import 'package:ciach/src/remover.dart';
+import 'package:ciach/src/reference_fetch.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show Location, Position, Range;
+import 'package:pro_lsp/pro_lsp.dart' show Location, Range;
 import 'package:test/test.dart';
+
+import 'support/removal.dart';
 
 /// Cuts entries from `with` and `implements` clauses as the analysis server
 /// reads them: its tokens, syntax nodes and outline.
@@ -30,78 +33,89 @@ void main() {
     tempDir.deleteSync(recursive: true);
   });
 
-  /// [source] written to a new file and indexed from the server.
-  Future<(String, SourceIndex)> index(String source) async {
+  /// Writes [source] to a new file and caches its semantic tokens.
+  Future<(String, SourceIndex, ReferenceFetch)> index(String source) async {
     final path = p.join(tempDir.path, 'lib${files++}.dart');
     File(path).writeAsStringSync(source);
     client.didOpen(File(path).uri, source);
     final sources = SourceIndex()..cacheLines(path, source.split('\n'));
-    final tokens = await client.semanticTokens(
-      File(path).uri,
-      sources.lines(path),
+    sources.cacheSemanticTokens(
+      path,
+      await semanticTokensOrEmpty(client, sources, path),
     );
-    sources.cacheSemanticTokens(path, tokens);
-    final positions = [for (final token in tokens) token.start];
-    final ranges = await client.selectionRanges(File(path).uri, positions);
-    for (final (i, position) in positions.indexed) {
-      if (ranges[i] case final range?) {
-        sources.cacheSelectionRange(path, position, range);
-      }
-    }
-    return (path, sources);
+    return (
+      path,
+      sources,
+      ReferenceFetch(
+        options: FinderOptions(rootPath: tempDir.path),
+        sources: sources,
+      ),
+    );
   }
 
   /// The entries of [names] in the clause that follows [clause] in [source],
-  /// as `clauseEntryAt` reads them.
-  Future<(String, SourceIndex, List<ClauseEntry?>)> entriesIn(
+  /// as `clauseEntryAt` reads them once the finder has fetched the selection
+  /// ranges at the names.
+  Future<(String, SourceIndex, ReferenceFetch, List<ClauseEntry?>)> entriesIn(
     String source,
     String clause,
     List<String> names,
   ) async {
-    final (path, sources) = await index(source);
+    final (path, sources, fetch) = await index(source);
     final unit = await client.outline(File(path).uri);
     final clauseStart = source.indexOf(clause);
-    final starts = sources.lineStarts(path);
-    Position at(int offset) {
-      final line = starts.lastIndexWhere((start) => start <= offset);
-      return .new(line: line, character: offset - starts[line]);
-    }
-
+    final ranges = [
+      for (final name in names)
+        if (source.indexOf(RegExp('\\b$name\\b'), clauseStart) case final start)
+          Range(
+            start: sources.positionOf(path, start),
+            end: sources.positionOf(path, start + name.length),
+          ),
+    ];
+    await fetch.fetchSelectionRanges(client, {
+      path: {for (final range in ranges) range.start},
+    });
     return (
       path,
       sources,
+      fetch,
       [
-        for (final name in names)
-          if (source.indexOf(RegExp('\\b$name\\b'), clauseStart)
-              case final start)
-            sources.clauseEntryAt(
-              Location(
-                uri: File(path).uri.toString(),
-                range: Range(start: at(start), end: at(start + name.length)),
-              ),
-              name,
-              unit,
-            ),
+        for (final (i, range) in ranges.indexed)
+          sources.clauseEntryAt(
+            Location(uri: File(path).uri.toString(), range: range),
+            names[i],
+            unit,
+          ),
       ],
     );
   }
 
   /// Returns [source] after removing the [cut] names from the clause that
-  /// starts with [clause], with `clauseCuts` and the remover.
+  /// starts with [clause], fetching selection ranges as the settler does.
   Future<String> cutFrom(String source, String clause, List<String> cut) async {
-    final (path, sources, entries) = await entriesIn(source, clause, cut);
+    final (path, sources, fetch, entries) = await entriesIn(
+      source,
+      clause,
+      cut,
+    );
     expect(entries, everyElement(isNotNull));
+    await fetch.fetchSelectionRanges(client, {
+      path: {
+        for (final entry in entries.nonNulls)
+          ...sources.entryProbes(path, entry.clause),
+      },
+    });
     final removals = sources.clauseCuts(entries.nonNulls, tempDir.path).values;
     removeDeclarations([
       for (final removal in removals.toSet())
-        .new(
-          name: '',
+        decl(
+          startLine: removal.range.startLine,
+          startColumn: removal.range.startColumn,
+          endLine: removal.range.endLine,
+          endColumn: removal.range.endColumn,
           kind: removal.kind,
+          cut: removal.cut,
           filePath: removal.filePath,
-          line: removal.range.startLine + 1,
-          column: removal.range.startColumn + 1,
-          isPrivate: true,
-          range: removal.range,
         ),
     ], tempDir.path);
     return File(path).readAsStringSync();
@@ -192,8 +206,8 @@ ${types}abstract class A
 ${types}class A = B with C;
 class F extends B with C {}
 ''';
-      final (_, _, aliased) = await entriesIn(source, 'with C;', ['C']);
-      final (_, _, extended) = await entriesIn(source, 'with C {', ['C']);
+      final (_, _, _, aliased) = await entriesIn(source, 'with C;', ['C']);
+      final (_, _, _, extended) = await entriesIn(source, 'with C {', ['C']);
 
       expect(aliased.single?.keepsOne, isTrue);
       expect(extended.single?.keepsOne, isFalse);
@@ -203,7 +217,7 @@ class F extends B with C {}
   test(
     'a type named outside a with or implements clause is no entry',
     () async {
-      final (_, _, entries) = await entriesIn(
+      final (_, _, _, entries) = await entriesIn(
         '${types}class A extends B {}\n',
         'extends',
         ['B'],
