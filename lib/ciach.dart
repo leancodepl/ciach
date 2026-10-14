@@ -41,6 +41,7 @@ export 'src/models.dart'
         DeclarationRange,
         DeletedFile,
         EmptiedContainer,
+        EmptyRange,
         FinderOptions,
         FinderResult,
         LeftComment,

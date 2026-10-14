@@ -23,6 +23,9 @@ import 'package:xml/xml.dart';
 const _emptyFileContents =
     'nothing but comments and library, import or part-of directives';
 
+/// What an empty range holds.
+const _emptyRangeContents = 'range comments with nothing between them';
+
 /// Why `--remove` leaves an empty conditional-import variant.
 const _emptyVariantNote =
     'a conditional-import variant: remove its `if` clause and the file by hand';
@@ -56,6 +59,22 @@ abstract final class Reporter {
             style.path(file),
             if (variants.contains(file)) style.caution('($_emptyVariantNote)'),
           ].join('  '),
+        );
+      }
+      buffer.writeln();
+    }
+
+    if (result.emptyRanges.isNotEmpty) {
+      _writeHeading(
+        buffer,
+        'Empty ranges',
+        result.emptyRanges.length,
+        _emptyRangeContents,
+        style,
+      );
+      for (final (:filePath, :line, :open, :close) in result.emptyRanges) {
+        buffer.writeln(
+          '${style.path('$filePath:$line')}  ${style.note('// $open … // $close')}',
         );
       }
       buffer.writeln();
@@ -114,11 +133,16 @@ abstract final class Reporter {
     }
     final files = removal.filesChanged;
     final deleted = removal.deletedFiles;
-    final sentences = [
+    final removedWhat = [
       if (removed > 0)
+        plural(removed, 'unused declaration', 'unused declarations'),
+      if (removal.removedRanges > 0)
+        plural(removal.removedRanges, 'empty range', 'empty ranges'),
+    ];
+    final sentences = [
+      if (removedWhat.isNotEmpty)
         style.success(
-          'Removed ${plural(removed, 'unused declaration', 'unused declarations')} from '
-          '${plural(files, 'file', 'files')}.',
+          'Removed ${removedWhat.join(' and ')} from ${plural(files, 'file', 'files')}.',
         ),
       if (blocked > 0)
         style.caution('$blocked left in place — unsafe to auto-remove.'),
@@ -325,12 +349,17 @@ abstract final class Reporter {
         'docOnlyCount': result.docOnly.length,
         'emptyFileCount': result.emptyFiles.length,
         'emptyVariantCount': result.emptyVariants.length,
+        'emptyRangeCount': result.emptyRanges.length,
         'elapsedMs': result.elapsed.inMilliseconds,
       },
       'unused': [for (final decl in result.unused) decl.toJson()],
       'docOnly': [for (final decl in result.docOnly) decl.toJson()],
       'emptyFiles': result.emptyFiles,
       'emptyVariants': result.emptyVariants,
+      'emptyRanges': [
+        for (final (:filePath, :line, :open, :close) in result.emptyRanges)
+          {'filePath': filePath, 'line': line, 'open': open, 'close': close},
+      ],
       'emptiedContainers': [
         for (final (:filePath, :name) in result.emptiedContainers)
           {'filePath': filePath, 'name': name},
@@ -578,8 +607,8 @@ abstract final class Reporter {
   }
 
   /// Every finding of [result] as an annotation, its path prefixed with
-  /// [pathPrefix]: unused declarations, empty files, doc-only findings,
-  /// recovered references and problems, in that order.
+  /// [pathPrefix]: unused declarations, empty files, empty ranges, doc-only
+  /// findings, recovered references and problems, in that order.
   static Iterable<_Annotation> _annotations(
     FinderResult result,
     String pathPrefix,
@@ -609,6 +638,15 @@ abstract final class Reporter {
           'Has $_emptyFileContents',
           if (variants.contains(emptyFile)) _emptyVariantNote,
         ].join(' — '),
+      );
+    }
+    for (final (:filePath, :line, :open, :close) in result.emptyRanges) {
+      yield (
+        check: .emptyRange,
+        file: file(filePath),
+        line: line,
+        column: null,
+        message: 'Has $_emptyRangeContents: // $open … // $close',
       );
     }
     for (final decl in result.docOnly) {
@@ -711,6 +749,10 @@ abstract final class Reporter {
         style.attention(
           plural(result.allEmptyFiles.length, 'empty file', 'empty files'),
         ),
+      if (result.emptyRanges.isNotEmpty)
+        style.attention(
+          plural(result.emptyRanges.length, 'empty range', 'empty ranges'),
+        ),
       if (result.docOnly.isNotEmpty) '${result.docOnly.length} doc-only',
       if (result.recoveredReferences.isNotEmpty)
         style.caution('${result.recoveredReferences.length} recovered'),
@@ -731,7 +773,8 @@ enum _Check {
     'recovered-reference',
     'Recovered reference (possible analyzer bug)',
   ),
-  notAnalyzed('not-analyzed', 'Could not analyze');
+  notAnalyzed('not-analyzed', 'Could not analyze'),
+  emptyRange('empty-range', 'Empty range');
 
   const _Check(this.id, this.title, {this.notice = false});
 

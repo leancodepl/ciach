@@ -390,6 +390,12 @@ typedef DeletedFile = ({String filePath, List<String> unlinkedFrom});
 /// `filePath` is relative to the root and uses `/`.
 typedef EmptiedContainer = ({String filePath, String name});
 
+/// A pair of range comments, such as `// coverage:ignore-start` and
+/// `// coverage:ignore-end`, with nothing but whitespace and comments between
+/// them: its file, relative to the root and with `/`, the opening comment's
+/// one-based line, and the two markers.
+typedef EmptyRange = ({String filePath, int line, String open, String close});
+
 /// A `//` comment that `--remove` kept although it sat directly above removed
 /// code: its file, relative to the root and with `/`, and its one-based line
 /// in the rewritten file.
@@ -401,6 +407,7 @@ class RemovalResult {
     required this.filesChanged,
     required this.deletedFiles,
     this.leftComments = const [],
+    this.removedRanges = 0,
   });
 
   /// Files declarations were removed from, deleted ones included.
@@ -411,6 +418,9 @@ class RemovalResult {
   /// The `//` comments kept directly above removed code, which may have been
   /// about it. Sorted by file, then line.
   final List<LeftComment> leftComments;
+
+  /// How many empty ranges were removed, with both their comments.
+  final int removedRanges;
 }
 
 /// A declaration that had no reported references but was confirmed used by the
@@ -531,6 +541,7 @@ class FinderResult {
     this.recoveredReferences = const [],
     this.problems = const [],
     this.emptiedContainers = const [],
+    this.emptyRanges = const [],
   });
 
   /// Declarations with zero references of any kind — the tool's actual
@@ -560,7 +571,8 @@ class FinderResult {
   List<String> get allEmptyFiles => [...emptyFiles, ...emptyVariants]..sort();
 
   /// Whether there is anything `--remove` would act on.
-  bool get hasFindings => unused.isNotEmpty || emptyFiles.isNotEmpty;
+  bool get hasFindings =>
+      unused.isNotEmpty || emptyFiles.isNotEmpty || emptyRanges.isNotEmpty;
 
   /// Number of files scanned for declarations.
   final int filesScanned;
@@ -583,4 +595,8 @@ class FinderResult {
   /// body: each of their members is a removable finding, but other code still
   /// uses them. Sorted by file, then name.
   final List<EmptiedContainer> emptiedContainers;
+
+  /// The empty ranges in the scanned files, sorted by file, then line. Those
+  /// in [emptyFiles] and [emptyVariants] are left out.
+  final List<EmptyRange> emptyRanges;
 }

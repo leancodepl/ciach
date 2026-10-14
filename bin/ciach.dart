@@ -179,12 +179,13 @@ void _removeUnused(
   final count = removable.length;
   final blocked = result.unused.length - count;
   final emptyCount = result.emptyFiles.length;
+  final rangeCount = result.emptyRanges.length;
   if (blocked > 0) {
     _log.fine(
       'Skipping $blocked of ${plural(result.unused.length, 'finding', 'findings')}: removing them safely would need a source rewrite (see --also union-members and remove safety).',
     );
   }
-  if (count == 0 && emptyCount == 0) {
+  if (count == 0 && emptyCount == 0 && rangeCount == 0) {
     _log.warning(
       blocked == 1
           ? 'Nothing removed: the finding is unsafe to auto-remove — remove it manually.'
@@ -204,6 +205,7 @@ void _removeUnused(
     final what = [
       if (count > 0) plural(count, 'unused declaration', 'unused declarations'),
       if (emptyCount > 0) plural(emptyCount, 'empty file', 'empty files'),
+      if (rangeCount > 0) plural(rangeCount, 'empty range', 'empty ranges'),
     ].join(' and ');
     final proceed = _console.confirm(
       'Remove $what?',
@@ -222,6 +224,7 @@ void _removeUnused(
     result.unused,
     rootPath,
     emptyFiles: result.emptyFiles,
+    emptyRanges: result.emptyRanges,
   );
   _console.output(
     Reporter.removal(

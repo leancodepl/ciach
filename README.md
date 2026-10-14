@@ -91,7 +91,7 @@ anything, because an enum needs at least one value.
 | `--[no-]transitive` | off | Also report declarations referenced only from other findings, and dead cycles. See [Transitively dead code](#transitively-dead-code). |
 | `--[no-]set-exit-if-changed` | off; on in CI | Exit with status `1` when anything is found. Named after `dart format`. |
 | `--[no-]ci` | auto | Assume CI: `--set-exit-if-changed` and `--verbose` default to on, progress to off, and `--format` to annotations on GitHub Actions, Azure Pipelines and TeamCity. Detected from `CI`, `GITHUB_ACTIONS` and the like. See [CI](#ci). |
-| `--remove` | off | Remove unused declarations, and delete empty files, after reporting them. Prompts for confirmation first. |
+| `--remove` | off | Remove unused declarations and empty ranges, and delete empty files, after reporting them. Prompts for confirmation first. |
 | `--force` | off | Skip the confirmation prompt for `--remove`. Requires `--remove`. |
 | `-e, --exclude <glob>` | — | Skip files matching the glob (repeatable). They are not opened, so a declaration used only from them is reported; see `--generated-glob`. |
 | `-i, --include <glob>` | — | Only scan files matching the glob (repeatable). |
@@ -104,8 +104,8 @@ anything, because an enum needs at least one value.
 | `-v, --verbose` | off; on in CI | Explain what's happening on stderr. See [Verbose mode](#verbose-mode). |
 | `--dart <path>` | auto | Path to the `dart` executable to launch the server with. Defaults to the SDK running ciach, or to `dart` from `PATH` for a compiled binary. |
 
-Exit codes: `0` success, `1` unused code or an empty file found with
-`--set-exit-if-changed`, `2` usage or analysis error.
+Exit codes: `0` success, `1` unused code, an empty file or an empty range found
+with `--set-exit-if-changed`, `2` usage or analysis error.
 
 The result goes to stdout; progress, `-v` output, warnings, errors and the
 `--remove` prompt go to stderr.
@@ -243,6 +243,23 @@ lib/web.dart  (a conditional-import variant: remove its `if` clause and the file
 These count toward `--set-exit-if-changed`. `--remove` deletes them with the
 `import`s of them, except a conditional-import variant, which is left to you.
 
+### Empty ranges
+
+A pair of range comments with nothing but blank lines and comments between
+them is reported too:
+
+```
+Empty ranges (2) · range comments with nothing between them
+lib/legacy/helpers.dart:12  // coverage:ignore-start … // coverage:ignore-end
+lib/widgets/card.dart:40  // dart format off … // dart format on
+```
+
+The pairs are `coverage:ignore-start` and `coverage:ignore-end`,
+`ciach:ignore-start` and `ciach:ignore-end`, `dart format off` and
+`dart format on`, and `cspell:disable` and `cspell:enable`. These count toward
+`--set-exit-if-changed`, and `--remove` deletes both comments of each pair. It
+also deletes a pair that the removal of code leaves empty.
+
 ### CI
 
 ciach detects CI from the environment (`CI`, or a service's own variable such as
@@ -302,7 +319,7 @@ ciach:
       codequality: gl-code-quality-report.json
 ```
 
-Unused findings and empty files are warnings (`minor` in GitLab), doc-only
+Unused findings, empty files and empty ranges are warnings (`minor` in GitLab), doc-only
 findings a severity lower. GitLab fingerprints leave out the line, so a finding
 that only moved is not reported as new.
 
@@ -359,11 +376,8 @@ line of a removed declaration, or of a removed `import`. A comment for a tool
 there, such as `// coverage:ignore-start`, stays, so the range it opens or
 closes keeps both ends.
 
-In a file `--remove` changes, a pair of range comments with nothing left
-between them goes too. This covers `coverage:ignore-start` and
-`coverage:ignore-end`, `ciach:ignore-start` and `ciach:ignore-end`,
-`dart format off` and `dart format on`, and `cspell:disable` and
-`cspell:enable`.
+A pair of range comments that the removal leaves with nothing between them goes
+too; see [Empty ranges](#empty-ranges).
 
 Removal acts on whatever the finder reports, so it inherits the same
 false-positive risk, which `--also overrides,operators` widens considerably.

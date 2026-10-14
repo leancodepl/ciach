@@ -29,6 +29,7 @@ import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/problems.dart';
 import 'package:ciach/src/public_api.dart';
+import 'package:ciach/src/range_markers.dart';
 import 'package:ciach/src/reachable_types.dart';
 import 'package:ciach/src/reference_classifier.dart';
 import 'package:ciach/src/reference_fetch.dart';
@@ -70,6 +71,9 @@ class Ciach {
   /// The candidate files with nothing but directives and comments, as they
   /// are opened.
   final _directiveOnly = <String>[];
+
+  /// The empty ranges of the candidate files, as they are opened.
+  final _emptyRanges = <EmptyRange>[];
 
   /// Freezed-union tracking, fed as candidates are collected.
   final _freezed = FreezedUnions();
@@ -290,6 +294,12 @@ class Ciach {
       recoveredReferences: settled.recovered,
       problems: problems.problems,
       emptiedContainers: settled.emptied,
+      emptyRanges: _emptyRanges.sorted(
+        (a, b) => switch (a.filePath.compareTo(b.filePath)) {
+          0 => a.line.compareTo(b.line),
+          final order => order,
+        },
+      ),
     );
   }
 
@@ -383,8 +393,9 @@ class Ciach {
     return (candidates: candidates, refsByCandidate: refsByCandidate);
   }
 
-  /// Opens [path] in the server, noting it in [_directiveOnly] if [checkEmpty]
-  /// and it has nothing but directives. `false` if the file cannot be read.
+  /// Opens [path] in the server. If [checkEmpty], notes it in [_directiveOnly]
+  /// when it has nothing but directives, and its empty ranges in
+  /// [_emptyRanges] otherwise. `false` if the file cannot be read.
   bool _openFile(LspClient client, String path, {bool checkEmpty = false}) {
     final String content;
     try {
@@ -395,8 +406,21 @@ class Ciach {
     }
     client.didOpen(File(path).uri, content);
     _sources.cacheLines(path, content.split('\n'));
-    if (checkEmpty && isDirectiveOnly(content)) {
+    if (!checkEmpty) {
+      return true;
+    }
+    if (isDirectiveOnly(content)) {
       _directiveOnly.add(path);
+    } else {
+      final filePath = relativePosix(path, options.rootPath);
+      for (final (:line, :open, :close, spans: _) in emptyRanges(content)) {
+        _emptyRanges.add((
+          filePath: filePath,
+          line: line,
+          open: open,
+          close: close,
+        ));
+      }
     }
     return true;
   }

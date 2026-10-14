@@ -24,14 +24,18 @@ typedef _Span = ({int start, int end});
 /// variable is removed by deleting its [UnusedDeclaration.cut], which the
 /// finder works out; one without a cut is left in place.
 ///
-/// A rewritten file left with nothing but directives is then deleted, as are
-/// the [emptyFiles]; see `deleteEmptiedFiles`.
+/// Each rewritten file, and each file of the [emptyRanges], loses the range
+/// comments left around nothing. A rewritten file left with nothing but
+/// directives is then deleted, as are the [emptyFiles]; see
+/// `deleteEmptiedFiles`.
 RemovalResult removeDeclarations(
   List<UnusedDeclaration> declarations,
   String rootPath, {
   List<String> emptyFiles = const [],
+  List<EmptyRange> emptyRanges = const [],
 }) {
-  final byFile = _byFile(declarations);
+  final byFile = _byFile(declarations, emptyRanges);
+  var removedRanges = 0;
   final rewritten = <String>{};
   // Each kept comment's distance from the end of its rewritten file. Deleting
   // emptied files only drops directives, which come before every declaration,
@@ -48,15 +52,16 @@ RemovalResult removeDeclarations(
     final file = File(path);
     try {
       final content = file.readAsStringSync();
-      final (:updated, :commentsFromEnd) = _removeFromContent(
+      final (:updated, :commentsFromEnd, :rangeCount) = _removeFromContent(
         content,
         entry.value,
       );
+      removedRanges += rangeCount;
       if (updated != content) {
         file.writeAsStringSync(updated);
         rewritten.add(path);
         _log.fine(
-          'Rewrote ${entry.key}: removed ${plural(entry.value.length, 'declaration', 'declarations')}.',
+          'Rewrote ${entry.key}: removed ${plural(entry.value.length, 'declaration', 'declarations')} and ${plural(rangeCount, 'empty range', 'empty ranges')}.',
         );
         if (commentsFromEnd.isNotEmpty) {
           keptComments[entry.key] = commentsFromEnd;
@@ -75,17 +80,22 @@ RemovalResult removeDeclarations(
       filesChanged: rewritten.length,
       deletedFiles: deletedFiles,
       leftComments: _leftComments(keptComments, rootPath),
+      removedRanges: removedRanges,
     );
   } on FileSystemException catch (e) {
     throw failure(e, e.path ?? rootPath);
   }
 }
 
-/// The declarations to remove, and their coupled removals, by file.
+/// The declarations to remove, and their coupled removals, by file. A file of
+/// the [emptyRanges] is there too, with no declarations if it has none.
 Map<String, List<UnusedDeclaration>> _byFile(
   List<UnusedDeclaration> declarations,
+  List<EmptyRange> emptyRanges,
 ) {
-  final byFile = <String, List<UnusedDeclaration>>{};
+  final byFile = <String, List<UnusedDeclaration>>{
+    for (final range in emptyRanges) range.filePath: [],
+  };
   for (final decl in declarations) {
     // A blocked finding is reported but never auto-removed: deleting it safely
     // would need a source rewrite (e.g. an `if (x case DeadType())` branch), so
@@ -173,12 +183,11 @@ class RemovalException implements Exception {
   String toString() => message;
 }
 
-/// Returns [content] with [decls] removed, and how far from the end of the
-/// result each `//` comment block kept directly above removed code starts.
-({String updated, List<int> commentsFromEnd}) _removeFromContent(
-  String content,
-  List<UnusedDeclaration> decls,
-) {
+/// Returns [content] with [decls] and its empty ranges removed, how far from
+/// the end of the result each `//` comment block kept directly above removed
+/// code starts, and how many empty ranges went.
+({String updated, List<int> commentsFromEnd, int rangeCount})
+_removeFromContent(String content, List<UnusedDeclaration> decls) {
   final lines = content.split('\n');
   final comments = _OwnLineComments(content);
   int offsetOf(int line, int column) => comments.starts[line] + column;
@@ -197,10 +206,6 @@ class RemovalException implements Exception {
     spans.add(_absorbOrphanEnumComma(content, span));
   }
 
-  if (spans.isEmpty) {
-    return (updated: content, commentsFromEnd: const []);
-  }
-
   final kept = <int>[];
   final buffer = StringBuffer();
   var cursor = 0;
@@ -215,7 +220,8 @@ class RemovalException implements Exception {
   }
   buffer.write(content.substring(cursor));
   final rewritten = buffer.toString();
-  final markers = _mergeSpans(emptyRangeMarkers(rewritten));
+  final ranges = emptyRanges(rewritten);
+  final markers = _mergeSpans([for (final range in ranges) ...range.spans]);
   final updated = _without(rewritten, markers);
   return (
     updated: updated,
@@ -223,6 +229,7 @@ class RemovalException implements Exception {
       for (final offset in kept)
         rewritten.length - offset - _lengthAfter(markers, offset),
     ],
+    rangeCount: ranges.length,
   );
 }
 

@@ -13,42 +13,65 @@ final _pairs = [
     ('dart format off', 'dart format on'),
     ('cspell:disable', 'cspell:enable'),
   ])
-    (open: _marker(open), close: _marker(close)),
+    (
+      open: open,
+      close: close,
+      openPattern: _marker(open),
+      closePattern: _marker(close),
+    ),
 ];
 
 RegExp _marker(String marker) =>
     RegExp('^//\\s*${RegExp.escape(marker)}(?![\\w-])', caseSensitive: false);
 
-/// The spans of the range markers in [content] that are left around nothing
-/// but whitespace and comments.
+/// A pair of range comments with nothing but whitespace and comments between
+/// them: the opening comment's one-based line, the two markers, and the spans
+/// that removing them deletes.
 ///
 /// A marker on its own line spans the whole line; one after code spans the
 /// blanks before it.
-List<({int start, int end})> emptyRangeMarkers(String content) {
+typedef EmptyRangeIn = ({
+  int line,
+  String open,
+  String close,
+  List<({int start, int end})> spans,
+});
+
+/// The empty ranges in [content].
+List<EmptyRangeIn> emptyRanges(String content) {
   final comments = lineComments(content).toList();
   final code = stripComments(content);
   return [
     for (final pair in _pairs)
-      for (final (open, close) in _matched(content, comments, pair))
-        if (code.substring(open.end, close.offset).trim().isEmpty) ...[
-          open.span,
-          close.span,
-        ],
+      for (final (open, close) in _matched(
+        content,
+        comments,
+        pair.openPattern,
+        pair.closePattern,
+      ))
+        if (code.substring(open.end, close.offset).trim().isEmpty)
+          (
+            line: '\n'.allMatches(content.substring(0, open.offset)).length + 1,
+            open: pair.open,
+            close: pair.close,
+            spans: [open.span, close.span],
+          ),
   ];
 }
 
-/// Each [pair] marker in [comments] that opens a range, with the one that
-/// closes it.
+/// Each comment in [comments] that [open] matches, with the one that [close]
+/// matches and closes its range.
 Iterable<(_Marker, _Marker)> _matched(
   String content,
   List<({int offset, String text})> comments,
-  ({RegExp open, RegExp close}) pair,
+  RegExp open,
+  RegExp close,
 ) sync* {
   final opened = <({int offset, String text})>[];
   for (final comment in comments) {
-    if (pair.open.hasMatch(comment.text)) {
+    if (open.hasMatch(comment.text)) {
       opened.add(comment);
-    } else if (pair.close.hasMatch(comment.text) && opened.isNotEmpty) {
+    } else if (close.hasMatch(comment.text) && opened.isNotEmpty) {
       yield (_Marker(content, opened.removeLast()), _Marker(content, comment));
     }
   }
