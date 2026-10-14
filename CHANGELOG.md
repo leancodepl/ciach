@@ -1,5 +1,9 @@
 ## Unreleased
 
+- In a file `--remove` changes, range comments such as
+  `// coverage:ignore-start` and `// coverage:ignore-end` now go when nothing is
+  left between them.
+  ([#130](https://github.com/leancodepl/ciach/pull/130))
 - `--remove` now lists the `//` comments it leaves right above removed code,
   so you can check whether they still belong. It also deletes an `// ignore:`,
   `// expect_lint:` or `// cspell:disable-next-line` comment above or at the end
