@@ -43,7 +43,7 @@ final class Verdict {
       'its State class is used elsewhere, so it would be left extending State of a removed widget';
 
   static const emptiedEnumHint =
-      'the enum is used, but none of its values are, and an enum needs at least one value';
+      'none of its values are used, and an enum needs at least one';
 
   static const namedOnlyInClausesHint =
       'only `with` or `implements` clauses use it; `--remove` also removes it from them';

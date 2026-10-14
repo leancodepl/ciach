@@ -696,8 +696,7 @@ void main() {
             'EmptyableStatus',
             SymbolKind.enum$,
             true,
-            'the enum is used, but none of its values are, and an enum needs '
-                'at least one value',
+            'none of its values are used, and an enum needs at least one',
           ),
         ],
       );

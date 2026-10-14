@@ -3,13 +3,13 @@
 // Scanned by its own test.
 
 /// Used only in `with` clauses, and its one member is unused -> UNUSED
-/// (class), with the method.
+/// (class), reported without its method.
 mixin Painter {
   void paint() {}
 }
 
-/// Used only in an `implements` clause -> UNUSED (class), with the method
-/// and its override in `Canvas`.
+/// Used only in an `implements` clause -> UNUSED (class), reported without
+/// its method. `--remove` also deletes the override in `Canvas`.
 abstract class Drawable {
   void draw();
 }
@@ -63,7 +63,7 @@ mixin Holder<T> {
 class Held with Holder<int> {}
 
 /// Used only in the `with` clause of a class without a body -> UNUSED
-/// (class), with the method.
+/// (class), reported without its method.
 mixin Sketch {
   void sketch() {}
 }
@@ -71,7 +71,7 @@ mixin Sketch {
 class Sketched(final int size) with Sketch;
 
 /// Used in the `with` clause of a mixin application class that has another
-/// mixin -> UNUSED (class), with the method.
+/// mixin -> UNUSED (class), reported without its method.
 mixin Glazed {
   void glaze() {}
 }
