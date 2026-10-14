@@ -386,8 +386,8 @@ typedef DeadReferrer = ({String qualifiedName, String filePath, int line});
 /// `/`-paths.
 typedef DeletedFile = ({String filePath, List<String> unlinkedFrom});
 
-/// A class, mixin, extension or extension type that `--remove` leaves with an
-/// empty body. `filePath` is relative to the root and uses `/`.
+/// A class, mixin or extension that `--remove` leaves with an empty body.
+/// `filePath` is relative to the root and uses `/`.
 typedef EmptiedContainer = ({String filePath, String name});
 
 /// What `removeDeclarations` did.
@@ -566,8 +566,8 @@ class FinderResult {
   /// hide a finding but never adds one.
   final List<AnalysisProblem> problems;
 
-  /// The classes, mixins, extensions and extension types that `--remove`
-  /// leaves with an empty body: each of their members is a removable finding,
-  /// but other code still uses them. Sorted by file, then name.
+  /// The classes, mixins and extensions that `--remove` leaves with an empty
+  /// body: each of their members is a removable finding, but other code still
+  /// uses them. Sorted by file, then name.
   final List<EmptiedContainer> emptiedContainers;
 }

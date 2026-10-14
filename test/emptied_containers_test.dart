@@ -9,8 +9,8 @@ import 'package:test/test.dart';
 
 import 'support/package_config.dart';
 
-/// Containers whose members are all unused while the containers themselves
-/// stay in use: the finder lists those that `--remove` leaves empty.
+/// Classes, mixins and extensions whose members are all unused but that other
+/// code still uses: the finder lists those that `--remove` leaves empty.
 void main() {
   late Directory root;
 
@@ -79,7 +79,7 @@ void main() {
       'Dead.paint',
     ]);
     // Canvas keeps erase, and Wrapped and Point keep the fields their headers
-    // declare. Dead goes whole, and so does an extension nothing names.
+    // declare. Dead is removed whole, and so is Parsing, which nothing names.
     expect(result.emptiedContainers, [
       (filePath: 'lib/shapes.dart', name: 'Painter'),
     ]);

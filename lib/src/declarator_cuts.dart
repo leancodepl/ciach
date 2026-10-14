@@ -107,7 +107,7 @@ extension DeclaratorCuts on SourceIndex {
       siblings,
       (sibling) => removed.containsKey(sibling.start),
     )) {
-      // Every variable goes, and so does the statement.
+      // When every variable goes, the whole statement goes.
       final range = (cut ?? statement).toDeclarationRange;
       for (final sibling in siblings.sublist(i, j)) {
         cuts[removed[sibling.start]!] = range;

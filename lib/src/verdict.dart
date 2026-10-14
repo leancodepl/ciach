@@ -43,7 +43,7 @@ final class Verdict {
       'its State class is used elsewhere, so it would be left extending State of a removed widget';
 
   static const namedOnlyInClausesHint =
-      'only `with` and `implements` clauses use it, and `--remove` also removes it from them';
+      'only `with` or `implements` clauses use it; `--remove` also removes it from them';
 
   static const overriddenHint =
       'overridden by a declaration --remove will not delete — that override would be left overriding nothing';

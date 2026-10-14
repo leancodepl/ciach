@@ -126,7 +126,7 @@ abstract final class Reporter {
         'Deleted ${plural(deleted.length, 'empty file', 'empty files')}: ${deleted.map((d) => d.filePath).join(', ')}.',
       if (emptied.isNotEmpty)
         style.caution(
-          'Kept ${plural(emptied.length, 'empty declaration', 'empty declarations')} that other code still uses: ${emptied.map((e) => '${e.name} (${e.filePath})').join(', ')}.',
+          'Left ${plural(emptied.length, 'declaration', 'declarations')} empty because other code still uses them: ${emptied.map((e) => '${e.name} (${e.filePath})').join(', ')}.',
         ),
       style.note("Run 'dart format' to tidy up spacing."),
     ];

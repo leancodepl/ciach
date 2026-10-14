@@ -8,8 +8,9 @@
  *     - mark-ai-provenance
  */
 
-/// Comment blanking for the directive rewriting after `--remove`, which runs
-/// once the analysis server is gone.
+/// Text scanning for when the analysis server can't help: comment blanking
+/// for the directive rewriting after `--remove`, which runs once the server is
+/// gone, and whitespace skipping.
 library;
 
 import 'package:ciach/src/extensions.dart';

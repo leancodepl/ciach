@@ -12,6 +12,7 @@ final class DeadSpans {
   DeadSpans._(this._byPath);
 
   /// The spans of the findings `--remove` would delete, by absolute path.
+  ///
   /// If [includeClauseCuts] is false, the spans leave out the removals of
   /// `with` and `implements` clause entries. Those entries then still count as
   /// references to their types.

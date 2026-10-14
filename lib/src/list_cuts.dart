@@ -4,24 +4,25 @@ library;
 
 import 'package:pro_lsp/pro_lsp.dart' show Range;
 
-/// Returns each longest run of adjacent [items] that [isCut] accepts: its
-/// index range `[i, j)`, and the range that removes it.
+/// Returns each group of adjacent [items] that [isRemoved] accepts: its index
+/// range `[i, j)` and the range that deletes it.
 ///
-/// A run goes with the comma after it, or, when it ends the list, with the
-/// comma before it. The range is `null` for a run that is the whole list,
-/// since what goes then depends on the list.
+/// A group is cut out with the comma after it: in `a, b, c`, removing `b`
+/// deletes `b, `. A group that ends the list goes with the comma before it:
+/// removing `c` deletes `, c`. The range is `null` when the group is the whole
+/// list, because then the caller deletes the whole statement or clause instead.
 Iterable<(int, int, Range?)> listCuts(
   List<Range> items,
-  bool Function(Range item) isCut,
+  bool Function(Range item) isRemoved,
 ) sync* {
   var i = 0;
   while (i < items.length) {
-    if (!isCut(items[i])) {
+    if (!isRemoved(items[i])) {
       i++;
       continue;
     }
     var j = i + 1;
-    while (j < items.length && isCut(items[j])) {
+    while (j < items.length && isRemoved(items[j])) {
       j++;
     }
     yield (i, j, _cutOf(items, i, j));

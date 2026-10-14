@@ -53,9 +53,9 @@ void main() {
     );
   }
 
-  /// The entries of [names] in the clause that follows [clause] in [source],
-  /// as `clauseEntryAt` reads them once the finder has fetched the selection
-  /// ranges at the names.
+  /// Returns the clause entries for [names], searched for in [source] after the
+  /// text [clause], as `clauseEntryAt` reads them once the selection ranges at
+  /// the names are fetched.
   Future<(String, SourceIndex, ReferenceFetch, List<ClauseEntry?>)> entriesIn(
     String source,
     String clause,
@@ -64,13 +64,18 @@ void main() {
     final (path, sources, fetch) = await index(source);
     final unit = await client.outline(File(path).uri);
     final clauseStart = source.indexOf(clause);
+    int nameAt(String name) {
+      final start = source.indexOf(RegExp('\\b$name\\b'), clauseStart);
+      expect(start, isNot(-1), reason: '$name after $clause');
+      return start;
+    }
+
     final ranges = [
       for (final name in names)
-        if (source.indexOf(RegExp('\\b$name\\b'), clauseStart) case final start)
-          Range(
-            start: sources.positionOf(path, start),
-            end: sources.positionOf(path, start + name.length),
-          ),
+        Range(
+          start: sources.positionOf(path, nameAt(name)),
+          end: sources.positionOf(path, nameAt(name) + name.length),
+        ),
     ];
     await fetch.fetchSelectionRanges(client, {
       path: {for (final range in ranges) range.start},
@@ -102,7 +107,7 @@ void main() {
     await fetch.fetchSelectionRanges(client, {
       path: {
         for (final entry in entries.nonNulls)
-          ...sources.entryProbes(path, entry.clause),
+          ...sources.namesInClause(path, entry.clause),
       },
     });
     final removals = sources.clauseCuts(entries.nonNulls, tempDir.path).values;
@@ -127,6 +132,17 @@ mixin C {}
 mixin D {}
 mixin E {}
 ''';
+
+  test('keeps a line comment out of the code when the clause goes', () async {
+    expect(
+      await cutFrom(
+        '${types}class A extends B // note\n    with C {}\n',
+        'with C',
+        ['C'],
+      ),
+      '${types}class A extends B // note\n {}\n',
+    );
+  });
 
   test('removes the only entry together with the keyword', () async {
     expect(
@@ -215,7 +231,7 @@ class F extends B with C {}
   );
 
   test(
-    'a type named outside a with or implements clause is no entry',
+    'returns no entry for a type named outside a with or implements clause',
     () async {
       final (_, _, _, entries) = await entriesIn(
         '${types}class A extends B {}\n',

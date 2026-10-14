@@ -173,9 +173,9 @@ final class Settler {
     );
   }
 
-  /// The containers `--remove` leaves with an empty body: each of their
-  /// members is a removable finding of [candidateOf], but they aren't one
-  /// themselves, because other code still uses them.
+  /// Returns the classes, mixins and extensions that `--remove` leaves with an
+  /// empty body: each of their members is a removable finding in [candidateOf],
+  /// but they aren't, because other code still uses them.
   static List<EmptiedContainer> _emptiedContainers(
     List<Candidate> candidates,
     Map<UnusedDeclaration, int> candidateOf,
@@ -183,12 +183,18 @@ final class Settler {
   ) {
     final removable = _removableIndices(candidateOf);
     final removed = {for (final i in removable) candidates[i].key};
+
+    /// Returns, by key, each class, mixin or extension with a member in
+    /// [removable]: its outline, and how many of its members are in
+    /// [removable].
     final members = _removableMembers(candidates, removable);
     return [
       for (final MapEntry(key: container, value: (:outline, :removable))
           in members.entries)
         if (outline?.children.length == removable &&
-            // Its representation field stays, and the outline leaves it out.
+            // An extension type keeps its representation field, like `value` in
+            // `extension type Id(int value)`. The outline leaves that field
+            // out, so the type would wrongly look emptied.
             outline!.element.kind != .extensionType &&
             !removed.contains(container))
           (
@@ -527,7 +533,7 @@ final class Settler {
     }
     // Make the fields and variables `--remove` can't cut out report-only now,
     // so that the next `--transitive` round keeps alive what they reference,
-    // and a class keeping one isn't taken for emptied.
+    // and a class that keeps one isn't listed as left empty.
     final cut = await _withCuts(client, unused, rootPath);
     final cutCandidateOf = {
       for (final (k, finding) in cut.indexed) finding: candidateOf[unused[k]]!,
@@ -559,13 +565,14 @@ final class Settler {
     );
   }
 
-  /// Returns findings for the used classes and mixins whose members are all
-  /// removable findings, by candidate index in [removable], and that only
-  /// `with` and `implements` clauses in scanned files use.
+  /// Returns a finding, with its candidate index, for each used class or mixin
+  /// that only `with` and `implements` clauses in scanned files name and whose
+  /// members are all in [removable], like `mixin M { void m() {} }` named only
+  /// in `class A with M {}`.
   ///
-  /// Each finding also removes those clause entries and comes with its
-  /// candidate index. Only here, for these types, are the selection ranges
-  /// fetched that tell the entries of their clauses apart.
+  /// Each finding also removes the type from those clauses. A generic type, or
+  /// one with a clause entry that can't be removed, gets no finding. Selection
+  /// ranges are fetched only for the clauses of these types.
   Future<List<(int, UnusedDeclaration)>> _namedOnlyInClauses(
     LspClient client,
     List<Candidate> candidates,
@@ -589,7 +596,8 @@ final class Settler {
         continue;
       }
       final refs = _classifier.externalRefs(candidate, liveRefs[i]);
-      // Every scanned file's outline arrived while collecting candidates.
+      // The outline of every scanned file is already cached: the candidates
+      // were read from it.
       final entries = [
         for (final loc in refs)
           if (scannedPaths.contains(SourceIndex.pathOf(loc.uri)))
@@ -608,19 +616,21 @@ final class Settler {
       client,
       entriesOf.values.flattened.groupFoldBy(
         (entry) => entry.path,
-        (probes, entry) =>
-            (probes ?? <Position>{})
-              ..addAll(_sources.entryProbes(entry.path, entry.clause)),
+        (names, entry) =>
+            (names ?? <Position>{})
+              ..addAll(_sources.namesInClause(entry.path, entry.clause)),
       ),
     );
-    // Drop a type if any of its clause entries can't be removed. This happens
-    // when a clause can't be parsed, or when the entry is among the last
-    // mixins of a type alias.
+    // Drop a type if any of its clause entries gets no removal: the clause's
+    // selection ranges aren't cached, or the entry would take every mixin of
+    // a class type alias. Dropping a type keeps its entries, which changes the
+    // removals of other entries in the same clause, so repeat until each type
+    // left has all its removals.
     var cuts = _sources.clauseCuts(entriesOf.values.flattened, rootPath);
-    bool uncut(List<ClauseEntry> entries) =>
+    bool lacksCut(List<ClauseEntry> entries) =>
         entries.any((e) => !cuts.containsKey(e));
-    while (entriesOf.values.any(uncut)) {
-      entriesOf.removeWhere((_, entries) => uncut(entries));
+    while (entriesOf.values.any(lacksCut)) {
+      entriesOf.removeWhere((_, entries) => lacksCut(entries));
       cuts = _sources.clauseCuts(entriesOf.values.flattened, rootPath);
     }
     return [
