@@ -264,7 +264,7 @@ final class CandidateCollector {
   }
 
   /// Whether [candidate] is public and left out: by `--no-public`, or as part
-  /// of the package's API by `--no-exported`.
+  /// of an API that `exported-packages` leaves out.
   bool _skipsPublic(Candidate candidate) {
     final symbol = candidate.symbol;
     if (isPrivateName(symbol.name)) {

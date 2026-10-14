@@ -38,7 +38,7 @@ environment:
       write('lib/src/hidden.dart', 'void c() {}');
       write('bin/tool.dart', 'void d() {}');
 
-      final api = PublicApi.scan(root.path);
+      final api = PublicApi.scan(root.path, exportedPackages: ['**']);
 
       expect(api.exposes(path('lib/lib_pkg.dart'), 'a'), isTrue);
       expect(api.exposes(path('lib/extra/more.dart'), 'b'), isTrue);
@@ -58,7 +58,7 @@ export 'src/stub.dart' if (dart.library.io) 'src/io.dart';
       write('lib/src/chain.dart', "export 'deep.dart' hide E;");
       write('lib/src/deep.dart', "export 'chain.dart';");
 
-      final api = PublicApi.scan(root.path);
+      final api = PublicApi.scan(root.path, exportedPackages: ['**']);
 
       expect(api.exposes(path('lib/src/commented.dart'), 'X'), isFalse);
       expect(api.exposes(path('lib/src/shown.dart'), 'A'), isTrue);
@@ -76,7 +76,7 @@ export 'src/stub.dart' if (dart.library.io) 'src/io.dart';
       write('lib/lib_pkg.dart', "part 'src/part.dart';");
       write('lib/src/part.dart', "part of '../lib_pkg.dart';");
 
-      final api = PublicApi.scan(root.path);
+      final api = PublicApi.scan(root.path, exportedPackages: ['**']);
 
       expect(api.exposes(path('lib/src/part.dart'), 'A'), isTrue);
     });
@@ -86,7 +86,7 @@ export 'src/stub.dart' if (dart.library.io) 'src/io.dart';
       write('lib/src/a.dart', "part of '../lib_pkg.dart';\npart 'b.dart';");
       write('lib/src/b.dart', "part of 'a.dart';");
 
-      final api = PublicApi.scan(root.path);
+      final api = PublicApi.scan(root.path, exportedPackages: ['**']);
 
       expect(api.exposes(path('lib/src/b.dart'), 'B'), isTrue);
     });
@@ -95,7 +95,7 @@ export 'src/stub.dart' if (dart.library.io) 'src/io.dart';
       write('lib/src/impl.dart', "part '../gen/impl.g.dart';");
       write('lib/gen/impl.g.dart', "part of '../src/impl.dart';");
 
-      final api = PublicApi.scan(root.path);
+      final api = PublicApi.scan(root.path, exportedPackages: ['**']);
 
       expect(api.exposes(path('lib/gen/impl.g.dart'), 'A'), isFalse);
     });
@@ -113,7 +113,7 @@ export 'src/stub.dart' if (dart.library.io) 'src/io.dart';
       write('example/lib/src/b.dart', 'void b() {}');
       write('example/bin/run.dart', 'void run() {}');
 
-      final api = PublicApi.scan(root.path);
+      final api = PublicApi.scan(root.path, exportedPackages: ['**']);
 
       expect(api.exposes(path('example/lib/main.dart'), 'plugin'), isTrue);
       expect(api.exposes(path('example/lib/src/a.dart'), 'A'), isTrue);
@@ -127,7 +127,7 @@ export 'src/stub.dart' if (dart.library.io) 'src/io.dart';
       write('b/pubspec.yaml', 'name: twin');
       write('b/lib/b.dart', 'void b() {}');
 
-      final api = PublicApi.scan(root.path);
+      final api = PublicApi.scan(root.path, exportedPackages: ['**']);
 
       expect(api.exposes(path('a/lib/a.dart'), 'a'), isTrue);
       expect(api.exposes(path('b/lib/b.dart'), 'b'), isTrue);

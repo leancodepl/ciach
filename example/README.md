@@ -28,11 +28,11 @@ expected; each is scanned only by its own test, never by the demo run above.
 | Fixture | Rule it pins down |
 | --- | --- |
 | `widgets.dart` | the `StatefulWidget`/`State` pairing, so a dead widget is reported as a class and its `State` is removed with it |
-| `unions.dart` | the opt-in `--unused-union-members` detection, across the three pattern-matching contexts |
+| `unions.dart` | the opt-in `--also union-members` detection, across the three pattern-matching contexts |
 | `guards.dart` | the remove-safety guards: findings that must be report-only because removing them would not compile |
 | `enum_values.dart` | enum values reached only through `.values` iteration count as used |
 | `freezed_unions.dart` | `@freezed` union arms built only by a generated `fromJson` |
-| `serialization.dart` | the `toJson`/`fromJson` conventions, and `--report-tojson` |
+| `serialization.dart` | the `toJson`/`fromJson` conventions, and `--also tojson` |
 | `comment_annotations.dart` | a comment mentioning `@override` or `vm:entry-point` does not skip the declaration below it |
 | `entry_points.dart`, `entry_points/flutter_test_config.dart` | an entry point is exempt by file and name, whatever its shape, and `entry-points` in `ciach.yaml` adds a project's own |
 | `dot_shorthands.dart`, `dot_shorthand_uses.dart` | every context a `.name` dot shorthand is allowed in, including nested constructor shorthands |
@@ -107,10 +107,10 @@ Things worth noticing:
   comment, so it is listed separately and never removed.
 - `testExecutable` in `test/flutter_test_config.dart` is not reported: nothing
   on disk calls it, but `flutter test` does, and ciach knows that contract.
-- `Dog.sound` (an `@override`) is skipped by default; add `--overrides` to
+- `Dog.sound` (an `@override`) is skipped by default; add `--also overrides` to
   include it — which also reveals `Animal.sound`, the abstract method it
   implements.
-- `Vector2.+` and `Vector2.-` are skipped by default; add `--operators` to
+- `Vector2.+` and `Vector2.-` are skipped by default; add `--also operators` to
   report them. They surface even though `+` is called in `bin/app.dart`,
   because the analysis server's reference search does not resolve infix
   operator syntax back to the operator's declaration. See the main README's

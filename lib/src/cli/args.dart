@@ -10,6 +10,7 @@
 
 import 'package:args/args.dart';
 import 'package:ciach/ciach.dart';
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/version.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
@@ -36,6 +37,117 @@ const kindAliases = <String, SymbolKind>{
 
 /// The `--kinds` alias names, sorted, for help text and error messages.
 String get kindNames => kindAliases.keys.sorted().join(', ');
+
+/// The accepted `--also` values: what is skipped by default, each a known
+/// source of false positives.
+const alsoNames = ['overrides', 'operators', 'tojson', 'union-members'];
+
+/// Parses the `--also` values (comma-separated, repeatable).
+///
+/// Throws a [FormatException] naming the offending value on an unknown one,
+/// which the command line would catch by itself, but a config file would not.
+Set<String> parseAlso(List<String> raw) {
+  final names = {
+    for (final entry in raw)
+      for (final name in entry.split(','))
+        if (name.trim() case final trimmed when trimmed.isNotEmpty) trimmed,
+  };
+  if (names.whereNot(alsoNames.contains).firstOrNull case final unknown?) {
+    throw FormatException(
+      "Unknown value '$unknown' for `also`. Valid values: ${alsoNames.join(', ')}.",
+    );
+  }
+  return names;
+}
+
+/// What a removed option became: the values for the option with the config
+/// key `key` to take. No values set it to an empty list.
+typedef Replacement = ({String key, List<String> values});
+
+/// The removed flags that became a value of `--also`, by config key.
+const _alsoFlags = {
+  'overrides': 'overrides',
+  'operators': 'operators',
+  'report-tojson': 'tojson',
+  'unused-union-members': 'union-members',
+};
+
+/// The config keys of the options ciach no longer has.
+const removedKeys = {
+  'overrides',
+  'operators',
+  'report-tojson',
+  'unused-union-members',
+  'exported',
+  'fail-public',
+  'generated-suffix',
+};
+
+/// Why setting the removed option [key] to [value] (`true` or `false` for a
+/// flag) is not needed any more, or what to use instead, in the config file
+/// when [inConfig].
+String removedOptionAdvice(
+  String key,
+  Object? value, {
+  required bool inConfig,
+}) {
+  if (key == 'fail-public' && value == false) {
+    return 'every finding counts toward the exit code, and what other packages can import is left out by default';
+  }
+  return switch (_replacementFor(key, value)) {
+    null => 'that is the default now, so drop it',
+    final replacement when inConfig =>
+      'use `${replacement.key}: [${replacement.values.map(_quoted).join(', ')}]`',
+    (:final key, values: []) => 'use `--$key=`',
+    (:final key, :final values) =>
+      'use ${values.map((value) => '`--$key ${_quoted(value)}`').join(' ')}',
+  };
+}
+
+/// What setting the removed option [key] to [value] became, or `null` when
+/// that is the default now.
+Replacement? _replacementFor(String key, Object? value) => switch (key) {
+  'exported' when value == true => (key: 'exported-packages', values: []),
+  'generated-suffix' => (
+    key: 'generated-glob',
+    values: [
+      for (final suffix in value is Iterable ? value : [value ?? '<suffix>'])
+        '**/*$suffix',
+    ],
+  ),
+  _ when value == true => _alsoFlags[key]?.let(
+    (also) => (key: 'also', values: [also]),
+  ),
+  _ => null,
+};
+
+/// [value], single-quoted when a shell or YAML would read it otherwise.
+String _quoted(String value) =>
+    RegExp(r'^[\w.-]+$').hasMatch(value) ? value : "'$value'";
+
+final _longOption = RegExp(r'^--(no-)?([\w-]+)(?:=(.*))?$');
+
+/// Why the first removed option in [arguments] is gone and what to do
+/// instead, or `null` when they name none.
+String? removedOptionMessage(List<String> arguments) {
+  for (final (i, argument) in arguments.indexed) {
+    if (argument == '--') {
+      break;
+    }
+    final match = _longOption.firstMatch(argument);
+    final key = match?[2];
+    if (match == null || key == null || !removedKeys.contains(key)) {
+      continue;
+    }
+    final Object? value = switch (key) {
+      // The value of `--generated-suffix` may be the next argument.
+      'generated-suffix' => match[3] ?? arguments.elementAtOrNull(i + 1),
+      _ => match[1] == null,
+    };
+    return '`${argument.split('=').first}` was removed: ${removedOptionAdvice(key, value, inConfig: false)}.';
+  }
+  return null;
+}
 
 /// The accepted `--format` values; the first one is the default, except on a
 /// CI service with an annotation format, where it is that one.
@@ -88,6 +200,12 @@ Set<SymbolKind> parseKinds(List<String> raw) {
   };
 }
 
+const _reportGroup = OptionGroup('What to report');
+const _filesGroup = OptionGroup('Which files');
+const _outputGroup = OptionGroup('Output');
+const _ciGroup = OptionGroup('Exit code and removal');
+const _serverGroup = OptionGroup('Analysis server');
+
 /// Every setting ciach accepts, declared once for the command line, the config
 /// file (`configKey`) and its default.
 ///
@@ -138,17 +256,9 @@ enum CiachOption<V> implements OptionDefinition<V> {
       helpText: 'Package root to analyze.',
     ),
   ),
-  analysisRoot(
-    StringOption(
-      argName: 'analysis-root',
-      configKey: '/analysis-root',
-      valueHelp: 'path',
-      helpText:
-          'Count references from this whole directory, not just the scanned package — for a monorepo where sibling packages depend on it by `path:`. Must contain the scanned path; what is scanned, reported and removed is unchanged. A pub workspace needs no setting.',
-    ),
-  ),
   public(
     FlagOption(
+      group: _reportGroup,
       argName: 'public',
       configKey: '/public',
       defaultsTo: true,
@@ -156,79 +266,53 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'Report unused public declarations too. Disable to report only private (underscore-prefixed) declarations, which are the highest-confidence dead code.',
     ),
   ),
-  exported(
-    FlagOption(
-      argName: 'exported',
-      configKey: '/exported',
-      defaultsTo: true,
-      helpText: 'Report declarations other packages can import.',
-    ),
-  ),
-  failPublic(
-    FlagOption(
-      argName: 'fail-public',
-      configKey: '/fail-public',
-      defaultsTo: true,
+  exportedPackages(
+    MultiStringOption.noSplit(
+      group: _reportGroup,
+      argName: 'exported-packages',
+      configKey: '/exported-packages',
+      defaultsTo: ['**'],
+      valueHelp: 'glob',
       helpText:
-          'Count unused public declarations toward the exit code (with --set-exit-if-changed). Use --no-fail-public to report them without failing the build.',
-    ),
-  ),
-  generated(
-    FlagOption(
-      argName: 'generated',
-      configKey: '/generated',
-      defaultsTo: false,
-      helpText:
-          'Scan generated files (*.g.dart, *.freezed.dart, …). Off by default.',
-    ),
-  ),
-  projectConfig(
-    FlagOption(
-      argName: 'project-config',
-      configKey: '/project-config',
-      defaultsTo: true,
-      helpText:
-          'Read entry points and generated files from pubspec.yaml, build.yaml and l10n.yaml.',
+          'Glob, relative to the root, of a package that code outside the analysis imports. What other packages can import from it is not reported. Defaults to every package; an empty value (--exported-packages=) checks the API of every package. Repeatable.',
     ),
   ),
   unusedTranslations(
     FlagOption(
+      group: _reportGroup,
       argName: 'unused-translations',
       configKey: '/unused-translations',
-      defaultsTo: false,
+      defaultsTo: true,
       helpText:
-          'Report the unused messages in the gen-l10n template file. They are only reported, never removed: remove them from the template ARB file instead. Off by default.',
+          'Report the unused messages in the gen-l10n template file that an l10n.yaml configures. They are only reported, never removed: remove them from the template ARB file instead.',
     ),
   ),
-  overrides(
-    FlagOption(
-      argName: 'overrides',
-      configKey: '/overrides',
-      defaultsTo: false,
+  also(
+    MultiStringOption(
+      group: _reportGroup,
+      argName: 'also',
+      configKey: '/also',
+      defaultsTo: [],
+      valueHelp: 'category,category',
+      allowedValues: alsoNames,
+      customValidator: parseAlso,
       helpText:
-          'Report members annotated with @override too. Off by default, since overrides are often reached polymorphically and a plain reference search can miss those uses.',
-    ),
-  ),
-  operators(
-    FlagOption(
-      argName: 'operators',
-      configKey: '/operators',
-      defaultsTo: false,
-      helpText:
-          "Report operator overloads (operator +, operator ==, …) too. Off by default: the analysis server never resolves infix operator syntax (a + b) back to the operator's declaration, so a used operator is reported as unused every time.",
-    ),
-  ),
-  unusedUnionMembers(
-    FlagOption(
-      argName: 'unused-union-members',
-      configKey: '/unused-union-members',
-      defaultsTo: false,
-      helpText:
-          'Also flag a class whose only references are type patterns over its (sealed) supertype — matched but never constructed. Off by default: a `case Foo():` arm otherwise counts as a use. Report-only: these findings are surfaced but --remove never deletes them or their pattern arms (removing a sealed member and rewriting its switches is left to a human). Conservative: any reference that is not clearly a type pattern keeps the class alive.',
+          'Also report what is skipped by default because a reference search misses some of its uses, so it brings false positives. A comma-separated list of:',
+      allowedHelp: {
+        'overrides':
+            '@override members, often reached polymorphically or by a framework.',
+        'operators':
+            'Operator overloads: the analysis server never resolves `a + b` to the operator, so a used one is reported every time.',
+        'tojson':
+            'toJson() hooks, which `jsonEncode(obj)` calls by dynamic dispatch.',
+        'union-members':
+            'Classes matched only by type patterns over their sealed supertype, never constructed. Report-only: --remove never deletes them or their pattern arms.',
+      },
     ),
   ),
   transitive(
     FlagOption(
+      group: _reportGroup,
       argName: 'transitive',
       configKey: '/transitive',
       defaultsTo: false,
@@ -236,52 +320,9 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'Also report declarations referenced only from other findings, and cycles of declarations that only reference each other. Off by default, because one false positive also flags everything only it referenced.',
     ),
   ),
-  reportToJson(
-    FlagOption(
-      argName: 'report-tojson',
-      configKey: '/report-tojson',
-      defaultsTo: false,
-      helpText:
-          'Report a `toJson()` serialization hook as unused too. Off by default: `jsonEncode(obj)` calls `obj.toJson()` by dynamic dispatch with no source-level `.toJson()` reference for the search to see, so a live serializer would be flagged. Enable to audit dead `toJson`s.',
-    ),
-  ),
-  setExitIfChanged(
-    FlagOption(
-      argName: 'set-exit-if-changed',
-      configKey: '/set-exit-if-changed',
-      helpText:
-          'Exit with a non-zero status when any unused declaration or empty file is found. On by default in CI.',
-    ),
-  ),
-  ci(
-    FlagOption(
-      argName: 'ci',
-      configKey: '/ci',
-      helpText:
-          'Assume CI: --set-exit-if-changed and --verbose default to on, progress to off, and --format to annotations on GitHub Actions, Azure Pipelines and TeamCity. Detected from CI, GITHUB_ACTIONS and the like; explicit options still win.',
-    ),
-  ),
-  remove(
-    FlagOption(
-      argName: 'remove',
-      configKey: '/remove',
-      negatable: false,
-      defaultsTo: false,
-      helpText:
-          'Remove unused declarations from source, and delete empty files, after reporting them. Prompts for confirmation first, unless --force is also given.',
-    ),
-  ),
-  force(
-    FlagOption(
-      argName: 'force',
-      configKey: '/force',
-      negatable: false,
-      defaultsTo: false,
-      helpText: 'Skip the confirmation prompt for --remove. Requires --remove.',
-    ),
-  ),
   exclude(
     MultiStringOption.noSplit(
+      group: _filesGroup,
       argName: 'exclude',
       argAbbrev: 'e',
       configKey: '/exclude',
@@ -292,6 +333,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
   ),
   include(
     MultiStringOption.noSplit(
+      group: _filesGroup,
       argName: 'include',
       argAbbrev: 'i',
       configKey: '/include',
@@ -300,24 +342,45 @@ enum CiachOption<V> implements OptionDefinition<V> {
       helpText: 'If given, only scan files matching these glob(s). Repeatable.',
     ),
   ),
-  generatedSuffix(
-    MultiStringOption.noSplit(
-      argName: 'generated-suffix',
-      configKey: '/generated-suffix',
-      defaultsTo: [],
-      valueHelp: 'suffix',
-      helpText:
-          'Additional filename suffix to treat as generated (and so exclude from the scan), on top of the built-in set (*.g.dart, *.freezed.dart, …). Use for custom code generators, e.g. --generated-suffix .gc.dart. Include the leading dot. Repeatable. Ignored when --generated is set.',
-    ),
-  ),
   generatedGlob(
     MultiStringOption.noSplit(
+      group: _filesGroup,
       argName: 'generated-glob',
       configKey: '/generated-glob',
       defaultsTo: [],
       valueHelp: 'glob',
       helpText:
           "Glob, relative to the root, of files to treat as generated: their references count, but nothing in them is reported or edited, e.g. --generated-glob 'lib/l10n/**'. --exclude drops files entirely instead. Repeatable. Ignored when --generated is set.",
+    ),
+  ),
+  analysisRoot(
+    StringOption(
+      group: _filesGroup,
+      argName: 'analysis-root',
+      configKey: '/analysis-root',
+      valueHelp: 'path',
+      helpText:
+          'Count references from this whole directory, not just the scanned package — for a monorepo where sibling packages depend on it by `path:`. Must contain the scanned path; what is scanned, reported and removed is unchanged. A pub workspace needs no setting.',
+    ),
+  ),
+  generated(
+    FlagOption(
+      group: _filesGroup,
+      argName: 'generated',
+      configKey: '/generated',
+      defaultsTo: false,
+      helpText:
+          'Scan generated files (*.g.dart, *.freezed.dart, …). Off by default.',
+    ),
+  ),
+  projectConfig(
+    FlagOption(
+      group: _filesGroup,
+      argName: 'project-config',
+      configKey: '/project-config',
+      defaultsTo: true,
+      helpText:
+          'Read entry points and generated files from pubspec.yaml, build.yaml and l10n.yaml.',
     ),
   ),
   // Config file only: a map has no command-line spelling.
@@ -330,6 +393,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
   ),
   kinds(
     MultiStringOption(
+      group: _reportGroup,
       argName: 'kinds',
       argAbbrev: 'k',
       configKey: '/kinds',
@@ -343,8 +407,48 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'Restrict to these declaration kinds (comma-separated). The kinds are listed at the end of this help.',
     ),
   ),
+  setExitIfChanged(
+    FlagOption(
+      group: _ciGroup,
+      argName: 'set-exit-if-changed',
+      configKey: '/set-exit-if-changed',
+      helpText:
+          'Exit with a non-zero status when any unused declaration or empty file is found. On by default in CI.',
+    ),
+  ),
+  ci(
+    FlagOption(
+      group: _ciGroup,
+      argName: 'ci',
+      configKey: '/ci',
+      helpText:
+          'Assume CI: --set-exit-if-changed and --verbose default to on, progress to off, and --format to annotations on GitHub Actions, Azure Pipelines and TeamCity. Detected from CI, GITHUB_ACTIONS and the like; explicit options still win.',
+    ),
+  ),
+  remove(
+    FlagOption(
+      group: _ciGroup,
+      argName: 'remove',
+      configKey: '/remove',
+      negatable: false,
+      defaultsTo: false,
+      helpText:
+          'Remove unused declarations from source, and delete empty files, after reporting them. Prompts for confirmation first, unless --force is also given.',
+    ),
+  ),
+  force(
+    FlagOption(
+      group: _ciGroup,
+      argName: 'force',
+      configKey: '/force',
+      negatable: false,
+      defaultsTo: false,
+      helpText: 'Skip the confirmation prompt for --remove. Requires --remove.',
+    ),
+  ),
   format(
     StringOption(
+      group: _outputGroup,
       argName: 'format',
       argAbbrev: 'f',
       configKey: '/format',
@@ -365,6 +469,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
   ),
   color(
     FlagOption(
+      group: _outputGroup,
       argName: 'color',
       configKey: '/color',
       helpText:
@@ -373,6 +478,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
   ),
   progress(
     FlagOption(
+      group: _outputGroup,
       argName: 'progress',
       configKey: '/progress',
       helpText: 'Show scan progress on stderr. Defaults to on for a terminal.',
@@ -380,6 +486,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
   ),
   verbose(
     FlagOption(
+      group: _outputGroup,
       argName: 'verbose',
       argAbbrev: 'v',
       configKey: '/verbose',
@@ -389,6 +496,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
   ),
   concurrency(
     IntOption(
+      group: _serverGroup,
       argName: 'concurrency',
       argAbbrev: 'j',
       configKey: '/concurrency',
@@ -401,6 +509,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
   ),
   dart(
     StringOption(
+      group: _serverGroup,
       argName: 'dart',
       configKey: '/dart',
       valueHelp: 'path',

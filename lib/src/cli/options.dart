@@ -14,12 +14,10 @@ class ResolvedOptions {
     required this.analysisRootPath,
     required this.includeGlobs,
     required this.excludeGlobs,
-    required this.additionalGeneratedSuffixes,
     required this.additionalGeneratedGlobs,
     required this.kinds,
     required this.includePublic,
-    required this.includeExported,
-    required this.failPublic,
+    required this.exportedPackages,
     required this.includeGenerated,
     required this.projectConfig,
     required this.unusedTranslations,
@@ -50,12 +48,13 @@ class ResolvedOptions {
   final String? analysisRootPath;
   final List<String> includeGlobs;
   final List<String> excludeGlobs;
-  final List<String> additionalGeneratedSuffixes;
   final List<String> additionalGeneratedGlobs;
   final Set<SymbolKind> kinds;
   final bool includePublic;
-  final bool includeExported;
-  final bool failPublic;
+
+  /// Globs of the packages whose API is left out; empty to check every
+  /// package's.
+  final List<String> exportedPackages;
   final bool includeGenerated;
   final bool projectConfig;
   final bool unusedTranslations;
@@ -110,7 +109,6 @@ class ResolvedOptions {
     analysisRootPath: analysisRootPath,
     includeGlobs: includeGlobs,
     excludeGlobs: excludeGlobs,
-    additionalGeneratedSuffixes: additionalGeneratedSuffixes,
     additionalGeneratedGlobs: [
       ...additionalGeneratedGlobs,
       ...unusedTranslations
@@ -119,7 +117,7 @@ class ResolvedOptions {
     ],
     kinds: kinds,
     includePublic: includePublic,
-    includeExported: includeExported,
+    exportedPackages: exportedPackages,
     includeGenerated: includeGenerated,
     skipOverrides: !overrides,
     skipOperators: !operators,
@@ -160,6 +158,8 @@ ResolvedOptions resolveOptions(
     false => null,
   };
   final defaults = ci?.defaults;
+  // Already validated by the option; this only splits the values.
+  final also = parseAlso(configuration.value(CiachOption.also));
   final verbose =
       configuration.optionalValue(CiachOption.verbose) ??
       defaults?.verbose ??
@@ -170,25 +170,25 @@ ResolvedOptions resolveOptions(
     analysisRootPath: configuration.optionalValue(CiachOption.analysisRoot),
     includeGlobs: configuration.value(CiachOption.include),
     excludeGlobs: configuration.value(CiachOption.exclude),
-    additionalGeneratedSuffixes: configuration.value(
-      CiachOption.generatedSuffix,
-    ),
     additionalGeneratedGlobs: configuration.value(CiachOption.generatedGlob),
     // Already validated by the option; this only converts the names.
     kinds: parseKinds(configuration.value(CiachOption.kinds)),
     includePublic: configuration.value(CiachOption.public),
-    includeExported: configuration.value(CiachOption.exported),
-    failPublic: configuration.value(CiachOption.failPublic),
+    // An empty value, the command line's way to give none, is no glob.
+    exportedPackages: [
+      for (final glob in configuration.value(CiachOption.exportedPackages))
+        if (glob.isNotEmpty) glob,
+    ],
     includeGenerated: configuration.value(CiachOption.generated),
     projectConfig: projectConfig,
     unusedTranslations: configuration.value(CiachOption.unusedTranslations),
     detected: projectConfig
         ? ProjectConfig.read(rootPath.absoluteNormalized)
         : ProjectConfig.none,
-    overrides: configuration.value(CiachOption.overrides),
-    operators: configuration.value(CiachOption.operators),
-    unusedUnionMembers: configuration.value(CiachOption.unusedUnionMembers),
-    reportToJson: configuration.value(CiachOption.reportToJson),
+    overrides: also.contains('overrides'),
+    operators: also.contains('operators'),
+    unusedUnionMembers: also.contains('union-members'),
+    reportToJson: also.contains('tojson'),
     transitive: configuration.value(CiachOption.transitive),
     entryPoints: configuration.value(CiachOption.entryPoints),
     setExitIfChanged:

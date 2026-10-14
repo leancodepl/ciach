@@ -1,0 +1,2 @@
+# An app: nothing outside this package imports it, so its API is checked too.
+exported-packages: []

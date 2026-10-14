@@ -58,6 +58,7 @@ void main() {
   }) => Ciach(
     .new(
       rootPath: fixturePath,
+      exportedPackages: const [],
       includePublic: includePublic,
       skipOverrides: skipOverrides,
       skipOperators: skipOperators,
@@ -514,13 +515,14 @@ void main() {
     });
   });
 
-  group('unused union members (opt-in --unused-union-members)', () {
+  group('unused union members (opt-in --also union-members)', () {
     // Scan only the union fixture; cross-file references (the live member
     // constructed in bin/app.dart) still resolve, since the analysis server
     // analyzes the whole package regardless of the candidate filter.
     Future<FinderResult> runUnions({required bool flag}) => Ciach(
       .new(
         rootPath: fixturePath,
+        exportedPackages: const [],
         unusedUnionMembers: flag,
         includeGlobs: const ['lib/scenarios/unions.dart'],
       ),
@@ -568,7 +570,7 @@ void main() {
       final decl = findByName(result, 'IfCaseOnlySignal');
       expect(decl, isNotNull, reason: 'still reported as dead');
       expect(decl!.removalBlocked, isTrue);
-      // Nothing is coupled: `--unused-union-members` never removes arms.
+      // Nothing is coupled: `--also union-members` never removes arms.
       expect(decl.coupledRemovals, isEmpty);
     });
 
@@ -646,7 +648,11 @@ void main() {
       final before = file.readAsStringSync();
 
       final result = await Ciach(
-        .new(rootPath: copy.path, includeGlobs: fixture),
+        .new(
+          rootPath: copy.path,
+          exportedPackages: const [],
+          includeGlobs: fixture,
+        ),
       ).run();
       expect(result.unused, isNotEmpty);
       removeDeclarations(result.unused, copy.path);
@@ -889,7 +895,12 @@ void main() {
         addTearDown(() => copy.deleteSync(recursive: true));
         copyTree(Directory(fixturePath), copy);
         Future<FinderResult> run() => Ciach(
-          .new(rootPath: copy.path, includeGlobs: fixture, transitive: true),
+          .new(
+            rootPath: copy.path,
+            exportedPackages: const [],
+            includeGlobs: fixture,
+            transitive: true,
+          ),
         ).run();
 
         final first = await run();
@@ -1148,6 +1159,7 @@ void main() {
       final result = await Ciach(
         .new(
           rootPath: fixturePath,
+          exportedPackages: const [],
           includeGlobs: const ['lib/scenarios/serialization.dart'],
           reportToJson: reportToJson,
         ),
@@ -1195,7 +1207,7 @@ void main() {
       },
     );
 
-    test('--report-tojson re-enables reporting a dead toJson', () async {
+    test('--also tojson re-enables reporting a dead toJson', () async {
       final names = await runSerialization(reportToJson: true);
       expect(names, contains('Plain.toJson'));
       expect(names, contains('Profile.toJson'));

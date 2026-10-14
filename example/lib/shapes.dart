@@ -35,7 +35,7 @@ abstract class Animal {
 
 class Dog extends Animal with Loud {
   // An @override whose interface method is never called. The finder skips it by
-  // default; with --overrides it should be reported as unused too.
+  // default; with --also overrides it should be reported as unused too.
   @override
   String sound() => emphasize('woof');
 

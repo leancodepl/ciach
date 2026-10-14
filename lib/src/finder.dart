@@ -24,6 +24,7 @@ import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/member_probe.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/packages.dart';
+import 'package:ciach/src/path_dependents.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/problems.dart';
@@ -35,6 +36,7 @@ import 'package:ciach/src/settler.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/verdict.dart';
 import 'package:collection/collection.dart';
+import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show Location;
 
 final _log = Logger('ciach.finder');
@@ -78,9 +80,9 @@ class Ciach {
   );
 
   /// What other packages can import, when exported declarations are left out.
-  late final PublicApi? _publicApi = options.includeExported
+  late final PublicApi? _publicApi = options.exportedPackages.isEmpty
       ? null
-      : .scan(options.rootPath);
+      : _exportedApi();
 
   /// The variants of the conditional imports under the analysis root.
   late final _conditionalImports = ConditionalImports.scan(
@@ -117,6 +119,40 @@ class Ciach {
   Future<FinderResult> run() {
     final problems = ProblemCollector(options.rootPath);
     return problems.collect(() => _run(problems));
+  }
+
+  /// Notes, for `-v`, the packages outside [rootPath] that depend on it by
+  /// `path:`: their uses are not counted, so what only they use reads as dead.
+  /// Not a warning, as scanning a package on its own can be the point; an
+  /// explicit --analysis-root, even the package itself, says it is.
+  void _notePathDependents(String rootPath) {
+    final dependents = pathDependentsOutside(rootPath, rootPath);
+    if (dependents.isEmpty) {
+      return;
+    }
+    final common = commonAncestor([rootPath, ...dependents]);
+    _log.config(
+      'Not counting uses in ${dependents.map(p.relative).join(', ')}, which depend on this package by `path:`: `--analysis-root ${p.relative(common)}` counts them, `--analysis-root ${p.relative(rootPath)}` silences this.',
+    );
+  }
+
+  /// The API of the packages that [FinderOptions.exportedPackages] match,
+  /// each package's verdict logged; `null` when none does.
+  PublicApi? _exportedApi() {
+    final api = PublicApi.scan(
+      options.rootPath,
+      exportedPackages: options.exportedPackages,
+    );
+    for (final MapEntry(key: dir, value: exported) in api.packages.entries) {
+      final name = relativePosix(dir, options.rootPath);
+      final package = name == '.' ? 'The scanned package' : name;
+      _log.config(
+        exported
+            ? '$package is in `exported-packages`: what other packages can import is left out.'
+            : '$package is not in `exported-packages`: its API is checked.',
+      );
+    }
+    return api.isEmpty ? null : api;
   }
 
   Future<FinderResult> _run(ProblemCollector problems) async {
@@ -159,6 +195,9 @@ class Ciach {
       throw UnresolvedPackagesException([
         for (final package in unresolved) relativePosix(package, rootPath),
       ]);
+    }
+    if (options.includePublic && options.analysisRootPath == null) {
+      _notePathDependents(rootPath);
     }
 
     _log.info('Starting Dart analysis server…');
