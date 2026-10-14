@@ -201,8 +201,8 @@ class Mixed implements Halved {
   final int dead = 1, live = 2;
 }
 ''';
-      // `int get dead;` is line 1, cols 2..15; `dead = 1` is line 5, cols 12..20,
-      // and the statement it starts begins at col 2.
+      // `int get dead;` is line 1, cols 2..15. The settler cuts `dead = 1, ` out
+      // of line 5, cols 12..22, up to the next declarator.
       const member = UnusedDeclaration(
         name: 'dead',
         kind: .property,
@@ -215,21 +215,25 @@ class Mixed implements Halved {
           (
             filePath: 'lib.dart',
             kind: .field,
-            range: (startLine: 5, startColumn: 12, endLine: 5, endColumn: 20),
+            range: (startLine: 5, startColumn: 12, endLine: 5, endColumn: 22),
             fullRange: (
               startLine: 5,
-              startColumn: 2,
+              startColumn: 12,
               endLine: 5,
-              endColumn: 20,
+              endColumn: 22,
             ),
           ),
         ],
       );
       final result = applyRemoval(source, [member]);
-      expect(result, isNot(contains('dead')));
-      expect(result, contains('live = 2;'));
-      expect(result, contains('class Mixed implements Halved {'));
-      expectBalanced(result);
+      expect(result, '''
+abstract class Halved {
+}
+
+class Mixed implements Halved {
+  final int live = 2;
+}
+''');
     },
   );
 

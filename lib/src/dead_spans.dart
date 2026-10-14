@@ -8,8 +8,8 @@ import 'package:pro_lsp/pro_lsp.dart' show Position;
 /// [UnusedDeclaration.fullRange] and its coupled removals. A reference inside
 /// these spans keeps nothing alive.
 ///
-/// A field declarator counts as deleted even in the rare statement the remover
-/// can't parse and leaves in place.
+/// A field declarator counts as deleted even if the settler later finds no
+/// syntax nodes to cut it by, and leaves it in place.
 final class DeadSpans {
   DeadSpans._(this._byPath);
 

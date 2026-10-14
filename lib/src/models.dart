@@ -286,9 +286,9 @@ class UnusedDeclaration {
   /// declaration kinds.
   final bool isEnumValue;
 
-  /// Extra whole-node spans — each in a named file — that must be removed
-  /// together with this declaration to keep the source compiling, but that are
-  /// not themselves reported as findings.
+  /// Extra spans — each in a named file — that must be removed together with
+  /// this declaration to keep the source compiling, but that are not
+  /// themselves reported as findings.
   ///
   /// Two uses today:
   ///

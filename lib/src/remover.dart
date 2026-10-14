@@ -37,13 +37,13 @@ RemovalResult removeDeclarations(
       continue;
     }
     byFile.putIfAbsent(decl.filePath, () => []).add(decl);
-    // Coupled removals are extra whole-node spans that must be deleted together
-    // with the declaration to keep the source compiling (a dead StatefulWidget's
-    // paired `State` subclass, or a dead sealed member's `case` arm), but that
-    // are not findings in their own right. Each names its own file — usually the
-    // declaration's, but a `case` arm can live elsewhere — so group it under
-    // that file. Turn each into a synthetic whole-node declaration so it flows
-    // through the normal removal pass and its span merges with the rest.
+    // Coupled removals are extra spans that must be deleted together with the
+    // declaration to keep the source compiling (a dead StatefulWidget's paired
+    // `State` subclass, or an override of a dead member), but that are not
+    // findings in their own right. Each names its own file, so group it under
+    // that file. Turn each into a synthetic declaration, a field carrying its
+    // range as its cut, so it flows through the normal removal pass and its
+    // span merges with the rest.
     for (final coupled in decl.coupledRemovals) {
       final range = coupled.range;
       byFile
