@@ -386,27 +386,18 @@ typedef DeadReferrer = ({String qualifiedName, String filePath, int line});
 /// `/`-paths.
 typedef DeletedFile = ({String filePath, List<String> unlinkedFrom});
 
-/// A class, mixin or extension that `--remove` emptied by removing all its
-/// members. `filePath` is relative to the root and uses `/`.
+/// A class, mixin, extension or extension type that `--remove` leaves with an
+/// empty body. `filePath` is relative to the root and uses `/`.
 typedef EmptiedContainer = ({String filePath, String name});
 
 /// What `removeDeclarations` did.
 class RemovalResult {
-  const RemovalResult({
-    required this.filesChanged,
-    required this.deletedFiles,
-    required this.emptiedContainers,
-  });
+  const RemovalResult({required this.filesChanged, required this.deletedFiles});
 
   /// Files declarations were removed from, deleted ones included.
   final int filesChanged;
 
   final List<DeletedFile> deletedFiles;
-
-  /// Declarations whose members were all removed. They stay in place with an
-  /// empty body because other code still uses them, for example as a type or
-  /// in an `extends` clause.
-  final List<EmptiedContainer> emptiedContainers;
 }
 
 /// A declaration that had no reported references but was confirmed used by the
@@ -526,6 +517,7 @@ class FinderResult {
     this.emptyVariants = const [],
     this.recoveredReferences = const [],
     this.problems = const [],
+    this.emptiedContainers = const [],
   });
 
   /// Declarations with zero references of any kind — the tool's actual
@@ -573,4 +565,9 @@ class FinderResult {
   /// What the run could not analyze. Affected code is kept, so a problem can
   /// hide a finding but never adds one.
   final List<AnalysisProblem> problems;
+
+  /// The classes, mixins, extensions and extension types that `--remove`
+  /// leaves with an empty body: each of their members is a removable finding,
+  /// but other code still uses them. Sorted by file, then name.
+  final List<EmptiedContainer> emptiedContainers;
 }

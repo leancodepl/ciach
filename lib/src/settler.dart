@@ -32,6 +32,14 @@ typedef Settled = ({
   List<UnusedDeclaration> unused,
   List<UnusedDeclaration> docOnly,
   List<RecoveredReference> recovered,
+  List<EmptiedContainer> emptied,
+});
+
+/// What one round settles.
+typedef _Verdicts = ({
+  List<UnusedDeclaration> unused,
+  List<UnusedDeclaration> docOnly,
+  List<RecoveredReference> recovered,
 });
 
 /// From references to findings: settles each candidate's verdict — classifies
@@ -101,7 +109,8 @@ final class Settler {
     var deadSpans = options.transitive
         ? _unreachedCandidates(candidates, refsByCandidate, rootPath)
         : DeadSpans.empty;
-    Settled settled;
+    _Verdicts settled;
+    Map<UnusedDeclaration, int> candidateOf;
     for (var round = 1; ; round++) {
       final liveRefs = _liveRefs(refsByCandidate, deadSpans);
       crossLib = crossLib.merged(
@@ -121,6 +130,7 @@ final class Settler {
         analysisRoot,
       );
       settled = result.settled;
+      candidateOf = result.candidateOf;
       if (!options.transitive) {
         break;
       }
@@ -159,6 +169,7 @@ final class Settler {
       unused: settled.unused.sorted(compareByLocation),
       docOnly: settled.docOnly.sorted(compareByLocation),
       recovered: settled.recovered,
+      emptied: _emptiedContainers(candidates, candidateOf, rootPath),
     );
   }
 
@@ -238,6 +249,58 @@ final class Settler {
       for (final finding in unused)
         if (finding.removalBlocked) finding else withCuts(finding),
     ];
+  }
+
+  /// The containers `--remove` leaves with an empty body: each of their
+  /// members is a removable finding of [candidateOf], but they aren't one
+  /// themselves, because other code still uses them.
+  static List<EmptiedContainer> _emptiedContainers(
+    List<Candidate> candidates,
+    Map<UnusedDeclaration, int> candidateOf,
+    String rootPath,
+  ) {
+    final removable = {
+      for (final MapEntry(key: finding, value: i) in candidateOf.entries)
+        if (!finding.removalBlocked) i,
+    };
+    final removed = {for (final i in removable) candidates[i].key};
+    final members = _removableMembers(candidates, removable);
+    return [
+      for (final MapEntry(key: container, value: (:outline, :removable))
+          in members.entries)
+        if (outline?.children.length == removable &&
+            // Its representation field stays, and the outline leaves it out.
+            outline!.element.kind != .extensionType &&
+            !removed.contains(container))
+          (
+            filePath: relativePosix(container.path, rootPath),
+            name: container.name,
+          ),
+    ]..sort(
+      (a, b) => switch (a.filePath.compareTo(b.filePath)) {
+        0 => a.name.compareTo(b.name),
+        final byFile => byFile,
+      },
+    );
+  }
+
+  /// The containers with a member among [removable], by key: their outline,
+  /// and how many of their members are removable.
+  static Map<DeclKey, ({Outline? outline, int removable})> _removableMembers(
+    List<Candidate> candidates,
+    Set<int> removable,
+  ) {
+    final members = <DeclKey, ({Outline? outline, int removable})>{};
+    for (final i in removable) {
+      final candidate = candidates[i];
+      if (candidate.containerKey case final key?) {
+        members[key] = (
+          outline: candidate.containerOutline,
+          removable: (members[key]?.removable ?? 0) + 1,
+        );
+      }
+    }
+    return members;
   }
 
   /// The spans of every candidate no live code reaches, all of them assumed
@@ -338,7 +401,7 @@ final class Settler {
   /// One round, classifying from [liveRefs], with each unused finding's
   /// candidate index. [refsByCandidate] still holds the references into
   /// [deadSpans], for [_onlyReferencedFrom].
-  Future<({Settled settled, Map<UnusedDeclaration, int> candidateOf})> _round(
+  Future<({_Verdicts settled, Map<UnusedDeclaration, int> candidateOf})> _round(
     LspClient client,
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
@@ -556,12 +619,7 @@ final class Settler {
     Set<String> scannedPaths,
     String rootPath,
   ) {
-    final removableMembers = <DeclKey, int>{};
-    for (final i in removable) {
-      if (candidates[i].containerKey case final key?) {
-        removableMembers.update(key, (n) => n + 1, ifAbsent: () => 1);
-      }
-    }
+    final members = _removableMembers(candidates, removable);
     final entriesOf = <int, List<ClauseEntry>>{};
     for (final (i, candidate) in candidates.indexed) {
       final outline = candidate.outline.element;
@@ -569,7 +627,7 @@ final class Settler {
           !const <OutlineKind>{.class$, .mixin}.contains(outline.kind) ||
           (outline.typeParameters?.isNotEmpty ?? false) ||
           (candidate.symbol.children?.length ?? 0) !=
-              (removableMembers[candidate.key] ?? 0)) {
+              (members[candidate.key]?.removable ?? 0)) {
         continue;
       }
       final refs = _classifier.externalRefs(candidate, liveRefs[i]);

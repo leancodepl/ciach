@@ -289,6 +289,7 @@ class Ciach {
       emptyVariants: empty.variants,
       recoveredReferences: settled.recovered,
       problems: problems.problems,
+      emptiedContainers: settled.emptied,
     );
   }
 

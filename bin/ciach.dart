@@ -228,6 +228,7 @@ void _removeUnused(
       removal,
       removed: count,
       blocked: blocked,
+      emptied: result.emptiedContainers,
       notes: {
         for (final d in removable)
           if (d.hint case final hint?) '${d.qualifiedName}: $hint',

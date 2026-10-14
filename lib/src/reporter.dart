@@ -105,6 +105,7 @@ abstract final class Reporter {
     RemovalResult? removal, {
     int removed = 0,
     int blocked = 0,
+    List<EmptiedContainer> emptied = const [],
     Iterable<String> notes = const [],
     Style style = .plain,
   }) {
@@ -113,7 +114,6 @@ abstract final class Reporter {
     }
     final files = removal.filesChanged;
     final deleted = removal.deletedFiles;
-    final emptied = removal.emptiedContainers;
     final sentences = [
       if (removed > 0)
         style.success(
@@ -323,6 +323,10 @@ abstract final class Reporter {
       'docOnly': [for (final decl in result.docOnly) decl.toJson()],
       'emptyFiles': result.emptyFiles,
       'emptyVariants': result.emptyVariants,
+      'emptiedContainers': [
+        for (final (:filePath, :name) in result.emptiedContainers)
+          {'filePath': filePath, 'name': name},
+      ],
       'warnings': [for (final w in result.recoveredReferences) w.toJson()],
       'problems': [for (final problem in result.problems) problem.toJson()],
     });

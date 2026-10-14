@@ -1102,7 +1102,7 @@ void main() {
           .new(rootPath: copy.path, includeGlobs: fixture),
         ).run();
 
-        final removal = removeDeclarations(result.unused, copy.path);
+        removeDeclarations(result.unused, copy.path);
 
         final source = File(
           p.join(copy.path, fixture.single),
@@ -1119,12 +1119,12 @@ void main() {
         expect(source, isNot(contains('Plain')));
         expect(source, isNot(contains('Sketch ')));
         expect(source, isNot(contains('Glazed')));
-        expect(removal.emptiedContainers.map((c) => c.name), [
+        expect(result.emptiedContainers.map((c) => c.name), [
           'Checked',
-          'Primed',
           'Frame',
           'Holder',
           'Lacquer',
+          'Primed',
         ]);
       },
     );

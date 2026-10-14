@@ -25,9 +25,7 @@ typedef _Span = ({int start, int end});
 /// finder works out; one without a cut is left in place.
 ///
 /// A rewritten file left with nothing but directives is then deleted, as are
-/// the [emptyFiles]; see `deleteEmptiedFiles`. A class, mixin or extension
-/// whose members are all removed stays in place and is listed in
-/// [RemovalResult.emptiedContainers].
+/// the [emptyFiles]; see `deleteEmptiedFiles`.
 RemovalResult removeDeclarations(
   List<UnusedDeclaration> declarations,
   String rootPath, {
@@ -69,7 +67,6 @@ RemovalResult removeDeclarations(
   }
 
   final rewritten = <String>{};
-  final emptied = <EmptiedContainer>[];
   RemovalException failure(FileSystemException e, String path) => .new(
     filePath: relativePosix(path, rootPath),
     cause: e.osError?.message ?? e.message,
@@ -81,10 +78,7 @@ RemovalResult removeDeclarations(
     final file = File(path);
     try {
       final content = file.readAsStringSync();
-      final (updated, emptiedNames) = _removeFromContent(content, entry.value);
-      emptied.addAll(
-        emptiedNames.map((name) => (filePath: entry.key, name: name)),
-      );
+      final updated = _removeFromContent(content, entry.value);
       if (updated != content) {
         file.writeAsStringSync(updated);
         rewritten.add(path);
@@ -103,7 +97,6 @@ RemovalResult removeDeclarations(
         ...rewritten,
         for (final path in emptyFiles) absoluteUnder(path, rootPath),
       }, rootPath),
-      emptiedContainers: emptied,
     );
   } on FileSystemException catch (e) {
     throw failure(e, e.path ?? rootPath);
@@ -137,12 +130,8 @@ class RemovalException implements Exception {
   String toString() => message;
 }
 
-/// Returns [content] with [decls] removed, and the names of the containers
-/// this leaves with an empty body.
-(String, Set<String>) _removeFromContent(
-  String content,
-  List<UnusedDeclaration> decls,
-) {
+/// Returns [content] with [decls] removed.
+String _removeFromContent(String content, List<UnusedDeclaration> decls) {
   final lines = content.split('\n');
   final lineStarts = List<int>.filled(lines.length, 0);
   for (var i = 1; i < lines.length; i++) {
@@ -165,63 +154,17 @@ class RemovalException implements Exception {
   }
 
   if (spans.isEmpty) {
-    return (content, const {});
+    return content;
   }
 
-  final merged = _mergeSpans(spans);
   final buffer = StringBuffer();
   var cursor = 0;
-  for (final span in merged) {
+  for (final span in _mergeSpans(spans)) {
     buffer.write(content.substring(cursor, span.start));
     cursor = span.end;
   }
   buffer.write(content.substring(cursor));
-  return (
-    buffer.toString(),
-    _emptiedContainers(content, merged, decls, offsetOf),
-  );
-}
-
-/// Returns the containers of [decls] whose whole body the [merged] spans
-/// remove.
-///
-/// A body counts as removed when the spans cover everything between its `{`
-/// and `}` except whitespace and comments.
-Set<String> _emptiedContainers(
-  String content,
-  List<_Span> merged,
-  List<UnusedDeclaration> decls,
-  int Function(int line, int column) offsetOf,
-) {
-  final members = [
-    for (final decl in decls)
-      if (decl.container case final container?)
-        (
-          container: container,
-          start: offsetOf(decl.range.startLine, decl.range.startColumn),
-        ),
-  ];
-  if (members.isEmpty) {
-    return const {};
-  }
-  final code = stripComments(content);
-  final runs = <_Span>[];
-  for (final span in merged) {
-    if (runs.lastOrNull case final last?
-        when code.substring(last.end, span.start).trim().isEmpty) {
-      runs.last = (start: last.start, end: span.end);
-    } else {
-      runs.add(span);
-    }
-  }
-  return {
-    for (final run in runs)
-      if (previousNonWhitespace(code, run.start)?.let((i) => code[i]) == '{' &&
-          nextNonWhitespace(code, run.end)?.let((i) => code[i]) == '}')
-        for (final member in members)
-          if (run.start <= member.start && member.start < run.end)
-            member.container,
-  };
+  return buffer.toString();
 }
 
 /// Returns the span to delete for [decl], which isn't an enum value: the
