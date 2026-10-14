@@ -602,6 +602,52 @@ void b() {}
       );
     });
 
+    test('goes when it is an analyzer ignore, and the rest is listed', () {
+      const source = '''
+void a() {}
+
+// About b.
+//ciach:ignore-end
+// ignore: unused_element
+void _b() {}
+''';
+      final lines = leftCommentLines(source, [
+        decl(startLine: 5, startColumn: 0, endLine: 5, endColumn: 12),
+      ]);
+      expect(File(p.join(tempDir.path, 'lib.dart')).readAsStringSync(), '''
+void a() {}
+
+// About b.
+//ciach:ignore-end
+''');
+      expect(lines, [3]);
+    });
+
+    test('is listed by its line once imports of deleted files go', () {
+      File(p.join(tempDir.path, 'gone.dart')).writeAsStringSync('');
+      const source = '''
+import 'gone.dart';
+
+void a() {}
+
+// About b.
+void b() {}
+''';
+      File(p.join(tempDir.path, 'lib.dart')).writeAsStringSync(source);
+      final result = removeDeclarations(
+        [decl(startLine: 5, startColumn: 0, endLine: 5, endColumn: 11)],
+        tempDir.path,
+        emptyFiles: ['gone.dart'],
+      );
+      expect(File(p.join(tempDir.path, 'lib.dart')).readAsStringSync(), '''
+
+void a() {}
+
+// About b.
+''');
+      expect(result.leftComments, [(filePath: 'lib.dart', line: 4)]);
+    });
+
     test('is not listed when its file is deleted', () {
       const source = '''
 import 'dart:math';

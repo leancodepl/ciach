@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:ciach/src/comment_stripping.dart';
 import 'package:ciach/src/emptied_files.dart';
+import 'package:ciach/src/extensions.dart';
+import 'package:ciach/src/ignore_markers.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
@@ -65,7 +67,10 @@ RemovalResult removeDeclarations(
   }
 
   final rewritten = <String>{};
-  final leftComments = <LeftComment>[];
+  // Each kept comment's distance from the end of its rewritten file. Deleting
+  // emptied files only drops directives, which come before every declaration,
+  // so the distance holds until the end.
+  final keptComments = <String, List<int>>{};
   RemovalException failure(FileSystemException e, String path) => .new(
     filePath: relativePosix(path, rootPath),
     cause: e.osError?.message ?? e.message,
@@ -77,7 +82,7 @@ RemovalResult removeDeclarations(
     final file = File(path);
     try {
       final content = file.readAsStringSync();
-      final (:updated, :commentLines) = _removeFromContent(
+      final (:updated, :commentsFromEnd) = _removeFromContent(
         content,
         entry.value,
       );
@@ -87,10 +92,9 @@ RemovalResult removeDeclarations(
         _log.fine(
           'Rewrote ${entry.key}: removed ${plural(entry.value.length, 'declaration', 'declarations')}.',
         );
-        final filePath = relativePosix(path, rootPath);
-        leftComments.addAll([
-          for (final line in commentLines) (filePath: filePath, line: line),
-        ]);
+        if (commentsFromEnd.isNotEmpty) {
+          keptComments[entry.key] = commentsFromEnd;
+        }
       }
     } on FileSystemException catch (e) {
       throw failure(e, file.path);
@@ -101,23 +105,38 @@ RemovalResult removeDeclarations(
       ...rewritten,
       for (final path in emptyFiles) absoluteUnder(path, rootPath),
     }, rootPath);
-    final deleted = {for (final file in deletedFiles) file.filePath};
     return .new(
       filesChanged: rewritten.length,
       deletedFiles: deletedFiles,
-      leftComments: leftComments
-          .whereNot((comment) => deleted.contains(comment.filePath))
-          .sortedByCompare(
-            (comment) => comment,
-            (a, b) => switch (a.filePath.compareTo(b.filePath)) {
-              0 => a.line.compareTo(b.line),
-              final order => order,
-            },
-          ),
+      leftComments: _leftComments(keptComments, rootPath),
     );
   } on FileSystemException catch (e) {
     throw failure(e, e.path ?? rootPath);
   }
+}
+
+/// Places [keptComments], each file's comment offsets from its end, by line
+/// in the files as they are now. A deleted file's comments are left out.
+List<LeftComment> _leftComments(
+  Map<String, List<int>> keptComments,
+  String rootPath,
+) {
+  final left = <LeftComment>[];
+  for (final filePath in keptComments.keys.sorted()) {
+    final file = File(absoluteUnder(filePath, rootPath));
+    if (!file.existsSync()) {
+      continue;
+    }
+    final content = file.readAsStringSync();
+    final starts = lineStartsOf(content);
+    for (final fromEnd in keptComments[filePath]!) {
+      left.add((
+        filePath: filePath,
+        line: lowerBound(starts, content.length - fromEnd + 1),
+      ));
+    }
+  }
+  return left;
 }
 
 /// [removeDeclarations] failed on [filePath]; [changedFiles] were already
@@ -147,18 +166,15 @@ class RemovalException implements Exception {
   String toString() => message;
 }
 
-/// Returns [content] with [decls] removed, and the one-based lines, in the
-/// result, of the `//` comments that sat directly above removed code.
-({String updated, List<int> commentLines}) _removeFromContent(
+/// Returns [content] with [decls] removed, and how far from the end of the
+/// result each `//` comment block kept directly above removed code starts.
+({String updated, List<int> commentsFromEnd}) _removeFromContent(
   String content,
   List<UnusedDeclaration> decls,
 ) {
   final lines = content.split('\n');
-  final lineStarts = List<int>.filled(lines.length, 0);
-  for (var i = 1; i < lines.length; i++) {
-    lineStarts[i] = lineStarts[i - 1] + lines[i - 1].length + 1;
-  }
-  int offsetOf(int line, int column) => lineStarts[line] + column;
+  final comments = _OwnLineComments(content);
+  int offsetOf(int line, int column) => comments.starts[line] + column;
 
   final spans = [
     for (final decl in decls.whereNot((decl) => decl.isEnumValue))
@@ -175,69 +191,96 @@ class RemovalException implements Exception {
   }
 
   if (spans.isEmpty) {
-    return (updated: content, commentLines: const []);
+    return (updated: content, commentsFromEnd: const []);
   }
 
-  final merged = _mergeSpans(spans);
-  final comments = _commentsAbove(content, merged).toList();
-  final commentOffsets = <int>[];
+  final kept = <int>[];
   final buffer = StringBuffer();
   var cursor = 0;
-  for (final span in [
-    ...merged,
-    (start: content.length, end: content.length),
-  ]) {
-    for (final comment in comments.where(
-      (comment) => comment >= cursor && comment < span.start,
-    )) {
-      commentOffsets.add(buffer.length + comment - cursor);
-    }
+  for (final span in _mergeSpans([
+    for (final span in spans) comments.withIgnoresAbove(span),
+  ])) {
     buffer.write(content.substring(cursor, span.start));
+    if (comments.blockAbove(span.start, after: cursor) case final block?) {
+      kept.add(buffer.length - (span.start - block));
+    }
     cursor = span.end;
   }
+  buffer.write(content.substring(cursor));
   final updated = buffer.toString();
   return (
     updated: updated,
-    commentLines: [
-      for (final offset in commentOffsets)
-        '\n'.allMatches(updated.substring(0, offset)).length + 1,
-    ],
+    commentsFromEnd: [for (final offset in kept) updated.length - offset],
   );
 }
 
-/// The offsets of the `//` comment blocks that sit directly above one of the
-/// [spans], with no blank line between: each block's first comment. Doc
-/// comments go with their declaration, and `// ciach:` markers are left out.
-Iterable<int> _commentsAbove(String content, List<_Span> spans) sync* {
-  final plainComments = {
-    for (final comment in lineComments(content))
-      if (!comment.text.startsWith('///') &&
-          !comment.text.startsWith('// ciach:'))
-        comment.offset,
+/// An analyzer `// ignore:` comment, which applies to the next line only.
+final _analyzerIgnore = RegExp(r'^//\s*ignore:');
+
+/// The lines of a file that hold nothing but a `//` comment.
+final class _OwnLineComments {
+  _OwnLineComments(this._content) : starts = lineStartsOf(_content);
+
+  final String _content;
+
+  /// The offset at which each line starts.
+  final List<int> starts;
+
+  /// The `//` comments by offset, read only once a line starts with `//`.
+  late final _byOffset = {
+    for (final comment in lineComments(_content)) comment.offset: comment,
   };
-  var previousEnd = 0;
-  for (final span in spans) {
+
+  /// [span], with the `// ignore:` lines directly above it, which would
+  /// otherwise apply to whatever follows.
+  _Span withIgnoresAbove(_Span span) {
+    final first = _lineStartingAt(span.start);
+    if (first == null) {
+      return span;
+    }
+    var line = first;
+    while (line > 0 &&
+        (_commentOn(line - 1)?.text.let(_analyzerIgnore.hasMatch) ?? false)) {
+      line--;
+    }
+    return (start: starts[line], end: span.end);
+  }
+
+  /// The start of the `//` comment block directly above [offset], with no
+  /// blank line between and none of it before [after]: its topmost plain
+  /// comment. Doc comments, `// ciach:` markers and `// ignore:` comments
+  /// aren't plain.
+  int? blockAbove(int offset, {required int after}) {
     int? block;
-    var lineEnd = span.start - 1;
-    // Only a span that starts a line has lines directly above it.
-    while (lineEnd >= previousEnd && content[lineEnd] == '\n') {
-      final lineStart = lineEnd == 0
-          ? 0
-          : content.lastIndexOf('\n', lineEnd - 1) + 1;
-      final commentStart = nextNonWhitespace(content, lineStart);
-      if (lineStart < previousEnd ||
-          commentStart == null ||
-          commentStart >= lineEnd ||
-          !plainComments.contains(commentStart)) {
+    var line = _lineStartingAt(offset);
+    while (line != null && line > 0 && starts[line - 1] >= after) {
+      line--;
+      final comment = _commentOn(line);
+      if (comment == null || comment.text.startsWith('///')) {
         break;
       }
-      block = commentStart;
-      lineEnd = lineStart - 1;
+      if (!isMarkerComment(comment.text) &&
+          !_analyzerIgnore.hasMatch(comment.text)) {
+        block = comment.offset;
+      }
     }
-    if (block != null) {
-      yield block;
+    return block;
+  }
+
+  /// The line that starts at [offset], if one does.
+  int? _lineStartingAt(int offset) {
+    final line = lowerBound(starts, offset);
+    return line < starts.length && starts[line] == offset ? line : null;
+  }
+
+  /// The `//` comment that is all of [line] but its indentation, if any.
+  ({int offset, String text})? _commentOn(int line) {
+    final start = nextNonWhitespace(_content, starts[line]);
+    final end = line + 1 < starts.length ? starts[line + 1] : _content.length;
+    if (start == null || start >= end || !_content.startsWith('//', start)) {
+      return null;
     }
-    previousEnd = span.end;
+    return _byOffset[start];
   }
 }
 

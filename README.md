@@ -344,7 +344,9 @@ or the whole statement, but it doesn't tidy up spacing.
 A plain `//` comment right above a removed declaration stays, because it may be
 about the code around it rather than the declaration. The summary lists each
 such comment with its line in the changed file, so you can check whether it
-still belongs. A comment with a blank line after it is not listed.
+still belongs. A comment with a blank line after it is not listed. An
+`// ignore:` comment right above a removed declaration goes with it, since it
+only applies to the next line.
 
 Removal acts on whatever the finder reports, so it inherits the same
 false-positive risk, which `--also overrides,operators` widens considerably.

@@ -19,6 +19,9 @@ const ignoreEndMarker = 'ciach:ignore-end';
 /// anything after it is free text.
 final _marker = RegExp(r'^//\s*(ciach:[\w-]+)');
 
+/// Whether the `//` comment [text] is a `// ciach:` marker.
+bool isMarkerComment(String text) => _marker.hasMatch(text);
+
 /// A marker comment and its zero-based line.
 typedef MarkerAt = ({int line, String marker});
 
@@ -169,12 +172,7 @@ final class IgnoreMarkers {
 
 /// The lines of a file, for placing a comment by its offset.
 final class _Lines {
-  _Lines(this._content)
-    : _starts = [
-        0,
-        for (final (i, char) in _content.split('').indexed)
-          if (char == '\n') i + 1,
-      ];
+  _Lines(this._content) : _starts = lineStartsOf(_content);
 
   final String _content;
   final List<int> _starts;

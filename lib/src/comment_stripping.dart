@@ -188,6 +188,13 @@ int _skipInterpolation(String content, int from) {
   return i;
 }
 
+/// The offset at which each line of [content] starts.
+List<int> lineStartsOf(String content) => [
+  0,
+  for (var i = 0; i < content.length; i++)
+    if (content[i] == '\n') i + 1,
+];
+
 /// The index of the first non-whitespace character at or after [from], if
 /// any.
 int? nextNonWhitespace(String content, int from) {
