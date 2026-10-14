@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:ciach/src/comment_stripping.dart';
 import 'package:ciach/src/emptied_files.dart';
 import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/log.dart';
@@ -74,6 +75,7 @@ RemovalResult removeDeclarations(
   }
 
   final rewritten = <String>{};
+  final skipped = <SkippedDeclaration>[];
   RemovalException failure(FileSystemException e, String path) => .new(
     filePath: relativePosix(path, rootPath),
     cause: e.osError?.message ?? e.message,
@@ -85,7 +87,17 @@ RemovalResult removeDeclarations(
     final file = File(path);
     try {
       final content = file.readAsStringSync();
-      final updated = _removeFromContent(content, entry.value);
+      final (updated, notCut) = _removeFromContent(content, entry.value);
+      skipped.addAll([
+        // A coupled removal has no name of its own: it isn't a finding.
+        for (final decl in notCut)
+          if (decl.name.isNotEmpty)
+            (
+              filePath: decl.filePath,
+              line: decl.line,
+              name: decl.qualifiedName,
+            ),
+      ]);
       if (updated != content) {
         file.writeAsStringSync(updated);
         rewritten.add(path);
@@ -104,6 +116,7 @@ RemovalResult removeDeclarations(
         ...rewritten,
         for (final path in emptyFiles) absoluteUnder(path, rootPath),
       }, rootPath),
+      skipped: skipped,
     );
   } on FileSystemException catch (e) {
     throw failure(e, e.path ?? rootPath);
@@ -137,7 +150,12 @@ class RemovalException implements Exception {
   String toString() => message;
 }
 
-String _removeFromContent(String content, List<UnusedDeclaration> decls) {
+/// [content] without [decls], and the declarations of [decls] it couldn't
+/// find where to cut.
+(String, List<UnusedDeclaration>) _removeFromContent(
+  String content,
+  List<UnusedDeclaration> decls,
+) {
   final lines = content.split('\n');
   final lineStarts = List<int>.filled(lines.length, 0);
   for (var i = 1; i < lines.length; i++) {
@@ -163,10 +181,16 @@ String _removeFromContent(String content, List<UnusedDeclaration> decls) {
   for (final span in _mergeSpans(enumSpans)) {
     spans.add(_absorbOrphanEnumComma(content, span));
   }
-  spans.addAll(_declaratorSpans(declarators, content, lines, offsetOf));
+  final (spans: declaratorSpans, :skipped) = _declaratorSpans(
+    declarators,
+    content,
+    lines,
+    offsetOf,
+  );
+  spans.addAll(declaratorSpans);
 
   if (spans.isEmpty) {
-    return content;
+    return (content, skipped);
   }
 
   final buffer = StringBuffer();
@@ -176,7 +200,7 @@ String _removeFromContent(String content, List<UnusedDeclaration> decls) {
     cursor = span.end;
   }
   buffer.write(content.substring(cursor));
-  return buffer.toString();
+  return (buffer.toString(), skipped);
 }
 
 /// Computes the span to delete for an enum value or a "whole-node" kind
@@ -219,13 +243,20 @@ _Span? _spanFor(
 /// Declarators are grouped by the statement's terminating `;`. When every
 /// declarator in a statement is present in [decls], the whole statement
 /// (prefix, every declarator, and the `;`) is removed as one span; otherwise
-/// each targeted declarator is trimmed out of the list individually.
-List<_Span> _declaratorSpans(
+/// each targeted declarator is trimmed out of the list individually. The
+/// statement's shape is read with its comments blanked, so a comment between
+/// declarators or before the `;` is cut with them.
+///
+/// Also returns the declarators whose statement couldn't be resolved, which
+/// stay in place.
+({List<_Span> spans, List<UnusedDeclaration> skipped}) _declaratorSpans(
   List<UnusedDeclaration> decls,
   String content,
   List<String> lines,
   int Function(int line, int column) offsetOf,
 ) {
+  final code = stripComments(content);
+  final skipped = <UnusedDeclaration>[];
   final groups = <int, List<UnusedDeclaration>>{};
   // One declarator can arrive twice: reported in its own right, and coupled to
   // another declaration's removal.
@@ -236,9 +267,10 @@ List<_Span> _declaratorSpans(
     if (!seen.add((baseStart, baseEnd))) {
       continue;
     }
-    final statementEnd = _finalStatementEnd(content, baseEnd);
+    final statementEnd = _finalStatementEnd(code, baseEnd);
     if (statementEnd == null) {
       // Can't even find where the statement ends; leave it alone.
+      skipped.add(decl);
       continue;
     }
     groups.putIfAbsent(statementEnd, () => []).add(decl);
@@ -252,6 +284,7 @@ List<_Span> _declaratorSpans(
     final sorted = members.sortedBy<num>(startOf);
     final whole = _wholeStatementSpan(
       content,
+      code,
       lines,
       sorted,
       statementEnd,
@@ -262,25 +295,28 @@ List<_Span> _declaratorSpans(
       continue;
     }
     for (final decl in sorted) {
-      final span = _partialDeclaratorSpan(decl, content, offsetOf);
-      if (span != null) {
+      if (_partialDeclaratorSpan(decl, code, offsetOf) case final span?) {
         spans.add(span);
+      } else {
+        skipped.add(decl);
       }
     }
   }
-  return spans;
+  return (spans: spans, skipped: skipped);
 }
 
 /// Whether every declarator of the statement ending at [statementEnd] is
 /// present in [sortedMembers] (sorted by source position) — verified by
 /// checking that nothing but a bare `,` separates consecutive members, that
 /// nothing but whitespace follows the last one up to [statementEnd], and
-/// that no earlier declarator precedes the first one on its line.
+/// that no earlier declarator precedes the first one on its line. The checks
+/// read [code], the [content] with its comments blanked.
 ///
 /// The last check assumes the statement's type/modifier prefix and its first
 /// declarator share a line — true for any `dart format`-formatted source.
 _Span? _wholeStatementSpan(
   String content,
+  String code,
   List<String> lines,
   List<UnusedDeclaration> sortedMembers,
   int statementEnd,
@@ -289,7 +325,7 @@ _Span? _wholeStatementSpan(
   final first = sortedMembers.first;
   final lineStart = offsetOf(first.range.startLine, 0);
   final firstStart = offsetOf(first.range.startLine, first.range.startColumn);
-  if (_lastTopLevelComma(content.substring(lineStart, firstStart)) != null) {
+  if (_lastTopLevelComma(code.substring(lineStart, firstStart)) != null) {
     return null;
   }
 
@@ -302,14 +338,14 @@ _Span? _wholeStatementSpan(
       sortedMembers[i + 1].range.startLine,
       sortedMembers[i + 1].range.startColumn,
     );
-    if (content.substring(end, nextStart).trim() != ',') {
+    if (code.substring(end, nextStart).trim() != ',') {
       return null;
     }
   }
 
   final last = sortedMembers.last;
   final lastEnd = offsetOf(last.range.endLine, last.range.endColumn);
-  if (content.substring(lastEnd, statementEnd).trim().isNotEmpty) {
+  if (code.substring(lastEnd, statementEnd).trim().isNotEmpty) {
     return null;
   }
 

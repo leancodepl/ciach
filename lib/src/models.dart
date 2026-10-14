@@ -353,13 +353,25 @@ typedef DeletedFile = ({String filePath, List<String> unlinkedFrom});
 
 /// What `removeDeclarations` did.
 class RemovalResult {
-  const RemovalResult({required this.filesChanged, required this.deletedFiles});
+  const RemovalResult({
+    required this.filesChanged,
+    required this.deletedFiles,
+    required this.skipped,
+  });
 
   /// Files declarations were removed from, deleted ones included.
   final int filesChanged;
 
   final List<DeletedFile> deletedFiles;
+
+  /// Findings left in place because the remover couldn't tell where their
+  /// statement ends or how to cut them out of it.
+  final List<SkippedDeclaration> skipped;
 }
+
+/// A declaration `--remove` left in place: its root-relative `/`-path, its
+/// 1-based line and its qualified name.
+typedef SkippedDeclaration = ({String filePath, int line, String name});
 
 /// A declaration that had no reported references but was confirmed used by the
 /// secondary definition check. Surfaced as a warning so the missed reference

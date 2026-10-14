@@ -118,6 +118,36 @@ class C {
     });
   });
 
+  group('a multi-declarator statement with comments in it', () {
+    /// [source] after removing every `name = value` declarator of its one
+    /// statement, each named in [names].
+    String removeAll(String source, List<String> names) =>
+        applyRemoval(source, [
+          for (final (i, name) in names.indexed)
+            if (source.indexOf('$name =') case final start)
+              decl(
+                startLine: 0,
+                startColumn: start,
+                endLine: 0,
+                endColumn: source.indexOf(RegExp('[,;]'), start),
+                kind: .variable,
+                docLine: i == 0 ? 0 : null,
+              ),
+        ]);
+
+    test('removes the whole statement past a block comment', () {
+      expect(removeAll('int a = 1, /* why */ b = 2;\n', ['a', 'b']), isEmpty);
+    });
+
+    test('removes the whole statement past a comment before the `;`', () {
+      expect(removeAll('int a = 1, b = 2 /* done */;\n', ['a', 'b']), isEmpty);
+    });
+
+    test('does not take a `;` in a comment for the end', () {
+      expect(removeAll('int a = 1 /* ; */, b = 2;\n', ['a', 'b']), isEmpty);
+    });
+  });
+
   test('does not mistake a comma inside a generic type for a declarator '
       'separator', () {
     const source = 'Map<String, int> _cache = {};\n';
@@ -143,7 +173,9 @@ class C {
     // terminating `,`/`;` hits an unmatched `)` first and bails out rather
     // than guess.
     const source = 'int a = 1);\n';
-    final result = applyRemoval(source, [
+    final file = File(p.join(tempDir.path, 'lib.dart'))
+      ..writeAsStringSync(source);
+    final result = removeDeclarations([
       decl(
         startLine: 0,
         startColumn: 4,
@@ -151,8 +183,9 @@ class C {
         endColumn: 9,
         kind: .variable,
       ),
-    ]);
-    expect(result, source);
+    ], tempDir.path);
+    expect(file.readAsStringSync(), source);
+    expect(result.skipped, [(filePath: 'lib.dart', line: 1, name: 'x')]);
   });
 
   test('collapses a fully-unused class into a single removal', () {

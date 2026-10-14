@@ -44,6 +44,7 @@ export 'src/models.dart'
         FinderResult,
         RecoveredReference,
         RemovalResult,
+        SkippedDeclaration,
         SymbolKindLabel,
         UnusedDeclaration;
 export 'src/packages.dart' show UnresolvedPackagesException;
