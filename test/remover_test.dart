@@ -507,6 +507,28 @@ class Registry {
     );
   });
 
+  test('removes the comment at the end of a removed declaration', () {
+    const source = '''
+class C {
+  void _a() {} // ignore: unused_element
+  void kept() {}
+  int b() => 1; int c() => 2; // About both.
+}
+''';
+    final result = applyRemoval(source, [
+      decl(startLine: 1, startColumn: 2, endLine: 1, endColumn: 14),
+      decl(startLine: 3, startColumn: 2, endLine: 3, endColumn: 14),
+    ]);
+    expect(
+      result,
+      startsWith('''
+class C {
+  void kept() {}
+'''),
+    );
+    expect(result, contains('int c() => 2; // About both.'));
+  });
+
   group('a comment above removed code', () {
     /// Removes [decls] from [content] in `lib.dart` and returns the lines of
     /// the comments it kept above them.

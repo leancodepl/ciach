@@ -2,8 +2,9 @@
 
 - After `--remove`, ciach lists the `//` comments it kept directly above
   removed code, with their lines, so you can check whether they still belong.
-  Before, they were left behind without a word. Doc comments are still removed
-  with their declaration, and now so is an `// ignore:` comment right above it.
+  An `// ignore:` comment right above a removed declaration, and a `//`
+  comment at the end of its line or of a removed import, now go with it.
+  Before, they stayed and could hide warnings on the next line.
   ([#129](https://github.com/leancodepl/ciach/pull/129))
 - ciach now reports an unused class, mixin, extension, extension type or enum
   once, instead of also listing each of its members. The same goes for a class

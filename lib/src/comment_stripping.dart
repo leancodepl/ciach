@@ -195,6 +195,20 @@ List<int> lineStartsOf(String content) => [
     if (content[i] == '\n') i + 1,
 ];
 
+/// If nothing but whitespace, or a `//` comment, follows [end] on its line,
+/// extends it past the line break — so deleting a declaration leaves neither a
+/// blank line nor its trailing comment behind. That comment, such as an
+/// `// ignore:`, would otherwise apply to the line after it.
+int consumeLineEnd(String content, int end) {
+  final nextNewline = content.indexOfOrNull('\n', end);
+  final restOfLine = content.substring(end, nextNewline ?? content.length);
+  if (nextNonWhitespace(restOfLine, 0) case final i?
+      when !restOfLine.startsWith('//', i)) {
+    return end;
+  }
+  return nextNewline?.let((newline) => newline + 1) ?? content.length;
+}
+
 /// The index of the first non-whitespace character at or after [from], if
 /// any.
 int? nextNonWhitespace(String content, int from) {

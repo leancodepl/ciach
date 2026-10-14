@@ -93,6 +93,24 @@ void kept() {}
       expect(read('lib/barrel.dart'), "export 'user.dart';\n");
     });
 
+    test('a dropped import takes the comment at the end of its line', () {
+      write('lib/dead.dart', 'void gone() {}\n');
+      write('lib/user.dart', '''
+import 'dead.dart'; // ignore: unused_import
+import 'dart:io';
+
+void kept() {}
+''');
+
+      removeDeclarations([gone('lib/dead.dart', line: 0)], tempDir.path);
+
+      expect(read('lib/user.dart'), '''
+import 'dart:io';
+
+void kept() {}
+''');
+    });
+
     test('a `library` line and comments do not keep a file', () {
       write('lib/dead.dart', '''
 // Copyright: nobody.

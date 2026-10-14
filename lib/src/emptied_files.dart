@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/src/cached_map.dart';
+import 'package:ciach/src/comment_stripping.dart';
 import 'package:ciach/src/directives.dart';
 import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/log.dart';
@@ -166,7 +167,7 @@ final class _Package {
     var cursor = 0;
     for (final span in spans.sortedBy<num>((s) => s.start)) {
       buffer.write(source.substring(cursor, span.start));
-      cursor = _consumeTrailingBlankLine(source, span.end);
+      cursor = consumeLineEnd(source, span.end);
     }
     buffer.write(source.substring(cursor));
     final updated = buffer.toString();
@@ -181,16 +182,4 @@ final class _Package {
     _contents[path] = null;
     _directives[path] = const [];
   }
-}
-
-int _consumeTrailingBlankLine(String content, int end) {
-  final nextNewline = content.indexOf('\n', end);
-  final restOfLine = content.substring(
-    end,
-    nextNewline == -1 ? content.length : nextNewline,
-  );
-  if (restOfLine.trim().isNotEmpty) {
-    return end;
-  }
-  return nextNewline == -1 ? content.length : nextNewline + 1;
 }

@@ -342,7 +342,7 @@ _Span? _spanFor(
     end++;
   }
 
-  return (start: start, end: _consumeTrailingBlankLine(content, end));
+  return (start: start, end: consumeLineEnd(content, end));
 }
 
 /// Returns [cut] as a span. When only whitespace surrounds it on its first and
@@ -356,7 +356,7 @@ _Span _wholeLines(
 ) {
   final start = offsetOf(cut.startLine, cut.startColumn);
   final end = offsetOf(cut.endLine, cut.endColumn);
-  final whole = _consumeTrailingBlankLine(content, end);
+  final whole = consumeLineEnd(content, end);
   return whole == end
       ? (start: start, end: end)
       : (start: _startWithIndentation(cut, lines, offsetOf), end: whole);
@@ -437,20 +437,6 @@ _Span _absorbOrphanEnumComma(String content, _Span span) {
     return span;
   }
   return (start: before, end: span.end);
-}
-
-/// If nothing but whitespace follows [end] on its line, extends it past the
-/// line break — so deleting a declaration doesn't leave a blank line behind.
-int _consumeTrailingBlankLine(String content, int end) {
-  final nextNewline = content.indexOf('\n', end);
-  final restOfLine = content.substring(
-    end,
-    nextNewline == -1 ? content.length : nextNewline,
-  );
-  if (restOfLine.trim().isNotEmpty) {
-    return end;
-  }
-  return nextNewline == -1 ? content.length : nextNewline + 1;
 }
 
 List<_Span> _mergeSpans(List<_Span> spans) {
