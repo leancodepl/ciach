@@ -65,6 +65,7 @@ RemovalResult removeDeclarations(
   }
 
   final rewritten = <String>{};
+  final leftComments = <LeftComment>[];
   RemovalException failure(FileSystemException e, String path) => .new(
     filePath: relativePosix(path, rootPath),
     cause: e.osError?.message ?? e.message,
@@ -76,25 +77,43 @@ RemovalResult removeDeclarations(
     final file = File(path);
     try {
       final content = file.readAsStringSync();
-      final updated = _removeFromContent(content, entry.value);
+      final (:updated, :commentLines) = _removeFromContent(
+        content,
+        entry.value,
+      );
       if (updated != content) {
         file.writeAsStringSync(updated);
         rewritten.add(path);
         _log.fine(
           'Rewrote ${entry.key}: removed ${plural(entry.value.length, 'declaration', 'declarations')}.',
         );
+        final filePath = relativePosix(path, rootPath);
+        leftComments.addAll([
+          for (final line in commentLines) (filePath: filePath, line: line),
+        ]);
       }
     } on FileSystemException catch (e) {
       throw failure(e, file.path);
     }
   }
   try {
+    final deletedFiles = deleteEmptiedFiles({
+      ...rewritten,
+      for (final path in emptyFiles) absoluteUnder(path, rootPath),
+    }, rootPath);
+    final deleted = {for (final file in deletedFiles) file.filePath};
     return .new(
       filesChanged: rewritten.length,
-      deletedFiles: deleteEmptiedFiles({
-        ...rewritten,
-        for (final path in emptyFiles) absoluteUnder(path, rootPath),
-      }, rootPath),
+      deletedFiles: deletedFiles,
+      leftComments: leftComments
+          .whereNot((comment) => deleted.contains(comment.filePath))
+          .sortedByCompare(
+            (comment) => comment,
+            (a, b) => switch (a.filePath.compareTo(b.filePath)) {
+              0 => a.line.compareTo(b.line),
+              final order => order,
+            },
+          ),
     );
   } on FileSystemException catch (e) {
     throw failure(e, e.path ?? rootPath);
@@ -128,8 +147,12 @@ class RemovalException implements Exception {
   String toString() => message;
 }
 
-/// Returns [content] with [decls] removed.
-String _removeFromContent(String content, List<UnusedDeclaration> decls) {
+/// Returns [content] with [decls] removed, and the one-based lines, in the
+/// result, of the `//` comments that sat directly above removed code.
+({String updated, List<int> commentLines}) _removeFromContent(
+  String content,
+  List<UnusedDeclaration> decls,
+) {
   final lines = content.split('\n');
   final lineStarts = List<int>.filled(lines.length, 0);
   for (var i = 1; i < lines.length; i++) {
@@ -152,17 +175,70 @@ String _removeFromContent(String content, List<UnusedDeclaration> decls) {
   }
 
   if (spans.isEmpty) {
-    return content;
+    return (updated: content, commentLines: const []);
   }
 
+  final merged = _mergeSpans(spans);
+  final comments = _commentsAbove(content, merged).toList();
+  final commentOffsets = <int>[];
   final buffer = StringBuffer();
   var cursor = 0;
-  for (final span in _mergeSpans(spans)) {
+  for (final span in [
+    ...merged,
+    (start: content.length, end: content.length),
+  ]) {
+    for (final comment in comments.where(
+      (comment) => comment >= cursor && comment < span.start,
+    )) {
+      commentOffsets.add(buffer.length + comment - cursor);
+    }
     buffer.write(content.substring(cursor, span.start));
     cursor = span.end;
   }
-  buffer.write(content.substring(cursor));
-  return buffer.toString();
+  final updated = buffer.toString();
+  return (
+    updated: updated,
+    commentLines: [
+      for (final offset in commentOffsets)
+        '\n'.allMatches(updated.substring(0, offset)).length + 1,
+    ],
+  );
+}
+
+/// The offsets of the `//` comment blocks that sit directly above one of the
+/// [spans], with no blank line between: each block's first comment. Doc
+/// comments go with their declaration, and `// ciach:` markers are left out.
+Iterable<int> _commentsAbove(String content, List<_Span> spans) sync* {
+  final plainComments = {
+    for (final comment in lineComments(content))
+      if (!comment.text.startsWith('///') &&
+          !comment.text.startsWith('// ciach:'))
+        comment.offset,
+  };
+  var previousEnd = 0;
+  for (final span in spans) {
+    int? block;
+    var lineEnd = span.start - 1;
+    // Only a span that starts a line has lines directly above it.
+    while (lineEnd >= previousEnd && content[lineEnd] == '\n') {
+      final lineStart = lineEnd == 0
+          ? 0
+          : content.lastIndexOf('\n', lineEnd - 1) + 1;
+      final commentStart = nextNonWhitespace(content, lineStart);
+      if (lineStart < previousEnd ||
+          commentStart == null ||
+          commentStart >= lineEnd ||
+          !plainComments.contains(commentStart)) {
+        break;
+      }
+      block = commentStart;
+      lineEnd = lineStart - 1;
+    }
+    if (block != null) {
+      yield block;
+    }
+    previousEnd = span.end;
+  }
 }
 
 /// Returns the span to delete for [decl], which isn't an enum value: its

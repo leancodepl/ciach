@@ -43,6 +43,7 @@ export 'src/models.dart'
         EmptiedContainer,
         FinderOptions,
         FinderResult,
+        LeftComment,
         RecoveredReference,
         RemovalResult,
         SymbolKindLabel,

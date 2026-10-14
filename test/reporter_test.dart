@@ -862,6 +862,26 @@ Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) Â
       );
     });
 
+    test('lists the comments it kept above removed code', () {
+      final text = Reporter.removal(
+        const .new(
+          filesChanged: 1,
+          deletedFiles: [],
+          leftComments: [
+            (filePath: 'lib/a.dart', line: 3),
+            (filePath: 'lib/a.dart', line: 9),
+          ],
+        ),
+        removed: 2,
+      );
+      expect(
+        text,
+        'Removed 2 unused declarations from 1 file. Kept 2 comments that sat '
+        'directly above removed code; check whether they still belong: '
+        "lib/a.dart:3, lib/a.dart:9. Run 'dart format' to tidy up spacing.",
+      );
+    });
+
     test('says so when the user declined', () {
       expect(Reporter.removal(null), 'Skipped removal.');
     });

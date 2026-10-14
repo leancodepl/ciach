@@ -506,4 +506,116 @@ class Registry {
       'void b() {}\n',
     );
   });
+
+  group('a comment above removed code', () {
+    /// Removes [decls] from [content] in `lib.dart` and returns the lines of
+    /// the comments it kept above them.
+    List<int> leftCommentLines(String content, List<UnusedDeclaration> decls) {
+      File(p.join(tempDir.path, 'lib.dart')).writeAsStringSync(content);
+      return [
+        for (final (:filePath, :line) in removeDeclarations(
+          decls,
+          tempDir.path,
+        ).leftComments)
+          if (filePath == 'lib.dart') line,
+      ];
+    }
+
+    test('stays and is listed by its line after removal', () {
+      const source = '''
+void a() {}
+
+// About b,
+// on two lines.
+/// Doc of b.
+void b() {}
+
+void c() {}
+''';
+      final lines = leftCommentLines(source, [
+        decl(startLine: 0, startColumn: 0, endLine: 0, endColumn: 11),
+        decl(
+          startLine: 5,
+          startColumn: 0,
+          endLine: 5,
+          endColumn: 11,
+          docLine: 4,
+        ),
+      ]);
+      expect(File(p.join(tempDir.path, 'lib.dart')).readAsStringSync(), '''
+
+// About b,
+// on two lines.
+
+void c() {}
+''');
+      expect(lines, [2]);
+    });
+
+    test('is not listed with a blank line after it', () {
+      const source = '''
+// Section.
+
+void a() {}
+
+void b() {}
+''';
+      expect(
+        leftCommentLines(source, [
+          decl(startLine: 2, startColumn: 0, endLine: 2, endColumn: 11),
+        ]),
+        isEmpty,
+      );
+    });
+
+    test('is not listed when it is a ciach marker or goes too', () {
+      const source = '''
+// ciach:ignore-end
+void a() {}
+
+class C {
+  // About m.
+  void m() {}
+}
+
+void b() {}
+''';
+      expect(
+        leftCommentLines(source, [
+          decl(startLine: 1, startColumn: 0, endLine: 1, endColumn: 11),
+          decl(
+            startLine: 3,
+            startColumn: 0,
+            endLine: 6,
+            endColumn: 1,
+            kind: .class$,
+          ),
+          decl(
+            startLine: 5,
+            startColumn: 2,
+            endLine: 5,
+            endColumn: 13,
+            kind: .method,
+          ),
+        ]),
+        isEmpty,
+      );
+    });
+
+    test('is not listed when its file is deleted', () {
+      const source = '''
+import 'dart:math';
+
+// About a.
+int a() => max(1, 2);
+''';
+      expect(
+        leftCommentLines(source, [
+          decl(startLine: 3, startColumn: 0, endLine: 3, endColumn: 20),
+        ]),
+        isEmpty,
+      );
+      expect(File(p.join(tempDir.path, 'lib.dart')).existsSync(), isFalse);
+    });
+  });
 }
