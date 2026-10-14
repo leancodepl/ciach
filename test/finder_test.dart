@@ -677,29 +677,31 @@ void main() {
     Future<FinderResult> runGuards() =>
         runFinder(include: ['lib/scenarios/guards.dart'], exclude: const []);
 
-    test('a used enum whose values are all unused is reported once, as '
-        'report-only', () async {
-      final result = await runGuards();
-      // No value is named and `.values` is never read, but the enum itself is
-      // used, so removing the values would leave `enum EmptyableStatus {}`.
-      // An enum whose `.values` is read counts as used instead; the group
-      // about `.values` below tests that.
-      expect(
-        [
-          for (final d in result.unused)
-            if (d.qualifiedName.startsWith('EmptyableStatus'))
-              (d.qualifiedName, d.kind, d.removalBlocked, d.hint),
-        ],
-        [
-          (
-            'EmptyableStatus',
-            SymbolKind.enum$,
-            true,
-            'none of its values are used, and an enum needs at least one value',
-          ),
-        ],
-      );
-    });
+    test(
+      'a used enum whose values are all unused is reported once, as report-only',
+      () async {
+        final result = await runGuards();
+        // No value is named and `.values` is never read, but the enum itself is
+        // used, so removing the values would leave `enum EmptyableStatus {}`.
+        // An enum whose `.values` is read counts as used instead; the group
+        // about `.values` below tests that.
+        expect(
+          [
+            for (final d in result.unused)
+              if (d.qualifiedName.startsWith('EmptyableStatus'))
+                (d.qualifiedName, d.kind, d.removalBlocked, d.hint),
+          ],
+          [
+            (
+              'EmptyableStatus',
+              SymbolKind.enum$,
+              true,
+              'none of its values are used, and an enum needs at least one value',
+            ),
+          ],
+        );
+      },
+    );
 
     test(
       'the sole constructor of a live class with final fields is reported but '
@@ -927,23 +929,28 @@ void main() {
     const fixture = ['lib/scenarios/dead_types.dart'];
 
     for (final transitive in [false, true]) {
-      test('an unused class, mixin, extension type or enum is reported '
-          'without its members (transitive: $transitive)', () async {
-        final result = await runFinder(
-          include: fixture,
-          exclude: const [],
-          transitive: transitive,
-        );
-        expect(
-          [for (final d in result.unused) (d.qualifiedName, d.removalBlocked)],
-          [
-            ('DeadBox', false),
-            ('DeadTrait', false),
-            ('DeadId', false),
-            ('DeadLevel', false),
-          ],
-        );
-      });
+      test(
+        'an unused class, mixin, extension type or enum is reported without its members (transitive: $transitive)',
+        () async {
+          final result = await runFinder(
+            include: fixture,
+            exclude: const [],
+            transitive: transitive,
+          );
+          expect(
+            [
+              for (final d in result.unused)
+                (d.qualifiedName, d.removalBlocked),
+            ],
+            [
+              ('DeadBox', false),
+              ('DeadTrait', false),
+              ('DeadId', false),
+              ('DeadLevel', false),
+            ],
+          );
+        },
+      );
     }
 
     test('--remove deletes each unused type and its members', () async {
@@ -1064,16 +1071,18 @@ void main() {
       expect(findByQualified(result, 'deadNested'), isNull);
     });
 
-    test('an extension type that nothing names is reported without its '
-        'members, like an unused class', () async {
-      final result = await runExtensions();
-      final decl = findByQualified(result, 'DeadMeters');
-      expect(decl, isNotNull);
-      expect(decl!.kind, SymbolKind.struct);
-      expect(decl.kind.label, 'extension type');
-      expect(decl.removalBlocked, isFalse);
-      expect(findByQualified(result, 'DeadMeters.scaled'), isNull);
-    });
+    test(
+      'an extension type that nothing names is reported without its members, like an unused class',
+      () async {
+        final result = await runExtensions();
+        final decl = findByQualified(result, 'DeadMeters');
+        expect(decl, isNotNull);
+        expect(decl!.kind, SymbolKind.struct);
+        expect(decl.kind.label, 'extension type');
+        expect(decl.removalBlocked, isFalse);
+        expect(findByQualified(result, 'DeadMeters.scaled'), isNull);
+      },
+    );
 
     test(
       'an extension type referenced only from its own body is dead',
