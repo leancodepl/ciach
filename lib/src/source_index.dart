@@ -13,6 +13,7 @@ import 'dart:io';
 import 'package:ciach/src/cached_map.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
+import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position, SelectionRange;
 
 /// Per-file view of the source under analysis: its lines, content and line
@@ -94,6 +95,13 @@ class SourceIndex {
   String content(String path) => _content[path];
 
   List<int> lineStarts(String path) => _lineStarts[path];
+
+  /// The LSP position of [offset] in [path]'s content.
+  Position positionOf(String path, int offset) {
+    final starts = lineStarts(path);
+    final line = lowerBound(starts, offset + 1) - 1;
+    return .new(line: line, character: offset - starts[line]);
+  }
 
   /// Absolute offset of an LSP [position] in [path]'s content, or `null` if out
   /// of range. LSP columns are UTF-16 code units, which is exactly how Dart

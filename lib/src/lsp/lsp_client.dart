@@ -284,6 +284,9 @@ class LspClient {
     }
   }
 
+  /// The outline of [uri] if the server has already sent it.
+  Outline? cachedOutline(Uri uri) => _outlines[uri.toString()];
+
   /// The outline of [uri]. Throws [LspRequestException] after [timeout].
   Future<Outline> outline(
     Uri uri, {

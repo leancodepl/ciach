@@ -8,8 +8,9 @@
  *     - mark-ai-provenance
  */
 
-/// Comment blanking for the directive rewriting after `--remove`, which runs
-/// once the analysis server is gone.
+/// Text scanning for when the analysis server can't help: comment blanking
+/// for the directive rewriting after `--remove`, which runs once the server is
+/// gone, and whitespace skipping.
 library;
 
 import 'package:ciach/src/extensions.dart';
@@ -186,3 +187,29 @@ int _skipInterpolation(String content, int from) {
   }
   return i;
 }
+
+/// The index of the first non-whitespace character at or after [from], if
+/// any.
+int? nextNonWhitespace(String content, int from) {
+  for (var i = from; i < content.length; i++) {
+    if (!_isWhitespace(content[i])) {
+      return i;
+    }
+  }
+  return null;
+}
+
+/// The index of the last non-whitespace character before [before], if any.
+int? previousNonWhitespace(String content, int before) {
+  for (var i = before - 1; i >= 0; i--) {
+    if (!_isWhitespace(content[i])) {
+      return i;
+    }
+  }
+  return null;
+}
+
+bool _isWhitespace(String ch) => switch (ch) {
+  ' ' || '\t' || '\n' || '\r' => true,
+  _ => false,
+};

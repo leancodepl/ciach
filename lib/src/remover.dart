@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:ciach/src/comment_stripping.dart';
 import 'package:ciach/src/emptied_files.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
@@ -127,6 +128,7 @@ class RemovalException implements Exception {
   String toString() => message;
 }
 
+/// Returns [content] with [decls] removed.
 String _removeFromContent(String content, List<UnusedDeclaration> decls) {
   final lines = content.split('\n');
   final lineStarts = List<int>.filled(lines.length, 0);
@@ -163,20 +165,20 @@ String _removeFromContent(String content, List<UnusedDeclaration> decls) {
   return buffer.toString();
 }
 
-/// Returns the span to delete for [decl], which isn't an enum value: the
-/// [UnusedDeclaration.cut] of a field or variable, or [_spanFor] for anything
-/// else. Returns `null` for a field or variable without a cut, which stays.
+/// Returns the span to delete for [decl], which isn't an enum value: its
+/// [UnusedDeclaration.cut] if it has one, else [_spanFor]. Returns `null` for
+/// a field or variable without a cut, which stays.
 _Span? _spanOf(
   UnusedDeclaration decl,
   String content,
   List<String> lines,
   int Function(int line, int column) offsetOf,
 ) {
-  if (!declaratorKinds.contains(decl.kind)) {
-    return _spanFor(decl, content, lines, offsetOf);
-  }
   if (decl.cut case final cut?) {
     return _wholeLines(cut, content, lines, offsetOf);
+  }
+  if (!declaratorKinds.contains(decl.kind)) {
+    return _spanFor(decl, content, lines, offsetOf);
   }
   _log.fine(
     'Left ${decl.qualifiedName} in ${decl.filePath} in place: the finder found no range to cut it out by.',
@@ -259,13 +261,13 @@ int _startWithIndentation(
   required int baseStart,
   required int baseEnd,
 }) {
-  final forward = _nextNonWhitespace(content, baseEnd);
+  final forward = nextNonWhitespace(content, baseEnd);
   if (forward != null && content[forward] == ',') {
     // Swallow the blank after the comma too, but stop at a line break so a
     // multi-line enum's indentation stays intact.
     return (valueStart, _skipSameLineBlank(content, forward + 1));
   }
-  final backward = _previousNonWhitespace(content, valueStart);
+  final backward = previousNonWhitespace(content, valueStart);
   if (backward != null && content[backward] == ',') {
     return (backward, baseEnd);
   }
@@ -324,29 +326,6 @@ int _consumeTrailingBlankLine(String content, int end) {
   }
   return nextNewline == -1 ? content.length : nextNewline + 1;
 }
-
-int? _nextNonWhitespace(String content, int from) {
-  for (var i = from; i < content.length; i++) {
-    if (!_isWhitespace(content[i])) {
-      return i;
-    }
-  }
-  return null;
-}
-
-int? _previousNonWhitespace(String content, int before) {
-  for (var i = before - 1; i >= 0; i--) {
-    if (!_isWhitespace(content[i])) {
-      return i;
-    }
-  }
-  return null;
-}
-
-bool _isWhitespace(String ch) => switch (ch) {
-  ' ' || '\t' || '\n' || '\r' => true,
-  _ => false,
-};
 
 List<_Span> _mergeSpans(List<_Span> spans) {
   final merged = <_Span>[];

@@ -40,6 +40,7 @@ export 'src/models.dart'
         DeadReferrer,
         DeclarationRange,
         DeletedFile,
+        EmptiedContainer,
         FinderOptions,
         FinderResult,
         RecoveredReference,

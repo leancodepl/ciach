@@ -845,6 +845,23 @@ Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) Â
       );
     });
 
+    test('lists the empty declarations it kept', () {
+      final text = Reporter.removal(
+        const .new(filesChanged: 2, deletedFiles: []),
+        removed: 2,
+        emptied: [
+          (filePath: 'lib/a.dart', name: 'Painter'),
+          (filePath: 'lib/b.dart', name: 'Parsing'),
+        ],
+      );
+      expect(
+        text,
+        'Removed 2 unused declarations from 2 files. Left 2 declarations empty '
+        'because other code still uses them: Painter (lib/a.dart), Parsing '
+        "(lib/b.dart). Run 'dart format' to tidy up spacing.",
+      );
+    });
+
     test('says so when the user declined', () {
       expect(Reporter.removal(null), 'Skipped removal.');
     });

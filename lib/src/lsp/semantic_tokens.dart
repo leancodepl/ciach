@@ -55,8 +55,9 @@ final class SemanticToken {
 
   int get end => character + length;
 
-  bool get isDocComment =>
-      type == 'comment' && modifiers.contains('documentation');
+  bool get isComment => type == 'comment';
+
+  bool get isDocComment => isComment && modifiers.contains('documentation');
 
   bool get isKeyword => type == 'keyword';
 

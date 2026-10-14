@@ -1,5 +1,11 @@
 ## Unreleased
 
+- ciach now reports a class or mixin whose members are all unused and that
+  only `with` or `implements` clauses use, and `--remove` deletes it and
+  removes it from those clauses. When other code still uses such a type,
+  `--remove` keeps it empty and lists it in the summary; before, it left it
+  empty without saying so.
+  ([#118](https://github.com/leancodepl/ciach/pull/118))
 - `--remove` no longer breaks a field or variable statement with a comment
   inside, such as `int a = 1, /* note */ b = 2;`. Before, it left `int ;`
   behind, or kept a declarator it couldn't cut without saying so.

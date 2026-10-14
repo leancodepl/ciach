@@ -111,6 +111,7 @@ final class OutlineElement {
 /// Declaration kinds as the outline sends them.
 enum OutlineKind {
   class$('CLASS'),
+  classTypeAlias('CLASS_TYPE_ALIAS'),
   compilationUnit('COMPILATION_UNIT'),
   constructor('CONSTRUCTOR'),
   enum$('ENUM'),

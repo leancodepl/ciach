@@ -286,7 +286,7 @@ class UnusedDeclaration {
   /// this declaration to keep the source compiling, but that are not
   /// themselves reported as findings.
   ///
-  /// Two uses today:
+  /// For example:
   ///
   /// - a dead `StatefulWidget`'s paired private `State<Widget>` subclass, which
   ///   is not independently "unused" (the widget's own `createState` references
@@ -294,6 +294,8 @@ class UnusedDeclaration {
   ///   (`State<DeletedWidget>` no longer resolves).
   /// - every override of a dead member, which `skipOverrides` keeps out of the
   ///   findings and which would be left overriding nothing.
+  /// - each `with` or `implements` clause entry that names a removed class or
+  ///   mixin.
   ///
   /// Coupling a removal keeps `--remove` from breaking the build without
   /// surfacing the coupled span as a separate report entry.
@@ -383,6 +385,10 @@ typedef DeadReferrer = ({String qualifiedName, String filePath, int line});
 /// A file `--remove` deleted, and the files unlinked from it. Root-relative
 /// `/`-paths.
 typedef DeletedFile = ({String filePath, List<String> unlinkedFrom});
+
+/// A class, mixin or extension that `--remove` leaves with an empty body.
+/// `filePath` is relative to the root and uses `/`.
+typedef EmptiedContainer = ({String filePath, String name});
 
 /// What `removeDeclarations` did.
 class RemovalResult {
@@ -511,6 +517,7 @@ class FinderResult {
     this.emptyVariants = const [],
     this.recoveredReferences = const [],
     this.problems = const [],
+    this.emptiedContainers = const [],
   });
 
   /// Declarations with zero references of any kind — the tool's actual
@@ -558,4 +565,9 @@ class FinderResult {
   /// What the run could not analyze. Affected code is kept, so a problem can
   /// hide a finding but never adds one.
   final List<AnalysisProblem> problems;
+
+  /// The classes, mixins and extensions that `--remove` leaves with an empty
+  /// body: each of their members is a removable finding, but other code still
+  /// uses them. Sorted by file, then name.
+  final List<EmptiedContainer> emptiedContainers;
 }

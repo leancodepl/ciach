@@ -7,6 +7,7 @@
 /// matter.
 library;
 
+import 'package:ciach/src/list_cuts.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/source_index.dart';
@@ -101,17 +102,15 @@ extension DeclaratorCuts on SourceIndex {
         removed.keys.any((start) => siblings.none((s) => s.start == start))) {
       return {for (final declarator in removed.values) declarator: null};
     }
-    if (removed.length == siblings.length) {
-      final cut = statement.toDeclarationRange;
-      return {for (final declarator in removed.values) declarator: cut};
-    }
     final cuts = <DeclaratorAt, DeclarationRange?>{};
-    for (final (i, j) in _runs(siblings, removed.containsKey)) {
-      final cut = j < siblings.length
-          ? Range(start: siblings[i].start, end: siblings[j].start)
-          : Range(start: siblings[i - 1].end, end: siblings[j - 1].end);
+    for (final (i, j, cut) in listCuts(
+      siblings,
+      (sibling) => removed.containsKey(sibling.start),
+    )) {
+      // When every variable goes, the whole statement goes.
+      final range = (cut ?? statement).toDeclarationRange;
       for (final sibling in siblings.sublist(i, j)) {
-        cuts[removed[sibling.start]!] = cut.toDeclarationRange;
+        cuts[removed[sibling.start]!] = range;
       }
     }
     return cuts;
@@ -139,26 +138,5 @@ extension DeclaratorCuts on SourceIndex {
       }
     }
     return declarators;
-  }
-}
-
-/// Returns the index range `[i, j)` of each longest run of adjacent [ranges]
-/// whose start [isCut] accepts.
-Iterable<(int, int)> _runs(
-  List<Range> ranges,
-  bool Function(Position start) isCut,
-) sync* {
-  var i = 0;
-  while (i < ranges.length) {
-    if (!isCut(ranges[i].start)) {
-      i++;
-      continue;
-    }
-    var j = i + 1;
-    while (j < ranges.length && isCut(ranges[j].start)) {
-      j++;
-    }
-    yield (i, j);
-    i = j;
   }
 }

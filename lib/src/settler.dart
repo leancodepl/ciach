@@ -1,12 +1,15 @@
 import 'package:ciach/src/candidates.dart';
+import 'package:ciach/src/clause_entries.dart';
 import 'package:ciach/src/concurrency.dart';
 import 'package:ciach/src/conventions/flutter_widgets.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/cross_library_refs.dart';
 import 'package:ciach/src/dead_spans.dart';
 import 'package:ciach/src/declarator_cuts.dart';
+import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/overrides.dart';
 import 'package:ciach/src/paths.dart';
@@ -26,6 +29,14 @@ final _log = Logger('ciach.finder');
 
 /// What a run reports, sorted by location.
 typedef Settled = ({
+  List<UnusedDeclaration> unused,
+  List<UnusedDeclaration> docOnly,
+  List<RecoveredReference> recovered,
+  List<EmptiedContainer> emptied,
+});
+
+/// What one round settles.
+typedef _Verdicts = ({
   List<UnusedDeclaration> unused,
   List<UnusedDeclaration> docOnly,
   List<RecoveredReference> recovered,
@@ -98,7 +109,8 @@ final class Settler {
     var deadSpans = options.transitive
         ? _unreachedCandidates(candidates, refsByCandidate, rootPath)
         : DeadSpans.empty;
-    Settled settled;
+    _Verdicts settled;
+    Map<UnusedDeclaration, int> candidateOf;
     for (var round = 1; ; round++) {
       final liveRefs = _liveRefs(refsByCandidate, deadSpans);
       crossLib = crossLib.merged(
@@ -113,10 +125,12 @@ final class Settler {
         deadSpans,
         superclasses,
         overrides,
+        scannedPaths,
         rootPath,
         analysisRoot,
       );
       settled = result.settled;
+      candidateOf = result.candidateOf;
       if (!options.transitive) {
         break;
       }
@@ -155,8 +169,60 @@ final class Settler {
       unused: settled.unused.sorted(compareByLocation),
       docOnly: settled.docOnly.sorted(compareByLocation),
       recovered: settled.recovered,
+      emptied: _emptiedContainers(candidates, candidateOf, rootPath),
     );
   }
+
+  /// Returns the classes, mixins and extensions that `--remove` leaves with an
+  /// empty body: each of their members is a removable finding in [candidateOf],
+  /// but the declaration itself is not a finding, because other code still
+  /// uses it.
+  static List<EmptiedContainer> _emptiedContainers(
+    List<Candidate> candidates,
+    Map<UnusedDeclaration, int> candidateOf,
+    String rootPath,
+  ) {
+    final removable = _removableIndices(candidateOf);
+    final removed = {for (final i in removable) candidates[i].key};
+
+    final members = _removableMembers(candidates, removable);
+    return [
+      for (final MapEntry(key: container, value: (:outline, :removable))
+          in members.entries)
+        if (outline?.children.length == removable &&
+            // An extension type keeps its representation field, like `value` in
+            // `extension type Id(int value)`. The outline leaves that field
+            // out, so the type would wrongly look emptied.
+            outline!.element.kind != .extensionType &&
+            !removed.contains(container))
+          (
+            filePath: relativePosix(container.path, rootPath),
+            name: container.name,
+          ),
+    ]..sort(
+      (a, b) => switch (a.filePath.compareTo(b.filePath)) {
+        0 => a.name.compareTo(b.name),
+        final byFile => byFile,
+      },
+    );
+  }
+
+  /// Returns, by key, each class, mixin or extension with a member in
+  /// [removable]: its outline, and how many of its members are in [removable].
+  static Map<DeclKey, ({Outline? outline, int removable})> _removableMembers(
+    List<Candidate> candidates,
+    Set<int> removable,
+  ) => {
+    for (final MapEntry(:key, value: members)
+        in removable
+            .map((i) => candidates[i])
+            .groupListsBy((candidate) => candidate.containerKey)
+            .entries)
+      ?key: (
+        outline: members.first.containerOutline,
+        removable: members.length,
+      ),
+  };
 
   /// Returns [unused] with [UnusedDeclaration.cut] set on each removable field
   /// and top-level variable, both findings and coupled removals.
@@ -236,6 +302,14 @@ final class Settler {
     ];
   }
 
+  /// The candidate indices of the findings in [candidateOf] that `--remove`
+  /// deletes.
+  static Set<int> _removableIndices(Map<UnusedDeclaration, int> candidateOf) =>
+      {
+        for (final MapEntry(key: finding, value: i) in candidateOf.entries)
+          if (!finding.removalBlocked) i,
+      };
+
   /// The spans of every candidate no live code reaches, all of them assumed
   /// dead to begin with.
   DeadSpans _unreachedCandidates(
@@ -271,10 +345,7 @@ final class Settler {
     String rootPath,
   ) {
     final spans = DeadSpans.of(candidateOf.keys, rootPath);
-    final removable = {
-      for (final MapEntry(key: finding, value: i) in candidateOf.entries)
-        if (!finding.removalBlocked) i,
-    };
+    final removable = _removableIndices(candidateOf);
     Iterable<int> containers(String path, Position position) => [
       for (final owner in spans.ownersOf(path, position)) candidateOf[owner]!,
     ];
@@ -300,10 +371,17 @@ final class Settler {
       ],
     ];
     final dead = unreached(removable, uses);
-    return DeadSpans.of([
-      for (final MapEntry(key: finding, value: i) in candidateOf.entries)
-        if (dead.contains(i)) finding,
-    ], rootPath);
+    // Removing a dead type also removes its clause entries. Keep those entries
+    // as references here, so the next round reports the type as used only in
+    // clauses and not as unused.
+    return DeadSpans.of(
+      [
+        for (final MapEntry(key: finding, value: i) in candidateOf.entries)
+          if (dead.contains(i)) finding,
+      ],
+      rootPath,
+      includeClauseCuts: false,
+    );
   }
 
   /// [refsByCandidate] less the references inside [deadSpans].
@@ -327,7 +405,7 @@ final class Settler {
   /// One round, classifying from [liveRefs], with each unused finding's
   /// candidate index. [refsByCandidate] still holds the references into
   /// [deadSpans], for [_onlyReferencedFrom].
-  Future<({Settled settled, Map<UnusedDeclaration, int> candidateOf})> _round(
+  Future<({_Verdicts settled, Map<UnusedDeclaration, int> candidateOf})> _round(
     LspClient client,
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
@@ -336,6 +414,7 @@ final class Settler {
     DeadSpans deadSpans,
     SuperclassChecks superclasses,
     OverrideRemovals overrides,
+    Set<String> scannedPaths,
     String rootPath,
     String analysisRoot,
   ) async {
@@ -448,17 +527,29 @@ final class Settler {
           break;
       }
     }
-
     // Make the fields and variables `--remove` can't cut out report-only now,
-    // so that the next `--transitive` round keeps alive what they reference.
+    // so that the next `--transitive` round keeps alive what they reference,
+    // and a class that keeps one isn't listed as left empty.
     final cut = await _withCuts(client, unused, rootPath);
     final cutCandidateOf = {
       for (final (k, finding) in cut.indexed) finding: candidateOf[unused[k]]!,
     };
-    _removableBefore.addAll([
-      for (final MapEntry(key: finding, value: i) in cutCandidateOf.entries)
-        if (!finding.removalBlocked) i,
-    ]);
+    final removable = _removableIndices(cutCandidateOf);
+    _removableBefore.addAll(removable);
+    for (final (i, finding) in await _namedOnlyInClauses(
+      client,
+      candidates,
+      statuses,
+      refsByCandidate,
+      liveRefs,
+      removable,
+      deadSpans,
+      scannedPaths,
+      rootPath,
+    )) {
+      cut.add(finding);
+      cutCandidateOf[finding] = i;
+    }
 
     _dropEnclosedInDead(cut, deadSpans, rootPath);
 
@@ -468,6 +559,95 @@ final class Settler {
         for (final finding in cut) finding: cutCandidateOf[finding]!,
       },
     );
+  }
+
+  /// Returns a finding, with its candidate index, for each used class or mixin
+  /// that only `with` and `implements` clauses in scanned files name and whose
+  /// members are all in [removable], like `mixin M { void m() {} }` named only
+  /// in `class A with M {}`.
+  ///
+  /// Each finding also removes the type from those clauses. A generic type, or
+  /// one with a clause entry that can't be removed, gets no finding. Selection
+  /// ranges are fetched only for the clauses of these types.
+  Future<List<(int, UnusedDeclaration)>> _namedOnlyInClauses(
+    LspClient client,
+    List<Candidate> candidates,
+    List<RefStatus> statuses,
+    List<List<Location>> refsByCandidate,
+    List<List<Location>> liveRefs,
+    Set<int> removable,
+    DeadSpans deadSpans,
+    Set<String> scannedPaths,
+    String rootPath,
+  ) async {
+    final members = _removableMembers(candidates, removable);
+    final entriesOf = <int, List<ClauseEntry>>{};
+    for (final (i, candidate) in candidates.indexed) {
+      final outline = candidate.outline.element;
+      if (statuses[i] != .used ||
+          !const <OutlineKind>{.class$, .mixin}.contains(outline.kind) ||
+          (outline.typeParameters?.isNotEmpty ?? false) ||
+          (candidate.symbol.children?.length ?? 0) !=
+              (members[candidate.key]?.removable ?? 0)) {
+        continue;
+      }
+      final refs = _classifier.externalRefs(candidate, liveRefs[i]);
+      // The outline of every scanned file is already cached: the candidates
+      // were read from it.
+      final entries = [
+        for (final loc in refs)
+          if (scannedPaths.contains(SourceIndex.pathOf(loc.uri)))
+            ?client
+                .cachedOutline(Uri.parse(loc.uri))
+                ?.let(
+                  (unit) =>
+                      _sources.clauseEntryAt(loc, candidate.symbol.name, unit),
+                ),
+      ];
+      if (entries.length == refs.length) {
+        entriesOf[i] = entries;
+      }
+    }
+    await _fetch.fetchSelectionRanges(
+      client,
+      entriesOf.values.flattened.groupFoldBy(
+        (entry) => entry.path,
+        (names, entry) =>
+            (names ?? <Position>{})
+              ..addAll(_sources.namesInClause(entry.path, entry.clause)),
+      ),
+    );
+    // Drop a type if any of its clause entries gets no removal: the clause's
+    // selection ranges aren't cached, or the entry would take every mixin of
+    // a mixin application class. Dropping a type keeps its entries, which changes the
+    // removals of other entries in the same clause, so repeat until each type
+    // left has all its removals.
+    var cuts = _sources.clauseCuts(entriesOf.values.flattened, rootPath);
+    bool lacksCut(List<ClauseEntry> entries) =>
+        entries.any((e) => !cuts.containsKey(e));
+    while (entriesOf.values.any(lacksCut)) {
+      entriesOf.removeWhere((_, entries) => lacksCut(entries));
+      cuts = _sources.clauseCuts(entriesOf.values.flattened, rootPath);
+    }
+    return [
+      for (final MapEntry(key: i, value: entries) in entriesOf.entries)
+        (
+          i,
+          _verdict.finding(
+            candidates[i],
+            rootPath,
+            coupledRemovals: {
+              for (final entry in entries) cuts[entry]!,
+            }.toList(),
+            hint: Verdict.namedOnlyInClausesHint,
+            onlyReferencedFrom: _onlyReferencedFrom(
+              candidates[i],
+              refsByCandidate[i],
+              deadSpans,
+            ),
+          ),
+        ),
+    ];
   }
 
   /// Returns the types in [docOnlyTypes] that have a member in [reported],

@@ -1068,6 +1068,115 @@ void main() {
     });
   });
 
+  group('classes and mixins used only in clauses', () {
+    const fixture = ['lib/scenarios/clause_only.dart'];
+
+    test("reports exactly the fixture's dead declarations", () async {
+      final result = await runFinder(include: fixture, exclude: const []);
+      expect(result.unused.map((d) => (d.qualifiedName, d.hint)).toSet(), {
+        ('Painter', Verdict.namedOnlyInClausesHint),
+        ('Painter.paint', null),
+        ('Drawable', Verdict.namedOnlyInClausesHint),
+        ('Drawable.draw', null),
+        ('Plain', Verdict.namedOnlyInClausesHint),
+        ('Checked.check', null),
+        ('Primed.prime', null),
+        ('Frame.frame', null),
+        ('Holder.hold', null),
+        ('Sketch', Verdict.namedOnlyInClausesHint),
+        ('Sketch.sketch', null),
+        ('Glazed', Verdict.namedOnlyInClausesHint),
+        ('Glazed.glaze', null),
+        ('Lacquer.lacquer', null),
+        ('useClauses', null),
+      });
+    });
+
+    test(
+      '--remove removes them and their clause entries and keeps the rest',
+      () async {
+        final copy = Directory.systemTemp.createTempSync('ciach_clauses_');
+        addTearDown(() => copy.deleteSync(recursive: true));
+        copyTree(Directory(fixturePath), copy);
+        final result = await Ciach(
+          .new(
+            rootPath: copy.path,
+            exportedPackages: const [],
+            includeGlobs: fixture,
+          ),
+        ).run();
+
+        removeDeclarations(result.unused, copy.path);
+
+        final source = File(
+          p.join(copy.path, fixture.single),
+        ).readAsStringSync();
+        expect(source, contains('class Canvas {\n}\n'));
+        expect(source, contains('class Easel extends Object with Tidy {}\n'));
+        expect(source, contains('class Checker with Checked {}\n'));
+        expect(source, contains('class Brushed with Primed, Brush {}\n'));
+        expect(source, contains('class Sketched(final int size);\n'));
+        expect(source, contains('class Varnished = Object with Varnish;\n'));
+        expect(source, contains('class Lacquered = Object with Lacquer;\n'));
+        expect(source, isNot(contains('Painter')));
+        expect(source, isNot(contains('Drawable')));
+        expect(source, isNot(contains('Plain')));
+        expect(source, isNot(contains('Sketch ')));
+        expect(source, isNot(contains('Glazed')));
+        expect(result.emptiedContainers.map((c) => c.name), [
+          'Checked',
+          'Frame',
+          'Holder',
+          'Lacquer',
+          'Primed',
+        ]);
+      },
+    );
+
+    test('with --transitive, removes a type that only their headers use, '
+        'without reaching the round limit', () async {
+      const fixture = ['lib/scenarios/clause_only_transitive.dart'];
+      final messages = <String>[];
+      final logging = Logger.root.onRecord
+          .where((r) => r.loggerName == 'ciach.finder')
+          .listen((r) => messages.add(r.message));
+      addTearDown(logging.cancel);
+      final copy = Directory.systemTemp.createTempSync('ciach_clauses_');
+      addTearDown(() => copy.deleteSync(recursive: true));
+      copyTree(Directory(fixturePath), copy);
+      Future<FinderResult> run({required bool transitive}) => Ciach(
+        .new(
+          rootPath: copy.path,
+          exportedPackages: const [],
+          includeGlobs: fixture,
+          transitive: transitive,
+        ),
+      ).run();
+      Set<(String, String?, String)> findings(FinderResult result) => {
+        for (final d in result.unused)
+          (
+            d.qualifiedName,
+            d.hint,
+            d.onlyReferencedFrom.map((r) => r.qualifiedName).join(', '),
+          ),
+      };
+      const painter = ('Painter', Verdict.namedOnlyInClausesHint, '');
+      const paint = ('Painter.paint', null, '');
+
+      expect(findings(await run(transitive: false)), {painter, paint});
+      final result = await run(transitive: true);
+      expect(findings(result), {('Shape', null, 'Painter'), painter, paint});
+      expect(messages, isNot(contains(startsWith('Stopping after'))));
+
+      removeDeclarations(result.unused, copy.path);
+
+      final source = File(p.join(copy.path, fixture.single)).readAsStringSync();
+      expect(source, contains('class Tile {}\n'));
+      expect(source, isNot(contains('Shape')));
+      expect(source, isNot(contains('Painter')));
+    });
+  });
+
   group('enum `.values` detection fix', () {
     // Scan only the enum-`.values` fixture (enums kept alive by in-file refs).
     Future<FinderResult> runEnumValues() => runFinder(

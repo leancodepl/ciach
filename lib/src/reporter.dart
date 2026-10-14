@@ -105,6 +105,7 @@ abstract final class Reporter {
     RemovalResult? removal, {
     int removed = 0,
     int blocked = 0,
+    List<EmptiedContainer> emptied = const [],
     Iterable<String> notes = const [],
     Style style = .plain,
   }) {
@@ -123,6 +124,10 @@ abstract final class Reporter {
         style.caution('$blocked left in place — unsafe to auto-remove.'),
       if (deleted.isNotEmpty)
         'Deleted ${plural(deleted.length, 'empty file', 'empty files')}: ${deleted.map((d) => d.filePath).join(', ')}.',
+      if (emptied.isNotEmpty)
+        style.caution(
+          'Left ${plural(emptied.length, 'declaration', 'declarations')} empty because other code still uses them: ${emptied.map((e) => '${e.name} (${e.filePath})').join(', ')}.',
+        ),
       style.note("Run 'dart format' to tidy up spacing."),
     ];
     final buffer = StringBuffer(sentences.join(' '));
@@ -318,6 +323,10 @@ abstract final class Reporter {
       'docOnly': [for (final decl in result.docOnly) decl.toJson()],
       'emptyFiles': result.emptyFiles,
       'emptyVariants': result.emptyVariants,
+      'emptiedContainers': [
+        for (final (:filePath, :name) in result.emptiedContainers)
+          {'filePath': filePath, 'name': name},
+      ],
       'warnings': [for (final w in result.recoveredReferences) w.toJson()],
       'problems': [for (final problem in result.problems) problem.toJson()],
     });
