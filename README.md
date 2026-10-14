@@ -359,10 +359,11 @@ line of a removed declaration, or of a removed `import`. A comment for a tool
 there, such as `// coverage:ignore-start`, stays, so the range it opens or
 closes keeps both ends.
 
-When the removal leaves nothing between a pair of range comments, both go. This
-covers `coverage:ignore-start` and `coverage:ignore-end`, `ciach:ignore-start`
-and `ciach:ignore-end`, `dart format off` and `dart format on`, and
-`cspell:disable` and `cspell:enable`. A pair that was empty before stays.
+In a file `--remove` changes, a pair of range comments with nothing left
+between them goes too. This covers `coverage:ignore-start` and
+`coverage:ignore-end`, `ciach:ignore-start` and `ciach:ignore-end`,
+`dart format off` and `dart format on`, and `cspell:disable` and
+`cspell:enable`.
 
 Removal acts on whatever the finder reports, so it inherits the same
 false-positive risk, which `--also overrides,operators` widens considerably.

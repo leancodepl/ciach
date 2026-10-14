@@ -4,8 +4,8 @@
   so you can check whether they still belong. It also deletes an `// ignore:`,
   `// expect_lint:` or `// cspell:disable-next-line` comment above or at the end
   of a removed declaration, which before stayed and applied to the next line.
-  Range comments such as `// coverage:ignore-start` and `// coverage:ignore-end`
-  go too when nothing is left between them.
+  In a file it changes, range comments such as `// coverage:ignore-start` and
+  `// coverage:ignore-end` go too when nothing is left between them.
   ([#129](https://github.com/leancodepl/ciach/pull/129))
 - ciach now reports an unused class, mixin, extension, extension type or enum
   once, instead of also listing each of its members. The same goes for a class

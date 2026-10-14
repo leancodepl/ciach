@@ -1,5 +1,5 @@
 /// Comments that open and close a range of code for a tool, and the pairs of
-/// them that `--remove` leaves around nothing.
+/// them left around nothing.
 library;
 
 import 'package:ciach/src/comment_stripping.dart';
@@ -20,24 +20,20 @@ RegExp _marker(String marker) =>
     RegExp('^//\\s*${RegExp.escape(marker)}(?![\\w-])', caseSensitive: false);
 
 /// The spans of the range markers in [content] that are left around nothing
-/// but whitespace and comments, where one of the [cuts] removed code from the
-/// range. A range that held nothing before the cuts keeps its markers.
+/// but whitespace and comments.
 ///
 /// A marker on its own line spans the whole line; one after code spans the
 /// blanks before it.
-List<({int start, int end})> emptiedRangeMarkers(
-  String content,
-  List<int> cuts,
-) {
-  if (cuts.isEmpty) {
-    return const [];
-  }
+List<({int start, int end})> emptyRangeMarkers(String content) {
   final comments = lineComments(content).toList();
   final code = stripComments(content);
   return [
     for (final pair in _pairs)
       for (final (open, close) in _matched(content, comments, pair))
-        if (_emptied(open, close, code, cuts)) ...[open.span, close.span],
+        if (code.substring(open.end, close.offset).trim().isEmpty) ...[
+          open.span,
+          close.span,
+        ],
   ];
 }
 
@@ -56,16 +52,6 @@ Iterable<(_Marker, _Marker)> _matched(
       yield (_Marker(content, opened.removeLast()), _Marker(content, comment));
     }
   }
-}
-
-/// Whether nothing but whitespace and comments is left in [code] between
-/// [open] and [close], and one of the [cuts] removed code from there.
-bool _emptied(_Marker open, _Marker close, String code, List<int> cuts) {
-  // A cut right before a marker on its own line removed code above the range,
-  // not in it.
-  final from = open.ownLine ? open.end : open.lineStart;
-  return code.substring(open.end, close.offset).trim().isEmpty &&
-      cuts.any((cut) => cut >= from && cut <= close.offset);
 }
 
 /// A marker comment placed in its line.

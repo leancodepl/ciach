@@ -202,7 +202,6 @@ class RemovalException implements Exception {
   }
 
   final kept = <int>[];
-  final cuts = <int>[];
   final buffer = StringBuffer();
   var cursor = 0;
   for (final span in _mergeSpans([
@@ -212,12 +211,11 @@ class RemovalException implements Exception {
     if (comments.blockAbove(span.start, after: cursor) case final block?) {
       kept.add(buffer.length - (span.start - block));
     }
-    cuts.add(buffer.length);
     cursor = span.end;
   }
   buffer.write(content.substring(cursor));
   final rewritten = buffer.toString();
-  final markers = _mergeSpans(emptiedRangeMarkers(rewritten, cuts));
+  final markers = _mergeSpans(emptyRangeMarkers(rewritten));
   final updated = _without(rewritten, markers);
   return (
     updated: updated,

@@ -590,7 +590,7 @@ class C {
 ''');
     });
 
-    test('stay when they held nothing before the removal', () {
+    test('go when they held nothing before the removal', () {
       const source = '''
 class C {
   // cspell:disable
@@ -604,8 +604,6 @@ class C {
       ]);
       expect(result, '''
 class C {
-  // cspell:disable
-  // cspell:enable
   void kept() {}
 }
 ''');
