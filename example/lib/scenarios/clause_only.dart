@@ -70,8 +70,8 @@ mixin Sketch {
 
 class Sketched(final int size) with Sketch;
 
-/// Used in the `with` clause of a class type alias that has another mixin ->
-/// UNUSED (class), with the method.
+/// Used in the `with` clause of a mixin application class that has another
+/// mixin -> UNUSED (class), with the method.
 mixin Glazed {
   void glaze() {}
 }
@@ -83,7 +83,8 @@ mixin Varnish {
 
 class Varnished = Object with Glazed, Varnish;
 
-/// A class type alias's only mixin -> stays; only its method is reported.
+/// A mixin application class's only mixin -> stays; only its method is
+/// reported.
 mixin Lacquer {
   void lacquer() {}
 }

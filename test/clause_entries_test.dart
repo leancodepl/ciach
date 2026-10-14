@@ -182,7 +182,7 @@ mixin E {}
     );
   });
 
-  test('keeps at least one mixin of a type alias', () async {
+  test('keeps at least one mixin of a mixin application class', () async {
     expect(
       await cutFrom('${types}class A = B with C, D;\n', 'with C', ['C']),
       '${types}class A = B with D;\n',
@@ -215,7 +215,7 @@ ${types}abstract class A
   });
 
   test(
-    'reads from the outline whether a clause belongs to a type alias',
+    'reads from the outline whether a clause belongs to a mixin application class',
     () async {
       const source =
           '''

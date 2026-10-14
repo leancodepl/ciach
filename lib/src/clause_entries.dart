@@ -25,7 +25,8 @@ const clauseCutKind = SymbolKind.typeParameter;
 ///
 /// `path` is the file and `clause` the range of the clause, keyword included.
 /// `name` is the position of the type's name. `keepsOne` is true for the
-/// `with` clause of a class type alias, which must keep at least one mixin.
+/// `with` clause of a mixin application class, like `class A = B with M;`,
+/// which must keep at least one mixin.
 typedef ClauseEntry = ({
   String path,
   Range clause,
@@ -81,8 +82,8 @@ extension ClauseEntries on SourceIndex {
   /// or, for a group that ends the clause, the comma before it. When every
   /// entry goes, the whole clause goes, keyword included: `class A with M {}`
   /// becomes `class A {}`. An entry gets no removal when the selection ranges
-  /// of its clause aren't cached, or when it would take every mixin of a class
-  /// type alias like `class A = B with M;`.
+  /// of its clause aren't cached, or when it would take every mixin of a mixin
+  /// application class like `class A = B with M;`.
   Map<ClauseEntry, CoupledRemoval> clauseCuts(
     Iterable<ClauseEntry> entries,
     String rootPath,
@@ -111,8 +112,8 @@ extension ClauseEntries on SourceIndex {
       all,
       (entry) => byName.containsKey(entry.start),
     )) {
-      // A class type alias needs at least one mixin: `class A = B;` doesn't
-      // compile. So when every mixin of the alias would go, none does.
+      // A mixin application class needs at least one mixin: `class A = B;`
+      // doesn't compile. So when every mixin of one would go, none does.
       if (cut == null && keepsOne) {
         continue;
       }
@@ -152,8 +153,9 @@ extension ClauseEntries on SourceIndex {
   /// Returns [clause] with the whitespace before it, so that removing it
   /// leaves `class A {`, not `class A  {`.
   ///
-  /// After a `//` comment, the whitespace from the line break on stays, or
-  /// the code after the clause would join the comment.
+  /// When a `//` comment ends the line before the clause, the range starts on
+  /// the clause's own line instead. Otherwise the code after the clause would
+  /// end up inside the comment.
   Range? _withSpaceBefore(String path, Range clause) {
     final start = offsetOf(path, clause.start);
     if (start == null) {
@@ -185,9 +187,9 @@ extension ClauseEntries on SourceIndex {
   /// Returns `with` or `implements` if [clause] starts with that keyword.
   String? _keywordOf(String path, Range clause) =>
       switch (semanticTokens(path)?.startingAt(clause.start)) {
-        final token?
-            when token.isKeyword && _clauseKeywords.contains(token.text) =>
-          token.text,
+        SemanticToken(isKeyword: true, :final text)
+            when _clauseKeywords.contains(text) =>
+          text,
         _ => null,
       };
 }

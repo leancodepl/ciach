@@ -175,7 +175,8 @@ final class Settler {
 
   /// Returns the classes, mixins and extensions that `--remove` leaves with an
   /// empty body: each of their members is a removable finding in [candidateOf],
-  /// but they aren't, because other code still uses them.
+  /// but the declaration itself is not a finding, because other code still
+  /// uses it.
   static List<EmptiedContainer> _emptiedContainers(
     List<Candidate> candidates,
     Map<UnusedDeclaration, int> candidateOf,
@@ -184,9 +185,6 @@ final class Settler {
     final removable = _removableIndices(candidateOf);
     final removed = {for (final i in removable) candidates[i].key};
 
-    /// Returns, by key, each class, mixin or extension with a member in
-    /// [removable]: its outline, and how many of its members are in
-    /// [removable].
     final members = _removableMembers(candidates, removable);
     return [
       for (final MapEntry(key: container, value: (:outline, :removable))
@@ -209,24 +207,22 @@ final class Settler {
     );
   }
 
-  /// The containers with a member among [removable], by key: their outline,
-  /// and how many of their members are removable.
+  /// Returns, by key, each class, mixin or extension with a member in
+  /// [removable]: its outline, and how many of its members are in [removable].
   static Map<DeclKey, ({Outline? outline, int removable})> _removableMembers(
     List<Candidate> candidates,
     Set<int> removable,
-  ) {
-    final members = <DeclKey, ({Outline? outline, int removable})>{};
-    for (final i in removable) {
-      final candidate = candidates[i];
-      if (candidate.containerKey case final key?) {
-        members[key] = (
-          outline: candidate.containerOutline,
-          removable: (members[key]?.removable ?? 0) + 1,
-        );
-      }
-    }
-    return members;
-  }
+  ) => {
+    for (final MapEntry(:key, value: members)
+        in removable
+            .map((i) => candidates[i])
+            .groupListsBy((candidate) => candidate.containerKey)
+            .entries)
+      ?key: (
+        outline: members.first.containerOutline,
+        removable: members.length,
+      ),
+  };
 
   /// Returns [unused] with [UnusedDeclaration.cut] set on each removable field
   /// and top-level variable, both findings and coupled removals.
@@ -623,7 +619,7 @@ final class Settler {
     );
     // Drop a type if any of its clause entries gets no removal: the clause's
     // selection ranges aren't cached, or the entry would take every mixin of
-    // a class type alias. Dropping a type keeps its entries, which changes the
+    // a mixin application class. Dropping a type keeps its entries, which changes the
     // removals of other entries in the same clause, so repeat until each type
     // left has all its removals.
     var cuts = _sources.clauseCuts(entriesOf.values.flattened, rootPath);

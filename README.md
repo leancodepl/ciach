@@ -361,9 +361,9 @@ clauses name it, ciach reports it, and `--remove` deletes it and also removes it
 from those clauses. If other code names it too, for example as a type, in an
 `is` check, after `extends` or after a mixin's `on`, `--remove` deletes only its
 members. The same goes for a generic class or mixin. It keeps the empty
-declaration and lists it in the summary. The same
-happens to the only mixin of a class type alias (`class A = B with M;`),
-because an alias needs at least one mixin.
+declaration and lists it in the summary. The same happens to the only mixin of
+a mixin application class (`class A = B with M;`), which needs at least one
+mixin.
 
 Findings whose removal wouldn't compile are **report-only**: marked `unsafe to
 auto-remove — remove manually` and skipped, along with anything coupled to them.
