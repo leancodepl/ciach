@@ -874,12 +874,11 @@ Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) Â
         ),
         removed: 2,
       );
-      expect(
-        text,
-        'Removed 2 unused declarations from 1 file. Kept 2 comments that sat '
-        'directly above removed code; check whether they still belong: '
-        "lib/a.dart:3, lib/a.dart:9. Run 'dart format' to tidy up spacing.",
-      );
+      expect(text, '''
+Removed 2 unused declarations from 1 file. Run 'dart format' to tidy up spacing.
+Kept 2 comments that sat right above removed code. Check whether each still belongs:
+  lib/a.dart:3
+  lib/a.dart:9''');
     });
 
     test('says so when the user declined', () {

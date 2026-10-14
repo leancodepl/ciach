@@ -128,13 +128,17 @@ abstract final class Reporter {
         style.caution(
           'Left ${plural(emptied.length, 'declaration', 'declarations')} empty because other code still uses them: ${emptied.map((e) => '${e.name} (${e.filePath})').join(', ')}.',
         ),
-      if (removal.leftComments case final comments when comments.isNotEmpty)
-        style.caution(
-          'Kept ${plural(comments.length, 'comment', 'comments')} that sat directly above removed code; check whether they still belong: ${comments.map((c) => '${c.filePath}:${c.line}').join(', ')}.',
-        ),
       style.note("Run 'dart format' to tidy up spacing."),
     ];
     final buffer = StringBuffer(sentences.join(' '));
+    if (removal.leftComments case final comments when comments.isNotEmpty) {
+      buffer.write(
+        '\n${style.caution('Kept ${plural(comments.length, 'comment', 'comments')} that sat right above removed code. Check whether each still belongs:')}',
+      );
+      for (final (:filePath, :line) in comments) {
+        buffer.write('\n  $filePath:$line');
+      }
+    }
     for (final note in notes) {
       buffer.write('\n${style.heading('Note:')} $note');
     }
