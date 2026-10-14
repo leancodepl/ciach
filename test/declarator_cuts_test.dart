@@ -8,6 +8,7 @@ import 'package:ciach/src/declarator_cuts.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:path/path.dart' as p;
+import 'package:pro_lsp/pro_lsp.dart' show Position;
 import 'package:test/test.dart';
 
 /// Cuts fields and top-level variables out of their statements as the
@@ -41,16 +42,18 @@ void main() {
       sources.lines(path),
     );
     sources.cacheSemanticTokens(path, tokens);
-    final positions = [
-      for (final token in tokens)
-        if (token.modifiers.contains('declaration')) token.start,
-    ];
-    final ranges = await client.selectionRanges(File(path).uri, positions);
-    for (final (i, name) in positions.indexed) {
-      if (ranges[i] case final range?) {
-        sources.cacheSelectionRange(path, name, range);
+    Future<void> fetch(Iterable<Position> positions) async {
+      final ranges = await client.selectionRanges(
+        File(path).uri,
+        positions.toList(),
+      );
+      for (final (i, name) in positions.indexed) {
+        if (ranges[i] case final range?) {
+          sources.cacheSelectionRange(path, name, range);
+        }
       }
     }
+
     final removed = [
       for (final name in names)
         (
@@ -64,6 +67,10 @@ void main() {
               .start,
         ),
     ];
+    // As the settler does: the removed names first, then the other names in
+    // their statements.
+    await fetch([for (final declarator in removed) declarator.name]);
+    await fetch(sources.declaratorProbes(removed)[path] ?? const {});
     final cuts = sources.declaratorCuts(removed);
     removeDeclarations([
       for (final declarator in removed)

@@ -99,6 +99,7 @@ class Ciach {
 
   late final _settler = Settler(
     options: options,
+    fetch: _fetch,
     sources: _sources,
     freezed: _freezed,
     classifier: _classifier,

@@ -14,14 +14,25 @@ import 'package:pro_lsp/pro_lsp.dart' show Position, Range;
 typedef DeclaratorAt = ({String path, Position name});
 
 extension DeclaratorCuts on SourceIndex {
-  /// Returns the names declared in the statement that declares the one at
-  /// [name] in [path], whose syntax nodes tell its declarators apart.
-  Iterable<Position> declaratorProbes(String path, Position name) =>
-      selectionRangeAt(
-        path,
-        name,
-      )?.parent?.range.let((list) => _namesIn(path, list)) ??
-      const [];
+  /// Returns, by file, the names declared in the statements of
+  /// [declarators], whose syntax nodes tell their declarators apart.
+  Map<String, Set<Position>> declaratorProbes(
+    Iterable<DeclaratorAt> declarators,
+  ) {
+    final probes = <String, Set<Position>>{};
+    for (final (:path, :name) in declarators) {
+      probes
+          .putIfAbsent(path, () => {})
+          .addAll(
+            selectionRangeAt(
+                  path,
+                  name,
+                )?.parent?.range.let((list) => _namesIn(path, list)) ??
+                const [],
+          );
+    }
+    return probes;
+  }
 
   /// The starts of the names declared in [range] of [path].
   List<Position> _namesIn(String path, Range range) => [

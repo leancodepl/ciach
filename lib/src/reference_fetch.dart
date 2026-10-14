@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:ciach/src/candidates.dart';
 import 'package:ciach/src/concurrency.dart';
-import 'package:ciach/src/declarator_cuts.dart';
 import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
@@ -126,10 +125,6 @@ final class ReferenceFetch {
 
   /// Fetches the selection ranges the structural checks need, one request per
   /// file.
-  ///
-  /// A field or top-level variable also needs the syntax nodes of the other
-  /// declarators in its statement, for `--remove` to cut it, so those come in
-  /// a second request.
   Future<void> selectionRanges(
     LspClient client,
     List<Candidate> candidates,
@@ -142,20 +137,6 @@ final class ReferenceFetch {
       }
     }
     await fetchSelectionRanges(client, positionsByPath);
-    final siblingsByPath = <String, Set<Position>>{};
-    for (final candidate in candidates) {
-      if (declaratorKinds.contains(candidate.symbol.kind)) {
-        siblingsByPath
-            .putIfAbsent(candidate.path, () => {})
-            .addAll(
-              _sources.declaratorProbes(
-                candidate.path,
-                candidate.symbol.selectionRange.start,
-              ),
-            );
-      }
-    }
-    await fetchSelectionRanges(client, siblingsByPath);
   }
 
   /// Fetches and caches the selection ranges at [positionsByPath] not cached
@@ -200,8 +181,8 @@ final class ReferenceFetch {
         yield (path: SourceIndex.pathOf(loc.uri), position: loc.range.start);
       }
     }
-    if ((kind == .constructor && candidate.containerOutline != null) ||
-        declaratorKinds.contains(kind)) {
+    if ((kind == .constructor || kind == .field) &&
+        candidate.containerOutline != null) {
       yield (
         path: candidate.path,
         position: candidate.symbol.selectionRange.start,

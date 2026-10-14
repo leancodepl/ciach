@@ -13,6 +13,7 @@ import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/reachability.dart';
 import 'package:ciach/src/reference_classifier.dart';
+import 'package:ciach/src/reference_fetch.dart';
 import 'package:ciach/src/remove_safety.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/superclasses.dart';
@@ -45,16 +46,19 @@ final class Settler {
     required FreezedUnions freezed,
     required ReferenceClassifier classifier,
     required Verdict verdict,
+    required ReferenceFetch fetch,
   }) : _sources = sources,
        _freezed = freezed,
        _classifier = classifier,
-       _verdict = verdict;
+       _verdict = verdict,
+       _fetch = fetch;
 
   final FinderOptions options;
   final SourceIndex _sources;
   final FreezedUnions _freezed;
   final ReferenceClassifier _classifier;
   final Verdict _verdict;
+  final ReferenceFetch _fetch;
 
   /// Names the cross-library recovery has already probed.
   final _probedNames = <String>{};
@@ -147,7 +151,11 @@ final class Settler {
       );
     }
     return (
-      unused: _withCuts(settled.unused, rootPath).sorted(compareByLocation),
+      unused: (await _withCuts(
+        client,
+        settled.unused,
+        rootPath,
+      )).sorted(compareByLocation),
       docOnly: settled.docOnly.sorted(compareByLocation),
       recovered: settled.recovered,
     );
@@ -157,10 +165,14 @@ final class Settler {
   /// itself or coupled to a finding. The cuts are read together, so that two
   /// declarators of one statement are cut as one. A finding with a declarator
   /// whose statement the syntax nodes don't describe is left in place.
-  Iterable<UnusedDeclaration> _withCuts(
+  ///
+  /// Only here, once the dead ones are known, are the syntax nodes of their
+  /// names and of the other declarators in their statements fetched.
+  Future<List<UnusedDeclaration>> _withCuts(
+    LspClient client,
     List<UnusedDeclaration> unused,
     String rootPath,
-  ) {
+  ) async {
     DeclaratorAt at(String filePath, int line, int column) => (
       path: absoluteUnder(filePath, rootPath),
       name: .new(line: line, character: column),
@@ -175,13 +187,23 @@ final class Settler {
     bool isDeclarator(SymbolKind kind) => declaratorKinds.contains(kind);
 
     final removable = unused.whereNot((finding) => finding.removalBlocked);
-    final cuts = _sources.declaratorCuts([
+    final declarators = [
       for (final finding in removable) ...[
         if (isDeclarator(finding.kind)) ofFinding(finding),
         for (final coupled in finding.coupledRemovals)
           if (isDeclarator(coupled.kind)) ofCoupled(coupled),
       ],
-    ]);
+    ];
+    final names = <String, Set<Position>>{};
+    for (final (:path, :name) in declarators) {
+      names.putIfAbsent(path, () => {}).add(name);
+    }
+    await _fetch.fetchSelectionRanges(client, names);
+    await _fetch.fetchSelectionRanges(
+      client,
+      _sources.declaratorProbes(declarators),
+    );
+    final cuts = _sources.declaratorCuts(declarators);
     UnusedDeclaration withCuts(UnusedDeclaration finding) {
       final coupledRemovals = [
         for (final coupled in finding.coupledRemovals)
