@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:ciach/src/comment_stripping.dart';
 import 'package:ciach/src/emptied_files.dart';
 import 'package:ciach/src/extensions.dart';
-import 'package:ciach/src/ignore_markers.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
@@ -221,9 +220,6 @@ class RemovalException implements Exception {
   );
 }
 
-/// An analyzer `// ignore:` comment, which applies to the next line only.
-final _analyzerIgnore = RegExp(r'^//\s*ignore:');
-
 /// The lines of a file that hold nothing but a `//` comment.
 final class _OwnLineComments {
   _OwnLineComments(this._content) : starts = lineStartsOf(_content);
@@ -247,7 +243,7 @@ final class _OwnLineComments {
     }
     var line = first;
     while (line > 0 &&
-        (_commentOn(line - 1)?.text.let(_analyzerIgnore.hasMatch) ?? false)) {
+        (_commentOn(line - 1)?.text.let(analyzerIgnore.hasMatch) ?? false)) {
       line--;
     }
     return (start: starts[line], end: span.end);
@@ -255,8 +251,8 @@ final class _OwnLineComments {
 
   /// The start of the `//` comment block directly above [offset], with no
   /// blank line between and none of it before [after]: its topmost plain
-  /// comment. Doc comments, `// ciach:` markers and `// ignore:` comments
-  /// aren't plain.
+  /// comment. Doc comments and tool directives, such as `// ciach:` markers
+  /// and `// ignore:` comments, aren't plain.
   int? blockAbove(int offset, {required int after}) {
     int? block;
     var line = _lineStartingAt(offset);
@@ -266,8 +262,8 @@ final class _OwnLineComments {
       if (comment == null || comment.text.startsWith('///')) {
         break;
       }
-      if (!isMarkerComment(comment.text) &&
-          !_analyzerIgnore.hasMatch(comment.text)) {
+      if (!isToolDirective(comment.text) &&
+          !analyzerIgnore.hasMatch(comment.text)) {
         block = comment.offset;
       }
     }

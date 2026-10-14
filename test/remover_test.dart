@@ -529,6 +529,20 @@ class C {
     expect(result, contains('int c() => 2; // About both.'));
   });
 
+  test('keeps a tool directive at the end of a removed declaration', () {
+    const source = '''
+class C {
+  void _a() {} // coverage:ignore-start
+  void kept() {}
+  // coverage:ignore-end
+}
+''';
+    final result = applyRemoval(source, [
+      decl(startLine: 1, startColumn: 2, endLine: 1, endColumn: 14),
+    ]);
+    expect(result, contains('// coverage:ignore-start\n  void kept() {}'));
+  });
+
   group('a comment above removed code', () {
     /// Removes [decls] from [content] in `lib.dart` and returns the lines of
     /// the comments it kept above them.
@@ -590,9 +604,10 @@ void b() {}
       );
     });
 
-    test('is not listed when it is a ciach marker or goes too', () {
+    test('is not listed when it is a tool directive or goes too', () {
       const source = '''
 // ciach:ignore-end
+// dart format on
 void a() {}
 
 class C {
@@ -604,18 +619,18 @@ void b() {}
 ''';
       expect(
         leftCommentLines(source, [
-          decl(startLine: 1, startColumn: 0, endLine: 1, endColumn: 11),
+          decl(startLine: 2, startColumn: 0, endLine: 2, endColumn: 11),
           decl(
-            startLine: 3,
+            startLine: 4,
             startColumn: 0,
-            endLine: 6,
+            endLine: 7,
             endColumn: 1,
             kind: .class$,
           ),
           decl(
-            startLine: 5,
+            startLine: 6,
             startColumn: 2,
-            endLine: 5,
+            endLine: 6,
             endColumn: 13,
             kind: .method,
           ),

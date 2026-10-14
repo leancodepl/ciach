@@ -19,9 +19,6 @@ const ignoreEndMarker = 'ciach:ignore-end';
 /// anything after it is free text.
 final _marker = RegExp(r'^//\s*(ciach:[\w-]+)');
 
-/// Whether the `//` comment [text] is a `// ciach:` marker.
-bool isMarkerComment(String text) => _marker.hasMatch(text);
-
 /// A marker comment and its zero-based line.
 typedef MarkerAt = ({int line, String marker});
 

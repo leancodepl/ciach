@@ -2,7 +2,7 @@
 
 - After `--remove`, ciach lists the `//` comments it kept directly above
   removed code, with their lines, so you can check whether they still belong.
-  An `// ignore:` comment right above a removed declaration, and a `//`
+  An `// ignore:` comment right above a removed declaration, and a plain `//`
   comment at the end of its line or of a removed import, now go with it.
   Before, they stayed and could hide warnings on the next line.
   ([#129](https://github.com/leancodepl/ciach/pull/129))

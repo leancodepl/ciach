@@ -195,16 +195,31 @@ List<int> lineStartsOf(String content) => [
     if (content[i] == '\n') i + 1,
 ];
 
+/// An analyzer `// ignore:` comment, which applies to the next line only.
+final analyzerIgnore = RegExp(r'^//\s*ignore:');
+
+/// A comment another tool reads, such as `// coverage:ignore-start`,
+/// `// ciach:ignore-end` or `// dart format off`. It may pair with a comment
+/// elsewhere in the file.
+bool isToolDirective(String comment) => _toolDirective.hasMatch(comment);
+
+final _toolDirective = RegExp(r'^//\s*([\w.-]+:\S|dart format\b)');
+
 /// If nothing but whitespace, or a `//` comment, follows [end] on its line,
 /// extends it past the line break — so deleting a declaration leaves neither a
 /// blank line nor its trailing comment behind. That comment, such as an
-/// `// ignore:`, would otherwise apply to the line after it.
+/// `// ignore:`, would otherwise apply to the line after it. A tool directive
+/// other than `// ignore:` stays, so a range it opens or closes keeps both
+/// ends.
 int consumeLineEnd(String content, int end) {
   final nextNewline = content.indexOfOrNull('\n', end);
   final restOfLine = content.substring(end, nextNewline ?? content.length);
-  if (nextNonWhitespace(restOfLine, 0) case final i?
-      when !restOfLine.startsWith('//', i)) {
-    return end;
+  if (nextNonWhitespace(restOfLine, 0) case final i?) {
+    final comment = restOfLine.substring(i);
+    if (!comment.startsWith('//') ||
+        (isToolDirective(comment) && !analyzerIgnore.hasMatch(comment))) {
+      return end;
+    }
   }
   return nextNewline?.let((newline) => newline + 1) ?? content.length;
 }
