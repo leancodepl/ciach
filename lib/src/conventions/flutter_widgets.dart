@@ -106,6 +106,7 @@ extension FlutterWidgets on SourceIndex {
             kind: state.symbol.kind,
             range: state.outline.codeRange.toDeclarationRange,
             fullRange: state.outline.range.toDeclarationRange,
+            cut: null,
           ));
         }
         break;

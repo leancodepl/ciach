@@ -41,9 +41,8 @@ RemovalResult removeDeclarations(
     // declaration to keep the source compiling (a dead StatefulWidget's paired
     // `State` subclass, or an override of a dead member), but that are not
     // findings in their own right. Each names its own file, so group it under
-    // that file. Turn each into a synthetic declaration, a field carrying its
-    // range as its cut, so it flows through the normal removal pass and its
-    // span merges with the rest.
+    // that file. Turn each into a synthetic declaration so it flows through
+    // the normal removal pass and its span merges with the rest.
     for (final coupled in decl.coupledRemovals) {
       final range = coupled.range;
       byFile
@@ -58,9 +57,7 @@ RemovalResult removeDeclarations(
               isPrivate: true,
               range: range,
               fullRange: coupled.fullRange,
-              cut: declaratorKinds.contains(coupled.kind)
-                  ? coupled.fullRange
-                  : null,
+              cut: coupled.cut,
             ),
           );
     }

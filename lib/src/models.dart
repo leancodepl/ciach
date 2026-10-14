@@ -35,14 +35,14 @@ const declaratorKinds = <SymbolKind>{.field, .variable, .constant};
 /// `filePath` (relative to the analyzed root, `/`-separated), so it can live in
 /// another file, like a dead `StatefulWidget`'s `State` subclass.
 ///
-/// `range`, `fullRange` and `kind` mean what they do on [UnusedDeclaration].
-/// For a `field`, `variable` or `constant`, the finder sets both to its
-/// [UnusedDeclaration.cut], which the remover deletes.
+/// `range`, `fullRange`, `kind` and `cut` mean what they do on
+/// [UnusedDeclaration].
 typedef CoupledRemoval = ({
   String filePath,
   SymbolKind kind,
   DeclarationRange range,
   DeclarationRange fullRange,
+  DeclarationRange? cut,
 });
 
 /// Configuration for a single run of the finder.

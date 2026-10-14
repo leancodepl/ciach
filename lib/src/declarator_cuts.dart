@@ -2,34 +2,33 @@
 /// from the analyzer's syntax nodes rather than from the text.
 library;
 
-import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Position, Range;
+import 'package:pro_lsp/pro_lsp.dart' show Position, Range, SelectionRange;
 
 /// A field or top-level variable: its file and the start of its name.
 typedef DeclaratorAt = ({String path, Position name});
 
 extension DeclaratorCuts on SourceIndex {
-  /// Returns, by file, the names declared in the statements of
-  /// [declarators], whose syntax nodes tell their declarators apart.
+  /// Returns, by file, the names declared in the statements of [declarators]
+  /// outside the declarators themselves, whose syntax nodes tell the other
+  /// declarators apart. A statement with one declarator needs none.
   Map<String, Set<Position>> declaratorProbes(
     Iterable<DeclaratorAt> declarators,
   ) {
     final probes = <String, Set<Position>>{};
     for (final (:path, :name) in declarators) {
-      probes
-          .putIfAbsent(path, () => {})
-          .addAll(
-            selectionRangeAt(
-                  path,
-                  name,
-                )?.parent?.range.let((list) => _namesIn(path, list)) ??
-                const [],
-          );
+      if (selectionRangeAt(path, name) case SelectionRange(
+        :final range,
+        parent: SelectionRange(range: final list),
+      )) {
+        probes
+            .putIfAbsent(path, () => {})
+            .addAll(_namesIn(path, list).whereNot(range.contains));
+      }
     }
     return probes;
   }
@@ -53,11 +52,14 @@ extension DeclaratorCuts on SourceIndex {
     Iterable<DeclaratorAt> declarators,
   ) {
     final cuts = <DeclaratorAt, DeclarationRange?>{};
-    final byList = <(String, Range), List<DeclaratorAt>>{};
+    final byList = <(String, Range), Map<Position, DeclaratorAt>>{};
     for (final declarator in declarators) {
       final (:path, :name) = declarator;
-      if (selectionRangeAt(path, name)?.parent?.range case final list?) {
-        byList.putIfAbsent((path, list), () => []).add(declarator);
+      if (selectionRangeAt(path, name) case SelectionRange(
+        :final range,
+        parent: SelectionRange(range: final list),
+      )) {
+        byList.putIfAbsent((path, list), () => {})[range.start] = declarator;
       } else {
         cuts[declarator] = null;
       }
@@ -69,38 +71,33 @@ extension DeclaratorCuts on SourceIndex {
   }
 
   /// Does [declaratorCuts] for the [removed] declarators of the declarator
-  /// list at [list].
+  /// list at [list], by the start of their syntax nodes.
   Map<DeclaratorAt, DeclarationRange?> _cutsIn(
     String path,
     Range list,
-    List<DeclaratorAt> removed,
+    Map<Position, DeclaratorAt> removed,
   ) {
     final siblings = _declaratorsIn(path, list);
-    final byStart = {
-      for (final declarator in removed)
-        ?selectionRangeAt(path, declarator.name)?.range.start: declarator,
-    };
     final statement = selectionRangeAt(
       path,
-      removed.first.name,
+      removed.values.first.name,
     )?.parent?.parent?.range;
     if (siblings == null ||
         statement == null ||
-        byStart.length != removed.length ||
-        byStart.keys.any((start) => siblings.none((s) => s.start == start))) {
-      return {for (final declarator in removed) declarator: null};
+        removed.keys.any((start) => siblings.none((s) => s.start == start))) {
+      return {for (final declarator in removed.values) declarator: null};
     }
-    if (byStart.length == siblings.length) {
+    if (removed.length == siblings.length) {
       final cut = statement.toDeclarationRange;
-      return {for (final declarator in removed) declarator: cut};
+      return {for (final declarator in removed.values) declarator: cut};
     }
     final cuts = <DeclaratorAt, DeclarationRange?>{};
-    for (final (i, j) in _runs(siblings, byStart.containsKey)) {
+    for (final (i, j) in _runs(siblings, removed.containsKey)) {
       final cut = j < siblings.length
           ? Range(start: siblings[i].start, end: siblings[j].start)
           : Range(start: siblings[i - 1].end, end: siblings[j - 1].end);
       for (final sibling in siblings.sublist(i, j)) {
-        cuts[byStart[sibling.start]!] = cut.toDeclarationRange;
+        cuts[removed[sibling.start]!] = cut.toDeclarationRange;
       }
     }
     return cuts;
@@ -111,12 +108,17 @@ extension DeclaratorCuts on SourceIndex {
   List<Range>? _declaratorsIn(String path, Range list) {
     final declarators = <Range>[];
     for (final name in _namesIn(path, list)) {
+      // A name declared in an initializer, such as a closure's parameter,
+      // sits inside its declarator, and its node was not fetched.
+      if (declarators.lastOrNull?.contains(name) ?? false) {
+        continue;
+      }
       final node = selectionRangeAt(path, name);
       if (node == null) {
         return null;
       }
-      // A name declared in an initializer, such as a closure's parameter,
-      // sits deeper.
+      // One declared in the type, such as a function type's parameter, sits
+      // deeper.
       if (node.parent?.range == list) {
         declarators.add(node.range);
       }

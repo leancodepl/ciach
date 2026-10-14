@@ -6,10 +6,12 @@ import 'dart:io';
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/declarator_cuts.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/reference_fetch.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show Position;
 import 'package:test/test.dart';
+
+import 'support/removal.dart';
 
 /// Cuts fields and top-level variables out of their statements as the
 /// analysis server reads them, then removes them with the remover.
@@ -37,23 +39,12 @@ void main() {
     File(path).writeAsStringSync(source);
     client.didOpen(File(path).uri, source);
     final sources = SourceIndex()..cacheLines(path, source.split('\n'));
-    final tokens = await client.semanticTokens(
-      File(path).uri,
-      sources.lines(path),
-    );
+    final tokens = await semanticTokensOrEmpty(client, sources, path);
     sources.cacheSemanticTokens(path, tokens);
-    Future<void> fetch(Iterable<Position> positions) async {
-      final ranges = await client.selectionRanges(
-        File(path).uri,
-        positions.toList(),
-      );
-      for (final (i, name) in positions.indexed) {
-        if (ranges[i] case final range?) {
-          sources.cacheSelectionRange(path, name, range);
-        }
-      }
-    }
-
+    final fetch = ReferenceFetch(
+      options: FinderOptions(rootPath: tempDir.path),
+      sources: sources,
+    );
     final removed = [
       for (final name in names)
         (
@@ -69,25 +60,21 @@ void main() {
     ];
     // As the settler does: the removed names first, then the other names in
     // their statements.
-    await fetch([for (final declarator in removed) declarator.name]);
-    await fetch(sources.declaratorProbes(removed)[path] ?? const {});
+    await fetch.fetchSelectionRanges(client, {
+      path: {for (final declarator in removed) declarator.name},
+    });
+    await fetch.fetchSelectionRanges(client, sources.declaratorProbes(removed));
     final cuts = sources.declaratorCuts(removed);
     removeDeclarations([
       for (final declarator in removed)
-        UnusedDeclaration(
-          name: '',
+        decl(
+          startLine: declarator.name.line,
+          startColumn: declarator.name.character,
+          endLine: declarator.name.line,
+          endColumn: declarator.name.character + 1,
           kind: .variable,
-          filePath: p.basename(path),
-          line: declarator.name.line + 1,
-          column: declarator.name.character + 1,
-          isPrivate: false,
-          range: (
-            startLine: declarator.name.line,
-            startColumn: declarator.name.character,
-            endLine: declarator.name.line,
-            endColumn: declarator.name.character + 1,
-          ),
           cut: cuts[declarator],
+          filePath: p.basename(path),
         ),
     ], tempDir.path);
     return File(path).readAsStringSync();

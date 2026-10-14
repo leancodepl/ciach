@@ -194,40 +194,40 @@ final class Settler {
           if (isDeclarator(coupled.kind)) ofCoupled(coupled),
       ],
     ];
-    final names = <String, Set<Position>>{};
-    for (final (:path, :name) in declarators) {
-      names.putIfAbsent(path, () => {}).add(name);
-    }
-    await _fetch.fetchSelectionRanges(client, names);
+    await _fetch.fetchSelectionRanges(
+      client,
+      declarators.groupFoldBy(
+        (declarator) => declarator.path,
+        (names, declarator) => (names ?? <Position>{})..add(declarator.name),
+      ),
+    );
     await _fetch.fetchSelectionRanges(
       client,
       _sources.declaratorProbes(declarators),
     );
     final cuts = _sources.declaratorCuts(declarators);
     UnusedDeclaration withCuts(UnusedDeclaration finding) {
+      final cut = isDeclarator(finding.kind) ? cuts[ofFinding(finding)] : null;
       final coupledRemovals = [
         for (final coupled in finding.coupledRemovals)
-          if (!isDeclarator(coupled.kind))
-            coupled
-          else if (cuts[ofCoupled(coupled)] case final cut?)
+          if (isDeclarator(coupled.kind))
             (
               filePath: coupled.filePath,
               kind: coupled.kind,
-              range: cut,
-              fullRange: cut,
+              range: coupled.range,
+              fullRange: coupled.fullRange,
+              cut: cuts[ofCoupled(coupled)],
             )
           else
-            null,
+            coupled,
       ];
-      final cut = isDeclarator(finding.kind) ? cuts[ofFinding(finding)] : null;
-      if (coupledRemovals.contains(null) ||
-          (isDeclarator(finding.kind) && cut == null)) {
+      bool uncut(SymbolKind kind, DeclarationRange? cut) =>
+          isDeclarator(kind) && cut == null;
+      if (uncut(finding.kind, cut) ||
+          coupledRemovals.any((coupled) => uncut(coupled.kind, coupled.cut))) {
         return finding.copyWith(removalBlocked: true, hint: Verdict.noCutHint);
       }
-      return finding.copyWith(
-        cut: cut,
-        coupledRemovals: coupledRemovals.nonNulls.toList(),
-      );
+      return finding.copyWith(cut: cut, coupledRemovals: coupledRemovals);
     }
 
     return [

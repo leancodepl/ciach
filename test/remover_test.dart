@@ -42,19 +42,12 @@ void alsoKept() {}
   group('a field or variable', () {
     /// The `variable` of `lib.dart` named at [line]:[column], with [cut].
     UnusedDeclaration declarator(int line, int column, DeclarationRange? cut) =>
-        UnusedDeclaration(
-          name: 'x',
+        decl(
+          startLine: line,
+          startColumn: column,
+          endLine: line,
+          endColumn: column + 1,
           kind: .variable,
-          filePath: 'lib.dart',
-          line: line + 1,
-          column: column + 1,
-          isPrivate: false,
-          range: (
-            startLine: line,
-            startColumn: column,
-            endLine: line,
-            endColumn: column + 1,
-          ),
           cut: cut,
         );
 
@@ -170,15 +163,17 @@ class Pair {
         (
           filePath: 'lib.dart',
           kind: .field,
-          range: statement,
-          fullRange: statement,
+          range: (startLine: 1, startColumn: 22, endLine: 1, endColumn: 31),
+          fullRange: (startLine: 1, startColumn: 22, endLine: 1, endColumn: 31),
+          cut: statement,
         ),
         // And the statement's other declarator.
         (
           filePath: 'lib.dart',
           kind: .field,
-          range: statement,
-          fullRange: statement,
+          range: (startLine: 1, startColumn: 12, endLine: 1, endColumn: 20),
+          fullRange: (startLine: 1, startColumn: 12, endLine: 1, endColumn: 20),
+          cut: statement,
         ),
       ],
     );
@@ -215,13 +210,14 @@ class Mixed implements Halved {
           (
             filePath: 'lib.dart',
             kind: .field,
-            range: (startLine: 5, startColumn: 12, endLine: 5, endColumn: 22),
+            range: (startLine: 5, startColumn: 12, endLine: 5, endColumn: 20),
             fullRange: (
               startLine: 5,
               startColumn: 12,
               endLine: 5,
-              endColumn: 22,
+              endColumn: 20,
             ),
+            cut: (startLine: 5, startColumn: 12, endLine: 5, endColumn: 22),
           ),
         ],
       );
@@ -280,6 +276,7 @@ class Kept {}
               endLine: 6,
               endColumn: 51,
             ),
+            cut: null,
           ),
         ],
       );
@@ -325,6 +322,7 @@ String describe(S s) => switch (s) {
           kind: .class$,
           range: (startLine: 8, startColumn: 2, endLine: 9, endColumn: 0),
           fullRange: (startLine: 8, startColumn: 2, endLine: 9, endColumn: 0),
+          cut: null,
         ),
       ],
     );

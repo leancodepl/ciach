@@ -16,7 +16,7 @@ String removeFrom(
   return file.existsSync() ? file.readAsStringSync() : '';
 }
 
-/// A finding in `lib.dart` whose doc comment or annotations start at
+/// A finding in [filePath] whose doc comment or annotations start at
 /// [docLine]:[docColumn].
 UnusedDeclaration decl({
   required int startLine,
@@ -27,10 +27,12 @@ UnusedDeclaration decl({
   bool isEnumValue = false,
   int? docLine,
   int? docColumn,
+  DeclarationRange? cut,
+  String filePath = 'lib.dart',
 }) => .new(
   name: 'x',
   kind: kind,
-  filePath: 'lib.dart',
+  filePath: filePath,
   line: startLine + 1,
   column: startColumn + 1,
   isPrivate: false,
@@ -47,6 +49,7 @@ UnusedDeclaration decl({
     endLine: endLine,
     endColumn: endColumn,
   ),
+  cut: cut,
 );
 
 /// A cheap brace-balance check so a regression that mangles a removal shows
