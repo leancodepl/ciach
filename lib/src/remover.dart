@@ -7,6 +7,7 @@ import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/plural.dart';
+import 'package:ciach/src/range_markers.dart';
 import 'package:collection/collection.dart';
 
 final _log = Logger('ciach.remover');
@@ -201,6 +202,7 @@ class RemovalException implements Exception {
   }
 
   final kept = <int>[];
+  final cuts = <int>[];
   final buffer = StringBuffer();
   var cursor = 0;
   for (final span in _mergeSpans([
@@ -210,15 +212,39 @@ class RemovalException implements Exception {
     if (comments.blockAbove(span.start, after: cursor) case final block?) {
       kept.add(buffer.length - (span.start - block));
     }
+    cuts.add(buffer.length);
     cursor = span.end;
   }
   buffer.write(content.substring(cursor));
-  final updated = buffer.toString();
+  final rewritten = buffer.toString();
+  final markers = _mergeSpans(emptiedRangeMarkers(rewritten, cuts));
+  final updated = _without(rewritten, markers);
   return (
     updated: updated,
-    commentsFromEnd: [for (final offset in kept) updated.length - offset],
+    commentsFromEnd: [
+      for (final offset in kept)
+        rewritten.length - offset - _lengthAfter(markers, offset),
+    ],
   );
 }
+
+/// [content] without [spans], which are sorted and don't overlap.
+String _without(String content, List<_Span> spans) {
+  final buffer = StringBuffer();
+  var cursor = 0;
+  for (final span in spans) {
+    buffer.write(content.substring(cursor, span.start));
+    cursor = span.end;
+  }
+  buffer.write(content.substring(cursor));
+  return buffer.toString();
+}
+
+/// How much of [spans] lies after [offset].
+int _lengthAfter(List<_Span> spans, int offset) => spans
+    .where((span) => span.start >= offset)
+    .map((span) => span.end - span.start)
+    .sum;
 
 /// The lines of a file that hold nothing but a `//` comment.
 final class _OwnLineComments {

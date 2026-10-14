@@ -545,6 +545,73 @@ class C {
     expect(result, contains('// coverage:ignore-start\n  void kept() {}'));
   });
 
+  group('range markers', () {
+    test('go when the removal leaves nothing between them', () {
+      const source = '''
+class C {
+  // coverage:ignore-start
+  void _a() {}
+  // coverage:ignore-end
+  void _b() {} // dart format off
+  void _c() {} // dart format on
+  void kept() {}
+}
+''';
+      final result = applyRemoval(source, [
+        decl(startLine: 2, startColumn: 2, endLine: 2, endColumn: 14),
+        decl(startLine: 4, startColumn: 2, endLine: 4, endColumn: 14),
+        decl(startLine: 5, startColumn: 2, endLine: 5, endColumn: 14),
+      ]);
+      expect(result, '''
+class C {
+  void kept() {}
+}
+''');
+    });
+
+    test('stay when code is left between them', () {
+      const source = '''
+class C {
+  // coverage:ignore-start
+  void kept() {}
+  void _a() {}
+  // coverage:ignore-end
+}
+''';
+      final result = applyRemoval(source, [
+        decl(startLine: 3, startColumn: 2, endLine: 3, endColumn: 14),
+      ]);
+      expect(result, '''
+class C {
+  // coverage:ignore-start
+  void kept() {}
+  // coverage:ignore-end
+}
+''');
+    });
+
+    test('stay when they held nothing before the removal', () {
+      const source = '''
+class C {
+  // cspell:disable
+  // cspell:enable
+  void _a() {}
+  void kept() {}
+}
+''';
+      final result = applyRemoval(source, [
+        decl(startLine: 3, startColumn: 2, endLine: 3, endColumn: 14),
+      ]);
+      expect(result, '''
+class C {
+  // cspell:disable
+  // cspell:enable
+  void kept() {}
+}
+''');
+    });
+  });
+
   group('a comment above removed code', () {
     /// Removes [decls] from [content] in `lib.dart` and returns the lines of
     /// the comments it kept above them.
@@ -662,6 +729,30 @@ void a() {}
 //ciach:ignore-end
 ''');
       expect(lines, [3]);
+    });
+
+    test('is listed by its line once emptied range markers go', () {
+      const source = '''
+// coverage:ignore-start
+void _a() {}
+// coverage:ignore-end
+
+// About b.
+void _b() {}
+
+void c() {}
+''';
+      final lines = leftCommentLines(source, [
+        decl(startLine: 1, startColumn: 0, endLine: 1, endColumn: 12),
+        decl(startLine: 5, startColumn: 0, endLine: 5, endColumn: 12),
+      ]);
+      expect(File(p.join(tempDir.path, 'lib.dart')).readAsStringSync(), '''
+
+// About b.
+
+void c() {}
+''');
+      expect(lines, [2]);
     });
 
     test('is listed by its line once imports of deleted files go', () {
