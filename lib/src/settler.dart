@@ -173,6 +173,58 @@ final class Settler {
     );
   }
 
+  /// The containers `--remove` leaves with an empty body: each of their
+  /// members is a removable finding of [candidateOf], but they aren't one
+  /// themselves, because other code still uses them.
+  static List<EmptiedContainer> _emptiedContainers(
+    List<Candidate> candidates,
+    Map<UnusedDeclaration, int> candidateOf,
+    String rootPath,
+  ) {
+    final removable = {
+      for (final MapEntry(key: finding, value: i) in candidateOf.entries)
+        if (!finding.removalBlocked) i,
+    };
+    final removed = {for (final i in removable) candidates[i].key};
+    final members = _removableMembers(candidates, removable);
+    return [
+      for (final MapEntry(key: container, value: (:outline, :removable))
+          in members.entries)
+        if (outline?.children.length == removable &&
+            // Its representation field stays, and the outline leaves it out.
+            outline!.element.kind != .extensionType &&
+            !removed.contains(container))
+          (
+            filePath: relativePosix(container.path, rootPath),
+            name: container.name,
+          ),
+    ]..sort(
+      (a, b) => switch (a.filePath.compareTo(b.filePath)) {
+        0 => a.name.compareTo(b.name),
+        final byFile => byFile,
+      },
+    );
+  }
+
+  /// The containers with a member among [removable], by key: their outline,
+  /// and how many of their members are removable.
+  static Map<DeclKey, ({Outline? outline, int removable})> _removableMembers(
+    List<Candidate> candidates,
+    Set<int> removable,
+  ) {
+    final members = <DeclKey, ({Outline? outline, int removable})>{};
+    for (final i in removable) {
+      final candidate = candidates[i];
+      if (candidate.containerKey case final key?) {
+        members[key] = (
+          outline: candidate.containerOutline,
+          removable: (members[key]?.removable ?? 0) + 1,
+        );
+      }
+    }
+    return members;
+  }
+
   /// Returns [unused] with [UnusedDeclaration.cut] set on each removable field
   /// and top-level variable, both findings and coupled removals.
   ///
@@ -249,58 +301,6 @@ final class Settler {
       for (final finding in unused)
         if (finding.removalBlocked) finding else withCuts(finding),
     ];
-  }
-
-  /// The containers `--remove` leaves with an empty body: each of their
-  /// members is a removable finding of [candidateOf], but they aren't one
-  /// themselves, because other code still uses them.
-  static List<EmptiedContainer> _emptiedContainers(
-    List<Candidate> candidates,
-    Map<UnusedDeclaration, int> candidateOf,
-    String rootPath,
-  ) {
-    final removable = {
-      for (final MapEntry(key: finding, value: i) in candidateOf.entries)
-        if (!finding.removalBlocked) i,
-    };
-    final removed = {for (final i in removable) candidates[i].key};
-    final members = _removableMembers(candidates, removable);
-    return [
-      for (final MapEntry(key: container, value: (:outline, :removable))
-          in members.entries)
-        if (outline?.children.length == removable &&
-            // Its representation field stays, and the outline leaves it out.
-            outline!.element.kind != .extensionType &&
-            !removed.contains(container))
-          (
-            filePath: relativePosix(container.path, rootPath),
-            name: container.name,
-          ),
-    ]..sort(
-      (a, b) => switch (a.filePath.compareTo(b.filePath)) {
-        0 => a.name.compareTo(b.name),
-        final byFile => byFile,
-      },
-    );
-  }
-
-  /// The containers with a member among [removable], by key: their outline,
-  /// and how many of their members are removable.
-  static Map<DeclKey, ({Outline? outline, int removable})> _removableMembers(
-    List<Candidate> candidates,
-    Set<int> removable,
-  ) {
-    final members = <DeclKey, ({Outline? outline, int removable})>{};
-    for (final i in removable) {
-      final candidate = candidates[i];
-      if (candidate.containerKey case final key?) {
-        members[key] = (
-          outline: candidate.containerOutline,
-          removable: (members[key]?.removable ?? 0) + 1,
-        );
-      }
-    }
-    return members;
   }
 
   /// The spans of every candidate no live code reaches, all of them assumed
@@ -523,8 +523,15 @@ final class Settler {
           break;
       }
     }
+    // Make the fields and variables `--remove` can't cut out report-only now,
+    // so that the next `--transitive` round keeps alive what they reference,
+    // and a class keeping one isn't taken for emptied.
+    final cut = await _withCuts(client, unused, rootPath);
+    final cutCandidateOf = {
+      for (final (k, finding) in cut.indexed) finding: candidateOf[unused[k]]!,
+    };
     final removable = {
-      for (final MapEntry(key: finding, value: i) in candidateOf.entries)
+      for (final MapEntry(key: finding, value: i) in cutCandidateOf.entries)
         if (!finding.removalBlocked) i,
     };
     _removableBefore.addAll(removable);
@@ -539,20 +546,9 @@ final class Settler {
       scannedPaths,
       rootPath,
     )) {
-      unused.add(finding);
-      candidateOf[finding] = i;
+      cut.add(finding);
+      cutCandidateOf[finding] = i;
     }
-
-    // Make the fields and variables `--remove` can't cut out report-only now,
-    // so that the next `--transitive` round keeps alive what they reference.
-    final cut = await _withCuts(client, unused, rootPath);
-    final cutCandidateOf = {
-      for (final (k, finding) in cut.indexed) finding: candidateOf[unused[k]]!,
-    };
-    _removableBefore.addAll([
-      for (final MapEntry(key: finding, value: i) in cutCandidateOf.entries)
-        if (!finding.removalBlocked) i,
-    ]);
 
     _dropEnclosedInDead(cut, deadSpans, rootPath);
 
@@ -561,44 +557,6 @@ final class Settler {
       candidateOf: {
         for (final finding in cut) finding: cutCandidateOf[finding]!,
       },
-    );
-  }
-
-  /// Returns the types in [docOnlyTypes] that have a member in [reported],
-  /// and removes those members from [reported].
-  ///
-  /// Each such type is reported once, instead of its members.
-  static Set<DeclKey> _reportDocOnlyTypesWhole(
-    List<Candidate> candidates,
-    Set<int> reported,
-    Set<DeclKey> docOnlyTypes,
-  ) {
-    final types = {
-      for (final i in reported)
-        if (candidates[i].containerKey case final key?
-            when docOnlyTypes.contains(key))
-          key,
-    };
-    reported.removeWhere((i) => types.contains(candidates[i].containerKey));
-    return types;
-  }
-
-  /// Removes from [unused] each member reported only because its class is
-  /// unused. Removing the class removes the member, so the member is not
-  /// reported separately.
-  static void _dropEnclosedInDead(
-    List<UnusedDeclaration> unused,
-    DeadSpans deadSpans,
-    String rootPath,
-  ) {
-    if (deadSpans.isEmpty) {
-      return;
-    }
-    final removable = DeadSpans.of(unused, rootPath);
-    unused.removeWhere(
-      (finding) =>
-          finding.onlyReferencedFrom.isNotEmpty &&
-          removable.enclosesInAnother(finding, rootPath),
     );
   }
 
@@ -675,6 +633,44 @@ final class Settler {
           ),
         ),
     ];
+  }
+
+  /// Returns the types in [docOnlyTypes] that have a member in [reported],
+  /// and removes those members from [reported].
+  ///
+  /// Each such type is reported once, instead of its members.
+  static Set<DeclKey> _reportDocOnlyTypesWhole(
+    List<Candidate> candidates,
+    Set<int> reported,
+    Set<DeclKey> docOnlyTypes,
+  ) {
+    final types = {
+      for (final i in reported)
+        if (candidates[i].containerKey case final key?
+            when docOnlyTypes.contains(key))
+          key,
+    };
+    reported.removeWhere((i) => types.contains(candidates[i].containerKey));
+    return types;
+  }
+
+  /// Removes from [unused] each member reported only because its class is
+  /// unused. Removing the class removes the member, so the member is not
+  /// reported separately.
+  static void _dropEnclosedInDead(
+    List<UnusedDeclaration> unused,
+    DeadSpans deadSpans,
+    String rootPath,
+  ) {
+    if (deadSpans.isEmpty) {
+      return;
+    }
+    final removable = DeadSpans.of(unused, rootPath);
+    unused.removeWhere(
+      (finding) =>
+          finding.onlyReferencedFrom.isNotEmpty &&
+          removable.enclosesInAnother(finding, rootPath),
+    );
   }
 
   /// Names of classes flagged unused, per file. A whole dead class is removed

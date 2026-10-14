@@ -1099,7 +1099,11 @@ void main() {
         addTearDown(() => copy.deleteSync(recursive: true));
         copyTree(Directory(fixturePath), copy);
         final result = await Ciach(
-          .new(rootPath: copy.path, includeGlobs: fixture),
+          .new(
+            rootPath: copy.path,
+            exportedPackages: const [],
+            includeGlobs: fixture,
+          ),
         ).run();
 
         removeDeclarations(result.unused, copy.path);
@@ -1143,6 +1147,7 @@ void main() {
       Future<FinderResult> run({required bool transitive}) => Ciach(
         .new(
           rootPath: copy.path,
+          exportedPackages: const [],
           includeGlobs: fixture,
           transitive: transitive,
         ),
