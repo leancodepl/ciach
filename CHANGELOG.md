@@ -1,5 +1,10 @@
 ## Unreleased
 
+- `--remove` no longer breaks a field or variable statement with a comment
+  inside, such as `int a = 1, /* note */ b = 2;`. Before, it left `int ;`
+  behind. A declaration it can't cut out is now named in the summary instead
+  of being skipped without a word.
+  ([#128](https://github.com/leancodepl/ciach/pull/128))
 - If a class, enum, mixin or extension type is mentioned only in doc comments
   and has unused members, ciach now reports the type once, and `--remove`
   leaves it alone. Before, ciach reported each unused member, and `--remove`
