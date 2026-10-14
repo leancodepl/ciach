@@ -105,6 +105,7 @@ final class Settler {
         await _recoverCrossLibraryRefs(client, candidates, liveRefs),
       );
       final result = await _round(
+        client,
         candidates,
         refsByCandidate,
         liveRefs,
@@ -151,11 +152,7 @@ final class Settler {
       );
     }
     return (
-      unused: (await _withCuts(
-        client,
-        settled.unused,
-        rootPath,
-      )).sorted(compareByLocation),
+      unused: settled.unused.sorted(compareByLocation),
       docOnly: settled.docOnly.sorted(compareByLocation),
       recovered: settled.recovered,
     );
@@ -328,6 +325,7 @@ final class Settler {
   /// candidate index. [refsByCandidate] still holds the references into
   /// [deadSpans], for [_onlyReferencedFrom].
   Future<({Settled settled, Map<UnusedDeclaration, int> candidateOf})> _round(
+    LspClient client,
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
     List<List<Location>> liveRefs,
@@ -426,9 +424,6 @@ final class Settler {
           );
           unused.add(finding);
           candidateOf[finding] = i;
-          if (!finding.removalBlocked) {
-            _removableBefore.add(i);
-          }
         case .docOnly
             when candidate.isType &&
                 docOnlyTypesWithUnused.contains(candidate.key):
@@ -451,12 +446,23 @@ final class Settler {
       }
     }
 
-    _dropEnclosedInDead(unused, deadSpans, rootPath);
+    // A field or variable `--remove` can't cut stays, and so does what only
+    // it references.
+    final cut = await _withCuts(client, unused, rootPath);
+    final cutCandidateOf = {
+      for (final (k, finding) in cut.indexed) finding: candidateOf[unused[k]]!,
+    };
+    _removableBefore.addAll([
+      for (final MapEntry(key: finding, value: i) in cutCandidateOf.entries)
+        if (!finding.removalBlocked) i,
+    ]);
+
+    _dropEnclosedInDead(cut, deadSpans, rootPath);
 
     return (
-      settled: (unused: unused, docOnly: docOnly, recovered: recovered),
+      settled: (unused: cut, docOnly: docOnly, recovered: recovered),
       candidateOf: {
-        for (final finding in unused) finding: candidateOf[finding]!,
+        for (final finding in cut) finding: cutCandidateOf[finding]!,
       },
     );
   }
