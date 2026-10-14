@@ -79,8 +79,9 @@ class _Egg {
   _Chicken hatch() => _Chicken()..lay();
 }
 
-/// Referenced as a type from bin/app.dart -> USED. Its only value is dead but
-/// report-only, so it stays, and so does what it references.
+/// Referenced as a type from bin/app.dart -> USED. Its only value is dead. The
+/// enum is reported instead, as report-only, so the value and what it
+/// references both stay.
 enum Lone {
   only(_loneArg);
 
@@ -90,7 +91,7 @@ enum Lone {
   final int arg;
 }
 
-/// Referenced only by report-only `Lone.only` -> USED either way.
+/// Referenced only by `Lone.only`, which is never removed -> USED either way.
 const int _loneArg = 7;
 
 /// Referenced as a type from bin/app.dart -> USED; it keeps its final field, so

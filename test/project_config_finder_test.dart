@@ -151,8 +151,8 @@ void unusedRouteHelper() {}
         {for (final d in result.unused) '${d.filePath}:${d.qualifiedName}'},
         {
           'lib/endpoint.dart:GreetingEndpoint._unusedHelper',
+          // Reported without its member.
           'lib/endpoint.dart:NotAnEndpoint',
-          'lib/endpoint.dart:NotAnEndpoint.hello',
           'lib/builder.dart:unusedBuilderHelper',
           'lib/js.dart:Counter._neverCalled',
           'lib/js.dart:Partial.notExported',

@@ -76,7 +76,6 @@ void main() {
       'Wrapped.doubled',
       'Point.moved',
       'Dead',
-      'Dead.paint',
     ]);
     // Canvas keeps erase, and Wrapped and Point keep the fields their headers
     // declare. Dead is removed whole, and so is Parsing, which nothing names.

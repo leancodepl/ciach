@@ -42,6 +42,10 @@ final class Verdict {
   static const pairedStateHint =
       'its State class is used elsewhere, so it would be left extending State of a removed widget';
 
+  /// The hint for a used enum whose values are all unused.
+  static const emptiedEnumHint =
+      'none of its values are used, and an enum needs at least one value';
+
   static const namedOnlyInClausesHint =
       'only `with` or `implements` clauses use it; `--remove` also removes it from them';
 
