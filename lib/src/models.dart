@@ -26,17 +26,23 @@ typedef DeclarationRange = ({
   int endColumn,
 });
 
+/// The kinds of declaration that can share a statement with others, like `a`
+/// and `b` in `int a = 1, b = 2;`. The `range` of one covers only `a = 1`, so
+/// `--remove` deletes its [UnusedDeclaration.cut] instead.
+const declaratorKinds = <SymbolKind>{.field, .variable, .constant};
+
 /// A declaration to remove together with a reported one. It names its own
 /// `filePath` (relative to the analyzed root, `/`-separated), so it can live in
 /// another file, like a dead `StatefulWidget`'s `State` subclass.
 ///
-/// `range`, `fullRange` and `kind` mean what they do on [UnusedDeclaration];
-/// the remover reads `kind` to tell a declarator from a whole node.
+/// `range`, `fullRange`, `kind` and `cut` mean what they do on
+/// [UnusedDeclaration].
 typedef CoupledRemoval = ({
   String filePath,
   SymbolKind kind,
   DeclarationRange range,
   DeclarationRange fullRange,
+  DeclarationRange? cut,
 });
 
 /// Configuration for a single run of the finder.
@@ -234,6 +240,7 @@ class UnusedDeclaration {
     this.removalBlocked = false,
     this.hint,
     this.onlyReferencedFrom = const [],
+    this.cut,
   }) : fullRange = fullRange ?? range;
 
   /// Simple (unqualified) name of the declaration.
@@ -264,14 +271,20 @@ class UnusedDeclaration {
   /// [range] extended to include the doc comment and annotations.
   final DeclarationRange fullRange;
 
+  /// For a `field`, `variable` or `constant`, the text `--remove` deletes: the
+  /// whole statement when all its variables go, or this variable and one
+  /// adjacent comma when others stay. `null` when the finder couldn't work it
+  /// out; `--remove` then leaves the variable in place.
+  final DeclarationRange? cut;
+
   /// Whether this is an enum value (e.g. `south` in `enum Direction`).
   /// Removing one requires also tidying up a neighboring comma, unlike other
   /// declaration kinds.
   final bool isEnumValue;
 
-  /// Extra whole-node spans — each in a named file — that must be removed
-  /// together with this declaration to keep the source compiling, but that are
-  /// not themselves reported as findings.
+  /// Extra spans — each in a named file — that must be removed together with
+  /// this declaration to keep the source compiling, but that are not
+  /// themselves reported as findings.
   ///
   /// Two uses today:
   ///
@@ -311,6 +324,30 @@ class UnusedDeclaration {
   /// declaration's only references, in source order. Empty when nothing
   /// referenced it at all.
   final List<DeadReferrer> onlyReferencedFrom;
+
+  /// This declaration with the given fields replaced.
+  UnusedDeclaration copyWith({
+    DeclarationRange? cut,
+    List<CoupledRemoval>? coupledRemovals,
+    bool? removalBlocked,
+    String? hint,
+  }) => .new(
+    name: name,
+    kind: kind,
+    filePath: filePath,
+    line: line,
+    column: column,
+    isPrivate: isPrivate,
+    range: range,
+    fullRange: fullRange,
+    container: container,
+    isEnumValue: isEnumValue,
+    coupledRemovals: coupledRemovals ?? this.coupledRemovals,
+    removalBlocked: removalBlocked ?? this.removalBlocked,
+    hint: hint ?? this.hint,
+    onlyReferencedFrom: onlyReferencedFrom,
+    cut: cut ?? this.cut,
+  );
 
   /// Fully qualified display name, e.g. `MyClass.myMethod`.
   String get qualifiedName =>

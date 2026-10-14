@@ -45,6 +45,11 @@ final class Verdict {
   static const overriddenHint =
       'overridden by a declaration --remove will not delete — that override would be left overriding nothing';
 
+  /// The hint for a field or top-level variable whose cut the finder couldn't
+  /// work out.
+  static const noCutHint =
+      "the analysis server didn't say where its statement ends, so `--remove` leaves it; remove it manually";
+
   /// The hint for a type with unused members that only doc comments mention.
   static const docOnlyTypeHint =
       'only doc comments mention it; remove those mentions and `--remove` deletes it';

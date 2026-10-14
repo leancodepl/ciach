@@ -1,22 +1,13 @@
 import 'dart:io';
 
 import 'package:ciach/src/emptied_files.dart';
-import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/models.dart';
 import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/plural.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
 final _log = Logger('ciach.remover');
-
-/// Symbol kinds whose [DeclarationRange] covers only the declarator (name and
-/// initializer), not the shared `final`/`const`/type prefix or the
-/// terminating `;` — because the analysis server reports a variable's range
-/// as the `VariableDeclaration`, not the whole
-/// `VariableDeclarationList`/`FieldDeclaration` statement it lives in.
-const _declaratorKinds = <SymbolKind>{.field, .variable, .constant};
 
 /// A `[start, end)` character-offset span within a file's content.
 typedef _Span = ({int start, int end});
@@ -26,10 +17,9 @@ typedef _Span = ({int start, int end});
 ///
 /// Declarations whose range is fully contained within another declaration's
 /// range (e.g. a method of a class that is itself unused) are removed once,
-/// as part of removing the enclosing declaration. A declarator that shares a
-/// statement with other, still-used declarators (e.g. `int a = 1, b = 2;`) is
-/// only removed on its own when that can be done unambiguously; otherwise it
-/// is left in place rather than risk producing invalid source.
+/// as part of removing the enclosing declaration. A field or top-level
+/// variable is removed by deleting its [UnusedDeclaration.cut], which the
+/// finder works out; one without a cut is left in place.
 ///
 /// A rewritten file left with nothing but directives is then deleted, as are
 /// the [emptyFiles]; see `deleteEmptiedFiles`.
@@ -47,13 +37,12 @@ RemovalResult removeDeclarations(
       continue;
     }
     byFile.putIfAbsent(decl.filePath, () => []).add(decl);
-    // Coupled removals are extra whole-node spans that must be deleted together
-    // with the declaration to keep the source compiling (a dead StatefulWidget's
-    // paired `State` subclass, or a dead sealed member's `case` arm), but that
-    // are not findings in their own right. Each names its own file — usually the
-    // declaration's, but a `case` arm can live elsewhere — so group it under
-    // that file. Turn each into a synthetic whole-node declaration so it flows
-    // through the normal removal pass and its span merges with the rest.
+    // Coupled removals are extra spans that must be deleted together with the
+    // declaration to keep the source compiling (a dead StatefulWidget's paired
+    // `State` subclass, or an override of a dead member), but that are not
+    // findings in their own right. Each names its own file, so group it under
+    // that file. Turn each into a synthetic declaration so it flows through
+    // the normal removal pass and its span merges with the rest.
     for (final coupled in decl.coupledRemovals) {
       final range = coupled.range;
       byFile
@@ -68,6 +57,7 @@ RemovalResult removeDeclarations(
               isPrivate: true,
               range: range,
               fullRange: coupled.fullRange,
+              cut: coupled.cut,
             ),
           );
     }
@@ -145,25 +135,19 @@ String _removeFromContent(String content, List<UnusedDeclaration> decls) {
   }
   int offsetOf(int line, int column) => lineStarts[line] + column;
 
-  final declarators = <UnusedDeclaration>[];
-  final spans = <_Span>[];
-  final enumSpans = <_Span>[];
-  for (final decl in decls) {
-    if (_declaratorKinds.contains(decl.kind)) {
-      declarators.add(decl);
-    } else {
-      final span = _spanFor(decl, content, lines, offsetOf);
-      if (span != null) {
-        (decl.isEnumValue ? enumSpans : spans).add(span);
-      }
-    }
-  }
+  final spans = [
+    for (final decl in decls.whereNot((decl) => decl.isEnumValue))
+      ?_spanOf(decl, content, lines, offsetOf),
+  ];
+  final enumSpans = [
+    for (final decl in decls.where((decl) => decl.isEnumValue))
+      ?_spanFor(decl, content, lines, offsetOf),
+  ];
   // Merge each enum's value spans, then drop a separator comma left orphaned
   // when a trailing run of values is removed from a compact single-line enum.
   for (final span in _mergeSpans(enumSpans)) {
     spans.add(_absorbOrphanEnumComma(content, span));
   }
-  spans.addAll(_declaratorSpans(declarators, content, lines, offsetOf));
 
   if (spans.isEmpty) {
     return content;
@@ -177,6 +161,27 @@ String _removeFromContent(String content, List<UnusedDeclaration> decls) {
   }
   buffer.write(content.substring(cursor));
   return buffer.toString();
+}
+
+/// Returns the span to delete for [decl], which isn't an enum value: the
+/// [UnusedDeclaration.cut] of a field or variable, or [_spanFor] for anything
+/// else. Returns `null` for a field or variable without a cut, which stays.
+_Span? _spanOf(
+  UnusedDeclaration decl,
+  String content,
+  List<String> lines,
+  int Function(int line, int column) offsetOf,
+) {
+  if (!declaratorKinds.contains(decl.kind)) {
+    return _spanFor(decl, content, lines, offsetOf);
+  }
+  if (decl.cut case final cut?) {
+    return _wholeLines(cut, content, lines, offsetOf);
+  }
+  _log.fine(
+    'Left ${decl.qualifiedName} in ${decl.filePath} in place: the finder found no range to cut it out by.',
+  );
+  return null;
 }
 
 /// Computes the span to delete for an enum value or a "whole-node" kind
@@ -212,145 +217,21 @@ _Span? _spanFor(
   return (start: start, end: _consumeTrailingBlankLine(content, end));
 }
 
-/// Computes the spans to delete for `field`/`variable`/`constant` decls,
-/// which share a statement — and possibly a `final`/`const`/type prefix —
-/// with any number of sibling declarators.
-///
-/// Declarators are grouped by the statement's terminating `;`. When every
-/// declarator in a statement is present in [decls], the whole statement
-/// (prefix, every declarator, and the `;`) is removed as one span; otherwise
-/// each targeted declarator is trimmed out of the list individually.
-List<_Span> _declaratorSpans(
-  List<UnusedDeclaration> decls,
+/// Returns [cut] as a span. When only whitespace surrounds it on its first and
+/// last lines, the span covers those whole lines, so a removed statement
+/// leaves no empty line behind.
+_Span _wholeLines(
+  DeclarationRange cut,
   String content,
   List<String> lines,
   int Function(int line, int column) offsetOf,
 ) {
-  final groups = <int, List<UnusedDeclaration>>{};
-  // One declarator can arrive twice: reported in its own right, and coupled to
-  // another declaration's removal.
-  final seen = <(int, int)>{};
-  for (final decl in decls) {
-    final baseStart = offsetOf(decl.range.startLine, decl.range.startColumn);
-    final baseEnd = offsetOf(decl.range.endLine, decl.range.endColumn);
-    if (!seen.add((baseStart, baseEnd))) {
-      continue;
-    }
-    final statementEnd = _finalStatementEnd(content, baseEnd);
-    if (statementEnd == null) {
-      // Can't even find where the statement ends; leave it alone.
-      continue;
-    }
-    groups.putIfAbsent(statementEnd, () => []).add(decl);
-  }
-
-  int startOf(UnusedDeclaration d) =>
-      offsetOf(d.range.startLine, d.range.startColumn);
-
-  final spans = <_Span>[];
-  for (final MapEntry(key: statementEnd, value: members) in groups.entries) {
-    final sorted = members.sortedBy<num>(startOf);
-    final whole = _wholeStatementSpan(
-      content,
-      lines,
-      sorted,
-      statementEnd,
-      offsetOf,
-    );
-    if (whole != null) {
-      spans.add(whole);
-      continue;
-    }
-    for (final decl in sorted) {
-      final span = _partialDeclaratorSpan(decl, content, offsetOf);
-      if (span != null) {
-        spans.add(span);
-      }
-    }
-  }
-  return spans;
-}
-
-/// Whether every declarator of the statement ending at [statementEnd] is
-/// present in [sortedMembers] (sorted by source position) — verified by
-/// checking that nothing but a bare `,` separates consecutive members, that
-/// nothing but whitespace follows the last one up to [statementEnd], and
-/// that no earlier declarator precedes the first one on its line.
-///
-/// The last check assumes the statement's type/modifier prefix and its first
-/// declarator share a line — true for any `dart format`-formatted source.
-_Span? _wholeStatementSpan(
-  String content,
-  List<String> lines,
-  List<UnusedDeclaration> sortedMembers,
-  int statementEnd,
-  int Function(int line, int column) offsetOf,
-) {
-  final first = sortedMembers.first;
-  final lineStart = offsetOf(first.range.startLine, 0);
-  final firstStart = offsetOf(first.range.startLine, first.range.startColumn);
-  if (_lastTopLevelComma(content.substring(lineStart, firstStart)) != null) {
-    return null;
-  }
-
-  for (var i = 0; i < sortedMembers.length - 1; i++) {
-    final end = offsetOf(
-      sortedMembers[i].range.endLine,
-      sortedMembers[i].range.endColumn,
-    );
-    final nextStart = offsetOf(
-      sortedMembers[i + 1].range.startLine,
-      sortedMembers[i + 1].range.startColumn,
-    );
-    if (content.substring(end, nextStart).trim() != ',') {
-      return null;
-    }
-  }
-
-  final last = sortedMembers.last;
-  final lastEnd = offsetOf(last.range.endLine, last.range.endColumn);
-  if (content.substring(lastEnd, statementEnd).trim().isNotEmpty) {
-    return null;
-  }
-
-  // The first declarator's full range starts at the statement.
-  return (
-    start: _startWithIndentation(first.fullRange, lines, offsetOf),
-    end: _consumeTrailingBlankLine(content, statementEnd + 1),
-  );
-}
-
-/// Trims a single declarator out of a statement that has other declarators
-/// left over, by dropping one neighboring comma. Returns `null` if the
-/// statement's shape can't be confidently resolved.
-_Span? _partialDeclaratorSpan(
-  UnusedDeclaration decl,
-  String content,
-  int Function(int line, int column) offsetOf,
-) {
-  final range = decl.range;
-  final lineStart = offsetOf(range.startLine, 0);
-  final baseStart = offsetOf(range.startLine, range.startColumn);
-  final baseEnd = offsetOf(range.endLine, range.endColumn);
-
-  final beforeText = content.substring(lineStart, baseStart);
-  final leadingComma = _lastTopLevelComma(beforeText);
-  return switch (_nextTopLevelSeparator(content, baseEnd)) {
-    null => null,
-    (final commaEnd, ',') => (
-      start:
-          leadingComma?.let((leadingComma) => lineStart + leadingComma + 1) ??
-          baseStart,
-      end: commaEnd + 1,
-    ),
-    // Separator is the statement's `;`: drop the now-orphaned leading comma if
-    // there is one, leaving the `;` in place; otherwise (a sole declarator,
-    // unreachable in practice since `_wholeStatementSpan` catches it first)
-    // fall back to the line start.
-    (final semicolonEnd, _) =>
-      leadingComma?.let((comma) => (start: lineStart + comma, end: baseEnd)) ??
-          (start: lineStart, end: semicolonEnd + 1),
-  };
+  final start = offsetOf(cut.startLine, cut.startColumn);
+  final end = offsetOf(cut.endLine, cut.endColumn);
+  final whole = _consumeTrailingBlankLine(content, end);
+  return whole == end
+      ? (start: start, end: end)
+      : (start: _startWithIndentation(cut, lines, offsetOf), end: whole);
 }
 
 /// The start of [fullRange], moved to the start of its line when only
@@ -428,66 +309,6 @@ _Span _absorbOrphanEnumComma(String content, _Span span) {
     return span;
   }
   return (start: before, end: span.end);
-}
-
-/// Walks forward from [from] through zero or more top-level `,` separators,
-/// returning the index of the statement's terminating top-level `;`, or
-/// `null` if one can't be found unambiguously.
-int? _finalStatementEnd(String content, int from) {
-  var pos = from;
-  while (true) {
-    switch (_nextTopLevelSeparator(content, pos)) {
-      case null:
-        return null;
-      case (final index, ';'):
-        return index;
-      case (final index, _):
-        pos = index + 1;
-    }
-  }
-}
-
-/// The index of the last top-level (not nested in `()`, `[]`, `{}`, or `<>`)
-/// comma in [text], or `null` if there isn't one.
-int? _lastTopLevelComma(String text) {
-  var depth = 0;
-  int? last;
-  for (var i = 0; i < text.length; i++) {
-    switch (text[i]) {
-      case '(' || '[' || '{' || '<':
-        depth++;
-      case ')' || ']' || '}' || '>':
-        if (depth > 0) {
-          depth--;
-        }
-      case ',' when depth == 0:
-        last = i;
-    }
-  }
-  return last;
-}
-
-/// Scans forward from [from] for the first top-level `,` or `;`, treating
-/// `(`, `[`, and `{` as nesting (not `<>`: an initializer expression can
-/// legitimately contain a `<` comparison). Returns its index and character,
-/// or `null` if the scan runs off the end unbalanced or unresolved.
-(int, String)? _nextTopLevelSeparator(String content, int from) {
-  var depth = 0;
-  for (var i = from; i < content.length; i++) {
-    final ch = content[i];
-    switch (ch) {
-      case '(' || '[' || '{':
-        depth++;
-      case ')' || ']' || '}':
-        if (depth == 0) {
-          return null;
-        }
-        depth--;
-      case ',' || ';' when depth == 0:
-        return (i, ch);
-    }
-  }
-  return null;
 }
 
 /// If nothing but whitespace follows [end] on its line, extends it past the

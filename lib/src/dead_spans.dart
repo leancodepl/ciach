@@ -7,9 +7,6 @@ import 'package:pro_lsp/pro_lsp.dart' show Position;
 /// The source `--remove` would delete: each removable finding's
 /// [UnusedDeclaration.fullRange] and its coupled removals. A reference inside
 /// these spans keeps nothing alive.
-///
-/// A field declarator counts as deleted even in the rare statement the remover
-/// can't parse and leaves in place.
 final class DeadSpans {
   DeadSpans._(this._byPath);
 

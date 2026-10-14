@@ -4,6 +4,7 @@ import 'package:ciach/src/conventions/flutter_widgets.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/cross_library_refs.dart';
 import 'package:ciach/src/dead_spans.dart';
+import 'package:ciach/src/declarator_cuts.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/models.dart';
@@ -12,13 +13,14 @@ import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/plural.dart';
 import 'package:ciach/src/reachability.dart';
 import 'package:ciach/src/reference_classifier.dart';
+import 'package:ciach/src/reference_fetch.dart';
 import 'package:ciach/src/remove_safety.dart';
 import 'package:ciach/src/source_index.dart';
 import 'package:ciach/src/superclasses.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:ciach/src/verdict.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
+import 'package:pro_lsp/pro_lsp.dart' show Location, Position, SymbolKind;
 
 final _log = Logger('ciach.finder');
 
@@ -44,16 +46,19 @@ final class Settler {
     required FreezedUnions freezed,
     required ReferenceClassifier classifier,
     required Verdict verdict,
+    required ReferenceFetch fetch,
   }) : _sources = sources,
        _freezed = freezed,
        _classifier = classifier,
-       _verdict = verdict;
+       _verdict = verdict,
+       _fetch = fetch;
 
   final FinderOptions options;
   final SourceIndex _sources;
   final FreezedUnions _freezed;
   final ReferenceClassifier _classifier;
   final Verdict _verdict;
+  final ReferenceFetch _fetch;
 
   /// Names the cross-library recovery has already probed.
   final _probedNames = <String>{};
@@ -100,6 +105,7 @@ final class Settler {
         await _recoverCrossLibraryRefs(client, candidates, liveRefs),
       );
       final result = await _round(
+        client,
         candidates,
         refsByCandidate,
         liveRefs,
@@ -150,6 +156,84 @@ final class Settler {
       docOnly: settled.docOnly.sorted(compareByLocation),
       recovered: settled.recovered,
     );
+  }
+
+  /// Returns [unused] with [UnusedDeclaration.cut] set on each removable field
+  /// and top-level variable, both findings and coupled removals.
+  ///
+  /// It first fetches the selection ranges this needs, for these variables
+  /// only. The cuts are worked out in one call, so two removed variables of
+  /// one statement are cut as one. A finding whose own cut, or the cut of a
+  /// variable coupled to it, can't be worked out becomes report-only, with
+  /// [Verdict.noCutHint].
+  Future<List<UnusedDeclaration>> _withCuts(
+    LspClient client,
+    List<UnusedDeclaration> unused,
+    String rootPath,
+  ) async {
+    DeclaratorAt at(String filePath, int line, int column) => (
+      path: absoluteUnder(filePath, rootPath),
+      name: .new(line: line, character: column),
+    );
+    DeclaratorAt ofFinding(UnusedDeclaration finding) =>
+        at(finding.filePath, finding.line - 1, finding.column - 1);
+    DeclaratorAt ofCoupled(CoupledRemoval coupled) => at(
+      coupled.filePath,
+      coupled.range.startLine,
+      coupled.range.startColumn,
+    );
+    bool isDeclarator(SymbolKind kind) => declaratorKinds.contains(kind);
+
+    final removable = unused.whereNot((finding) => finding.removalBlocked);
+    final declarators = [
+      for (final finding in removable) ...[
+        if (isDeclarator(finding.kind)) ofFinding(finding),
+        for (final coupled in finding.coupledRemovals)
+          if (isDeclarator(coupled.kind)) ofCoupled(coupled),
+      ],
+    ];
+    await _fetch.fetchSelectionRanges(
+      client,
+      declarators.groupFoldBy(
+        (declarator) => declarator.path,
+        (names, declarator) => (names ?? <Position>{})..add(declarator.name),
+      ),
+    );
+    await _fetch.fetchSelectionRanges(
+      client,
+      _sources.otherDeclaratorNames(declarators),
+    );
+    final cuts = _sources.declaratorCuts(declarators);
+    UnusedDeclaration withCuts(UnusedDeclaration finding) {
+      final cut = isDeclarator(finding.kind) ? cuts[ofFinding(finding)] : null;
+      final coupledRemovals = [
+        for (final coupled in finding.coupledRemovals)
+          if (isDeclarator(coupled.kind))
+            (
+              filePath: coupled.filePath,
+              kind: coupled.kind,
+              range: coupled.range,
+              fullRange: coupled.fullRange,
+              cut: cuts[ofCoupled(coupled)],
+            )
+          else
+            coupled,
+      ];
+      bool lacksCut(SymbolKind kind, DeclarationRange? cut) =>
+          isDeclarator(kind) && cut == null;
+      if (lacksCut(finding.kind, cut) ||
+          coupledRemovals.any(
+            (coupled) => lacksCut(coupled.kind, coupled.cut),
+          )) {
+        return finding.copyWith(removalBlocked: true, hint: Verdict.noCutHint);
+      }
+      return finding.copyWith(cut: cut, coupledRemovals: coupledRemovals);
+    }
+
+    return [
+      for (final finding in unused)
+        if (finding.removalBlocked) finding else withCuts(finding),
+    ];
   }
 
   /// The spans of every candidate no live code reaches, all of them assumed
@@ -244,6 +328,7 @@ final class Settler {
   /// candidate index. [refsByCandidate] still holds the references into
   /// [deadSpans], for [_onlyReferencedFrom].
   Future<({Settled settled, Map<UnusedDeclaration, int> candidateOf})> _round(
+    LspClient client,
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
     List<List<Location>> liveRefs,
@@ -342,9 +427,6 @@ final class Settler {
           );
           unused.add(finding);
           candidateOf[finding] = i;
-          if (!finding.removalBlocked) {
-            _removableBefore.add(i);
-          }
         case .docOnly
             when candidate.isType &&
                 docOnlyTypesWithUnused.contains(candidate.key):
@@ -367,12 +449,23 @@ final class Settler {
       }
     }
 
-    _dropEnclosedInDead(unused, deadSpans, rootPath);
+    // Make the fields and variables `--remove` can't cut out report-only now,
+    // so that the next `--transitive` round keeps alive what they reference.
+    final cut = await _withCuts(client, unused, rootPath);
+    final cutCandidateOf = {
+      for (final (k, finding) in cut.indexed) finding: candidateOf[unused[k]]!,
+    };
+    _removableBefore.addAll([
+      for (final MapEntry(key: finding, value: i) in cutCandidateOf.entries)
+        if (!finding.removalBlocked) i,
+    ]);
+
+    _dropEnclosedInDead(cut, deadSpans, rootPath);
 
     return (
-      settled: (unused: unused, docOnly: docOnly, recovered: recovered),
+      settled: (unused: cut, docOnly: docOnly, recovered: recovered),
       candidateOf: {
-        for (final finding in unused) finding: candidateOf[finding]!,
+        for (final finding in cut) finding: cutCandidateOf[finding]!,
       },
     );
   }

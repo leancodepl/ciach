@@ -1,5 +1,9 @@
 ## Unreleased
 
+- `--remove` no longer breaks a field or variable statement with a comment
+  inside, such as `int a = 1, /* note */ b = 2;`. Before, it left `int ;`
+  behind, or kept a declarator it couldn't cut without saying so.
+  ([#128](https://github.com/leancodepl/ciach/pull/128))
 - **Breaking:** `--overrides`, `--operators`, `--report-tojson` and
   `--unused-union-members` are now one option, `--also`, and
   `--generated-suffix` is replaced by `--generated-glob`. `--fail-public` is

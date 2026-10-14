@@ -138,6 +138,7 @@ final class OverrideRemovals {
       kind: kind,
       range: node.codeRange.toDeclarationRange,
       fullRange: node.range.toDeclarationRange,
+      cut: null,
     );
   }
 

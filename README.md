@@ -338,8 +338,8 @@ Removed 4 unused declarations from 2 files.
 
 `--force` skips the prompt (and is a usage error on its own); with no terminal to
 confirm on and no `--force`, nothing is removed. Run `dart format` afterward:
-removal is conservative about *what* it deletes — an ambiguous `int a = 1, b = 2;`
-is left alone unless every declarator is unused — but not about spacing.
+removal cuts along the analyzer's syntax, so `int a = 1, b = 2;` loses just `b`
+or the whole statement, but it doesn't tidy up spacing.
 
 Removal acts on whatever the finder reports, so it inherits the same
 false-positive risk, which `--also overrides,operators` widens considerably.

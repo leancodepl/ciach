@@ -39,8 +39,20 @@ void alsoKept() {}
     expect(result, contains('void alsoKept() {}'));
   });
 
-  test('removes a sole-declarator field including its type prefix and `;`', () {
-    const source = '''
+  group('a field or variable', () {
+    /// The `variable` of `lib.dart` named at [line]:[column], with [cut].
+    UnusedDeclaration declarator(int line, int column, DeclarationRange? cut) =>
+        decl(
+          startLine: line,
+          startColumn: column,
+          endLine: line,
+          endColumn: column + 1,
+          kind: .variable,
+          cut: cut,
+        );
+
+    test('deletes its cut, extended to whole lines', () {
+      const source = '''
 class C {
   /// Doc.
   final int _unusedField = 0;
@@ -48,111 +60,39 @@ class C {
   void method() {}
 }
 ''';
-    // The field's own range covers only `_unusedField = 0` — no
-    // `final int ` prefix and no trailing `;` — matching what the
-    // analysis server reports for a `VariableDeclaration`.
-    const fieldLine = '  final int _unusedField = 0;';
-    final start = fieldLine.indexOf('_unusedField');
-    final end = fieldLine.indexOf(' = 0') + ' = 0'.length;
-    final result = applyRemoval(source, [
-      decl(
-        startLine: 2,
-        startColumn: start,
-        endLine: 2,
-        endColumn: end,
-        kind: .field,
-        docLine: 1,
-        docColumn: 2,
-      ),
-    ]);
-    expect(result, isNot(contains('_unusedField')));
-    expect(result, isNot(contains('final int')));
-    expect(result, isNot(contains('Doc.')));
-    expect(result, contains('class C {'));
-    expect(result, contains('void method() {}'));
-    expectBalanced(result);
-  });
-
-  group('multi-declarator statement `int a = 1, b = 2, c = 3;`', () {
-    const source = 'int a = 1, b = 2, c = 3;\n';
-    // Columns of each declarator's `name = value` span within the line.
-    const aRange = (start: 4, end: 9);
-    const bRange = (start: 11, end: 16);
-    const cRange = (start: 18, end: 23);
-
-    // The first declarator's full range starts at `int`; the others at their name.
-    UnusedDeclaration declaratorAt(({int start, int end}) range) => decl(
-      startLine: 0,
-      startColumn: range.start,
-      endLine: 0,
-      endColumn: range.end,
-      kind: .variable,
-      docLine: range == aRange ? 0 : null,
-    );
-
-    test('drops the trailing comma when removing the first declarator', () {
-      final result = applyRemoval(source, [declaratorAt(aRange)]);
-      // The shared `int ` prefix is left for the surviving declarators; the
-      // resulting double space is cosmetic and `dart format` cleans it up.
-      expect(result.trim(), 'int  b = 2, c = 3;');
-    });
-
-    test('drops one neighboring comma when removing a middle declarator', () {
-      final result = applyRemoval(source, [declaratorAt(bRange)]);
-      expect(result.trim(), 'int a = 1, c = 3;');
-    });
-
-    test('drops the leading comma but keeps `;` when removing the last '
-        'declarator', () {
-      final result = applyRemoval(source, [declaratorAt(cRange)]);
-      expect(result.trim(), 'int a = 1, b = 2;');
-    });
-
-    test('removes the whole statement when every declarator is unused', () {
       final result = applyRemoval(source, [
-        declaratorAt(aRange),
-        declaratorAt(bRange),
-        declaratorAt(cRange),
+        declarator(2, 12, (
+          startLine: 1,
+          startColumn: 2,
+          endLine: 2,
+          endColumn: 29,
+        )),
       ]);
-      expect(result.trim(), isEmpty);
+      expect(result, '''
+class C {
+
+  void method() {}
+}
+''');
     });
-  });
 
-  test('does not mistake a comma inside a generic type for a declarator '
-      'separator', () {
-    const source = 'Map<String, int> _cache = {};\n';
-    // The range covers `_cache = {}` only, as the analysis server reports it.
-    final start = source.indexOf('_cache');
-    final end = source.indexOf(';');
-    final result = applyRemoval(source, [
-      decl(
-        startLine: 0,
-        startColumn: start,
-        endLine: 0,
-        endColumn: end,
-        kind: .field,
-        docLine: 0,
-      ),
-    ]);
-    expect(result.trim(), isEmpty);
-  });
+    test('deletes only its cut when the statement keeps other variables', () {
+      const source = 'int a = 1, b = 2, c = 3;\n';
+      final result = applyRemoval(source, [
+        declarator(0, 11, (
+          startLine: 0,
+          startColumn: 11,
+          endLine: 0,
+          endColumn: 18,
+        )),
+      ]);
+      expect(result, 'int a = 1, c = 3;\n');
+    });
 
-  test("leaves a declarator alone when a top-level separator can't be found "
-      '(unresolvable shape)', () {
-    // A synthetic, deliberately-unbalanced range: the forward scan for a
-    // terminating `,`/`;` hits an unmatched `)` first and bails out rather
-    // than guess.
-    const source = 'int a = 1);\n';
-    final result = applyRemoval(source, [
-      decl(
-        startLine: 0,
-        startColumn: 4,
-        endLine: 0,
-        endColumn: 9,
-        kind: .variable,
-      ),
-    ]);
-    expect(result, source);
+    test('stays when it has no cut', () {
+      const source = 'int a = 1, b = 2;\n';
+      expect(applyRemoval(source, [declarator(0, 4, null)]), source);
+    });
   });
 
   test('collapses a fully-unused class into a single removal', () {
@@ -199,16 +139,16 @@ class C {
     expectBalanced(result);
   });
 
-  test('a declarator reported and coupled at once is removed once', () {
-    // Each of the two dead members couples its own declarator of one
-    // statement, and the second declarator is also a finding in its own right.
-    // The same declarator arriving twice must not confuse the span arithmetic.
+  test('a variable both reported and coupled is removed once', () {
+    // `right` is a finding, and is also coupled to the dead member it
+    // overrides; `left` is coupled too. All three entries have the whole
+    // statement as their cut.
     const source = '''
 class Pair {
   final int left = 1, right = 2;
 }
 ''';
-    // `left = 1` is line 1, cols 12..20; `right = 2` cols 22..31.
+    const statement = (startLine: 1, startColumn: 2, endLine: 1, endColumn: 32);
     const right = UnusedDeclaration(
       name: 'right',
       kind: .field,
@@ -217,31 +157,31 @@ class Pair {
       column: 23,
       isPrivate: false,
       range: (startLine: 1, startColumn: 22, endLine: 1, endColumn: 31),
-      fullRange: (startLine: 1, startColumn: 22, endLine: 1, endColumn: 31),
+      cut: statement,
       coupledRemovals: [
-        // The same declarator, coupled to the member it overrides.
+        // `right` again, coupled to the member it overrides.
         (
           filePath: 'lib.dart',
           kind: .field,
           range: (startLine: 1, startColumn: 22, endLine: 1, endColumn: 31),
           fullRange: (startLine: 1, startColumn: 22, endLine: 1, endColumn: 31),
+          cut: statement,
         ),
-        // And the statement's other declarator.
+        // `left`, the statement's other variable.
         (
           filePath: 'lib.dart',
           kind: .field,
           range: (startLine: 1, startColumn: 12, endLine: 1, endColumn: 20),
-          fullRange: (startLine: 1, startColumn: 2, endLine: 1, endColumn: 20),
+          fullRange: (startLine: 1, startColumn: 12, endLine: 1, endColumn: 20),
+          cut: statement,
         ),
       ],
     );
-    final result = applyRemoval(source, [right]);
-    expect(result, isNot(contains('left')));
-    expect(result, isNot(contains('right')));
-    expect(result, contains('class Pair {'));
-    expectBalanced(result);
+    expect(applyRemoval(source, [right]), '''
+class Pair {
+}
+''');
   });
-
   test(
     'a coupled declarator is taken out of a statement that keeps the rest',
     () {
@@ -256,8 +196,8 @@ class Mixed implements Halved {
   final int dead = 1, live = 2;
 }
 ''';
-      // `int get dead;` is line 1, cols 2..15; `dead = 1` is line 5, cols 12..20,
-      // and the statement it starts begins at col 2.
+      // `int get dead;` is line 1, cols 2..15. The cut of its override is
+      // `dead = 1, ` on line 5, cols 12..22, up to the next variable.
       const member = UnusedDeclaration(
         name: 'dead',
         kind: .property,
@@ -273,18 +213,23 @@ class Mixed implements Halved {
             range: (startLine: 5, startColumn: 12, endLine: 5, endColumn: 20),
             fullRange: (
               startLine: 5,
-              startColumn: 2,
+              startColumn: 12,
               endLine: 5,
               endColumn: 20,
             ),
+            cut: (startLine: 5, startColumn: 12, endLine: 5, endColumn: 22),
           ),
         ],
       );
       final result = applyRemoval(source, [member]);
-      expect(result, isNot(contains('dead')));
-      expect(result, contains('live = 2;'));
-      expect(result, contains('class Mixed implements Halved {'));
-      expectBalanced(result);
+      expect(result, '''
+abstract class Halved {
+}
+
+class Mixed implements Halved {
+  final int live = 2;
+}
+''');
     },
   );
 
@@ -331,6 +276,7 @@ class Kept {}
               endLine: 6,
               endColumn: 51,
             ),
+            cut: null,
           ),
         ],
       );
@@ -376,6 +322,7 @@ String describe(S s) => switch (s) {
           kind: .class$,
           range: (startLine: 8, startColumn: 2, endLine: 9, endColumn: 0),
           fullRange: (startLine: 8, startColumn: 2, endLine: 9, endColumn: 0),
+          cut: null,
         ),
       ],
     );
