@@ -290,7 +290,7 @@ class Kept {}
 
   test('a report-only (removalBlocked) finding is left in place, and nothing '
       'coupled to it is removed either', () {
-    // A `--unused-union-members` finding is reported but never auto-removed:
+    // A `--also union-members` finding is reported but never auto-removed:
     // the remover must skip the declaration entirely — including any span that
     // was coupled to it — so the source is left untouched.
     const source = '''

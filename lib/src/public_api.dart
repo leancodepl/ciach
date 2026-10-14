@@ -1,17 +1,47 @@
+import 'dart:io';
+
 import 'package:ciach/src/directives.dart';
 import 'package:ciach/src/extensions.dart';
 import 'package:ciach/src/packages.dart';
+import 'package:ciach/src/paths.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
+import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
 
 /// Declarations importable by other packages, read from directives only.
 final class PublicApi {
-  PublicApi._(this._rootPath, this._inLib, this._libraryOf, this._visible);
+  PublicApi._(
+    this._rootPath,
+    this._inLib,
+    this._libraryOf,
+    this._visible,
+    this.packages,
+  );
 
-  factory PublicApi.scan(String rootPath) {
+  /// The API of the packages under [rootPath] that [exportedPackages] match:
+  /// globs, relative to [rootPath], of the packages that packages outside the
+  /// analysis import.
+  factory PublicApi.scan(
+    String rootPath, {
+    required List<String> exportedPackages,
+  }) {
     final tree = scanPackageTree(rootPath);
-    final libDirOf = _libDirOf(tree);
+    final globs = [
+      for (final pattern in exportedPackages) Glob(pattern, context: p.posix),
+    ];
+    final packages = {
+      for (final libDir in tree.libDirs.sorted())
+        if (Directory(libDir).existsSync())
+          p.dirname(libDir): globs.any(
+            (glob) => glob.matches(relativePosix(p.dirname(libDir), rootPath)),
+          ),
+    };
+    final libDirs = {
+      for (final MapEntry(key: dir, value: exported) in packages.entries)
+        if (exported) p.join(dir, 'lib'),
+    };
+    final libDirOf = _libDirOf(tree.dartFiles, libDirs);
     final libraries = _readDirectives(libDirOf.keys, PackageResolver());
     final libraryOf = _libraryOfParts(libraries);
     return ._(
@@ -19,14 +49,15 @@ final class PublicApi {
       libDirOf.keys.toSet(),
       libraryOf,
       _visibleNames(libraries, libraryOf, libDirOf),
+      packages,
     );
   }
 
   /// The `lib/` each Dart file under one sits in: the nearest above it.
-  static Map<String, String> _libDirOf(PackageTree tree) => {
-    for (final path in tree.dartFiles)
-      path: ?_nearestLibDir(path, tree.libDirs),
-  };
+  static Map<String, String> _libDirOf(
+    Set<String> dartFiles,
+    Set<String> libDirs,
+  ) => {for (final path in dartFiles) path: ?_nearestLibDir(path, libDirs)};
 
   static String? _nearestLibDir(String path, Set<String> libDirs) {
     for (
@@ -104,6 +135,13 @@ final class PublicApi {
   final Set<String> _inLib;
   final Map<String, String> _libraryOf;
   final Map<String, _Names> _visible;
+
+  /// The directory of every package with a `lib/` under the root, with
+  /// whether [PublicApi.scan]'s globs match it.
+  final Map<String, bool> packages;
+
+  /// Whether no package's API is part of this.
+  bool get isEmpty => _inLib.isEmpty;
 
   /// Whether another package could import the file at [path]: one under a
   /// package's `lib/`, or anywhere outside the scanned root.

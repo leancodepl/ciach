@@ -83,11 +83,7 @@ void writeReport(
 /// finding or an empty file remain, else 0.
 int exitCodeFor(FinderResult result, ResolvedOptions resolved) {
   if (resolved.setExitIfChanged) {
-    // Public findings are still reported; --no-fail-public only drops them from the exit code.
-    final failing = resolved.failPublic
-        ? result.unused
-        : result.unused.where((d) => d.isPrivate);
-    if (failing.isNotEmpty || result.allEmptyFiles.isNotEmpty) {
+    if (result.unused.isNotEmpty || result.allEmptyFiles.isNotEmpty) {
       return 1;
     }
   }

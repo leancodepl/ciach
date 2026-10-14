@@ -31,7 +31,7 @@ void main() {
 
   // Dog is instantiated (so both classes are used), but sound() is never
   // called. Animal.sound is therefore genuinely unused, and Dog.sound is only
-  // reported when overrides are included (--overrides).
+  // reported when overrides are included (--also overrides).
   final Animal animal = Dog();
   print(animal);
   (animal as Dog).pace(Direction.north);
@@ -60,7 +60,7 @@ void main() {
   print(typed);
 
   // Constructs LiveSignal -> a real, non-pattern use, so it is never flagged as
-  // a dead union member even under --unused-union-members. Also exercises the
+  // a dead union member even under --also union-members. Also exercises the
   // three pattern-matching sites over Signal.
   final Signal signal = LiveSignal();
   print(describeStatement(signal));

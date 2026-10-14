@@ -31,7 +31,7 @@ class Plain {
 }
 
 /// A visible `.toJson()` call keeps this hook used, so it is never flagged —
-/// with or without `--report-tojson`.
+/// with or without `--also tojson`.
 class Visible {
   Visible(this.v);
 
@@ -60,7 +60,7 @@ class Stringy {
 }
 
 /// Control: a `toJson` returning an unrelated domain type is not a JSON hook, so
-/// an unused one stays flagged even without `--report-tojson`.
+/// an unused one stays flagged even without `--also tojson`.
 class Domainy {
   Domainy(this.v);
 

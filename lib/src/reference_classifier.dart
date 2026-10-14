@@ -30,7 +30,7 @@ class ReferenceClassifier {
   final SourceIndex _sources;
 
   /// Whether a class matched only by a type pattern (never constructed) counts
-  /// as dead — the opt-in `--unused-union-members` behavior.
+  /// as dead — the opt-in `--also union-members` behavior.
   final bool unusedUnionMembers;
 
   /// Classifies [candidate] from the [refs] reported for it, consulting
@@ -80,7 +80,7 @@ class ReferenceClassifier {
         hasExternalDoc = true;
         continue;
       }
-      // With --unused-union-members, a reference that is confidently a *type
+      // With --also union-members, a reference that is confidently a *type
       // pattern* (a `case`/if-case/while-case pattern, or a switch-expression
       // arm) is a *match*, not a construction: if the type is never
       // constructed, no such match can ever fire, so it is discounted like a
@@ -117,7 +117,7 @@ class ReferenceClassifier {
   }
 
   /// Whether [candidate] — already classified as unused under
-  /// `--unused-union-members` — is kept dead by *type patterns*: at least one
+  /// `--also union-members` — is kept dead by *type patterns*: at least one
   /// of its non-self, non-doc references is a `case`/switch-expression pattern
   /// match rather than a construction.
   bool isPatternMatchedClass(Candidate candidate, List<Location> refs) =>

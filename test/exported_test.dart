@@ -8,7 +8,8 @@ import 'package:ciach/src/models.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-/// `--no-exported` depends on the package layout, so this builds a package:
+/// Leaving out the exported API depends on the package layout, so this builds
+/// a package:
 /// - `lib/exported_pkg.dart`, a public library exporting `lib/src/api.dart`;
 /// - `lib/src/api.dart`, whose signatures each hand out one type of
 ///   `lib/src/types.dart` in a different way;
@@ -16,8 +17,8 @@ import 'package:test/test.dart';
 ///   member;
 /// - `bin/` and `test/`, which no other package can import.
 ///
-/// With `includeExported: false`, a type's members are kept only when an
-/// exported signature hands the type out.
+/// With the package in `exportedPackages`, a type's members are kept only when
+/// an exported signature hands the type out.
 void main() {
   late Directory root;
 
@@ -86,8 +87,8 @@ void work() {
   final Named n = .named();
 }
 ''');
-    // Every `…Dead` member is dead. With --no-exported, only those of types
-    // api.dart doesn't hand out are reported.
+    // Every `…Dead` member is dead. Leaving out the exported API, only those of
+    // types api.dart doesn't hand out are reported.
     write('lib/src/types.dart', '''
 class Client {
   Config get config => Config();
@@ -198,9 +199,12 @@ void main() => Helper().used();
 
   tearDownAll(() => root.deleteSync(recursive: true));
 
-  Future<Set<String>> dead({required bool includeExported}) async {
+  Future<Set<String>> dead({required bool leaveOutApi}) async {
     final result = await Ciach(
-      FinderOptions(rootPath: root.path, includeExported: includeExported),
+      FinderOptions(
+        rootPath: root.path,
+        exportedPackages: leaveOutApi ? const ['**'] : const [],
+      ),
     ).run();
     return {for (final decl in result.unused) decl.qualifiedName};
   }
@@ -223,7 +227,7 @@ void main() => Helper().used();
   };
 
   test('everything under test is dead', () async {
-    expect(await dead(includeExported: true), {
+    expect(await dead(leaveOutApi: false), {
       ...internal,
       'publicTopLevel',
       'createClient',
@@ -260,6 +264,6 @@ void main() => Helper().used();
   });
 
   test('what another package can reach is kept', () async {
-    expect(await dead(includeExported: false), internal);
+    expect(await dead(leaveOutApi: true), internal);
   });
 }

@@ -4,6 +4,27 @@
   inside, such as `int a = 1, /* note */ b = 2;`. Before, it left `int ;`
   behind, or kept a declarator it couldn't cut without saying so.
   ([#128](https://github.com/leancodepl/ciach/pull/128))
+- **Breaking:** `--overrides`, `--operators`, `--report-tojson` and
+  `--unused-union-members` are now one option, `--also`, and
+  `--generated-suffix` is replaced by `--generated-glob`. `--fail-public` is
+  gone. Using a removed option is an error that says what to use instead. See
+  [MIGRATION.md](MIGRATION.md).
+  ([#105](https://github.com/leancodepl/ciach/pull/105))
+- **Breaking:** By default, ciach no longer reports what other packages can
+  import. To check it, list in `exported-packages` only the packages that code
+  outside the analysis imports, or set it to `[]` to check every package.
+  `--exported` is gone.
+  ([#105](https://github.com/leancodepl/ciach/pull/105))
+- Unused translations are reported by default when an `l10n.yaml` is present.
+  ([#105](https://github.com/leancodepl/ciach/pull/105))
+- An analyzer plugin that `analysis_options.yaml` loads by path, and the files
+  that `flutterfire configure` writes, are no longer reported as unused.
+  ([#105](https://github.com/leancodepl/ciach/pull/105))
+- With `-v`, ciach suggests an `--analysis-root` when another package in the
+  repository uses the scanned one through a `path:` dependency.
+  ([#105](https://github.com/leancodepl/ciach/pull/105))
+- `--help` lists the options in groups.
+  ([#105](https://github.com/leancodepl/ciach/pull/105))
 - If a class, enum, mixin or extension type is mentioned only in doc comments
   and has unused members, ciach now reports the type once, and `--remove`
   leaves it alone. Before, ciach reported each unused member, and `--remove`

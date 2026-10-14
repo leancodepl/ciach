@@ -40,14 +40,11 @@ void main() {
 path: packages/app
 analysis-root: .
 public: false
-exported: false
+exported-packages: [packages/shared]
 generated: true
 project-config: false
-unused-translations: true
-overrides: true
-operators: true
-unused-union-members: true
-report-tojson: true
+unused-translations: false
+also: [overrides, operators, union-members, tojson]
 transitive: true
 set-exit-if-changed: true
 remove: true
@@ -57,8 +54,6 @@ exclude:
   - 'tool/**'
 include:
   - 'lib/**'
-generated-suffix:
-  - .gc.dart
 generated-glob:
   - 'lib/l10n/**'
 entry-points:
@@ -78,10 +73,10 @@ dart: /sdk/bin/dart
       expect(resolved.rootPath, 'packages/app');
       expect(resolved.analysisRootPath, '.');
       expect(resolved.includePublic, isFalse);
-      expect(resolved.includeExported, isFalse);
+      expect(resolved.exportedPackages, ['packages/shared']);
       expect(resolved.includeGenerated, isTrue);
       expect(resolved.projectConfig, isFalse);
-      expect(resolved.unusedTranslations, isTrue);
+      expect(resolved.unusedTranslations, isFalse);
       expect(resolved.overrides, isTrue);
       expect(resolved.operators, isTrue);
       expect(resolved.unusedUnionMembers, isTrue);
@@ -97,7 +92,6 @@ dart: /sdk/bin/dart
         'bootstrap',
         'Harness.start in test/a.dart or test/b.dart',
       ]);
-      expect(resolved.additionalGeneratedSuffixes, ['.gc.dart']);
       expect(resolved.additionalGeneratedGlobs, ['lib/l10n/**']);
       expect(resolved.kinds, <SymbolKind>{.class$, .function});
       expect(resolved.format, 'github');
@@ -170,6 +164,107 @@ concurrency: 4
           isFormatException('ciach.yaml', contains("unknown option 'publik'")),
         ),
       );
+    });
+
+    test('names what replaced a removed option', () {
+      Matcher removed(String message) => throwsA(
+        isA<FormatException>().having((e) => e.message, 'message', message),
+      );
+
+      expect(
+        () => ConfigFile.parse('overrides: true', origin: 'ciach.yaml'),
+        removed(
+          'ciach.yaml: `overrides` was removed: use `also: [overrides]`.',
+        ),
+      );
+      expect(
+        () => ConfigFile.parse('exported: true', origin: 'ciach.yaml'),
+        removed(
+          'ciach.yaml: `exported` was removed: use `exported-packages: []`.',
+        ),
+      );
+      expect(
+        () => ConfigFile.parse(
+          'generated-suffix: [.gc.dart]',
+          origin: 'ciach.yaml',
+        ),
+        removed(
+          "ciach.yaml: `generated-suffix` was removed: use `generated-glob: ['**/*.gc.dart']`.",
+        ),
+      );
+      expect(
+        () => ConfigFile.parse('fail-public: false', origin: 'ciach.yaml'),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            startsWith('ciach.yaml: `fail-public` was removed: '),
+          ),
+        ),
+      );
+    });
+
+    test('says to drop a removed option set to what is the default now', () {
+      expect(
+        () => ConfigFile.parse('operators: false', origin: 'ciach.yaml'),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            'ciach.yaml: `operators` was removed: that is the default now, so drop it.',
+          ),
+        ),
+      );
+    });
+
+    test('rejects an unknown value under also', () {
+      expect(
+        () =>
+            resolve(const [], .parse('also: [override]', origin: 'ciach.yaml')),
+        throwsA(
+          isA<UsageException>().having(
+            (e) => e.message,
+            'message',
+            contains("Unknown value 'override' for `also`."),
+          ),
+        ),
+      );
+    });
+
+    test('removedOptionMessage names what replaced a removed flag', () {
+      expect(
+        removedOptionMessage(['lib', '--no-fail-public']),
+        startsWith('`--no-fail-public` was removed: '),
+      );
+      expect(
+        removedOptionMessage(['--report-tojson']),
+        '`--report-tojson` was removed: use `--also tojson`.',
+      );
+      expect(
+        removedOptionMessage(['--no-operators']),
+        '`--no-operators` was removed: that is the default now, so drop it.',
+      );
+      expect(
+        removedOptionMessage(['--exported']),
+        '`--exported` was removed: use `--exported-packages=`.',
+      );
+      expect(
+        removedOptionMessage(['--generated-suffix', '.gc.dart']),
+        "`--generated-suffix` was removed: use `--generated-glob '**/*.gc.dart'`.",
+      );
+      expect(
+        removedOptionMessage(['--fail-public']),
+        '`--fail-public` was removed: that is the default now, so drop it.',
+      );
+      expect(removedOptionMessage(['--', '--overrides']), isNull);
+      expect(removedOptionMessage(['--also', 'overrides']), isNull);
+    });
+
+    test('an empty --exported-packages checks the API of every package', () {
+      expect(resolve(['--exported-packages=']).exportedPackages, isEmpty);
+      expect(resolve(['--exported-packages', 'packages/*']).exportedPackages, [
+        'packages/*',
+      ]);
     });
 
     test('rejects a top-level document that is not a map', () {
@@ -276,10 +371,8 @@ concurrency: 4
         '--generated',
         '--project-config',
         '--unused-translations',
-        '--overrides',
-        '--operators',
-        '--unused-union-members',
-        '--report-tojson',
+        '--also',
+        'overrides',
         '--set-exit-if-changed',
         '--remove',
         '--force',
@@ -287,8 +380,6 @@ concurrency: 4
         'test/**',
         '-i',
         'lib/**',
-        '--generated-suffix',
-        '.gc.dart',
         '--generated-glob',
         'lib/l10n/**',
         '-k',
@@ -444,10 +535,10 @@ concurrency: 4
 
       expect(resolved.rootPath, '.');
       expect(resolved.includePublic, isTrue);
-      expect(resolved.includeExported, isTrue);
+      expect(resolved.exportedPackages, ['**']);
       expect(resolved.includeGenerated, isFalse);
       expect(resolved.projectConfig, isTrue);
-      expect(resolved.unusedTranslations, isFalse);
+      expect(resolved.unusedTranslations, isTrue);
       expect(resolved.overrides, isFalse);
       expect(resolved.operators, isFalse);
       expect(resolved.unusedUnionMembers, isFalse);
@@ -458,7 +549,6 @@ concurrency: 4
       expect(resolved.force, isFalse);
       expect(resolved.includeGlobs, isEmpty);
       expect(resolved.excludeGlobs, isEmpty);
-      expect(resolved.additionalGeneratedSuffixes, isEmpty);
       expect(resolved.additionalGeneratedGlobs, isEmpty);
       expect(resolved.kinds, FinderOptions.defaultKinds);
       expect(resolved.format, 'text');
@@ -521,10 +611,6 @@ dart: /sdk/bin/dart
         'test/**',
         '-e',
         'tool/**',
-        '--generated-suffix',
-        '.gc.dart',
-        '--generated-suffix',
-        '.pb.dart',
         '--generated-glob',
         'lib/l10n/**',
         '--generated-glob',
@@ -532,7 +618,6 @@ dart: /sdk/bin/dart
       ]);
 
       expect(resolved.excludeGlobs, ['test/**', 'tool/**']);
-      expect(resolved.additionalGeneratedSuffixes, ['.gc.dart', '.pb.dart']);
       expect(resolved.additionalGeneratedGlobs, [
         'lib/l10n/**',
         'third_party/**',
@@ -785,7 +870,8 @@ format: text''', origin: 'c.yaml'),
       final resolved = resolve(const [
         '--no-public',
         '--no-project-config',
-        '--overrides',
+        '--also',
+        'overrides',
         '-e',
         'test/**',
         '-j',
@@ -830,10 +916,10 @@ dependencies:
         options.entryPoints.map((e) => e.name),
         containsAllInOrder(['bootstrap', 'onRequest']),
       );
+      // The template is scanned for unused messages, so it isn't generated.
       expect(options.additionalGeneratedGlobs, [
         'gen/**',
         'lib/l10n/app_localizations_*.dart',
-        'lib/l10n/app_localizations.dart',
       ]);
     });
 
