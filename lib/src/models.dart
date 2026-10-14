@@ -351,11 +351,6 @@ class UnusedDeclaration {
     cut: cut ?? this.cut,
   );
 
-  /// This finding with [removals] added to its [coupledRemovals]. A removal
-  /// that it already has is not added again.
-  UnusedDeclaration withCoupledRemovals(Iterable<CoupledRemoval> removals) =>
-      copyWith(coupledRemovals: {...coupledRemovals, ...removals}.toList());
-
   /// Fully qualified display name, e.g. `MyClass.myMethod`.
   String get qualifiedName =>
       container?.let((container) => '$container.$name') ?? name;
