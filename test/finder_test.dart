@@ -680,11 +680,10 @@ void main() {
     test('a used enum whose values are all unused is reported once, as '
         'report-only', () async {
       final result = await runGuards();
-      // No value is named individually and `.values` is never iterated, but
-      // the enum TYPE stays referenced, so removing the values would leave
-      // `enum EmptyableStatus {}`. (Enums reached via `.values` are instead
-      // treated as used and never reported — see the `enum `.values`
-      // detection fix` group.)
+      // No value is named and `.values` is never read, but the enum itself is
+      // used, so removing the values would leave `enum EmptyableStatus {}`.
+      // An enum whose `.values` is read counts as used instead; the group
+      // about `.values` below tests that.
       expect(
         [
           for (final d in result.unused)
@@ -696,7 +695,7 @@ void main() {
             'EmptyableStatus',
             SymbolKind.enum$,
             true,
-            'none of its values are used, and an enum needs at least one',
+            'none of its values are used, and an enum needs at least one value',
           ),
         ],
       );

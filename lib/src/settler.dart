@@ -452,7 +452,6 @@ final class Settler {
       for (final (i, candidate) in candidates.indexed)
         if (statuses[i] == .docOnly && candidate.isType) candidate,
     ];
-    final docOnlyTypeKeys = {for (final type in docOnlyTypes) type.key};
 
     final reported = <int>{
       for (var i = 0; i < candidates.length; i++)
@@ -471,7 +470,6 @@ final class Settler {
       candidates,
       statuses,
       reported,
-      docOnlyTypeKeys,
       safety,
     );
 
@@ -736,31 +734,28 @@ final class Settler {
     List<Candidate> candidates,
     List<RefStatus> statuses,
     Set<int> reported,
-    Set<DeclKey> docOnlyTypes,
     RemoveSafety safety,
   ) {
     final types = {
       for (final (i, candidate) in candidates.indexed)
-        if (candidate.isType &&
-            ((statuses[i] == .docOnly &&
-                    docOnlyTypes.contains(candidate.key)) ||
-                (statuses[i] == .used &&
-                    candidate.symbol.kind == .enum$ &&
-                    safety.emptiedEnums.contains(candidate.key))))
-          candidate.key: i,
+        if (candidate.isType)
+          if (switch ((statuses[i], candidate.symbol.kind)) {
+                (.docOnly, _) => Verdict.docOnlyTypeHint,
+                (.used, .enum$)
+                    when safety.emptiedEnums.contains(candidate.key) =>
+                  Verdict.emptiedEnumHint,
+                _ => null,
+              }
+              case final hint?)
+            candidate.key: (type: i, hint: hint),
     };
-    final reportOnlyTypes = <DeclKey, ({int type, String hint})>{};
-    for (final i in reported.whereNot(_removableBefore.contains)) {
-      if (types[candidates[i].containerKey] case final type?) {
-        reportOnlyTypes[candidates[type].key] = (
-          type: type,
-          hint: statuses[type] == .docOnly
-              ? Verdict.docOnlyTypeHint
-              : Verdict.emptiedEnumHint,
-        );
-      }
-    }
-    return reportOnlyTypes;
+    return {
+      for (final key
+          in reported
+              .whereNot(_removableBefore.contains)
+              .map((i) => candidates[i].containerKey))
+        ?key: ?types[key],
+    };
   }
 
   /// Removes from [unused] each member reported only because its class is

@@ -67,7 +67,7 @@ ciach --remove --force                    # …without asking
 ciach --verbose                           # explain each step
 ```
 
-An unused class, mixin, extension type, enum or extension is reported once,
+An unused class, mixin, extension, extension type or enum is reported once,
 without its members, and `--remove` deletes it with its members. If an enum is
 used but none of its values are, ciach reports the enum once and doesn't remove
 anything, because an enum needs at least one value.
