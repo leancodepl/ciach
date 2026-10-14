@@ -18,8 +18,8 @@ typedef _Span = ({int start, int end});
 /// Declarations whose range is fully contained within another declaration's
 /// range (e.g. a method of a class that is itself unused) are removed once,
 /// as part of removing the enclosing declaration. A field or top-level
-/// variable goes by its [UnusedDeclaration.cut], which the finder reads from
-/// the syntax nodes; one without a cut is left in place.
+/// variable is removed by deleting its [UnusedDeclaration.cut], which the
+/// finder works out; one without a cut is left in place.
 ///
 /// A rewritten file left with nothing but directives is then deleted, as are
 /// the [emptyFiles]; see `deleteEmptiedFiles`.
@@ -163,9 +163,9 @@ String _removeFromContent(String content, List<UnusedDeclaration> decls) {
   return buffer.toString();
 }
 
-/// The span to delete for [decl], other than an enum value: a field's or a
-/// variable's [UnusedDeclaration.cut], or [_spanFor]. A declarator without a
-/// cut stays.
+/// Returns the span to delete for [decl], which isn't an enum value: the
+/// [UnusedDeclaration.cut] of a field or variable, or [_spanFor] for anything
+/// else. Returns `null` for a field or variable without a cut, which stays.
 _Span? _spanOf(
   UnusedDeclaration decl,
   String content,
@@ -179,7 +179,7 @@ _Span? _spanOf(
     return _wholeLines(cut, content, lines, offsetOf);
   }
   _log.fine(
-    'Left ${decl.qualifiedName} in ${decl.filePath} in place: no syntax node says where it ends.',
+    'Left ${decl.qualifiedName} in ${decl.filePath} in place: the finder found no range to cut it out by.',
   );
   return null;
 }
@@ -217,8 +217,9 @@ _Span? _spanFor(
   return (start: start, end: _consumeTrailingBlankLine(content, end));
 }
 
-/// [cut], extended to whole lines when nothing but whitespace surrounds it on
-/// its first and last line, so a removed statement leaves no blank line.
+/// Returns [cut] as a span. When only whitespace surrounds it on its first and
+/// last lines, the span covers those whole lines, so a removed statement
+/// leaves no empty line behind.
 _Span _wholeLines(
   DeclarationRange cut,
   String content,

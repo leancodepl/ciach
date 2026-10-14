@@ -51,7 +51,7 @@ void alsoKept() {}
           cut: cut,
         );
 
-    test('goes by its cut, with the whole lines the cut covers', () {
+    test('deletes its cut, extended to whole lines', () {
       const source = '''
 class C {
   /// Doc.
@@ -76,7 +76,7 @@ class C {
 ''');
     });
 
-    test('leaves the rest of its statement when its cut is within it', () {
+    test('deletes only its cut when the statement keeps other variables', () {
       const source = 'int a = 1, b = 2, c = 3;\n';
       final result = applyRemoval(source, [
         declarator(0, 11, (
@@ -89,7 +89,7 @@ class C {
       expect(result, 'int a = 1, c = 3;\n');
     });
 
-    test('stays without a cut', () {
+    test('stays when it has no cut', () {
       const source = 'int a = 1, b = 2;\n';
       expect(applyRemoval(source, [declarator(0, 4, null)]), source);
     });
@@ -139,10 +139,10 @@ class C {
     expectBalanced(result);
   });
 
-  test('a declarator reported and coupled at once is removed once', () {
-    // Each of the two dead members couples its own declarator of one
-    // statement, and the second declarator is also a finding in its own right.
-    // All of them carry the statement as their cut.
+  test('a variable both reported and coupled is removed once', () {
+    // `right` is a finding, and is also coupled to the dead member it
+    // overrides; `left` is coupled too. All three entries have the whole
+    // statement as their cut.
     const source = '''
 class Pair {
   final int left = 1, right = 2;
@@ -159,7 +159,7 @@ class Pair {
       range: (startLine: 1, startColumn: 22, endLine: 1, endColumn: 31),
       cut: statement,
       coupledRemovals: [
-        // The same declarator, coupled to the member it overrides.
+        // `right` again, coupled to the member it overrides.
         (
           filePath: 'lib.dart',
           kind: .field,
@@ -167,7 +167,7 @@ class Pair {
           fullRange: (startLine: 1, startColumn: 22, endLine: 1, endColumn: 31),
           cut: statement,
         ),
-        // And the statement's other declarator.
+        // `left`, the statement's other variable.
         (
           filePath: 'lib.dart',
           kind: .field,
@@ -196,8 +196,8 @@ class Mixed implements Halved {
   final int dead = 1, live = 2;
 }
 ''';
-      // `int get dead;` is line 1, cols 2..15. The settler cuts `dead = 1, ` out
-      // of line 5, cols 12..22, up to the next declarator.
+      // `int get dead;` is line 1, cols 2..15. The cut of its override is
+      // `dead = 1, ` on line 5, cols 12..22, up to the next variable.
       const member = UnusedDeclaration(
         name: 'dead',
         kind: .property,

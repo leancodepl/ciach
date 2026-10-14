@@ -158,13 +158,14 @@ final class Settler {
     );
   }
 
-  /// [unused] with the cut of each removable field and top-level variable,
-  /// itself or coupled to a finding. The cuts are read together, so that two
-  /// declarators of one statement are cut as one. A finding with a declarator
-  /// whose statement the syntax nodes don't describe is left in place.
+  /// Returns [unused] with [UnusedDeclaration.cut] set on each removable field
+  /// and top-level variable, both findings and coupled removals.
   ///
-  /// Only here, once the dead ones are known, are the syntax nodes of their
-  /// names and of the other declarators in their statements fetched.
+  /// It first fetches the selection ranges this needs, for these variables
+  /// only. The cuts are worked out in one call, so two removed variables of
+  /// one statement are cut as one. A finding whose own cut, or the cut of a
+  /// variable coupled to it, can't be worked out becomes report-only, with
+  /// [Verdict.noCutHint].
   Future<List<UnusedDeclaration>> _withCuts(
     LspClient client,
     List<UnusedDeclaration> unused,
@@ -200,7 +201,7 @@ final class Settler {
     );
     await _fetch.fetchSelectionRanges(
       client,
-      _sources.declaratorProbes(declarators),
+      _sources.otherDeclaratorNames(declarators),
     );
     final cuts = _sources.declaratorCuts(declarators);
     UnusedDeclaration withCuts(UnusedDeclaration finding) {
@@ -218,10 +219,12 @@ final class Settler {
           else
             coupled,
       ];
-      bool uncut(SymbolKind kind, DeclarationRange? cut) =>
+      bool lacksCut(SymbolKind kind, DeclarationRange? cut) =>
           isDeclarator(kind) && cut == null;
-      if (uncut(finding.kind, cut) ||
-          coupledRemovals.any((coupled) => uncut(coupled.kind, coupled.cut))) {
+      if (lacksCut(finding.kind, cut) ||
+          coupledRemovals.any(
+            (coupled) => lacksCut(coupled.kind, coupled.cut),
+          )) {
         return finding.copyWith(removalBlocked: true, hint: Verdict.noCutHint);
       }
       return finding.copyWith(cut: cut, coupledRemovals: coupledRemovals);
@@ -446,8 +449,8 @@ final class Settler {
       }
     }
 
-    // A field or variable `--remove` can't cut stays, and so does what only
-    // it references.
+    // Make the fields and variables `--remove` can't cut out report-only now,
+    // so that the next `--transitive` round keeps alive what they reference.
     final cut = await _withCuts(client, unused, rootPath);
     final cutCandidateOf = {
       for (final (k, finding) in cut.indexed) finding: candidateOf[unused[k]]!,

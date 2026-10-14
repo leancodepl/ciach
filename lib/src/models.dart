@@ -26,9 +26,9 @@ typedef DeclarationRange = ({
   int endColumn,
 });
 
-/// The kinds of the declarations that share a statement with others, like the
-/// `a` and `b` of `int a = 1, b = 2;`. Their range covers just the declarator,
-/// so `--remove` deletes their [UnusedDeclaration.cut] instead.
+/// The kinds of declaration that can share a statement with others, like `a`
+/// and `b` in `int a = 1, b = 2;`. The `range` of one covers only `a = 1`, so
+/// `--remove` deletes its [UnusedDeclaration.cut] instead.
 const declaratorKinds = <SymbolKind>{.field, .variable, .constant};
 
 /// A declaration to remove together with a reported one. It names its own
@@ -271,10 +271,10 @@ class UnusedDeclaration {
   /// [range] extended to include the doc comment and annotations.
   final DeclarationRange fullRange;
 
-  /// For a `field`, `variable` or `constant`, the range `--remove` deletes:
-  /// the whole statement when it loses every declarator, else this declarator
-  /// with a neighboring comma. It comes from the syntax nodes, and without it
-  /// the declarator stays in place.
+  /// For a `field`, `variable` or `constant`, the text `--remove` deletes: the
+  /// whole statement when all its variables go, or this variable and one
+  /// adjacent comma when others stay. `null` when the finder couldn't work it
+  /// out; `--remove` then leaves the variable in place.
   final DeclarationRange? cut;
 
   /// Whether this is an enum value (e.g. `south` in `enum Direction`).

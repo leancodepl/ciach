@@ -467,8 +467,8 @@ void main() {
     });
 
     test('couples an override sharing a field statement', () async {
-      // `final int left = 1, right = 2;` — each declarator is coupled as a
-      // field, and the settler cuts the statement whole as both go.
+      // `final int left = 1, right = 2;`: each variable is coupled as a field,
+      // and since both go, the cut is the whole statement.
       final result = await runOverrides();
       for (final name in ['Paired.left', 'Paired.right']) {
         final declarator = finding(result, name);

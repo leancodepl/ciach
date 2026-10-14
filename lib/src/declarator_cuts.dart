@@ -1,5 +1,10 @@
-/// Where `--remove` cuts the fields and top-level variables it deletes, read
-/// from the analyzer's syntax nodes rather than from the text.
+/// Works out the text `--remove` deletes for a field or top-level variable.
+///
+/// One statement can declare several variables, like `int a = 1, b = 2;`.
+/// Removing some of them cuts each out with a comma; removing all of them
+/// deletes the whole statement. The ranges come from the analysis server's
+/// selection ranges, so comments and line breaks in the statement don't
+/// matter.
 library;
 
 import 'package:ciach/src/lsp/semantic_tokens.dart';
@@ -9,14 +14,19 @@ import 'package:ciach/src/symbols.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position, Range, SelectionRange;
 
-/// A field or top-level variable: its file and the start of its name.
+/// A field or top-level variable, identified by its file and the position of
+/// its name.
 typedef DeclaratorAt = ({String path, Position name});
 
 extension DeclaratorCuts on SourceIndex {
-  /// Returns, by file, the names declared in the statements of [declarators]
-  /// outside the declarators themselves, whose syntax nodes tell the other
-  /// declarators apart. A statement with one declarator needs none.
-  Map<String, Set<Position>> declaratorProbes(
+  /// Returns, grouped by file, the positions of the other variable names
+  /// declared in the same statements as [declarators].
+  ///
+  /// [declaratorCuts] needs the selection ranges at these positions to tell
+  /// where each variable of a statement starts and ends. Names inside a
+  /// variable's own initializer, like a closure's parameters, are left out.
+  /// The selection range at each of [declarators] must already be cached.
+  Map<String, Set<Position>> otherDeclaratorNames(
     Iterable<DeclaratorAt> declarators,
   ) {
     final probes = <String, Set<Position>>{};
@@ -33,21 +43,22 @@ extension DeclaratorCuts on SourceIndex {
     return probes;
   }
 
-  /// The starts of the names declared in [range] of [path].
+  /// Returns the position of every name declared within [range] of [path],
+  /// according to its semantic tokens.
   List<Position> _namesIn(String path, Range range) => [
-    for (final token
-        in semanticTokens(path)?.between(range.start, range.end) ??
-            const <SemanticToken>[])
-      if (token.modifiers.contains('declaration')) token.start,
+    if (semanticTokens(path) case final tokens?)
+      for (final token in tokens.between(range.start, range.end))
+        if (token.modifiers.contains('declaration')) token.start,
   ];
 
   /// Returns the range `--remove` deletes for each of [declarators].
   ///
-  /// When a statement loses every declarator, the whole statement goes, with
-  /// its doc comment, annotations and `;`. Otherwise each run of removed
-  /// declarators goes with the comma after it, or with the comma before it
-  /// when it ends the list. A declarator gets `null` when a syntax node it
-  /// needs was not fetched.
+  /// When every variable a statement declares is in [declarators], the range
+  /// is the whole statement, with its doc comment, annotations and `;`.
+  /// Otherwise each group of adjacent removed variables is cut out with the
+  /// comma after it, or, for a group that ends the statement, the comma before
+  /// it. The range is `null` when a selection range it depends on isn't
+  /// cached.
   Map<DeclaratorAt, DeclarationRange?> declaratorCuts(
     Iterable<DeclaratorAt> declarators,
   ) {
@@ -65,14 +76,17 @@ extension DeclaratorCuts on SourceIndex {
       }
     }
     for (final MapEntry(key: (path, list), value: removed) in byList.entries) {
-      cuts.addAll(_cutsIn(path, list, removed));
+      cuts.addAll(_cutsInStatement(path, list, removed));
     }
     return cuts;
   }
 
-  /// Does [declaratorCuts] for the [removed] declarators of the declarator
-  /// list at [list], by the start of their syntax nodes.
-  Map<DeclaratorAt, DeclarationRange?> _cutsIn(
+  /// Returns [declaratorCuts] for the variables of one statement.
+  ///
+  /// [list] is the range of the statement's declaration list, like
+  /// `int a = 1, b = 2` without the `;`. [removed] maps the start of each
+  /// removed variable, like `a = 1`, to that variable.
+  Map<DeclaratorAt, DeclarationRange?> _cutsInStatement(
     String path,
     Range list,
     Map<Position, DeclaratorAt> removed,
@@ -103,13 +117,14 @@ extension DeclaratorCuts on SourceIndex {
     return cuts;
   }
 
-  /// Returns the ranges of the declarators in the declarator list at [list],
-  /// in order, or `null` when one of their syntax nodes was not fetched.
+  /// Returns the range of each variable in the declaration list at [list], in
+  /// source order: `a = 1` and `b = 2` for `int a = 1, b = 2`. Returns `null`
+  /// when a selection range it needs isn't cached.
   List<Range>? _declaratorsIn(String path, Range list) {
     final declarators = <Range>[];
     for (final name in _namesIn(path, list)) {
-      // A name declared in an initializer, such as a closure's parameter,
-      // sits inside its declarator, and its node was not fetched.
+      // Skip names inside the previous variable's initializer, like a
+      // closure's parameters. Their selection ranges were never fetched.
       if (declarators.lastOrNull?.contains(name) ?? false) {
         continue;
       }
@@ -117,8 +132,8 @@ extension DeclaratorCuts on SourceIndex {
       if (node == null) {
         return null;
       }
-      // One declared in the type, such as a function type's parameter, sits
-      // deeper.
+      // A name whose node isn't directly in the list, like a parameter of a
+      // function type, isn't one of its variables.
       if (node.parent?.range == list) {
         declarators.add(node.range);
       }
@@ -127,8 +142,8 @@ extension DeclaratorCuts on SourceIndex {
   }
 }
 
-/// Returns the `[i, j)` index ranges of consecutive [ranges] whose start
-/// [isCut] accepts.
+/// Returns the index range `[i, j)` of each longest run of adjacent [ranges]
+/// whose start [isCut] accepts.
 Iterable<(int, int)> _runs(
   List<Range> ranges,
   bool Function(Position start) isCut,

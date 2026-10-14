@@ -13,8 +13,8 @@ import 'package:test/test.dart';
 
 import 'support/removal.dart';
 
-/// Cuts fields and top-level variables out of their statements as the
-/// analysis server reads them, then removes them with the remover.
+/// Removes fields and top-level variables with cuts worked out from a real
+/// analysis server.
 void main() {
   late Directory tempDir;
   late LspClient client;
@@ -32,8 +32,8 @@ void main() {
     tempDir.deleteSync(recursive: true);
   });
 
-  /// Returns [source] after removing the variables named [names] from it, cut
-  /// where the syntax nodes say.
+  /// Writes [source] to a new file, removes the variables named [names] from it
+  /// as `--remove` would, and returns the result.
   Future<String> remove(String source, List<String> names) async {
     final path = p.join(tempDir.path, 'lib${files++}.dart');
     File(path).writeAsStringSync(source);
@@ -58,12 +58,15 @@ void main() {
               .start,
         ),
     ];
-    // As the settler does: the removed names first, then the other names in
-    // their statements.
+    // Fetch selection ranges the way the settler does: first at the removed
+    // names, then at the other names in their statements.
     await fetch.fetchSelectionRanges(client, {
       path: {for (final declarator in removed) declarator.name},
     });
-    await fetch.fetchSelectionRanges(client, sources.declaratorProbes(removed));
+    await fetch.fetchSelectionRanges(
+      client,
+      sources.otherDeclaratorNames(removed),
+    );
     final cuts = sources.declaratorCuts(removed);
     removeDeclarations([
       for (final declarator in removed)
@@ -110,7 +113,7 @@ class C {
     expect(await remove(source, ['b', 'c']), 'var a = 1;\n');
   });
 
-  test('keeps a comment between declarators out of the cut shape', () async {
+  test('handles comments between and after variables', () async {
     expect(
       await remove(
         '''
@@ -150,7 +153,7 @@ class C {
     );
   });
 
-  test('a name declared in an initializer is no declarator', () async {
+  test('does not take a closure parameter for a variable', () async {
     expect(
       await remove('var a = 1, b = [1].map((x) => x).length;\n', ['a']),
       'var b = [1].map((x) => x).length;\n',
