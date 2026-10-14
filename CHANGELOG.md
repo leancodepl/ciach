@@ -1,5 +1,10 @@
 ## Unreleased
 
+- ciach now reports an unused class, mixin, extension, extension type or enum
+  once, instead of also listing each of its members. The same goes for a class
+  or mixin that only `with` or `implements` clauses use. A used enum whose
+  values are all unused is reported once and left in place.
+  ([#121](https://github.com/leancodepl/ciach/pull/121))
 - ciach now reports a class or mixin whose members are all unused and that
   only `with` or `implements` clauses use, and `--remove` deletes it and
   removes it from those clauses. When other code still uses such a type,

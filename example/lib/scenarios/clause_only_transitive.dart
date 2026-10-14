@@ -6,7 +6,8 @@
 /// UNUSED with it.
 abstract interface class Shape<T> {}
 
-/// Used only in the `with` clause of `Tile` -> UNUSED (class), with the method.
+/// Used only in the `with` clause of `Tile` -> UNUSED (class), reported
+/// without its method.
 mixin Painter implements Shape<int> {
   void paint() {}
 }

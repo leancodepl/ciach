@@ -13,6 +13,7 @@ library;
 
 import 'dart:io';
 
+import 'package:ciach/src/clause_entries.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/finder.dart';
 import 'package:ciach/src/log.dart';
@@ -108,8 +109,8 @@ void main() {
       'UsedClass.shout',
       'UsedClass.unusedMethod',
       'UsedClass._unusedField',
+      // An unused class is reported without its members.
       'UnusedClass',
-      'UnusedClass.orphanMethod',
       // A fully dead class is reported as the whole CLASS, not just its
       // constructor (which is removed with it).
       'FullyDeadClass',
@@ -416,6 +417,13 @@ void main() {
     UnusedDeclaration finding(FinderResult result, String name) =>
         result.unused.firstWhere((d) => d.qualifiedName == name);
 
+    // A type that only `implements` clauses use is reported instead of its
+    // dead members, and its finding carries their overrides.
+    List<CoupledRemoval> overridesOf(UnusedDeclaration type) => [
+      for (final removal in type.coupledRemovals)
+        if (removal.kind != clauseCutKind) removal,
+    ];
+
     test('couples every override of a dead member to its removal', () async {
       final result = await runOverrides();
       final prime = finding(result, 'Pump.prime');
@@ -436,12 +444,14 @@ void main() {
     });
 
     test('couples an override that lives in another file', () async {
-      final close = finding(await runOverrides(), 'Valve.close');
-      expect(close.removalBlocked, isFalse);
+      final result = await runOverrides();
+      final valve = finding(result, 'Valve');
+      expect(valve.removalBlocked, isFalse);
       expect(
-        close.coupledRemovals.single.filePath,
+        overridesOf(valve).single.filePath,
         'lib/scenarios/overrides_impl.dart',
       );
+      expect(findByQualified(result, 'Valve.close'), isNull);
     });
 
     test('keeps a member whose override is in an unscanned file', () async {
@@ -455,9 +465,9 @@ void main() {
     });
 
     test('couples an override declared as a plain field', () async {
-      final reading = finding(await runOverrides(), 'Gauge.reading');
-      expect(reading.removalBlocked, isFalse);
-      expect(reading.coupledRemovals, hasLength(1));
+      final gauge = finding(await runOverrides(), 'Gauge');
+      expect(gauge.removalBlocked, isFalse);
+      expect(overridesOf(gauge).single.kind, SymbolKind.field);
     });
 
     test('keeps a member whose override is a declaring parameter', () async {
@@ -470,15 +480,12 @@ void main() {
       // `final int left = 1, right = 2;`: each variable is coupled as a field,
       // and since both go, the cut is the whole statement.
       final result = await runOverrides();
-      for (final name in ['Paired.left', 'Paired.right']) {
-        final declarator = finding(result, name);
-        expect(declarator.removalBlocked, isFalse, reason: name);
-        expect(
-          declarator.coupledRemovals.single.kind,
-          SymbolKind.field,
-          reason: name,
-        );
-      }
+      final paired = finding(result, 'Paired');
+      expect(paired.removalBlocked, isFalse);
+      expect(overridesOf(paired).map((r) => r.kind), [
+        SymbolKind.field,
+        SymbolKind.field,
+      ]);
       // Both are overrides, including the one with no annotation of its own.
       final names = result.unused.map((d) => d.qualifiedName).toSet();
       expect(names, isNot(contains('Pair.left')));
@@ -572,6 +579,8 @@ void main() {
       expect(decl!.removalBlocked, isTrue);
       // Nothing is coupled: `--also union-members` never removes arms.
       expect(decl.coupledRemovals, isEmpty);
+      // The class stays, so its unused getter is reported on its own.
+      expect(findByName(result, 'strength')?.removalBlocked, isFalse);
     });
 
     test('flag ON: a member that is also constructed is never flagged, nor is '
@@ -600,14 +609,15 @@ void main() {
 
   test('a reference from inside its own span keeps nothing alive', () async {
     // `_countdown` and `Walker._depth` only call themselves, and `Chain` is
-    // named only by its own field. `factorial` and `Walker._step` call
-    // themselves as well, but something else calls them, so they stay.
+    // named only by its own field, which is removed with it. `factorial` and
+    // `Walker._step` call themselves as well, but something else calls them,
+    // so they stay.
     expect(
       await findUnused(
         include: ['lib/scenarios/self_references.dart'],
         exclude: const [],
       ),
-      {'_countdown', 'Walker._depth', 'Chain', 'Chain.next'},
+      {'_countdown', 'Walker._depth', 'Chain'},
     );
   });
 
@@ -668,28 +678,28 @@ void main() {
         runFinder(include: ['lib/scenarios/guards.dart'], exclude: const []);
 
     test(
-      'emptying a still-referenced enum is reported but removal-blocked',
+      'a used enum whose values are all unused is reported once, as report-only',
       () async {
         final result = await runGuards();
-        // No value is named individually and `.values` is never iterated, but
-        // the enum TYPE stays referenced, so the empty-enum guard blocks removal
-        // instead of emptying the enum. (Enums reached via `.values` are
-        // instead treated as used and never reported — see the `enum `.values`
-        // detection fix` group.)
-        for (final qualified in const [
-          'EmptyableStatus.pending',
-          'EmptyableStatus.settled',
-        ]) {
-          final decl = findByQualified(result, qualified);
-          expect(decl, isNotNull, reason: '$qualified should be flagged dead');
-          // Removing every value would leave `enum EmptyableStatus {}`, so the
-          // finding is surfaced but --remove must leave it in place.
-          expect(
-            decl!.removalBlocked,
-            isTrue,
-            reason: '$qualified would empty a still-referenced enum',
-          );
-        }
+        // No value is named and `.values` is never read, but the enum itself is
+        // used, so removing the values would leave `enum EmptyableStatus {}`.
+        // An enum whose `.values` is read counts as used instead; the group
+        // about `.values` below tests that.
+        expect(
+          [
+            for (final d in result.unused)
+              if (d.qualifiedName.startsWith('EmptyableStatus'))
+                (d.qualifiedName, d.kind, d.removalBlocked, d.hint),
+          ],
+          [
+            (
+              'EmptyableStatus',
+              SymbolKind.enum$,
+              true,
+              'none of its values are used, and an enum needs at least one value',
+            ),
+          ],
+        );
       },
     );
 
@@ -759,7 +769,7 @@ void main() {
       expect(names(result.unused), {
         '_deadRoot',
         '_secondDeadRoot',
-        'Lone.only',
+        'Lone',
         'Token.fromJson',
       });
       expect(names(result.docOnly), {'_docLinkedFromDead'});
@@ -779,7 +789,7 @@ void main() {
         '_Egg',
         '_deadRoot',
         '_secondDeadRoot',
-        'Lone.only',
+        'Lone',
         '_onlyFromDeadRoot',
         '_deeper',
         '_sharedByDeadRoots',
@@ -795,7 +805,7 @@ void main() {
       List<DeadReferrer> via(String name) =>
           findByQualified(result, name)!.onlyReferencedFrom;
       expect(via('_deadRoot'), isEmpty, reason: 'dead in its own right');
-      expect(via('Lone.only'), isEmpty);
+      expect(via('Lone'), isEmpty);
       expect(via('_onlyFromDeadRoot'), [asOwner(result, '_deadRoot')]);
       expect(via('_deeper'), [asOwner(result, '_onlyFromDeadRoot')]);
       expect(via('_docLinkedFromDead'), [asOwner(result, '_deadRoot')]);
@@ -855,9 +865,10 @@ void main() {
     test('flag ON: a report-only finding stays, and keeps what it alone '
         'references', () async {
       final result = await runTransitive();
-      final only = findByQualified(result, 'Lone.only');
-      expect(only, isNotNull);
-      expect(only!.removalBlocked, isTrue, reason: 'would empty the enum');
+      final lone = findByQualified(result, 'Lone');
+      expect(lone, isNotNull);
+      expect(lone!.removalBlocked, isTrue, reason: 'its only value is unused');
+      expect(findByQualified(result, 'Lone.only'), isNull);
       expect(findByQualified(result, '_loneArg'), isNull);
     });
 
@@ -914,6 +925,57 @@ void main() {
     );
   });
 
+  group('dead types', () {
+    const fixture = ['lib/scenarios/dead_types.dart'];
+
+    for (final transitive in [false, true]) {
+      test(
+        'an unused class, mixin, extension type or enum is reported without its members (transitive: $transitive)',
+        () async {
+          final result = await runFinder(
+            include: fixture,
+            exclude: const [],
+            transitive: transitive,
+          );
+          expect(
+            [
+              for (final d in result.unused)
+                (d.qualifiedName, d.removalBlocked),
+            ],
+            [
+              ('DeadBox', false),
+              ('DeadTrait', false),
+              ('DeadId', false),
+              ('DeadLevel', false),
+            ],
+          );
+        },
+      );
+    }
+
+    test('--remove deletes each unused type and its members', () async {
+      final copy = Directory.systemTemp.createTempSync('ciach_dead_types_');
+      addTearDown(() => copy.deleteSync(recursive: true));
+      copyTree(Directory(fixturePath), copy);
+      final file = File(p.join(copy.path, fixture.single));
+      Future<FinderResult> run() => Ciach(
+        .new(
+          rootPath: copy.path,
+          exportedPackages: const [],
+          includeGlobs: fixture,
+        ),
+      ).run();
+
+      removeDeclarations((await run()).unused, copy.path);
+
+      expect(
+        file.existsSync() ? file.readAsStringSync() : '',
+        isNot(contains('Dead')),
+      );
+      expect((await run()).unused, isEmpty);
+    });
+  });
+
   const extensionFixture = [
     'lib/scenarios/extensions_emptied.dart',
     'lib/scenarios/extensions_emptied_uses.dart',
@@ -940,9 +1002,7 @@ void main() {
         'extension on List<T>',
         'extension on T',
         'DeadMeters',
-        'DeadMeters.scaled',
         'SelfMeters',
-        'SelfMeters.next',
         'useEmptiedExtensions',
       });
     });
@@ -1011,16 +1071,18 @@ void main() {
       expect(findByQualified(result, 'deadNested'), isNull);
     });
 
-    test('an extension type is a type: dead when nothing names it, reported '
-        'whole with its members, like a dead class', () async {
-      final result = await runExtensions();
-      final decl = findByQualified(result, 'DeadMeters');
-      expect(decl, isNotNull);
-      expect(decl!.kind, SymbolKind.struct);
-      expect(decl.kind.label, 'extension type');
-      expect(decl.removalBlocked, isFalse);
-      expect(findByQualified(result, 'DeadMeters.scaled'), isNotNull);
-    });
+    test(
+      'an extension type that nothing names is reported without its members, like an unused class',
+      () async {
+        final result = await runExtensions();
+        final decl = findByQualified(result, 'DeadMeters');
+        expect(decl, isNotNull);
+        expect(decl!.kind, SymbolKind.struct);
+        expect(decl.kind.label, 'extension type');
+        expect(decl.removalBlocked, isFalse);
+        expect(findByQualified(result, 'DeadMeters.scaled'), isNull);
+      },
+    );
 
     test(
       'an extension type referenced only from its own body is dead',
@@ -1075,18 +1137,14 @@ void main() {
       final result = await runFinder(include: fixture, exclude: const []);
       expect(result.unused.map((d) => (d.qualifiedName, d.hint)).toSet(), {
         ('Painter', Verdict.namedOnlyInClausesHint),
-        ('Painter.paint', null),
         ('Drawable', Verdict.namedOnlyInClausesHint),
-        ('Drawable.draw', null),
         ('Plain', Verdict.namedOnlyInClausesHint),
         ('Checked.check', null),
         ('Primed.prime', null),
         ('Frame.frame', null),
         ('Holder.hold', null),
         ('Sketch', Verdict.namedOnlyInClausesHint),
-        ('Sketch.sketch', null),
         ('Glazed', Verdict.namedOnlyInClausesHint),
-        ('Glazed.glaze', null),
         ('Lacquer.lacquer', null),
         ('useClauses', null),
       });
@@ -1161,11 +1219,10 @@ void main() {
           ),
       };
       const painter = ('Painter', Verdict.namedOnlyInClausesHint, '');
-      const paint = ('Painter.paint', null, '');
 
-      expect(findings(await run(transitive: false)), {painter, paint});
+      expect(findings(await run(transitive: false)), {painter});
       final result = await run(transitive: true);
-      expect(findings(result), {('Shape', null, 'Painter'), painter, paint});
+      expect(findings(result), {('Shape', null, 'Painter'), painter});
       expect(messages, isNot(contains(startsWith('Stopping after'))));
 
       removeDeclarations(result.unused, copy.path);
@@ -1663,14 +1720,12 @@ void main() {
         // Wrong file.
         'lib/scenarios/entry_points.dart:testExecutable',
         'lib/scenarios/entry_points.dart:integrationMain',
+        // Reported without its members.
         'lib/scenarios/entry_points.dart:Plugin',
-        'lib/scenarios/entry_points.dart:Plugin.registerWith',
-        'lib/scenarios/entry_points.dart:Plugin.other',
         'lib/scenarios/entry_points.dart:bootstrap',
+        // Unused classes, also reported without their members.
         'lib/scenarios/entry_points.dart:Parked',
-        // An unused class is reported without its constructors.
         'lib/scenarios/entry_points.dart:ParkedCard',
-        'lib/scenarios/entry_points.dart:ParkedCard.flip',
         'lib/scenarios/entry_points.dart:ParkedSlot',
         // The right file exempts `testExecutable` whatever its shape, and
         // nothing beside it.
@@ -1699,7 +1754,6 @@ void main() {
           'lib/scenarios/entry_points.dart:Plugin.other',
           'lib/scenarios/entry_points.dart:Parked',
           'lib/scenarios/entry_points.dart:ParkedCard',
-          'lib/scenarios/entry_points.dart:ParkedCard.flip',
           'lib/scenarios/entry_points.dart:ParkedSlot',
           'lib/scenarios/entry_points/flutter_test_config.dart:deadHelperNextToConfig',
         });

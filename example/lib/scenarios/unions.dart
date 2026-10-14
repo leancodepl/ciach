@@ -24,7 +24,11 @@ class ExpressionOnlySignal extends Signal {}
 /// Matched only by an `if (x case …)`, never constructed. Dead under the flag,
 /// but its removal is BLOCKED (deleting the branch would rewrite control flow),
 /// so it is reported without a coupled removal.
-class IfCaseOnlySignal extends Signal {}
+class IfCaseOnlySignal extends Signal {
+  /// Never read -> UNUSED. The class is report-only, so `--remove` keeps it,
+  /// and this getter is reported on its own, since it can still go.
+  int get strength => 0;
+}
 
 /// A switch STATEMENT over [Signal]. The `default` keeps it non-exhaustive, so
 /// removing one member's arm leaves it valid.
