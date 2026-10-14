@@ -31,41 +31,7 @@ RemovalResult removeDeclarations(
   String rootPath, {
   List<String> emptyFiles = const [],
 }) {
-  final byFile = <String, List<UnusedDeclaration>>{};
-  for (final decl in declarations) {
-    // A blocked finding is reported but never auto-removed: deleting it safely
-    // would need a source rewrite (e.g. an `if (x case DeadType())` branch), so
-    // leave it — and anything coupled to it — entirely alone.
-    if (decl.removalBlocked) {
-      continue;
-    }
-    byFile.putIfAbsent(decl.filePath, () => []).add(decl);
-    // Coupled removals are extra spans that must be deleted together with the
-    // declaration to keep the source compiling (a dead StatefulWidget's paired
-    // `State` subclass, or an override of a dead member), but that are not
-    // findings in their own right. Each names its own file, so group it under
-    // that file. Turn each into a synthetic declaration so it flows through
-    // the normal removal pass and its span merges with the rest.
-    for (final coupled in decl.coupledRemovals) {
-      final range = coupled.range;
-      byFile
-          .putIfAbsent(coupled.filePath, () => [])
-          .add(
-            .new(
-              name: '',
-              kind: coupled.kind,
-              filePath: coupled.filePath,
-              line: range.startLine + 1,
-              column: range.startColumn + 1,
-              isPrivate: true,
-              range: range,
-              fullRange: coupled.fullRange,
-              cut: coupled.cut,
-            ),
-          );
-    }
-  }
-
+  final byFile = _byFile(declarations);
   final rewritten = <String>{};
   // Each kept comment's distance from the end of its rewritten file. Deleting
   // emptied files only drops directives, which come before every declaration,
@@ -113,6 +79,47 @@ RemovalResult removeDeclarations(
   } on FileSystemException catch (e) {
     throw failure(e, e.path ?? rootPath);
   }
+}
+
+/// The declarations to remove, and their coupled removals, by file.
+Map<String, List<UnusedDeclaration>> _byFile(
+  List<UnusedDeclaration> declarations,
+) {
+  final byFile = <String, List<UnusedDeclaration>>{};
+  for (final decl in declarations) {
+    // A blocked finding is reported but never auto-removed: deleting it safely
+    // would need a source rewrite (e.g. an `if (x case DeadType())` branch), so
+    // leave it — and anything coupled to it — entirely alone.
+    if (decl.removalBlocked) {
+      continue;
+    }
+    byFile.putIfAbsent(decl.filePath, () => []).add(decl);
+    // Coupled removals are extra spans that must be deleted together with the
+    // declaration to keep the source compiling (a dead StatefulWidget's paired
+    // `State` subclass, or an override of a dead member), but that are not
+    // findings in their own right. Each names its own file, so group it under
+    // that file. Turn each into a synthetic declaration so it flows through
+    // the normal removal pass and its span merges with the rest.
+    for (final coupled in decl.coupledRemovals) {
+      final range = coupled.range;
+      byFile
+          .putIfAbsent(coupled.filePath, () => [])
+          .add(
+            .new(
+              name: '',
+              kind: coupled.kind,
+              filePath: coupled.filePath,
+              line: range.startLine + 1,
+              column: range.startColumn + 1,
+              isPrivate: true,
+              range: range,
+              fullRange: coupled.fullRange,
+              cut: coupled.cut,
+            ),
+          );
+    }
+  }
+  return byFile;
 }
 
 /// Places [keptComments], each file's comment offsets from its end, by line
