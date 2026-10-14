@@ -26,12 +26,18 @@ typedef DeclarationRange = ({
   int endColumn,
 });
 
+/// The kinds of the declarations that share a statement with others, like the
+/// `a` and `b` of `int a = 1, b = 2;`. Their range covers just the declarator,
+/// so `--remove` deletes their [UnusedDeclaration.cut] instead.
+const declaratorKinds = <SymbolKind>{.field, .variable, .constant};
+
 /// A declaration to remove together with a reported one. It names its own
 /// `filePath` (relative to the analyzed root, `/`-separated), so it can live in
 /// another file, like a dead `StatefulWidget`'s `State` subclass.
 ///
-/// `range`, `fullRange` and `kind` mean what they do on [UnusedDeclaration];
-/// the remover reads `kind` to tell a declarator from a whole node.
+/// `range`, `fullRange` and `kind` mean what they do on [UnusedDeclaration].
+/// For a `field`, `variable` or `constant`, the finder sets both to its
+/// [UnusedDeclaration.cut], which the remover deletes.
 typedef CoupledRemoval = ({
   String filePath,
   SymbolKind kind,
@@ -238,6 +244,7 @@ class UnusedDeclaration {
     this.removalBlocked = false,
     this.hint,
     this.onlyReferencedFrom = const [],
+    this.cut,
   }) : fullRange = fullRange ?? range;
 
   /// Simple (unqualified) name of the declaration.
@@ -267,6 +274,12 @@ class UnusedDeclaration {
 
   /// [range] extended to include the doc comment and annotations.
   final DeclarationRange fullRange;
+
+  /// For a `field`, `variable` or `constant`, the range `--remove` deletes:
+  /// the whole statement when it loses every declarator, else this declarator
+  /// with a neighboring comma. It comes from the syntax nodes, and without it
+  /// the declarator stays in place.
+  final DeclarationRange? cut;
 
   /// Whether this is an enum value (e.g. `south` in `enum Direction`).
   /// Removing one requires also tidying up a neighboring comma, unlike other
@@ -316,6 +329,30 @@ class UnusedDeclaration {
   /// referenced it at all.
   final List<DeadReferrer> onlyReferencedFrom;
 
+  /// This declaration with the given fields replaced.
+  UnusedDeclaration copyWith({
+    DeclarationRange? cut,
+    List<CoupledRemoval>? coupledRemovals,
+    bool? removalBlocked,
+    String? hint,
+  }) => .new(
+    name: name,
+    kind: kind,
+    filePath: filePath,
+    line: line,
+    column: column,
+    isPrivate: isPrivate,
+    range: range,
+    fullRange: fullRange,
+    container: container,
+    isEnumValue: isEnumValue,
+    coupledRemovals: coupledRemovals ?? this.coupledRemovals,
+    removalBlocked: removalBlocked ?? this.removalBlocked,
+    hint: hint ?? this.hint,
+    onlyReferencedFrom: onlyReferencedFrom,
+    cut: cut ?? this.cut,
+  );
+
   /// Fully qualified display name, e.g. `MyClass.myMethod`.
   String get qualifiedName =>
       container?.let((container) => '$container.$name') ?? name;
@@ -353,25 +390,13 @@ typedef DeletedFile = ({String filePath, List<String> unlinkedFrom});
 
 /// What `removeDeclarations` did.
 class RemovalResult {
-  const RemovalResult({
-    required this.filesChanged,
-    required this.deletedFiles,
-    required this.skipped,
-  });
+  const RemovalResult({required this.filesChanged, required this.deletedFiles});
 
   /// Files declarations were removed from, deleted ones included.
   final int filesChanged;
 
   final List<DeletedFile> deletedFiles;
-
-  /// Findings left in place because the remover couldn't tell where their
-  /// statement ends or how to cut them out of it.
-  final List<SkippedDeclaration> skipped;
 }
-
-/// A declaration `--remove` left in place: its root-relative `/`-path, its
-/// 1-based line and its qualified name.
-typedef SkippedDeclaration = ({String filePath, int line, String name});
 
 /// A declaration that had no reported references but was confirmed used by the
 /// secondary definition check. Surfaced as a warning so the missed reference

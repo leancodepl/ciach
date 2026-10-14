@@ -46,6 +46,11 @@ final class Verdict {
       'overridden by a declaration --remove will not delete — that override would be left overriding nothing';
 
   /// The hint for a type with unused members that only doc comments mention.
+  /// The hint for a field or top-level variable whose statement the syntax
+  /// nodes don't describe.
+  static const noCutHint =
+      'the analysis server gave no syntax node for its statement, so `--remove` cannot tell where it ends; remove it manually';
+
   static const docOnlyTypeHint =
       'only doc comments mention it; remove those mentions and `--remove` deletes it';
 

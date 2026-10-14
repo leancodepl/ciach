@@ -4,6 +4,7 @@ import 'package:ciach/src/conventions/flutter_widgets.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/cross_library_refs.dart';
 import 'package:ciach/src/dead_spans.dart';
+import 'package:ciach/src/declarator_cuts.dart';
 import 'package:ciach/src/log.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/models.dart';
@@ -18,7 +19,7 @@ import 'package:ciach/src/superclasses.dart';
 import 'package:ciach/src/symbols.dart';
 import 'package:ciach/src/verdict.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
+import 'package:pro_lsp/pro_lsp.dart' show Location, Position, SymbolKind;
 
 final _log = Logger('ciach.finder');
 
@@ -146,10 +147,71 @@ final class Settler {
       );
     }
     return (
-      unused: settled.unused.sorted(compareByLocation),
+      unused: _withCuts(settled.unused, rootPath).sorted(compareByLocation),
       docOnly: settled.docOnly.sorted(compareByLocation),
       recovered: settled.recovered,
     );
+  }
+
+  /// [unused] with the cut of each removable field and top-level variable,
+  /// itself or coupled to a finding. The cuts are read together, so that two
+  /// declarators of one statement are cut as one. A finding with a declarator
+  /// whose statement the syntax nodes don't describe is left in place.
+  Iterable<UnusedDeclaration> _withCuts(
+    List<UnusedDeclaration> unused,
+    String rootPath,
+  ) {
+    DeclaratorAt at(String filePath, int line, int column) => (
+      path: absoluteUnder(filePath, rootPath),
+      name: .new(line: line, character: column),
+    );
+    DeclaratorAt ofFinding(UnusedDeclaration finding) =>
+        at(finding.filePath, finding.line - 1, finding.column - 1);
+    DeclaratorAt ofCoupled(CoupledRemoval coupled) => at(
+      coupled.filePath,
+      coupled.range.startLine,
+      coupled.range.startColumn,
+    );
+    bool isDeclarator(SymbolKind kind) => declaratorKinds.contains(kind);
+
+    final removable = unused.whereNot((finding) => finding.removalBlocked);
+    final cuts = _sources.declaratorCuts([
+      for (final finding in removable) ...[
+        if (isDeclarator(finding.kind)) ofFinding(finding),
+        for (final coupled in finding.coupledRemovals)
+          if (isDeclarator(coupled.kind)) ofCoupled(coupled),
+      ],
+    ]);
+    UnusedDeclaration withCuts(UnusedDeclaration finding) {
+      final coupledRemovals = [
+        for (final coupled in finding.coupledRemovals)
+          if (!isDeclarator(coupled.kind))
+            coupled
+          else if (cuts[ofCoupled(coupled)] case final cut?)
+            (
+              filePath: coupled.filePath,
+              kind: coupled.kind,
+              range: cut,
+              fullRange: cut,
+            )
+          else
+            null,
+      ];
+      final cut = isDeclarator(finding.kind) ? cuts[ofFinding(finding)] : null;
+      if (coupledRemovals.contains(null) ||
+          (isDeclarator(finding.kind) && cut == null)) {
+        return finding.copyWith(removalBlocked: true, hint: Verdict.noCutHint);
+      }
+      return finding.copyWith(
+        cut: cut,
+        coupledRemovals: coupledRemovals.nonNulls.toList(),
+      );
+    }
+
+    return [
+      for (final finding in unused)
+        if (finding.removalBlocked) finding else withCuts(finding),
+    ];
   }
 
   /// The spans of every candidate no live code reaches, all of them assumed

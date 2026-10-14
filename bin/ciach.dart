@@ -213,7 +213,7 @@ void _removeUnused(
   _console.output(
     Reporter.removal(
       removal,
-      removed: count - removal.skipped.length,
+      removed: count,
       blocked: blocked,
       notes: {
         for (final d in removable)

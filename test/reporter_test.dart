@@ -817,7 +817,6 @@ Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) Â
         const .new(
           filesChanged: 2,
           deletedFiles: [(filePath: 'lib/empty.dart', unlinkedFrom: [])],
-          skipped: [],
         ),
         removed: 3,
         blocked: 1,
@@ -832,29 +831,11 @@ Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) Â
       );
     });
 
-    test('names the findings it could not cut out', () {
-      final text = Reporter.removal(
-        const .new(
-          filesChanged: 1,
-          deletedFiles: [],
-          skipped: [(filePath: 'lib/a.dart', line: 3, name: 'A.x')],
-        ),
-        removed: 1,
-      );
-      expect(
-        text,
-        'Removed 1 unused declaration from 1 file. 1 left in place â€” ciach '
-        'could not tell how to cut it out: A.x (lib/a.dart:3). '
-        "Run 'dart format' to tidy up spacing.",
-      );
-    });
-
     test('leaves out the declarations when only empty files went', () {
       final text = Reporter.removal(
         const .new(
           filesChanged: 0,
           deletedFiles: [(filePath: 'lib/blank.dart', unlinkedFrom: [])],
-          skipped: [],
         ),
       );
       expect(

@@ -1,5 +1,6 @@
 import 'package:ciach/src/cached_map.dart';
 import 'package:ciach/src/candidates.dart';
+import 'package:ciach/src/declarator_cuts.dart';
 import 'package:ciach/src/ignore_markers.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
@@ -130,6 +131,11 @@ final class OverrideRemovals {
         await _isDeclaringParameter(uri, path, found.parent, start)) {
       return null;
     }
+    // The settler cuts a field from its statement, knowing which of the
+    // statement's other declarators go too.
+    if (kind == .field) {
+      await _fetchDeclarators(uri, path, start);
+    }
     // No reference to check: the server answers a member's references for
     // its whole family of overrides, so the member being dead means none of
     // them is referenced either.
@@ -139,6 +145,28 @@ final class OverrideRemovals {
       range: node.codeRange.toDeclarationRange,
       fullRange: node.range.toDeclarationRange,
     );
+  }
+
+  /// Fetches the syntax nodes of the declarators in the statement of the
+  /// field named at [name]. One that fails leaves the field uncut.
+  Future<void> _fetchDeclarators(Uri uri, String path, Position name) async {
+    final probes = [
+      for (final probe in _sources.declaratorProbes(path, name))
+        if (_sources.selectionRangeAt(path, probe) == null) probe,
+    ];
+    if (probes.isEmpty) {
+      return;
+    }
+    try {
+      final ranges = await _client.selectionRanges(uri, probes);
+      for (final (i, probe) in probes.indexed) {
+        if (ranges[i] case final range?) {
+          _sources.cacheSelectionRange(path, probe, range);
+        }
+      }
+    } on LspRequestException catch (e) {
+      recordProblem(_uncheckedOverride, e, path: path, position: name);
+    }
   }
 
   /// Whether the field named at [name] is a declaring parameter of [type]'s

@@ -121,10 +121,6 @@ abstract final class Reporter {
         ),
       if (blocked > 0)
         style.caution('$blocked left in place — unsafe to auto-remove.'),
-      if (removal.skipped case final skipped when skipped.isNotEmpty)
-        style.caution(
-          '${skipped.length} left in place — ciach could not tell how to cut ${skipped.length == 1 ? 'it' : 'them'} out: ${skipped.map((d) => '${d.name} (${d.filePath}:${d.line})').join(', ')}.',
-        ),
       if (deleted.isNotEmpty)
         'Deleted ${plural(deleted.length, 'empty file', 'empty files')}: ${deleted.map((d) => d.filePath).join(', ')}.',
       style.note("Run 'dart format' to tidy up spacing."),
