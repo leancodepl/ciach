@@ -204,7 +204,7 @@ class RemovalException implements Exception {
   final buffer = StringBuffer();
   var cursor = 0;
   for (final span in _mergeSpans([
-    for (final span in spans) comments.withIgnoresAbove(span),
+    for (final span in spans) comments.withNextLineDirectivesAbove(span),
   ])) {
     buffer.write(content.substring(cursor, span.start));
     if (comments.blockAbove(span.start, after: cursor) case final block?) {
@@ -234,16 +234,17 @@ final class _OwnLineComments {
     for (final comment in lineComments(_content)) comment.offset: comment,
   };
 
-  /// [span], with the `// ignore:` lines directly above it, which would
-  /// otherwise apply to whatever follows.
-  _Span withIgnoresAbove(_Span span) {
+  /// [span], with the lines directly above it that apply to the next line
+  /// only, such as `// ignore:`, which would otherwise apply to whatever
+  /// follows.
+  _Span withNextLineDirectivesAbove(_Span span) {
     final first = _lineStartingAt(span.start);
     if (first == null) {
       return span;
     }
     var line = first;
     while (line > 0 &&
-        (_commentOn(line - 1)?.text.let(analyzerIgnore.hasMatch) ?? false)) {
+        (_commentOn(line - 1)?.text.let(isNextLineDirective) ?? false)) {
       line--;
     }
     return (start: starts[line], end: span.end);
@@ -263,7 +264,7 @@ final class _OwnLineComments {
         break;
       }
       if (!isToolDirective(comment.text) &&
-          !analyzerIgnore.hasMatch(comment.text)) {
+          !isNextLineDirective(comment.text)) {
         block = comment.offset;
       }
     }

@@ -511,13 +511,15 @@ class Registry {
     const source = '''
 class C {
   void _a() {} // ignore: unused_element
+  void _b() {} // cspell:disable-next-line
   void kept() {}
   int b() => 1; int c() => 2; // About both.
 }
 ''';
     final result = applyRemoval(source, [
       decl(startLine: 1, startColumn: 2, endLine: 1, endColumn: 14),
-      decl(startLine: 3, startColumn: 2, endLine: 3, endColumn: 14),
+      decl(startLine: 2, startColumn: 2, endLine: 2, endColumn: 14),
+      decl(startLine: 4, startColumn: 2, endLine: 4, endColumn: 14),
     ]);
     expect(
       result,
@@ -639,17 +641,19 @@ void b() {}
       );
     });
 
-    test('goes when it is an analyzer ignore, and the rest is listed', () {
+    test('goes when it applies to the next line, and the rest is listed', () {
       const source = '''
 void a() {}
 
 // About b.
 //ciach:ignore-end
 // ignore: unused_element
+// expect_lint: some_lint
+// cspell:disable-next-line
 void _b() {}
 ''';
       final lines = leftCommentLines(source, [
-        decl(startLine: 5, startColumn: 0, endLine: 5, endColumn: 12),
+        decl(startLine: 7, startColumn: 0, endLine: 7, endColumn: 12),
       ]);
       expect(File(p.join(tempDir.path, 'lib.dart')).readAsStringSync(), '''
 void a() {}

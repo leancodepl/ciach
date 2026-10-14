@@ -352,8 +352,9 @@ such comment with its line in the changed file, so you can check whether it
 still belongs. A comment with a blank line after it is not listed, and neither
 is a comment for a tool, such as `// ciach:ignore-end` or `// dart format on`.
 
-An `// ignore:` comment right above a removed declaration goes with it, since
-it only applies to the next line. So does a `//` comment at the end of the last
+An `// ignore:`, `// expect_lint:` or `// cspell:disable-next-line` comment
+right above a removed declaration goes with it, since it only applies to the
+next line. So does a `//` comment at the end of the last
 line of a removed declaration, or of a removed `import`. A comment for a tool
 there, such as `// coverage:ignore-start`, stays, so the range it opens or
 closes keeps both ends.
