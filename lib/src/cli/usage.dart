@@ -42,6 +42,7 @@ Config file:
     public: false
     exclude:
       - 'test/**'
+    exported-packages: [packages/api]   # imported from outside the analysis
     entry-points:
       - name: bootstrap               # an isolate entry point
         glob: 'lib/src/isolate.dart'
