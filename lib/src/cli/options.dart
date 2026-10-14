@@ -3,7 +3,8 @@ import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/args.dart';
 import 'package:ciach/src/cli/ci.dart';
 import 'package:ciach/src/cli/config.dart';
-import 'package:ciach/src/paths.dart';
+import 'package:ciach/src/cli/option_values.dart';
+import 'package:ciach/src/util/paths.dart';
 import 'package:config/config.dart';
 
 /// A resolved [Configuration] in the types the rest of the tool works in: kind

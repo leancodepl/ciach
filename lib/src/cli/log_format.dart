@@ -1,7 +1,7 @@
 import 'package:ciach/src/cli/errors.dart';
-import 'package:ciach/src/extensions.dart';
-import 'package:ciach/src/log.dart';
-import 'package:ciach/src/style.dart';
+import 'package:ciach/src/report/style.dart';
+import 'package:ciach/src/util/extensions.dart';
+import 'package:ciach/src/util/log.dart';
 
 /// Formats log records for stderr.
 final class LogFormatter {

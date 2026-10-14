@@ -17,12 +17,14 @@ import 'package:ciach/src/cli/ci.dart';
 import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/console.dart';
 import 'package:ciach/src/cli/options.dart';
+import 'package:ciach/src/cli/removed_options.dart';
 import 'package:ciach/src/cli/report.dart';
+import 'package:ciach/src/cli/usage.dart';
 import 'package:ciach/src/cli/verbose.dart';
-import 'package:ciach/src/log.dart';
-import 'package:ciach/src/paths.dart';
-import 'package:ciach/src/plural.dart';
-import 'package:ciach/src/reporter.dart';
+import 'package:ciach/src/report/text_report.dart';
+import 'package:ciach/src/util/log.dart';
+import 'package:ciach/src/util/paths.dart';
+import 'package:ciach/src/util/plural.dart';
 import 'package:ciach/src/version.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
@@ -210,10 +212,10 @@ void _removeUnused(
       // Non-text formats aren't readable, so show the findings first.
       preamble: resolved.format == 'text'
           ? null
-          : Reporter.text(result, style: _console.errStyle),
+          : textReport(result, style: _console.errStyle),
     );
     if (!proceed) {
-      _console.output(Reporter.removal(null, style: _console.outStyle));
+      _console.output(removalReport(null, style: _console.outStyle));
       return;
     }
   }
@@ -224,7 +226,7 @@ void _removeUnused(
     emptyFiles: result.emptyFiles,
   );
   _console.output(
-    Reporter.removal(
+    removalReport(
       removal,
       removed: count,
       blocked: blocked,

@@ -485,7 +485,9 @@ class ReplaceWithLet({required super.context})
     "Replace with '{0}'",
   );
 
-  static final _extensions = Uri.parse('package:ciach/src/extensions.dart');
+  static final _extensions = Uri.parse(
+    'package:ciach/src/util/extensions.dart',
+  );
 
   late final _rewrite = rewriteOf(
     letShapeOf(node as Expression, typeSystem)!,

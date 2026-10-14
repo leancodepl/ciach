@@ -1,5 +1,5 @@
-import 'package:ciach/src/extensions.dart';
-import 'package:ciach/src/symbols.dart';
+import 'package:ciach/src/source/symbols.dart';
+import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
