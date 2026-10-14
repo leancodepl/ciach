@@ -1,5 +1,10 @@
 ## Unreleased
 
+- After `--remove`, ciach lists the `//` comments it kept directly above
+  removed code, with their lines, so you can check whether they still belong.
+  Before, they were left behind without a word. Doc comments are still removed
+  with their declaration.
+  ([#129](https://github.com/leancodepl/ciach/pull/129))
 - ciach now reports a class or mixin whose members are all unused and that
   only `with` or `implements` clauses use, and `--remove` deletes it and
   removes it from those clauses. When other code still uses such a type,
