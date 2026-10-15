@@ -69,8 +69,30 @@ Object unusedBuilderHelper() => 0;
     write('lib/model.stamp.dart', 'class StampOutput {}');
     write('lib/l10n/strings.dart', '''
 abstract class Strings {
+  Strings(String locale) : localeName = locale;
+
+  final String localeName;
+
+  static Strings? of(Object context) => null;
+
+  static const Object delegate = _StringsDelegate();
+
+  static const List<Object> localizationsDelegates = [delegate];
+
+  static const List<String> supportedLocales = ['en'];
+
   String get unusedMessage;
+
+  String unusedGreeting(String name);
 }
+
+class _StringsDelegate {
+  const _StringsDelegate();
+
+  Strings load(String locale) => lookupStrings(locale);
+}
+
+Strings lookupStrings(String locale) => throw UnsupportedError(locale);
 ''');
     write('lib/l10n/strings_pl.dart', 'class StringsPl {}');
     write('lib/js.dart', '''
@@ -126,6 +148,9 @@ void unusedRouteHelper() {}
     return .new(
       rootPath: package.path,
       exportedPackages: const [],
+      // Lists `Partial.notExported` rather than `Partial`, whose only user
+      // is dead too.
+      transitive: false,
       entryPoints: config.entryPoints,
       additionalGeneratedGlobs: config.generatedGlobs,
     );
@@ -192,7 +217,8 @@ void unusedRouteHelper() {}
     expect(unused, isNot(contains('lib/js.dart:Counter')));
   });
 
-  test('by default, the gen-l10n template is report-only', () async {
+  test('by default, the messages of the gen-l10n template are reported, '
+      'report-only', () async {
     final resolved = resolveOptions(
       resolveConfiguration(
         buildParser().parse([package.path, '--exported-packages=']),
@@ -207,9 +233,10 @@ void unusedRouteHelper() {}
         if (d.filePath.startsWith('lib/l10n/')) d,
     ];
 
+    // The code gen-l10n writes around the messages is not reported.
     expect(translations.map((d) => d.qualifiedName), [
-      'Strings',
       'Strings.unusedMessage',
+      'Strings.unusedGreeting',
     ]);
     for (final d in translations) {
       expect(d.removalBlocked, isTrue);

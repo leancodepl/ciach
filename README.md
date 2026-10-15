@@ -89,11 +89,11 @@ usage or analysis error.
 | `--analysis-root <path>` | the scanned path | Count references from this whole directory, not just the scanned package. See [Monorepos](#monorepos). |
 | `--[no-]public` | on | Report public declarations too. Off reports only private (`_`-prefixed) ones. |
 | `--[no-]generated` | off | Scan generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, …) too. |
-| `--exported-packages <glob>` | every package | Packages that code outside the analysis imports: their public API is not reported. `--exported-packages=` checks every package's API. Repeatable. See [Library packages](#library-packages). |
+| `--exported-packages <glob>` | none | Packages that code outside the analysis imports, such as one published to pub.dev: their public API is not reported. Repeatable. See [Library packages](#library-packages). |
 | `--[no-]project-config` | on | Read [entry points](#entry-points) and [generated files](#generated-files) from `pubspec.yaml`, `build.yaml`, `l10n.yaml`, `analysis_options.yaml` and `firebase.json`. |
 | `--[no-]unused-translations` | on | Report the unused messages in the gen-l10n template file an `l10n.yaml` configures. Report-only: remove them from the ARB file yourself. |
 | `--also <list>` | — | Also report what is [skipped by default](#what-it-skips-by-default): `overrides`, `operators`, `tojson`, `union-members`. |
-| `--[no-]transitive` | off | Also report what only other findings reference, and dead cycles. See [Transitively dead code](#transitively-dead-code). |
+| `--[no-]transitive` | on | Also report declarations used only by other dead code, naming what uses them. See [Transitively dead code](#transitively-dead-code). |
 | `--[no-]set-exit-if-changed` | off; on in CI | Exit with `1` when anything is found. |
 | `--[no-]ci` | auto | Use the CI defaults, or not. See [CI](#ci). |
 | `--remove` | off | Remove the findings and delete empty files, after asking. See [Removing declarations](#removing-declarations). |
@@ -189,9 +189,9 @@ These count toward `--set-exit-if-changed`. `--remove` deletes them with the
 ### Transitively dead code
 
 A reference from a finding still counts as a use, so a helper called only by
-dead code shows up only after that code is removed and ciach runs again.
-`--transitive` reports it in the same run, and dead cycles too: declarations
-that only reference each other.
+dead code would show up only after that code is removed and ciach runs again.
+ciach reports it in the same run, and dead cycles too: declarations that only
+reference each other.
 
 ```
 lib/report.dart
@@ -201,11 +201,13 @@ lib/report.dart
   42:6  function  _pong          (private)  (only referenced from dead _ping (lib/report.dart:40))
 ```
 
-It is off by default because one false positive also flags everything only it
-referenced. A [report-only](#removing-declarations) finding stays in the code,
-so what it references stays used. `-f json` lists every finding a declaration
-depends on under `onlyReferencedFrom`; the other formats show the first and a
+Each such finding names what it is only referenced from, so a chain can be
+judged by its root: `-f json` lists every finding a declaration depends on
+under the `onlyReferencedFrom` key, and the other formats show the first and a
 count.
+A [report-only](#removing-declarations) finding stays in the code, so what it
+references stays used. `--no-transitive` reports only what nothing references
+at all; the rest shows up after a removal and another run.
 
 ### Not analyzed
 
@@ -389,22 +391,22 @@ marked `unsafe to auto-remove — remove manually` and left in place:
 
 ### Library packages
 
-ciach can't see importers outside the analysis, so by default it doesn't report
-what other packages can import: the libraries under `lib/` outside `lib/src/`,
+By default, ciach checks the API of every package, which suits an app. But it
+can't see importers outside the analysis. So list in `exported-packages` the
+packages that code outside the analysis imports, such as one published to
+pub.dev or used as a git dependency. ciach then doesn't report what other
+packages can import from them: the libraries under `lib/` outside `lib/src/`,
 what they export (`show`/`hide` respected), and the members of any type those
 hand out, say in a return type, a field or a supertype.
 
-When all of a package's importers are in the analysis, its API can be checked
-too. List in `exported-packages` only the packages that code outside the
-analysis imports, such as one published to pub.dev or used as a git dependency.
-Each entry is a glob of a package directory, relative to the scanned path:
+Each entry is a glob of a package directory, relative to the scanned path.
+`'**'` matches every package:
 
 ```yaml
 # ciach.yaml
 exported-packages: [packages/shared_api]
 ```
 
-`exported-packages: []` checks the API of every package, which suits an app.
 `-v` says which packages are left out.
 
 ### Monorepos
@@ -500,8 +502,6 @@ deleting blindly:
   `@pragma('vm:entry-point')`.
 - **A primary constructor shares its class's references**: a never-invoked one
   only surfaces once the class itself is dead.
-- **Code referenced only from dead code** is reported only with
-  [`--transitive`](#transitively-dead-code).
 - **A package that doesn't analyze cleanly**, from a stale `pub get` or errors,
   yields incomplete references.
 - **Bugs in the analysis server's reference search** can report used code as

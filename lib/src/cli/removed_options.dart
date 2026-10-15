@@ -46,7 +46,7 @@ String removedOptionAdvice(
   required bool inConfig,
 }) {
   if (key == 'fail-public' && value == false) {
-    return 'every finding counts toward the exit code, and what other packages can import is left out by default';
+    return 'every finding counts toward the exit code; to leave out what other packages can import, list those packages in `exported-packages`';
   }
   return switch (_replacementFor(key, value)) {
     null => 'that is the default now, so drop it',
@@ -62,7 +62,7 @@ String removedOptionAdvice(
 /// that is the default now.
 Replacement? _replacementFor(String key, Object? value) =>
     switch ((key, value)) {
-      ('exported', true) => (key: 'exported-packages', values: const []),
+      ('exported', false) => (key: 'exported-packages', values: const ['**']),
       ('generated-suffix', final Iterable<Object?> suffixes) => (
         key: 'generated-glob',
         values: [for (final suffix in suffixes) '**/*$suffix'],

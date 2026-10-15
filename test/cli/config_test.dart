@@ -46,7 +46,7 @@ generated: true
 project-config: false
 unused-translations: false
 also: [overrides, operators, union-members, tojson]
-transitive: true
+transitive: false
 set-exit-if-changed: true
 remove: true
 force: true
@@ -82,7 +82,7 @@ dart: /sdk/bin/dart
       expect(resolved.operators, isTrue);
       expect(resolved.unusedUnionMembers, isTrue);
       expect(resolved.reportToJson, isTrue);
-      expect(resolved.transitive, isTrue);
+      expect(resolved.transitive, isFalse);
       expect(resolved.setExitIfChanged, isTrue);
       expect(resolved.remove, isTrue);
       expect(resolved.force, isTrue);
@@ -179,9 +179,9 @@ concurrency: 4
         ),
       );
       expect(
-        () => ConfigFile.parse('exported: true', origin: 'ciach.yaml'),
+        () => ConfigFile.parse('exported: false', origin: 'ciach.yaml'),
         removed(
-          'ciach.yaml: `exported` was removed: use `exported-packages: []`.',
+          "ciach.yaml: `exported` was removed: use `exported-packages: ['**']`.",
         ),
       );
       expect(
@@ -247,7 +247,11 @@ concurrency: 4
       );
       expect(
         removedOptionMessage(['--exported']),
-        '`--exported` was removed: use `--exported-packages=`.',
+        '`--exported` was removed: that is the default now, so drop it.',
+      );
+      expect(
+        removedOptionMessage(['--no-exported']),
+        "`--no-exported` was removed: use `--exported-packages '**'`.",
       );
       expect(
         removedOptionMessage(['--generated-suffix', '.gc.dart']),
@@ -261,8 +265,7 @@ concurrency: 4
       expect(removedOptionMessage(['--also', 'overrides']), isNull);
     });
 
-    test('an empty --exported-packages checks the API of every package', () {
-      expect(resolve(['--exported-packages=']).exportedPackages, isEmpty);
+    test('--exported-packages lists the packages whose API is left out', () {
       expect(resolve(['--exported-packages', 'packages/*']).exportedPackages, [
         'packages/*',
       ]);
@@ -536,7 +539,7 @@ concurrency: 4
 
       expect(resolved.rootPath, '.');
       expect(resolved.includePublic, isTrue);
-      expect(resolved.exportedPackages, ['**']);
+      expect(resolved.exportedPackages, isEmpty);
       expect(resolved.includeGenerated, isFalse);
       expect(resolved.projectConfig, isTrue);
       expect(resolved.unusedTranslations, isTrue);
@@ -544,7 +547,7 @@ concurrency: 4
       expect(resolved.operators, isFalse);
       expect(resolved.unusedUnionMembers, isFalse);
       expect(resolved.reportToJson, isFalse);
-      expect(resolved.transitive, isFalse);
+      expect(resolved.transitive, isTrue);
       expect(resolved.setExitIfChanged, isFalse);
       expect(resolved.remove, isFalse);
       expect(resolved.force, isFalse);

@@ -53,6 +53,7 @@ import 'package:ciach/src/util/concurrency.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:ciach/src/util/plural.dart';
+import 'package:ciach/src/workspace/analysis_options.dart';
 import 'package:ciach/src/workspace/file_discovery.dart';
 import 'package:ciach/src/workspace/packages.dart';
 import 'package:ciach/src/workspace/path_dependents.dart';
@@ -237,7 +238,14 @@ class Ciach {
           'Analyzing within $analysisRoot: references outside the scanned package count.',
         );
       }
-      await client.initialize(Directory(analysisRoot).uri);
+      final analysisOptions = analysisOptionsWithoutLints(analysisRoot);
+      if (analysisOptions.isNotEmpty) {
+        _log.config('Analyzing without lint rules and analyzer plugins.');
+      }
+      await client.initialize(
+        Directory(analysisRoot).uri,
+        analysisOptions: analysisOptions,
+      );
       _log.info('Waiting for initial analysis to complete…');
       await client.waitForAnalysisComplete();
 

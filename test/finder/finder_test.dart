@@ -748,7 +748,7 @@ void main() {
     );
   });
 
-  group('transitive (opt-in --transitive)', () {
+  group('transitive', () {
     const fixture = ['lib/scenarios/transitive.dart'];
 
     Future<FinderResult> runTransitive({bool transitive = true}) =>
@@ -942,13 +942,13 @@ void main() {
           expect(
             [
               for (final d in result.unused)
-                (d.qualifiedName, d.removalBlocked),
+                (d.qualifiedName, d.kind.label, d.removalBlocked),
             ],
             [
-              ('DeadBox', false),
-              ('DeadTrait', false),
-              ('DeadId', false),
-              ('DeadLevel', false),
+              ('DeadBox', 'class', false),
+              ('DeadTrait', 'mixin', false),
+              ('DeadId', 'extension type', false),
+              ('DeadLevel', 'enum', false),
             ],
           );
         },
@@ -976,6 +976,17 @@ void main() {
       );
       expect((await run()).unused, isEmpty);
     });
+  });
+
+  test('a member of a private class is reported as private', () async {
+    final result = await runFinder(
+      include: const ['lib/scenarios/private_types.dart'],
+      exclude: const [],
+    );
+    expect(
+      [for (final d in result.unused) (d.qualifiedName, d.isPrivate)],
+      [('_Settings.new', true), ('_Settings.reset', true)],
+    );
   });
 
   const extensionFixture = [
@@ -1163,6 +1174,9 @@ void main() {
             rootPath: copy.path,
             exportedPackages: const [],
             includeGlobs: fixture,
+            // With transitive reporting nothing in the fixture survives; the
+            // test below covers that.
+            transitive: false,
           ),
         ).run();
 

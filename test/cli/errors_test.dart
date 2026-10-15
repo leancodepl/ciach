@@ -87,6 +87,17 @@ To skip it instead, use `--exclude`.
     );
   });
 
+  test('-v adds no stack trace to an error the user can fix', () {
+    expect(
+      describeFatalError(
+        const UnresolvedPackagesException(['packages/ds']),
+        stack,
+        verbose: true,
+      ),
+      isNot(contains('#0')),
+    );
+  });
+
   test('a file system error reads as one line', () {
     expect(
       describeFatalError(

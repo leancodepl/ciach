@@ -67,7 +67,7 @@ const _options = [
   ('--no-public', 'Report private declarations only. Cheapest mode.'),
   (
     '--exported-packages <glob>',
-    'Packages that code outside the analysis imports, whose API is not reported. Every package by default; `--exported-packages=` checks them all.',
+    'Packages that code outside the analysis imports, such as one published to pub.dev, whose API is not reported.',
   ),
   (
     '--remove, --force',
@@ -94,8 +94,8 @@ const _options = [
     'Count references from a whole monorepo, not just the scanned package. What is scanned and removed is unchanged.',
   ),
   (
-    '--transitive',
-    'Also report what only other findings reference, and dead cycles.',
+    '--no-transitive',
+    'Report only declarations that nothing uses. By default, a declaration used only by other dead code is reported too, naming what uses it.',
   ),
   (
     '--also overrides,operators,tojson,union-members',
@@ -713,9 +713,9 @@ class DocsPage extends StatelessComponent {
                 ul(classes: Prose.checklist.name, [
                   li(
                     rich(
-                      'Importers outside the analysis are invisible, so what '
-                      'other packages can import is left out unless '
-                      '`exported-packages` says otherwise. In a monorepo, '
+                      'Importers outside the analysis are invisible, so list '
+                      'the packages they import in `exported-packages`. In a '
+                      'monorepo, '
                       '`--analysis-root` recovers uses in a sibling package.',
                     ),
                   ),
