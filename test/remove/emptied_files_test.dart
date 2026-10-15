@@ -128,19 +128,23 @@ void gone() {}
       expect(exists('lib/dead.dart'), isFalse);
     });
 
-    test('a file that exports something stays, even once its own last '
-        'declaration is gone', () {
-      write('lib/dead.dart', '''
+    test(
+      'a file that exports something stays, even once its own last declaration is gone',
+      () {
+        write('lib/dead.dart', '''
 export 'other.dart';
 
 void gone() {}
 ''');
-      write('lib/other.dart', 'void other() {}\n');
-      final result = removeDeclarations([gone('lib/dead.dart')], tempDir.path);
-      expect(exists('lib/dead.dart'), isTrue);
-      expect(read('lib/dead.dart'), "export 'other.dart';\n\n");
-      expect(result.deletedFiles, isEmpty);
-    });
+        write('lib/other.dart', 'void other() {}\n');
+        final result = removeDeclarations([
+          gone('lib/dead.dart'),
+        ], tempDir.path);
+        expect(exists('lib/dead.dart'), isTrue);
+        expect(read('lib/dead.dart'), "export 'other.dart';\n\n");
+        expect(result.deletedFiles, isEmpty);
+      },
+    );
 
     test('an export keeps its file whichever directives sit around it', () {
       // Only the export matters, not the import or the `show`.
@@ -214,30 +218,34 @@ void main() {}
       expect(read('bin/main.dart'), '\nvoid main() {}\n');
     });
 
-    test('a barrel left with nothing once its only export is deleted '
-        'follows it', () {
-      write('lib/dead.dart', '''
+    test(
+      'a barrel left with nothing once its only export is deleted follows it',
+      () {
+        write('lib/dead.dart', '''
 import 'dart:async';
 
 void gone() {}
 ''');
-      write('lib/barrel.dart', "export 'dead.dart';\n");
-      write('bin/main.dart', '''
+        write('lib/barrel.dart', "export 'dead.dart';\n");
+        write('bin/main.dart', '''
 import 'package:pkg/barrel.dart';
 
 void main() {}
 ''');
 
-      final result = removeDeclarations([gone('lib/dead.dart')], tempDir.path);
+        final result = removeDeclarations([
+          gone('lib/dead.dart'),
+        ], tempDir.path);
 
-      expect(exists('lib/dead.dart'), isFalse);
-      expect(exists('lib/barrel.dart'), isFalse);
-      expect(result.deletedFiles.map((d) => d.filePath), [
-        'lib/dead.dart',
-        'lib/barrel.dart',
-      ]);
-      expect(read('bin/main.dart'), '\nvoid main() {}\n');
-    });
+        expect(exists('lib/dead.dart'), isFalse);
+        expect(exists('lib/barrel.dart'), isFalse);
+        expect(result.deletedFiles.map((d) => d.filePath), [
+          'lib/dead.dart',
+          'lib/barrel.dart',
+        ]);
+        expect(read('bin/main.dart'), '\nvoid main() {}\n');
+      },
+    );
 
     test('a file named in a conditional import stays', () {
       write('lib/dead.dart', '''
@@ -257,73 +265,80 @@ void kept() {}
       expect(read('lib/switch.dart'), contains("'dead.dart'"));
     });
 
-    test('a `package:` URI of a package no package config lists keeps the '
-        'file '
-        'when the paths line up', () {
-      write('lib/dead.dart', '''
+    test(
+      'a `package:` URI of a package no package config lists keeps the file when the paths line up',
+      () {
+        write('lib/dead.dart', '''
 import 'dart:async';
 
 void gone() {}
 ''');
-      write('lib/user.dart', '''
+        write('lib/user.dart', '''
 import 'package:mystery/dead.dart';
 
 void kept() {}
 ''');
-      removeDeclarations([gone('lib/dead.dart')], tempDir.path);
-      expect(exists('lib/dead.dart'), isTrue);
-      expect(read('lib/user.dart'), contains('package:mystery/dead.dart'));
-    });
+        removeDeclarations([gone('lib/dead.dart')], tempDir.path);
+        expect(exists('lib/dead.dart'), isTrue);
+        expect(read('lib/user.dart'), contains('package:mystery/dead.dart'));
+      },
+    );
 
-    test('a `package:` URI of another package under the root is not this '
-        'file', () {
-      write('lib/dead.dart', '''
+    test(
+      'a `package:` URI of another package under the root is not this file',
+      () {
+        write('lib/dead.dart', '''
 import 'dart:async';
 
 void gone() {}
 ''');
-      write('example/pubspec.yaml', 'name: sample\n');
-      write(
-        'example/.dart_tool/package_config.json',
-        packageConfig({'sample': '.'}),
-      );
-      write('example/lib/dead.dart', 'void sampleDead() {}\n');
-      write('example/bin/main.dart', '''
+        write('example/pubspec.yaml', 'name: sample\n');
+        write(
+          'example/.dart_tool/package_config.json',
+          packageConfig({'sample': '.'}),
+        );
+        write('example/lib/dead.dart', 'void sampleDead() {}\n');
+        write('example/bin/main.dart', '''
 import 'package:sample/dead.dart';
 
 void main() {}
 ''');
-      removeDeclarations([gone('lib/dead.dart')], tempDir.path);
-      expect(exists('lib/dead.dart'), isFalse);
-      expect(
-        read('example/bin/main.dart'),
-        contains('package:sample/dead.dart'),
-      );
-    });
+        removeDeclarations([gone('lib/dead.dart')], tempDir.path);
+        expect(exists('lib/dead.dart'), isFalse);
+        expect(
+          read('example/bin/main.dart'),
+          contains('package:sample/dead.dart'),
+        );
+      },
+    );
 
-    test('a `package:` URI of a path dependency outside the root is not '
-        'this file', () {
-      write('app/pubspec.yaml', 'name: app\n');
-      write(
-        'app/.dart_tool/package_config.json',
-        packageConfig({'app': '.', 'core': '../core'}),
-      );
-      write('app/lib/dead.dart', '''
+    test(
+      'a `package:` URI of a path dependency outside the root is not this file',
+      () {
+        write('app/pubspec.yaml', 'name: app\n');
+        write(
+          'app/.dart_tool/package_config.json',
+          packageConfig({'app': '.', 'core': '../core'}),
+        );
+        write('app/lib/dead.dart', '''
 import 'dart:async';
 
 void gone() {}
 ''');
-      write('app/lib/user.dart', '''
+        write('app/lib/user.dart', '''
 import 'package:core/dead.dart';
 
 void kept() {}
 ''');
-      write('core/pubspec.yaml', 'name: core\n');
-      write('core/lib/dead.dart', 'void coreDead() {}\n');
-      removeDeclarations([gone('lib/dead.dart')], p.join(tempDir.path, 'app'));
-      expect(exists('app/lib/dead.dart'), isFalse);
-      expect(read('app/lib/user.dart'), contains('package:core/dead.dart'));
-    });
+        write('core/pubspec.yaml', 'name: core\n');
+        write('core/lib/dead.dart', 'void coreDead() {}\n');
+        removeDeclarations([
+          gone('lib/dead.dart'),
+        ], p.join(tempDir.path, 'app'));
+        expect(exists('app/lib/dead.dart'), isFalse);
+        expect(read('app/lib/user.dart'), contains('package:core/dead.dart'));
+      },
+    );
 
     test('a file nothing was removed from is never deleted, even if empty', () {
       write('lib/placeholder.dart', '// Reserved for later.\n');

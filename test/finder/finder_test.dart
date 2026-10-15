@@ -166,32 +166,36 @@ void main() {
     expect(unused, isNot(contains('ParamCtor')));
   });
 
-  test('hints at `abstract final class` only for the sole zero-parameter '
-      'prevent-instantiation constructor', () async {
-    final result = await runFinder();
-    UnusedDeclaration byQualified(String qualified) =>
-        result.unused.firstWhere((d) => d.qualifiedName == qualified);
-    // The prevent-instantiation shape (sole, zero-parameter `Foo._()`) carries
-    // the hint.
-    final marker = byQualified('SoleMarker._');
-    expect(marker.hint, isNotNull);
-    expect(marker.hint, contains('abstract final class'));
-    // Removal is not blocked (no final instance fields), so it stays a normal,
-    // removable finding.
-    expect(marker.removalBlocked, isFalse);
-    // A private constructor that is not the sole zero-parameter shape carries
-    // no hint.
-    expect(byQualified('MultiCtor._unused').hint, isNull);
-    expect(byQualified('ParamCtor._').hint, isNull);
-  });
+  test(
+    'hints at `abstract final class` only for the sole zero-parameter prevent-instantiation constructor',
+    () async {
+      final result = await runFinder();
+      UnusedDeclaration byQualified(String qualified) =>
+          result.unused.firstWhere((d) => d.qualifiedName == qualified);
+      // The prevent-instantiation shape (sole, zero-parameter `Foo._()`) carries
+      // the hint.
+      final marker = byQualified('SoleMarker._');
+      expect(marker.hint, isNotNull);
+      expect(marker.hint, contains('abstract final class'));
+      // Removal is not blocked (no final instance fields), so it stays a normal,
+      // removable finding.
+      expect(marker.removalBlocked, isFalse);
+      // A private constructor that is not the sole zero-parameter shape carries
+      // no hint.
+      expect(byQualified('MultiCtor._unused').hint, isNull);
+      expect(byQualified('ParamCtor._').hint, isNull);
+    },
+  );
 
-  test('reports a declaration only mentioned in a doc comment link as '
-      'doc-only, not unused', () async {
-    final docOnly = await findDocOnly();
-    expect(docOnly, contains('_docOnlyMentioned'));
-    final unused = await findUnused();
-    expect(unused, isNot(contains('_docOnlyMentioned')));
-  });
+  test(
+    'reports a declaration only mentioned in a doc comment link as doc-only, not unused',
+    () async {
+      final docOnly = await findDocOnly();
+      expect(docOnly, contains('_docOnlyMentioned'));
+      final unused = await findUnused();
+      expect(unused, isNot(contains('_docOnlyMentioned')));
+    },
+  );
 
   test('spans multiple files, one group per file in the report', () async {
     final result = await runFinder();
@@ -352,18 +356,20 @@ void main() {
     );
 
     for (final transitive in [false, true]) {
-      test('a dead widget whose State is used elsewhere is report-only '
-          '(transitive: $transitive)', () async {
-        final result = await runFinder(
-          include: ['lib/scenarios/widgets.dart'],
-          exclude: const [],
-          transitive: transitive,
-        );
-        final widget = findByQualified(result, 'KeyedWidget')!;
-        expect(widget.removalBlocked, isTrue);
-        expect(widget.coupledRemovals, isEmpty);
-        expect(findByQualified(result, '_KeyedWidgetState'), isNull);
-      });
+      test(
+        'a dead widget whose State is used elsewhere is report-only (transitive: $transitive)',
+        () async {
+          final result = await runFinder(
+            include: ['lib/scenarios/widgets.dart'],
+            exclude: const [],
+            transitive: transitive,
+          );
+          final widget = findByQualified(result, 'KeyedWidget')!;
+          expect(widget.removalBlocked, isTrue);
+          expect(widget.coupledRemovals, isEmpty);
+          expect(findByQualified(result, '_KeyedWidgetState'), isNull);
+        },
+      );
     }
 
     test('couples a State declared in another file', () async {
@@ -567,40 +573,46 @@ void main() {
       },
     );
 
-    test('flag ON: a member matched only by an if-case is reported but '
-        'report-only (removal blocked, no coupled arms)', () async {
-      final result = await runUnions(flag: true);
-      final decl = findByName(result, 'IfCaseOnlySignal');
-      expect(decl, isNotNull, reason: 'still reported as dead');
-      expect(decl!.removalBlocked, isTrue);
-      // Nothing is coupled: `--also union-members` never removes arms.
-      expect(decl.coupledRemovals, isEmpty);
-      // The class stays, so its unused getter is reported on its own.
-      expect(findByName(result, 'strength')?.removalBlocked, isFalse);
-    });
+    test(
+      'flag ON: a member matched only by an if-case is reported but report-only (removal blocked, no coupled arms)',
+      () async {
+        final result = await runUnions(flag: true);
+        final decl = findByName(result, 'IfCaseOnlySignal');
+        expect(decl, isNotNull, reason: 'still reported as dead');
+        expect(decl!.removalBlocked, isTrue);
+        // Nothing is coupled: `--also union-members` never removes arms.
+        expect(decl.coupledRemovals, isEmpty);
+        // The class stays, so its unused getter is reported on its own.
+        expect(findByName(result, 'strength')?.removalBlocked, isFalse);
+      },
+    );
 
-    test('flag ON: a member that is also constructed is never flagged, nor is '
-        'the sealed supertype', () async {
-      final names = (await runUnions(
-        flag: true,
-      )).unused.map((d) => d.qualifiedName).toSet();
-      // LiveSignal has a real, non-pattern reference (construction) -> alive.
-      expect(names, isNot(contains('LiveSignal')));
-      // Signal appears as a parameter/scrutinee type -> a real use.
-      expect(names, isNot(contains('Signal')));
-    });
+    test(
+      'flag ON: a member that is also constructed is never flagged, nor is the sealed supertype',
+      () async {
+        final names = (await runUnions(
+          flag: true,
+        )).unused.map((d) => d.qualifiedName).toSet();
+        // LiveSignal has a real, non-pattern reference (construction) -> alive.
+        expect(names, isNot(contains('LiveSignal')));
+        // Signal appears as a parameter/scrutinee type -> a real use.
+        expect(names, isNot(contains('Signal')));
+      },
+    );
 
-    test('flag OFF: every pattern-matched member counts as used (Phase 1 '
-        'behavior is unchanged)', () async {
-      final names = (await runUnions(
-        flag: false,
-      )).unused.map((d) => d.qualifiedName).toSet();
-      expect(names, isNot(contains('StatementOnlySignal')));
-      expect(names, isNot(contains('ExpressionOnlySignal')));
-      expect(names, isNot(contains('IfCaseOnlySignal')));
-      expect(names, isNot(contains('LiveSignal')));
-      expect(names, isNot(contains('Signal')));
-    });
+    test(
+      'flag OFF: every pattern-matched member counts as used (Phase 1 behavior is unchanged)',
+      () async {
+        final names = (await runUnions(
+          flag: false,
+        )).unused.map((d) => d.qualifiedName).toSet();
+        expect(names, isNot(contains('StatementOnlySignal')));
+        expect(names, isNot(contains('ExpressionOnlySignal')));
+        expect(names, isNot(contains('IfCaseOnlySignal')));
+        expect(names, isNot(contains('LiveSignal')));
+        expect(names, isNot(contains('Signal')));
+      },
+    );
   });
 
   test('a reference from inside its own span keeps nothing alive', () async {
@@ -626,24 +638,26 @@ void main() {
     };
 
     for (final transitive in [false, true]) {
-      test('reports a doc-only type with unused members once and blocks its '
-          'removal (transitive: $transitive)', () async {
-        final result = await runFinder(
-          include: fixture,
-          exclude: const [],
-          transitive: transitive,
-        );
-        expect(result.docOnly.map((d) => d.qualifiedName).toSet(), {
-          'Bare',
-          'Tinted',
-        });
-        expect(findings(result), {
-          ('SafeInset', true, Verdict.docOnlyTypeHint),
-          ('Hue', true, Verdict.docOnlyTypeHint),
-          ('Padded', true, Verdict.docOnlyTypeHint),
-          ('Shade.tint', true, Verdict.overriddenHint),
-        });
-      });
+      test(
+        'reports a doc-only type with unused members once and blocks its removal (transitive: $transitive)',
+        () async {
+          final result = await runFinder(
+            include: fixture,
+            exclude: const [],
+            transitive: transitive,
+          );
+          expect(result.docOnly.map((d) => d.qualifiedName).toSet(), {
+            'Bare',
+            'Tinted',
+          });
+          expect(findings(result), {
+            ('SafeInset', true, Verdict.docOnlyTypeHint),
+            ('Hue', true, Verdict.docOnlyTypeHint),
+            ('Padded', true, Verdict.docOnlyTypeHint),
+            ('Shade.tint', true, Verdict.overriddenHint),
+          });
+        },
+      );
     }
 
     test('--remove keeps a doc-only type and its members', () async {
@@ -700,8 +714,7 @@ void main() {
     );
 
     test(
-      'the sole constructor of a live class with final fields is reported but '
-      'removal-blocked',
+      'the sole constructor of a live class with final fields is reported but removal-blocked',
       () async {
         final result = await runGuards();
         final decl = findByQualified(result, 'LabeledBox.new');
@@ -726,8 +739,7 @@ void main() {
     );
 
     test(
-      'a safe sole-constructor removal (no final fields, no super forwarding) '
-      'is reported and NOT blocked',
+      'a safe sole-constructor removal (no final fields, no super forwarding) is reported and NOT blocked',
       () async {
         final result = await runGuards();
         final decl = findByQualified(result, 'MutableBag.new');
@@ -818,30 +830,32 @@ void main() {
       ]);
     });
 
-    test('flag ON: a finding a group guard would block later stays '
-        'removable, and the rounds settle', () async {
-      final messages = <String>[];
-      final logging = Logger.root.onRecord
-          .where((r) => r.loggerName == 'ciach.finder')
-          .listen((r) => messages.add(r.message));
-      addTearDown(logging.cancel);
-      final result = await runFinder(
-        include: fixture,
-        exclude: const [],
-        transitive: true,
-      );
-      expect(messages, isNot(contains(startsWith('Stopping after'))));
-      // Removable in round one, while `Token.new` was still used.
-      expect(
-        findByQualified(result, 'Token.fromJson')!.removalBlocked,
-        isFalse,
-      );
-      // Dead once `fromJson` is, but the last constructor of a live class with
-      // a final field, so it stays.
-      final ctor = findByQualified(result, 'Token.new')!;
-      expect(ctor.removalBlocked, isTrue);
-      expect(ctor.onlyReferencedFrom, [asOwner(result, 'Token.fromJson')]);
-    });
+    test(
+      'flag ON: a finding a group guard would block later stays removable, and the rounds settle',
+      () async {
+        final messages = <String>[];
+        final logging = Logger.root.onRecord
+            .where((r) => r.loggerName == 'ciach.finder')
+            .listen((r) => messages.add(r.message));
+        addTearDown(logging.cancel);
+        final result = await runFinder(
+          include: fixture,
+          exclude: const [],
+          transitive: true,
+        );
+        expect(messages, isNot(contains(startsWith('Stopping after'))));
+        // Removable in round one, while `Token.new` was still used.
+        expect(
+          findByQualified(result, 'Token.fromJson')!.removalBlocked,
+          isFalse,
+        );
+        // Dead once `fromJson` is, but the last constructor of a live class with
+        // a final field, so it stays.
+        final ctor = findByQualified(result, 'Token.new')!;
+        expect(ctor.removalBlocked, isTrue);
+        expect(ctor.onlyReferencedFrom, [asOwner(result, 'Token.fromJson')]);
+      },
+    );
 
     test("flag ON: a dead class's members go with it, unreported", () async {
       final result = await runTransitive();
@@ -858,15 +872,21 @@ void main() {
       }
     });
 
-    test('flag ON: a report-only finding stays, and keeps what it alone '
-        'references', () async {
-      final result = await runTransitive();
-      final lone = findByQualified(result, 'Lone');
-      expect(lone, isNotNull);
-      expect(lone!.removalBlocked, isTrue, reason: 'its only value is unused');
-      expect(findByQualified(result, 'Lone.only'), isNull);
-      expect(findByQualified(result, '_loneArg'), isNull);
-    });
+    test(
+      'flag ON: a report-only finding stays, and keeps what it alone references',
+      () async {
+        final result = await runTransitive();
+        final lone = findByQualified(result, 'Lone');
+        expect(lone, isNotNull);
+        expect(
+          lone!.removalBlocked,
+          isTrue,
+          reason: 'its only value is unused',
+        );
+        expect(findByQualified(result, 'Lone.only'), isNull);
+        expect(findByQualified(result, '_loneArg'), isNull);
+      },
+    );
 
     test('flag ON: each member of a dead cycle names the others', () async {
       final result = await runTransitive();
@@ -1014,69 +1034,82 @@ void main() {
       });
     });
 
-    test('an extension whose every member is dead is reported as the '
-        'extension, not its members', () async {
-      final result = await runExtensions();
-      final decl = findByQualified(result, 'DeadHelpers');
-      expect(decl, isNotNull, reason: 'nothing calls either member');
-      expect(decl!.kind, SymbolKind.namespace);
-      expect(decl.kind.label, 'extension');
-      expect(decl.removalBlocked, isFalse);
-      expect(findByQualified(result, 'DeadHelpers.first'), isNull);
-      expect(findByQualified(result, 'DeadHelpers.second'), isNull);
-    });
+    test(
+      'an extension whose every member is dead is reported as the extension, not its members',
+      () async {
+        final result = await runExtensions();
+        final decl = findByQualified(result, 'DeadHelpers');
+        expect(decl, isNotNull, reason: 'nothing calls either member');
+        expect(decl!.kind, SymbolKind.namespace);
+        expect(decl.kind.label, 'extension');
+        expect(decl.removalBlocked, isFalse);
+        expect(findByQualified(result, 'DeadHelpers.first'), isNull);
+        expect(findByQualified(result, 'DeadHelpers.second'), isNull);
+      },
+    );
 
-    test('an extension with a live member is never reported, even though '
-        'nothing names it', () async {
-      final result = await runExtensions();
-      expect(findByQualified(result, 'LiveHelpers'), isNull);
-      final stale = findByQualified(result, 'LiveHelpers.stale');
-      expect(stale, isNotNull);
-      expect(stale!.kind, SymbolKind.method);
-    });
+    test(
+      'an extension with a live member is never reported, even though nothing names it',
+      () async {
+        final result = await runExtensions();
+        expect(findByQualified(result, 'LiveHelpers'), isNull);
+        final stale = findByQualified(result, 'LiveHelpers.stale');
+        expect(stale, isNotNull);
+        expect(stale!.kind, SymbolKind.method);
+      },
+    );
 
-    test('an unnamed extension is reported whole as `extension on <type>`, '
-        'its members unqualified', () async {
-      final result = await runExtensions();
-      final decl = findByQualified(result, 'extension on String');
-      expect(decl, isNotNull);
-      expect(decl!.kind, SymbolKind.namespace);
-      expect(decl.column, 1);
-      expect(findByQualified(result, 'shoutedOnce'), isNull);
-      expect(
-        findByQualified(result, 'extension on String.shoutedOnce'),
-        isNull,
-      );
-    });
+    test(
+      'an unnamed extension is reported whole as `extension on <type>`, its members unqualified',
+      () async {
+        final result = await runExtensions();
+        final decl = findByQualified(result, 'extension on String');
+        expect(decl, isNotNull);
+        expect(decl!.kind, SymbolKind.namespace);
+        expect(decl.column, 1);
+        expect(findByQualified(result, 'shoutedOnce'), isNull);
+        expect(
+          findByQualified(result, 'extension on String.shoutedOnce'),
+          isNull,
+        );
+      },
+    );
 
-    test('an extension named in a `show` stays; only its dead member is '
-        'reported', () async {
-      final result = await runExtensions();
-      expect(findByQualified(result, 'ShownHelpers'), isNull);
-      expect(findByQualified(result, 'ShownHelpers.shownButUnused'), isNotNull);
-    });
+    test(
+      'an extension named in a `show` stays; only its dead member is reported',
+      () async {
+        final result = await runExtensions();
+        expect(findByQualified(result, 'ShownHelpers'), isNull);
+        expect(
+          findByQualified(result, 'ShownHelpers.shownButUnused'),
+          isNotNull,
+        );
+      },
+    );
 
     test('an extension with no members and no references is dead', () async {
       final result = await runExtensions();
       expect(findByQualified(result, 'Hollow'), isNotNull);
     });
 
-    test('an unnamed extension is found when its type parameters stand where '
-        'a name would', () async {
-      final result = await runExtensions();
-      for (final qualified in const [
-        'extension on List<T>',
-        'extension on T',
-      ]) {
-        final decl = findByQualified(result, qualified);
-        expect(decl, isNotNull, reason: '$qualified is dead');
-        expect(decl!.kind, SymbolKind.namespace);
-        expect(decl.column, 1);
-      }
-      // Reported whole, so the members are not findings of their own.
-      expect(findByQualified(result, 'firstOrNothing'), isNull);
-      expect(findByQualified(result, 'deadNested'), isNull);
-    });
+    test(
+      'an unnamed extension is found when its type parameters stand where a name would',
+      () async {
+        final result = await runExtensions();
+        for (final qualified in const [
+          'extension on List<T>',
+          'extension on T',
+        ]) {
+          final decl = findByQualified(result, qualified);
+          expect(decl, isNotNull, reason: '$qualified is dead');
+          expect(decl!.kind, SymbolKind.namespace);
+          expect(decl.column, 1);
+        }
+        // Reported whole, so the members are not findings of their own.
+        expect(findByQualified(result, 'firstOrNothing'), isNull);
+        expect(findByQualified(result, 'deadNested'), isNull);
+      },
+    );
 
     test(
       'an extension type that nothing names is reported without its members, like an unused class',
@@ -1104,37 +1137,43 @@ void main() {
       expect(findByQualified(result, 'Meters'), isNull);
     });
 
-    test('`-k extension-type` selects the extension types on their own, which '
-        '`-k extension` does not', () async {
-      expect(await byKind(.struct), {'DeadMeters', 'SelfMeters'});
-      expect(
-        await byKind(.namespace),
-        isNot(contains(anyOf('DeadMeters', 'SelfMeters'))),
-      );
-    });
+    test(
+      '`-k extension-type` selects the extension types on their own, which `-k extension` does not',
+      () async {
+        expect(await byKind(.struct), {'DeadMeters', 'SelfMeters'});
+        expect(
+          await byKind(.namespace),
+          isNot(contains(anyOf('DeadMeters', 'SelfMeters'))),
+        );
+      },
+    );
 
-    test('`-k extension` alone keeps an extension whose members were never '
-        'checked, reporting only a member-less one', () async {
-      // Unchecked members can't be proven dead; `Hollow` has none.
-      expect(await byKind(.namespace), {'Hollow'});
-    });
+    test(
+      '`-k extension` alone keeps an extension whose members were never checked, reporting only a member-less one',
+      () async {
+        // Unchecked members can't be proven dead; `Hollow` has none.
+        expect(await byKind(.namespace), {'Hollow'});
+      },
+    );
 
-    test('without extension candidates (`-k method`) the members are reported '
-        'on their own', () async {
-      final result = await runFinder(
-        include: extensionFixture,
-        exclude: const [],
-        kinds: const {.method},
-      );
-      expect(result.unused.map((d) => d.qualifiedName).toSet(), {
-        'DeadHelpers.first',
-        'DeadHelpers.second',
-        'LiveHelpers.stale',
-        'shoutedOnce',
-        'shoutedTwice',
-        'ShownHelpers.shownButUnused',
-      });
-    });
+    test(
+      'without extension candidates (`-k method`) the members are reported on their own',
+      () async {
+        final result = await runFinder(
+          include: extensionFixture,
+          exclude: const [],
+          kinds: const {.method},
+        );
+        expect(result.unused.map((d) => d.qualifiedName).toSet(), {
+          'DeadHelpers.first',
+          'DeadHelpers.second',
+          'LiveHelpers.stale',
+          'shoutedOnce',
+          'shoutedTwice',
+          'ShownHelpers.shownButUnused',
+        });
+      },
+    );
   });
 
   group('classes and mixins used only in clauses', () {
@@ -1201,47 +1240,51 @@ void main() {
       },
     );
 
-    test('with --transitive, removes a type that only their headers use, '
-        'without reaching the round limit', () async {
-      const fixture = ['lib/scenarios/clause_only_transitive.dart'];
-      final messages = <String>[];
-      final logging = Logger.root.onRecord
-          .where((r) => r.loggerName == 'ciach.finder')
-          .listen((r) => messages.add(r.message));
-      addTearDown(logging.cancel);
-      final copy = Directory.systemTemp.createTempSync('ciach_clauses_');
-      addTearDown(() => copy.deleteSync(recursive: true));
-      copyTree(Directory(fixturePath), copy);
-      Future<FinderResult> run({required bool transitive}) => Ciach(
-        .new(
-          rootPath: copy.path,
-          exportedPackages: const [],
-          includeGlobs: fixture,
-          transitive: transitive,
-        ),
-      ).run();
-      Set<(String, String?, String)> findings(FinderResult result) => {
-        for (final d in result.unused)
-          (
-            d.qualifiedName,
-            d.hint,
-            d.onlyReferencedFrom.map((r) => r.qualifiedName).join(', '),
+    test(
+      'with --transitive, removes a type that only their headers use, without reaching the round limit',
+      () async {
+        const fixture = ['lib/scenarios/clause_only_transitive.dart'];
+        final messages = <String>[];
+        final logging = Logger.root.onRecord
+            .where((r) => r.loggerName == 'ciach.finder')
+            .listen((r) => messages.add(r.message));
+        addTearDown(logging.cancel);
+        final copy = Directory.systemTemp.createTempSync('ciach_clauses_');
+        addTearDown(() => copy.deleteSync(recursive: true));
+        copyTree(Directory(fixturePath), copy);
+        Future<FinderResult> run({required bool transitive}) => Ciach(
+          .new(
+            rootPath: copy.path,
+            exportedPackages: const [],
+            includeGlobs: fixture,
+            transitive: transitive,
           ),
-      };
-      const painter = ('Painter', Verdict.namedOnlyInClausesHint, '');
+        ).run();
+        Set<(String, String?, String)> findings(FinderResult result) => {
+          for (final d in result.unused)
+            (
+              d.qualifiedName,
+              d.hint,
+              d.onlyReferencedFrom.map((r) => r.qualifiedName).join(', '),
+            ),
+        };
+        const painter = ('Painter', Verdict.namedOnlyInClausesHint, '');
 
-      expect(findings(await run(transitive: false)), {painter});
-      final result = await run(transitive: true);
-      expect(findings(result), {('Shape', null, 'Painter'), painter});
-      expect(messages, isNot(contains(startsWith('Stopping after'))));
+        expect(findings(await run(transitive: false)), {painter});
+        final result = await run(transitive: true);
+        expect(findings(result), {('Shape', null, 'Painter'), painter});
+        expect(messages, isNot(contains(startsWith('Stopping after'))));
 
-      removeDeclarations(result.unused, copy.path);
+        removeDeclarations(result.unused, copy.path);
 
-      final source = File(p.join(copy.path, fixture.single)).readAsStringSync();
-      expect(source, contains('class Tile {}\n'));
-      expect(source, isNot(contains('Shape')));
-      expect(source, isNot(contains('Painter')));
-    });
+        final source = File(
+          p.join(copy.path, fixture.single),
+        ).readAsStringSync();
+        expect(source, contains('class Tile {}\n'));
+        expect(source, isNot(contains('Shape')));
+        expect(source, isNot(contains('Painter')));
+      },
+    );
   });
 
   group('enum `.values` detection fix', () {
@@ -1252,8 +1295,7 @@ void main() {
     );
 
     test(
-      'enum values reached only via qualified `EnumName.values` iteration are '
-      'never flagged',
+      'enum values reached only via qualified `EnumName.values` iteration are never flagged',
       () async {
         final names = (await runEnumValues()).unused
             .map((d) => d.qualifiedName)
@@ -1268,8 +1310,7 @@ void main() {
     );
 
     test(
-      'enum values reached via the implicit (bare) `values` getter inside the '
-      'enum body are never flagged',
+      'enum values reached via the implicit (bare) `values` getter inside the enum body are never flagged',
       () async {
         final result = await runEnumValues();
         final names = result.unused.map((d) => d.qualifiedName).toSet();
@@ -1343,12 +1384,14 @@ void main() {
       return result.unused.map((d) => d.qualifiedName).toSet();
     }
 
-    test('a toJson() is exempt by convention, for any class, annotated or '
-        'not — jsonEncode can call it invisibly', () async {
-      final names = await runSerialization();
-      expect(names, isNot(contains('Plain.toJson')));
-      expect(names, isNot(contains('Profile.toJson')));
-    });
+    test(
+      'a toJson() is exempt by convention, for any class, annotated or not — jsonEncode can call it invisibly',
+      () async {
+        final names = await runSerialization();
+        expect(names, isNot(contains('Plain.toJson')));
+        expect(names, isNot(contains('Profile.toJson')));
+      },
+    );
 
     test('a toJson() returning a non-Map JSON value — a List or a primitive — '
         'is exempt too, since those are valid json values', () async {
@@ -1412,12 +1455,14 @@ void main() {
     Future<Set<String>> runXref() async =>
         (await runXrefResult()).unused.map((d) => d.qualifiedName).toSet();
 
-    test('a getter/field used only by a cross-file object pattern is not '
-        'flagged', () async {
-      final names = await runXref();
-      expect(names, isNot(contains('XrefLoadedState.hasActive')));
-      expect(names, isNot(contains('XrefLoadedState.ready')));
-    });
+    test(
+      'a getter/field used only by a cross-file object pattern is not flagged',
+      () async {
+        final names = await runXref();
+        expect(names, isNot(contains('XrefLoadedState.hasActive')));
+        expect(names, isNot(contains('XrefLoadedState.ready')));
+      },
+    );
 
     test(
       'a same-file object-pattern reference still keeps a getter alive',
@@ -1433,25 +1478,26 @@ void main() {
       },
     );
 
-    test('a member used only through an override from a file that does not '
-        'import it is not flagged', () async {
-      final result = await runXrefResult();
-      final names = result.unused.map((d) => d.qualifiedName).toSet();
-      expect(names, isNot(contains('XrefSurface.glossy')));
-      expect(names, contains('XrefSurface.matte'));
-      final glossy = result.recoveredReferences.firstWhere(
-        (w) => w.qualifiedName == 'XrefSurface.glossy',
-      );
-      expect(glossy.usageFilePath, endsWith('xref_uses.dart'));
-    });
+    test(
+      'a member used only through an override from a file that does not import it is not flagged',
+      () async {
+        final result = await runXrefResult();
+        final names = result.unused.map((d) => d.qualifiedName).toSet();
+        expect(names, isNot(contains('XrefSurface.glossy')));
+        expect(names, contains('XrefSurface.matte'));
+        final glossy = result.recoveredReferences.firstWhere(
+          (w) => w.qualifiedName == 'XrefSurface.glossy',
+        );
+        expect(glossy.usageFilePath, endsWith('xref_uses.dart'));
+      },
+    );
 
     test('a normally-referenced enum value is not flagged', () async {
       expect(await runXref(), isNot(contains('XrefEvent.signIn')));
     });
 
     test(
-      'genuinely-dead members are still flagged — the recovery did not blind '
-      'the detector',
+      'genuinely-dead members are still flagged — the recovery did not blind the detector',
       () async {
         final names = await runXref();
         expect(names, contains('XrefLoadedState.deadShapeGetter'));
@@ -1459,52 +1505,56 @@ void main() {
       },
     );
 
-    test('each recovered reference is surfaced as a warning; normal and '
-        'genuinely-dead declarations are not', () async {
-      final result = await runXrefResult();
-      final warned = result.recoveredReferences
-          .map((w) => w.qualifiedName)
-          .toSet();
-      // Confirmed used by the secondary check.
-      expect(
-        warned,
-        containsAll([
-          'XrefLoadedState.hasActive',
-          'XrefLoadedState.ready',
-          'XrefEvent.signOut',
-        ]),
-      );
-      // Normally referenced -> not recovered, no warning.
-      expect(warned, isNot(contains('XrefEvent.signIn')));
-      expect(warned, isNot(contains('XrefLoadedState.localFlag')));
-      // Genuinely dead -> stays a finding, not a warning.
-      expect(warned, isNot(contains('XrefLoadedState.deadShapeGetter')));
-      expect(warned, isNot(contains('XrefEvent.deadEvent')));
-      // The warning carries the confirmed usage location and the hedge.
-      final signOut = result.recoveredReferences.firstWhere(
-        (w) => w.qualifiedName == 'XrefEvent.signOut',
-      );
-      expect(signOut.usageFilePath, endsWith('xref_uses.dart'));
-      expect(signOut.message, contains('likely a Dart SDK find-references'));
-    });
+    test(
+      'each recovered reference is surfaced as a warning; normal and genuinely-dead declarations are not',
+      () async {
+        final result = await runXrefResult();
+        final warned = result.recoveredReferences
+            .map((w) => w.qualifiedName)
+            .toSet();
+        // Confirmed used by the secondary check.
+        expect(
+          warned,
+          containsAll([
+            'XrefLoadedState.hasActive',
+            'XrefLoadedState.ready',
+            'XrefEvent.signOut',
+          ]),
+        );
+        // Normally referenced -> not recovered, no warning.
+        expect(warned, isNot(contains('XrefEvent.signIn')));
+        expect(warned, isNot(contains('XrefLoadedState.localFlag')));
+        // Genuinely dead -> stays a finding, not a warning.
+        expect(warned, isNot(contains('XrefLoadedState.deadShapeGetter')));
+        expect(warned, isNot(contains('XrefEvent.deadEvent')));
+        // The warning carries the confirmed usage location and the hedge.
+        final signOut = result.recoveredReferences.firstWhere(
+          (w) => w.qualifiedName == 'XrefEvent.signOut',
+        );
+        expect(signOut.usageFilePath, endsWith('xref_uses.dart'));
+        expect(signOut.message, contains('likely a Dart SDK find-references'));
+      },
+    );
   });
 
-  test('transitive: a recovered member with a dead and a live use stays '
-      'used', () async {
-    final result = await runFinder(
-      include: const [
-        'lib/scenarios/xref_shapes.dart',
-        'lib/scenarios/xref_surface.dart',
-        'lib/scenarios/xref_dead_cycles.dart',
-      ],
-      exclude: const [],
-      transitive: true,
-    );
-    final names = result.unused.map((d) => d.qualifiedName).toSet();
-    expect(names, contains('_deadReady'));
-    expect(names, isNot(contains('XrefLoadedState.ready')));
-    expect(names, isNot(contains('liveReady')));
-  });
+  test(
+    'transitive: a recovered member with a dead and a live use stays used',
+    () async {
+      final result = await runFinder(
+        include: const [
+          'lib/scenarios/xref_shapes.dart',
+          'lib/scenarios/xref_surface.dart',
+          'lib/scenarios/xref_dead_cycles.dart',
+        ],
+        exclude: const [],
+        transitive: true,
+      );
+      final names = result.unused.map((d) => d.qualifiedName).toSet();
+      expect(names, contains('_deadReady'));
+      expect(names, isNot(contains('XrefLoadedState.ready')));
+      expect(names, isNot(contains('liveReady')));
+    },
+  );
 
   test('a top-level getter named in a show combinator is used', () async {
     final result = await runFinder(
@@ -1671,40 +1721,45 @@ void main() {
         .map((d) => d.qualifiedName)
         .toSet();
 
-    test('no declaration reached only through a dot shorthand is reported, in '
-        'any context a shorthand is allowed in', () async {
-      final result = await runShorthandsResult();
-      // Doc-only counts as a miss too: a shorthand the reference search cannot
-      // see must not be papered over by a dartdoc mention.
-      final reported = {
-        for (final d in [...result.unused, ...result.docOnly]) d.qualifiedName,
-      };
-      // Compared as a set so a failure lists exactly which shorthand context
-      // went unseen.
-      expect(reported.intersection(shorthandReached), isEmpty);
-    });
+    test(
+      'no declaration reached only through a dot shorthand is reported, in any context a shorthand is allowed in',
+      () async {
+        final result = await runShorthandsResult();
+        // Doc-only counts as a miss too: a shorthand the reference search cannot
+        // see must not be papered over by a dartdoc mention.
+        final reported = {
+          for (final d in [...result.unused, ...result.docOnly])
+            d.qualifiedName,
+        };
+        // Compared as a set so a failure lists exactly which shorthand context
+        // went unseen.
+        expect(reported.intersection(shorthandReached), isEmpty);
+      },
+    );
 
-    test('the shorthand fixture reports exactly its dead controls — the '
-        'detection is real, not a blanket exemption', () async {
-      expect(await runShorthands(), {
-        // Same shapes as the shorthand-reached declarations above, but no
-        // shorthand (and no other reference) reaches them.
-        'Weight.deadWeight',
-        'Tier.deadStandard',
-        'Palette.deadCtor',
-        'Palette.deadGetter',
-        'Palette.deadParse',
-        'Box.deadFilled',
-        // Constructing a class through one shorthand does not exempt its other
-        // constructors…
-        'Tint.deadTint',
-        // …and an unnamed constructor no shorthand ever reaches is still
-        // reported, even though `.new` sites are now probed by name.
-        'DeadLayer.new',
-        // The fixture's own entry point, which nothing calls.
-        'exerciseDotShorthands',
-      });
-    });
+    test(
+      'the shorthand fixture reports exactly its dead controls — the detection is real, not a blanket exemption',
+      () async {
+        expect(await runShorthands(), {
+          // Same shapes as the shorthand-reached declarations above, but no
+          // shorthand (and no other reference) reaches them.
+          'Weight.deadWeight',
+          'Tier.deadStandard',
+          'Palette.deadCtor',
+          'Palette.deadGetter',
+          'Palette.deadParse',
+          'Box.deadFilled',
+          // Constructing a class through one shorthand does not exempt its other
+          // constructors…
+          'Tint.deadTint',
+          // …and an unnamed constructor no shorthand ever reaches is still
+          // reported, even though `.new` sites are now probed by name.
+          'DeadLayer.new',
+          // The fixture's own entry point, which nothing calls.
+          'exerciseDotShorthands',
+        });
+      },
+    );
   });
 
   group('entry points', () {
@@ -1788,39 +1843,43 @@ void main() {
       });
     });
 
-    test('a rule naming a class keeps its unnamed constructor but not its '
-        'named constructors or other members', () async {
-      final result = await runEntryPoints(
-        entryPoints: [.fromConfig('ParkedCard'), .fromConfig('ParkedSlot')],
-      );
+    test(
+      'a rule naming a class keeps its unnamed constructor but not its named constructors or other members',
+      () async {
+        final result = await runEntryPoints(
+          entryPoints: [.fromConfig('ParkedCard'), .fromConfig('ParkedSlot')],
+        );
 
-      expect(
-        located(result).where((d) => d.contains(':Parked')),
-        unorderedEquals([
+        expect(
+          located(result).where((d) => d.contains(':Parked')),
+          unorderedEquals([
+            // No rule names `Parked`.
+            'lib/scenarios/entry_points.dart:Parked',
+            'lib/scenarios/entry_points.dart:ParkedCard.blank',
+            'lib/scenarios/entry_points.dart:ParkedCard.flip',
+          ]),
+        );
+      },
+    );
+
+    test(
+      'a rule naming a class keeps its unnamed constructor when only constructors are reported',
+      () async {
+        final result = await runFinder(
+          include: ['lib/scenarios/entry_points.dart'],
+          exclude: const [],
+          kinds: {.constructor},
+          entryPoints: [.fromConfig('ParkedCard'), .fromConfig('ParkedSlot')],
+        );
+
+        expect(located(result), {
           // No rule names `Parked`.
-          'lib/scenarios/entry_points.dart:Parked',
+          'lib/scenarios/entry_points.dart:Parked.new',
+          'lib/scenarios/entry_points.dart:Parked.make',
           'lib/scenarios/entry_points.dart:ParkedCard.blank',
-          'lib/scenarios/entry_points.dart:ParkedCard.flip',
-        ]),
-      );
-    });
-
-    test('a rule naming a class keeps its unnamed constructor when only '
-        'constructors are reported', () async {
-      final result = await runFinder(
-        include: ['lib/scenarios/entry_points.dart'],
-        exclude: const [],
-        kinds: {.constructor},
-        entryPoints: [.fromConfig('ParkedCard'), .fromConfig('ParkedSlot')],
-      );
-
-      expect(located(result), {
-        // No rule names `Parked`.
-        'lib/scenarios/entry_points.dart:Parked.new',
-        'lib/scenarios/entry_points.dart:Parked.make',
-        'lib/scenarios/entry_points.dart:ParkedCard.blank',
-      });
-    });
+        });
+      },
+    );
 
     test(
       'a project rule whose globs match no scanned file changes nothing',
@@ -2046,43 +2105,53 @@ void main() {
       );
     });
 
-    test('a blank-separated comment mentioning vm:entry-point does not skip '
-        'it', () {
-      return expectLater(
-        runCommentAnnotations(),
-        completion(contains('deadEntryPointBlankSeparated')),
-      );
-    });
+    test(
+      'a blank-separated comment mentioning vm:entry-point does not skip it',
+      () {
+        return expectLater(
+          runCommentAnnotations(),
+          completion(contains('deadEntryPointBlankSeparated')),
+        );
+      },
+    );
 
-    test('a file-header block mentioning both literals does not skip the first '
-        'declaration', () {
-      return expectLater(
-        runCommentAnnotations(),
-        completion(contains('deadAfterHeaderBlock')),
-      );
-    });
+    test(
+      'a file-header block mentioning both literals does not skip the first declaration',
+      () {
+        return expectLater(
+          runCommentAnnotations(),
+          completion(contains('deadAfterHeaderBlock')),
+        );
+      },
+    );
 
-    test('an unprefixed block-comment line mentioning @override does not skip '
-        'it', () {
-      return expectLater(
-        runCommentAnnotations(),
-        completion(contains('deadOverrideBareBlock')),
-      );
-    });
+    test(
+      'an unprefixed block-comment line mentioning @override does not skip it',
+      () {
+        return expectLater(
+          runCommentAnnotations(),
+          completion(contains('deadOverrideBareBlock')),
+        );
+      },
+    );
 
-    test('an unprefixed block-comment line mentioning vm:entry-point does not '
-        'skip it', () {
-      return expectLater(
-        runCommentAnnotations(),
-        completion(contains('deadEntryPointBareBlock')),
-      );
-    });
+    test(
+      'an unprefixed block-comment line mentioning vm:entry-point does not skip it',
+      () {
+        return expectLater(
+          runCommentAnnotations(),
+          completion(contains('deadEntryPointBareBlock')),
+        );
+      },
+    );
 
-    test('a real @pragma(vm:entry-point) is still skipped — the string literal '
-        'survives comment-stripping', () async {
-      final names = await runCommentAnnotations();
-      expect(names, isNot(contains('liveByRealPragma')));
-    });
+    test(
+      'a real @pragma(vm:entry-point) is still skipped — the string literal survives comment-stripping',
+      () async {
+        final names = await runCommentAnnotations();
+        expect(names, isNot(contains('liveByRealPragma')));
+      },
+    );
   });
 }
 
