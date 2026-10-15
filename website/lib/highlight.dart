@@ -180,8 +180,7 @@ ClassName? _classFor(List<String> scopes) {
   for (final scope in scopes.reversed) {
     final parts = scope.split('.');
     for (var length = parts.length; length > 0; length--) {
-      final className = _scopeClasses[parts.take(length).join('.')];
-      if (className != null) {
+      if (_scopeClasses[parts.take(length).join('.')] case final className?) {
         return className;
       }
     }

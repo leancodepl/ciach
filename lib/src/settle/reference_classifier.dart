@@ -107,14 +107,10 @@ class ReferenceClassifier {
   /// annotation lines — text that goes when it does, so a recursive call or
   /// the unnamed constructor's declaration keeps nothing alive), or the
   /// `State<Foo>` pairing ([FlutterWidgets.isStatePairingReference]).
-  bool isSelfReference(Candidate candidate, Location loc) {
-    if (SourceIndex.pathOf(loc.uri) == candidate.path) {
-      if (candidate.outline.range.contains(loc.range.start)) {
-        return true;
-      }
-    }
-    return _sources.isStatePairingReference(candidate.symbol.name, loc);
-  }
+  bool isSelfReference(Candidate candidate, Location loc) =>
+      (SourceIndex.pathOf(loc.uri) == candidate.path &&
+          candidate.outline.range.contains(loc.range.start)) ||
+      _sources.isStatePairingReference(candidate.symbol.name, loc);
 
   /// Whether [candidate] — already classified as unused under
   /// `--also union-members` — is kept dead by *type patterns*: at least one

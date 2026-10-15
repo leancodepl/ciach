@@ -89,6 +89,8 @@ class _CopyButtonState extends State<CopyButton> {
     try {
       await web.window.navigator.clipboard.writeText(component.text).toDart;
     } on Object {
+      // Best effort: the browser may deny clipboard access, and then the
+      // button stays as it was.
       return;
     }
     if (!mounted) {

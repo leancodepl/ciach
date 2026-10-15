@@ -123,8 +123,7 @@ class AssetRenderer {
     } else {
       final file = File(p.join('web', p.normalize(path.substring(1))));
       if (file.existsSync()) {
-        final type = _contentTypes[p.extension(file.path)];
-        if (type != null) {
+        if (_contentTypes[p.extension(file.path)] case final type?) {
           response.headers.set(HttpHeaders.contentTypeHeader, type);
         }
         response.add(file.readAsBytesSync());

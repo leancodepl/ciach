@@ -25,7 +25,7 @@ const _workflow = '''
 - run: dart run ciach''';
 
 const _config = '''
-# ciach.yaml — every option, keyed by its long name minus the "--".
+# ciach.yaml — options keyed by their long name without the "--".
 public: false                     # --no-public
 exclude: ['test/**', 'tool/**']   # repeatable options take a list
 kinds: [class, function, method]
@@ -539,13 +539,14 @@ class DocsPage extends StatelessComponent {
               heading: 'Configuration file',
               children: [
                 p([
-                  .text('Every option can live in a '),
+                  .text('Options can live in a '),
                   code([.text('ciach.yaml')]),
                   .text(
-                    ' in the package root. Command line beats config file beats '
-                    'default, and a repeatable option on the command line '
-                    'replaces the list instead of appending. Discovery looks in '
-                    'the analyzed package root only, so each package in a '
+                    ' in the package root. The command line overrides the '
+                    'config file, and the config file overrides the default. '
+                    'A repeatable option on the command line replaces the '
+                    'list instead of appending. Discovery looks in the '
+                    'analyzed package root only, so each package in a '
                     'monorepo owns its config; ',
                   ),
                   code([.text('--config <path>')]),

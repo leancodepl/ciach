@@ -88,8 +88,7 @@ extension FlutterWidgets on SourceIndex {
         continue;
       }
       final before = out.length;
-      for (var j = 0; j < candidates.length; j++) {
-        final state = candidates[j];
+      for (final (j, state) in candidates.indexed) {
         if (state.symbol.kind != .class$ ||
             state.path != path ||
             identical(state, widget) ||

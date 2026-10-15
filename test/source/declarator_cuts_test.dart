@@ -83,11 +83,12 @@ void main() {
     return File(path).readAsStringSync();
   }
 
-  test('removes the whole statement with its doc comment and annotation '
-      'when every declarator goes', () async {
-    expect(
-      await remove(
-        '''
+  test(
+    'removes the whole statement with its doc comment and annotation when every declarator goes',
+    () async {
+      expect(
+        await remove(
+          '''
 class C {
   /// Doc.
   @Deprecated('x')
@@ -95,15 +96,16 @@ class C {
   int kept = 0;
 }
 ''',
-        ['a', 'b'],
-      ),
-      '''
+          ['a', 'b'],
+        ),
+        '''
 class C {
   int kept = 0;
 }
 ''',
-    );
-  });
+      );
+    },
+  );
 
   test('takes the comma after a declarator, or before the last one', () async {
     const source = 'var a = 1, b = 2, c = 3;\n';

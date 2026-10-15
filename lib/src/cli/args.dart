@@ -159,7 +159,8 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/exclude',
       defaultsTo: [],
       valueHelp: 'glob',
-      helpText: 'Glob(s), relative to the root, of files to skip. Repeatable.',
+      helpText:
+          'Glob, relative to the root, of files to skip: nothing in them is reported, but their references still count. Repeatable.',
     ),
   ),
   include(
@@ -170,7 +171,8 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/include',
       defaultsTo: [],
       valueHelp: 'glob',
-      helpText: 'If given, only scan files matching these glob(s). Repeatable.',
+      helpText:
+          'Glob, relative to the root, of files to scan. When this option is given, other files are skipped, but their references still count. Repeatable.',
     ),
   ),
   generatedGlob(
@@ -181,7 +183,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       defaultsTo: [],
       valueHelp: 'glob',
       helpText:
-          "Glob, relative to the root, of files to treat as generated: their references count, but nothing in them is reported or edited, e.g. --generated-glob 'lib/l10n/**'. --exclude drops files entirely instead. Repeatable. Ignored when --generated is set.",
+          "Glob, relative to the root, of files to treat as generated: their references count, but nothing in them is reported or edited, e.g. --generated-glob 'lib/l10n/**'. Repeatable. Ignored when --generated is set.",
     ),
   ),
   analysisRoot(

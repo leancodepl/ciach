@@ -106,8 +106,8 @@ class CrossLibraryReferences {
     final usageByDecl = <_DeclPosition, Set<_Site>>{};
     // Uses resolving to a non-candidate (e.g. an override), by name.
     final elsewhere = <String, Map<_DeclPosition, Set<_Site>>>{};
-    for (var i = 0; i < sites.length; i++) {
-      final site = (uri: sites[i].uri, position: sites[i].position);
+    for (final (i, (:uri, :position, :name)) in sites.indexed) {
+      final site = (uri: uri, position: position);
       for (final loc in perSite[i]) {
         final start = loc.range.start;
         final pos = (SourceIndex.pathOf(loc.uri), start.line, start.character);
@@ -118,7 +118,7 @@ class CrossLibraryReferences {
         } else if (pos != _positionOfSite(site)) {
           // Skip a declaration's own name.
           elsewhere
-              .putIfAbsent(sites[i].name, () => {})
+              .putIfAbsent(name, () => {})
               .putIfAbsent(pos, () => {})
               .add(site);
         }
@@ -169,15 +169,13 @@ class CrossLibraryReferences {
         return const <Location>[];
       }
     });
-    for (var i = 0; i < members.length; i++) {
-      final uses = elsewhere[_simpleName(members[i].symbol.name)]!;
+    for (final (i, member) in members.indexed) {
+      final uses = elsewhere[_simpleName(member.symbol.name)]!;
       for (final loc in perMember[i]) {
         final start = loc.range.start;
         final pos = (SourceIndex.pathOf(loc.uri), start.line, start.character);
         if (uses[pos] case final sites?) {
-          usageByDecl
-              .putIfAbsent(_positionOf(members[i]), () => {})
-              .addAll(sites);
+          usageByDecl.putIfAbsent(_positionOf(member), () => {}).addAll(sites);
         }
       }
     }

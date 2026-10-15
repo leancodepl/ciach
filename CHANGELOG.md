@@ -7,6 +7,12 @@
   that a public type extends, mixes in, implements or aliases, as in
   `class Circle extends _Base`, counts as public: other packages can call it.
   ([#135](https://github.com/leancodepl/ciach/pull/135))
+- `--remove` now lists the files that it deleted and the declarations that it
+  left empty one per line. Before, it listed them on one line, separated by
+  commas. ([#136](https://github.com/leancodepl/ciach/pull/136))
+- `--help` and README.md no longer say that a declaration used only from files
+  that `--exclude` skips is reported. The references in those files count, as
+  they did before. ([#136](https://github.com/leancodepl/ciach/pull/136))
 
 ## 0.7.0
 

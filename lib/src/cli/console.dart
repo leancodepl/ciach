@@ -72,11 +72,11 @@ final class Console {
   Style get errStyle => _formatter.style;
 
   /// The lowest level shown.
-  Level get level => _formatter.verbose
-      ? .ALL
-      : _progress
-      ? .INFO
-      : .WARNING;
+  Level get level => switch ((_formatter.verbose, _progress)) {
+    (true, _) => .ALL,
+    (_, true) => .INFO,
+    _ => .WARNING,
+  };
 
   /// Applies the CLI options. [verbose] overrides [progress].
   void configure({bool? color, bool progress = false, bool verbose = false}) {

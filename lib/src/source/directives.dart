@@ -1,5 +1,6 @@
 import 'package:ciach/src/source/comment_stripping.dart';
 import 'package:ciach/src/workspace/packages.dart';
+import 'package:collection/collection.dart';
 
 /// An `import`, `export` or `part` directive, read without the analyzer.
 extension type Directive._(RegExpMatch _match) {
@@ -27,11 +28,13 @@ extension type Directive._(RegExpMatch _match) {
   /// conditions are not URIs.
   List<RegExpMatch> get uris {
     final conditions = _condition.allMatches(body).toList();
-    return [
-      for (final uri in uriLiteral.allMatches(body))
-        if (!conditions.any((c) => c.start <= uri.start && uri.end <= c.end))
-          uri,
-    ];
+    return uriLiteral
+        .allMatches(body)
+        .where(
+          (uri) =>
+              conditions.none((c) => c.start <= uri.start && uri.end <= c.end),
+        )
+        .toList();
   }
 
   /// The files it names, written in [from], as absolute paths. URIs of other

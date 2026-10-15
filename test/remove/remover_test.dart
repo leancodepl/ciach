@@ -288,12 +288,13 @@ class Kept {}
     },
   );
 
-  test('a report-only (removalBlocked) finding is left in place, and nothing '
-      'coupled to it is removed either', () {
-    // A `--also union-members` finding is reported but never auto-removed:
-    // the remover must skip the declaration entirely — including any span that
-    // was coupled to it — so the source is left untouched.
-    const source = '''
+  test(
+    'a report-only (removalBlocked) finding is left in place, and nothing coupled to it is removed either',
+    () {
+      // A `--also union-members` finding is reported but never auto-removed:
+      // the remover must skip the declaration entirely — including any span that
+      // was coupled to it — so the source is left untouched.
+      const source = '''
 sealed class S {}
 
 class Kept extends S {}
@@ -305,33 +306,34 @@ String describe(S s) => switch (s) {
   Dead() => 'dead',
 };
 ''';
-    const dead = UnusedDeclaration(
-      name: 'Dead',
-      kind: .class$,
-      filePath: 'lib.dart',
-      line: 5,
-      column: 7,
-      isPrivate: false,
-      range: (startLine: 4, startColumn: 0, endLine: 4, endColumn: 23),
-      removalBlocked: true,
-      // Even if a coupled span were attached, a blocked finding is skipped
-      // whole — so the arm must survive too.
-      coupledRemovals: [
-        (
-          filePath: 'lib.dart',
-          kind: .class$,
-          range: (startLine: 8, startColumn: 2, endLine: 9, endColumn: 0),
-          fullRange: (startLine: 8, startColumn: 2, endLine: 9, endColumn: 0),
-          cut: null,
-        ),
-      ],
-    );
+      const dead = UnusedDeclaration(
+        name: 'Dead',
+        kind: .class$,
+        filePath: 'lib.dart',
+        line: 5,
+        column: 7,
+        isPrivate: false,
+        range: (startLine: 4, startColumn: 0, endLine: 4, endColumn: 23),
+        removalBlocked: true,
+        // Even if a coupled span were attached, a blocked finding is skipped
+        // whole — so the arm must survive too.
+        coupledRemovals: [
+          (
+            filePath: 'lib.dart',
+            kind: .class$,
+            range: (startLine: 8, startColumn: 2, endLine: 9, endColumn: 0),
+            fullRange: (startLine: 8, startColumn: 2, endLine: 9, endColumn: 0),
+            cut: null,
+          ),
+        ],
+      );
 
-    final result = applyRemoval(source, [dead]);
-    expect(result, equals(source), reason: 'report-only: nothing removed');
-    expect(result, contains('class Dead extends S {}'));
-    expect(result, contains("Dead() => 'dead'"));
-  });
+      final result = applyRemoval(source, [dead]);
+      expect(result, equals(source), reason: 'report-only: nothing removed');
+      expect(result, contains('class Dead extends S {}'));
+      expect(result, contains("Dead() => 'dead'"));
+    },
+  );
 
   test(
     'a removalBlocked enum value is reported but left in place by --remove',
@@ -399,10 +401,11 @@ Holder? holderRef;
     },
   );
 
-  test('removes a dead class declared with a primary constructor and a `;` '
-      'body', () {
-    // The whole declaration is the header; the class range covers the `;`.
-    const source = '''
+  test(
+    'removes a dead class declared with a primary constructor and a `;` body',
+    () {
+      // The whole declaration is the header; the class range covers the `;`.
+      const source = '''
 class Kept(var int x);
 
 /// Never referenced.
@@ -410,23 +413,24 @@ class DeadPoint(var int x, var int y);
 
 int useKept() => Kept(1).x;
 ''';
-    // `class DeadPoint(var int x, var int y);` is line index 3, columns 0..38.
-    final result = applyRemoval(source, [
-      decl(
-        startLine: 3,
-        startColumn: 0,
-        endLine: 3,
-        endColumn: 38,
-        kind: .class$,
-        docLine: 2,
-      ),
-    ]);
-    expect(result, isNot(contains('DeadPoint')));
-    expect(result, isNot(contains('Never referenced')));
-    expect(result, contains('class Kept(var int x);'));
-    expect(result, contains('int useKept() => Kept(1).x;'));
-    expectBalanced(result);
-  });
+      // `class DeadPoint(var int x, var int y);` is line index 3, columns 0..38.
+      final result = applyRemoval(source, [
+        decl(
+          startLine: 3,
+          startColumn: 0,
+          endLine: 3,
+          endColumn: 38,
+          kind: .class$,
+          docLine: 2,
+        ),
+      ]);
+      expect(result, isNot(contains('DeadPoint')));
+      expect(result, isNot(contains('Never referenced')));
+      expect(result, contains('class Kept(var int x);'));
+      expect(result, contains('int useKept() => Kept(1).x;'));
+      expectBalanced(result);
+    },
+  );
 
   test(
     'removes an abbreviated `new`/`factory` constructor from a class body',
