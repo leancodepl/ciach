@@ -188,6 +188,31 @@ int _skipInterpolation(String content, int from) {
   return i;
 }
 
+/// The offset at which each line of [content] starts.
+List<int> lineStartsOf(String content) => [
+  0,
+  for (var i = 0; i < content.length; i++)
+    if (content[i] == '\n') i + 1,
+];
+
+/// Whether [comment] applies to the next line only: an analyzer
+/// `// ignore:`, a custom_lint `// expect_lint:` or a spell checker's
+/// `// cspell:disable-next-line`.
+bool isNextLineDirective(String comment) =>
+    _nextLineDirective.hasMatch(comment);
+
+final _nextLineDirective = RegExp(
+  r'^//\s*(ignore:|expect_lint:|(cspell|spell-checker):\s*disable-next-line)',
+  caseSensitive: false,
+);
+
+/// A comment another tool reads, such as `// coverage:ignore-start`,
+/// `// ciach:ignore-end` or `// dart format off`. It may pair with a comment
+/// elsewhere in the file.
+bool isToolDirective(String comment) => _toolDirective.hasMatch(comment);
+
+final _toolDirective = RegExp(r'^//\s*([\w.-]+:\S|dart format\b)');
+
 /// The index of the first non-whitespace character at or after [from], if
 /// any.
 int? nextNonWhitespace(String content, int from) {

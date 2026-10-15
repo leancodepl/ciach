@@ -36,7 +36,7 @@ Span? spanFor(
     end++;
   }
 
-  return (start: start, end: consumeTrailingBlankLine(content, end));
+  return (start: start, end: consumeLineEnd(content, end));
 }
 
 /// Enum values are comma-separated, not self-terminating: dropping one

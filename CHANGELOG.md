@@ -1,5 +1,10 @@
 ## Unreleased
 
+- `--remove` now lists the `//` comments it leaves right above removed code,
+  so you can check whether they still belong. It also deletes an `// ignore:`,
+  `// expect_lint:` or `// cspell:disable-next-line` comment above or at the end
+  of a removed declaration, which before stayed and applied to the next line.
+  ([#129](https://github.com/leancodepl/ciach/pull/129))
 - ciach now reports an unused class, mixin, extension, extension type or enum
   once, instead of also listing each of its members. The same goes for a class
   or mixin that only `with` or `implements` clauses use. A used enum whose

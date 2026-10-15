@@ -167,7 +167,7 @@ final class _Package {
     var cursor = 0;
     for (final span in spans.sortedBy<num>((s) => s.start)) {
       buffer.write(source.substring(cursor, span.start));
-      cursor = consumeTrailingBlankLine(source, span.end);
+      cursor = consumeLineEnd(source, span.end);
     }
     buffer.write(source.substring(cursor));
     final updated = buffer.toString();

@@ -12,6 +12,7 @@ import 'dart:io';
 
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
+import 'package:ciach/src/source/comment_stripping.dart';
 import 'package:ciach/src/util/cached_map.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position, SelectionRange;
@@ -29,7 +30,7 @@ class SourceIndex {
     (path) => lines(path).join('\n'),
   );
   late final _lineStarts = CachedMap<String, List<int>>(
-    (path) => _computeLineStarts(content(path)),
+    (path) => lineStartsOf(content(path)),
   );
   final _scanned = <String>{};
 
@@ -116,16 +117,5 @@ class SourceIndex {
       return null;
     }
     return offset;
-  }
-
-  /// The start offset of each line in [content].
-  static List<int> _computeLineStarts(String content) {
-    final starts = <int>[0];
-    for (var i = 0; i < content.length; i++) {
-      if (content[i] == '\n') {
-        starts.add(i + 1);
-      }
-    }
-    return starts;
   }
 }

@@ -119,6 +119,14 @@ String removalReport(
     style.note("Run 'dart format' to tidy up spacing."),
   ];
   final buffer = StringBuffer(sentences.join(' '));
+  if (removal.leftComments case final comments when comments.isNotEmpty) {
+    buffer.write(
+      '\n${style.caution('Kept ${plural(comments.length, 'comment', 'comments')} that sat right above removed code. Check whether ${comments.length == 1 ? 'it' : 'each'} still belongs:')}',
+    );
+    for (final (:filePath, :line) in comments) {
+      buffer.write('\n  $filePath:$line');
+    }
+  }
   for (final note in notes) {
     buffer.write('\n${style.heading('Note:')} $note');
   }

@@ -506,4 +506,203 @@ class Registry {
       'void b() {}\n',
     );
   });
+
+  test('removes the comment at the end of a removed declaration', () {
+    const source = '''
+class C {
+  void _a() {} // ignore: unused_element
+  void _b() {} // cspell:disable-next-line
+  void kept() {}
+  int b() => 1; int c() => 2; // About both.
+}
+''';
+    final result = applyRemoval(source, [
+      decl(startLine: 1, startColumn: 2, endLine: 1, endColumn: 14),
+      decl(startLine: 2, startColumn: 2, endLine: 2, endColumn: 14),
+      decl(startLine: 4, startColumn: 2, endLine: 4, endColumn: 14),
+    ]);
+    expect(
+      result,
+      startsWith('''
+class C {
+  void kept() {}
+'''),
+    );
+    expect(result, contains('int c() => 2; // About both.'));
+  });
+
+  test('keeps a tool directive at the end of a removed declaration', () {
+    const source = '''
+class C {
+  void _a() {} // coverage:ignore-start
+  void kept() {}
+  // coverage:ignore-end
+}
+''';
+    final result = applyRemoval(source, [
+      decl(startLine: 1, startColumn: 2, endLine: 1, endColumn: 14),
+    ]);
+    expect(result, contains('// coverage:ignore-start\n  void kept() {}'));
+  });
+
+  group('a comment above removed code', () {
+    /// Removes [decls] from [content] in `lib.dart` and returns the lines of
+    /// the comments it kept above them.
+    List<int> leftCommentLines(String content, List<UnusedDeclaration> decls) {
+      File(p.join(tempDir.path, 'lib.dart')).writeAsStringSync(content);
+      return [
+        for (final (:filePath, :line) in removeDeclarations(
+          decls,
+          tempDir.path,
+        ).leftComments)
+          if (filePath == 'lib.dart') line,
+      ];
+    }
+
+    test('stays and is listed by its line after removal', () {
+      const source = '''
+void a() {}
+
+// About b,
+// on two lines.
+/// Doc of b.
+void b() {}
+
+void c() {}
+''';
+      final lines = leftCommentLines(source, [
+        decl(startLine: 0, startColumn: 0, endLine: 0, endColumn: 11),
+        decl(
+          startLine: 5,
+          startColumn: 0,
+          endLine: 5,
+          endColumn: 11,
+          docLine: 4,
+        ),
+      ]);
+      expect(File(p.join(tempDir.path, 'lib.dart')).readAsStringSync(), '''
+
+// About b,
+// on two lines.
+
+void c() {}
+''');
+      expect(lines, [2]);
+    });
+
+    test('is not listed with a blank line after it', () {
+      const source = '''
+// Section.
+
+void a() {}
+
+void b() {}
+''';
+      expect(
+        leftCommentLines(source, [
+          decl(startLine: 2, startColumn: 0, endLine: 2, endColumn: 11),
+        ]),
+        isEmpty,
+      );
+    });
+
+    test('is not listed when it is a tool directive or goes too', () {
+      const source = '''
+// ciach:ignore-end
+// dart format on
+void a() {}
+
+class C {
+  // About m.
+  void m() {}
+}
+
+void b() {}
+''';
+      expect(
+        leftCommentLines(source, [
+          decl(startLine: 2, startColumn: 0, endLine: 2, endColumn: 11),
+          decl(
+            startLine: 4,
+            startColumn: 0,
+            endLine: 7,
+            endColumn: 1,
+            kind: .class$,
+          ),
+          decl(
+            startLine: 6,
+            startColumn: 2,
+            endLine: 6,
+            endColumn: 13,
+            kind: .method,
+          ),
+        ]),
+        isEmpty,
+      );
+    });
+
+    test('goes when it applies to the next line, and the rest is listed', () {
+      const source = '''
+void a() {}
+
+// About b.
+//ciach:ignore-end
+// ignore: unused_element
+// expect_lint: some_lint
+// cspell:disable-next-line
+void _b() {}
+''';
+      final lines = leftCommentLines(source, [
+        decl(startLine: 7, startColumn: 0, endLine: 7, endColumn: 12),
+      ]);
+      expect(File(p.join(tempDir.path, 'lib.dart')).readAsStringSync(), '''
+void a() {}
+
+// About b.
+//ciach:ignore-end
+''');
+      expect(lines, [3]);
+    });
+
+    test('is listed by its line once imports of deleted files go', () {
+      File(p.join(tempDir.path, 'gone.dart')).writeAsStringSync('');
+      const source = '''
+import 'gone.dart';
+
+void a() {}
+
+// About b.
+void b() {}
+''';
+      File(p.join(tempDir.path, 'lib.dart')).writeAsStringSync(source);
+      final result = removeDeclarations(
+        [decl(startLine: 5, startColumn: 0, endLine: 5, endColumn: 11)],
+        tempDir.path,
+        emptyFiles: ['gone.dart'],
+      );
+      expect(File(p.join(tempDir.path, 'lib.dart')).readAsStringSync(), '''
+
+void a() {}
+
+// About b.
+''');
+      expect(result.leftComments, [(filePath: 'lib.dart', line: 4)]);
+    });
+
+    test('is not listed when its file is deleted', () {
+      const source = '''
+import 'dart:math';
+
+// About a.
+int a() => max(1, 2);
+''';
+      expect(
+        leftCommentLines(source, [
+          decl(startLine: 3, startColumn: 0, endLine: 3, endColumn: 20),
+        ]),
+        isEmpty,
+      );
+      expect(File(p.join(tempDir.path, 'lib.dart')).existsSync(), isFalse);
+    });
+  });
 }

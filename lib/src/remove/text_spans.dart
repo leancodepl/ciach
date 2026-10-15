@@ -3,6 +3,8 @@
 library;
 
 import 'package:ciach/src/model/unused_declaration.dart';
+import 'package:ciach/src/source/comment_stripping.dart';
+import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 
 /// A `[start, end)` character-offset span within a file's content.
@@ -38,18 +40,22 @@ int startWithIndentation(
   );
 }
 
-/// If nothing but whitespace follows [end] on its line, extends it past the
-/// line break — so deleting a declaration doesn't leave a blank line behind.
-int consumeTrailingBlankLine(String content, int end) {
-  final nextNewline = content.indexOf('\n', end);
-  final restOfLine = content.substring(
-    end,
-    nextNewline == -1 ? content.length : nextNewline,
-  );
-  if (restOfLine.trim().isNotEmpty) {
-    return end;
+/// If nothing but whitespace, or a `//` comment, follows [end] on its line,
+/// extends it past the line break — so deleting a declaration leaves neither a
+/// blank line nor its trailing comment behind. That comment, such as an
+/// `// ignore:`, would otherwise apply to the line after it. Any other tool
+/// directive stays, so a range it opens or closes keeps both ends.
+int consumeLineEnd(String content, int end) {
+  final nextNewline = content.indexOfOrNull('\n', end);
+  final restOfLine = content.substring(end, nextNewline ?? content.length);
+  if (nextNonWhitespace(restOfLine, 0) case final i?) {
+    final comment = restOfLine.substring(i);
+    if (!comment.startsWith('//') ||
+        (isToolDirective(comment) && !isNextLineDirective(comment))) {
+      return end;
+    }
   }
-  return nextNewline == -1 ? content.length : nextNewline + 1;
+  return nextNewline?.let((newline) => newline + 1) ?? content.length;
 }
 
 /// Skips spaces and tabs from [from], but never across a line break — used to
