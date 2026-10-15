@@ -1,5 +1,5 @@
-import 'package:ciach/src/candidates.dart';
-import 'package:ciach/src/symbols.dart';
+import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/source/symbols.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
 /// Return types of a `toJson` hook.

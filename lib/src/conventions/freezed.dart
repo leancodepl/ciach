@@ -8,11 +8,11 @@
  *     - mark-ai-provenance
  */
 
-import 'package:ciach/src/candidates.dart';
+import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
-import 'package:ciach/src/source_index.dart';
-import 'package:ciach/src/symbols.dart';
-import 'package:ciach/src/syntax_rules.dart';
+import 'package:ciach/src/source/source_index.dart';
+import 'package:ciach/src/source/symbols.dart';
+import 'package:ciach/src/source/syntax_rules.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
 /// `freezed` union conventions.

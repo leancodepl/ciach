@@ -1,8 +1,10 @@
 import 'dart:io';
 
 import 'package:ciach/src/cli/args.dart';
+import 'package:ciach/src/cli/option_values.dart';
+import 'package:ciach/src/cli/removed_options.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
-import 'package:ciach/src/plural.dart';
+import 'package:ciach/src/util/plural.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
 import 'package:path/path.dart' as p;

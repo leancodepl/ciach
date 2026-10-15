@@ -1,4 +1,4 @@
-import 'package:ciach/src/symbols.dart';
+import 'package:ciach/src/source/symbols.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position, Range;
 
 /// The token type and modifier names a `semanticTokens` response indexes into.

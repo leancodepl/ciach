@@ -20,7 +20,7 @@ void main() {
   });
 }
 
-const _import = "import 'package:ciach/src/extensions.dart';\n\n";
+const _import = "import 'package:ciach/src/util/extensions.dart';\n\n";
 
 @reflectiveTest
 class PreferLetTest() extends AnalysisRuleTest {
@@ -28,7 +28,7 @@ class PreferLetTest() extends AnalysisRuleTest {
   void setUp() {
     rule = PreferLet();
     super.setUp();
-    newPackage('ciach').addFile('lib/src/extensions.dart', '''
+    newPackage('ciach').addFile('lib/src/util/extensions.dart', '''
 extension Let<T extends Object> on T {
   R let<R>(R Function(T it) transform) => transform(this);
 }

@@ -1,11 +1,11 @@
-import 'package:ciach/src/cached_map.dart';
-import 'package:ciach/src/candidates.dart';
-import 'package:ciach/src/directives.dart';
-import 'package:ciach/src/extensions.dart';
-import 'package:ciach/src/packages.dart';
-import 'package:ciach/src/reachability.dart';
-import 'package:ciach/src/reference_classifier.dart';
-import 'package:ciach/src/symbols.dart';
+import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/settle/reference_classifier.dart';
+import 'package:ciach/src/source/directives.dart';
+import 'package:ciach/src/source/symbols.dart';
+import 'package:ciach/src/util/cached_map.dart';
+import 'package:ciach/src/util/extensions.dart';
+import 'package:ciach/src/util/reachability.dart';
+import 'package:ciach/src/workspace/packages.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location;
 
 /// The variants of conditional imports and exports: the libraries one
