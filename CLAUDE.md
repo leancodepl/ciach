@@ -208,8 +208,8 @@ guarantees the value. Put the fallback of a null-aware chain last, as in
 - Use the simplest pattern that does the job:
   `if (symbol.children case final children? when …)` rather than an object
   pattern that destructures fields that are read once.
-- Merge arms that have the same body with `||`, and merge nested `if`s into one
-  if-case with a `when` guard.
+- `merge_identical_switch_arms` joins neighboring arms that have the same body
+  with `||`. Merge nested `if`s into one if-case with a `when` guard.
 - A function that picks a result by the shape of a value is a switch
   expression, without if/return chains or nested conditional expressions. Read
   JSON and YAML with a switch over map patterns. Bind and test in one step,

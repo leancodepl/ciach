@@ -7,6 +7,7 @@
 import 'package:analysis_server_plugin/plugin.dart';
 import 'package:analysis_server_plugin/registry.dart';
 import 'package:ciach_lints/src/avoid_empty_collection_fallback.dart';
+import 'package:ciach_lints/src/merge_identical_switch_arms.dart';
 import 'package:ciach_lints/src/prefer_let.dart';
 import 'package:ciach_lints/src/prefer_multiline_string.dart';
 import 'package:ciach_lints/src/prefer_none_and_where_not.dart';
@@ -52,6 +53,8 @@ final class CiachLintsPlugin() extends Plugin {
         MoveGuardIntoPattern.new,
       )
       ..registerWarningRule(PreferNoneAndWhereNot())
-      ..registerFixForRule(PreferNoneAndWhereNot.code, RemoveNegation.new);
+      ..registerFixForRule(PreferNoneAndWhereNot.code, RemoveNegation.new)
+      ..registerWarningRule(MergeIdenticalSwitchArms())
+      ..registerFixForRule(MergeIdenticalSwitchArms.code, MergeSwitchArms.new);
   }
 }
