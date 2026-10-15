@@ -6,6 +6,7 @@
 
 import 'package:analysis_server_plugin/plugin.dart';
 import 'package:analysis_server_plugin/registry.dart';
+import 'package:ciach_lints/src/avoid_empty_collection_fallback.dart';
 import 'package:ciach_lints/src/prefer_let.dart';
 import 'package:ciach_lints/src/prefer_multiline_string.dart';
 import 'package:ciach_lints/src/prefer_single_string_literal.dart';
@@ -37,6 +38,11 @@ final class CiachLintsPlugin() extends Plugin {
       ..registerFixForRule(
         PreferSingleStringLiteral.code,
         JoinAdjacentStrings.new,
+      )
+      ..registerWarningRule(AvoidEmptyCollectionFallback())
+      ..registerFixForRule(
+        AvoidEmptyCollectionFallback.code,
+        SkipNullCollection.new,
       );
   }
 }

@@ -189,10 +189,10 @@ f(a.b!)`. Read as much as possible before the `let`, in the null-aware chain:
 `x?.y.let(f)`, not `x?.let((it) => f(it.y))`.
 
 To use a nullable value in a block or a collection literal, unwrap it with
-`if (x case final v?)`. Never loop over `x ?? const []`, and write `x!` only
-where the code already guarantees the value. Put the fallback of a null-aware
-chain last, as in `xs?.map(f) ?? const []`, and use `?.` rather than an
-explicit null check.
+`if (x case final v?)`; `avoid_empty_collection_fallback` flags a loop, a
+spread or a call on `x ?? const []`. Write `x!` only where the code already
+guarantees the value. Put the fallback of a null-aware chain last, as in
+`xs?.map(f) ?? const []`, and use `?.` rather than an explicit null check.
 
 # Patterns
 
