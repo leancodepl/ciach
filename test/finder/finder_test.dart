@@ -537,14 +537,8 @@ void main() {
       ),
     ).run();
 
-    UnusedDeclaration? findByName(FinderResult result, String name) {
-      for (final decl in result.unused) {
-        if (decl.name == name) {
-          return decl;
-        }
-      }
-      return null;
-    }
+    UnusedDeclaration? findByName(FinderResult result, String name) =>
+        result.unused.firstWhereOrNull((decl) => decl.name == name);
 
     test(
       'flag ON: a member matched only by a switch-statement case is '
