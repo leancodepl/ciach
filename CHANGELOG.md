@@ -1,5 +1,15 @@
-## Unreleased
+## 0.7.0
 
+- **Breaking:** `--overrides`, `--operators`, `--report-tojson` and
+  `--unused-union-members` are now one option, `--also`, and
+  `--generated-suffix` is replaced by `--generated-glob`. `--fail-public` is
+  gone. Using a removed option is an error that says what to use instead. See
+  [MIGRATION.md](MIGRATION.md).
+  ([#105](https://github.com/leancodepl/ciach/pull/105))
+- **Breaking:** `--transitive` is now on by default: a helper called only by
+  dead code, and a dead cycle, are reported in the same run instead of after
+  a removal and a second run. See [MIGRATION.md](MIGRATION.md).
+  ([#131](https://github.com/leancodepl/ciach/pull/131))
 - With `--unused-translations`, ciach reports only the unused messages of the
   gen-l10n template file. Before, it also reported the code gen-l10n writes
   around them, such as the delegate class, and said to remove it from the ARB
@@ -34,20 +44,10 @@
   inside, such as `int a = 1, /* note */ b = 2;`. Before, it left `int ;`
   behind, or kept a declarator it couldn't cut without saying so.
   ([#128](https://github.com/leancodepl/ciach/pull/128))
-- **Breaking:** `--overrides`, `--operators`, `--report-tojson` and
-  `--unused-union-members` are now one option, `--also`, and
-  `--generated-suffix` is replaced by `--generated-glob`. `--fail-public` is
-  gone. Using a removed option is an error that says what to use instead. See
-  [MIGRATION.md](MIGRATION.md).
-  ([#105](https://github.com/leancodepl/ciach/pull/105))
 - New `exported-packages` option: list the packages that code outside the
   analysis imports, such as one published to pub.dev, and ciach doesn't report
   what other packages can import from them. `--exported` is gone.
   ([#105](https://github.com/leancodepl/ciach/pull/105))
-- **Breaking:** `--transitive` is now on by default: a helper called only by
-  dead code, and a dead cycle, are reported in the same run instead of after
-  a removal and a second run. See [MIGRATION.md](MIGRATION.md).
-  ([#131](https://github.com/leancodepl/ciach/pull/131))
 - Unused translations are reported by default when an `l10n.yaml` is present.
   ([#105](https://github.com/leancodepl/ciach/pull/105))
 - An analyzer plugin that `analysis_options.yaml` loads by path, and the files
