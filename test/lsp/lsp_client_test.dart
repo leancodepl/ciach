@@ -1,6 +1,7 @@
 @TestOn('!windows')
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:ciach/src/lsp/exceptions.dart';
@@ -168,6 +169,121 @@ void main() {
                 '#0      ElementReferencesComputer.compute',
               ),
         ),
+      );
+    },
+  );
+
+  // Logs what it receives to the file named by its first argument; once given
+  // a workspace folder, reports idle before it reports analyzing, then idle.
+  String recordingServer(File log) {
+    final server = File(p.join(tmp.path, 'recording_server.dart'))
+      ..writeAsStringSync(r'''
+import 'dart:convert';
+import 'dart:io';
+
+void send(Map<String, Object?> message) {
+  final body = utf8.encode(jsonEncode({'jsonrpc': '2.0', ...message}));
+  stdout.add(utf8.encode('Content-Length: ${body.length}\r\n\r\n'));
+  stdout.add(body);
+}
+
+void status(bool analyzing) => send({
+  'method': r'$/analyzerStatus',
+  'params': {'isAnalyzing': analyzing},
+});
+
+void main(List<String> args) {
+  final log = File(args.first);
+  var buffer = <int>[];
+  stdin.listen((chunk) {
+    buffer.addAll(chunk);
+    while (true) {
+      final text = latin1.decode(buffer);
+      final headerEnd = text.indexOf('\r\n\r\n');
+      if (headerEnd < 0) return;
+      final length = int.parse(
+        RegExp(r'Content-Length: (\d+)').firstMatch(text)!.group(1)!,
+      );
+      final start = headerEnd + 4;
+      if (buffer.length < start + length) return;
+      final message = jsonDecode(
+        utf8.decode(buffer.sublist(start, start + length)),
+      ) as Map<String, Object?>;
+      buffer = buffer.sublist(start + length);
+      log.writeAsStringSync('${jsonEncode(message)}\n', mode: FileMode.append);
+      final id = message['id'];
+      switch (message['method']) {
+        case 'initialize':
+          send({'id': id, 'result': {'capabilities': <String, Object?>{}}});
+        case 'workspace/didChangeWorkspaceFolders':
+          Future.delayed(const Duration(milliseconds: 100), () => status(false));
+          Future.delayed(const Duration(milliseconds: 300), () => status(true));
+          Future.delayed(const Duration(milliseconds: 600), () => status(false));
+        case 'shutdown':
+          send({'id': id, 'result': null});
+        case 'exit':
+          exit(0);
+      }
+    }
+  });
+}
+''');
+    final script = File(p.join(tmp.path, 'dart'))
+      ..writeAsStringSync(
+        '#!/bin/sh\nexec "${Platform.resolvedExecutable}" "${server.path}" "${log.path}"\n',
+      );
+    Process.runSync('chmod', ['+x', script.path]);
+    return script.path;
+  }
+
+  test(
+    'rewritten analysis options reach the server before the workspace does',
+    () async {
+      final log = File(p.join(tmp.path, 'received.jsonl'));
+      final options = p.join(tmp.path, 'analysis_options.yaml');
+      final client = await LspClient.start(
+        dartExecutable: recordingServer(log),
+      );
+      await client.initialize(tmp.uri, analysisOptions: {options: '{}'});
+      final waited = Stopwatch()..start();
+      await client.waitForAnalysisComplete();
+      expect(
+        waited.elapsedMilliseconds,
+        greaterThan(400),
+        reason: 'an idle report from before the analysis started is no end',
+      );
+      await client.dispose();
+
+      final received = [
+        for (final line in log.readAsLinesSync())
+          jsonDecode(line) as Map<String, Object?>,
+      ];
+      Map<String, Object?> paramsOf(String method) =>
+          received.firstWhere((m) => m['method'] == method)['params']!
+              as Map<String, Object?>;
+      final methods = [for (final message in received) message['method']];
+      final opened = methods.indexOf('textDocument/didOpen');
+      final added = methods.indexOf('workspace/didChangeWorkspaceFolders');
+      expect(opened, greaterThan(methods.indexOf('initialized')));
+      expect(added, greaterThan(opened));
+
+      final startRoot = paramsOf('initialize')['rootUri']! as String;
+      expect(startRoot, isNot(tmp.uri.toString()));
+      expect(Directory.fromUri(Uri.parse(startRoot)).existsSync(), isFalse);
+      expect(paramsOf('textDocument/didOpen'), {
+        'textDocument': {
+          'uri': File(options).uri.toString(),
+          'languageId': 'yaml',
+          'version': 1,
+          'text': '{}',
+        },
+      });
+      expect(
+        (paramsOf('workspace/didChangeWorkspaceFolders')['event']!
+            as Map<String, Object?>)['added'],
+        [
+          {'uri': tmp.uri.toString(), 'name': 'root'},
+        ],
       );
     },
   );
