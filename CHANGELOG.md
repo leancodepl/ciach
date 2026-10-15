@@ -1,9 +1,9 @@
 ## Unreleased
 
-- Scans are faster: the check that catches uses the reference search
-  misses no longer looks up uses it already knows about, uses of local
-  variables or declarations. On a large package this took a run from about
-  350 to 270 seconds. ([#139](https://github.com/leancodepl/ciach/pull/139))
+- Scans are faster. The check for uses that the reference search misses now
+  skips the places it already knows about, local variables and declarations.
+  On a large package, this check went from about 110 to 30 seconds.
+  ([#139](https://github.com/leancodepl/ciach/pull/139))
 - `--remove` now lists the files that it deleted and the declarations that it
   left empty one per line. Before, it listed them on one line, separated by
   commas. ([#136](https://github.com/leancodepl/ciach/pull/136))
