@@ -165,13 +165,12 @@ the reviewer's complaint.
 Write a string as one literal. Use a `'''` multi-line string for text with
 interior newlines (expected output, fixtures); the `prefer_multiline_string`
 rule in `tool/ciach_lints` flags a single-line literal with two or more
-interior `\n` escapes and offers a quick-fix that rewrites it. Split a string
-into adjacent literals only when the joined line would run past 120 columns,
-and never leave a short fragment in a literal of its own. Test and group
-descriptions follow the same rule, even when `dart format` then spreads the
-call over more lines. Never wrap with `+`. Option help texts in
-`lib/src/cli/args.dart` are plain sentences with no `\n`; the parser wraps
-them (`usageLineLength`).
+interior `\n` escapes and offers a quick-fix that rewrites it. Adjacent
+literals are for a line that would run past 120 columns:
+`prefer_single_string_literal` flags and joins the others, test and group
+descriptions included. Never leave a short fragment in a literal of its own,
+and never wrap with `+`. Option help texts in `lib/src/cli/args.dart` are
+plain sentences with no `\n`; the parser wraps them (`usageLineLength`).
 
 # Dot shorthands
 
