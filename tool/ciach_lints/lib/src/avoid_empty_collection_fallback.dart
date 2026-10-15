@@ -183,7 +183,7 @@ class EmptyFallback({
 
   /// Whether `left != null` promotes [left], so that the loop can read
   /// [left] itself.
-  late final bool _promotes = isPromotable(left, expression);
+  late final bool _promotes = isPromotable(left);
 
   /// The `if` that the fix puts around the loop, or `null` when it can't
   /// put one there: a null check when the check promotes [left], or else an
