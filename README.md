@@ -200,7 +200,8 @@ lib/report.dart
 
 Each such finding names what it is only referenced from, so a chain can be
 judged by its root: `-f json` lists every finding a declaration depends on
-under `onlyReferencedFrom`, and the other formats show the first and a count.
+under the `onlyReferencedFrom` key, and the other formats show the first and a
+count.
 A [report-only](#removing-declarations) finding stays in the code, so what it
 references stays used. `--no-transitive` reports only what nothing references
 at all; the rest shows up after a removal and another run.
