@@ -206,8 +206,10 @@ explicit null check.
   guard: `SemanticToken(isKeyword: true, :final text)`,
   `PropertyAccess(:final target?)`. `prefer_pattern_over_guard` flags a guard
   that makes such a test on a variable of its own pattern, and moves the test.
-  Capture a field under its own name, and use the promoted variable rather
-  than binding a second name for it.
+  Capture a field under its own name, also when the pattern gives it a type
+  (`:final ExecutableFragment? declaredFragment`, not
+  `declaredFragment: final ExecutableFragment? fragment`), and use the promoted
+  variable rather than binding a second name for it.
 - Use the simplest pattern that does the job:
   `if (symbol.children case final children? when …)` rather than an object
   pattern that destructures fields that are read once.
