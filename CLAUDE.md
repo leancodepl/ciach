@@ -214,8 +214,10 @@ explicit null check.
   with `||`. Merge nested `if`s into one if-case with a `when` guard.
 - A function that picks a result by the shape of a value is a switch
   expression, without if/return chains or nested conditional expressions. Read
-  JSON and YAML with a switch over map patterns. Bind and test in one step:
-  `if (files.length + variants.length case final count && > 0)`.
+  JSON and YAML with a switch over map patterns. Bind and test in one step,
+  the binding first: `case final count && > 0`, and
+  `case final path? && != unknownPackage` rather than
+  `case (!= unknownPackage && final path)?`.
 
 # Idioms
 

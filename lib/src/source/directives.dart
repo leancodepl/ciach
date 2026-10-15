@@ -42,7 +42,7 @@ extension type Directive._(RegExpMatch _match) {
   List<String> pathsFrom(String from, PackageResolver packages) => [
     for (final uri in uris)
       if (packages.resolve(uri.namedGroup('uri')!, from)
-          case (!= unknownPackage && final path)?)
+          case final path? && != unknownPackage)
         path,
   ];
 }

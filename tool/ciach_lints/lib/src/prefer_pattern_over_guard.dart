@@ -25,7 +25,7 @@ import 'package:analyzer_plugin/utilities/range_factory.dart';
 /// that the pattern can: `v is T`, `v != null`, and a comparison of `v` with
 /// a constant `c`, such as `v > c`. `v == c`, a `bool` `v` and `!v` are
 /// flagged when nothing else reads `v`. `CLAUDE.md` wants these tests in the
-/// pattern: `final T v`, `final v?`, `> c && final v`, `c`, `true`.
+/// pattern: `final T v`, `final v?`, `final v && > c`, `c`, `true`.
 ///
 /// A test of one of `v`'s members, as in `when v.isNotEmpty`, is not
 /// flagged: `CLAUDE.md` prefers `case final v when v.isNotEmpty` to an object
@@ -351,26 +351,39 @@ final class _Move({
     String content,
   ) {
     final declared = _sourceOf(declaration, content);
+    final bound = _withUnaryPatterns(declaration);
     final readElsewhere = _readsOutside(scope, test.variable, operand);
-    final code = switch (test) {
-      _TypeTest(:final type) => _typed(declaration, _sourceOf(type, content)),
-      _NullTest() => '$declared?',
-      _ValueTest(pinsValue: true) when readElsewhere => null,
-      _ValueTest(:final pattern) when readElsewhere => _grouped(
-        '$pattern && $declared',
-        declaration,
+    final declarationEdit = switch (test) {
+      _TypeTest(:final type) => _Edit(
+        range.node(declaration),
+        _typed(declaration, _sourceOf(type, content)),
       ),
-      _ValueTest(:final pattern) => _grouped(pattern, declaration),
+      _NullTest() => _Edit(range.node(declaration), '$declared?'),
+      _ValueTest(pinsValue: true) when readElsewhere => null,
+      // The test follows the variable and the null check or cast around it:
+      // `final v? && > 0`.
+      _ValueTest(:final pattern) when readElsewhere => _Edit(
+        range.node(bound),
+        '${_sourceOf(bound, content)} && $pattern',
+      ),
+      _ValueTest(:final pattern) => _Edit(
+        range.node(declaration),
+        _grouped(pattern, declaration),
+      ),
     };
-    if (code == null) {
+    if (declarationEdit == null) {
       return null;
     }
-    // A shorthand field, `:final v`, needs its name once its pattern is no
-    // longer just the variable.
-    final edit = switch ((test, declaration.parent)) {
+    // A shorthand field, `:final v`, needs its name once its pattern is more
+    // than the variable and the null check or cast around it.
+    final edit = switch ((test, bound.parent)) {
       (_ValueTest(), final PatternField field) when field.name?.name == null =>
-        _Edit(range.node(field), '${declaration.name.lexeme}: $code'),
-      _ => _Edit(range.node(declaration), code),
+        _Edit(
+          range.node(field),
+          '${declaration.name.lexeme}: '
+          '${_applied(declarationEdit, bound, content)}',
+        ),
+      _ => declarationEdit,
     };
     return _Move(operand: operand, declaration: declaration, edit: edit);
   }
@@ -384,8 +397,23 @@ String _typed(DeclaredVariablePattern declaration, String type) =>
       _ => '$type ${declaration.name.lexeme}',
     };
 
+/// [pattern] with the cast, null-check and null-assert patterns that apply
+/// to it: `final v?` for the `final v` in it.
+DartPattern _withUnaryPatterns(DartPattern pattern) => switch (pattern.parent) {
+  (CastPattern() || NullCheckPattern() || NullAssertPattern()) &&
+      final DartPattern parent =>
+    _withUnaryPatterns(parent),
+  _ => pattern,
+};
+
+/// The source of [node] with [edit], which is inside it, applied.
+String _applied(_Edit edit, AstNode node, String content) =>
+    '${content.substring(node.offset, edit.range.offset)}${edit.code}'
+    '${content.substring(edit.range.end, node.end)}';
+
 /// [code] in parentheses when it replaces a [declaration] that a cast or
-/// null-check pattern applies to, which binds tighter than `&&`.
+/// null-check pattern applies to: `(> 0)?`, as a relational pattern can't
+/// take a `?` and doesn't match a nullable value.
 String _grouped(String code, DeclaredVariablePattern declaration) =>
     switch (declaration.parent) {
       CastPattern() || NullCheckPattern() || NullAssertPattern() => '($code)',

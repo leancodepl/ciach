@@ -182,10 +182,10 @@ void f(int n) {
 }
 ''',
       'when count > 0',
-      replacement: '> 0 && final count',
+      replacement: 'final count && > 0',
       fixed: '''
 void f(int n) {
-  if (n case > 0 && final count) print(count);
+  if (n case final count && > 0) print(count);
 }
 ''',
     );
@@ -233,10 +233,10 @@ void f(int n) {
 }
 ''',
       'when count != -1',
-      replacement: '!= -1 && final count',
+      replacement: 'final count && != -1',
       fixed: '''
 void f(int n) {
-  if (n case != -1 && final count) print(count);
+  if (n case final count && != -1) print(count);
 }
 ''',
     );
@@ -351,10 +351,84 @@ void f(Object o) {
 }
 ''',
       'when v > 0',
-      replacement: '(> 0 && final v) as int',
+      replacement: 'final v as int && > 0',
       fixed: '''
 void f(Object o) {
-  if (o case (> 0 && final v) as int) print(v);
+  if (o case final v as int && > 0) print(v);
+}
+''',
+    );
+  }
+
+  Future<void> test_comparisonOfReadNullCheckedVariable() async {
+    await assertMoves(
+      '''
+const unknown = '';
+
+String? f(String? s) => switch (s) {
+  final path? when path != unknown => path,
+  _ => null,
+};
+''',
+      'when path != unknown',
+      replacement: 'final path? && != unknown',
+      fixed: '''
+const unknown = '';
+
+String? f(String? s) => switch (s) {
+  final path? && != unknown => path,
+  _ => null,
+};
+''',
+    );
+  }
+
+  Future<void> test_comparisonOfUnreadNullCheckedVariable() async {
+    await assertMoves(
+      '''
+void f(int? n) {
+  if (n case final v? when v > 0) print('positive');
+}
+''',
+      'when v > 0',
+      replacement: '(> 0)?',
+      fixed: '''
+void f(int? n) {
+  if (n case (> 0)?) print('positive');
+}
+''',
+    );
+  }
+
+  Future<void> test_comparisonOfReadNullCheckedField() async {
+    await assertMoves(
+      '''
+void f(Token t) {
+  if (t case Token(:final text?) when text != 'x') print(text);
+}
+''',
+      "when text != 'x'",
+      replacement: "Token(text: final text? && != 'x')",
+      fixed: '''
+void f(Token t) {
+  if (t case Token(text: final text? && != 'x')) print(text);
+}
+''',
+    );
+  }
+
+  Future<void> test_comparisonOfUnreadNullCheckedField() async {
+    await assertMoves(
+      '''
+void f(Token t) {
+  if (t case Token(:final text?) when text != 'x') print('not x');
+}
+''',
+      "when text != 'x'",
+      replacement: "Token(text: (!= 'x')?)",
+      fixed: '''
+void f(Token t) {
+  if (t case Token(text: (!= 'x')?)) print('not x');
 }
 ''',
     );
