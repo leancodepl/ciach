@@ -22,9 +22,9 @@ bool isPromotable(Expression value, AstNode at) => switch (value) {
   ThisExpression() => true,
   SimpleIdentifier(
     element: (LocalVariableElement() || FormalParameterElement()) &&
-        final Element variable,
+        final Element element,
   ) =>
-    _isStable(variable, at),
+    _isStable(element, at),
   SimpleIdentifier(:final element) => _isPromotableField(element),
   PrefixedIdentifier(:final prefix, :final identifier) =>
     _isPromotableField(identifier.element) && isPromotable(prefix, at),
@@ -61,11 +61,11 @@ bool _isStable(Element variable, AstNode at) {
 /// The closure, function, method or constructor that [node] is in, or `null`
 /// when [node] is in none, as in a field initializer.
 ExecutableElement? _functionOf(AstNode? node) => switch (node) {
-  FunctionExpression(declaredFragment: final ExecutableFragment? fragment) ||
-  MethodDeclaration(declaredFragment: final ExecutableFragment? fragment) ||
+  FunctionExpression(:final ExecutableFragment? declaredFragment) ||
+  MethodDeclaration(:final ExecutableFragment? declaredFragment) ||
   ConstructorDeclaration(
-    declaredFragment: final ExecutableFragment? fragment,
-  ) => fragment?.element,
+    :final ExecutableFragment? declaredFragment,
+  ) => declaredFragment?.element,
   null => null,
   _ => _functionOf(node.parent),
 };
