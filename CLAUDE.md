@@ -201,8 +201,10 @@ guarantees the value. Put the fallback of a null-aware chain last, as in
   conditions that repeat the same null checks.
 - Put type tests, null checks and field values in the pattern, not in a `when`
   guard: `SemanticToken(isKeyword: true, :final text)`,
-  `PropertyAccess(:final target?)`. Capture a field under its own name, and use
-  the promoted variable rather than binding a second name for it.
+  `PropertyAccess(:final target?)`. `prefer_pattern_over_guard` flags a guard
+  that makes such a test on a variable of its own pattern, and moves the test.
+  Capture a field under its own name, and use the promoted variable rather
+  than binding a second name for it.
 - Use the simplest pattern that does the job:
   `if (symbol.children case final children? when …)` rather than an object
   pattern that destructures fields that are read once.
@@ -210,8 +212,10 @@ guarantees the value. Put the fallback of a null-aware chain last, as in
   if-case with a `when` guard.
 - A function that picks a result by the shape of a value is a switch
   expression, without if/return chains or nested conditional expressions. Read
-  JSON and YAML with a switch over map patterns. Bind and test in one step:
-  `if (files.length + variants.length case final count && > 0)`.
+  JSON and YAML with a switch over map patterns. Bind and test in one step,
+  the binding first: `case final count && > 0`, and
+  `case final path? && != unknownPackage` rather than
+  `case (!= unknownPackage && final path)?`.
 
 # Idioms
 
