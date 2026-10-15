@@ -186,14 +186,14 @@ final class KeptDeclarations {
     final brace = rest.indexOf('{');
     return _extendsClause
         .firstMatch(brace < 0 ? rest : rest.substring(0, brace))
-        ?.group(1);
+        ?.namedGroup('superclass');
   }
 
   /// Matches the `extends` clause that follows a class name. The type
   /// parameters before the clause must not be nested, so a class with
   /// `<T extends List<int>>` is not matched.
   static final _extendsClause = RegExp(
-    r'^\s*(?:<[^<>]*>)?\s*extends\s+([A-Za-z_$][\w$]*)',
+    r'^\s*(?:<[^<>]*>)?\s*extends\s+(?<superclass>[A-Za-z_$][\w$]*)',
   );
 }
 

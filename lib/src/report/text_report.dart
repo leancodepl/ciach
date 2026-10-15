@@ -110,27 +110,28 @@ String removalReport(
       ),
     if (blocked > 0)
       style.caution('$blocked left in place — unsafe to auto-remove.'),
-    if (deleted.isNotEmpty)
-      'Deleted ${plural(deleted.length, 'empty file', 'empty files')}: ${deleted.map((d) => d.filePath).join(', ')}.',
-    if (emptied.isNotEmpty)
-      style.caution(
-        'Left ${plural(emptied.length, 'declaration', 'declarations')} empty because other code still uses them: ${emptied.map((e) => '${e.name} (${e.filePath})').join(', ')}.',
-      ),
-    style.note("Run 'dart format' to tidy up spacing."),
+    style.note('Run `dart format` to tidy up spacing.'),
   ];
-  final buffer = StringBuffer(sentences.join(' '));
-  if (removal.leftComments case final comments when comments.isNotEmpty) {
-    buffer.write(
-      '\n${style.caution('Kept ${plural(comments.length, 'comment', 'comments')} that sat right above removed code. Check whether ${comments.length == 1 ? 'it' : 'each'} still belongs:')}',
-    );
-    for (final (:filePath, :line) in comments) {
-      buffer.write('\n  $filePath:$line');
-    }
-  }
-  for (final note in notes) {
-    buffer.write('\n${style.heading('Note:')} $note');
-  }
-  return buffer.toString();
+  return [
+    sentences.join(' '),
+    if (deleted.isNotEmpty) ...[
+      'Deleted ${plural(deleted.length, 'empty file', 'empty files')}:',
+      for (final file in deleted) '  ${file.filePath}',
+    ],
+    if (emptied.isNotEmpty) ...[
+      style.caution(
+        'Left ${plural(emptied.length, 'declaration', 'declarations')} empty because other code still uses them:',
+      ),
+      for (final (:filePath, :name) in emptied) '  $name ($filePath)',
+    ],
+    if (removal.leftComments case final comments when comments.isNotEmpty) ...[
+      style.caution(
+        'Kept ${plural(comments.length, 'comment', 'comments')} that sat right above removed code. Check whether ${comments.length == 1 ? 'it' : 'each'} still belongs:',
+      ),
+      for (final (:filePath, :line) in comments) '  $filePath:$line',
+    ],
+    for (final note in notes) '${style.heading('Note:')} $note',
+  ].join('\n');
 }
 
 /// A section heading.

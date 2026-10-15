@@ -81,7 +81,9 @@ Replacement? _replacementFor(String key, Object? value) =>
 String _quoted(String value) =>
     RegExp(r'^[\w.-]+$').hasMatch(value) ? value : "'$value'";
 
-final _longOption = RegExp(r'^--(no-)?([\w-]+)(?:=(.*))?$');
+final _longOption = RegExp(
+  r'^--(?<negation>no-)?(?<name>[\w-]+)(?:=(?<value>.*))?$',
+);
 
 /// Why the first removed option in [arguments] is gone and what to do
 /// instead, or `null` when they name none.
@@ -91,14 +93,15 @@ String? removedOptionMessage(List<String> arguments) {
       break;
     }
     final match = _longOption.firstMatch(argument);
-    final key = match?[2];
+    final key = match?.namedGroup('name');
     if (match == null || key == null || !removedKeys.contains(key)) {
       continue;
     }
     final Object? value = switch (key) {
       // The value of `--generated-suffix` may be the next argument.
-      'generated-suffix' => match[3] ?? arguments.elementAtOrNull(i + 1),
-      _ => match[1] == null,
+      'generated-suffix' =>
+        match.namedGroup('value') ?? arguments.elementAtOrNull(i + 1),
+      _ => match.namedGroup('negation') == null,
     };
     return '`${argument.split('=').first}` was removed: ${removedOptionAdvice(key, value, inConfig: false)}.';
   }

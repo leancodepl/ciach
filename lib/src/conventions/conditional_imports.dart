@@ -6,6 +6,7 @@ import 'package:ciach/src/util/cached_map.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/reachability.dart';
 import 'package:ciach/src/workspace/packages.dart';
+import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location;
 
 /// The variants of conditional imports and exports: the libraries one
@@ -146,7 +147,7 @@ final class ConditionalImports {
         declared[file]?.let(
           (inFile) =>
               inFile.contains(name) &&
-              !namesakes[i].any((j) => candidates[j].path == file),
+              namesakes[i].none((j) => candidates[j].path == file),
         ) ??
         true;
 

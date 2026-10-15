@@ -21,15 +21,13 @@
   behind, or kept a declarator it couldn't cut without saying so.
   ([#128](https://github.com/leancodepl/ciach/pull/128))
 - **Breaking:** `--overrides`, `--operators`, `--report-tojson` and
-  `--unused-union-members` are now one option, `--also`, and
-  `--generated-suffix` is replaced by `--generated-glob`. `--fail-public` is
-  gone. Using a removed option is an error that says what to use instead. See
+  `--unused-union-members` are now one option, `--also`, `--generated-suffix`
+  is replaced by `--generated-glob`, and `--fail-public` is gone. Using a
+  removed option is an error that says what to use instead. See
   [MIGRATION.md](MIGRATION.md).
   ([#105](https://github.com/leancodepl/ciach/pull/105))
 - **Breaking:** By default, ciach no longer reports what other packages can
-  import. To check it, list in `exported-packages` only the packages that code
-  outside the analysis imports, or set it to `[]` to check every package.
-  `--exported` is gone.
+  import, and `--exported` is gone. See [MIGRATION.md](MIGRATION.md).
   ([#105](https://github.com/leancodepl/ciach/pull/105))
 - Unused translations are reported by default when an `l10n.yaml` is present.
   ([#105](https://github.com/leancodepl/ciach/pull/105))

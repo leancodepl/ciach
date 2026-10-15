@@ -98,8 +98,8 @@ usage or analysis error.
 | `--[no-]ci` | auto | Use the CI defaults, or not. See [CI](#ci). |
 | `--remove` | off | Remove the findings and delete empty files, after asking. See [Removing declarations](#removing-declarations). |
 | `--force` | off | Skip the `--remove` prompt. |
-| `-e, --exclude <glob>` | — | Skip these files entirely. Repeatable. A declaration used only from them is reported; see `--generated-glob`. |
-| `-i, --include <glob>` | — | Scan only these files. Repeatable. |
+| `-e, --exclude <glob>` | — | Skip these files: nothing in them is reported, but their references still count. Repeatable. |
+| `-i, --include <glob>` | — | Scan only these files. The references in other files still count. Repeatable. |
 | `--generated-glob <glob>` | — | Treat these files as generated: their references count, but nothing in them is reported or removed. For output without a suffix or banner, or code kept as is, like a vendored copy. Repeatable. |
 | `-k, --kinds <list>` | all | Report only these kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
 | `-f, --format <fmt>` | `text`; the service's on CI | `text`, `json`, `github`, `azure`, `teamcity`, `sarif`, `checkstyle` or `gitlab`. See [CI](#ci). |
@@ -108,16 +108,19 @@ usage or analysis error.
 | `--[no-]progress` | auto | Show progress on stderr. On for a terminal, off in CI. |
 | `-v, --verbose` | off; on in CI | Explain the run on stderr: the config file and what it set, the settings, each phase, what was skipped and why, and what `--remove` touches. |
 | `--dart <path>` | auto | The `dart` to run the analysis server with. |
+| `--version` | — | Print the ciach version and exit. |
+| `-h, --help` | — | Print the usage information. |
 
 ### Configuration file
 
-Every option can live in a `ciach.yaml` in the package root, keyed by its long
-name without the `--`, plus `path` for the positional argument:
+Every option except `--help`, `--version`, `--config` and `--no-config` can
+live in a `ciach.yaml` in the package root, keyed by its long name without the
+`--`, plus `path` for the positional argument:
 
 ```yaml
 public: false                     # --no-public
 analysis-root: ..                 # --analysis-root
-exported-packages: [packages/api]  # see Library packages
+exported-packages: [packages/api] # see Library packages
 exclude: ['test/**', 'tool/**']   # a repeatable option takes a list, or one string
 kinds: [class, function, method]
 format: github

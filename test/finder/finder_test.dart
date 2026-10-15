@@ -921,7 +921,7 @@ void main() {
         removeDeclarations(first.unused, copy.path);
 
         final second = await run();
-        expect(names(second.unused.where((d) => !d.removalBlocked)), isEmpty);
+        expect(names(second.unused.whereNot((d) => d.removalBlocked)), isEmpty);
         expect(names(second.docOnly), isEmpty);
       },
     );

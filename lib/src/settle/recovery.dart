@@ -79,8 +79,7 @@ final class ReferenceRecovery {
     String analysisRoot,
   ) {
     final warnings = <RecoveredReference>[];
-    for (var i = 0; i < candidates.length; i++) {
-      final candidate = candidates[i];
+    for (final (i, candidate) in candidates.indexed) {
       if (_classifier.externalRefs(candidate, refsByCandidate[i]).isNotEmpty ||
           candidate.symbol.kind == .class$ ||
           candidate.isExtension) {

@@ -22,7 +22,7 @@ Set<int> unreached(Set<int> dead, Iterable<Use> uses) {
   }
 
   // For each dead node, the uses written inside it.
-  final usesInside = <int, List<_ContainedUse>>{};
+  final usesInside = {for (final node in dead) node: <_ContainedUse>[]};
   for (final (:target, :containers) in uses) {
     if (!stillDead.contains(target)) {
       continue;
@@ -34,7 +34,7 @@ Set<int> unreached(Set<int> dead, Iterable<Use> uses) {
     }
     final use = _ContainedUse(target, deadContainers.length);
     for (final container in deadContainers) {
-      usesInside.putIfAbsent(container, () => []).add(use);
+      usesInside[container]!.add(use);
     }
   }
 
@@ -42,7 +42,7 @@ Set<int> unreached(Set<int> dead, Iterable<Use> uses) {
   // container is revived.
   while (revived.isNotEmpty) {
     final node = revived.removeLast();
-    for (final use in usesInside[node] ?? const <_ContainedUse>[]) {
+    for (final use in usesInside[node]!) {
       if (--use.deadContainers == 0) {
         revive(use.target);
       }

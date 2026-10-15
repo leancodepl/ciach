@@ -238,11 +238,11 @@ final class CandidateCollector {
     required _Markers markers,
     required int start,
   }) {
-    final kept = markers.keeping(
-      start: start,
-      nameLine: candidate.symbol.selectionRange.start.line,
-    );
-    if (kept != null) {
+    if (markers.keeping(
+          start: start,
+          nameLine: candidate.symbol.selectionRange.start.line,
+        )
+        case final kept?) {
       _kept.byMarker(relativePath, candidate, kept);
       return false;
     }
