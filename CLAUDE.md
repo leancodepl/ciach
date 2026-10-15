@@ -75,7 +75,7 @@ keeps the header it had. Never copy a model id from another file.
 
 # Before pushing
 
-Use the newest patch of the Dart SDK line CI installs (`sdk: '3.13'` in
+Use the newest patch of the Dart SDK line CI installs (`sdk: 'x.y'` in
 `.github/workflows/test.yml`): an older patch can format differently. Then
 run what CI runs. In the root, where `dart pub get` also resolves `example/`:
 `dart analyze`, `dart format --set-exit-if-changed .` and `dart test`. In
