@@ -204,8 +204,11 @@ explicit null check.
   conditions that repeat the same null checks.
 - Put type tests, null checks and field values in the pattern, not in a `when`
   guard: `SemanticToken(isKeyword: true, :final text)`,
-  `PropertyAccess(:final target?)`. Capture a field under its own name, and use
-  the promoted variable rather than binding a second name for it.
+  `PropertyAccess(:final target?)`. Capture a field under its own name, also
+  when the pattern gives it a type
+  (`:final ExecutableFragment? declaredFragment`, not
+  `declaredFragment: final ExecutableFragment? fragment`), and use the promoted
+  variable rather than binding a second name for it.
 - Use the simplest pattern that does the job:
   `if (symbol.children case final children? when …)` rather than an object
   pattern that destructures fields that are read once.
