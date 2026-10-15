@@ -12,10 +12,10 @@ import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/model/finder_options.dart';
+import 'package:ciach/src/source/exposed_types.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
-import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:ciach/src/workspace/public_api.dart';
@@ -107,6 +107,7 @@ final class CandidateCollector {
       false,
       _OutlineIndex(outline),
       markers,
+      _sources.exposedPrivateTypes(path, outline),
     ).toList();
     markers.warnAbout(relativePath);
     return _kept.withoutContainers(candidates, relativePath).toList();
@@ -128,6 +129,7 @@ final class CandidateCollector {
     bool parentIsEnum,
     _OutlineIndex outlines,
     _Markers markers,
+    Set<String> exposedTypes,
   ) sync* {
     final statement = _Statement();
     for (final (symbol, outline) in _declarations(
@@ -152,6 +154,7 @@ final class CandidateCollector {
         isPreventInstantiationCtor: symbol.isPreventInstantiationMarker(
           symbols,
         ),
+        isInExposedType: exposedTypes.contains(container),
       );
       final exports = exportsOf(symbol, leadingMetadata) ?? containerExports;
       if (_isCandidate(
@@ -181,6 +184,7 @@ final class CandidateCollector {
         symbol.kind == .enum$,
         outlines,
         markers,
+        exposedTypes,
       );
     }
   }
@@ -218,16 +222,15 @@ final class CandidateCollector {
   /// Whether [candidate] is public and left out: by `--no-public`, or as part
   /// of an API that `exported-packages` leaves out.
   ///
-  /// `--no-public` keeps a member of a private type, which is as private as
-  /// the type. If the type leaks through a public API, like a public function
+  /// `--no-public` keeps a member of a private type or an unnamed extension,
+  /// which is as private as the type. If the type leaks through a public API, like a public function
   /// that returns it, the members another package can reach are kept later.
   bool _skipsPublic(Candidate candidate) {
     final symbol = candidate.symbol;
     if (isPrivateName(symbol.name)) {
       return false;
     }
-    final inPrivateType = candidate.container?.let(isPrivateName) ?? false;
-    return (!options.includePublic && !inPrivateType) ||
+    return (!options.includePublic && !candidate.isInPrivateType) ||
         (_publicApi?.exposes(
               candidate.path,
               candidate.container ?? symbol.name,

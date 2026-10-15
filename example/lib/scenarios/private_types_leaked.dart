@@ -4,7 +4,7 @@
  *   harness: Claude Code
  */
 
-// A private class that a public function hands out. Only the private-class
+// A private class that a public function hands out. Only the private-type
 // tests in test/finder/finder_test.dart scan this file.
 
 /// Public: another package can call `makeTool().use()`.

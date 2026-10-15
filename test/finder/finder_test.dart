@@ -978,18 +978,29 @@ void main() {
     });
   });
 
-  test('a member of a private class is reported as private', () async {
+  test('a member of a private type or an unnamed extension is reported as '
+      'private, unless a public class inherits it', () async {
     final result = await runFinder(
       include: const ['lib/scenarios/private_types.dart'],
       exclude: const [],
     );
     expect(
       [for (final d in result.unused) (d.qualifiedName, d.isPrivate)],
-      [('_Settings.new', true), ('_Settings.reset', true)],
+      [
+        ('_Settings.new', true),
+        ('_Settings.reset', true),
+        ('_Painter.repaint', true),
+        ('_Doubling.quadrupled', true),
+        ('sextupled', true),
+        ('_Level.isLow', true),
+        ('_Id.next', true),
+        ('_Root.deep', false),
+      ],
     );
   });
 
-  test('--no-public reports the members of a private class', () async {
+  test('--no-public reports the members of a private type or an unnamed '
+      'extension', () async {
     final result = await runFinder(
       includePublic: false,
       include: const ['lib/scenarios/private_types.dart'],
@@ -998,6 +1009,11 @@ void main() {
     expect(result.unused.map((d) => d.qualifiedName), [
       '_Settings.new',
       '_Settings.reset',
+      '_Painter.repaint',
+      '_Doubling.quadrupled',
+      'sextupled',
+      '_Level.isLow',
+      '_Id.next',
     ]);
   });
 

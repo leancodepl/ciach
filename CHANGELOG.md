@@ -1,8 +1,11 @@
 ## Unreleased
 
 - `--no-public` now also reports an unused method, field or constructor of a
-  private class, such as `_Foo.reset`. Before, it skipped them because their
-  own names have no underscore.
+  private class, mixin, enum, extension or extension type, such as
+  `_Foo.reset`, and of an unnamed extension. Before, it skipped them because
+  their own names have no underscore. A member that a public class inherits,
+  as in `class Circle extends _Base`, counts as public: other packages can
+  call it.
   ([#135](https://github.com/leancodepl/ciach/pull/135))
 - With `--unused-translations`, ciach reports only the unused messages of the
   gen-l10n template file. Before, it also reported the code gen-l10n writes

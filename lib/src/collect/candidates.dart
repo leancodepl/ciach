@@ -54,6 +54,7 @@ final class Candidate {
     required this.isPreventInstantiationCtor,
     this.containerSymbol,
     this.containerOutline,
+    this.isInExposedType = false,
   });
 
   final Uri uri;
@@ -83,6 +84,19 @@ final class Candidate {
   bool get isMixin => outline.element.kind == .mixin;
 
   bool get isExtensionMember => containerSymbol?.kind == .namespace;
+
+  /// Whether this is a member of a private type that a public type of its
+  /// file extends, mixes in or implements as an extension type, so other
+  /// libraries can reach it.
+  final bool isInExposedType;
+
+  /// Whether this is a member of a type that no other library can name or
+  /// reach through a public subtype: one whose name starts with `_`, or an
+  /// unnamed extension.
+  bool get isInPrivateType =>
+      !isInExposedType &&
+      ((container?.let(isPrivateName) ?? false) ||
+          (containerOutline?.element.isUnnamedExtension ?? false));
 
   /// Whether this is a class, enum, mixin or extension type. Extensions are
   /// left out because code uses their members without naming them.
