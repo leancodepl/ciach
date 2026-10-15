@@ -5,7 +5,7 @@
  */
 
 // Members of a private class are private, whatever their own names. Only the
-// `private types` test in test/finder/finder_test.dart scans this file.
+// private-class tests in test/finder/finder_test.dart scan this file.
 
 /// Entry point -> USED.
 void main() => _Settings.defaults().used;

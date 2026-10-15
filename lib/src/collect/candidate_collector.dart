@@ -15,6 +15,7 @@ import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
+import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:ciach/src/workspace/public_api.dart';
@@ -216,12 +217,17 @@ final class CandidateCollector {
 
   /// Whether [candidate] is public and left out: by `--no-public`, or as part
   /// of an API that `exported-packages` leaves out.
+  ///
+  /// `--no-public` keeps a member of a private type, which is as private as
+  /// the type. If the type leaks through a public API, like a public function
+  /// that returns it, the members another package can reach are kept later.
   bool _skipsPublic(Candidate candidate) {
     final symbol = candidate.symbol;
     if (isPrivateName(symbol.name)) {
       return false;
     }
-    return !options.includePublic ||
+    final inPrivateType = candidate.container?.let(isPrivateName) ?? false;
+    return (!options.includePublic && !inPrivateType) ||
         (_publicApi?.exposes(
               candidate.path,
               candidate.container ?? symbol.name,
