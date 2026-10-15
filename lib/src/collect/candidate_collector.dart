@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/collect/kept_declarations.dart';
+import 'package:ciach/src/collect/subtype_counts.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/conventions/gen_l10n.dart';
@@ -42,6 +43,9 @@ final class CandidateCollector {
 
   final FinderOptions options;
   final SourceIndex _sources;
+
+  /// The subtypes of each type the collected files declare.
+  final subtypeCounts = SubtypeCounts();
 
   /// Freezed-union tracking, fed as candidates are collected.
   final FreezedUnions _freezed;
@@ -88,6 +92,7 @@ final class CandidateCollector {
       return const [];
     }
     _sources.cacheSemanticTokens(path, await pendingTokens);
+    subtypeCounts.add(outline, _sources.semanticTokens(path)!);
     if (_conditionalImports.contains(path)) {
       declaredInVariants[path] = ConditionalImports.pairingNames(symbols);
     }

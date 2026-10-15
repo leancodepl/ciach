@@ -2,6 +2,7 @@ import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/conventions/flutter_widgets.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/fetch/cross_library_refs.dart';
+import 'package:ciach/src/fetch/member_probe.dart';
 import 'package:ciach/src/fetch/reference_fetch.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/model/finder_options.dart';
@@ -107,7 +108,7 @@ final class Settler {
   static const _maxRounds = 16;
 
   /// The findings for [candidates], from the server's [refsByCandidate].
-  /// The references of the [probed] candidates are the uses `probeMembers`
+  /// The references of the candidates [probe] found used are only the uses it
   /// found, which a round completes before calling one dead.
   Future<Settled> settle(
     LspClient client,
@@ -116,7 +117,7 @@ final class Settler {
     required Set<String> scannedPaths,
     required String rootPath,
     required String analysisRoot,
-    Set<Candidate> probed = const {},
+    MemberProbe? probe,
   }) async {
     final superclasses = SuperclassChecks(client);
     final overrides = OverrideRemovals(
@@ -126,7 +127,7 @@ final class Settler {
       rootPath: rootPath,
     );
 
-    final probedRefs = ProbedReferences(_fetch, {...probed});
+    final probedRefs = ProbedReferences(_fetch, probe);
     Future<DeadSpans> completed(DeadSpans Function() spans) =>
         probedRefs.completeIn(
           spans,

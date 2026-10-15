@@ -1003,6 +1003,37 @@ void main() {
     );
   });
 
+  test('the members of a type with many subtypes are looked up where the '
+      'type is named', () async {
+    final lines = <String>[];
+    final level = Logger.root.level;
+    Logger.root.level = .INFO;
+    final logging = Logger.root.onRecord
+        .where((r) => r.loggerName == 'ciach.finder')
+        .listen((r) => lines.add(r.message));
+    addTearDown(() {
+      Logger.root.level = level;
+      return logging.cancel();
+    });
+
+    final result = await runFinder(
+      include: const ['lib/scenarios/large_hierarchy.dart'],
+      exclude: const [],
+      transitive: true,
+    );
+
+    expect(result.unused.map((d) => d.qualifiedName), [
+      '_deadUse',
+      'Shape.neverCalled',
+      'Shape.onlyFromDead',
+    ]);
+    expect(result.recoveredReferences, isEmpty);
+    expect(
+      lines,
+      contains('Looking up uses of 5 members where their types are named…'),
+    );
+  });
+
   test('a member of a private type used only in dead code where the type is '
       'named, and live elsewhere, is used', () async {
     final result = await runFinder(

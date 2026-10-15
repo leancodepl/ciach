@@ -11,37 +11,95 @@ import 'package:ciach/src/util/concurrency.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location, Position, Range;
 
-/// Splits [members] into those a definition lookup finds used, with the
-/// first use it finds, and the rest. A member is looked up in [filesFor] it,
-/// where it is most likely used.
+/// Finds uses of members by looking up the definition at each mention of
+/// their names in the files where they are most likely used, which builds no
+/// override hierarchy, unlike a references search.
 ///
 /// One use proves a member used. If it lies in dead code, the member may
-/// still be used elsewhere: the settling looks up all its references before
-/// calling it dead.
-Future<
-  ({List<Candidate> used, List<List<Location>> refs, List<Candidate> rest})
->
-probeMembers({
-  required LspClient client,
-  required SourceIndex sources,
-  required Set<String> Function(Candidate member) filesFor,
-  required List<Candidate> members,
-  required int concurrency,
-}) async {
-  final files = {for (final member in members) ...filesFor(member)};
-  await _cacheSemanticTokens(client, sources, files, concurrency);
-  final mentionsByFile = _mentionsByFile(sources, files);
-  // A mention several members share is looked up once.
-  final definitions = <_Mention, Future<List<Location>>>{};
-  final uses = await mapPooled(members, concurrency, (member) async {
-    for (final mention in _mentionsOf(
-      member,
-      filesFor(member),
-      mentionsByFile,
-    )) {
-      final targets = await definitions.putIfAbsent(
+/// still be used elsewhere: the settling asks [liveUse] for another, and
+/// looks up all its references only if there is none.
+final class MemberProbe {
+  MemberProbe({
+    required LspClient client,
+    required SourceIndex sources,
+    required int concurrency,
+  }) : _client = client,
+       _sources = sources,
+       _concurrency = concurrency;
+
+  final LspClient _client;
+  final SourceIndex _sources;
+  final int _concurrency;
+
+  /// Where each probed member's name is written, in the files probed for it.
+  final _mentionsOf = <Candidate, List<_Mention>>{};
+
+  /// A mention several members share is looked up once.
+  final _definitions = <_Mention, Future<List<Location>>>{};
+
+  /// The members [probe] found used.
+  final used = <Candidate>{};
+
+  /// Splits [members] into those a definition lookup finds used, with the
+  /// first use it finds, and the rest. A member is looked up in [filesFor]
+  /// it.
+  Future<
+    ({List<Candidate> used, List<List<Location>> refs, List<Candidate> rest})
+  >
+  probe({
+    required Set<String> Function(Candidate member) filesFor,
+    required List<Candidate> members,
+  }) async {
+    final files = {for (final member in members) ...filesFor(member)};
+    await _cacheSemanticTokens(_client, _sources, files, _concurrency);
+    final mentionsByFile = _mentionsByFile(_sources, files);
+    for (final member in members) {
+      _mentionsOf[member] = _mentionsIn(
+        member,
+        filesFor(member),
+        mentionsByFile,
+      );
+    }
+    final uses = await mapPooled(
+      members,
+      _concurrency,
+      (member) => _firstUse(member, (_) => false),
+    );
+
+    final usedMembers = <Candidate>[];
+    final refs = <List<Location>>[];
+    final rest = <Candidate>[];
+    for (final (i, member) in members.indexed) {
+      if (uses[i] case final use?) {
+        usedMembers.add(member);
+        refs.add([use]);
+      } else {
+        rest.add(member);
+      }
+    }
+    used.addAll(usedMembers);
+    return (used: usedMembers, refs: refs, rest: rest);
+  }
+
+  /// A use of [member] among its probed mentions where [isDead] is false, or
+  /// `null` when there is none.
+  Future<Location?> liveUse(
+    Candidate member,
+    bool Function(String path, Position position) isDead,
+  ) =>
+      _firstUse(member, (mention) => isDead(mention.path, mention.range.start));
+
+  Future<Location?> _firstUse(
+    Candidate member,
+    bool Function(_Mention mention) skip,
+  ) async {
+    for (final mention in _mentionsOf[member] ?? const <_Mention>[]) {
+      if (skip(mention)) {
+        continue;
+      }
+      final targets = await _definitions.putIfAbsent(
         mention,
-        () => _definition(client, mention),
+        () => _definition(_client, mention),
       );
       if (targets.any((t) => _declares(member, t))) {
         return Location(
@@ -51,20 +109,7 @@ probeMembers({
       }
     }
     return null;
-  });
-
-  final used = <Candidate>[];
-  final refs = <List<Location>>[];
-  final rest = <Candidate>[];
-  for (final (i, member) in members.indexed) {
-    if (uses[i] case final use?) {
-      used.add(member);
-      refs.add([use]);
-    } else {
-      rest.add(member);
-    }
   }
-  return (used: used, refs: refs, rest: rest);
 }
 
 Future<void> _cacheSemanticTokens(
@@ -108,7 +153,7 @@ Map<String, Map<String, List<_Mention>>> _mentionsByFile(
 }
 
 /// [member]'s name written in [files], outside its own declaration.
-List<_Mention> _mentionsOf(
+List<_Mention> _mentionsIn(
   Candidate member,
   Set<String> files,
   Map<String, Map<String, List<_Mention>>> mentionsByFile,
