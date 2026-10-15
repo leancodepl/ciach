@@ -1,6 +1,6 @@
 # Migrating
 
-## From 0.6 to the next release
+## From 0.6 to 0.7
 
 ### Removed options
 
