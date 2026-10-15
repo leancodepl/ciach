@@ -198,12 +198,12 @@ lib/report.dart
   42:6  function  _pong          (private)  (only referenced from dead _ping (lib/report.dart:40))
 ```
 
-`--no-transitive` reports only what nothing references at all; use it when one
-false positive flags everything only it referenced. A
-[report-only](#removing-declarations) finding stays in the code,
-so what it references stays used. `-f json` lists every finding a declaration
-depends on under `onlyReferencedFrom`; the other formats show the first and a
-count.
+Each such finding names what it is only referenced from, so a chain can be
+judged by its root: `-f json` lists every finding a declaration depends on
+under `onlyReferencedFrom`, and the other formats show the first and a count.
+A [report-only](#removing-declarations) finding stays in the code, so what it
+references stays used. `--no-transitive` reports only what nothing references
+at all; the rest shows up after a removal and another run.
 
 ### Not analyzed
 

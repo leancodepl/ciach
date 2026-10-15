@@ -123,8 +123,10 @@ class FinderOptions {
 
   /// Whether to also report declarations referenced only from findings
   /// `--remove` would delete, repeating until nothing new is found, and dead
-  /// declarations that only reference each other, in a cycle. On by default;
-  /// off, one false positive no longer flags everything only it referenced.
+  /// declarations that only reference each other, in a cycle. Each such
+  /// finding names what it is only referenced from. Off, only what nothing
+  /// references at all is reported; the rest shows up after a removal and
+  /// another run.
   final bool transitive;
 
   /// The project's own entry points, on top of [EntryPoint.builtIn]. A match

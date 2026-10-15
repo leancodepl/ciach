@@ -41,9 +41,8 @@ pub.dev or used as a git dependency, list just those. See
 
 In 0.6, a helper called only by dead code showed up only after that code was
 removed and ciach ran again, unless you passed `--transitive`. Now ciach
-reports it in the same run, and dead cycles too. One false positive then also
-flags everything only it referenced; to report only what nothing references at
-all, as before:
+reports it in the same run, and dead cycles too, each naming what it is only
+referenced from. To report only what nothing references at all, as before:
 
 ```yaml
 # ciach.yaml
