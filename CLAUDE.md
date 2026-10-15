@@ -15,10 +15,9 @@ changelog, pull request descriptions and review replies.
   runner from a terminal".
 - Make every reference clear. Write "too", "also", "both", "there", "these
   prefixes" or "the change" only when the same sentence names what they refer
-  to. Don't leave out a
-  predicate ("each member is a finding, but they aren't") or use a pronoun that
-  could mean two things. In a doc comment, name the parameters you mean:
-  `[rootPath]`.
+  to. Don't leave out a predicate ("each member is a finding, but they aren't")
+  or use a pronoun that could mean two things. In a doc comment, name the
+  parameters you mean: `[rootPath]`.
 - Use the Dart spec's terms ("mixin application class"), not analysis server
   enum names (`CLASS_TYPE_ALIAS`). Don't use a term that you coined, such as
   "walk" for a recursive pass. In user docs, say what happens to the user's
@@ -219,11 +218,10 @@ explicit null check.
 
 - Return a result; never fill a list that the caller passes in. A function that
   only builds a collection is `sync*`, or an expression body with a collection
-  literal that uses `for`, `if` and `?key:`. A plain filter is
-  `where(f)`, with `.toSet()` or `.toList()` when needed, not a collection-for
-  literal. Never turn a collection
-  literal into an imperative loop unless asked; when a literal gets busy, give
-  its predicate a named local.
+  literal that uses `for`, `if` and `?key:`. A plain filter is `where(f)`, with
+  `.toSet()` or `.toList()` when needed, not a collection-for literal. Never
+  turn a collection literal into an imperative loop unless asked; when a
+  literal gets busy, give its predicate a named local.
 - Keep an `Iterable` lazy when it is read once or in part, and use a `Set` when
   duplicates mean nothing.
 - Prefer `for (final (i, x) in xs.indexed)` to an index loop, `whereNot(f)` and
@@ -437,8 +435,27 @@ request descriptions, docs and this file.
   that allows something doesn't require it.
 - Post each reply once and in the right thread, and don't offer to wait for
   input on a change that you have already pushed.
-- When you add a code style rule to this file, or a reviewer corrects the same
-  pattern twice, check for a lint that enforces it, and otherwise propose one in
+
+# Keeping this file current
+
+When a review comment on a pull request that you are writing corrects
+something that a general rule could have prevented, add that rule here in the
+same pull request, or sharpen the rule that should have caught it. On a pull
+request that you didn't open, suggest the rule instead of pushing it.
+
+- Write the rule one step more general than the comment: a rule against
+  sentences that drop "that", not a fix for the one sentence. Keep a short
+  example from the comment when it makes the rule clearer.
+- Put the rule in the section that it belongs to, and follow the Writing
+  rules. When a rule here already covers the case, sharpen it instead of adding
+  a second one.
+- When a reviewer asks for something that a rule here forbids, change the rule
+  to match what they asked for.
+- Leave out what concerns only one line of code, and questions that the
+  reviewer only wanted answered.
+- In your reply to the comment, say which rule you added or changed.
+- When you add a code style rule, or a reviewer corrects the same pattern
+  twice, check for a lint that enforces it, and otherwise propose one in
   `tool/ciach_lints`. `prefer_multiline_string` and `prefer_let` came from
   rules that had just been written here.
 
