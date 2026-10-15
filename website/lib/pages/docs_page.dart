@@ -95,7 +95,7 @@ const _options = [
   ),
   (
     '--no-transitive',
-    'Report only what nothing references at all. By default, what only other findings reference, and dead cycles, are reported too.',
+    'Report only declarations that nothing uses. By default, a declaration used only by other dead code is reported too, naming what uses it.',
   ),
   (
     '--also overrides,operators,tojson,union-members',

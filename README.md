@@ -93,7 +93,7 @@ usage or analysis error.
 | `--[no-]project-config` | on | Read [entry points](#entry-points) and [generated files](#generated-files) from `pubspec.yaml`, `build.yaml`, `l10n.yaml`, `analysis_options.yaml` and `firebase.json`. |
 | `--[no-]unused-translations` | on | Report the unused messages in the gen-l10n template file an `l10n.yaml` configures. Report-only: remove them from the ARB file yourself. |
 | `--also <list>` | — | Also report what is [skipped by default](#what-it-skips-by-default): `overrides`, `operators`, `tojson`, `union-members`. |
-| `--[no-]transitive` | on | Also report what only other findings reference, and dead cycles. See [Transitively dead code](#transitively-dead-code). |
+| `--[no-]transitive` | on | Also report declarations used only by other dead code, naming what uses them. See [Transitively dead code](#transitively-dead-code). |
 | `--[no-]set-exit-if-changed` | off; on in CI | Exit with `1` when anything is found. |
 | `--[no-]ci` | auto | Use the CI defaults, or not. See [CI](#ci). |
 | `--remove` | off | Remove the findings and delete empty files, after asking. See [Removing declarations](#removing-declarations). |
