@@ -188,11 +188,14 @@ null check cannot promote: `a.b?.let(f) ?? d`, never `a.b == null ? d :
 f(a.b!)`. Read as much as possible before the `let`, in the null-aware chain:
 `x?.y.let(f)`, not `x?.let((it) => f(it.y))`.
 
-To use a nullable value in a block or a collection literal, unwrap it with
-`if (x case final v?)`; `avoid_empty_collection_fallback` flags a loop, a
-spread or a call on `x ?? const []`. Write `x!` only where the code already
+To use a nullable value in a block or a collection literal, write
+`if (x != null)` when the null check promotes `x`, as it does a local
+variable, a parameter or a private final field. Otherwise, unwrap the value
+with `if (a.x case final x?)`. `avoid_empty_collection_fallback` flags a loop,
+a spread or a call on `x ?? const []`. Write `x!` only where the code already
 guarantees the value. Put the fallback of a null-aware chain last, as in
-`xs?.map(f) ?? const []`, and use `?.` rather than an explicit null check.
+`xs?.map(f) ?? const []`, and in an expression, use `?.` rather than an
+explicit null check.
 
 # Patterns
 
