@@ -58,12 +58,12 @@ class LspClient {
   /// Completers waiting for the server to become idle.
   final _idleWaiters = <Completer<void>>[];
 
-  /// Set while the workspace folder [initialize] added has yet to start
-  /// analyzing, so an idle report from before it doesn't count.
+  /// True from when [initialize] adds the workspace folder until the server
+  /// starts analyzing it. An idle report in between doesn't end the wait.
   bool _awaitingAnalysis = false;
 
-  /// The empty directory [initialize] starts the server in when it edits
-  /// analysis options; deleted on [dispose].
+  /// The empty directory the server starts in when [initialize] gets
+  /// analysis options. [dispose] deletes it.
   Directory? _emptyRoot;
 
   final _outlines = <String, Outline>{};
@@ -155,10 +155,11 @@ class LspClient {
 
   /// Performs the `initialize` / `initialized` handshake for [rootUri].
   ///
-  /// [analysisOptions] replaces the content of those files, by path, for this
-  /// session only. The server reads analysis options when it creates the
-  /// analysis contexts for a folder, so it starts in an empty directory, gets
-  /// the files, and only then is given [rootUri].
+  /// [analysisOptions] maps a path to the content the server uses instead of
+  /// the file on disk, for this session only. The server reads analysis
+  /// options when it sets up a folder. So with [analysisOptions], the server
+  /// starts in an empty directory, gets the new content, and only then gets
+  /// [rootUri].
   Future<void> initialize(
     Uri rootUri, {
     Map<String, String> analysisOptions = const {},
@@ -563,7 +564,7 @@ class LspClient {
     try {
       _emptyRoot?.deleteSync(recursive: true);
     } on FileSystemException {
-      // Left for the OS to clean up with the rest of the temp directory.
+      // The OS cleans up the temp directory later.
     }
   }
 }

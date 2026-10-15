@@ -173,8 +173,8 @@ void main() {
     },
   );
 
-  // Logs what it receives to the file named by its first argument; once given
-  // a workspace folder, reports idle before it reports analyzing, then idle.
+  // Writes each message it gets to the file named by its first argument. After
+  // it gets a workspace folder, it reports idle, then analyzing, then idle.
   String recordingServer(File log) {
     final server = File(p.join(tmp.path, 'recording_server.dart'))
       ..writeAsStringSync(r'''
@@ -250,7 +250,8 @@ void main(List<String> args) {
       expect(
         waited.elapsedMilliseconds,
         greaterThan(400),
-        reason: 'an idle report from before the analysis started is no end',
+        reason:
+            'an idle report before the analysis starts must not end the wait',
       );
       await client.dispose();
 

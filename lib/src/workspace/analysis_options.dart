@@ -3,27 +3,27 @@ import 'dart:io';
 
 import 'package:ciach/src/workspace/file_discovery.dart';
 import 'package:ciach/src/workspace/packages.dart';
+import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
-/// The `analysis_options.yaml` files under [root], and every file they
-/// `include:`, rewritten without lint rules and analyzer plugins, by path.
+/// Every `analysis_options.yaml` under [root], and every file it includes,
+/// without its lint rules and analyzer plugins, keyed by path.
 ///
-/// ciach reads no diagnostics, yet the server runs every enabled lint and
-/// plugin on every file it analyzes: on a Flutter app with a plugin that is a
-/// third of a cold run, and two thirds of the server's memory. Handed to the
-/// server as unsaved edits, these leave the files on disk, and what
-/// `dart analyze` sees, as they are. Everything else stays, `include:`,
-/// `exclude:` and `enable-experiment:` among it, so the server still decides
-/// what to analyze and how to parse it. A file with nothing to drop is left
-/// out.
+/// ciach reads no warnings, but the analysis server runs every lint rule and
+/// plugin on every file. On a Flutter app with a plugin, that takes a third of
+/// a cold run and most of the server's memory. ciach sends these files to the
+/// server as unsaved edits, so the files on disk don't change and
+/// `dart analyze` sees the same options as before. The rest of each file stays,
+/// so the server still decides which files to analyze and how to parse them.
+/// A file without lint rules or plugins is left out.
 Map<String, String> analysisOptionsWithoutLints(String root) {
   final packages = PackageResolver();
   final rewritten = <String, String>{};
   final visited = <String>{};
 
-  // A `package:` include resolves through the packages of the project the
-  // chain starts in, as the server resolves it; a relative one, next to the
+  // Like the server, resolve a `package:` include with the packages of the
+  // project the first file belongs to, and a relative include next to the
   // file that names it.
   void visit(String path, String chainRoot) {
     if (!visited.add(path)) {
@@ -84,8 +84,8 @@ Map<String, Object?>? _read(String path) {
       _ => null,
     };
   } on Object {
-    // Unreadable, malformed, or with keys JSON can't hold: the server reads
-    // it as it is.
+    // The file can't be read or parsed, or JSON can't hold its keys. The
+    // server reads it as it is.
     return null;
   }
 }
@@ -101,19 +101,15 @@ List<String> _includes(Map<String, Object?> options) =>
 /// [options] without `linter:`, `plugins:` and `analyzer: plugins:`; `null`
 /// when it has none of them.
 Map<String, Object?>? _withoutLints(Map<String, Object?> options) {
-  final analyzer = options['analyzer'];
-  final analyzerPlugins =
-      analyzer is Map<String, Object?> && analyzer.containsKey('plugins');
-  if (!options.containsKey('linter') &&
-      !options.containsKey('plugins') &&
-      !analyzerPlugins) {
-    return null;
-  }
-  return {
+  final kept = <String, Object?>{
     for (final MapEntry(:key, :value) in options.entries)
-      if (key == 'analyzer' && value is Map<String, Object?>)
-        key: {...value}..remove('plugins')
-      else if (key != 'linter' && key != 'plugins')
-        key: value,
+      ...switch ((key, value)) {
+        ('linter' || 'plugins', _) => const {},
+        ('analyzer', final Map<String, Object?> analyzer) => {
+          key: {...analyzer}..remove('plugins'),
+        },
+        _ => {key: value},
+      },
   };
+  return const DeepCollectionEquality().equals(kept, options) ? null : kept;
 }

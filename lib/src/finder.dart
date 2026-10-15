@@ -241,7 +241,7 @@ class Ciach {
       final analysisOptions = analysisOptionsWithoutLints(analysisRoot);
       if (analysisOptions.isNotEmpty) {
         _log.config(
-          'Analyzing without lint rules and analyzer plugins, which ciach has no use for; the analysis options files on disk stay as they are.',
+          "Analyzing without lint rules and analyzer plugins, which ciach doesn't need. The analysis_options.yaml files on disk don't change.",
         );
       }
       await client.initialize(
