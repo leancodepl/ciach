@@ -165,11 +165,11 @@ the reviewer's complaint.
 Write a string as one literal. Use a `'''` multi-line string for text with
 interior newlines (expected output, fixtures); the `prefer_multiline_string`
 rule in `tool/ciach_lints` flags a single-line literal with two or more
-interior `\n` escapes and offers a quick-fix that rewrites it. Split a string
-into adjacent literals only when the joined line would run past 120 columns,
-and never leave a short fragment in a literal of its own. Test and group
-descriptions follow the same rule, even when `dart format` then spreads the
-call over more lines. Never wrap with `+`. Option help texts in
+interior `\n` escapes and offers a quick-fix that rewrites it. Adjacent
+literals are for a line that would run past 120 columns:
+`prefer_single_string_literal` flags and joins the others, test and group
+descriptions included. Never leave a short fragment in a literal of its own,
+and never wrap with `+`. Option help texts in
 `lib/src/cli/args.dart` are plain sentences with no `\n`; the parser wraps
 them (`usageLineLength`).
 
@@ -190,8 +190,9 @@ f(a.b!)`. Read as much as possible before the `let`, in the null-aware chain:
 `x?.y.let(f)`, not `x?.let((it) => f(it.y))`.
 
 To use a nullable value in a block or a collection literal, unwrap it with
-`if (x case final v?)`. Never loop over `x ?? const []`, and write `x!` only
-where the code already guarantees the value. Put the fallback of a null-aware
+`if (x case final v?)`; `avoid_empty_collection_fallback` flags a loop, a
+spread or a call on `x ?? const []`. Write `x!` only where the code already
+guarantees the value. Put the fallback of a null-aware
 chain last, as in `xs?.map(f) ?? const []`, and use `?.` rather than an
 explicit null check.
 
@@ -202,13 +203,15 @@ explicit null check.
   conditions that repeat the same null checks.
 - Put type tests, null checks and field values in the pattern, not in a `when`
   guard: `SemanticToken(isKeyword: true, :final text)`,
-  `PropertyAccess(:final target?)`. Capture a field under its own name, and use
-  the promoted variable rather than binding a second name for it.
+  `PropertyAccess(:final target?)`. `prefer_pattern_over_guard` flags a guard
+  that makes such a test on a variable of its own pattern, and moves the test.
+  Capture a field under its own name, and use the promoted variable rather
+  than binding a second name for it.
 - Use the simplest pattern that does the job:
   `if (symbol.children case final children? when …)` rather than an object
   pattern that destructures fields that are read once.
-- Merge arms that have the same body with `||`, and merge nested `if`s into one
-  if-case with a `when` guard.
+- `merge_identical_switch_arms` joins neighboring arms that have the same body
+  with `||`. Merge nested `if`s into one if-case with a `when` guard.
 - A function that picks a result by the shape of a value is a switch
   expression, without if/return chains or nested conditional expressions. Read
   JSON and YAML with a switch over map patterns. Bind and test in one step:
@@ -224,12 +227,13 @@ explicit null check.
   literal gets busy, give its predicate a named local.
 - Keep an `Iterable` lazy when it is read once or in part, and use a `Set` when
   duplicates mean nothing.
-- Prefer `for (final (i, x) in xs.indexed)` to an index loop, `whereNot(f)` and
-  `none(f)` to negations, collection methods (`where`, `firstWhereOrNull`) to
-  loops with early returns, tear-offs to lambdas that only forward, `min` and
+- Prefer `for (final (i, x) in xs.indexed)` to an index loop, collection
+  methods (`where`, `firstWhereOrNull`) to loops with early returns, tear-offs to lambdas that only forward, `min` and
   `max` to hand-written ternaries, and `package:collection` equalities to
   comparison loops. Write `map[key] ??= value` for a value that you already
-  have, and memoize with `CachedMap`.
+  have, and memoize with `CachedMap`. `prefer_none_and_where_not` replaces
+  negations with `none(f)` and `whereNot(f)`, and `any((x) => !f(x))` with
+  `!every(f)`.
 - A type that has its own name and meaning, such as `QualifiedMember`, is a
   class, not a record typedef. A record that a function returns or yields has
   named fields. Never model data as a preformatted string whose format a

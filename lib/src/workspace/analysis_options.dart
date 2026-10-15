@@ -35,8 +35,8 @@ Map<String, String> analysisOptionsWithoutLints(String root) {
     }
     for (final include in _includes(options)) {
       final from = include.startsWith('package:') ? chainRoot : path;
-      if (packages.resolve(include, from) case final target?
-          when target != unknownPackage) {
+      if (packages.resolve(include, from)
+          case (!= unknownPackage && final target)?) {
         visit(target, chainRoot);
       }
     }
