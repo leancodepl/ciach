@@ -10,6 +10,10 @@
 - With `-v`, an error you can fix yourself, such as a package without
   `pub get`, no longer comes with a stack trace that reads like a crash.
   ([#134](https://github.com/leancodepl/ciach/pull/134))
+- ciach no longer runs your lint rules and analyzer plugins, which it doesn't
+  need. On a Flutter app with an analyzer plugin, a run now takes about a third
+  less time and much less memory. Your files and what `dart analyze` reports
+  stay the same. ([#132](https://github.com/leancodepl/ciach/pull/132))
 - `--remove` now lists the `//` comments it leaves right above removed code,
   so you can check whether they still belong. It also deletes an `// ignore:`,
   `// expect_lint:` or `// cspell:disable-next-line` comment above or at the end

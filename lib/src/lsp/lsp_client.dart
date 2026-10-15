@@ -58,6 +58,14 @@ class LspClient {
   /// Completers waiting for the server to become idle.
   final _idleWaiters = <Completer<void>>[];
 
+  /// True from when [initialize] adds the workspace folder until the server
+  /// starts analyzing it. An idle report in between doesn't end the wait.
+  bool _awaitingAnalysis = false;
+
+  /// The empty directory the server starts in when [initialize] gets
+  /// analysis options. [dispose] deletes it.
+  Directory? _emptyRoot;
+
   final _outlines = <String, Outline>{};
 
   final _outlineWaiters = <String, Completer<Outline>>{};
@@ -146,14 +154,27 @@ class LspClient {
   }
 
   /// Performs the `initialize` / `initialized` handshake for [rootUri].
-  Future<void> initialize(Uri rootUri) async {
+  ///
+  /// [analysisOptions] maps a path to the content the server uses instead of
+  /// the file on disk, for this session only. The server reads analysis
+  /// options when it sets up a folder. So with [analysisOptions], the server
+  /// starts in an empty directory, gets the new content, and only then gets
+  /// [rootUri].
+  Future<void> initialize(
+    Uri rootUri, {
+    Map<String, String> analysisOptions = const {},
+  }) async {
     final uri = rootUri.toString();
+    final emptyRoot = analysisOptions.isEmpty
+        ? null
+        : _emptyRoot = Directory.systemTemp.createTempSync('ciach_root_');
+    final startUri = emptyRoot?.uri.toString() ?? uri;
     final result = await _guard(
       lsp.RequestMethod.initialize.value,
       () => _client.start(
         clientInfo: const .new(name: 'ciach', version: ciachVersion),
-        rootUri: uri,
-        workspaceFolders: [.new(uri: uri, name: 'root')],
+        rootUri: startUri,
+        workspaceFolders: [.new(uri: startUri, name: 'root')],
         initializationOptions: const {'outline': true},
         // Hierarchical document symbols yield nested `DocumentSymbol[]` rather
         // than flat `SymbolInformation`; semantic tokens make the server send its
@@ -173,6 +194,30 @@ class LspClient {
       ),
     );
     _semanticTokensLegend = .fromCapabilities(result.capabilities.toJson());
+    if (emptyRoot == null) {
+      return;
+    }
+    for (final MapEntry(key: path, value: text) in analysisOptions.entries) {
+      _client.server.textDocument.didOpen(
+        .new(
+          textDocument: .new(
+            uri: File(path).uri.toString(),
+            languageId: .yAML,
+            version: 1,
+            text: text,
+          ),
+        ),
+      );
+    }
+    _awaitingAnalysis = true;
+    _client.server.workspace.didChangeWorkspaceFolders(
+      .new(
+        event: .new(
+          added: [.new(uri: uri, name: 'root')],
+          removed: [.new(uri: startUri, name: 'root')],
+        ),
+      ),
+    );
   }
 
   /// Runs [request]. Throws [AnalysisServerExitedException] if the server
@@ -252,7 +297,9 @@ class LspClient {
 
   void _onAnalyzerStatus(Object? params) {
     final analyzing = params is Map && params['isAnalyzing'] == true;
-    if (!analyzing) {
+    if (analyzing) {
+      _awaitingAnalysis = false;
+    } else if (!_awaitingAnalysis) {
       final waiters = List.of(_idleWaiters);
       _idleWaiters.clear();
       for (final waiter in waiters) {
@@ -514,6 +561,11 @@ class LspClient {
       _process.kill(.sigkill);
     }
     await _errorLogged.close();
+    try {
+      _emptyRoot?.deleteSync(recursive: true);
+    } on FileSystemException {
+      // The OS cleans up the temp directory later.
+    }
   }
 }
 
