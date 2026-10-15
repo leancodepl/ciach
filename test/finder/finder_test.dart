@@ -748,7 +748,7 @@ void main() {
     );
   });
 
-  group('transitive (on by default; --no-transitive turns it off)', () {
+  group('transitive', () {
     const fixture = ['lib/scenarios/transitive.dart'];
 
     Future<FinderResult> runTransitive({bool transitive = true}) =>
@@ -765,10 +765,6 @@ void main() {
         line: decl.line,
       );
     }
-
-    test('is on by default', () {
-      expect(FinderOptions(rootPath: '.').transitive, isTrue);
-    });
 
     test('flag OFF: only what nothing references is reported', () async {
       final result = await runTransitive(transitive: false);
