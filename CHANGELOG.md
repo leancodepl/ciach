@@ -1,5 +1,15 @@
 ## Unreleased
 
+- With `--unused-translations`, ciach reports only the unused messages of the
+  gen-l10n template file. Before, it also reported the code gen-l10n writes
+  around them, such as the delegate class, and said to remove it from the ARB
+  file. ([#134](https://github.com/leancodepl/ciach/pull/134))
+- An unused mixin is reported as a `mixin`, not a `class`, and a member of a
+  private class as private, not public.
+  ([#134](https://github.com/leancodepl/ciach/pull/134))
+- With `-v`, an error you can fix yourself, such as a package without
+  `pub get`, no longer comes with a stack trace that reads like a crash.
+  ([#134](https://github.com/leancodepl/ciach/pull/134))
 - ciach no longer runs your lint rules and analyzer plugins, which it doesn't
   need. On a Flutter app with an analyzer plugin, a run now takes about a third
   less time and much less memory. Your files and what `dart analyze` reports
@@ -30,10 +40,9 @@
   gone. Using a removed option is an error that says what to use instead. See
   [MIGRATION.md](MIGRATION.md).
   ([#105](https://github.com/leancodepl/ciach/pull/105))
-- **Breaking:** By default, ciach no longer reports what other packages can
-  import. To check it, list in `exported-packages` only the packages that code
-  outside the analysis imports, or set it to `[]` to check every package.
-  `--exported` is gone.
+- New `exported-packages` option: list the packages that code outside the
+  analysis imports, such as one published to pub.dev, and ciach doesn't report
+  what other packages can import from them. `--exported` is gone.
   ([#105](https://github.com/leancodepl/ciach/pull/105))
 - **Breaking:** `--transitive` is now on by default: a helper called only by
   dead code, and a dead cycle, are reported in the same run instead of after

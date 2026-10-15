@@ -8,7 +8,9 @@ import 'package:ciach/src/workspace/packages.dart';
 
 const _issueTracker = 'https://github.com/leancodepl/ciach/issues';
 
-/// A fatal [error] for stderr. The stack trace is shown only when [verbose].
+/// A fatal [error] for stderr. The stack trace is shown only when [verbose],
+/// and only for a bug in ciach or a failed server request: an error the user
+/// can fix, such as a package without `pub get`, has no use for it.
 String describeFatalError(
   Object error,
   StackTrace stackTrace, {
@@ -46,7 +48,7 @@ String describeFatalError(
       'This is a bug in ciach $ciachVersion; please report it at $_issueTracker with the -v output.',
     );
   }
-  if (verbose) {
+  if (verbose && (isBug || detail != null)) {
     buffer
       ..writeln()
       ..writeln(style.detail('$stackTrace'.trimRight()));

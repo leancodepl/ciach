@@ -99,11 +99,15 @@ extension SymbolChecks on DocumentSymbol {
   /// The kind ciach reports for this symbol. The analysis server tags enum
   /// values with [SymbolKind.enum$] (same as the enum type), so remap them to
   /// [SymbolKind.enumMember] under an enum to match the `enum-value` CLI kind.
+  /// It tags mixins with [SymbolKind.class$], so remap them to
+  /// [SymbolKind.interface$], the `mixin` CLI kind.
   SymbolKind reportedKind({
     required bool parentIsEnum,
     bool isExtensionType = false,
+    bool isMixin = false,
   }) => switch (kind) {
     .enum$ when parentIsEnum => .enumMember,
+    .class$ when isMixin => .interface$,
     .namespace when isExtensionType => .struct,
     _ => kind,
   };

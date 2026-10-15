@@ -80,6 +80,8 @@ final class Candidate {
 
   bool get isExtension => outline.element.kind == .extension;
 
+  bool get isMixin => outline.element.kind == .mixin;
+
   bool get isExtensionMember => containerSymbol?.kind == .namespace;
 
   /// Whether this is a class, enum, mixin or extension type. Extensions are

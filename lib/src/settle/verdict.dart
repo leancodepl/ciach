@@ -8,6 +8,7 @@ import 'package:ciach/src/settle/remove_safety.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/source/syntax_rules.dart';
+import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location;
 
@@ -185,12 +186,15 @@ final class Verdict {
       kind: symbol.reportedKind(
         parentIsEnum: candidate.isEnumValue,
         isExtensionType: candidate.isExtensionType,
+        isMixin: candidate.isMixin,
       ),
       filePath: relativePosix(candidate.path, rootPath),
       // LSP positions are zero-based; report them one-based for humans.
       line: start.line + 1,
       column: start.character + 1,
-      isPrivate: isPrivateName(name),
+      // A member of a private type is as private as the type.
+      isPrivate:
+          isPrivateName(name) || (container?.let(isPrivateName) ?? false),
       container: container,
       isEnumValue: candidate.isEnumValue,
       range: symbol.declarationRange,

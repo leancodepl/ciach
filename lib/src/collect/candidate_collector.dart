@@ -4,6 +4,7 @@ import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/collect/kept_declarations.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/freezed.dart';
+import 'package:ciach/src/conventions/gen_l10n.dart';
 import 'package:ciach/src/fetch/reference_fetch.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
@@ -266,8 +267,16 @@ final class CandidateCollector {
       symbol.reportedKind(
         parentIsEnum: candidate.isEnumValue,
         isExtensionType: candidate.isExtensionType,
+        isMixin: candidate.isMixin,
       ),
     )) {
+      return false;
+    }
+    // Only the messages of a gen-l10n file are checked: removing one from the
+    // ARB file leaves the code around them.
+    if (translationsOf(candidate, options.translations, options.rootPath) !=
+            null &&
+        !isTranslationMessage(candidate)) {
       return false;
     }
     if (_kept.isEntryPoint(

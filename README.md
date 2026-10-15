@@ -89,7 +89,7 @@ usage or analysis error.
 | `--analysis-root <path>` | the scanned path | Count references from this whole directory, not just the scanned package. See [Monorepos](#monorepos). |
 | `--[no-]public` | on | Report public declarations too. Off reports only private (`_`-prefixed) ones. |
 | `--[no-]generated` | off | Scan generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, …) too. |
-| `--exported-packages <glob>` | every package | Packages that code outside the analysis imports: their public API is not reported. `--exported-packages=` checks every package's API. Repeatable. See [Library packages](#library-packages). |
+| `--exported-packages <glob>` | none | Packages that code outside the analysis imports, such as one published to pub.dev: their public API is not reported. Repeatable. See [Library packages](#library-packages). |
 | `--[no-]project-config` | on | Read [entry points](#entry-points) and [generated files](#generated-files) from `pubspec.yaml`, `build.yaml`, `l10n.yaml`, `analysis_options.yaml` and `firebase.json`. |
 | `--[no-]unused-translations` | on | Report the unused messages in the gen-l10n template file an `l10n.yaml` configures. Report-only: remove them from the ARB file yourself. |
 | `--also <list>` | — | Also report what is [skipped by default](#what-it-skips-by-default): `overrides`, `operators`, `tojson`, `union-members`. |
@@ -388,22 +388,22 @@ marked `unsafe to auto-remove — remove manually` and left in place:
 
 ### Library packages
 
-ciach can't see importers outside the analysis, so by default it doesn't report
-what other packages can import: the libraries under `lib/` outside `lib/src/`,
+By default, ciach checks the API of every package, which suits an app. But it
+can't see importers outside the analysis. So list in `exported-packages` the
+packages that code outside the analysis imports, such as one published to
+pub.dev or used as a git dependency. ciach then doesn't report what other
+packages can import from them: the libraries under `lib/` outside `lib/src/`,
 what they export (`show`/`hide` respected), and the members of any type those
 hand out, say in a return type, a field or a supertype.
 
-When all of a package's importers are in the analysis, its API can be checked
-too. List in `exported-packages` only the packages that code outside the
-analysis imports, such as one published to pub.dev or used as a git dependency.
-Each entry is a glob of a package directory, relative to the scanned path:
+Each entry is a glob of a package directory, relative to the scanned path.
+`'**'` matches every package:
 
 ```yaml
 # ciach.yaml
 exported-packages: [packages/shared_api]
 ```
 
-`exported-packages: []` checks the API of every package, which suits an app.
 `-v` says which packages are left out.
 
 ### Monorepos

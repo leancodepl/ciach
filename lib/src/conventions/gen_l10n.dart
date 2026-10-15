@@ -1,4 +1,7 @@
 import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/lsp/outline.dart';
+import 'package:ciach/src/source/symbols.dart';
+import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:collection/collection.dart';
 
@@ -18,3 +21,26 @@ Translations? translationsOf(
   final path = relativePosix(candidate.path, rootPath);
   return translations.firstWhereOrNull((t) => t.dartFile == path);
 }
+
+/// The static members and the field that `gen-l10n` writes into the
+/// localizations class next to the messages. A message can't share their
+/// names: Dart allows no instance member named like a static one.
+const _localizationsPlumbing = {
+  'of',
+  'delegate',
+  'localizationsDelegates',
+  'supportedLocales',
+  'localeName',
+};
+
+/// Whether [candidate], declared in a [Translations] Dart file, is a message:
+/// a getter or method of the public localizations class. The rest of the file,
+/// like that class itself, its delegate and `lookup…`, is code `gen-l10n`
+/// writes around the messages, which removing a message doesn't change.
+bool isTranslationMessage(Candidate candidate) =>
+    const <OutlineKind>{
+      .getter,
+      .method,
+    }.contains(candidate.outline.element.kind) &&
+    !(candidate.container?.let(isPrivateName) ?? true) &&
+    !_localizationsPlumbing.contains(candidate.symbol.name);

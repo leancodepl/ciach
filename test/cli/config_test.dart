@@ -179,9 +179,9 @@ concurrency: 4
         ),
       );
       expect(
-        () => ConfigFile.parse('exported: true', origin: 'ciach.yaml'),
+        () => ConfigFile.parse('exported: false', origin: 'ciach.yaml'),
         removed(
-          'ciach.yaml: `exported` was removed: use `exported-packages: []`.',
+          "ciach.yaml: `exported` was removed: use `exported-packages: ['**']`.",
         ),
       );
       expect(
@@ -247,7 +247,11 @@ concurrency: 4
       );
       expect(
         removedOptionMessage(['--exported']),
-        '`--exported` was removed: use `--exported-packages=`.',
+        '`--exported` was removed: that is the default now, so drop it.',
+      );
+      expect(
+        removedOptionMessage(['--no-exported']),
+        "`--no-exported` was removed: use `--exported-packages '**'`.",
       );
       expect(
         removedOptionMessage(['--generated-suffix', '.gc.dart']),
@@ -261,8 +265,7 @@ concurrency: 4
       expect(removedOptionMessage(['--also', 'overrides']), isNull);
     });
 
-    test('an empty --exported-packages checks the API of every package', () {
-      expect(resolve(['--exported-packages=']).exportedPackages, isEmpty);
+    test('--exported-packages lists the packages whose API is left out', () {
       expect(resolve(['--exported-packages', 'packages/*']).exportedPackages, [
         'packages/*',
       ]);
@@ -536,7 +539,7 @@ concurrency: 4
 
       expect(resolved.rootPath, '.');
       expect(resolved.includePublic, isTrue);
-      expect(resolved.exportedPackages, ['**']);
+      expect(resolved.exportedPackages, isEmpty);
       expect(resolved.includeGenerated, isFalse);
       expect(resolved.projectConfig, isTrue);
       expect(resolved.unusedTranslations, isTrue);

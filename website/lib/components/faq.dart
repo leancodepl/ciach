@@ -33,9 +33,9 @@ const faqEntries = [
   ),
   FaqEntry(
     'My library’s public API is reported as unused.',
-    'It should not be: what other packages can import is left out by '
-        'default. If `exported-packages` is set in `ciach.yaml`, check that it '
-        'lists the package.',
+    'ciach can’t see importers outside the analysis. List the package in '
+        '`exported-packages` in `ciach.yaml`, and what other packages can '
+        'import from it is left out.',
   ),
   FaqEntry(
     'How fast is it?',

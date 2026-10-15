@@ -49,7 +49,9 @@ extension SymbolKindLabel on SymbolKind {
   String get label => switch (this) {
     .class$ => 'class',
     .enum$ => 'enum',
-    .interface$ => 'interface',
+    // The server has no kind for a mixin and tags it as a class; ciach
+    // reports it as an interface, which no Dart declaration is otherwise.
+    .interface$ => 'mixin',
     .namespace => 'extension',
     .struct => 'extension type',
     .operator$ => 'operator',
@@ -96,7 +98,8 @@ class UnusedDeclaration {
   /// One-based column of the declaration's name.
   final int column;
 
-  /// Whether the declaration is library-private (name starts with `_`).
+  /// Whether the declaration is library-private: its name or the name of the
+  /// type that declares it starts with `_`.
   final bool isPrivate;
 
   /// Enclosing declaration name (e.g. the class for a method), if any.
