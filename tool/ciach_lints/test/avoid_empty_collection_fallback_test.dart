@@ -7,9 +7,12 @@
 // test_reflective_loader discovers tests by their `test_` prefix.
 // ignore_for_file: non_constant_identifier_names
 
+import 'package:analyzer_testing/analysis_rule/analysis_rule.dart';
+import 'package:ciach_lints/src/avoid_empty_collection_fallback.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 
-import 'support/empty_fallback.dart';
+import 'support/fixes.dart';
 
 void main() {
   defineReflectiveSuite(() {
@@ -18,7 +21,39 @@ void main() {
 }
 
 @reflectiveTest
-class AvoidEmptyCollectionFallbackTest() extends EmptyFallbackTest {
+class AvoidEmptyCollectionFallbackTest() extends AnalysisRuleTest {
+  @override
+  void setUp() {
+    rule = AvoidEmptyCollectionFallback();
+    super.setUp();
+  }
+
+  /// Checks that [flagged] in [code] is flagged with [advice] in the
+  /// correction, and that the fix turns [code] into [fixed], which compiles
+  /// with no warning, or offers nothing when [fixed] is `null`.
+  Future<void> assertFallback(
+    String code,
+    String flagged, {
+    required String advice,
+    required String? fixed,
+  }) async {
+    await assertDiagnostics(code, [
+      lint(code.indexOf(flagged), flagged.length, correctionContains: advice),
+    ]);
+    expect(
+      await applyFixes(
+        code,
+        AvoidEmptyCollectionFallback.code,
+        SkipNullCollection.new,
+      ),
+      fixed,
+    );
+    if (fixed != null) {
+      final file = newFile('$testPackageLibPath/fixed.dart', fixed);
+      expect((await resolveFile(file.path)).diagnostics, isEmpty);
+    }
+  }
+
   Future<void> test_loopOverParameter() async {
     await assertFallback(
       '''
@@ -285,6 +320,31 @@ class A {
       'items ?? const <int>[]',
       advice: "'if (items case final items?)' around the loop",
       fixed: null,
+    );
+  }
+
+  Future<void> test_loopThatAssignsTheParameter() async {
+    await assertFallback(
+      '''
+void f(List<int>? xs) {
+  for (final x in xs ?? const []) {
+    xs = null;
+    print(x);
+  }
+}
+''',
+      'xs ?? const []',
+      advice: "'if (xs != null)' around the loop",
+      fixed: '''
+void f(List<int>? xs) {
+  if (xs != null) {
+    for (final x in xs) {
+      xs = null;
+      print(x);
+    }
+  }
+}
+''',
     );
   }
 
