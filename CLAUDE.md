@@ -68,10 +68,10 @@ README.md, the docs page in `website/lib/pages/docs_page.dart`, the `--help`
 text and MIGRATION.md describe what ciach does and how to use it, in short,
 easy-to-follow sentences, not how it works inside.
 
-- Describe an option the same way in README.md, on the website and in
-  `lib/src/cli/args.dart`, and change all three together. When you add an
-  option that most setups need, add it to the example configs in README.md and
-  `lib/src/cli/usage.dart`.
+- List every option in README.md. Describe an option the same way wherever it
+  appears, in README.md, on the website and in `lib/src/cli/args.dart`, and
+  change every copy together. When you add an option that most setups need,
+  add it to the example configs in README.md and `lib/src/cli/usage.dart`.
 - Take sample output from a real run on `example/`, and paste it as it is.
   Never compose it by hand.
 - README.md covers the current version. Removed options and upgrade steps go in
@@ -242,8 +242,8 @@ explicit null check.
 - Declare a value inside the `try` that produces it, as `final`. Catch the
   exception that the call throws (`LspRequestException`,
   `FileSystemException`). A catch-all `on Object` turns a crash into quietly
-  worse results, so use one only to wrap and rethrow or for best-effort cleanup,
-  with a comment.
+  worse results, so use one only to wrap and rethrow, to report a crash at the
+  top of `main`, or for best-effort cleanup with a comment.
 - Inline a local or a helper that is used once when its name adds nothing; keep
   one whose name says what a step does. Give a regex named groups, and return
   names and offsets rather than a `RegExpMatch`.
@@ -454,10 +454,14 @@ request that you didn't open, suggest the rule instead of pushing it.
 - Leave out what concerns only one line of code, and questions that the
   reviewer only wanted answered.
 - In your reply to the comment, say which rule you added or changed.
-- When you add a code style rule, or a reviewer corrects the same pattern
-  twice, check for a lint that enforces it, and otherwise propose one in
-  `tool/ciach_lints`. `prefer_multiline_string` and `prefer_let` came from
-  rules that had just been written here.
+- Prefer a lint to a rule. When you add or sharpen a rule that a program could
+  check, or a reviewer corrects code that a lint could have flagged, look for
+  an existing lint in the Dart linter or `leancode_lint` and turn it on.
+  Otherwise suggest a lint for `tool/ciach_lints` in your reply or in the pull
+  request description, with the code that it would flag and how a quick fix
+  would rewrite it. Once a lint enforces a rule, cut the rule here down to a
+  pointer to the lint. `prefer_multiline_string` and `prefer_let` started as
+  rules in this file.
 
 # Pull requests
 
