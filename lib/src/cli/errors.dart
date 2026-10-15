@@ -1,10 +1,10 @@
 import 'dart:io';
 
-import 'package:ciach/src/lsp/lsp_client.dart';
-import 'package:ciach/src/packages.dart';
-import 'package:ciach/src/remover.dart';
-import 'package:ciach/src/style.dart';
+import 'package:ciach/src/lsp/exceptions.dart';
+import 'package:ciach/src/remove/remover.dart';
+import 'package:ciach/src/report/style.dart';
 import 'package:ciach/src/version.dart';
+import 'package:ciach/src/workspace/packages.dart';
 
 const _issueTracker = 'https://github.com/leancodepl/ciach/issues';
 
