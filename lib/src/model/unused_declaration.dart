@@ -49,6 +49,8 @@ extension SymbolKindLabel on SymbolKind {
   String get label => switch (this) {
     .class$ => 'class',
     .enum$ => 'enum',
+    // The server has no kind for a mixin and tags it as a class; ciach
+    // reports it as an interface, which no Dart declaration is otherwise.
     .interface$ => 'mixin',
     .namespace => 'extension',
     .struct => 'extension type',
