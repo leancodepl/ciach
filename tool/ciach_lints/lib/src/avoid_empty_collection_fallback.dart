@@ -17,11 +17,13 @@ import 'package:analyzer/source/source_range.dart';
 import 'package:analyzer_plugin/utilities/change_builder/change_builder_core.dart';
 import 'package:analyzer_plugin/utilities/fixes/fixes.dart';
 import 'package:analyzer_plugin/utilities/range_factory.dart';
+import 'package:ciach_lints/src/promotion.dart';
 
 /// Flags `xs ?? const []` and other empty collection fallbacks that only
 /// skip a null collection: as the iterable of a `for` loop, in a spread, or
-/// as the target of a call. `CLAUDE.md` wants `if (xs case final xs?)` around
-/// the loop, `...?xs`, or a null-aware call with the fallback at the end of
+/// as the target of a call. `CLAUDE.md` wants `if (xs != null)` around the
+/// loop when the check promotes `xs`, `if (xs case final xs?)` when it
+/// doesn't, `...?xs`, or a null-aware call with the fallback at the end of
 /// the chain, as in `xs?.map(f) ?? const []`.
 class AvoidEmptyCollectionFallback() extends AnalysisRule {
   this : super(name: code.lowerCaseName, description: code.problemMessage);
@@ -54,8 +56,8 @@ class _Visitor(final AnalysisRule rule) extends SimpleAstVisitor<void> {
   }
 }
 
-/// Rewrites a loop over `xs ?? const []` into a loop inside
-/// `if (xs case final xs?)`, and `...(xs ?? [])` into `...?xs`.
+/// Rewrites a loop over `xs ?? const []` into a loop inside `if (xs != null)`
+/// or `if (xs case final xs?)`, and `...(xs ?? [])` into `...?xs`.
 class SkipNullCollection({required super.context})
     extends ResolvedCorrectionProducer {
   static const kind = FixKind(
@@ -144,40 +146,51 @@ class EmptyFallback({
     return null;
   }
 
-  /// The name that `if (… case final name?)` binds: the last name in [left],
-  /// as `items` for `widget.items`.
+  /// The name that `if (… case final name?)` binds: the last name in [left]
+  /// without its leading underscores, as `items` for `widget.items` and
+  /// `widget._items`.
   late final String? _name = switch (left) {
     SimpleIdentifier(:final name) ||
     PrefixedIdentifier(identifier: SimpleIdentifier(:final name)) ||
-    PropertyAccess(propertyName: SimpleIdentifier(:final name)) => name,
+    PropertyAccess(
+      propertyName: SimpleIdentifier(:final name),
+    ) => _nameAfterUnderscores.firstMatch(name)?.namedGroup('name'),
     _ => null,
   };
 
   /// What to write instead, for the correction message.
-  String get advice => switch ((use, _name)) {
-    (.loopStatement || .loopElement, final name?) =>
+  String get advice => switch ((use, _promotes, _name)) {
+    (.loopStatement || .loopElement, true, _) =>
+      "an 'if (${left.toSource()} != null)' around the loop",
+    (.loopStatement || .loopElement, false, final name?) =>
       "an 'if (${left.toSource()} case final $name?)' around the loop",
-    (.loopStatement || .loopElement, null) =>
+    (.loopStatement || .loopElement, false, null) =>
       "an 'if (… case final name?)' around the loop",
-    (.spread, _) => "'...?${left.toSource()}'",
-    (.target, _) =>
+    (.spread, _, _) => "'...?${left.toSource()}'",
+    (.target, _, _) =>
       "a null-aware call on '${left.toSource()}', with the fallback at the end of the chain",
   };
 
   /// The title of the fix, or `null` when it can't rewrite this fallback.
-  String? get fixTitle => switch ((use, _loopName)) {
-    (.loopStatement || .loopElement, final name?) =>
-      "Wrap the loop in 'if (${left.toSource()} case final $name?)'",
+  String? get fixTitle => switch ((use, _guard)) {
+    (.loopStatement || .loopElement, final guard?) =>
+      "Wrap the loop in 'if (${guard.condition(left.toSource())})'",
     (.spread, _) => "Replace with '...?${left.toSource()}'",
     _ => null,
   };
 
-  /// The name to bind around the loop, or `null` when there is none or
-  /// binding it would change the loop.
-  late final String? _loopName = switch ((_enclosing, _name)) {
-    (final loop?, final name?)
-        when loop.parent is! LabeledStatement && !_clashes(loop, name) =>
-      name,
+  /// Whether `left != null` promotes [left], so that the loop can read
+  /// [left] itself.
+  late final bool _promotes = isPromotable(left, expression);
+
+  /// The `if` that the fix puts around the loop, or `null` when it can't
+  /// put one there: a null check when the check promotes [left], or else an
+  /// if-case that binds [_name], unless the loop already uses that name.
+  late final _Guard? _guard = switch ((use, _enclosing, _name)) {
+    (.spread || .target, _, _) || (_, null, _) => null,
+    (_, final loop?, _) when loop.parent is LabeledStatement => null,
+    _ when _promotes => _NullCheck(),
+    (_, final loop?, final name?) when !_clashes(loop, name) => _IfCase(name),
     _ => null,
   };
 
@@ -189,13 +202,14 @@ class EmptyFallback({
     .target => null,
   };
 
-  /// Whether [loop] assigns [name], or reads it as something other than
-  /// [left], so that binding [name] around the loop would change the loop.
-  /// A loop over `xs ?? []` may read `xs`: the bound `xs` has the same value.
+  /// Whether [loop] uses [name] outside [left], so that binding [name] around
+  /// the loop would change what the loop reads. That includes a loop over
+  /// `xs ?? []` that reads `xs`: the fix binds only a value that a null check
+  /// can't promote, and the loop may change that value.
   bool _clashes(AstNode loop, String name) {
     final uses = _NameUses(name, skip: left);
     loop.accept(uses);
-    return uses.assigned || (uses.read && left is! SimpleIdentifier);
+    return uses.found;
   }
 
   /// The replacement that the fix makes, or `null` when it can't make one.
@@ -206,39 +220,45 @@ class EmptyFallback({
     String Function(SourceRange range) textOf,
   ) {
     final leftSource = textOf(range.node(left));
-    return switch ((use, _enclosing, _loopName)) {
+    return switch ((use, _enclosing, _guard)) {
       (.spread, final spread?, _) => (
         range: range.node(spread),
         code: '...?$leftSource',
       ),
-      (.loopElement, final loop?, final name?) => (
+      (.loopElement, final loop?, final guard?) => (
         range: range.node(loop),
         code:
-            'if ($leftSource case final $name?) '
-            '${_loopWith(loop, name, textOf)}',
+            'if (${guard.condition(leftSource)}) '
+            '${_loopWith(loop, guard.iterable(leftSource), textOf)}',
       ),
-      (.loopStatement, final loop?, final name?) => (
+      (.loopStatement, final loop?, final guard?) => (
         range: range.node(loop),
-        code: _wrapped(loop, name, leftSource, linePrefix(loop.offset), textOf),
+        code: _wrapped(
+          loop,
+          guard,
+          leftSource,
+          linePrefix(loop.offset),
+          textOf,
+        ),
       ),
       _ => null,
     };
   }
 
-  /// The source of [loop] with [name] as its iterable.
+  /// The source of [loop] with [iterable] as its iterable.
   String _loopWith(
     AstNode loop,
-    String name,
+    String iterable,
     String Function(SourceRange range) textOf,
   ) =>
-      '${textOf(range.startStart(loop, expression))}$name'
+      '${textOf(range.startStart(loop, expression))}$iterable'
       '${textOf(range.endEnd(expression, loop))}';
 
-  /// [loop] inside `if (… case final name?) { … }`, with its lines indented
-  /// one step more, except those that start inside a multi-line string.
+  /// [loop] inside the `if` of [guard], with its lines indented one step
+  /// more, except those that start inside a multi-line string.
   String _wrapped(
     AstNode loop,
-    String name,
+    _Guard guard,
     String leftSource,
     String indent,
     String Function(SourceRange range) textOf,
@@ -255,8 +275,8 @@ class EmptyFallback({
       expression.end,
       strings.ranges,
     );
-    return 'if ($leftSource case final $name?) {\n'
-        '$indent  $before$name$after\n'
+    return 'if (${guard.condition(leftSource)}) {\n'
+        '$indent  $before${guard.iterable(leftSource)}$after\n'
         '$indent}';
   }
 
@@ -288,26 +308,22 @@ class EmptyFallback({
       };
 }
 
-/// Finds whether a name is read or assigned in a node, outside [skip].
+/// Finds whether a node declares, reads or assigns a name outside [skip].
 class _NameUses(final String name, {required final AstNode skip})
     extends RecursiveAstVisitor<void> {
-  bool read = false;
-  bool assigned = false;
+  bool found = false;
 
   @override
   void visitSimpleIdentifier(SimpleIdentifier node) {
     if (node.name == name && !_inSkip(node)) {
-      read = true;
-      if (node.inSetterContext()) {
-        assigned = true;
-      }
+      found = true;
     }
   }
 
   @override
   void visitDeclaredIdentifier(DeclaredIdentifier node) {
     if (node.name.lexeme == name) {
-      read = true;
+      found = true;
     }
     super.visitDeclaredIdentifier(node);
   }
@@ -315,7 +331,7 @@ class _NameUses(final String name, {required final AstNode skip})
   @override
   void visitDeclaredVariablePattern(DeclaredVariablePattern node) {
     if (node.name.lexeme == name) {
-      read = true;
+      found = true;
     }
     super.visitDeclaredVariablePattern(node);
   }
@@ -323,7 +339,7 @@ class _NameUses(final String name, {required final AstNode skip})
   @override
   void visitVariableDeclaration(VariableDeclaration node) {
     if (node.name.lexeme == name) {
-      read = true;
+      found = true;
     }
     super.visitVariableDeclaration(node);
   }
@@ -331,7 +347,7 @@ class _NameUses(final String name, {required final AstNode skip})
   @override
   void visitAssignedVariablePattern(AssignedVariablePattern node) {
     if (node.name.lexeme == name) {
-      assigned = true;
+      found = true;
     }
     super.visitAssignedVariablePattern(node);
   }
@@ -339,6 +355,10 @@ class _NameUses(final String name, {required final AstNode skip})
   bool _inSkip(AstNode node) =>
       node.offset >= skip.offset && node.end <= skip.end;
 }
+
+/// Matches a name that has a character other than `_`. Its `name` group holds
+/// the name without its leading underscores, as `items` for `_items`.
+final _nameAfterUnderscores = RegExp('^_*(?<name>[^_].*)');
 
 /// Collects the ranges of the multi-line string literals in a node.
 class _MultilineStrings() extends RecursiveAstVisitor<void> {
@@ -358,4 +378,31 @@ class _MultilineStrings() extends RecursiveAstVisitor<void> {
     }
     super.visitStringInterpolation(node);
   }
+}
+
+/// The `if` that the fix puts around a loop.
+sealed class _Guard() {
+  /// The test of the `if`, for the source [left] of the checked value.
+  String condition(String left);
+
+  /// What the loop iterates inside the `if`.
+  String iterable(String left);
+}
+
+/// `if (xs != null)`, for an `xs` that the check promotes.
+final class _NullCheck() extends _Guard {
+  @override
+  String condition(String left) => '$left != null';
+
+  @override
+  String iterable(String left) => left;
+}
+
+/// `if (xs case final name?)`, which binds the checked value to [name].
+final class _IfCase(final String name) extends _Guard {
+  @override
+  String condition(String left) => '$left case final $name?';
+
+  @override
+  String iterable(String left) => name;
 }

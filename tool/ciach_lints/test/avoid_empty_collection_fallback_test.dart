@@ -7,12 +7,9 @@
 // test_reflective_loader discovers tests by their `test_` prefix.
 // ignore_for_file: non_constant_identifier_names
 
-import 'package:analyzer_testing/analysis_rule/analysis_rule.dart';
-import 'package:ciach_lints/src/avoid_empty_collection_fallback.dart';
-import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 
-import 'support/fixes.dart';
+import 'support/empty_fallback.dart';
 
 void main() {
   defineReflectiveSuite(() {
@@ -21,35 +18,7 @@ void main() {
 }
 
 @reflectiveTest
-class AvoidEmptyCollectionFallbackTest() extends AnalysisRuleTest {
-  @override
-  void setUp() {
-    rule = AvoidEmptyCollectionFallback();
-    super.setUp();
-  }
-
-  /// Checks that [flagged] in [code] is flagged with [advice] in the
-  /// correction, and that the fix turns [code] into [fixed], or offers
-  /// nothing when [fixed] is `null`.
-  Future<void> assertFallback(
-    String code,
-    String flagged, {
-    required String advice,
-    required String? fixed,
-  }) async {
-    await assertDiagnostics(code, [
-      lint(code.indexOf(flagged), flagged.length, correctionContains: advice),
-    ]);
-    expect(
-      await applyFixes(
-        code,
-        AvoidEmptyCollectionFallback.code,
-        SkipNullCollection.new,
-      ),
-      fixed,
-    );
-  }
-
+class AvoidEmptyCollectionFallbackTest() extends EmptyFallbackTest {
   Future<void> test_loopOverParameter() async {
     await assertFallback(
       '''
@@ -60,10 +29,10 @@ void f(List<int>? xs) {
 }
 ''',
       'xs ?? const []',
-      advice: "'if (xs case final xs?)' around the loop",
+      advice: "'if (xs != null)' around the loop",
       fixed: '''
 void f(List<int>? xs) {
-  if (xs case final xs?) {
+  if (xs != null) {
     for (final x in xs) {
       print(x);
     }
@@ -100,6 +69,33 @@ void f(A a) {
     );
   }
 
+  Future<void> test_loopOverPrivatePropertyBindsItWithoutUnderscores() async {
+    await assertFallback(
+      '''
+class A {
+  List<int>? _items;
+}
+
+void f(A a) {
+  for (final x in a._items ?? <int>[]) print(x);
+}
+''',
+      'a._items ?? <int>[]',
+      advice: "'if (a._items case final items?)' around the loop",
+      fixed: '''
+class A {
+  List<int>? _items;
+}
+
+void f(A a) {
+  if (a._items case final items?) {
+    for (final x in items) print(x);
+  }
+}
+''',
+    );
+  }
+
   Future<void> test_loopWithPattern() async {
     await assertFallback(
       '''
@@ -110,10 +106,10 @@ void f(List<(int, int)>? pairs) {
 }
 ''',
       'pairs ?? const <(int, int)>[]',
-      advice: "'if (pairs case final pairs?)' around the loop",
+      advice: "'if (pairs != null)' around the loop",
       fixed: '''
 void f(List<(int, int)>? pairs) {
-  if (pairs case final pairs?) {
+  if (pairs != null) {
     for (final (a, b) in pairs) {
       print(a + b);
     }
@@ -134,10 +130,10 @@ $x''');
 }
 """,
       'xs ?? const []',
-      advice: "'if (xs case final xs?)' around the loop",
+      advice: "'if (xs != null)' around the loop",
       fixed: r"""
 void f(List<int>? xs) {
-  if (xs case final xs?) {
+  if (xs != null) {
     for (final x in xs) {
       print('''
 $x''');
@@ -154,9 +150,9 @@ $x''');
 List<int> f(List<int>? xs) => [for (final x in xs ?? const <int>[]) x + 1];
 ''',
       'xs ?? const <int>[]',
-      advice: "'if (xs case final xs?)' around the loop",
+      advice: "'if (xs != null)' around the loop",
       fixed: '''
-List<int> f(List<int>? xs) => [if (xs case final xs?) for (final x in xs) x + 1];
+List<int> f(List<int>? xs) => [if (xs != null) for (final x in xs) x + 1];
 ''',
     );
   }
@@ -171,10 +167,10 @@ void f(Set<int>? xs) {
 }
 ''',
       '(xs ?? {})',
-      advice: "'if (xs case final xs?)' around the loop",
+      advice: "'if (xs != null)' around the loop",
       fixed: '''
 void f(Set<int>? xs) {
-  if (xs case final xs?) {
+  if (xs != null) {
     for (final x in xs) {
       print(x);
     }
@@ -251,18 +247,43 @@ void f(A a, List<int> items) {
     );
   }
 
-  Future<void> test_loopThatAssignsTheVariableHasNoFix() async {
+  Future<void> test_loopOverFieldNamedOnlyWithUnderscoresHasNoFix() async {
     await assertFallback(
       '''
-void f(List<int>? xs) {
-  for (final x in xs ?? const []) {
-    xs = null;
-    print(x);
+class A {
+  List<int>? __;
+
+  void f() {
+    for (final x in __ ?? const <int>[]) print(x);
   }
 }
 ''',
-      'xs ?? const []',
-      advice: "'if (xs case final xs?)' around the loop",
+      '__ ?? const <int>[]',
+      advice: "'if (… case final name?)' around the loop",
+      fixed: null,
+    );
+  }
+
+  Future<void> test_loopThatReadsTheFieldHasNoFix() async {
+    // A call in the loop can change `items`, which the bound `items` would
+    // hide.
+    await assertFallback(
+      '''
+class A {
+  List<int>? items;
+
+  void clear() => items = null;
+
+  void f() {
+    for (final x in items ?? const <int>[]) {
+      clear();
+      print(items?.length ?? x);
+    }
+  }
+}
+''',
+      'items ?? const <int>[]',
+      advice: "'if (items case final items?)' around the loop",
       fixed: null,
     );
   }
@@ -278,7 +299,7 @@ void f(List<int>? xs) {
 }
 ''',
       'xs ?? const []',
-      advice: "'if (xs case final xs?)' around the loop",
+      advice: "'if (xs != null)' around the loop",
       fixed: null,
     );
   }
