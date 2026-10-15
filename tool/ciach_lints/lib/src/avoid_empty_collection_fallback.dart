@@ -82,8 +82,10 @@ class SkipNullCollection({required super.context})
 
   @override
   Future<void> compute(ChangeBuilder builder) async {
-    if (_fallback?.rewrite(utils.getLinePrefix, getRangeText)
-        case (:final range, :final code)?) {
+    if (_fallback?.rewrite(utils.getLinePrefix, getRangeText) case (
+      :final range,
+      :final code,
+    )) {
       await builder.addDartFileEdit(
         file,
         (builder) => builder.addSimpleReplacement(range, code),
