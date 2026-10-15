@@ -1,5 +1,9 @@
 ## Unreleased
 
+- A file whose "generated, do not edit" comment comes after its imports is
+  now treated as generated, like one with the comment at the top. Before,
+  ciach checked its declarations as hand-written code.
+  ([#148](https://github.com/leancodepl/ciach/pull/148))
 - `--remove` now lists the files that it deleted and the declarations that it
   left empty one per line. Before, it listed them on one line, separated by
   commas. ([#136](https://github.com/leancodepl/ciach/pull/136))
