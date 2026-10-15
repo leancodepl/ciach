@@ -1,5 +1,9 @@
 ## Unreleased
 
+- `--no-public` now also reports an unused method, field or constructor of a
+  private class, such as `_Foo.reset`. Before, it skipped them because their
+  own names have no underscore.
+  ([#135](https://github.com/leancodepl/ciach/pull/135))
 - With `--unused-translations`, ciach reports only the unused messages of the
   gen-l10n template file. Before, it also reported the code gen-l10n writes
   around them, such as the delegate class, and said to remove it from the ARB
