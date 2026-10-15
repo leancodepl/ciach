@@ -9,31 +9,29 @@ import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
 
-/// Whether `value != null` promotes [value], read at [at]: a local variable
-/// or parameter, or a chain of private final fields from `this` or from such
-/// a variable, as in `a._b._items`.
+/// Whether `value != null` promotes [value]: a local variable or parameter
+/// that only the function that declares it assigns, or a chain of private
+/// final fields from `this` or from such a variable, as in `a._b._items`.
 ///
-/// A variable counts only when every assignment to it is in the function
-/// that declares it, and when [at] is in that function too or nothing assigns
-/// the variable. Flow analysis also promotes some variables that fail this
-/// test, such as one that only a closure created after [at] assigns, so
-/// `false` doesn't mean that the check can't promote [value].
-bool isPromotable(Expression value, AstNode at) => switch (value) {
+/// Flow analysis also promotes some variables that fail this test, such as one
+/// that only a closure created after the null check assigns, so `false`
+/// doesn't mean that the check can't promote [value].
+bool isPromotable(Expression value) => switch (value) {
   ThisExpression() => true,
   SimpleIdentifier(
     element: (LocalVariableElement() || FormalParameterElement()) &&
         final Element element,
   ) =>
-    _isStable(element, at),
+    _isAssignedOnlyWhereDeclared(element, value),
   SimpleIdentifier(:final element) => _isPromotableField(element),
   PrefixedIdentifier(:final prefix, :final identifier) =>
-    _isPromotableField(identifier.element) && isPromotable(prefix, at),
+    _isPromotableField(identifier.element) && isPromotable(prefix),
   PropertyAccess(
     :final target?,
     operator: Token(type: .PERIOD),
     :final propertyName,
   ) =>
-    _isPromotableField(propertyName.element) && isPromotable(target, at),
+    _isPromotableField(propertyName.element) && isPromotable(target),
   _ => false,
 };
 
@@ -44,18 +42,14 @@ bool _isPromotableField(Element? element) => switch (element) {
   _ => false,
 };
 
-/// Whether flow analysis keeps a promotion of [variable] at [at]: every
-/// assignment to [variable] is in the function that declares it, and [at] is
-/// in that function too unless nothing assigns [variable].
-bool _isStable(Element variable, AstNode at) {
-  final declaration =
-      at.thisOrAncestorMatching((node) => node.parent is CompilationUnit) ??
-      at.root;
+/// Whether every assignment to [variable], which [reference] reads, is in the
+/// function that declares [variable].
+bool _isAssignedOnlyWhereDeclared(Element variable, AstNode reference) {
   final writes = _Writes(variable);
-  declaration.accept(writes);
-  final home = variable.enclosingElement;
-  return writes.functions.every((function) => function == home) &&
-      (writes.functions.isEmpty || _functionOf(at) == home);
+  reference.root.accept(writes);
+  return writes.functions.every(
+    (function) => function == variable.enclosingElement,
+  );
 }
 
 /// The closure, function, method or constructor that [node] is in, or `null`
