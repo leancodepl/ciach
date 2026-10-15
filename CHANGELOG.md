@@ -1,5 +1,15 @@
 ## Unreleased
 
+- With `--unused-translations`, ciach reports only the unused messages of the
+  gen-l10n template file. Before, it also reported the code gen-l10n writes
+  around them, such as the delegate class, and said to remove it from the ARB
+  file. ([#134](https://github.com/leancodepl/ciach/pull/134))
+- An unused mixin is reported as a `mixin`, not a `class`, and a member of a
+  private class as private, not public.
+  ([#134](https://github.com/leancodepl/ciach/pull/134))
+- With `-v`, an error you can fix yourself, such as a package without
+  `pub get`, no longer comes with a stack trace that reads like a crash.
+  ([#134](https://github.com/leancodepl/ciach/pull/134))
 - `--remove` now lists the `//` comments it leaves right above removed code,
   so you can check whether they still belong. It also deletes an `// ignore:`,
   `// expect_lint:` or `// cspell:disable-next-line` comment above or at the end
