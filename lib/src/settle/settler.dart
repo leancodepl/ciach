@@ -148,7 +148,7 @@ final class Settler {
     for (var round = 1; ; round++) {
       final liveRefs = TransitiveSweep.liveRefs(refsByCandidate, deadSpans);
       crossLib = crossLib.merged(
-        await _recovery.recover(client, candidates, liveRefs),
+        await _recovery.recover(client, candidates, liveRefs, refsByCandidate),
       );
       final result = await _round(
         client,
