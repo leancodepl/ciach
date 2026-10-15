@@ -502,6 +502,33 @@ class LspClient {
     };
   }
 
+  /// The direct subtypes of the type named at [position] in [uri], via
+  /// `typeHierarchy/subtypes`: the types that extend, implement or mix it in,
+  /// or name it in an `on` clause, anywhere in the workspace.
+  Future<List<lsp.TypeHierarchyItem>> subtypesOf(
+    Uri uri,
+    lsp.Position position,
+  ) async {
+    final items = await _guard(
+      lsp.RequestMethod.prepareTypeHierarchy.value,
+      () => _client.server.textDocument.prepareTypeHierarchy(
+        .new(
+          textDocument: .new(uri: uri.toString()),
+          position: position,
+        ),
+      ),
+    );
+    final item = items?.firstOrNull;
+    if (item == null) {
+      return const [];
+    }
+    final subtypes = await _guard(
+      lsp.RequestMethod.subtypes.value,
+      () => _client.server.typeHierarchy.subtypes(.new(item: item)),
+    );
+    return subtypes ?? const [];
+  }
+
   /// The members that override the member at [position] in [uri], via
   /// `textDocument/implementation`. Empty when nothing overrides it.
   Future<List<lsp.Location>> implementations(

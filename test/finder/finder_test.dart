@@ -1000,6 +1000,7 @@ void main() {
         ('_Measured', true),
         ('_Host.host', false),
         ('_Aliased.aliased', false),
+        ('_InPart.parted', false),
       ],
     );
   });

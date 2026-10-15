@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/collect/exposed_types.dart';
 import 'package:ciach/src/collect/kept_declarations.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/freezed.dart';
@@ -12,7 +13,6 @@ import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/model/finder_options.dart';
-import 'package:ciach/src/source/exposed_types.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
@@ -43,6 +43,8 @@ final class CandidateCollector {
 
   final FinderOptions options;
   final SourceIndex _sources;
+
+  late final _exposedTypes = ExposedTypes(_sources);
 
   /// Freezed-union tracking, fed as candidates are collected.
   final FreezedUnions _freezed;
@@ -92,6 +94,7 @@ final class CandidateCollector {
     if (_conditionalImports.contains(path)) {
       declaredInVariants[path] = ConditionalImports.pairingNames(symbols);
     }
+    final exposedTypes = await _exposedTypes.of(client, path, outline);
     final relativePath = relativePosix(path, rootPath);
     final markers = _Markers(IgnoreMarkers.parse(_sources.content(path)));
     // The whole walk has to run before the filter: it records the entry-point
@@ -107,7 +110,7 @@ final class CandidateCollector {
       false,
       _OutlineIndex(outline),
       markers,
-      _sources.exposedPrivateTypes(path, outline),
+      exposedTypes,
     ).toList();
     markers.warnAbout(relativePath);
     return _kept.withoutContainers(candidates, relativePath).toList();

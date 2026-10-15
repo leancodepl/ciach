@@ -8,6 +8,8 @@
 // their own names, unless a public type names theirs as a supertype. Only the private-type
 // tests in test/finder/finder_test.dart scan this file.
 
+part 'private_types_part.dart';
+
 /// Entry point -> USED.
 void main() {
   print(_Settings.defaults().used);
@@ -20,6 +22,7 @@ void main() {
   print(<Measure>[]);
   print(<Mixer>[]);
   print(<Alias>[]);
+  print(FromPart());
 }
 
 /// Constructed by `main` -> USED.
@@ -104,3 +107,9 @@ class _Aliased {
 }
 
 typedef Alias = _Aliased;
+
+class _InPart {
+  /// Never called -> UNUSED, but public: `FromPart`, in the part file,
+  /// inherits it.
+  void parted() {}
+}
