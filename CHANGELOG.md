@@ -1,5 +1,11 @@
 ## Unreleased
 
+- `--remove` now lists the files that it deleted and the declarations that it
+  left empty one per line. Before, it listed them on one line, separated by
+  commas. ([#136](https://github.com/leancodepl/ciach/pull/136))
+- `--help` and README.md no longer say that a declaration used only from files
+  that `--exclude` skips is reported. The references in those files count, as
+  they did before. ([#136](https://github.com/leancodepl/ciach/pull/136))
 - With `--unused-translations`, ciach reports only the unused messages of the
   gen-l10n template file. Before, it also reported the code gen-l10n writes
   around them, such as the delegate class, and said to remove it from the ARB
