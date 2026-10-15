@@ -117,6 +117,7 @@ name without the `--`, plus `path` for the positional argument:
 ```yaml
 public: false                     # --no-public
 analysis-root: ..                 # --analysis-root
+exported-packages: [packages/api]  # see Library packages
 exclude: ['test/**', 'tool/**']   # a repeatable option takes a list, or one string
 kinds: [class, function, method]
 format: github
