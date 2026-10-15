@@ -352,6 +352,9 @@ explicit null check.
   `example/` covers every kind that ciach reports. When a change forces an edit
   to an unrelated fixture, add a comment there that says why.
 - Test your own code, not the behavior of a library that it calls.
+- Test a function by calling it and checking its result, in the test file
+  named after its library: `promotion_test.dart` calls `isPromotable`, not the
+  fix that uses it. Leave its callers' tests to what the callers add.
 - Don't pin output that you know is invalid Dart without saying so in the pull
   request.
 - Before refactoring code that prints output, pin the output with a test.
