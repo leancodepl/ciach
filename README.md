@@ -516,11 +516,6 @@ searches one library instead of the whole workspace, and it surfaces the
 highest-confidence dead code anyway. `--include` and `--exclude` narrow the
 scan while still counting references from everywhere.
 
-ciach runs the analysis server without your lint rules and analyzer plugins,
-which it has no use for. That makes a run faster and lighter, most of all with
-a plugin. Your `analysis_options.yaml` stays as it is, and so does what
-`dart analyze` reports.
-
 ## Library usage
 
 The finder is also available programmatically:
