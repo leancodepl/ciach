@@ -28,9 +28,7 @@
   ([#105](https://github.com/leancodepl/ciach/pull/105))
 - **Breaking:** `--transitive` is now on by default: a helper called only by
   dead code, and a dead cycle, are reported in the same run instead of after
-  a removal and a second run, each naming what it is only referenced from.
-  `--no-transitive`, or `transitive: false` in `ciach.yaml`, reports only
-  what nothing references at all. See [MIGRATION.md](MIGRATION.md).
+  a removal and a second run. See [MIGRATION.md](MIGRATION.md).
   ([#131](https://github.com/leancodepl/ciach/pull/131))
 - Unused translations are reported by default when an `l10n.yaml` is present.
   ([#105](https://github.com/leancodepl/ciach/pull/105))
