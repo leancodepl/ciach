@@ -41,8 +41,17 @@ environment: {sdk: ^3.10.0}
     return {for (final d in result.unused) d.name};
   }
 
-  test("by default, every package's exported API is left out", () async {
+  test("by default, every package's API is checked", () async {
     expect(await unused(.new(rootPath: root.path)), {
+      'sharedApi',
+      'sharedInternals',
+      'appApi',
+      'appInternals',
+    });
+  });
+
+  test("'**' leaves out every package's exported API", () async {
+    expect(await unused(.new(rootPath: root.path, exportedPackages: ['**'])), {
       'sharedInternals',
       'appInternals',
     });
@@ -72,12 +81,5 @@ environment: {sdk: ^3.10.0}
       ]),
     );
     expect(lines, isNot(contains(startsWith('The scanned package'))));
-  });
-
-  test('none listed checks every API', () async {
-    expect(
-      await unused(.new(rootPath: root.path, exportedPackages: const [])),
-      {'sharedApi', 'sharedInternals', 'appApi', 'appInternals'},
-    );
   });
 }

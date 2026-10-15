@@ -102,10 +102,10 @@ enum CiachOption<V> implements OptionDefinition<V> {
       group: _reportGroup,
       argName: 'exported-packages',
       configKey: '/exported-packages',
-      defaultsTo: ['**'],
+      defaultsTo: [],
       valueHelp: 'glob',
       helpText:
-          'Glob, relative to the root, of a package that code outside the analysis imports. What other packages can import from it is not reported. Defaults to every package; an empty value (--exported-packages=) checks the API of every package. Repeatable.',
+          'Glob, relative to the root, of a package that code outside the analysis imports, such as one published to pub.dev. What other packages can import from it is not reported. Repeatable.',
     ),
   ),
   unusedTranslations(

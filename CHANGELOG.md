@@ -26,10 +26,9 @@
   gone. Using a removed option is an error that says what to use instead. See
   [MIGRATION.md](MIGRATION.md).
   ([#105](https://github.com/leancodepl/ciach/pull/105))
-- **Breaking:** By default, ciach no longer reports what other packages can
-  import. To check it, list in `exported-packages` only the packages that code
-  outside the analysis imports, or set it to `[]` to check every package.
-  `--exported` is gone.
+- New `exported-packages` option: list the packages that code outside the
+  analysis imports, such as one published to pub.dev, and ciach doesn't report
+  what other packages can import from them. `--exported` is gone.
   ([#105](https://github.com/leancodepl/ciach/pull/105))
 - **Breaking:** `--transitive` is now on by default: a helper called only by
   dead code, and a dead cycle, are reported in the same run instead of after

@@ -67,7 +67,7 @@ const _options = [
   ('--no-public', 'Report private declarations only. Cheapest mode.'),
   (
     '--exported-packages <glob>',
-    'Packages that code outside the analysis imports, whose API is not reported. Every package by default; `--exported-packages=` checks them all.',
+    'Packages that code outside the analysis imports, such as one published to pub.dev, whose API is not reported.',
   ),
   (
     '--remove, --force',
@@ -712,9 +712,9 @@ class DocsPage extends StatelessComponent {
                 ul(classes: Prose.checklist.name, [
                   li(
                     rich(
-                      'Importers outside the analysis are invisible, so what '
-                      'other packages can import is left out unless '
-                      '`exported-packages` says otherwise. In a monorepo, '
+                      'Importers outside the analysis are invisible, so list '
+                      'the packages they import in `exported-packages`. In a '
+                      'monorepo, '
                       '`--analysis-root` recovers uses in a sibling package.',
                     ),
                   ),
