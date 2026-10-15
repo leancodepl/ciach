@@ -1,7 +1,7 @@
-import 'package:ciach/src/packages.dart';
 import 'package:ciach/src/project_config/build_yaml.dart';
 import 'package:ciach/src/project_config/project_files.dart';
-import 'package:ciach/src/reachability.dart';
+import 'package:ciach/src/util/reachability.dart';
+import 'package:ciach/src/workspace/packages.dart';
 import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
 

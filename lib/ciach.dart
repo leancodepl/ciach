@@ -28,25 +28,22 @@ library;
 export 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
 export 'src/conventions/entry_points.dart' show EntryPoint;
-export 'src/dart_executable.dart'
-    show DartSdkNotFoundException, findDartExecutable;
 export 'src/finder.dart' show Ciach;
-export 'src/lsp/lsp_client.dart'
+export 'src/lsp/dart_executable.dart'
+    show DartSdkNotFoundException, findDartExecutable;
+export 'src/lsp/exceptions.dart'
     show AnalysisServerExitedException, LspRequestException;
-export 'src/models.dart'
+export 'src/model/finder_options.dart' show FinderOptions;
+export 'src/model/finder_result.dart'
+    show AnalysisProblem, EmptiedContainer, FinderResult, RecoveredReference;
+export 'src/model/removal_result.dart' show DeletedFile, RemovalResult;
+export 'src/model/unused_declaration.dart'
     show
-        AnalysisProblem,
         CoupledRemoval,
         DeadReferrer,
         DeclarationRange,
-        DeletedFile,
-        EmptiedContainer,
-        FinderOptions,
-        FinderResult,
-        RecoveredReference,
-        RemovalResult,
         SymbolKindLabel,
         UnusedDeclaration;
-export 'src/packages.dart' show UnresolvedPackagesException;
 export 'src/project_config/project_config.dart' show ProjectConfig;
-export 'src/remover.dart' show RemovalException, removeDeclarations;
+export 'src/remove/remover.dart' show RemovalException, removeDeclarations;
+export 'src/workspace/packages.dart' show UnresolvedPackagesException;

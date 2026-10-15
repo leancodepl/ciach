@@ -8,33 +8,55 @@
  *     - mark-ai-provenance
  */
 
+/// A scan as a pipeline: discover the files, collect the candidates, fetch
+/// their references, settle the verdicts. [Ciach] wires the stages, and each
+/// directory under `lib/src/` holds one part of the work:
+///
+/// | Directory         | What it holds                                                         |
+/// |-------------------|-----------------------------------------------------------------------|
+/// | `model/`          | The options a run takes and the findings and results it returns.      |
+/// | `workspace/`      | The package on disk: Dart files, pubspecs, directives, public API.    |
+/// | `source/`         | Source text and the server's view of it: tokens, shapes, markers.     |
+/// | `lsp/`            | The analysis server session and what can go wrong with it.            |
+/// | `conventions/`    | Framework rules that keep declarations alive: Flutter, freezed, l10n. |
+/// | `project_config/` | Entry points and generated files read from the project's own config.  |
+/// | `collect/`        | Which declarations get checked.                                       |
+/// | `fetch/`          | Asking the server for references, and for what it misses.             |
+/// | `settle/`         | Turning references into findings.                                     |
+/// | `remove/`         | `--remove`: deleting findings and emptied files.                      |
+/// | `report/`         | The output formats.                                                   |
+/// | `cli/`            | The command line: options, the config file, the console.              |
+/// | `util/`           | Small helpers with no knowledge of ciach.                             |
+library;
+
 import 'dart:async';
 import 'dart:io';
 
-import 'package:ciach/src/candidate_collector.dart';
-import 'package:ciach/src/candidates.dart';
-import 'package:ciach/src/concurrency.dart';
+import 'package:ciach/src/collect/candidate_collector.dart';
+import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/freezed.dart';
-import 'package:ciach/src/directives.dart';
-import 'package:ciach/src/file_discovery.dart';
-import 'package:ciach/src/ignore_markers.dart';
-import 'package:ciach/src/log.dart';
+import 'package:ciach/src/fetch/member_probe.dart';
+import 'package:ciach/src/fetch/reachable_types.dart';
+import 'package:ciach/src/fetch/reference_fetch.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
-import 'package:ciach/src/member_probe.dart';
-import 'package:ciach/src/models.dart';
-import 'package:ciach/src/packages.dart';
-import 'package:ciach/src/path_dependents.dart';
-import 'package:ciach/src/paths.dart';
-import 'package:ciach/src/plural.dart';
-import 'package:ciach/src/problems.dart';
-import 'package:ciach/src/public_api.dart';
-import 'package:ciach/src/reachable_types.dart';
-import 'package:ciach/src/reference_classifier.dart';
-import 'package:ciach/src/reference_fetch.dart';
-import 'package:ciach/src/settler.dart';
-import 'package:ciach/src/source_index.dart';
-import 'package:ciach/src/verdict.dart';
+import 'package:ciach/src/lsp/problems.dart';
+import 'package:ciach/src/model/finder_options.dart';
+import 'package:ciach/src/model/finder_result.dart';
+import 'package:ciach/src/settle/reference_classifier.dart';
+import 'package:ciach/src/settle/settler.dart';
+import 'package:ciach/src/settle/verdict.dart';
+import 'package:ciach/src/source/directives.dart';
+import 'package:ciach/src/source/ignore_markers.dart';
+import 'package:ciach/src/source/source_index.dart';
+import 'package:ciach/src/util/concurrency.dart';
+import 'package:ciach/src/util/log.dart';
+import 'package:ciach/src/util/paths.dart';
+import 'package:ciach/src/util/plural.dart';
+import 'package:ciach/src/workspace/file_discovery.dart';
+import 'package:ciach/src/workspace/packages.dart';
+import 'package:ciach/src/workspace/path_dependents.dart';
+import 'package:ciach/src/workspace/public_api.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show Location;

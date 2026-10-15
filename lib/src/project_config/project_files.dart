@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:ciach/src/conventions/entry_points.dart';
-import 'package:ciach/src/log.dart';
-import 'package:ciach/src/packages.dart';
+import 'package:ciach/src/util/log.dart';
+import 'package:ciach/src/workspace/packages.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 

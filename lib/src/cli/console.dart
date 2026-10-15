@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io' as io;
 
 import 'package:ciach/src/cli/log_format.dart';
-import 'package:ciach/src/log.dart';
-import 'package:ciach/src/style.dart';
+import 'package:ciach/src/report/style.dart';
+import 'package:ciach/src/util/log.dart';
 
 /// The CLI's terminal; the only code that touches stdio. Results go to stdout
 /// via [output], log records to stderr via [attach].
