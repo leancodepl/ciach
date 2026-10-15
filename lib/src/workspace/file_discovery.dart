@@ -148,6 +148,8 @@ bool _isGenerated(String relativePath, String Function() source) {
 /// matched anywhere in the first 300 characters of the file.
 const _buildBanner = 'GENERATED CODE - DO NOT MODIFY BY HAND';
 
+final _directiveStart = RegExp(r'^(?:library|import|export|part)\b');
+
 /// A banner that warns against editing generated code, or `flutterfire
 /// configure`'s, which doesn't.
 final _banner = RegExp(
@@ -156,18 +158,22 @@ final _banner = RegExp(
 );
 
 /// Returns whether [source] starts with a banner that marks generated code.
-/// Only the comments before the first declaration are read. Doc comments are
-/// skipped, because a doc comment can mention generated code in a file that
-/// is not generated.
+/// Only the comments before the first declaration are read, so a banner
+/// after the directives counts too. Doc comments are skipped, because a doc
+/// comment can mention generated code in a file that is not generated.
 bool isGeneratedBanner(String source) {
   if (source.substring(0, min(source.length, 300)).contains(_buildBanner)) {
     return true;
   }
   final comments = StringBuffer();
   var inBlock = false;
+  var inDirective = false;
   for (final raw in const LineSplitter().convert(source)) {
     final line = raw.trim();
-    if (inBlock) {
+    if (inDirective || _directiveStart.hasMatch(line)) {
+      // A directive ends at its `;`, maybe lines later.
+      inDirective = !line.contains(';');
+    } else if (inBlock) {
       comments.write(' $line');
       inBlock = !line.contains('*/');
     } else if (line.startsWith('///')) {

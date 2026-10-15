@@ -208,6 +208,22 @@ class DefaultFirebaseOptions {}
       }
     });
 
+    test('reads a banner after the directives', () {
+      expect(
+        isGeneratedBanner('''
+import 'package:flutter/widgets.dart';
+export 'src/a.dart'
+    show A, B;
+part 'b.dart';
+
+// This file is auto-generated. Do not edit it directly.
+
+class A {}
+'''),
+        isTrue,
+      );
+    });
+
     test('reads only the leading non-doc comments', () {
       for (final source in [
         'class A {}\n// GENERATED CODE. DO NOT EDIT.\n',
@@ -215,6 +231,11 @@ class DefaultFirebaseOptions {}
         '// Copyright 2026. Do not redistribute.\nclass A {}\n',
         "const s = 'Generated code. Do not modify.';\n",
         '// Generated files go to lib/gen.\nclass A {}\n',
+        '''
+import 'a.dart';
+class A {}
+// Generated code. Do not edit.
+''',
       ]) {
         expect(isGeneratedBanner(source), isFalse, reason: source);
       }
