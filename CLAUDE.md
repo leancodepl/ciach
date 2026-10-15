@@ -212,7 +212,10 @@ explicit null check.
   variable rather than binding a second name for it.
 - Use the simplest pattern that does the job:
   `if (symbol.children case final children? when …)` rather than an object
-  pattern that destructures fields that are read once.
+  pattern that destructures fields that are read once. A record, list or map
+  pattern, and an object pattern of a non-nullable type, never match `null`,
+  so they need no `?`: `case (:final range, :final code)`, not
+  `case (:final range, :final code)?`.
 - Merge arms that have the same body with `||`, and merge nested `if`s into one
   if-case with a `when` guard.
 - A function that picks a result by the shape of a value is a switch
