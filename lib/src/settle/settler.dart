@@ -140,9 +140,15 @@ final class Settler {
     var crossLib = CrossLibraryReferences.empty;
     // Round 1 assumes everything no live code reaches is dead, which later
     // rounds narrow down as they would for a full set of references, so only
-    // the spans of actual findings call for completing probed uses.
+    // the spans of actual findings call for fetching the references of a
+    // probed member. Round 1 only looks for a probed use outside it.
     var deadSpans = options.transitive
-        ? _transitive.allUnreached(candidates, refsByCandidate, rootPath)
+        ? await probedRefs.liveUsesIn(
+            () =>
+                _transitive.allUnreached(candidates, refsByCandidate, rootPath),
+            candidates,
+            refsByCandidate,
+          )
         : DeadSpans.empty;
     _Verdicts settled;
     Map<UnusedDeclaration, int> candidateOf;

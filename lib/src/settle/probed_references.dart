@@ -53,6 +53,45 @@ final class ProbedReferences {
     return dead;
   }
 
+  /// [spans] after giving each probed candidate whose references all lie in
+  /// them a use outside them that the probe finds, if any, in
+  /// [refsByCandidate], as often as that changes them. Unlike [completeIn],
+  /// it fetches no references: round 1 assumes too much dead to make a
+  /// candidate worth a references search, but a probed use outside that
+  /// assumption keeps the cross-library recovery from looking for the
+  /// candidate's uses everywhere.
+  Future<DeadSpans> liveUsesIn(
+    DeadSpans Function() spans,
+    List<Candidate> candidates,
+    List<List<Location>> refsByCandidate,
+  ) async {
+    var dead = spans();
+    final probe = _probe;
+    if (probe == null) {
+      return dead;
+    }
+    while (true) {
+      final liveRefs = TransitiveSweep.liveRefs(refsByCandidate, dead);
+      final unsure = <Candidate, int>{
+        for (final (i, candidate) in candidates.indexed)
+          if (liveRefs[i].isEmpty && _probed.contains(candidate)) candidate: i,
+      };
+      final live = await Future.wait([
+        for (final candidate in unsure.keys)
+          probe.liveUse(candidate, dead.covers),
+      ]);
+      if (live.nonNulls.isEmpty) {
+        return dead;
+      }
+      for (final (j, i) in unsure.values.indexed) {
+        if (live[j] case final use?) {
+          refsByCandidate[i] = [...refsByCandidate[i], use];
+        }
+      }
+      dead = spans();
+    }
+  }
+
   /// Gives each of the [unsure] candidates, with its index in
   /// [refsByCandidate], a use the probe finds outside [dead], or else all its
   /// references.
