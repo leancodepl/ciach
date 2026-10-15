@@ -5,7 +5,7 @@
  */
 
 // Members of a private type or an unnamed extension are private, whatever
-// their own names, unless a public class inherits them. Only the private-type
+// their own names, unless a public type names theirs as a supertype. Only the private-type
 // tests in test/finder/finder_test.dart scan this file.
 
 /// Entry point -> USED.
@@ -17,6 +17,9 @@ void main() {
   print(_Level.low);
   print(_Id(1).value);
   print(Circle<_Settings>());
+  print(<Measure>[]);
+  print(<Mixer>[]);
+  print(<Alias>[]);
 }
 
 /// Constructed by `main` -> USED.
@@ -70,9 +73,34 @@ extension type _Id(int value) {
 class _Root {
   /// Never called -> UNUSED, but public: `Circle` inherits it.
   void deep() {}
+
+  /// Never called -> UNUSED, private: a subclass inherits no static members.
+  static void helper() {}
 }
 
 class _Mid extends _Root {}
 
 /// The bound names `_Settings`, which `Circle` doesn't inherit from.
 class Circle<T extends _Settings> extends _Mid {}
+
+/// Named only by the `implements` clause of `Measure` -> UNUSED as a whole.
+abstract interface class _Measured {
+  /// Never called, public: `Measure` passes it on.
+  int size();
+}
+
+abstract class Measure implements _Measured {}
+
+class _Host {
+  /// Never called -> UNUSED, but public: `Mixer` passes it on.
+  void host() {}
+}
+
+mixin Mixer on _Host {}
+
+class _Aliased {
+  /// Never called -> UNUSED, but public: `Alias` hands it out.
+  void aliased() {}
+}
+
+typedef Alias = _Aliased;

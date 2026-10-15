@@ -86,8 +86,7 @@ final class Candidate {
   bool get isExtensionMember => containerSymbol?.kind == .namespace;
 
   /// Whether this is a member of a private type that a public type of its
-  /// file extends, mixes in or implements as an extension type, so other
-  /// libraries can reach it.
+  /// file names as a supertype, so other libraries can reach it.
   final bool isInExposedType;
 
   /// Whether this is a member of a type that no other library can name or

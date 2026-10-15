@@ -154,7 +154,10 @@ final class CandidateCollector {
         isPreventInstantiationCtor: symbol.isPreventInstantiationMarker(
           symbols,
         ),
-        isInExposedType: exposedTypes.contains(container),
+        isInExposedType:
+            exposedTypes.contains(container) &&
+            symbol.kind != .constructor &&
+            !_isStatic(path, symbol),
       );
       final exports = exportsOf(symbol, leadingMetadata) ?? containerExports;
       if (_isCandidate(
@@ -188,6 +191,17 @@ final class CandidateCollector {
       );
     }
   }
+
+  /// Whether [symbol] in [path] is a static member. A subtype inherits no
+  /// constructors or static members, so those of a private type stay private
+  /// when a public type extends it.
+  bool _isStatic(String path, DocumentSymbol symbol) =>
+      _sources
+          .semanticTokens(path)
+          ?.startingAt(symbol.selectionRange.start)
+          ?.modifiers
+          .contains('static') ??
+      false;
 
   /// Pairs each of [symbols] with its outline entry, and skips a symbol the
   /// outline doesn't list.

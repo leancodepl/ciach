@@ -995,6 +995,11 @@ void main() {
         ('_Level.isLow', true),
         ('_Id.next', true),
         ('_Root.deep', false),
+        ('_Root.helper', true),
+        // Only its `implements` clause uses it, so it goes as a whole.
+        ('_Measured', true),
+        ('_Host.host', false),
+        ('_Aliased.aliased', false),
       ],
     );
   });
@@ -1014,6 +1019,7 @@ void main() {
       'sextupled',
       '_Level.isLow',
       '_Id.next',
+      '_Root.helper',
     ]);
   });
 
