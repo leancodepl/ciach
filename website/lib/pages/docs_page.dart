@@ -94,8 +94,8 @@ const _options = [
     'Count references from a whole monorepo, not just the scanned package. What is scanned and removed is unchanged.',
   ),
   (
-    '--transitive',
-    'Also report what only other findings reference, and dead cycles.',
+    '--no-transitive',
+    'Report only what nothing references at all. By default, what only other findings reference, and dead cycles, are reported too.',
   ),
   (
     '--also overrides,operators,tojson,union-members',

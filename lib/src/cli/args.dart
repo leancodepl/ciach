@@ -146,9 +146,9 @@ enum CiachOption<V> implements OptionDefinition<V> {
       group: _reportGroup,
       argName: 'transitive',
       configKey: '/transitive',
-      defaultsTo: false,
+      defaultsTo: true,
       helpText:
-          'Also report declarations referenced only from other findings, and cycles of declarations that only reference each other. Off by default, because one false positive also flags everything only it referenced.',
+          'Also report declarations referenced only from other findings, and cycles of declarations that only reference each other. Disable when one false positive flags everything only it referenced.',
     ),
   ),
   exclude(
