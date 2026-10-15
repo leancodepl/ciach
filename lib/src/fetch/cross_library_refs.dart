@@ -14,11 +14,16 @@ import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
+import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/reference_kinds.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/concurrency.dart';
+import 'package:ciach/src/util/log.dart';
+import 'package:ciach/src/util/plural.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
+
+final _log = Logger('ciach.finder');
 
 typedef _Site = ({Uri uri, Position position});
 
@@ -92,6 +97,11 @@ class CrossLibraryReferences {
       return empty;
     }
 
+    _log.fine(
+      'Looking up ${plural(sites.length, 'possible use', 'possible uses')} of '
+      '${plural(emptyRefNames.length, 'name', 'names')}; most named: '
+      '${_mostNamed(sites.map((site) => site.name))}.',
+    );
     final perSite = await mapPooled(sites, concurrency, (site) async {
       try {
         return await client.definition(site.uri, site.position);
@@ -184,6 +194,31 @@ class CrossLibraryReferences {
     }
   }
 
+  /// The five most frequent [names], with their counts.
+  static String _mostNamed(Iterable<String> names) {
+    final counts = <String, int>{};
+    for (final name in names) {
+      counts.update(name, (n) => n + 1, ifAbsent: () => 1);
+    }
+    return (counts.entries.toList()..sort((a, b) => b.value - a.value))
+        .take(5)
+        .map((e) => '${e.key} (${e.value})')
+        .join(', ');
+  }
+
+  /// Whether [token] is a use of a local variable, which carries no
+  /// modifiers.
+  static bool _isLocalVariable(SemanticToken token) =>
+      token.type == 'variable' && token.modifiers.isEmpty;
+
+  /// Whether [token] declares something. The server marks a name in a `show`
+  /// or `hide` combinator, after [lastKeyword], as a declaration too, though
+  /// it uses what it names.
+  static bool _isDeclaration(SemanticToken token, String? lastKeyword) =>
+      token.modifiers.contains('declaration') &&
+      lastKeyword != 'show' &&
+      lastKeyword != 'hide';
+
   static _DeclPosition _positionOfSite(_Site site) =>
       (site.uri.toFilePath(), site.position.line, site.position.character);
 
@@ -256,10 +291,19 @@ class CrossLibraryReferences {
   }) sync* {
     if (sources.semanticTokens(path) case final tokens?) {
       final uri = File(path).uri;
+      String? lastKeyword;
       for (final token in tokens) {
+        if (token.isKeyword) {
+          lastKeyword = token.text;
+          continue;
+        }
         // A declaration's own name resolves to itself, a reported reference
-        // to what the server said, and a doc link is not a use.
+        // to what the server said, and a doc link is not a use. Neither is a
+        // local variable: the server marks a use of a top-level variable or a
+        // field as a property, and `this.field` as an instance variable.
         if (_memberTokenTypes.contains(token.type) &&
+            !_isLocalVariable(token) &&
+            !_isDeclaration(token, lastKeyword) &&
             names.contains(token.text) &&
             !skipped.contains((path, token.line, token.character)) &&
             !sources.isDocLine(path, token.line)) {
