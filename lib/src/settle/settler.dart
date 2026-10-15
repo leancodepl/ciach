@@ -11,6 +11,7 @@ import 'package:ciach/src/settle/clause_only_types.dart';
 import 'package:ciach/src/settle/dead_spans.dart';
 import 'package:ciach/src/settle/emptied_containers.dart';
 import 'package:ciach/src/settle/overrides.dart';
+import 'package:ciach/src/settle/probed_references.dart';
 import 'package:ciach/src/settle/recovery.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
 import 'package:ciach/src/settle/removable.dart';
@@ -106,6 +107,8 @@ final class Settler {
   static const _maxRounds = 16;
 
   /// The findings for [candidates], from the server's [refsByCandidate].
+  /// The references of the [probed] candidates are the uses `probeMembers`
+  /// found, which a round completes before calling one dead.
   Future<Settled> settle(
     LspClient client,
     List<Candidate> candidates,
@@ -113,6 +116,7 @@ final class Settler {
     required Set<String> scannedPaths,
     required String rootPath,
     required String analysisRoot,
+    Set<Candidate> probed = const {},
   }) async {
     final superclasses = SuperclassChecks(client);
     final overrides = OverrideRemovals(
@@ -122,9 +126,22 @@ final class Settler {
       rootPath: rootPath,
     );
 
+    final probedRefs = ProbedReferences(_fetch, {...probed});
+    Future<DeadSpans> completed(DeadSpans Function() spans) =>
+        probedRefs.completeIn(
+          spans,
+          client,
+          candidates,
+          refsByCandidate,
+          rootPath: rootPath,
+        );
+
     var crossLib = CrossLibraryReferences.empty;
     var deadSpans = options.transitive
-        ? _transitive.allUnreached(candidates, refsByCandidate, rootPath)
+        ? await completed(
+            () =>
+                _transitive.allUnreached(candidates, refsByCandidate, rootPath),
+          )
         : DeadSpans.empty;
     _Verdicts settled;
     Map<UnusedDeclaration, int> candidateOf;
@@ -151,12 +168,14 @@ final class Settler {
       if (!options.transitive) {
         break;
       }
-      final next = _transitive.sweep(
-        candidates,
-        refsByCandidate,
-        crossLib,
-        result.candidateOf,
-        rootPath,
+      final next = await completed(
+        () => _transitive.sweep(
+          candidates,
+          refsByCandidate,
+          crossLib,
+          result.candidateOf,
+          rootPath,
+        ),
       );
       if (next.sameAs(deadSpans)) {
         if (round > 1) {

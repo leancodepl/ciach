@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/fetch/reachable_types.dart';
 import 'package:ciach/src/fetch/reference_fetch.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
@@ -12,44 +11,57 @@ import 'package:ciach/src/util/concurrency.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location, Position, Range;
 
-/// Splits [members] into those a definition lookup finds used, with that
-/// use, and the rest.
+/// Splits [members] into those a definition lookup finds used, with the
+/// first use it finds, and the rest. A member is looked up in [filesFor] it,
+/// where it is most likely used.
+///
+/// One use proves a member used. If it lies in dead code, the member may
+/// still be used elsewhere: the settling looks up all its references before
+/// calling it dead.
 Future<
   ({List<Candidate> used, List<List<Location>> refs, List<Candidate> rest})
 >
 probeMembers({
   required LspClient client,
   required SourceIndex sources,
-  required ReachableTypes types,
+  required Set<String> Function(Candidate member) filesFor,
   required List<Candidate> members,
   required int concurrency,
 }) async {
-  final files = {for (final member in members) ...types.filesFor(member)};
+  final files = {for (final member in members) ...filesFor(member)};
   await _cacheSemanticTokens(client, sources, files, concurrency);
   final mentionsByFile = _mentionsByFile(sources, files);
-  final mentionsOfMember = {
-    for (final member in members)
-      member: _mentionsOf(member, types, mentionsByFile),
-  };
-  final definitionsOf = await _definitions(client, {
-    for (final mentions in mentionsOfMember.values) ...mentions,
-  }, concurrency);
+  // A mention several members share is looked up once.
+  final definitions = <_Mention, Future<List<Location>>>{};
+  final uses = await mapPooled(members, concurrency, (member) async {
+    for (final mention in _mentionsOf(
+      member,
+      filesFor(member),
+      mentionsByFile,
+    )) {
+      final targets = await definitions.putIfAbsent(
+        mention,
+        () => _definition(client, mention),
+      );
+      if (targets.any((t) => _declares(member, t))) {
+        return Location(
+          uri: File(mention.path).uri.toString(),
+          range: mention.range,
+        );
+      }
+    }
+    return null;
+  });
 
   final used = <Candidate>[];
   final refs = <List<Location>>[];
   final rest = <Candidate>[];
-  for (final MapEntry(key: member, value: mentions)
-      in mentionsOfMember.entries) {
-    final use = mentions.firstWhereOrNull(
-      (mention) => definitionsOf[mention]!.any((t) => _declares(member, t)),
-    );
-    if (use == null) {
-      rest.add(member);
-    } else {
+  for (final (i, member) in members.indexed) {
+    if (uses[i] case final use?) {
       used.add(member);
-      refs.add([
-        Location(uri: File(use.path).uri.toString(), range: use.range),
-      ]);
+      refs.add([use]);
+    } else {
+      rest.add(member);
     }
   }
   return (used: used, refs: refs, rest: rest);
@@ -78,7 +90,9 @@ Map<String, Map<String, List<_Mention>>> _mentionsByFile(
   for (final path in files) {
     final mentions = mentionsByFile[path] = {};
     for (final token in sources.semanticTokens(path)!) {
-      if (sources.isDocLine(path, token.line)) {
+      // A declaration of a namesake is no use of anything.
+      if (sources.isDocLine(path, token.line) ||
+          token.modifiers.contains('declaration')) {
         continue;
       }
       (mentions[token.text] ??= []).add((
@@ -93,14 +107,13 @@ Map<String, Map<String, List<_Mention>>> _mentionsByFile(
   return mentionsByFile;
 }
 
-/// [member]'s name written in files its type reaches, outside its own
-/// declaration.
+/// [member]'s name written in [files], outside its own declaration.
 List<_Mention> _mentionsOf(
   Candidate member,
-  ReachableTypes types,
+  Set<String> files,
   Map<String, Map<String, List<_Mention>>> mentionsByFile,
 ) => [
-  for (final path in types.filesFor(member))
+  for (final path in files)
     for (final spelling in _spellings(member))
       if (mentionsByFile[path]![spelling] case final mentions?)
         for (final mention in mentions)
@@ -109,25 +122,14 @@ List<_Mention> _mentionsOf(
             mention,
 ];
 
-/// Where each of [mentions] resolves to.
-Future<Map<_Mention, List<Location>>> _definitions(
-  LspClient client,
-  Set<_Mention> mentions,
-  int concurrency,
-) async {
-  final ordered = mentions.toList();
-  final definitions = await mapPooled(ordered, concurrency, (mention) async {
-    try {
-      return await client.definition(
-        File(mention.path).uri,
-        mention.range.start,
-      );
-    } on LspRequestException {
-      // Unresolved, the mention proves nothing; the reference search decides.
-      return const <Location>[];
-    }
-  });
-  return Map.fromIterables(ordered, definitions);
+/// Where [mention] resolves to.
+Future<List<Location>> _definition(LspClient client, _Mention mention) async {
+  try {
+    return await client.definition(File(mention.path).uri, mention.range.start);
+  } on LspRequestException {
+    // Unresolved, the mention proves nothing; the reference search decides.
+    return const <Location>[];
+  }
 }
 
 /// A place where a name is written.

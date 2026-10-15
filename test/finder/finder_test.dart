@@ -1003,6 +1003,20 @@ void main() {
     );
   });
 
+  test('a member of a private type used only in dead code where the type is '
+      'named, and live elsewhere, is used', () async {
+    final result = await runFinder(
+      include: const [
+        'lib/scenarios/private_probe.dart',
+        'lib/scenarios/private_probe_use.dart',
+      ],
+      exclude: const [],
+      transitive: true,
+    );
+    expect(result.unused.map((d) => d.qualifiedName), ['_deadUse']);
+    expect(result.recoveredReferences, isEmpty);
+  });
+
   const extensionFixture = [
     'lib/scenarios/extensions_emptied.dart',
     'lib/scenarios/extensions_emptied_uses.dart',

@@ -49,6 +49,7 @@ import 'package:ciach/src/settle/verdict.dart';
 import 'package:ciach/src/source/directives.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/source_index.dart';
+import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/concurrency.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
@@ -303,6 +304,7 @@ class Ciach {
         scannedPaths: files.where(opened.contains).toSet(),
         rootPath: rootPath,
         analysisRoot: analysisRoot,
+        probed: fetched.probed,
       );
     } finally {
       await client.dispose();
@@ -355,8 +357,18 @@ class Ciach {
   ///
   /// Members of an unexported type wait until the types' references show
   /// which ones another package can reach; the rest are settled by
-  /// [probeMembers] first.
-  Future<({List<Candidate> candidates, List<List<Location>> refsByCandidate})>
+  /// [probeMembers] first, and the settling completes the uses it found before
+  /// calling one dead. Without an exported package, the members of a
+  /// private type wait in the same way: a reference search for a name without
+  /// an underscore covers the whole workspace, but their uses are almost
+  /// always in the files that name the type.
+  Future<
+    ({
+      List<Candidate> candidates,
+      List<List<Location>> refsByCandidate,
+      Set<Candidate> probed,
+    })
+  >
   _references(
     LspClient client,
     List<Candidate> collected, {
@@ -364,9 +376,9 @@ class Ciach {
     required String rootPath,
   }) async {
     final api = _publicApi;
-    final gated = api == null
-        ? const <Candidate>{}
-        : collected.where(ReachableTypes.isGated).toSet();
+    final gated = collected
+        .where(api == null ? _isPrivateTypeMember : ReachableTypes.isGated)
+        .toSet();
     final candidates = <Candidate>[];
     final refsByCandidate = <List<Location>>[];
     Future<void> fetch(List<Candidate> batch, int files) async {
@@ -385,33 +397,72 @@ class Ciach {
     }
 
     await fetch(collected.whereNot(gated.contains).toList(), totalFiles);
-    if (api == null || gated.isEmpty) {
-      return (candidates: candidates, refsByCandidate: refsByCandidate);
+    if (gated.isEmpty) {
+      return (
+        candidates: candidates,
+        refsByCandidate: refsByCandidate,
+        probed: const <Candidate>{},
+      );
     }
-    final types = await ReachableTypes.find(
-      client: client,
-      sources: _sources,
-      fetch: _fetch,
-      api: api,
-      candidates: candidates,
-      refs: refsByCandidate,
-    );
-    final internal = gated.where(types.isInternal).toList();
-    _log.info(
-      'Looking up uses of ${plural(internal.length, 'member', 'members')} of unexported types…',
-    );
+    final List<Candidate> members;
+    final Set<String> Function(Candidate) filesFor;
+    if (api == null) {
+      final filesOf = _filesNamingPrivateTypes(candidates, refsByCandidate);
+      members = gated.toList();
+      filesFor = (member) => filesOf[member.containerKey] ?? {member.path};
+      _log.info(
+        'Looking up uses of ${plural(members.length, 'member', 'members')} of private types…',
+      );
+    } else {
+      final types = await ReachableTypes.find(
+        client: client,
+        sources: _sources,
+        fetch: _fetch,
+        api: api,
+        candidates: candidates,
+        refs: refsByCandidate,
+      );
+      members = gated.where(types.isInternal).toList();
+      filesFor = types.filesFor;
+      _log.info(
+        'Looking up uses of ${plural(members.length, 'member', 'members')} of unexported types…',
+      );
+    }
     final probed = await probeMembers(
       client: client,
       sources: _sources,
-      types: types,
-      members: internal,
+      filesFor: filesFor,
+      members: members,
       concurrency: options.concurrency,
     );
     candidates.addAll(probed.used);
     refsByCandidate.addAll(probed.refs);
     await fetch(probed.rest, probed.rest.map((c) => c.path).toSet().length);
-    return (candidates: candidates, refsByCandidate: refsByCandidate);
+    return (
+      candidates: candidates,
+      refsByCandidate: refsByCandidate,
+      probed: probed.used.toSet(),
+    );
   }
+
+  /// Whether [candidate] is a member of a private type that its name alone
+  /// doesn't make private.
+  static bool _isPrivateTypeMember(Candidate candidate) =>
+      ReachableTypes.isGated(candidate) && isPrivateName(candidate.container!);
+
+  /// For each private type among [candidates], its file and the files that
+  /// name it, from its [refs].
+  static Map<DeclKey, Set<String>> _filesNamingPrivateTypes(
+    List<Candidate> candidates,
+    List<List<Location>> refs,
+  ) => {
+    for (final (i, candidate) in candidates.indexed)
+      if (candidate.isType && isPrivateName(candidate.symbol.name))
+        candidate.key: {
+          candidate.path,
+          for (final loc in refs[i]) SourceIndex.pathOf(loc.uri),
+        },
+  };
 
   /// Opens [path] in the server, noting it in [_directiveOnly] if [checkEmpty]
   /// and it has nothing but directives. `false` if the file cannot be read.
