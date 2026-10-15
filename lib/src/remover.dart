@@ -32,9 +32,10 @@ RemovalResult removeDeclarations(
 }) {
   final byFile = _byFile(declarations);
   final rewritten = <String>{};
-  // Each kept comment's distance from the end of its rewritten file. Deleting
-  // emptied files only drops directives, which come before every declaration,
-  // so the distance holds until the end.
+  // For each file, where the comments kept above removed code start, counted
+  // from the end of the file. Deleting emptied files later drops imports near
+  // the top of other files, which shifts every offset counted from the start
+  // but none counted from the end.
   final keptComments = <String, List<int>>{};
   RemovalException failure(FileSystemException e, String path) => .new(
     filePath: relativePosix(path, rootPath),
@@ -121,8 +122,9 @@ Map<String, List<UnusedDeclaration>> _byFile(
   return byFile;
 }
 
-/// Places [keptComments], each file's comment offsets from its end, by line
-/// in the files as they are now. A deleted file's comments are left out.
+/// The line of each comment in [keptComments], read from the files as they are
+/// once every change is written. A comment in a file that was deleted is left
+/// out.
 List<LeftComment> _leftComments(
   Map<String, List<int>> keptComments,
   String rootPath,
