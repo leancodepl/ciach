@@ -2,6 +2,8 @@
 /// that keeps a deletion tidy.
 library;
 
+import 'dart:math';
+
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/source/comment_stripping.dart';
 import 'package:ciach/src/util/extensions.dart';
@@ -15,10 +17,7 @@ List<Span> mergeSpans(List<Span> spans) {
   for (final span in spans.sortedBy<num>((s) => s.start)) {
     if (merged.isNotEmpty && span.start <= merged.last.end) {
       final last = merged.removeLast();
-      merged.add((
-        start: last.start,
-        end: span.end > last.end ? span.end : last.end,
-      ));
+      merged.add((start: last.start, end: max(span.end, last.end)));
     } else {
       merged.add(span);
     }

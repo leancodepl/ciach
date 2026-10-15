@@ -101,7 +101,7 @@ final class ClauseOnlyTypes {
     // until each type left has all its removals.
     var cuts = _sources.clauseCuts(entriesOf.values.flattened, rootPath);
     bool lacksCut(List<ClauseEntry> entries) =>
-        entries.any((e) => !cuts.containsKey(e));
+        !entries.every(cuts.containsKey);
     while (entriesOf.values.any(lacksCut)) {
       entriesOf.removeWhere((_, entries) => lacksCut(entries));
       cuts = _sources.clauseCuts(entriesOf.values.flattened, rootPath);

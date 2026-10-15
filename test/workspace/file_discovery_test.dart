@@ -27,22 +27,24 @@ void main() {
       p.split(p.relative(path, from: tempDir.path)).join('/'),
   };
 
-  test('excludes generated files from candidates but keeps them for '
-      'warming', () {
-    write('lib/model.dart', 'class Model {}');
-    write('lib/model.g.dart', '// generated\nclass ModelGen {}');
-    write(
-      'lib/mapper.dart',
-      '// GENERATED CODE - DO NOT MODIFY BY HAND\nclass Mapper {}',
-    );
+  test(
+    'excludes generated files from candidates but keeps them for warming',
+    () {
+      write('lib/model.dart', 'class Model {}');
+      write('lib/model.g.dart', '// generated\nclass ModelGen {}');
+      write(
+        'lib/mapper.dart',
+        '// GENERATED CODE - DO NOT MODIFY BY HAND\nclass Mapper {}',
+      );
 
-    final result = discoverDartFilesSplit(.new(rootPath: tempDir.path));
+      final result = discoverDartFilesSplit(.new(rootPath: tempDir.path));
 
-    // The `.g.dart` and banner-marked files are excluded from candidates…
-    expect(rel(result.candidates), {'lib/model.dart'});
-    // …but still returned for warming.
-    expect(rel(result.warmOnly), {'lib/model.g.dart', 'lib/mapper.dart'});
-  });
+      // The `.g.dart` and banner-marked files are excluded from candidates…
+      expect(rel(result.candidates), {'lib/model.dart'});
+      // …but still returned for warming.
+      expect(rel(result.warmOnly), {'lib/model.g.dart', 'lib/mapper.dart'});
+    },
+  );
 
   test('a file marked ciach:ignore-file is opened but not scanned', () {
     write('lib/model.dart', 'class Model {}');
@@ -64,33 +66,37 @@ class Excluded {}
     expect(rel(result.ignored), {'lib/catalog.dart'});
   });
 
-  test('warm set ignores include/exclude globs (references can live '
-      'anywhere)', () {
-    write('lib/model.dart', 'class Model {}');
-    write('lib/other.dart', 'class Other {}');
-    write('lib/model.g.dart', '// generated\nclass ModelGen {}');
+  test(
+    'warm set ignores include/exclude globs (references can live anywhere)',
+    () {
+      write('lib/model.dart', 'class Model {}');
+      write('lib/other.dart', 'class Other {}');
+      write('lib/model.g.dart', '// generated\nclass ModelGen {}');
 
-    final result = discoverDartFilesSplit(
-      .new(rootPath: tempDir.path, includeGlobs: const ['lib/model.dart']),
-    );
+      final result = discoverDartFilesSplit(
+        .new(rootPath: tempDir.path, includeGlobs: const ['lib/model.dart']),
+      );
 
-    expect(rel(result.candidates), {'lib/model.dart'});
-    // Warmed even though it doesn't match the include glob.
-    expect(rel(result.warmOnly), {'lib/model.g.dart'});
-  });
+      expect(rel(result.candidates), {'lib/model.dart'});
+      // Warmed even though it doesn't match the include glob.
+      expect(rel(result.warmOnly), {'lib/model.g.dart'});
+    },
+  );
 
-  test('with includeGenerated, generated files are candidates and the warm '
-      'set is empty', () {
-    write('lib/model.dart', 'class Model {}');
-    write('lib/model.g.dart', '// generated\nclass ModelGen {}');
+  test(
+    'with includeGenerated, generated files are candidates and the warm set is empty',
+    () {
+      write('lib/model.dart', 'class Model {}');
+      write('lib/model.g.dart', '// generated\nclass ModelGen {}');
 
-    final result = discoverDartFilesSplit(
-      .new(rootPath: tempDir.path, includeGenerated: true),
-    );
+      final result = discoverDartFilesSplit(
+        .new(rootPath: tempDir.path, includeGenerated: true),
+      );
 
-    expect(rel(result.candidates), {'lib/model.dart', 'lib/model.g.dart'});
-    expect(result.warmOnly, isEmpty);
-  });
+      expect(rel(result.candidates), {'lib/model.dart', 'lib/model.g.dart'});
+      expect(result.warmOnly, isEmpty);
+    },
+  );
 
   test('a file that `flutterfire configure` wrote is generated', () {
     write('lib/model.dart', 'class Model {}');
@@ -106,49 +112,51 @@ class DefaultFirebaseOptions {}
     expect(rel(result.warmOnly), {'lib/firebase_options_prod.dart'});
   });
 
-  test('a file matching additionalGeneratedGlobs is warmed, not scanned, and '
-      'unlike an excluded one still opened', () {
-    write('lib/model.dart', 'class Model {}');
-    write('lib/l10n/l10n.dart', 'abstract class AppLocalizations {}');
-    write('lib/l10n/l10n_pl.dart', 'class AppLocalizationsPl {}');
-    // Its name ends like a gen-l10n file's, but it is hand-written.
-    write('lib/src/status_l10n.dart', 'String status() => "";');
+  test(
+    'a file matching additionalGeneratedGlobs is warmed, not scanned, and unlike an excluded one still opened',
+    () {
+      write('lib/model.dart', 'class Model {}');
+      write('lib/l10n/l10n.dart', 'abstract class AppLocalizations {}');
+      write('lib/l10n/l10n_pl.dart', 'class AppLocalizationsPl {}');
+      // Its name ends like a gen-l10n file's, but it is hand-written.
+      write('lib/src/status_l10n.dart', 'String status() => "";');
 
-    final result = discoverDartFilesSplit(
-      .new(
-        rootPath: tempDir.path,
-        additionalGeneratedGlobs: const ['lib/l10n/**'],
-      ),
-    );
-    expect(rel(result.candidates), {
-      'lib/model.dart',
-      'lib/src/status_l10n.dart',
-    });
-    expect(rel(result.warmOnly), {
-      'lib/l10n/l10n.dart',
-      'lib/l10n/l10n_pl.dart',
-    });
+      final result = discoverDartFilesSplit(
+        .new(
+          rootPath: tempDir.path,
+          additionalGeneratedGlobs: const ['lib/l10n/**'],
+        ),
+      );
+      expect(rel(result.candidates), {
+        'lib/model.dart',
+        'lib/src/status_l10n.dart',
+      });
+      expect(rel(result.warmOnly), {
+        'lib/l10n/l10n.dart',
+        'lib/l10n/l10n_pl.dart',
+      });
 
-    final excluded = discoverDartFilesSplit(
-      .new(rootPath: tempDir.path, excludeGlobs: const ['lib/l10n/**']),
-    );
-    expect(rel(excluded.candidates), {
-      'lib/model.dart',
-      'lib/src/status_l10n.dart',
-    });
-    expect(excluded.warmOnly, isEmpty);
+      final excluded = discoverDartFilesSplit(
+        .new(rootPath: tempDir.path, excludeGlobs: const ['lib/l10n/**']),
+      );
+      expect(rel(excluded.candidates), {
+        'lib/model.dart',
+        'lib/src/status_l10n.dart',
+      });
+      expect(excluded.warmOnly, isEmpty);
 
-    // --generated scans them like any other file.
-    final scanned = discoverDartFilesSplit(
-      .new(
-        rootPath: tempDir.path,
-        includeGenerated: true,
-        additionalGeneratedGlobs: const ['lib/l10n/**'],
-      ),
-    );
-    expect(scanned.candidates, hasLength(4));
-    expect(scanned.warmOnly, isEmpty);
-  });
+      // --generated scans them like any other file.
+      final scanned = discoverDartFilesSplit(
+        .new(
+          rootPath: tempDir.path,
+          includeGenerated: true,
+          additionalGeneratedGlobs: const ['lib/l10n/**'],
+        ),
+      );
+      expect(scanned.candidates, hasLength(4));
+      expect(scanned.warmOnly, isEmpty);
+    },
+  );
 
   test('generated files inside skipped dirs are excluded from both sets', () {
     write('lib/model.dart', 'class Model {}');

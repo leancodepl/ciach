@@ -245,9 +245,9 @@ bool _isLocal(SimpleIdentifier identifier) => switch (identifier.element) {
 /// The identifier [expression] ends with, as a name for its value: `foo` for
 /// `a.foo`, `a.foo()` or `a.foo[0]`.
 String? _lastName(Expression expression) => switch (expression) {
-  SimpleIdentifier(:final name) => name,
-  PrefixedIdentifier(identifier: SimpleIdentifier(:final name)) => name,
-  PropertyAccess(propertyName: SimpleIdentifier(:final name)) => name,
+  SimpleIdentifier(:final name) ||
+  PrefixedIdentifier(identifier: SimpleIdentifier(:final name)) ||
+  PropertyAccess(propertyName: SimpleIdentifier(:final name)) ||
   MethodInvocation(methodName: SimpleIdentifier(:final name)) => name,
   IndexExpression(:final target?) => _lastName(target),
   PostfixExpression(:final operand) => _lastName(operand),

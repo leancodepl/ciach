@@ -84,11 +84,8 @@ void writeReport(
 
 /// The exit code for [result]: 1 when `--set-exit-if-changed` and a counted
 /// finding or an empty file remain, else 0.
-int exitCodeFor(FinderResult result, ResolvedOptions resolved) {
-  if (resolved.setExitIfChanged) {
-    if (result.unused.isNotEmpty || result.allEmptyFiles.isNotEmpty) {
-      return 1;
-    }
-  }
-  return 0;
-}
+int exitCodeFor(FinderResult result, ResolvedOptions resolved) =>
+    resolved.setExitIfChanged &&
+        (result.unused.isNotEmpty || result.allEmptyFiles.isNotEmpty)
+    ? 1
+    : 0;

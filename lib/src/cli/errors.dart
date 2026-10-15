@@ -18,10 +18,10 @@ String describeFatalError(
   Style style = .plain,
 }) {
   final (message, detail, isBug) = switch (error) {
-    AnalysisServerExitedException(:final message) => (message, null, false),
-    LspRequestException(:final detail) => ('$error.', detail, false),
-    RemovalException(:final message) => (message, null, false),
+    AnalysisServerExitedException(:final message) ||
+    RemovalException(:final message) ||
     UnresolvedPackagesException(:final message) => (message, null, false),
+    LspRequestException(:final detail) => ('$error.', detail, false),
     ProcessException(:final executable, :final message) => (
       'Could not start `$executable`: $message',
       null,

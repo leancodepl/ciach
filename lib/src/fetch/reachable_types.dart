@@ -50,7 +50,7 @@ final class ReachableTypes {
         final carriers = await carriersOf(type);
         // A carrier that is not a type here, such as [_root], hands it out.
         if (api.exposes(key.path, key.name) ||
-            carriers.any((carrier) => !types.containsKey(carrier))) {
+            !carriers.every(types.containsKey)) {
           reachable.add(key);
         }
         carriedBy[key] = carriers.where(types.containsKey).toSet();
@@ -257,7 +257,7 @@ final class _Carriers {
   Future<String?> _hoverSignature(String path, Position at) async {
     try {
       final hover = await _client.hover(File(path).uri, at);
-      return hover?.let(_fencedCode.firstMatch)?.group(1);
+      return hover?.let(_fencedCode.firstMatch)?.namedGroup('signature');
     } on LspRequestException {
       return null;
     }
@@ -271,4 +271,4 @@ final _dynamic = RegExp(r'\bdynamic\b|\bFunction\b(?!\s*[(<])');
 final _bodyOpener = RegExp(r'\{|=>|async\b|sync\b');
 
 /// The first fenced code block of a hover: the signature.
-final _fencedCode = RegExp(r'```dart\n([^`]*?)\n```');
+final _fencedCode = RegExp(r'```dart\n(?<signature>[^`]*?)\n```');

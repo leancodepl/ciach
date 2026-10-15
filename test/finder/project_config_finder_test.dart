@@ -217,30 +217,32 @@ void unusedRouteHelper() {}
     expect(unused, isNot(contains('lib/js.dart:Counter')));
   });
 
-  test('by default, the messages of the gen-l10n template are reported, '
-      'report-only', () async {
-    final resolved = resolveOptions(
-      resolveConfiguration(
-        buildParser().parse([package.path, '--exported-packages=']),
-        const .empty(),
-      ),
-      progressDefault: false,
-      detectedCi: null,
-    );
-    final result = await Ciach(resolved.finderOptions()).run();
-    final translations = [
-      for (final d in result.unused)
-        if (d.filePath.startsWith('lib/l10n/')) d,
-    ];
+  test(
+    'by default, the messages of the gen-l10n template are reported, report-only',
+    () async {
+      final resolved = resolveOptions(
+        resolveConfiguration(
+          buildParser().parse([package.path, '--exported-packages=']),
+          const .empty(),
+        ),
+        progressDefault: false,
+        detectedCi: null,
+      );
+      final result = await Ciach(resolved.finderOptions()).run();
+      final translations = [
+        for (final d in result.unused)
+          if (d.filePath.startsWith('lib/l10n/')) d,
+      ];
 
-    // The code gen-l10n writes around the messages is not reported.
-    expect(translations.map((d) => d.qualifiedName), [
-      'Strings.unusedMessage',
-      'Strings.unusedGreeting',
-    ]);
-    for (final d in translations) {
-      expect(d.removalBlocked, isTrue);
-      expect(d.hint, contains('remove the message from lib/l10n/app_en.arb'));
-    }
-  });
+      // The code gen-l10n writes around the messages is not reported.
+      expect(translations.map((d) => d.qualifiedName), [
+        'Strings.unusedMessage',
+        'Strings.unusedGreeting',
+      ]);
+      for (final d in translations) {
+        expect(d.removalBlocked, isTrue);
+        expect(d.hint, contains('remove the message from lib/l10n/app_en.arb'));
+      }
+    },
+  );
 }

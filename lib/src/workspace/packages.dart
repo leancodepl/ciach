@@ -79,9 +79,11 @@ final class PackageResolver {
   PackageConfig? _findConfig(String dir) {
     final file = _configFile(dir);
     final parent = p.dirname(dir);
-    return file.existsSync()
-        ? _read(file)
-        : (parent == dir ? null : configOf(parent));
+    return switch ((file.existsSync(), parent == dir)) {
+      (true, _) => _read(file),
+      (_, true) => null,
+      _ => configOf(parent),
+    };
   }
 
   /// The root of the package that contains [dir], or `null` if there is none.
@@ -92,9 +94,14 @@ final class PackageResolver {
 
   String? _findPackageRoot(String dir) {
     final parent = p.dirname(dir);
-    return File(p.join(dir, 'pubspec.yaml')).existsSync()
-        ? dir
-        : (parent == dir ? null : packageRootOf(parent));
+    return switch ((
+      File(p.join(dir, 'pubspec.yaml')).existsSync(),
+      parent == dir,
+    )) {
+      (true, _) => dir,
+      (_, true) => null,
+      _ => packageRootOf(parent),
+    };
   }
 
   /// Whether `pub get` has run for the package at [root].

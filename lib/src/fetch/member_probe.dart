@@ -61,7 +61,7 @@ Future<void> _cacheSemanticTokens(
   Set<String> files,
   int concurrency,
 ) => mapPooled(
-  files.where((path) => !sources.hasSemanticTokens(path)).toList(),
+  files.whereNot(sources.hasSemanticTokens).toList(),
   concurrency,
   (path) async => sources.cacheSemanticTokens(
     path,

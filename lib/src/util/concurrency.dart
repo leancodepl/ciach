@@ -9,6 +9,7 @@
  */
 
 import 'dart:async';
+import 'dart:math';
 
 /// Runs [fn] over [items] with at most [concurrency] futures in flight,
 /// preserving input order in the returned list. Rethrows the first error.
@@ -30,7 +31,7 @@ Future<List<R>> mapPooled<T, R>(
     }
   }
 
-  final workerCount = concurrency < items.length ? concurrency : items.length;
+  final workerCount = min(concurrency, items.length);
   await Future.wait(List.generate(workerCount, (_) => worker()));
   return results.cast<R>();
 }

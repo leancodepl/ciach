@@ -39,12 +39,12 @@ String _ciachVersion() {
     if (!RegExp(r'^name:\s*ciach\s*$', multiLine: true).hasMatch(source)) {
       continue;
     }
-    final match = RegExp(
-      r'^version:\s*(\S+)',
-      multiLine: true,
-    ).firstMatch(source);
-    if (match != null) {
-      return match[1]!;
+    if (RegExp(
+          r'^version:\s*(?<version>\S+)',
+          multiLine: true,
+        ).firstMatch(source)
+        case final match?) {
+      return match.namedGroup('version')!;
     }
   }
   throw StateError('No ciach pubspec.yaml found; build from the repository.');

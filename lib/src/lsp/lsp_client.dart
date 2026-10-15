@@ -557,7 +557,7 @@ class LspClient {
     await _client.close().ignoringErrors();
     try {
       await _process.exitCode.timeout(const .new(seconds: 5));
-    } on Object {
+    } on TimeoutException {
       _process.kill(.sigkill);
     }
     await _errorLogged.close();

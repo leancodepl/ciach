@@ -118,25 +118,27 @@ exec ${_quoted(Platform.resolvedExecutable)} ${_quoted(proxy.path)} "\$@"
     return script.path;
   }
 
-  test('a declaration the server fails on is kept and reported as a problem, '
-      'and the run goes on', () async {
-    final result = await Ciach(
-      .new(
-        rootPath: packagePath,
-        exportedPackages: const [],
-        dartExecutable: proxyDart(),
-      ),
-    ).run();
+  test(
+    'a declaration the server fails on is kept and reported as a problem, and the run goes on',
+    () async {
+      final result = await Ciach(
+        .new(
+          rootPath: packagePath,
+          exportedPackages: const [],
+          dartExecutable: proxyDart(),
+        ),
+      ).run();
 
-    expect(result.unused.map((d) => d.name), ['reallyUnused']);
-    expect(result.declarationsChecked, 1);
-    final problem = result.problems.single;
-    expect(problem.name, 'brokenLookup');
-    expect(problem.location, 'lib/a.dart:1:6');
-    expect(problem.summary, 'Could not find references; kept.');
-    expect(problem.cause, 'Injected failure');
-    expect(problem.detail, '#0      injected');
-  });
+      expect(result.unused.map((d) => d.name), ['reallyUnused']);
+      expect(result.declarationsChecked, 1);
+      final problem = result.problems.single;
+      expect(problem.name, 'brokenLookup');
+      expect(problem.location, 'lib/a.dart:1:6');
+      expect(problem.summary, 'Could not find references; kept.');
+      expect(problem.cause, 'Injected failure');
+      expect(problem.detail, '#0      injected');
+    },
+  );
 
   test('a server that dies stops the run with its exit', () async {
     await expectLater(

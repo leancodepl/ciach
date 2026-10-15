@@ -1,3 +1,45 @@
+# Writing
+
+The rules in this section apply to every sentence you write: doc comments, code
+comments, test names, messages, `--help`, README.md, the website, the
+changelog, pull request descriptions and review replies.
+
+- Write full sentences that read right the first time. Keep "that" and "which"
+  where they make a sentence easier to read, and keep articles and verbs: "the
+  statement that the symbols belong to", not "the statement the symbols belong
+  to". Don't stack nouns ("analysis server plugin entry point"); use a verb
+  ("called by the analysis server"). Short means fewer ideas, not fewer words
+  per idea.
+- Say things literally. Avoid stilted or figurative phrases such as "X, less
+  the Y", "gives way to", "is dead with", "reads as unused" or "knows a CI
+  runner from a terminal".
+- Make every reference clear. Write "too", "also", "both", "there", "these
+  prefixes" or "the change" only when the same sentence names what they refer
+  to. Don't leave out a predicate ("each member is a finding, but they aren't")
+  or use a pronoun that could mean two things. In a doc comment, name the
+  parameters you mean: `[rootPath]`.
+- Use the Dart spec's terms ("mixin application class"), not analysis server
+  enum names (`CLASS_TYPE_ALIAS`). Don't use a term that you coined, such as
+  "walk" for a recursive pass. In user docs, say what happens to the user's
+  code: "the `import`s of it are removed", not "the directives that named it
+  are dropped".
+- State what always happens as a fact. Write "may" only for what really
+  varies.
+- Check what a sentence suggests that ciach does ("are generated" suggests that
+  ciach generated the files), and whether it can be read a second way ("on the
+  line before a declaration or after it").
+- Don't pad. Leave out the history of which version added what, and notes about
+  versions that every supported setup already has; the `sdk:` constraint in
+  `pubspec.yaml` says what is supported.
+- Don't repeat a word a few words after you used it ("Detect CI. In CI, …").
+- Use US spelling, and a neutral tone in docs: "the marker says that they are
+  kept on purpose", not "you said so".
+- When a change makes any text untrue, whether a comment, the docs, the help
+  text or the pull request description, fix that text in the same change.
+- When a reviewer flags one sentence, reread all the prose that the pull
+  request adds, including the copies of that sentence in other files, before
+  you reply. Reread your rewrite as critically as the sentence it replaces.
+
 # CHANGELOG.md
 
 End every entry with a link to its pull request, never to an issue:
@@ -9,18 +51,125 @@ sentences, say what was added, fixed or changed, as they will see it. For a
 fix, say what went wrong before. Leave out how it was implemented: no class or
 method names, internal terms or reasoning about the code.
 
-The same goes for README.md and other user docs: describe what ciach does and
-how to use it, in short, easy-to-follow sentences, not how it works inside.
+Every pull request that changes what users see adds its entry under
+`## Unreleased`, without being asked. Write one entry per change and name every
+effect that users will notice; when a change has several parts, list them.
+Start with the change itself, such as "Fix …", "Stop reporting …" or
+"`--remove` now …", not with a definition ("Test calls are not declarations")
+or a list of edge cases. A fix for a bug that the same pull request introduced
+gets no entry. An entry for a breaking change says what changed and links
+MIGRATION.md, which alone holds the steps to adapt. Leave the entries of other
+pull requests alone. When you shorten an entry, cut the explanation and keep
+every change.
+
+# User docs
+
+README.md, the docs page in `website/lib/pages/docs_page.dart`, the `--help`
+text and MIGRATION.md describe what ciach does and how to use it, in short,
+easy-to-follow sentences, not how it works inside.
+
+- List every option in README.md. Describe an option the same way wherever it
+  appears, in README.md, on the website and in `lib/src/cli/args.dart`, and
+  change every copy together. When you add an option that most setups need,
+  add it to the example configs in README.md and `lib/src/cli/usage.dart`.
+- Take sample output from a real run on `example/`, and paste it as it is.
+  Never compose it by hand.
+- README.md covers the current version. Removed options and upgrade steps go in
+  MIGRATION.md. Notes for library users go in the doc comment of the API that
+  they concern, and notes on which tool versions a parser supports go next to
+  that parser. Leave out warnings about conventions that a lint already
+  enforces.
+- Prefer a sentence and a short list to a long paragraph or a dense table, and
+  don't add an example that repeats the options table. Keep aligned blocks
+  aligned, such as the trailing `#` comments of a code sample.
+- Check every list of defaults or effects against the code. When the docs
+  describe a failure, name every effect that a user can see and where it shows
+  up in the output.
+
+# CLI output
+
+- Say what happened and, if needed, what to do. Leave out the reasoning, and
+  don't add a line that repeats what the output already shows.
+- Put option names, config keys, values and code in backticks, so that the
+  reader sees where each one starts and ends.
+- List file locations one per line under a lead-in line, never joined with
+  commas, and check the result with long, real paths.
+- Build a line from a list of the parts that apply, joined with one separator,
+  as the finding rows do (`columns.join('  ')` in
+  `lib/src/report/text_report.dart`). Don't give each optional part its own
+  leading spaces and a `''` fallback.
+- Write counts with `plural(n, 'file', 'files')` from
+  `lib/src/util/plural.dart`, never "(s)".
+- An option's help text says in one or two sentences what the option is for and
+  what its default is. Its placeholder looks like the other options'
+  placeholders (`--kinds=<kind,kind>`), and a repeatable option is described in
+  the singular.
+- Report a problem once, on the class, mixin, extension or enum that has it,
+  with a short hint that doesn't list its members.
+- A lint's message and fix title say what the fix will do to the flagged code,
+  and show the replacement. The fix produces the shortest idiomatic form:
+  `s?.length` before `s?.let(…)`.
+
+# Code comments
+
+A function's doc comment starts with what the function does or returns
+("Returns …"), says what a parameter holds when that isn't obvious, and gives
+an example when a term is abstract. Keep it about as short as the doc comments
+of its neighbors. Don't add doc comments that the member's siblings lack or
+that repeat the name, and don't describe the internal steps or why a caller
+needs the member. When a name confuses a reader, rename it instead of
+lengthening its comment.
+
+A comment says what the code can't show: why a condition needs all rather than
+any, which part of a category a function handles and why, whether paths are
+absolute, how the duplicates that a dedupe removes arise, or which known
+algorithm a loop implements. Define a domain term, such as "variant", where it
+first appears, and give a loop whose result isn't obvious a one-line example.
+Give concrete values: "the server names it `extension on String`", not "the
+server's placeholder name". A comment doesn't explain Dart, argue against an
+alternative that nobody proposed, or retell how the code came to be.
+
+A file whose purpose isn't obvious gets a library doc comment, and a long
+inline fixture gets a comment on each part. Put such an explanation in the
+code; a reviewer who asks for it shouldn't find it only in a review reply.
+Keep the borders of a Markdown table in a doc comment aligned, and leave a TODO
+at a workaround for a bug that a later pull request will fix.
+
+# Names
+
+Name a thing after what it holds or returns, or a constructor after where its
+input comes from, in plain words: `libraryFiles`, `paths`,
+`EntryPoint.fromConfig`. Avoid metaphors (`span` for the files a directive can
+choose between, `Spelling`), data-structure words that don't apply (`tree` for
+a cache), vague words (`checked`, `site`, `hit`, `target`) and compiler jargon
+(`Trivia`). Read the name as a word on its own (`uncut` became `lacksCut`),
+make sure it can't be read as its opposite (`dead` for containers not yet
+proven live), and avoid stutter (`button-button`). When two fields hold nearly
+the same data, make the difference show in their names.
+
+A name claims no more than the code does, and it doesn't list every case
+either. `_directiveEnd` claimed every directive for a function that skips only
+some, and `_libraryImportOrPartOfEnd` listed every case; both were rejected.
+Name a predicate after the property that the caller tests (`isDeclaration`),
+not after the case that prompted it (`isUnitTest`). Make every value of an enum
+answer the same question.
+
+When names confuse a reviewer, describe what the code does in one sentence,
+pick a few words from that sentence, and use them for every identifier, comment
+and test that used the old words. Don't add one qualifier per review round
+("maybe-dead", "pending", "waiting"). Before pushing a rename, check it against
+the reviewer's complaint.
 
 # String literals
 
 Write a string as one literal. Use a `'''` multi-line string for text with
 interior newlines (expected output, fixtures); the `prefer_multiline_string`
 rule in `tool/ciach_lints` flags a single-line literal with two or more
-interior `\n` escapes and offers a quick-fix that rewrites it. Keep adjacent
-string literals only in two places: `test(...)` and `group(...)` descriptions,
-which `dart format` keeps compact in that form alone, and strings whose joined
-line would run past 120 columns. Never wrap with `+`. Option help texts in
+interior `\n` escapes and offers a quick-fix that rewrites it. Split a string
+into adjacent literals only when the joined line would run past 120 columns,
+and never leave a short fragment in a literal of its own. Test and group
+descriptions follow the same rule, even when `dart format` then spreads the
+call over more lines. Never wrap with `+`. Option help texts in
 `lib/src/cli/args.dart` are plain sentences with no `\n`; the parser wraps
 them (`usageLineLength`).
 
@@ -40,6 +189,162 @@ null check cannot promote: `a.b?.let(f) ?? d`, never `a.b == null ? d :
 f(a.b!)`. Read as much as possible before the `let`, in the null-aware chain:
 `x?.y.let(f)`, not `x?.let((it) => f(it.y))`.
 
+To use a nullable value in a block or a collection literal, unwrap it with
+`if (x case final v?)`. Never loop over `x ?? const []`, and write `x!` only
+where the code already guarantees the value. Put the fallback of a null-aware
+chain last, as in `xs?.map(f) ?? const []`, and use `?.` rather than an
+explicit null check.
+
+# Patterns
+
+- Branch on several values with one switch over a record, such as
+  `switch ((key, value))` in `lib/src/cli/removed_options.dart`, not with `if`
+  conditions that repeat the same null checks.
+- Put type tests, null checks and field values in the pattern, not in a `when`
+  guard: `SemanticToken(isKeyword: true, :final text)`,
+  `PropertyAccess(:final target?)`. Capture a field under its own name, and use
+  the promoted variable rather than binding a second name for it.
+- Use the simplest pattern that does the job:
+  `if (symbol.children case final children? when …)` rather than an object
+  pattern that destructures fields that are read once.
+- Merge arms that have the same body with `||`, and merge nested `if`s into one
+  if-case with a `when` guard.
+- A function that picks a result by the shape of a value is a switch
+  expression, without if/return chains or nested conditional expressions. Read
+  JSON and YAML with a switch over map patterns. Bind and test in one step:
+  `if (files.length + variants.length case final count && > 0)`.
+
+# Idioms
+
+- Return a result; never fill a list that the caller passes in. A function that
+  only builds a collection is `sync*`, or an expression body with a collection
+  literal that uses `for`, `if` and `?key:`. A plain filter is `where(f)`, with
+  `.toSet()` or `.toList()` when needed, not a collection-for literal. Never
+  turn a collection literal into an imperative loop unless asked; when a
+  literal gets busy, give its predicate a named local.
+- Keep an `Iterable` lazy when it is read once or in part, and use a `Set` when
+  duplicates mean nothing.
+- Prefer `for (final (i, x) in xs.indexed)` to an index loop, `whereNot(f)` and
+  `none(f)` to negations, collection methods (`where`, `firstWhereOrNull`) to
+  loops with early returns, tear-offs to lambdas that only forward, `min` and
+  `max` to hand-written ternaries, and `package:collection` equalities to
+  comparison loops. Write `map[key] ??= value` for a value that you already
+  have, and memoize with `CachedMap`.
+- A type that has its own name and meaning, such as `QualifiedMember`, is a
+  class, not a record typedef. A record that a function returns or yields has
+  named fields. Never model data as a preformatted string whose format a
+  comment describes, or as parallel lists indexed by an int.
+- Pass typed values, such as a `ClassName`, through an API, and turn them into
+  strings only where they are printed. Group related constants in an enum.
+- In a function type, name every parameter or none.
+- Order branches so that each one returns before any work that it doesn't
+  need.
+- Declare a value inside the `try` that produces it, as `final`. Catch the
+  exception that the call throws (`LspRequestException`,
+  `FileSystemException`). A catch-all `on Object` turns a crash into quietly
+  worse results, so use one only to wrap and rethrow, to report a crash at the
+  top of `main`, or for best-effort cleanup with a comment.
+- Inline a local or a helper that is used once when its name adds nothing; keep
+  one whose name says what a step does. Give a regex named groups, and return
+  names and offsets rather than a `RegExpMatch`.
+- In `website/`, keep a component's styles next to it as Jaspr `@css`, make
+  repeated pieces (buttons, cards, pills) components, and write `.only()`,
+  `.symmetric()` or `.all()` rather than `fromLTRB()`.
+
+# Design
+
+- Before writing a helper, look for one: in `lib/src/util/` (`CachedMap`,
+  `reachability.dart`, `plural.dart`, `extensions.dart`), in
+  `package:collection`, `package:path`, `Uri`, `package:xml` and
+  `package_config`, in a library's own constants (pro_lsp's `RequestMethod`),
+  and in LeanCode's packages (`jaspr_class_scope`). Search sorted data with the
+  existing binary searches, `lastStartingAtOrBefore` in
+  `lib/src/source/symbols.dart` and `firstIndexAtOrAfter` in
+  `lib/src/lsp/semantic_tokens.dart`, instead of scanning it or writing another
+  one. When the same expression or hand-written pattern appears a second time,
+  give it a helper and replace every copy; share a function, not a regex
+  constant.
+- Read Dart source through the analysis server (outline, selection ranges,
+  semantic tokens, hover), not with regexes, text matching or a hand-written
+  tokenizer. Text matching mistakes a parameter named `required` for the
+  keyword. A regex over Dart source needs a comment that says why. Check what is
+  already cached before you call a server request too costly.
+- Keep each default, rule and fact in one place, and let everything else read
+  it. When a type takes over a normalization or a check, delete the old copy,
+  or have both places call one shared predicate, such as `analysisRootContains`
+  in `lib/src/util/paths.dart`. Put new matching logic on the type that
+  owns the concept, such as `EntryPoint.matches`, not in side maps. A check
+  that guards correctness belongs in the library API, not only in the CLI. A
+  request to unify two code paths ends with one code path, not two lists.
+- Don't write code without a reason: a guard for a case that can't happen (a
+  test must fail without each condition), a shortcut that nobody measured, a
+  stored copy of a value that you can compute, a field that only carries state
+  from one method to another, a value built twice, a one-field JSON object, an
+  unused style or variant, or a factory left over from a refactor. Before
+  wrapping a library call or its exception, check what the exception already
+  carries.
+- Don't put one caller's special case into a general function's result, such
+  as a `null` placeholder in a list; handle it in that caller.
+- Don't add what nobody asked for: a flag that turns the new behavior off, a
+  deprecated alias, a second accepted spelling of an input, or a second quick
+  fix that goes the other way. Ask first. Reject a wrong input with an error
+  that names the right form. Extend an existing helper, such as `runCli` in the
+  tests, instead of adding a second way to do the same thing.
+- Prefer a general rule to one package's or framework's special case, and say
+  in the pull request why a special case stays. Report an idiom that has a
+  cleaner replacement, with a hint, instead of skipping it, and report what
+  ciach can't remove (obsolete l10n keys) as not removable instead of hiding
+  it.
+- Don't let a default that deletes code rest on a guess such as
+  `publish_to: none`; prefer explicit config with the safe default.
+- Never leave the user's code unable to compile, or with a comment that names
+  deleted code. When a removal can't be clean, block it and say what the user
+  should change. When the complete change is possible, make it in the same pull
+  request and list the cases that block it, instead of only reporting what a
+  later pull request could remove.
+- Don't leave a case out as a shortcut, and never because of a limit that you
+  haven't checked ("can't be told apart"). Check what the exclusion does to the
+  rest of the code, and whether it undoes the point of the pull request.
+- Findings carry the kind names that `--kinds` filters on.
+- Results must not depend on input order. Break ties explicitly, collect every
+  match rather than the first one that the server lists, and make sure that a
+  repeat-until-stable loop settles.
+- Config takes YAML lists and maps with named fields, not a small grammar inside
+  a string (`glob:name`), and keeps data such as declaration names in values,
+  not keys.
+- Don't run `git` or other programs when the environment or the file system can
+  answer, and write tooling in Dart, not Node.
+- When a lint fires, check whether the problem that it guards against can
+  happen in ciach; JavaScript number precision can't, because ciach runs on the
+  Dart VM. If it can't, add one `// ignore:` with the reason.
+- When a LeanCode library forces the same workaround at every call site, change
+  the library.
+
+# Tests
+
+- A test name states the scenario and the result in full words, with code in
+  backticks.
+- Before asking for review, cover the boundaries and every equivalent form: the
+  first, last and only element, all of them, mixed dead and live parts, an
+  enhanced enum, generic classes, methods and extensions, positional and named
+  parameters, each syntax that can name a declaration (`is`, `is!`, `.new()`,
+  `.named()`, `Class.new`), and the neighboring kinds that must not change. A
+  rule that matches by name gets a test with an unrelated declaration of the
+  same name. Compile each negative case to check that it really differs.
+- Every check that you run to answer a reviewer becomes a committed test.
+- Compare records, not strings that encode several fields, and call the code
+  under test once per test.
+- One test pins each default; other tests and group names don't restate it.
+- Put each case under the test that names it. Keep a mechanism's fixtures
+  together under `example/lib/scenarios/`, named after the mechanism, so that
+  `example/` covers every kind that ciach reports. When a change forces an edit
+  to an unrelated fixture, add a comment there that says why.
+- Test your own code, not the behavior of a library that it calls.
+- Don't pin output that you know is invalid Dart without saying so in the pull
+  request.
+- Before refactoring code that prints output, pin the output with a test.
+- Check hashing and bit operations against a published value.
+
 # Layout
 
 `lib/src/` is organized by the stage of a scan: `model/` (options, findings,
@@ -55,8 +360,16 @@ against `example/` in `test/finder/`.
 
 Name a file after what it holds, one concern per file: one report format per
 `report/<format>_report.dart`, the `with`/`implements` clause rule in
-`settle/clause_only_types.dart`. Lower layers never import higher ones; a doc
-link to a higher-layer name goes in backticks instead of an import.
+`settle/clause_only_types.dart`. A lower layer doesn't import a higher one: a
+doc link to a higher-layer name goes in backticks instead of an import. Some
+existing imports break this, such as `conventions/` importing
+`collect/candidates.dart`; don't add more.
+
+A general-purpose helper goes in `lib/src/util/`, not in a private extension in
+the first file that needs it. Don't let `bin/ciach.dart` grow: new code that it
+calls goes in `lib/src/cli/`. Handle a stage's failures inside that stage, not
+in the code that runs the stages. Mark committed generated files as
+`linguist-generated` in `.gitattributes`.
 
 # File size
 
@@ -67,11 +380,117 @@ the transitive sweep), move a helper onto the type that owns its data
 formats). When a split moves code, keep the upstream names and wording, and
 leave a file that only moves with its existing content and header as it is.
 
+Test files have the same limit, with shared helpers in `test/support/`. Split
+a file in the pull request that pushes it past the limit, instead of promising
+a follow-up. Split a function that has several loops or phases into named
+steps.
+
 # AI-Provenance headers
 
 A file created in a session names the model that created it, whatever model
 wrote the code it was split out of. A file that only moved or was renamed
 keeps the header it had. Never copy a model id from another file.
+
+# Check before you claim
+
+Check a claim before you write it: how the code behaves, what a library, the
+SDK or the analysis server does, what a change costs, what the repository has
+(secrets, variables), how other projects use a feature, or that something
+doesn't exist. Run the case, read the code, measure, or search pub properly.
+When something is a guess, say so. These checks apply to review replies, pull
+request descriptions, docs and this file.
+
+- When asked to simplify something, try it before saying that it can't be
+  simpler.
+- Describe a bug by the steps that reproduce it and the wrong output that you
+  saw, not by the harm that it might do.
+- In docs, point at where a value is set rather than copying it, as "Before
+  pushing" points at the workflow's `sdk:` key.
+
+# Review comments
+
+- Read the whole review: review bodies, conversation comments and every
+  thread, not only the inline comments. Reread the whole thread before you say
+  that a fix is done.
+- A short remark on a line that the pull request made wrong ("this PR updates
+  this behavior") asks you to fix that line. When a reviewer asks only for an
+  answer, answer and don't commit. When you can't tell what a comment wants (an
+  emoji, "nicer before"), ask, and never undo something that the reviewer asked
+  for earlier.
+- Do all that a comment asks: both halves of a two-part request, and an edit of
+  the description when asked, not an offer to make one. Do obvious companion
+  work, such as a CI job for a new SDK floor, instead of offering it. When a
+  reviewer proposes a concrete shape, such as a config format, build that one
+  or say why not.
+- When a reviewer flags a pattern, fix every instance in the pull request, and
+  name the places in existing code that have the same problem. When they
+  suggest a change to one line, don't copy it onto code that didn't have the
+  problem.
+- First answer the question that the reviewer asked, in a sentence or two,
+  without an essay. When asked whether a tool or package exists, search
+  properly and recommend one, rather than handing back a list of options.
+- If a fix meets only part of the concern, say which part.
+- A reply that says "Done in `abc1234`" names a commit on the pull request's
+  branch. When a claim turns out wrong, correct it everywhere you posted it,
+  and update a thread when a later commit reverses what you said there.
+- Don't cite this file to defend a choice that the reviewer rejected: a rule
+  that allows something doesn't require it.
+- Post each reply once and in the right thread, and don't offer to wait for
+  input on a change that you have already pushed.
+
+# Keeping this file current
+
+When a review comment on a pull request that you are writing corrects
+something that a general rule could have prevented, add that rule here in the
+same pull request, or sharpen the rule that should have caught it. On a pull
+request that you didn't open, suggest the rule instead of pushing it.
+
+- Write the rule one step more general than the comment: a rule against
+  sentences that drop "that", not a fix for the one sentence. Keep a short
+  example from the comment when it makes the rule clearer.
+- Put the rule in the section that it belongs to, and follow the Writing
+  rules. When a rule here already covers the case, sharpen it instead of adding
+  a second one.
+- When a reviewer asks for something that a rule here forbids, change the rule
+  to match what they asked for.
+- Leave out what concerns only one line of code, and questions that the
+  reviewer only wanted answered.
+- In your reply to the comment, say which rule you added or changed.
+- Prefer a lint to a rule. When you add or sharpen a rule that a program could
+  check, or a reviewer corrects code that a lint could have flagged, look for
+  an existing lint in the Dart linter or `leancode_lint` and turn it on.
+  Otherwise suggest a lint for `tool/ciach_lints` in your reply or in the pull
+  request description, with the code that it would flag and how a quick fix
+  would rewrite it. Once a lint enforces a rule, cut the rule here down to a
+  pointer to the lint. `prefer_multiline_string` and `prefer_let` started as
+  rules in this file.
+
+# Pull requests
+
+- Keep a pull request to one concern: unrelated features go in their own pull
+  requests. A small fix to code that the pull request already touches belongs
+  in it; size it before you propose a follow-up. After splitting a pull request
+  in two, remove what only the other half needed.
+- The description says what the pull request does, in proportion to its size,
+  without lists of private names, superlatives or guesses about other pull
+  requests. Say what you removed and why. When you write something that a
+  package might already provide, say which packages you looked at and why they
+  don't fit.
+- Write test notes that a reader can check: "Without the `'variable'` line in
+  `cross_library_refs.dart`, the new case fails on Dart 3.13.4; all tests pass
+  with this pull request."
+- End the description with one attribution footer, not two.
+- Do the steps that this file asks for, such as a provenance header, instead of
+  listing them as to-dos.
+- When the pull request that yours is stacked on merges, retarget yours, and
+  check that CI ran on its new head.
+
+# GitHub workflows
+
+Pin each action to a commit SHA of its current major version, with the version
+in a comment: `actions/checkout@<sha> # v7.0.0`. A workflow holds only the
+steps that every run needs; one-time setup, such as assigning a domain, is done
+by hand. Indent a multi-line `run: |` script consistently.
 
 # Before pushing
 
@@ -84,6 +503,8 @@ package of its own with its own workflow: `dart pub get`,
 `dart analyze --fatal-infos`, `dart format --set-exit-if-changed .` and
 `dart test`, which renders the committed assets and compares them.
 
-When the base branch moves, merge it in; never rebase a pushed branch. A hunk
-that lands in a file a split emptied belongs in the file its code moved to:
-port it there, then drop the upstream copy.
+When the base branch moves, merge it in; never rebase, amend or force-push a
+pushed branch, even when asked to update it with `main`. A hunk that lands in a
+file a split emptied belongs in the file its code moved to: port it there, then
+drop the upstream copy. After resolving a conflict in prose, reread the section
+against both sides, so that no heading or paragraph is lost.

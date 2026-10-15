@@ -91,7 +91,7 @@ final class DeadSpans {
     final owners = <UnusedDeclaration>[];
     for (final loc in refs) {
       final owner = ownerOf(SourceIndex.pathOf(loc.uri), loc.range.start);
-      if (owner != null && !owners.any((seen) => identical(seen, owner))) {
+      if (owner != null && owners.none((seen) => identical(seen, owner))) {
         owners.add(owner);
       }
     }

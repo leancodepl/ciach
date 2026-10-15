@@ -17,7 +17,7 @@ const ignoreEndMarker = 'ciach:ignore-end';
 
 /// A `// ciach:<word>` comment; the word is checked against the markers, and
 /// anything after it is free text.
-final _marker = RegExp(r'^//\s*(ciach:[\w-]+)');
+final _marker = RegExp(r'^//\s*(?<marker>ciach:[\w-]+)');
 
 /// A marker comment and its zero-based line.
 typedef MarkerAt = ({int line, String marker});
@@ -53,7 +53,7 @@ final class IgnoreMarkers {
       final (:line, :ownLine) = lines.at(offset);
       final marker = text.startsWith('///')
           ? null
-          : _marker.firstMatch(text)?.group(1);
+          : _marker.firstMatch(text)?.namedGroup('marker');
       switch (marker) {
         case null:
           continue;

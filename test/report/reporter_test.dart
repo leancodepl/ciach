@@ -826,13 +826,11 @@ Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) Â
         blocked: 1,
         notes: ['Foo._: prefer `abstract final class`'],
       );
-      expect(
-        text,
-        'Removed 3 unused declarations from 2 files. 1 left in place â€” unsafe '
-        'to auto-remove. Deleted 1 empty file: lib/empty.dart. '
-        "Run 'dart format' to tidy up spacing.\n"
-        'Note: Foo._: prefer `abstract final class`',
-      );
+      expect(text, '''
+Removed 3 unused declarations from 2 files. 1 left in place â€” unsafe to auto-remove. Run `dart format` to tidy up spacing.
+Deleted 1 empty file:
+  lib/empty.dart
+Note: Foo._: prefer `abstract final class`''');
     });
 
     test('leaves out the declarations when only empty files went', () {
@@ -842,11 +840,10 @@ Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) Â
           deletedFiles: [(filePath: 'lib/blank.dart', unlinkedFrom: [])],
         ),
       );
-      expect(
-        text,
-        "Deleted 1 empty file: lib/blank.dart. Run 'dart format' to tidy up "
-        'spacing.',
-      );
+      expect(text, '''
+Run `dart format` to tidy up spacing.
+Deleted 1 empty file:
+  lib/blank.dart''');
     });
 
     test('lists the empty declarations it kept', () {
@@ -858,12 +855,11 @@ Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) Â
           (filePath: 'lib/b.dart', name: 'Parsing'),
         ],
       );
-      expect(
-        text,
-        'Removed 2 unused declarations from 2 files. Left 2 declarations empty '
-        'because other code still uses them: Painter (lib/a.dart), Parsing '
-        "(lib/b.dart). Run 'dart format' to tidy up spacing.",
-      );
+      expect(text, '''
+Removed 2 unused declarations from 2 files. Run `dart format` to tidy up spacing.
+Left 2 declarations empty because other code still uses them:
+  Painter (lib/a.dart)
+  Parsing (lib/b.dart)''');
     });
 
     test('lists the comments it kept above removed code', () {
@@ -879,7 +875,7 @@ Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) Â
         removed: 2,
       );
       expect(text, '''
-Removed 2 unused declarations from 1 file. Run 'dart format' to tidy up spacing.
+Removed 2 unused declarations from 1 file. Run `dart format` to tidy up spacing.
 Kept 2 comments that sat right above removed code. Check whether each still belongs:
   lib/a.dart:3
   lib/a.dart:9''');
