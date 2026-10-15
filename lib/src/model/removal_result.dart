@@ -26,6 +26,7 @@ class RemovalResult {
     required this.filesChanged,
     required this.deletedFiles,
     this.leftComments = const [],
+    this.removedRanges = 0,
   });
 
   /// Files declarations were removed from, deleted ones included.
@@ -36,4 +37,7 @@ class RemovalResult {
   /// The `//` comments kept directly above removed code, which may have been
   /// about it. Sorted by file, then line.
   final List<LeftComment> leftComments;
+
+  /// How many empty ranges were removed, with both their comments.
+  final int removedRanges;
 }

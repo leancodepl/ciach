@@ -26,6 +26,8 @@ void logSummary(FinderResult result) {
     '${result.docOnly.length} referenced only from doc comments',
     if (result.allEmptyFiles.isNotEmpty)
       plural(result.allEmptyFiles.length, 'empty file', 'empty files'),
+    if (result.emptyRanges.isNotEmpty)
+      plural(result.emptyRanges.length, 'empty range', 'empty ranges'),
     if (result.recoveredReferences.isNotEmpty)
       '${result.recoveredReferences.length} recovered',
     if (result.problems.isNotEmpty) '${result.problems.length} not analyzed',
@@ -83,10 +85,12 @@ void writeReport(
 }
 
 /// The exit code for [result]: 1 when `--set-exit-if-changed` and a counted
-/// finding or an empty file remain, else 0.
+/// finding, an empty file or an empty range remain, else 0.
 int exitCodeFor(FinderResult result, ResolvedOptions resolved) {
   if (resolved.setExitIfChanged) {
-    if (result.unused.isNotEmpty || result.allEmptyFiles.isNotEmpty) {
+    if (result.unused.isNotEmpty ||
+        result.allEmptyFiles.isNotEmpty ||
+        result.emptyRanges.isNotEmpty) {
       return 1;
     }
   }

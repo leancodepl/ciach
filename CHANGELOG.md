@@ -1,5 +1,9 @@
 ## Unreleased
 
+- ciach now reports a pair of range comments with nothing between them, such
+  as `// coverage:ignore-start` and `// coverage:ignore-end`, and `--remove`
+  deletes both. They count toward `--set-exit-if-changed`.
+  ([#130](https://github.com/leancodepl/ciach/pull/130))
 - `--remove` now lists the `//` comments it leaves right above removed code,
   so you can check whether they still belong. It also deletes an `// ignore:`,
   `// expect_lint:` or `// cspell:disable-next-line` comment above or at the end

@@ -244,7 +244,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       argName: 'set-exit-if-changed',
       configKey: '/set-exit-if-changed',
       helpText:
-          'Exit with a non-zero status when any unused declaration or empty file is found. On by default in CI.',
+          'Exit with a non-zero status when any unused declaration, empty file or empty range is found. On by default in CI.',
     ),
   ),
   ci(
@@ -264,7 +264,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       negatable: false,
       defaultsTo: false,
       helpText:
-          'Remove unused declarations from source, and delete empty files, after reporting them. Prompts for confirmation first, unless --force is also given.',
+          'Remove unused declarations and empty ranges from source, and delete empty files, after reporting them. Prompts for confirmation first, unless --force is also given.',
     ),
   ),
   force(

@@ -49,6 +49,22 @@ String textReport(
     buffer.writeln();
   }
 
+  if (result.emptyRanges.isNotEmpty) {
+    _writeHeading(
+      buffer,
+      'Empty ranges',
+      result.emptyRanges.length,
+      emptyRangeContents,
+      style,
+    );
+    for (final (:filePath, :line, :open, :close) in result.emptyRanges) {
+      buffer.writeln(
+        '${style.path('$filePath:$line')}  ${style.note('// $open … // $close')}',
+      );
+    }
+    buffer.writeln();
+  }
+
   if (result.docOnly.isNotEmpty) {
     _writeHeading(
       buffer,
@@ -102,11 +118,16 @@ String removalReport(
   }
   final files = removal.filesChanged;
   final deleted = removal.deletedFiles;
-  final sentences = [
+  final removedWhat = [
     if (removed > 0)
+      plural(removed, 'unused declaration', 'unused declarations'),
+    if (removal.removedRanges > 0)
+      plural(removal.removedRanges, 'empty range', 'empty ranges'),
+  ];
+  final sentences = [
+    if (removedWhat.isNotEmpty)
       style.success(
-        'Removed ${plural(removed, 'unused declaration', 'unused declarations')} from '
-        '${plural(files, 'file', 'files')}.',
+        'Removed ${removedWhat.join(' and ')} from ${plural(files, 'file', 'files')}.',
       ),
     if (blocked > 0)
       style.caution('$blocked left in place — unsafe to auto-remove.'),
@@ -304,6 +325,10 @@ String _summary(FinderResult result, Style style) {
     if (result.allEmptyFiles.isNotEmpty)
       style.attention(
         plural(result.allEmptyFiles.length, 'empty file', 'empty files'),
+      ),
+    if (result.emptyRanges.isNotEmpty)
+      style.attention(
+        plural(result.emptyRanges.length, 'empty range', 'empty ranges'),
       ),
     if (result.docOnly.isNotEmpty) '${result.docOnly.length} doc-only',
     if (result.recoveredReferences.isNotEmpty)

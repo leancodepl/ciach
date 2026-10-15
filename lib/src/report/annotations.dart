@@ -21,6 +21,9 @@ import 'package:path/path.dart' as p;
 const emptyFileContents =
     'nothing but comments and library, import or part-of directives';
 
+/// What an empty range holds.
+const emptyRangeContents = 'range comments with nothing between them';
+
 /// Why `--remove` leaves an empty conditional-import variant.
 const emptyVariantNote =
     'a conditional-import variant: remove its `if` clause and the file by hand';
@@ -35,7 +38,8 @@ enum Check {
     'recovered-reference',
     'Recovered reference (possible analyzer bug)',
   ),
-  notAnalyzed('not-analyzed', 'Could not analyze');
+  notAnalyzed('not-analyzed', 'Could not analyze'),
+  emptyRange('empty-range', 'Empty range');
 
   const Check(this.id, this.title, {this.notice = false});
 
@@ -54,8 +58,8 @@ typedef Annotation = ({
 });
 
 /// Every finding of [result] as an annotation, its path prefixed with
-/// [pathPrefix]: unused declarations, empty files, doc-only findings,
-/// recovered references and problems, in that order.
+/// [pathPrefix]: unused declarations, empty files, empty ranges, doc-only
+/// findings, recovered references and problems, in that order.
 Iterable<Annotation> annotationsOf(
   FinderResult result,
   String pathPrefix,
@@ -85,6 +89,15 @@ Iterable<Annotation> annotationsOf(
         'Has $emptyFileContents',
         if (variants.contains(emptyFile)) emptyVariantNote,
       ].join(' — '),
+    );
+  }
+  for (final (:filePath, :line, :open, :close) in result.emptyRanges) {
+    yield (
+      check: .emptyRange,
+      file: file(filePath),
+      line: line,
+      column: null,
+      message: 'Has $emptyRangeContents: // $open … // $close',
     );
   }
   for (final decl in result.docOnly) {

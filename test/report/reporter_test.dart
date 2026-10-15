@@ -29,6 +29,7 @@ void main() {
     List<UnusedDeclaration> docOnly = const [],
     List<String> emptyFiles = const [],
     List<String> emptyVariants = const [],
+    List<EmptyRange> emptyRanges = const [],
     List<RecoveredReference> recoveredReferences = const [],
     List<AnalysisProblem> problems = const [],
   }) => .new(
@@ -39,8 +40,16 @@ void main() {
     elapsed: const .new(seconds: 1),
     emptyFiles: emptyFiles,
     emptyVariants: emptyVariants,
+    emptyRanges: emptyRanges,
     recoveredReferences: recoveredReferences,
     problems: problems,
+  );
+
+  const coverageRange = (
+    filePath: 'lib/a.dart',
+    line: 3,
+    open: 'coverage:ignore-start',
+    close: 'coverage:ignore-end',
   );
 
   RecoveredReference warning({
@@ -177,6 +186,19 @@ void main() {
 ''');
       },
     );
+
+    test('emits a ::warning annotation for each empty range', () {
+      final out = githubReport(
+        resultWith(const [], emptyRanges: [coverageRange]),
+        pathPrefix: 'app',
+      );
+      expect(
+        out,
+        '::warning file=app/lib/a.dart,line=3,title=Empty range::Has range '
+        'comments with nothing between them: // coverage:ignore-start … '
+        '// coverage:ignore-end\n',
+      );
+    });
 
     test('emits a ::warning annotation for each recovered reference', () {
       final out = githubReport(
@@ -392,6 +414,7 @@ lib/c.dart
           'doc-only',
           'recovered-reference',
           'not-analyzed',
+          'empty-range',
         ],
       );
       expect(run['results'], [
@@ -656,6 +679,24 @@ lib/c.dart
       expect(json['emptyVariants'], ['lib/web.dart']);
     });
 
+    test('lists the empty ranges and counts them', () {
+      final json =
+          jsonDecode(
+                jsonReport(resultWith(const [], emptyRanges: [coverageRange])),
+              )
+              as Map<String, Object?>;
+      final summary = json['summary']! as Map<String, Object?>;
+      expect(summary['emptyRangeCount'], 1);
+      expect(json['emptyRanges'], [
+        {
+          'filePath': 'lib/a.dart',
+          'line': 3,
+          'open': 'coverage:ignore-start',
+          'close': 'coverage:ignore-end',
+        },
+      ]);
+    });
+
     test('warnings array is empty when there are no recovered references', () {
       final json =
           jsonDecode(jsonReport(resultWith([decl()]))) as Map<String, Object?>;
@@ -712,6 +753,7 @@ lib/c.dart
           docOnly: [decl(name: 'docOnly', line: 41)],
           emptyFiles: ['lib/blank.dart', 'lib/zero.dart'],
           emptyVariants: ['lib/web.dart'],
+          emptyRanges: [coverageRange],
           recoveredReferences: [warning()],
           problems: [
             problem(filePath: 'lib/b.dart', line: 65, column: 11),
@@ -739,6 +781,9 @@ lib/blank.dart
 lib/web.dart  (a conditional-import variant: remove its `if` clause and the file by hand)
 lib/zero.dart
 
+Empty ranges (1) · range comments with nothing between them
+lib/a.dart:3  // coverage:ignore-start … // coverage:ignore-end
+
 Referenced only from doc comments (1) · not counted, never removed
 lib/a.dart
   41:5  function  docOnly  (public)
@@ -757,7 +802,7 @@ Not analyzed (2) · the analysis failed here
     lib/secret.dart
   Likely a Dart SDK bug; -v shows the stack traces.
 
-Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) · 3 empty files · 1 doc-only · 1 recovered · 2 not analyzed''',
+Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) · 3 empty files · 1 empty range · 1 doc-only · 1 recovered · 2 not analyzed''',
       );
     });
 
@@ -846,6 +891,18 @@ Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) �
         text,
         "Deleted 1 empty file: lib/blank.dart. Run 'dart format' to tidy up "
         'spacing.',
+      );
+    });
+
+    test('counts the empty ranges with the declarations', () {
+      final text = removalReport(
+        const .new(filesChanged: 2, deletedFiles: [], removedRanges: 3),
+        removed: 1,
+      );
+      expect(
+        text,
+        'Removed 1 unused declaration and 3 empty ranges from 2 files. '
+        "Run 'dart format' to tidy up spacing.",
       );
     });
 

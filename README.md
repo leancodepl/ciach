@@ -183,6 +183,22 @@ lib/web.dart  (a conditional-import variant: remove its `if` clause and the file
 These count toward `--set-exit-if-changed`. `--remove` deletes them with the
 `import`s of them, except a conditional-import variant, which is left to you.
 
+### Empty ranges
+
+A pair of range comments with nothing but blank lines and comments between
+them gets a section too:
+
+```
+Empty ranges (2) · range comments with nothing between them
+lib/legacy/helpers.dart:12  // coverage:ignore-start … // coverage:ignore-end
+lib/widgets/card.dart:40  // dart format off … // dart format on
+```
+
+The pairs are `coverage:ignore-start` and `coverage:ignore-end`,
+`ciach:ignore-start` and `ciach:ignore-end`, `dart format off` and
+`dart format on`, and `cspell:disable` and `cspell:enable`. These count toward
+`--set-exit-if-changed`, and `--remove` deletes both comments of each pair.
+
 ### Transitively dead code
 
 A reference from a finding still counts as a use, so a helper called only by
@@ -355,6 +371,8 @@ What goes with a removed declaration:
   too. If other code names it, say as a type or after `extends`, if it is
   generic, or if it is the only mixin of `class A = B with M;`, only its
   members go, and the summary lists the emptied declaration.
+- A pair of range comments left with nothing between them, like an
+  [empty range](#empty-ranges) found before removal.
 
 A plain `//` comment right above a removed declaration stays, because it may be
 about the code around it rather than the declaration. The summary lists each
@@ -478,9 +496,9 @@ ciach:
       codequality: gl-code-quality-report.json
 ```
 
-Unused findings and empty files are warnings (`minor` in GitLab), doc-only
-findings a severity lower. GitLab fingerprints leave out the line, so a finding
-that only moved is not reported as new.
+Unused findings, empty files and empty ranges are warnings (`minor` in
+GitLab), doc-only findings a severity lower. GitLab fingerprints leave out the
+line, so a finding that only moved is not reported as new.
 
 ## Limitations
 

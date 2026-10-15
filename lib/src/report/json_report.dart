@@ -23,12 +23,17 @@ String jsonReport(FinderResult result) {
       'docOnlyCount': result.docOnly.length,
       'emptyFileCount': result.emptyFiles.length,
       'emptyVariantCount': result.emptyVariants.length,
+      'emptyRangeCount': result.emptyRanges.length,
       'elapsedMs': result.elapsed.inMilliseconds,
     },
     'unused': [for (final decl in result.unused) decl.toJson()],
     'docOnly': [for (final decl in result.docOnly) decl.toJson()],
     'emptyFiles': result.emptyFiles,
     'emptyVariants': result.emptyVariants,
+    'emptyRanges': [
+      for (final (:filePath, :line, :open, :close) in result.emptyRanges)
+        {'filePath': filePath, 'line': line, 'open': open, 'close': close},
+    ],
     'emptiedContainers': [
       for (final (:filePath, :name) in result.emptiedContainers)
         {'filePath': filePath, 'name': name},
