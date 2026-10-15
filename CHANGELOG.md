@@ -1,5 +1,9 @@
 ## Unreleased
 
+- Scans are faster on code with large class hierarchies. Members of a class
+  with many subclasses used to take up to several seconds each to check.
+  On a large package, this cut the reference search from about 250 to about
+  150 seconds. ([#147](https://github.com/leancodepl/ciach/pull/147))
 - A member used only in code that is itself unused no longer shows up under
   "Recovered references" when a live use elsewhere keeps it.
   ([#138](https://github.com/leancodepl/ciach/pull/138))
