@@ -266,6 +266,7 @@ final class CandidateCollector {
       symbol.reportedKind(
         parentIsEnum: candidate.isEnumValue,
         isExtensionType: candidate.isExtensionType,
+        isMixin: candidate.isMixin,
       ),
     )) {
       return false;
