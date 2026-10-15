@@ -36,3 +36,17 @@ exported-packages: []
 If only some packages are imported from outside, such as a package published to
 pub.dev or used as a git dependency, list just those. See
 [Library packages](README.md#library-packages).
+
+### What only dead code references is reported by default
+
+In 0.6, a helper called only by dead code showed up only after that code was
+removed and ciach ran again, unless you passed `--transitive`. Now ciach
+reports it in the same run, and dead cycles too, each naming what it is only
+referenced from. To report only what nothing references at all, as before:
+
+```yaml
+# ciach.yaml
+transitive: false
+```
+
+See [Transitively dead code](README.md#transitively-dead-code).

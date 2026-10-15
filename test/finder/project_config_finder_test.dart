@@ -126,6 +126,9 @@ void unusedRouteHelper() {}
     return .new(
       rootPath: package.path,
       exportedPackages: const [],
+      // Lists `Partial.notExported` rather than `Partial`, whose only user
+      // is dead too.
+      transitive: false,
       entryPoints: config.entryPoints,
       additionalGeneratedGlobs: config.generatedGlobs,
     );

@@ -33,7 +33,7 @@ class FinderOptions {
     this.skipOperators = true,
     this.unusedUnionMembers = false,
     this.reportToJson = false,
-    this.transitive = false,
+    this.transitive = true,
     this.entryPoints = const [],
     this.translations = const [],
     this.concurrency = 16,
@@ -122,10 +122,11 @@ class FinderOptions {
   final bool reportToJson;
 
   /// Whether to also report declarations referenced only from findings
-  /// `--remove` would delete, repeating until nothing new is found. Off by
-  /// default, because one false positive also flags everything only it
-  /// referenced. Dead declarations that only reference each other, in a
-  /// cycle, are reported too.
+  /// `--remove` would delete, repeating until nothing new is found, and dead
+  /// declarations that only reference each other, in a cycle. Each such
+  /// finding names what it is only referenced from. Off, only what nothing
+  /// references at all is reported; the rest shows up after a removal and
+  /// another run.
   final bool transitive;
 
   /// The project's own entry points, on top of [EntryPoint.builtIn]. A match

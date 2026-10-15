@@ -748,7 +748,7 @@ void main() {
     );
   });
 
-  group('transitive (opt-in --transitive)', () {
+  group('transitive', () {
     const fixture = ['lib/scenarios/transitive.dart'];
 
     Future<FinderResult> runTransitive({bool transitive = true}) =>
@@ -1163,6 +1163,9 @@ void main() {
             rootPath: copy.path,
             exportedPackages: const [],
             includeGlobs: fixture,
+            // With transitive reporting nothing in the fixture survives; the
+            // test below covers that.
+            transitive: false,
           ),
         ).run();
 

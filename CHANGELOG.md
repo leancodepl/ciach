@@ -31,6 +31,10 @@
   outside the analysis imports, or set it to `[]` to check every package.
   `--exported` is gone.
   ([#105](https://github.com/leancodepl/ciach/pull/105))
+- **Breaking:** `--transitive` is now on by default: a helper called only by
+  dead code, and a dead cycle, are reported in the same run instead of after
+  a removal and a second run. See [MIGRATION.md](MIGRATION.md).
+  ([#131](https://github.com/leancodepl/ciach/pull/131))
 - Unused translations are reported by default when an `l10n.yaml` is present.
   ([#105](https://github.com/leancodepl/ciach/pull/105))
 - An analyzer plugin that `analysis_options.yaml` loads by path, and the files

@@ -204,6 +204,9 @@ void main() => Helper().used();
       FinderOptions(
         rootPath: root.path,
         exportedPackages: leaveOutApi ? const ['**'] : const [],
+        // Lists each dead member. With transitive reporting, a type whose
+        // only users are dead would be reported instead of its members.
+        transitive: false,
       ),
     ).run();
     return {for (final decl in result.unused) decl.qualifiedName};
