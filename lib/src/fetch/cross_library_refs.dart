@@ -60,11 +60,14 @@ class CrossLibraryReferences {
 
   /// Only the [emptyRefNames] (simple names of the zero-reference [candidates])
   /// are probed, so a package with no false positives issues no extra requests.
+  /// The [knownSites], (path, line, character) of the references the server
+  /// reported, are not: the server already resolved them.
   static Future<CrossLibraryReferences> resolve({
     required LspClient client,
     required SourceIndex sources,
     required List<Candidate> candidates,
     required Set<String> emptyRefNames,
+    required Set<(String, int, int)> knownSites,
     required int concurrency,
   }) async {
     if (emptyRefNames.isEmpty) {
@@ -74,7 +77,7 @@ class CrossLibraryReferences {
     final byPosition = <_DeclPosition, Candidate>{
       for (final candidate in candidates) _positionOf(candidate): candidate,
     };
-    final declarations = byPosition.keys.toSet();
+    final skipped = {...byPosition.keys, ...knownSites};
 
     final sites = [
       for (final path in sources.scannedPaths)
@@ -82,7 +85,7 @@ class CrossLibraryReferences {
           sources: sources,
           path: path,
           names: emptyRefNames,
-          declarations: declarations,
+          skipped: skipped,
         ),
     ];
     if (sites.isEmpty) {
@@ -249,15 +252,16 @@ class CrossLibraryReferences {
     required SourceIndex sources,
     required String path,
     required Set<String> names,
-    required Set<_DeclPosition> declarations,
+    required Set<_DeclPosition> skipped,
   }) sync* {
     if (sources.semanticTokens(path) case final tokens?) {
       final uri = File(path).uri;
       for (final token in tokens) {
-        // A declaration's own name resolves to itself; a doc link is not a use.
+        // A declaration's own name resolves to itself, a reported reference
+        // to what the server said, and a doc link is not a use.
         if (_memberTokenTypes.contains(token.type) &&
             names.contains(token.text) &&
-            !declarations.contains((path, token.line, token.character)) &&
+            !skipped.contains((path, token.line, token.character)) &&
             !sources.isDocLine(path, token.line)) {
           yield (uri: uri, position: token.start, name: token.text);
         }

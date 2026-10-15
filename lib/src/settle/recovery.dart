@@ -38,10 +38,15 @@ final class ReferenceRecovery {
   /// Runs the secondary definition check for the candidates with no reference
   /// outside their own span — the potential false positives. Names probed in an
   /// earlier round are skipped.
+  ///
+  /// [refsByCandidate] are every reference the server reported, live or not.
+  /// Their sites are not looked up again: the server already said what each
+  /// refers to.
   Future<CrossLibraryReferences> recover(
     LspClient client,
     List<Candidate> candidates,
     List<List<Location>> liveRefs,
+    List<List<Location>> refsByCandidate,
   ) {
     final emptyRefNames = <String>{
       for (var i = 0; i < candidates.length; i++)
@@ -65,6 +70,15 @@ final class ReferenceRecovery {
       sources: _sources,
       candidates: candidates,
       emptyRefNames: emptyRefNames,
+      knownSites: {
+        for (final refs in refsByCandidate)
+          for (final loc in refs)
+            (
+              SourceIndex.pathOf(loc.uri),
+              loc.range.start.line,
+              loc.range.start.character,
+            ),
+      },
       concurrency: _concurrency,
     );
   }
