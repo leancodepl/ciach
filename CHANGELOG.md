@@ -1,8 +1,8 @@
 ## Unreleased
 
-- A member that is used only in code that is itself unused, and live
-  elsewhere, no longer shows up under "Recovered references" with
-  `exported-packages`. ([#149](https://github.com/leancodepl/ciach/pull/149))
+- Stop listing a used member under "Recovered references" when one of its
+  uses is in unused code and `exported-packages` covers its package.
+  ([#149](https://github.com/leancodepl/ciach/pull/149))
 - `--remove` now lists the files that it deleted and the declarations that it
   left empty one per line. Before, it listed them on one line, separated by
   commas. ([#136](https://github.com/leancodepl/ciach/pull/136))
