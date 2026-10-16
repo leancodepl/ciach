@@ -158,6 +158,6 @@ final class _Siblings {
   /// Whether a candidate other than [candidate] may use its sites.
   bool anyOf(Candidate candidate) =>
       _containers.contains(candidate.symbol.name) ||
-      (_byName[_nameIn(candidate)]?.any((other) => other != candidate) ??
+      (_byName[_nameIn(candidate)]?.difference({candidate}).isNotEmpty ??
           false);
 }
