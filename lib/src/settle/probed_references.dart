@@ -54,7 +54,7 @@ final class ProbedReferences {
 
   /// Returns [refsByCandidate] with its full references added to each
   /// probed candidate that the dead [spans] leave without a live use, and to
-  /// its namesakes, or [refsByCandidate] itself when there is none.
+  /// its namesakes.
   ///
   /// Such a candidate's probed uses all lie in dead code, but the files that
   /// the probe read may not hold all its uses: `make().close()` calls

@@ -176,17 +176,15 @@ final class Settler {
       // The spans of round 1 are not checked this way: they count everything
       // that no live code reaches as dead, and most of that is alive again in
       // later rounds.
-      DeadSpans sweep(List<List<Location>> refs) => _transitive.sweep(
+      DeadSpans sweep() => _transitive.sweep(
         candidates,
         refs,
         crossLib,
         result.candidateOf,
         rootPath,
       );
-      final swept = sweep(refs);
-      final withFull = await probedRefs.withFullReferences(refs, swept);
-      final next = identical(withFull, refs) ? swept : sweep(withFull);
-      refs = withFull;
+      refs = await probedRefs.withFullReferences(refs, sweep());
+      final next = sweep();
       if (next.sameAs(deadSpans)) {
         if (round > 1) {
           _log.fine('Settled after ${plural(round, 'round', 'rounds')}.');
