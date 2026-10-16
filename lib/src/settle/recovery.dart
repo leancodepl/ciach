@@ -81,7 +81,7 @@ final class ReferenceRecovery {
       emptyRefNames: emptyRefNames,
       reportedRefs: [
         for (final (i, candidate) in candidates.indexed)
-          if (!siblings.anyOf(candidate)) ...refsByCandidate[i],
+          if (!siblings.mayShareSitesWith(candidate)) ...refsByCandidate[i],
       ],
       concurrency: _concurrency,
     );
@@ -142,6 +142,14 @@ final class ReferenceRecovery {
 /// their sites: the other members of the same container with the same name
 /// (a getter and its setter), and the type they belong to (a class and its
 /// constructors).
+///
+/// The recovery skips the sites that the server reported, because it already
+/// said what each refers to. A shared site refers to both declarations,
+/// though: `Foo()` uses the class `Foo` and its constructor. If the server
+/// reported it only for the class, skipping it would leave the constructor
+/// without its use, and `--remove` would delete a constructor that is called.
+/// So the reported sites of a declaration that shares them with a candidate
+/// here are looked up anyway.
 final class _Siblings {
   _Siblings(Iterable<Candidate> unsure)
     : _byName = unsure.groupSetsBy(_nameIn),
@@ -156,7 +164,7 @@ final class _Siblings {
   );
 
   /// Whether a candidate other than [candidate] may use its sites.
-  bool anyOf(Candidate candidate) =>
+  bool mayShareSitesWith(Candidate candidate) =>
       _containers.contains(candidate.symbol.name) ||
       (_byName[_nameIn(candidate)]?.difference({candidate}).isNotEmpty ??
           false);
