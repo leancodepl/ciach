@@ -106,7 +106,21 @@ class MergeSwitchArms({required super.context})
 }
 
 /// A variable that a pattern binds.
-typedef _Variable = ({String name, DartType type, bool isFinal});
+final class _Variable({
+  required final String name,
+  required final DartType type,
+  required final bool isFinal,
+}) {
+  @override
+  bool operator ==(Object other) =>
+      other is _Variable &&
+      other.name == name &&
+      other.type == type &&
+      other.isFinal == isFinal;
+
+  @override
+  int get hashCode => Object.hash(name, type, isFinal);
+}
 
 /// An arm of a switch expression or a member of a switch statement: its
 /// [pattern], or `null` for `default`, and the lexemes of its [body]. It
@@ -260,11 +274,13 @@ class _Variables() extends RecursiveAstVisitor<void> {
   @override
   void visitDeclaredVariablePattern(DeclaredVariablePattern node) {
     if (node.declaredFragment?.element case final element?) {
-      variables.add((
-        name: element.displayName,
-        type: element.type,
-        isFinal: element.isFinal,
-      ));
+      variables.add(
+        .new(
+          name: element.displayName,
+          type: element.type,
+          isFinal: element.isFinal,
+        ),
+      );
     }
     super.visitDeclaredVariablePattern(node);
   }
