@@ -1,5 +1,14 @@
 ## Unreleased
 
+- `--remove` now removes an unused field that a primary constructor declares,
+  and a member that such a field overrides. It deletes the field's `var` or
+  `final` and its annotations, so the parameter stays and calls still compile.
+  Before, both were left in place.
+  ([#153](https://github.com/leancodepl/ciach/pull/153))
+- A generic class or mixin that only `with` or `implements` clauses name is now
+  reported, and `--remove` deletes it from those clauses. Before, only its
+  members were removed. ([#153](https://github.com/leancodepl/ciach/pull/153))
+
 - `--remove` now lists the files that it deleted and the declarations that it
   left empty one per line. Before, it listed them on one line, separated by
   commas. ([#136](https://github.com/leancodepl/ciach/pull/136))
