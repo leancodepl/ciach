@@ -70,6 +70,11 @@ class LspClient {
 
   final _outlineWaiters = <String, Completer<Outline>>{};
 
+  final _diagnostics = <String, List<lsp.Diagnostic>>{};
+
+  /// The version of each open document, raised by every [didChange].
+  final _versions = <String, int>{};
+
   /// Recent `window/logMessage` errors, oldest first.
   final _loggedErrors = <String>[];
 
@@ -144,6 +149,9 @@ class LspClient {
       const _CustomMethod(_publishOutlineMethod),
       (params, context) async => wrapper._onPublishOutline(params),
     );
+    client.textDocument.onPublishDiagnostics((params, context) async {
+      wrapper._diagnostics[params.uri] = params.diagnostics;
+    });
     client.window.onLogMessage((params, context) async {
       if (params.type == .error) {
         wrapper._onLoggedError(params.message);
@@ -377,8 +385,13 @@ class LspClient {
     return completer.future.whenComplete(timer.cancel);
   }
 
+  /// The diagnostics that the server last published, keyed by document URI.
+  Map<String, List<lsp.Diagnostic>> get diagnostics =>
+      .unmodifiable(_diagnostics);
+
   /// Notifies the server that [uri] is open with the given [text].
   void didOpen(Uri uri, String text) {
+    _versions[uri.toString()] = 1;
     _client.server.textDocument.didOpen(
       .new(
         textDocument: .new(
@@ -387,6 +400,23 @@ class LspClient {
           version: 1,
           text: text,
         ),
+      ),
+    );
+  }
+
+  /// Replaces the content of the open document [uri] with [text], for this
+  /// session only; the file on disk doesn't change.
+  void didChange(Uri uri, String text) {
+    final key = uri.toString();
+    _client.server.textDocument.didChange(
+      .new(
+        textDocument: .new(
+          uri: key,
+          version: _versions[key] = (_versions[key] ?? 1) + 1,
+        ),
+        contentChanges: [
+          .textDocumentContentChangeWholeDocument(.new(text: text)),
+        ],
       ),
     );
   }

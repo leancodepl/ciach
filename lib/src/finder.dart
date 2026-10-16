@@ -36,6 +36,7 @@ import 'package:ciach/src/collect/candidate_collector.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/freezed.dart';
+import 'package:ciach/src/fetch/implicit_calls.dart';
 import 'package:ciach/src/fetch/member_probe.dart';
 import 'package:ciach/src/fetch/reachable_types.dart';
 import 'package:ciach/src/fetch/reference_fetch.dart';
@@ -49,6 +50,7 @@ import 'package:ciach/src/settle/verdict.dart';
 import 'package:ciach/src/source/directives.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/source_index.dart';
+import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/concurrency.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
@@ -379,9 +381,22 @@ class Ciach {
         totalFiles: files,
         rootPath: rootPath,
       );
-      await _fetch.semanticTokensFor(client, fetched.refs);
+      final implicitCalls = await findImplicitCalls(
+        client: client,
+        sources: _sources,
+        calls: [
+          for (final candidate in fetched.checked)
+            if (candidate.symbol.isCallMethod) candidate,
+        ],
+        concurrency: options.concurrency,
+      );
+      final refs = [
+        for (final (i, candidate) in fetched.checked.indexed)
+          [...fetched.refs[i], ...?implicitCalls[candidate]],
+      ];
+      await _fetch.semanticTokensFor(client, refs);
       candidates.addAll(fetched.checked);
-      refsByCandidate.addAll(fetched.refs);
+      refsByCandidate.addAll(refs);
     }
 
     await fetch(collected.whereNot(gated.contains).toList(), totalFiles);

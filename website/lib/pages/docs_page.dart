@@ -137,11 +137,6 @@ const _skips = [
     '--also operators',
   ),
   (
-    'call methods',
-    'Implicit-call syntax `obj(…)` is unresolvable the same way.',
-    null,
-  ),
-  (
     '// ciach:ignore markers',
     'On its own line above a declaration, at the end of the line naming it, around a range with `ciach:ignore-start` and `ciach:ignore-end`, or for a whole file with `ciach:ignore-file`.',
     null,
