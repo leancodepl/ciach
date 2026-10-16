@@ -1,6 +1,7 @@
 // Uses for the `call` method fixture: each `call` in
-// scenarios/call_methods.dart is used here in one form, and only
-// `NeverCalled.call` and `OnlyCalledFromDeadCode.call` never are.
+// scenarios/call_methods.dart is used here in one form, except
+// `NeverCalled.call`, `UnusedStaticCall.call` and
+// `OnlyCalledFromDeadCode.call`, which only dead code calls.
 
 import 'package:sample_pkg/scenarios/call_methods.dart';
 
@@ -15,7 +16,12 @@ void main() {
   final Handler handler = HandlerImpl();
   handler();
   print(Explicit().call());
+  print(ExplicitWithArgument().call(InExplicitArgument()()));
   print(const Wrapped()());
   print(SelfInvoked().twice(1));
-  print([NeverCalled(), OnlyCalledFromDeadCode()]);
+  print(Level.low());
+  print(WithCallable()());
+  print(NamedParameter()(x: 1));
+  print(StaticCall.call());
+  print([NeverCalled(), OnlyCalledFromDeadCode(), UnusedStaticCall]);
 }

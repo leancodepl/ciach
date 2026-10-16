@@ -16,21 +16,40 @@ import 'package:test/test.dart';
 void main() {
   final fixturePath = p.join(Directory.current.path, 'example');
 
-  test('reports only the `call` methods that no object invocation, tear-off or '
-      'explicit `.call` uses', () async {
+  Future<Set<String>> findUnused(List<String> include) async {
     final result = await Ciach(
-      .new(
-        rootPath: fixturePath,
-        includeGlobs: const [
+      .new(rootPath: fixturePath, includeGlobs: include),
+    ).run();
+    return result.unused.map((d) => d.qualifiedName).toSet();
+  }
+
+  const expected = {
+    'NeverCalled.call',
+    'OnlyCalledFromDeadCode.call',
+    'callFromDeadCode',
+    'UnusedStaticCall.call',
+  };
+
+  test(
+    'reports only the `call` methods that no object invocation, tear-off or explicit `.call` uses',
+    () async {
+      expect(
+        await findUnused(const [
           'lib/scenarios/call_methods.dart',
           'lib/scenarios/call_methods_uses.dart',
-        ],
-      ),
-    ).run();
-    expect(result.unused.map((d) => d.qualifiedName).toSet(), {
-      'NeverCalled.call',
-      'OnlyCalledFromDeadCode.call',
-      'callFromDeadCode',
-    });
-  });
+        ]),
+        expected,
+      );
+    },
+  );
+
+  test(
+    'counts the implicit uses of a `call` method in a file that is not scanned',
+    () async {
+      expect(
+        await findUnused(const ['lib/scenarios/call_methods.dart']),
+        expected,
+      );
+    },
+  );
 }

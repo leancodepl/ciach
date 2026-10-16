@@ -412,6 +412,9 @@ class LspClient {
     }
   }
 
+  /// Whether [didOpen] opened [uri].
+  bool isOpen(Uri uri) => _versions.containsKey(uri.toString());
+
   /// Notifies the server that [uri] is open with the given [text].
   void didOpen(Uri uri, String text) {
     _versions[uri.toString()] = 1;

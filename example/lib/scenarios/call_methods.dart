@@ -3,8 +3,8 @@
 // uses without a reference that the server reports. Every form of use is in
 // call_methods_uses.dart. Scanned only by the dedicated test (excluded from
 // the default-run assertions); see test/finder/call_methods_test.dart.
-// Expected findings: NeverCalled.call, OnlyCalledFromDeadCode.call and
-// callFromDeadCode.
+// Expected findings: NeverCalled.call, OnlyCalledFromDeadCode.call,
+// callFromDeadCode and UnusedStaticCall.call.
 
 class Invoked {
   int call(int x) => x;
@@ -49,6 +49,15 @@ class Explicit {
   int call() => 1;
 }
 
+/// Invoked only in an argument of an explicit `.call(…)`.
+class InExplicitArgument {
+  int call() => 1;
+}
+
+class ExplicitWithArgument {
+  int call(int x) => x;
+}
+
 class Wrapped {
   const Wrapped();
 }
@@ -73,3 +82,29 @@ class OnlyCalledFromDeadCode {
 }
 
 int callFromDeadCode(OnlyCalledFromDeadCode callable) => callable();
+
+enum Level {
+  low;
+
+  int call() => index;
+}
+
+mixin Callable {
+  int call() => 1;
+}
+
+class WithCallable with Callable {}
+
+class NamedParameter {
+  int call({required int x}) => x;
+}
+
+/// An object can't invoke a static `call`, so only `StaticCall.call()` uses
+/// it.
+class StaticCall {
+  static int call() => 1;
+}
+
+class UnusedStaticCall {
+  static int call() => 1;
+}
