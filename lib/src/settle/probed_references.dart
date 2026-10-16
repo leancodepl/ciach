@@ -52,36 +52,43 @@ final class ProbedReferences {
 
   late final _namesakes = _conditionalImports.namesakesIn(_candidates);
 
-  /// [spans] after adding its full references to each probed candidate whose
-  /// references all lie in them, as often as that changes them.
+  /// Returns the dead spans that [spans] computes from the current
+  /// references, after giving each probed candidate that has no live use
+  /// left its full references.
+  ///
+  /// Such a candidate's probed uses all lie in dead code, but the files that
+  /// the probe read may not hold all its uses: `make().close()` calls
+  /// `Helper.close` in a file that never names `Helper`. So ciach asks the
+  /// server for every reference before it calls the candidate dead, and
+  /// recomputes the spans, which the added references can only shrink. A
+  /// candidate is asked for at most once.
   Future<DeadSpans> addFullReferences(DeadSpans Function() spans) async {
-    var dead = spans();
-    while (_probed.isNotEmpty) {
-      final liveRefs = TransitiveSweep.liveRefs(_refsByCandidate, dead);
-      final unsure = <Candidate, int>{
-        for (final (i, candidate) in _candidates.indexed)
-          if (liveRefs[i].isEmpty && _probed.contains(candidate)) candidate: i,
-      };
-      if (unsure.isEmpty) {
-        break;
-      }
-      _probed.removeAll(unsure.keys);
-      final fetched = await _fetch.references(
-        _client,
-        unsure.keys.toList(),
-        totalFiles: unsure.keys.map((c) => c.path).toSet().length,
-        rootPath: _rootPath,
-      );
-      for (final (j, candidate) in fetched.checked.indexed) {
-        final i = unsure[candidate]!;
-        _add(i, fetched.refs[j]);
-        for (final namesake in _namesakes[i]) {
-          _add(namesake, _classifier.externalRefs(candidate, fetched.refs[j]));
-        }
-      }
-      dead = spans();
+    final dead = spans();
+    final liveRefs = TransitiveSweep.liveRefs(_refsByCandidate, dead);
+    final unsure = <Candidate, int>{
+      for (final (i, candidate) in _candidates.indexed)
+        if (liveRefs[i].isEmpty && _probed.contains(candidate)) candidate: i,
+    };
+    if (unsure.isEmpty) {
+      return dead;
     }
-    return dead;
+    _probed.removeAll(unsure.keys);
+    final fetched = await _fetch.references(
+      _client,
+      unsure.keys.toList(),
+      totalFiles: unsure.keys.map((c) => c.path).toSet().length,
+      rootPath: _rootPath,
+    );
+    for (final (j, candidate) in fetched.checked.indexed) {
+      final i = unsure[candidate]!;
+      _add(i, fetched.refs[j]);
+      // A namesake in another variant shares the references, as
+      // `ConditionalImports.share` does with the first ones.
+      for (final namesake in _namesakes[i]) {
+        _add(namesake, _classifier.externalRefs(candidate, fetched.refs[j]));
+      }
+    }
+    return spans();
   }
 
   void _add(int i, List<Location> refs) =>
