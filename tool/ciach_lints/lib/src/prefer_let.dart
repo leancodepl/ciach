@@ -13,6 +13,7 @@ import 'package:analyzer/error/error.dart';
 import 'package:analyzer_plugin/utilities/change_builder/change_builder_core.dart';
 import 'package:analyzer_plugin/utilities/fixes/fixes.dart';
 import 'package:analyzer_plugin/utilities/range_factory.dart';
+import 'package:ciach_lints/src/names.dart';
 
 /// Flags an expression that only checks a value for null before using it:
 /// `switch (x) { final v? => f(v), null => d }`, `x == null ? null : f(x)`,
@@ -208,15 +209,16 @@ LetShape? _conditionalShape(ConditionalExpression node) {
     );
   }
   // The check promotes nothing, so the branch reads the value as `target!` or
-  // as `target` again; each of those becomes the variable, named after the
-  // target unless the branch already mentions that name.
+  // as `target` again; each of those becomes the variable. The variable is
+  // named after the target, or `it` when the target gives no name or the
+  // branch already mentions that name.
   final uses = _Uses(target.toSource());
   whenNotNull.accept(uses);
   if (uses.aliases.isEmpty || uses.assigned) {
     return null;
   }
   String? variable;
-  for (final name in [?_lastName(target), 'it']) {
+  for (final name in [?_variableName(target), 'it']) {
     if (_identifiersNamed(whenNotNull, name, aliases: uses.aliases) == 0) {
       variable = name;
       break;
@@ -242,16 +244,20 @@ bool _isLocal(SimpleIdentifier identifier) => switch (identifier.element) {
   _ => false,
 };
 
-/// The identifier [expression] ends with, as a name for its value: `foo` for
-/// `a.foo`, `a.foo()` or `a.foo[0]`.
-String? _lastName(Expression expression) => switch (expression) {
+/// A name for a variable that holds [expression]'s value: the identifier
+/// that [expression] ends with, without its leading underscores, as `foo` for
+/// `a.foo`, `a._foo()` or `a.foo[0]`, or `null` when that identifier has only
+/// underscores.
+String? _variableName(Expression expression) => switch (expression) {
   SimpleIdentifier(:final name) ||
   PrefixedIdentifier(identifier: SimpleIdentifier(:final name)) ||
   PropertyAccess(propertyName: SimpleIdentifier(:final name)) ||
-  MethodInvocation(methodName: SimpleIdentifier(:final name)) => name,
-  IndexExpression(:final target?) => _lastName(target),
-  PostfixExpression(:final operand) => _lastName(operand),
-  ParenthesizedExpression(:final expression) => _lastName(expression),
+  MethodInvocation(
+    methodName: SimpleIdentifier(:final name),
+  ) => withoutLeadingUnderscores(name),
+  IndexExpression(:final target?) => _variableName(target),
+  PostfixExpression(:final operand) => _variableName(operand),
+  ParenthesizedExpression(:final expression) => _variableName(expression),
   _ => null,
 };
 
