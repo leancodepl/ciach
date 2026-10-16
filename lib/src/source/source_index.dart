@@ -12,7 +12,7 @@ import 'dart:io';
 
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
-import 'package:ciach/src/source/comment_stripping.dart';
+import 'package:ciach/src/source/line_starts.dart';
 import 'package:ciach/src/util/cached_map.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position, SelectionRange;
 

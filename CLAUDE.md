@@ -360,7 +360,10 @@ against `example/` in `test/finder/`.
 
 Name a file after what it holds, one concern per file: one report format per
 `report/<format>_report.dart`, the `with`/`implements` clause rule in
-`settle/clause_only_types.dart`. A lower layer doesn't import a higher one: a
+`settle/clause_only_types.dart`. A new helper goes in a file whose name covers
+it, also when a similar helper already sits in a file about something else:
+`positionIn` doesn't belong in `comment_stripping.dart` just because
+`lineStartsOf` was there. A lower layer doesn't import a higher one: a
 doc link to a higher-layer name goes in backticks instead of an import. Some
 existing imports break this, such as `conventions/` importing
 `collect/candidates.dart`; don't add more.

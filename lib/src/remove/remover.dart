@@ -6,6 +6,7 @@ import 'package:ciach/src/remove/declaration_spans.dart';
 import 'package:ciach/src/remove/emptied_files.dart';
 import 'package:ciach/src/remove/text_spans.dart';
 import 'package:ciach/src/source/comment_stripping.dart';
+import 'package:ciach/src/source/line_starts.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';

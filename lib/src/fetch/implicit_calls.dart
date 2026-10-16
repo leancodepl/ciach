@@ -22,7 +22,7 @@ import 'dart:io';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/fetch/definitions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
-import 'package:ciach/src/source/comment_stripping.dart';
+import 'package:ciach/src/source/line_starts.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/plural.dart';

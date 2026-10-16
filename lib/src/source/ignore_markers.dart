@@ -2,6 +2,7 @@
 library;
 
 import 'package:ciach/src/source/comment_stripping.dart';
+import 'package:ciach/src/source/line_starts.dart';
 import 'package:collection/collection.dart';
 
 /// The marker comment that keeps the declaration on the next line, or on its
