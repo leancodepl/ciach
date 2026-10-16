@@ -44,7 +44,8 @@ final class CandidateCollector {
   final FinderOptions options;
   final SourceIndex _sources;
 
-  late final _exposedTypes = ExposedTypes(_sources);
+  /// Built on the first [collect], which supplies the client.
+  ExposedTypes? _exposedTypes;
 
   /// Freezed-union tracking, fed as candidates are collected.
   final FreezedUnions _freezed;
@@ -94,7 +95,10 @@ final class CandidateCollector {
     if (_conditionalImports.contains(path)) {
       declaredInVariants[path] = ConditionalImports.pairingNames(symbols);
     }
-    final exposedTypes = await _exposedTypes.of(client, path, outline);
+    final exposedTypes = await (_exposedTypes ??= ExposedTypes(
+      client,
+      _sources,
+    )).of(path, outline);
     final relativePath = relativePosix(path, rootPath);
     final markers = _Markers(IgnoreMarkers.parse(_sources.content(path)));
     // The whole walk has to run before the filter: it records the entry-point
@@ -132,7 +136,7 @@ final class CandidateCollector {
     bool parentIsEnum,
     _OutlineIndex outlines,
     _Markers markers,
-    Set<String> exposedTypes,
+    Map<String, ExposedMembers> exposedTypes,
   ) sync* {
     final statement = _Statement();
     for (final (symbol, outline) in _declarations(
@@ -157,10 +161,11 @@ final class CandidateCollector {
         isPreventInstantiationCtor: symbol.isPreventInstantiationMarker(
           symbols,
         ),
-        isInExposedType:
-            exposedTypes.contains(container) &&
-            symbol.kind != .constructor &&
-            !_isStatic(path, symbol),
+        isInExposedType: switch (exposedTypes[container]) {
+          .all => true,
+          .instance => symbol.kind != .constructor && !_isStatic(path, symbol),
+          null => false,
+        },
       );
       final exports = exportsOf(symbol, leadingMetadata) ?? containerExports;
       if (_isCandidate(
@@ -197,7 +202,7 @@ final class CandidateCollector {
 
   /// Whether [symbol] in [path] is a static member. A subtype inherits no
   /// constructors or static members, so those of a private type stay private
-  /// when a public type extends it.
+  /// when only a public type that extends it exposes it.
   bool _isStatic(String path, DocumentSymbol symbol) =>
       _sources
           .semanticTokens(path)
@@ -243,10 +248,10 @@ final class CandidateCollector {
   /// which is as private as the type. If the type leaks through a public API, like a public function
   /// that returns it, the members another package can reach are kept later.
   bool _skipsPublic(Candidate candidate) {
-    final symbol = candidate.symbol;
-    if (isPrivateName(symbol.name)) {
+    if (candidate.hasPrivateName) {
       return false;
     }
+    final symbol = candidate.symbol;
     return (!options.includePublic && !candidate.isInPrivateType) ||
         (_publicApi?.exposes(
               candidate.path,

@@ -302,6 +302,12 @@ explicit null check.
   should change. When the complete change is possible, make it in the same pull
   request and list the cases that block it, instead of only reporting what a
   later pull request could remove.
+- When ciach can't be sure that a declaration is unused, it keeps it. A
+  missed finding is acceptable; a removal that breaks the build of the user's
+  code, or of a package that uses it, is the worst outcome, and no speedup
+  justifies the risk. When a check trusts an answer that may be wrong, such
+  as the server's references or a guess about which files hold the uses, make
+  it err toward keeping.
 - Don't leave a case out as a shortcut, and never because of a limit that you
   haven't checked ("can't be told apart"). Check what the exclusion does to the
   rest of the code, and whether it undoes the point of the pull request.

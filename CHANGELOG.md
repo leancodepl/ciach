@@ -1,11 +1,8 @@
 ## Unreleased
 
-- `--no-public` now also reports an unused method, field or constructor of a
-  private class, mixin, enum, extension or extension type, such as
-  `_Foo.reset`, and of an unnamed extension. Before, it skipped them because
-  their own names have no underscore. An instance member of a private type
-  that a public type extends, mixes in, implements or aliases, as in
-  `class Circle extends _Base`, counts as public: other packages can call it.
+- `--no-public` now also reports the unused members of a private type or an
+  unnamed extension, such as `_Foo.reset`. A member that other packages reach
+  through a public subtype or type alias counts as public.
   ([#135](https://github.com/leancodepl/ciach/pull/135))
 - `--remove` now lists the files that it deleted and the declarations that it
   left empty one per line. Before, it listed them on one line, separated by

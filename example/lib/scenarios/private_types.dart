@@ -22,6 +22,7 @@ void main() {
   print(<Measure>[]);
   print(<Mixer>[]);
   print(<Alias>[]);
+  print(<PartAlias>[]);
   print(FromPart());
 }
 
@@ -102,11 +103,26 @@ class _Host {
 mixin Mixer on _Host {}
 
 class _Aliased {
+  /// Never called -> UNUSED, but public: `Alias()` calls it.
+  _Aliased();
+
+  /// Never called -> UNUSED, but public: `Alias.create()` calls it.
+  _Aliased.create();
+
   /// Never called -> UNUSED, but public: `Alias` hands it out.
   void aliased() {}
+
+  /// Never called -> UNUSED, but public: `Alias.util()` calls it.
+  static void util() {}
 }
 
 typedef Alias = _Aliased;
+
+class _PartAliased {
+  /// Never called -> UNUSED, but public: `PartAlias`, in the part file,
+  /// hands it out.
+  void partAliased() {}
+}
 
 class _InPart {
   /// Never called -> UNUSED, but public: `FromPart`, in the part file,

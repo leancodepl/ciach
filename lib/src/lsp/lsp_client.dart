@@ -502,10 +502,10 @@ class LspClient {
     };
   }
 
-  /// The direct subtypes of the type named at [position] in [uri], via
-  /// `typeHierarchy/subtypes`: the types that extend, implement or mix it in,
-  /// or name it in an `on` clause, anywhere in the workspace.
-  Future<List<lsp.TypeHierarchyItem>> subtypesOf(
+  /// The type named at [position] in [uri], via
+  /// `textDocument/prepareTypeHierarchy`, or `null` when nothing is named
+  /// there.
+  Future<lsp.TypeHierarchyItem?> typeHierarchyItemAt(
     Uri uri,
     lsp.Position position,
   ) async {
@@ -518,13 +518,18 @@ class LspClient {
         ),
       ),
     );
-    final item = items?.firstOrNull;
-    if (item == null) {
-      return const [];
-    }
+    return items?.firstOrNull;
+  }
+
+  /// The direct subtypes of [type], via `typeHierarchy/subtypes`: the types
+  /// that extend, implement or mix it in, or name it in an `on` clause,
+  /// anywhere in the workspace.
+  Future<List<lsp.TypeHierarchyItem>> subtypesOf(
+    lsp.TypeHierarchyItem type,
+  ) async {
     final subtypes = await _guard(
       lsp.RequestMethod.subtypes.value,
-      () => _client.server.typeHierarchy.subtypes(.new(item: item)),
+      () => _client.server.typeHierarchy.subtypes(.new(item: type)),
     );
     return subtypes ?? const [];
   }

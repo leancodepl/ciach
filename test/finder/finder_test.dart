@@ -1013,7 +1013,11 @@ void main() {
         // Only its `implements` clause uses it, so it goes as a whole.
         ('_Measured', true),
         ('_Host.host', false),
+        ('_Aliased.new', false),
+        ('_Aliased.create', false),
         ('_Aliased.aliased', false),
+        ('_Aliased.util', false),
+        ('_PartAliased.partAliased', false),
         ('_InPart.parted', false),
       ],
     );

@@ -261,6 +261,16 @@ class Ciach {
         for (final path in files)
           if (_openFile(client, path, checkEmpty: true)) path,
       };
+      // The outlines of the other files of a scanned library show which of its
+      // private types a public type alias exposes.
+      final packages = PackageResolver();
+      for (final path in {
+        for (final path in files)
+          if (libraryOf(path, packages) case final library?)
+            ...filesOfLibrary(library, packages),
+      }.difference(opened)) {
+        _openFile(client, path);
+      }
       empty = _emptyFiles();
 
       // Phase 1: collect candidate declarations, concurrently.

@@ -85,17 +85,24 @@ final class Candidate {
 
   bool get isExtensionMember => containerSymbol?.kind == .namespace;
 
-  /// Whether this is a member of a private type that a public type of its
-  /// file names as a supertype, so other libraries can reach it.
+  /// Whether this is a member of a private type that a public declaration
+  /// of its library exposes, so other libraries can reach it: a subtype
+  /// inherits its instance members, and a type alias names all of them.
   final bool isInExposedType;
 
+  bool get isInUnnamedExtension =>
+      containerOutline?.element.isUnnamedExtension ?? false;
+
+  /// Whether this declaration's own name starts with `_`. An unnamed
+  /// constructor's name is `new`.
+  bool get hasPrivateName => isPrivateName(symbol.declarationName(container));
+
   /// Whether this is a member of a type that no other library can name or
-  /// reach through a public subtype: one whose name starts with `_`, or an
-  /// unnamed extension.
+  /// reach through a public declaration: one whose name starts with `_`, or
+  /// an unnamed extension.
   bool get isInPrivateType =>
       !isInExposedType &&
-      ((container?.let(isPrivateName) ?? false) ||
-          (containerOutline?.element.isUnnamedExtension ?? false));
+      ((container?.let(isPrivateName) ?? false) || isInUnnamedExtension);
 
   /// Whether this is a class, enum, mixin or extension type. Extensions are
   /// left out because code uses their members without naming them.
