@@ -21,6 +21,7 @@ import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/concurrency.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/plural.dart';
+import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
 final _log = Logger('ciach.finder');
@@ -65,14 +66,14 @@ class CrossLibraryReferences {
 
   /// Only the [emptyRefNames] (simple names of the zero-reference [candidates])
   /// are probed, so a package with no false positives issues no extra requests.
-  /// The [knownSites], (path, line, character) of the references the server
-  /// reported, are not: the server already resolved them.
+  /// The sites of the [reportedRefs] are not: the server already resolved
+  /// them.
   static Future<CrossLibraryReferences> resolve({
     required LspClient client,
     required SourceIndex sources,
     required List<Candidate> candidates,
     required Set<String> emptyRefNames,
-    required Set<(String, int, int)> knownSites,
+    required Iterable<Location> reportedRefs,
     required int concurrency,
   }) async {
     if (emptyRefNames.isEmpty) {
@@ -82,7 +83,7 @@ class CrossLibraryReferences {
     final byPosition = <_DeclPosition, Candidate>{
       for (final candidate in candidates) _positionOf(candidate): candidate,
     };
-    final skipped = {...byPosition.keys, ...knownSites};
+    final reported = reportedRefs.map(_positionOfLocation).toSet();
 
     final sites = [
       for (final path in sources.scannedPaths)
@@ -90,7 +91,8 @@ class CrossLibraryReferences {
           sources: sources,
           path: path,
           names: emptyRefNames,
-          skipped: skipped,
+          skipped: (position) =>
+              byPosition.containsKey(position) || reported.contains(position),
         ),
     ];
     if (sites.isEmpty) {
@@ -98,9 +100,10 @@ class CrossLibraryReferences {
     }
 
     _log.fine(
-      'Looking up ${plural(sites.length, 'possible use', 'possible uses')} of '
-      '${plural(emptyRefNames.length, 'name', 'names')}; most named: '
-      '${_mostNamed(sites.map((site) => site.name))}.',
+      () =>
+          'Looking up ${plural(sites.length, 'possible use', 'possible uses')} of '
+          '${plural(emptyRefNames.length, 'name', 'names')}; most named: '
+          '${_mostNamed(sites.map((site) => site.name))}.',
     );
     final perSite = await mapPooled(sites, concurrency, (site) async {
       try {
@@ -122,8 +125,7 @@ class CrossLibraryReferences {
     for (final (i, (:uri, :position, :name)) in sites.indexed) {
       final site = (uri: uri, position: position);
       for (final loc in perSite[i]) {
-        final start = loc.range.start;
-        final pos = (SourceIndex.pathOf(loc.uri), start.line, start.character);
+        final pos = _positionOfLocation(loc);
         if (byPosition[pos] case final declaration?) {
           if (!_isSelfUse(site, declaration)) {
             usageByDecl.putIfAbsent(pos, () => {}).add(site);
@@ -185,9 +187,7 @@ class CrossLibraryReferences {
     for (final (i, member) in members.indexed) {
       final uses = elsewhere[_simpleName(member.symbol.name)]!;
       for (final loc in perMember[i]) {
-        final start = loc.range.start;
-        final pos = (SourceIndex.pathOf(loc.uri), start.line, start.character);
-        if (uses[pos] case final sites?) {
+        if (uses[_positionOfLocation(loc)] case final sites?) {
           usageByDecl.putIfAbsent(_positionOf(member), () => {}).addAll(sites);
         }
       }
@@ -195,16 +195,13 @@ class CrossLibraryReferences {
   }
 
   /// The five most frequent [names], with their counts.
-  static String _mostNamed(Iterable<String> names) {
-    final counts = <String, int>{};
-    for (final name in names) {
-      counts.update(name, (n) => n + 1, ifAbsent: () => 1);
-    }
-    return (counts.entries.toList()..sort((a, b) => b.value - a.value))
-        .take(5)
-        .map((e) => '${e.key} (${e.value})')
-        .join(', ');
-  }
+  static String _mostNamed(Iterable<String> names) => names
+      .groupFoldBy<String, int>((name) => name, (count, _) => (count ?? 0) + 1)
+      .entries
+      .sortedBy<num>((e) => -e.value)
+      .take(5)
+      .map((e) => '${e.key} (${e.value})')
+      .join(', ');
 
   /// Whether [token] is a use of a local variable, which carries no
   /// modifiers.
@@ -215,9 +212,13 @@ class CrossLibraryReferences {
   /// or `hide` combinator, after [lastKeyword], as a declaration too, though
   /// it uses what it names.
   static bool _isDeclaration(SemanticToken token, String? lastKeyword) =>
-      token.modifiers.contains('declaration') &&
-      lastKeyword != 'show' &&
-      lastKeyword != 'hide';
+      token.isDeclaration && !const {'show', 'hide'}.contains(lastKeyword);
+
+  static _DeclPosition _positionOfLocation(Location loc) => (
+    SourceIndex.pathOf(loc.uri),
+    loc.range.start.line,
+    loc.range.start.character,
+  );
 
   static _DeclPosition _positionOfSite(_Site site) =>
       (site.uri.toFilePath(), site.position.line, site.position.character);
@@ -287,7 +288,7 @@ class CrossLibraryReferences {
     required SourceIndex sources,
     required String path,
     required Set<String> names,
-    required Set<_DeclPosition> skipped,
+    required bool Function(_DeclPosition position) skipped,
   }) sync* {
     if (sources.semanticTokens(path) case final tokens?) {
       final uri = File(path).uri;
@@ -305,7 +306,7 @@ class CrossLibraryReferences {
             !_isLocalVariable(token) &&
             !_isDeclaration(token, lastKeyword) &&
             names.contains(token.text) &&
-            !skipped.contains((path, token.line, token.character)) &&
+            !skipped((path, token.line, token.character)) &&
             !sources.isDocLine(path, token.line)) {
           yield (uri: uri, position: token.start, name: token.text);
         }

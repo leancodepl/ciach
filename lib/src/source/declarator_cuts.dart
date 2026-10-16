@@ -49,7 +49,7 @@ extension DeclaratorCuts on SourceIndex {
   List<Position> _namesIn(String path, Range range) => [
     if (semanticTokens(path) case final tokens?)
       for (final token in tokens.between(range.start, range.end))
-        if (token.modifiers.contains('declaration')) token.start,
+        if (token.isDeclaration) token.start,
   ];
 
   /// Returns the range `--remove` deletes for each of [declarators].

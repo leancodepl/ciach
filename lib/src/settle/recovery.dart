@@ -13,6 +13,7 @@ import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
+import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location;
 
 final _log = Logger('ciach.finder');
@@ -70,15 +71,7 @@ final class ReferenceRecovery {
       sources: _sources,
       candidates: candidates,
       emptyRefNames: emptyRefNames,
-      knownSites: {
-        for (final refs in refsByCandidate)
-          for (final loc in refs)
-            (
-              SourceIndex.pathOf(loc.uri),
-              loc.range.start.line,
-              loc.range.start.character,
-            ),
-      },
+      reportedRefs: refsByCandidate.flattened,
       concurrency: _concurrency,
     );
   }
