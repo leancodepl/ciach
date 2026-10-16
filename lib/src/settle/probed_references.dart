@@ -52,10 +52,9 @@ final class ProbedReferences {
 
   late final _namesakes = _conditionalImports.namesakesIn(_candidates);
 
-  /// Returns the dead spans that [sweep] computes from [refsByCandidate], and
-  /// the references that they came from: [refsByCandidate] with its full
-  /// references added to each probed candidate that the spans leave without
-  /// a live use, and to its namesakes.
+  /// Returns [refsByCandidate] with its full references added to each
+  /// probed candidate that the dead [spans] leave without a live use, and to
+  /// its namesakes, or [refsByCandidate] itself when there is none.
   ///
   /// Such a candidate's probed uses all lie in dead code, but the files that
   /// the probe read may not hold all its uses: `make().close()` calls
@@ -63,19 +62,17 @@ final class ProbedReferences {
   /// server for every reference before it calls the candidate dead. The added
   /// references can only shrink the spans, so a candidate is asked for at
   /// most once.
-  Future<({List<List<Location>> refsByCandidate, DeadSpans spans})>
-  sweepWithFullReferences(
+  Future<List<List<Location>>> withFullReferences(
     List<List<Location>> refsByCandidate,
-    DeadSpans Function(List<List<Location>> refsByCandidate) sweep,
+    DeadSpans spans,
   ) async {
-    final spans = sweep(refsByCandidate);
     final liveRefs = TransitiveSweep.liveRefs(refsByCandidate, spans);
     final unsure = <Candidate, int>{
       for (final (i, candidate) in _candidates.indexed)
         if (liveRefs[i].isEmpty && _probed.contains(candidate)) candidate: i,
     };
     if (unsure.isEmpty) {
-      return (refsByCandidate: refsByCandidate, spans: spans);
+      return refsByCandidate;
     }
     _probed.removeAll(unsure.keys);
     final fetched = await _fetch.references(
@@ -100,10 +97,9 @@ final class ProbedReferences {
           (addition) => addition.index,
           (refs, addition) => (refs ?? {})..addAll(addition.refs),
         );
-    final withFull = [
+    return [
       for (final (i, refs) in refsByCandidate.indexed)
         if (added[i] case final extra?) {...refs, ...extra}.toList() else refs,
     ];
-    return (refsByCandidate: withFull, spans: sweep(withFull));
   }
 }
