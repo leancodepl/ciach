@@ -19,8 +19,8 @@ import 'package:ciach_lints/src/names.dart';
 /// `switch (x) { final v? => f(v), null => d }`, `x == null ? null : f(x)`,
 /// `x == null ? d : f(x)`, and `a.b == null ? d : f(a.b!)` for a value a null
 /// check cannot promote. A null-aware chain (`x?.length`) or `x?.let(f)` from
-/// `lib/src/extensions.dart`, with `?? d` for a fallback other than `null`,
-/// says the same in one expression.
+/// `lib/src/util/extensions.dart`, with `?? d` for a fallback other than
+/// `null`, says the same in one expression.
 class PreferLet() extends AnalysisRule {
   this : super(name: code.lowerCaseName, description: code.problemMessage);
 

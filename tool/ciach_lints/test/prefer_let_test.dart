@@ -35,7 +35,8 @@ extension Let<T extends Object> on T {
   /// [flagged], in order of appearance, each spanning the snippet or, for one
   /// starting with `switch`, the whole switch up to its closing brace, and
   /// each suggesting the matching entry of [sketches] when given; and that
-  /// applying every offered [ReplaceWithLet] yields [fixed].
+  /// applying every offered [ReplaceWithLet] yields [fixed], which compiles
+  /// and leaves nothing for the lint to flag.
   Future<void> assertRewrites(
     String code,
     List<String> flagged, {
@@ -62,6 +63,8 @@ extension Let<T extends Object> on T {
         ),
     ]);
     expect(await applyFixes(code, PreferLet.code, ReplaceWithLet.new), fixed);
+    final file = newFile('$testPackageLibPath/fixed.dart', fixed);
+    expect((await resolveFile(file.path)).diagnostics, isEmpty);
   }
 
   Future<void> test_switchToChain() async {
