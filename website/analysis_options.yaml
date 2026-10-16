@@ -1,3 +1,8 @@
+# The lint rules of the root analysis_options.yaml, without its plugins: the
+# analysis server builds the plugins of a package together, and jaspr_lints
+# needs analyzer 12, which leancode_lint and ciach_lints don't support.
+# TODO: Include ../analysis_options.yaml once jaspr_lints supports a newer
+# analyzer.
 include: package:leancode_lint/analysis_options.yaml
 
 analyzer:

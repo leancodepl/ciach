@@ -13,6 +13,7 @@ import 'package:analyzer/error/error.dart';
 import 'package:analyzer_plugin/utilities/change_builder/change_builder_core.dart';
 import 'package:analyzer_plugin/utilities/fixes/fixes.dart';
 import 'package:analyzer_plugin/utilities/range_factory.dart';
+import 'package:collection/collection.dart';
 
 /// Flags an expression that only checks a value for null before using it:
 /// `switch (x) { final v? => f(v), null => d }`, `x == null ? null : f(x)`,
@@ -215,13 +216,9 @@ LetShape? _conditionalShape(ConditionalExpression node) {
   if (uses.aliases.isEmpty || uses.assigned) {
     return null;
   }
-  String? variable;
-  for (final name in [?_lastName(target), 'it']) {
-    if (_identifiersNamed(whenNotNull, name, aliases: uses.aliases) == 0) {
-      variable = name;
-      break;
-    }
-  }
+  final variable = [?_lastName(target), 'it'].firstWhereOrNull(
+    (name) => _identifiersNamed(whenNotNull, name, aliases: uses.aliases) == 0,
+  );
   if (variable == null) {
     return null;
   }

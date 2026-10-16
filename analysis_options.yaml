@@ -1,3 +1,6 @@
+# example/ and tool/ciach_lints/ include this file, so that they run the same
+# lint rules and plugins as the root package. website/ takes only the lint
+# rules: see its analysis_options.yaml.
 include: package:leancode_lint/analysis_options.yaml
 
 plugins:

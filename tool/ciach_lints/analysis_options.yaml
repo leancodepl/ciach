@@ -1,11 +1,9 @@
-include: package:leancode_lint/analysis_options.yaml
+include: ../../analysis_options.yaml
 
 plugins:
-  # Must match the root analysis_options.yaml exactly: the analysis server
-  # runs every plugin of the repository in one isolate only when each is
-  # specified identically.
-  leancode_lint:
-    git:
-      url: https://github.com/leancodepl/flutter_corelibrary
-      path: packages/leancode_lint
-      ref: dff1be1715976b71a39b521073d8a4bae4b9dada
+  ciach_lints:
+    path: .
+    diagnostics:
+      # The rule suggests `let` from ciach's lib/src/util/extensions.dart,
+      # which this package doesn't depend on.
+      prefer_let: false
