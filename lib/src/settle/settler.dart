@@ -171,9 +171,11 @@ final class Settler {
       if (!options.transitive) {
         break;
       }
-      // Only the spans that the sweep finds get full references, not those of
-      // round 1, which count everything that no live code reaches as dead:
-      // most of that is alive again in later rounds.
+      // A probed member's uses come only from the files that name its type, so
+      // before the next round calls it dead, its full references are added.
+      // The spans of round 1 are not checked this way: they count everything
+      // that no live code reaches as dead, and most of that is alive again in
+      // later rounds.
       final next = await probedRefs.addFullReferences(
         () => _transitive.sweep(
           candidates,
