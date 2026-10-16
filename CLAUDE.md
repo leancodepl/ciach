@@ -219,8 +219,9 @@ explicit null check.
   pattern, and an object pattern of a non-nullable type, never match `null`,
   so they need no `?`: `case (:final range, :final code)`, not
   `case (:final range, :final code)?`.
-- `merge_identical_switch_arms` joins neighboring arms that have the same body
-  with `||`. Merge nested `if`s into one if-case with a `when` guard.
+- `merge_identical_switch_arms` joins arms that have the same body with `||`,
+  also when other arms separate them, as long as every value still reaches the
+  same body. Merge nested `if`s into one if-case with a `when` guard.
 - A function that picks a result by the shape of a value is a switch
   expression, without if/return chains or nested conditional expressions. Read
   JSON and YAML with a switch over map patterns. Bind and test in one step,
@@ -318,8 +319,11 @@ explicit null check.
   request and list the cases that block it, instead of only reporting what a
   later pull request could remove.
 - Don't leave a case out as a shortcut, and never because of a limit that you
-  haven't checked ("can't be told apart"). Check what the exclusion does to the
-  rest of the code, and whether it undoes the point of the pull request.
+  haven't checked ("can't be told apart"). When a rewrite is unsafe only in
+  some cases, such as moving a switch arm past an arm that may match the same
+  value, find out which cases those are and rewrite the others. Check what the
+  exclusion does to the rest of the code, and whether it undoes the point of
+  the pull request.
 - Findings carry the kind names that `--kinds` filters on.
 - Results must not depend on input order. Break ties explicitly, collect every
   match rather than the first one that the server lists, and make sure that a

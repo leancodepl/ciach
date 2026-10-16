@@ -7,12 +7,9 @@
 // test_reflective_loader discovers tests by their `test_` prefix.
 // ignore_for_file: non_constant_identifier_names
 
-import 'package:analyzer_testing/analysis_rule/analysis_rule.dart';
-import 'package:ciach_lints/src/merge_identical_switch_arms.dart';
-import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 
-import 'support/fixes.dart';
+import 'support/switch_arms.dart';
 
 void main() {
   defineReflectiveSuite(() {
@@ -21,34 +18,7 @@ void main() {
 }
 
 @reflectiveTest
-class MergeIdenticalSwitchArmsTest() extends AnalysisRuleTest {
-  @override
-  void setUp() {
-    rule = MergeIdenticalSwitchArms();
-    super.setUp();
-  }
-
-  /// Checks that the arm [flagged] in [code] is flagged with [advice] in the
-  /// correction, and that the fix turns [code] into [fixed].
-  Future<void> assertMerges(
-    String code,
-    String flagged, {
-    required String advice,
-    required String fixed,
-  }) async {
-    await assertDiagnostics(code, [
-      lint(code.indexOf(flagged), flagged.length, correctionContains: advice),
-    ]);
-    expect(
-      await applyFixes(
-        code,
-        MergeIdenticalSwitchArms.code,
-        MergeSwitchArms.new,
-      ),
-      fixed,
-    );
-  }
-
+class MergeIdenticalSwitchArmsTest() extends SwitchArmsTest {
   Future<void> test_twoArms() async {
     await assertMerges(
       '''
@@ -118,27 +88,6 @@ int f(int n) => switch (n) {
     );
   }
 
-  Future<void> test_runThatEndsWithWildcard() async {
-    await assertMerges(
-      '''
-int f(int n) => switch (n) {
-  0 => 1,
-  1 => 2,
-  2 => 2,
-  _ => 2,
-};
-''',
-      '2 => 2',
-      advice: 'removing the arms before the last one',
-      fixed: '''
-int f(int n) => switch (n) {
-  0 => 1,
-  _ => 2,
-};
-''',
-    );
-  }
-
   Future<void> test_sameVariables() async {
     await assertMerges(
       '''
@@ -188,35 +137,6 @@ void f(int n) {
     );
   }
 
-  Future<void> test_statementCaseBeforeDefault() async {
-    await assertMerges(
-      '''
-void f(int n) {
-  switch (n) {
-    case 0:
-      print('zero');
-    case 1:
-      print('other');
-    default:
-      print('other');
-  }
-}
-''',
-      "default:\n      print('other');",
-      advice: 'removing the arms before the last one',
-      fixed: '''
-void f(int n) {
-  switch (n) {
-    case 0:
-      print('zero');
-    default:
-      print('other');
-  }
-}
-''',
-    );
-  }
-
   Future<void> test_differentVariables() async {
     await assertNoDiagnostics('''
 int f((int, int) r) => switch (r) {
@@ -252,17 +172,6 @@ int f(int n, bool enabled) => switch (n) {
 int f(int n) => switch (n) {
   0 => 1,
   1 => 2,
-  _ => 3,
-};
-''');
-  }
-
-  Future<void> test_sameBodiesApart() async {
-    await assertNoDiagnostics('''
-int f(int n) => switch (n) {
-  0 => 1,
-  1 => 2,
-  2 => 1,
   _ => 3,
 };
 ''');
