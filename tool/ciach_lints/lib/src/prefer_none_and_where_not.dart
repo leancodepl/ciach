@@ -230,7 +230,7 @@ final class _NegatedPredicate._(final String code) {
       parameters: FormalParameterList(
             parameters: [
               RegularFormalParameter(
-                name: final name?,
+                :final name?,
                 isRequiredPositional: true,
                 functionTypedSuffix: null,
               ),
