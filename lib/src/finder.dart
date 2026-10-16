@@ -125,6 +125,7 @@ class Ciach {
   late final _settler = Settler(
     options: options,
     fetch: _fetch,
+    conditionalImports: _conditionalImports,
     sources: _sources,
     freezed: _freezed,
     classifier: _classifier,
@@ -356,8 +357,8 @@ class Ciach {
   ///
   /// Members of an unexported type wait until the types' references show
   /// which ones another package can reach; the rest are settled by
-  /// [probeMembers] first, and the settling completes the uses it found before
-  /// calling one dead.
+  /// [probeMembers] first, and the settling adds their full references to the
+  /// uses it found before calling one dead.
   Future<
     ({
       List<Candidate> candidates,
@@ -372,14 +373,9 @@ class Ciach {
     required String rootPath,
   }) async {
     final api = _publicApi;
-    // A namesake in another conditional-import variant shares the references
-    // of a member, so a member of a variant gets all of them at once.
     final gated = api == null
         ? const <Candidate>{}
-        : collected
-              .where(ReachableTypes.isGated)
-              .whereNot((c) => _conditionalImports.contains(c.path))
-              .toSet();
+        : collected.where(ReachableTypes.isGated).toSet();
     final candidates = <Candidate>[];
     final refsByCandidate = <List<Location>>[];
     Future<void> fetch(List<Candidate> batch, int files) async {

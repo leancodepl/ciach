@@ -5,9 +5,11 @@
  */
 
 import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/fetch/reference_fetch.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/settle/dead_spans.dart';
+import 'package:ciach/src/settle/reference_classifier.dart';
 import 'package:ciach/src/settle/transitive.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location;
 
@@ -16,29 +18,48 @@ import 'package:pro_lsp/pro_lsp.dart' show Location;
 ///
 /// Such uses prove a member used, unless they all lie in dead code: a use
 /// elsewhere, through a value whose type the file doesn't name, may still
-/// keep it alive. Before the transitive sweep calls such a member dead, its
-/// full references replace the probed ones.
+/// keep it alive. Before the transitive sweep calls such a member dead, the
+/// server's full references of the member are added to the probed uses, and
+/// to the references of its namesakes in other conditional-import variants,
+/// which share them.
 final class ProbedReferences {
-  ProbedReferences(this._fetch, Set<Candidate> probed) : _probed = probed;
+  ProbedReferences({
+    required ReferenceFetch fetch,
+    required ReferenceClassifier classifier,
+    required ConditionalImports conditionalImports,
+    required LspClient client,
+    required List<Candidate> candidates,
+    required List<List<Location>> refsByCandidate,
+    required String rootPath,
+    required Set<Candidate> probed,
+  }) : _fetch = fetch,
+       _classifier = classifier,
+       _conditionalImports = conditionalImports,
+       _client = client,
+       _candidates = candidates,
+       _refsByCandidate = refsByCandidate,
+       _rootPath = rootPath,
+       _probed = {...probed};
 
   final ReferenceFetch _fetch;
+  final ReferenceClassifier _classifier;
+  final ConditionalImports _conditionalImports;
+  final LspClient _client;
+  final List<Candidate> _candidates;
+  final List<List<Location>> _refsByCandidate;
+  final String _rootPath;
   final Set<Candidate> _probed;
 
-  /// [spans] after giving each probed candidate whose references all lie in
-  /// them its full references in [refsByCandidate], as often as that changes
-  /// them.
-  Future<DeadSpans> completeIn(
-    DeadSpans Function() spans,
-    LspClient client,
-    List<Candidate> candidates,
-    List<List<Location>> refsByCandidate, {
-    required String rootPath,
-  }) async {
+  late final _namesakes = _conditionalImports.namesakesIn(_candidates);
+
+  /// [spans] after adding its full references to each probed candidate whose
+  /// references all lie in them, as often as that changes them.
+  Future<DeadSpans> addFullReferences(DeadSpans Function() spans) async {
     var dead = spans();
     while (_probed.isNotEmpty) {
-      final liveRefs = TransitiveSweep.liveRefs(refsByCandidate, dead);
+      final liveRefs = TransitiveSweep.liveRefs(_refsByCandidate, dead);
       final unsure = <Candidate, int>{
-        for (final (i, candidate) in candidates.indexed)
+        for (final (i, candidate) in _candidates.indexed)
           if (liveRefs[i].isEmpty && _probed.contains(candidate)) candidate: i,
       };
       if (unsure.isEmpty) {
@@ -46,16 +67,23 @@ final class ProbedReferences {
       }
       _probed.removeAll(unsure.keys);
       final fetched = await _fetch.references(
-        client,
+        _client,
         unsure.keys.toList(),
         totalFiles: unsure.keys.map((c) => c.path).toSet().length,
-        rootPath: rootPath,
+        rootPath: _rootPath,
       );
       for (final (j, candidate) in fetched.checked.indexed) {
-        refsByCandidate[unsure[candidate]!] = fetched.refs[j];
+        final i = unsure[candidate]!;
+        _add(i, fetched.refs[j]);
+        for (final namesake in _namesakes[i]) {
+          _add(namesake, _classifier.externalRefs(candidate, fetched.refs[j]));
+        }
       }
       dead = spans();
     }
     return dead;
   }
+
+  void _add(int i, List<Location> refs) =>
+      _refsByCandidate[i] = {..._refsByCandidate[i], ...refs}.toList();
 }

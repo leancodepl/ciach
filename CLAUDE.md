@@ -286,6 +286,9 @@ explicit null check.
   carries.
 - Don't put one caller's special case into a general function's result, such
   as a `null` placeholder in a list; handle it in that caller.
+- When a later step adds to data that an earlier step combined, such as the
+  references that conditional-import variants share, combine them again in
+  that step, instead of keeping the step's input away from it.
 - Don't add what nobody asked for: a flag that turns the new behavior off, a
   deprecated alias, a second accepted spelling of an input, or a second quick
   fix that goes the other way. Ask first. Reject a wrong input with an error

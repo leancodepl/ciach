@@ -1,4 +1,5 @@
 import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/flutter_widgets.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/fetch/cross_library_refs.dart';
@@ -60,11 +61,13 @@ final class Settler {
     required ReferenceClassifier classifier,
     required Verdict verdict,
     required ReferenceFetch fetch,
+    required ConditionalImports conditionalImports,
   }) : _sources = sources,
        _freezed = freezed,
        _classifier = classifier,
        _verdict = verdict,
-       _fetch = fetch;
+       _fetch = fetch,
+       _conditionalImports = conditionalImports;
 
   final FinderOptions options;
   final SourceIndex _sources;
@@ -72,6 +75,7 @@ final class Settler {
   final ReferenceClassifier _classifier;
   final Verdict _verdict;
   final ReferenceFetch _fetch;
+  final ConditionalImports _conditionalImports;
 
   late final _recovery = ReferenceRecovery(
     sources: _sources,
@@ -108,7 +112,8 @@ final class Settler {
 
   /// The findings for [candidates], from the server's [refsByCandidate].
   /// The references of the [probed] candidates are the uses `probeMembers`
-  /// found, which a round completes before calling one dead.
+  /// found, to which a round adds their full references before calling one
+  /// dead.
   Future<Settled> settle(
     LspClient client,
     List<Candidate> candidates,
@@ -126,20 +131,22 @@ final class Settler {
       rootPath: rootPath,
     );
 
-    final probedRefs = ProbedReferences(_fetch, {...probed});
-    Future<DeadSpans> completed(DeadSpans Function() spans) =>
-        probedRefs.completeIn(
-          spans,
-          client,
-          candidates,
-          refsByCandidate,
-          rootPath: rootPath,
-        );
+    final probedRefs = ProbedReferences(
+      fetch: _fetch,
+      classifier: _classifier,
+      conditionalImports: _conditionalImports,
+      client: client,
+      candidates: candidates,
+      refsByCandidate: refsByCandidate,
+      rootPath: rootPath,
+      probed: probed,
+    );
 
     var crossLib = CrossLibraryReferences.empty;
     // Round 1 assumes everything no live code reaches is dead, which later
     // rounds narrow down as they would for a full set of references, so only
-    // the spans of actual findings call for completing probed uses.
+    // the spans of actual findings call for the full references of probed
+    // candidates.
     var deadSpans = options.transitive
         ? _transitive.allUnreached(candidates, refsByCandidate, rootPath)
         : DeadSpans.empty;
@@ -168,7 +175,7 @@ final class Settler {
       if (!options.transitive) {
         break;
       }
-      final next = await completed(
+      final next = await probedRefs.addFullReferences(
         () => _transitive.sweep(
           candidates,
           refsByCandidate,
