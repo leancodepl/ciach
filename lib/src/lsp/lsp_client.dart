@@ -58,9 +58,13 @@ class LspClient {
   /// Completers waiting for the server to become idle.
   final _idleWaiters = <Completer<void>>[];
 
-  /// True from when [initialize] adds the workspace folder until the server
-  /// starts analyzing it. An idle report in between doesn't end the wait.
+  /// True from when [initialize] adds the workspace folder, or [didChange]
+  /// sends new content, until the server starts analyzing it. An idle report
+  /// in between doesn't end the wait.
   bool _awaitingAnalysis = false;
+
+  /// Completes when the server is idle after the last [didChange].
+  Completer<void> _changesAnalyzed = Completer()..complete();
 
   /// The empty directory the server starts in when [initialize] gets
   /// analysis options. [dispose] deletes it.
@@ -308,6 +312,9 @@ class LspClient {
     if (analyzing) {
       _awaitingAnalysis = false;
     } else if (!_awaitingAnalysis) {
+      if (!_changesAnalyzed.isCompleted) {
+        _changesAnalyzed.complete();
+      }
       final waiters = List.of(_idleWaiters);
       _idleWaiters.clear();
       for (final waiter in waiters) {
@@ -319,7 +326,11 @@ class LspClient {
   }
 
   void _failIdleWaiters(Object error) {
-    final waiters = [..._idleWaiters, ..._outlineWaiters.values];
+    final waiters = [
+      ..._idleWaiters,
+      ..._outlineWaiters.values,
+      _changesAnalyzed,
+    ];
     _idleWaiters.clear();
     _outlineWaiters.clear();
     for (final waiter in waiters) {
@@ -389,6 +400,15 @@ class LspClient {
   Map<String, List<lsp.Diagnostic>> get diagnostics =>
       .unmodifiable(_diagnostics);
 
+  /// Completes once the server has analyzed the content that every [didChange]
+  /// so far sent, or after [timeout].
+  ///
+  /// Unlike [waitForAnalysisComplete], this doesn't miss an analysis that
+  /// ends before the call.
+  Future<void> waitForChangesAnalyzed({
+    Duration timeout = const .new(minutes: 10),
+  }) => _changesAnalyzed.future.timeout(timeout, onTimeout: () {});
+
   /// Notifies the server that [uri] is open with the given [text].
   void didOpen(Uri uri, String text) {
     _versions[uri.toString()] = 1;
@@ -408,6 +428,10 @@ class LspClient {
   /// session only; the file on disk doesn't change.
   void didChange(Uri uri, String text) {
     final key = uri.toString();
+    _awaitingAnalysis = true;
+    if (_changesAnalyzed.isCompleted) {
+      _changesAnalyzed = Completer();
+    }
     _client.server.textDocument.didChange(
       .new(
         textDocument: .new(
