@@ -109,7 +109,9 @@ easy-to-follow sentences, not how it works inside.
   with a short hint that doesn't list its members.
 - A lint's message and fix title say what the fix will do to the flagged code,
   and show the replacement. The fix produces the shortest idiomatic form:
-  `s?.length` before `s?.let(…)`.
+  `s?.length` before `s?.let(…)`. It leaves nothing for the lint to flag, so
+  it makes every rewrite that running it again would make, and its tests
+  check that the fixed code compiles with no diagnostics.
 
 # Code comments
 
@@ -150,9 +152,12 @@ make sure it can't be read as its opposite (`dead` for containers not yet
 proven live), and avoid stutter (`button-button`). When two fields hold nearly
 the same data, make the difference show in their names.
 
-A name claims no more than the code does, and it doesn't list every case
-either. `_directiveEnd` claimed every directive for a function that skips only
-some, and `_libraryImportOrPartOfEnd` listed every case; both were rejected.
+A name claims no more than the code does, and it doesn't list cases either.
+`_directiveEnd` claimed every directive for a function that skips only some,
+`_libraryImportOrPartOfEnd` listed every case, and the lint name
+`prefer_none_and_where_not` listed two of the five methods that the lint
+suggests; all three were rejected. Name a lint after what it flags:
+`avoid_negated_iterable_predicates`.
 Name a predicate after the property that the caller tests (`isDeclaration`),
 not after the case that prompted it (`isUnitTest`). Make every value of an enum
 answer the same question.
@@ -168,13 +173,12 @@ the reviewer's complaint.
 Write a string as one literal. Use a `'''` multi-line string for text with
 interior newlines (expected output, fixtures); the `prefer_multiline_string`
 rule in `tool/ciach_lints` flags a single-line literal with two or more
-interior `\n` escapes and offers a quick-fix that rewrites it. Split a string
-into adjacent literals only when the joined line would run past 120 columns,
-and never leave a short fragment in a literal of its own. Test and group
-descriptions follow the same rule, even when `dart format` then spreads the
-call over more lines. Never wrap with `+`. Option help texts in
-`lib/src/cli/args.dart` are plain sentences with no `\n`; the parser wraps
-them (`usageLineLength`).
+interior `\n` escapes and offers a quick-fix that rewrites it. Adjacent
+literals are for a line that would run past 120 columns:
+`prefer_single_string_literal` flags and joins the others, test and group
+descriptions included. Never leave a short fragment in a literal of its own,
+and never wrap with `+`. Option help texts in `lib/src/cli/args.dart` are
+plain sentences with no `\n`; the parser wraps them (`usageLineLength`).
 
 # Dot shorthands
 
@@ -192,10 +196,13 @@ null check cannot promote: `a.b?.let(f) ?? d`, never `a.b == null ? d :
 f(a.b!)`. Read as much as possible before the `let`, in the null-aware chain:
 `x?.y.let(f)`, not `x?.let((it) => f(it.y))`.
 
-To use a nullable value in a block or a collection literal, unwrap it with
-`if (x case final v?)`. Never loop over `x ?? const []`, and write `x!` only
-where the code already guarantees the value. Put the fallback of a null-aware
-chain last, as in `xs?.map(f) ?? const []`, and use `?.` rather than an
+To use a nullable value in a block or a collection literal, write
+`if (x != null)` when the null check promotes `x`, as it does a local
+variable, a parameter or a private final field. Otherwise, unwrap the value
+with `if (a.x case final x?)`. `avoid_empty_collection_fallback` flags a loop,
+a spread or a call on `x ?? const []`. Write `x!` only where the code already
+guarantees the value. Put the fallback of a null-aware chain last, as in
+`xs?.map(f) ?? const []`, and in an expression, use `?.` rather than an
 explicit null check.
 
 # Patterns
@@ -205,17 +212,27 @@ explicit null check.
   conditions that repeat the same null checks.
 - Put type tests, null checks and field values in the pattern, not in a `when`
   guard: `SemanticToken(isKeyword: true, :final text)`,
-  `PropertyAccess(:final target?)`. Capture a field under its own name, and use
-  the promoted variable rather than binding a second name for it.
+  `PropertyAccess(:final target?)`. `prefer_pattern_over_guard` flags a guard
+  that makes such a test on a variable of its own pattern, and moves the test.
+  Capture a field under its own name with the shorthand: `:final name?`, not
+  `name: final name?`. Do so also when the pattern gives the field a type:
+  `:final ExecutableFragment? declaredFragment`, not
+  `declaredFragment: final ExecutableFragment? fragment`. Use the promoted
+  variable rather than binding a second name for it.
 - Use the simplest pattern that does the job:
   `if (symbol.children case final children? when …)` rather than an object
-  pattern that destructures fields that are read once.
-- Merge arms that have the same body with `||`, and merge nested `if`s into one
-  if-case with a `when` guard.
+  pattern that destructures fields that are read once. A record, list or map
+  pattern, and an object pattern of a non-nullable type, never match `null`,
+  so they need no `?`: `case (:final range, :final code)`, not
+  `case (:final range, :final code)?`.
+- `merge_identical_switch_arms` joins neighboring arms that have the same body
+  with `||`. Merge nested `if`s into one if-case with a `when` guard.
 - A function that picks a result by the shape of a value is a switch
   expression, without if/return chains or nested conditional expressions. Read
-  JSON and YAML with a switch over map patterns. Bind and test in one step:
-  `if (files.length + variants.length case final count && > 0)`.
+  JSON and YAML with a switch over map patterns. Bind and test in one step,
+  the binding first: `case final count && > 0`, and
+  `case final path? && != unknownPackage` rather than
+  `case (!= unknownPackage && final path)?`.
 
 # Idioms
 
@@ -227,12 +244,13 @@ explicit null check.
   literal gets busy, give its predicate a named local.
 - Keep an `Iterable` lazy when it is read once or in part, and use a `Set` when
   duplicates mean nothing.
-- Prefer `for (final (i, x) in xs.indexed)` to an index loop, `whereNot(f)` and
-  `none(f)` to negations, collection methods (`where`, `firstWhereOrNull`) to
-  loops with early returns, tear-offs to lambdas that only forward, `min` and
-  `max` to hand-written ternaries, and `package:collection` equalities to
-  comparison loops. Write `map[key] ??= value` for a value that you already
-  have, and memoize with `CachedMap`.
+- Prefer `for (final (i, x) in xs.indexed)` to an index loop, collection
+  methods (`where`, `firstWhereOrNull`) to loops with early returns,
+  tear-offs to lambdas that only forward, `min` and `max` to hand-written
+  ternaries, and `package:collection` equalities to comparison loops. Write
+  `map[key] ??= value` for a value that you already have, and memoize with
+  `CachedMap`. `avoid_negated_iterable_predicates` replaces negations with
+  `none(f)` and `whereNot(f)`, and `any((x) => !f(x))` with `!every(f)`.
 - A type that has its own name and meaning, such as `QualifiedMember`, is a
   class, not a record typedef. A record that a function returns or yields has
   named fields. Never model data as a preformatted string whose format a
@@ -310,7 +328,9 @@ explicit null check.
   later pull request could remove.
 - Don't leave a case out as a shortcut, and never because of a limit that you
   haven't checked ("can't be told apart"). Check what the exclusion does to the
-  rest of the code, and whether it undoes the point of the pull request.
+  rest of the code, and whether it undoes the point of the pull request. This
+  covers the cases that the change sets out to handle; whether to handle a new
+  kind of case is the reviewer's decision, as "Deciding what to build" says.
 - Findings carry the kind names that `--kinds` filters on.
 - Results must not depend on input order. Break ties explicitly, collect every
   match rather than the first one that the server lists, and make sure that a
@@ -346,6 +366,9 @@ explicit null check.
   `example/` covers every kind that ciach reports. When a change forces an edit
   to an unrelated fixture, add a comment there that says why.
 - Test your own code, not the behavior of a library that it calls.
+- Test a function by calling it and checking its result, in the test file
+  named after its library: `promotion_test.dart` calls `isPromotable`, not the
+  fix that uses it. Leave its callers' tests to what the callers add.
 - Don't pin output that you know is invalid Dart without saying so in the pull
   request.
 - Before refactoring code that prints output, pin the output with a test.
@@ -413,21 +436,55 @@ request descriptions, docs and this file.
 - In docs, point at where a value is set rather than copying it, as "Before
   pushing" points at the workflow's `sdk:` key.
 
+# Deciding what to build
+
+A comment is either a request or a question. Build what a request asks for;
+answer a question, and build nothing until the reviewer says yes.
+
+- A request says what to do: "rename this", "use `whereNot` here", a
+  suggestion block, or a short remark on a line that the pull request made
+  wrong ("this PR updates this behavior"), which asks you to fix that line.
+- A question asks for your view: "Would it be possible to …?", "Can't these be
+  …?", "Aren't both valid?", an idea such as "We could also …", a 🤔, or a
+  proposal with a doubt in it, such as "Maybe `prefer_simpler_iterators`?".
+  Answer it and stop there. When you can't tell which kind a comment is (an
+  emoji, "nicer before"), ask.
+- To answer "Would it be possible …?", say whether it is possible and what it
+  would cost: the code and tests that it adds, the new ways it could go wrong,
+  and how many places it would change in this repository, which you count by
+  running it or searching. Then recommend for or against. For example,
+  supporting switch arms that other arms separate would have doubled
+  `merge_identical_switch_arms`, could have sent a value to a different body,
+  and flagged nothing in ciach, so it wasn't worth building.
+- Weigh the value of every addition against its cost before you build it,
+  also one that you thought of yourself. When it finds nothing in this
+  repository or in `example/`, or when it adds more code than the problem
+  warrants, say so instead of building it.
+- A lint's fix must never change what the code does. When a new case would
+  need a proof that a rewrite keeps the behavior, such as the order in which
+  switch arms match, keep to the cases that are safe without the proof, and ask
+  before building it.
+- When a reviewer's proposal is tentative and you would choose something else,
+  such as another name, propose your choice in the reply and wait for an
+  answer before you push it.
+- When an answer to a comment would make the pull request much bigger than the
+  comment suggests, such as a new file, a file that doubles or more tests than
+  the pull request had, stop and ask, with the numbers.
+- The rules that say to do all that a comment asks, to do the companion work
+  and not to leave a case out apply to requests. They never turn a question
+  into a request.
+
 # Review comments
 
 - Read the whole review: review bodies, conversation comments and every
   thread, not only the inline comments. Reread the whole thread before you say
   that a fix is done.
-- A short remark on a line that the pull request made wrong ("this PR updates
-  this behavior") asks you to fix that line. When a reviewer asks only for an
-  answer, answer and don't commit. When you can't tell what a comment wants (an
-  emoji, "nicer before"), ask, and never undo something that the reviewer asked
-  for earlier.
+- Never undo something that the reviewer asked for earlier.
 - Do all that a comment asks: both halves of a two-part request, and an edit of
   the description when asked, not an offer to make one. Do obvious companion
   work, such as a CI job for a new SDK floor, instead of offering it. When a
-  reviewer proposes a concrete shape, such as a config format, build that one
-  or say why not.
+  reviewer proposes a concrete shape, such as a config format, build that one,
+  or say why not and propose yours before building it.
 - When a reviewer flags a pattern, fix every instance in the pull request, and
   name the places in existing code that have the same problem. When they
   suggest a change to one line, don't copy it onto code that didn't have the

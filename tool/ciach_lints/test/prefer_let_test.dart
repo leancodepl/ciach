@@ -1,18 +1,13 @@
 // test_reflective_loader discovers tests by their `test_` prefix.
 // ignore_for_file: non_constant_identifier_names
 
-import 'package:analysis_server_plugin/edit/fix/dart_fix_context.dart';
-import 'package:analysis_server_plugin/src/correction/dart_change_workspace.dart';
-import 'package:analysis_server_plugin/src/correction/fix_generators.dart';
-import 'package:analysis_server_plugin/src/correction/fix_processor.dart';
-import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/src/diagnostic/diagnostic.dart' as diag;
-import 'package:analyzer_plugin/protocol/protocol_common.dart';
 import 'package:analyzer_testing/analysis_rule/analysis_rule.dart';
-import 'package:analyzer_testing/src/test_instrumentation_service.dart';
 import 'package:ciach_lints/src/prefer_let.dart';
 import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
+
+import 'support/fixes.dart';
 
 void main() {
   defineReflectiveSuite(() {
@@ -34,16 +29,6 @@ extension Let<T extends Object> on T {
 }
 ''');
     writeTestPackageConfig2();
-    registeredFixGenerators.registerFixForLint(
-      PreferLet.code,
-      ReplaceWithLet.new,
-    );
-  }
-
-  @override
-  Future<void> tearDown() async {
-    registeredFixGenerators.lintProducers.remove(PreferLet.code);
-    await super.tearDown();
   }
 
   /// Checks that [code] gets one `prefer_let` diagnostic per snippet in
@@ -76,33 +61,7 @@ extension Let<T extends Object> on T {
           correctionContains: i < quoted.length ? quoted[i] : null,
         ),
     ]);
-    final library = await result.session.getResolvedLibrary(
-      testFile.path,
-    ) as ResolvedLibraryResult;
-    final edits = <SourceEdit>[];
-    for (final diagnostic in result.diagnostics) {
-      if (diagnostic.diagnosticCode != PreferLet.code) {
-        continue;
-      }
-      final fixes = await computeFixes(
-        DartFixContext(
-          instrumentationService: TestInstrumentationService(),
-          workspace: DartChangeWorkspace([await session]),
-          libraryResult: library,
-          unitResult: result,
-          error: diagnostic,
-        ),
-      );
-      final fix = fixes.singleWhere((f) => f.kind == ReplaceWithLet.kind);
-      edits.addAll(fix.change.getFileEdit(testFile.path)!.edits);
-    }
-    // Later edits first, so earlier offsets stay valid as the text changes.
-    // Import insertions at the same offset collapse into one.
-    final seen = <(int, String)>{};
-    edits
-      ..retainWhere((e) => seen.add((e.offset, e.replacement)))
-      ..sort((a, b) => b.offset.compareTo(a.offset));
-    expect(SourceEdit.applySequence(result.content, edits), fixed);
+    expect(await applyFixes(code, PreferLet.code, ReplaceWithLet.new), fixed);
   }
 
   Future<void> test_switchToChain() async {
