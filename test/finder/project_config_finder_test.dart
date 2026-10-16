@@ -147,7 +147,6 @@ void unusedRouteHelper() {}
     final config = ProjectConfig.read(package.path);
     return .new(
       rootPath: package.path,
-      exportedPackages: const [],
       // Lists `Partial.notExported` rather than `Partial`, whose only user
       // is dead too.
       transitive: false,
@@ -197,9 +196,7 @@ void unusedRouteHelper() {}
   );
 
   test('without them, it is all reported', () async {
-    final result = await Ciach(
-      .new(rootPath: package.path, exportedPackages: const []),
-    ).run();
+    final result = await Ciach(.new(rootPath: package.path)).run();
     final unused = {
       for (final d in result.unused) '${d.filePath}:${d.qualifiedName}',
     };
