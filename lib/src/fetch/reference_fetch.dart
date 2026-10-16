@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/fetch/implicit_calls.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
@@ -39,6 +40,8 @@ final class ReferenceFetch {
   /// Queries `textDocument/references` for every candidate through one global
   /// pool, reporting `[done/total]` progress as each file's last query lands.
   /// A candidate whose request failed is left out, so it is never reported.
+  /// A `call` method's references also include its implicit uses, which the
+  /// query misses.
   Future<({List<Candidate> checked, List<List<Location>> refs})> references(
     LspClient client,
     List<Candidate> candidates, {
@@ -75,7 +78,19 @@ final class ReferenceFetch {
         refs.add(candidateRefs);
       }
     }
-    return (checked: checked, refs: refs);
+    final implicitCalls = await findImplicitCalls(
+      client: client,
+      sources: _sources,
+      calls: checked.where((c) => c.symbol.isCallMethod).toList(),
+      concurrency: options.concurrency,
+    );
+    return (
+      checked: checked,
+      refs: [
+        for (final (i, candidate) in checked.indexed)
+          [...refs[i], ...?implicitCalls[candidate]],
+      ],
+    );
   }
 
   Future<List<Location>?> _referencesOf(

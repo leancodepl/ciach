@@ -78,6 +78,9 @@ class LspClient {
   /// The version of each open document, raised by every [didChange].
   final _versions = <String, int>{};
 
+  /// The document that [didChange] changed last.
+  Uri? _lastChanged;
+
   /// Recent `window/logMessage` errors, oldest first.
   final _loggedErrors = <String>[];
 
@@ -307,9 +310,8 @@ class LspClient {
   }
 
   void _onAnalyzerStatus(Object? params) {
-    final analyzing = _analyzing =
-        params is Map && params['isAnalyzing'] == true;
-    if (analyzing) {
+    _analyzing = params is Map && params['isAnalyzing'] == true;
+    if (_analyzing) {
       _awaitingAnalysis = false;
     } else if (!_awaitingAnalysis) {
       final waiters = List.of(_idleWaiters);
@@ -394,26 +396,25 @@ class LspClient {
       .unmodifiable(_diagnostics);
 
   /// Completes once the server has analyzed the content that every
-  /// [didChange] so far sent; [changed] is one of the changed documents.
+  /// [didChange] so far sent.
   ///
   /// The server answers a request only after it has taken in the changes
   /// sent before it, and it reports the analysis that they start before that
   /// answer. So after the answer, an idle server has nothing left to analyze,
   /// and an idle report that was sent before the changes is already read.
-  Future<void> waitForChangesAnalyzed(Uri changed) async {
-    await _guard(
-      lsp.RequestMethod.foldingRange.value,
-      () => _client.server.textDocument.foldingRange(
-        .new(textDocument: .new(uri: changed.toString())),
-      ),
-    );
+  Future<void> waitForChangesAnalyzed() async {
+    if (_lastChanged case final changed?) {
+      await _guard(
+        lsp.RequestMethod.foldingRange.value,
+        () => _client.server.textDocument.foldingRange(
+          .new(textDocument: .new(uri: changed.toString())),
+        ),
+      );
+    }
     if (_analyzing) {
       await waitForAnalysisComplete();
     }
   }
-
-  /// Whether [didOpen] opened [uri].
-  bool isOpen(Uri uri) => _versions.containsKey(uri.toString());
 
   /// Notifies the server that [uri] is open with the given [text].
   void didOpen(Uri uri, String text) {
@@ -430,15 +431,23 @@ class LspClient {
     );
   }
 
+  /// Opens [uri] with [text], unless it is open already.
+  void ensureOpen(Uri uri, String text) {
+    if (!_versions.containsKey(uri.toString())) {
+      didOpen(uri, text);
+    }
+  }
+
   /// Replaces the content of the open document [uri] with [text], for this
   /// session only; the file on disk doesn't change.
   void didChange(Uri uri, String text) {
     final key = uri.toString();
+    _lastChanged = uri;
     _client.server.textDocument.didChange(
       .new(
         textDocument: .new(
           uri: key,
-          version: _versions[key] = (_versions[key] ?? 1) + 1,
+          version: _versions.update(key, (version) => version + 1),
         ),
         contentChanges: [
           .textDocumentContentChangeWholeDocument(.new(text: text)),

@@ -180,7 +180,7 @@ final class _Lines {
   /// The zero-based line of [offset], and whether only whitespace comes
   /// before it on that line.
   ({int line, bool ownLine}) at(int offset) {
-    final line = lowerBound(_starts, offset + 1) - 1;
+    final line = positionIn(_starts, offset).line;
     return (
       line: line,
       ownLine: _content.substring(_starts[line], offset).trim().isEmpty,
