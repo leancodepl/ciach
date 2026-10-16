@@ -222,9 +222,8 @@ explicit null check.
   pattern, and an object pattern of a non-nullable type, never match `null`,
   so they need no `?`: `case (:final range, :final code)`, not
   `case (:final range, :final code)?`.
-- `merge_identical_switch_arms` joins arms that have the same body with `||`,
-  also when other arms separate them, as long as every value still reaches the
-  same body. Merge nested `if`s into one if-case with a `when` guard.
+- `merge_identical_switch_arms` joins neighboring arms that have the same body
+  with `||`. Merge nested `if`s into one if-case with a `when` guard.
 - A function that picks a result by the shape of a value is a switch
   expression, without if/return chains or nested conditional expressions. Read
   JSON and YAML with a switch over map patterns. Bind and test in one step,
@@ -322,11 +321,10 @@ explicit null check.
   request and list the cases that block it, instead of only reporting what a
   later pull request could remove.
 - Don't leave a case out as a shortcut, and never because of a limit that you
-  haven't checked ("can't be told apart"). When a rewrite is unsafe only in
-  some cases, such as moving a switch arm past an arm that may match the same
-  value, find out which cases those are and rewrite the others. Check what the
-  exclusion does to the rest of the code, and whether it undoes the point of
-  the pull request.
+  haven't checked ("can't be told apart"). Check what the exclusion does to the
+  rest of the code, and whether it undoes the point of the pull request. This
+  covers the cases that the change sets out to handle; whether to handle a new
+  kind of case is the reviewer's decision, as "Deciding what to build" says.
 - Findings carry the kind names that `--kinds` filters on.
 - Results must not depend on input order. Break ties explicitly, collect every
   match rather than the first one that the server lists, and make sure that a
@@ -432,21 +430,55 @@ request descriptions, docs and this file.
 - In docs, point at where a value is set rather than copying it, as "Before
   pushing" points at the workflow's `sdk:` key.
 
+# Deciding what to build
+
+A comment is either a request or a question. Build what a request asks for;
+answer a question, and build nothing until the reviewer says yes.
+
+- A request says what to do: "rename this", "use `whereNot` here", a
+  suggestion block, or a short remark on a line that the pull request made
+  wrong ("this PR updates this behavior"), which asks you to fix that line.
+- A question asks for your view: "Would it be possible to …?", "Can't these be
+  …?", "Aren't both valid?", an idea such as "We could also …", a 🤔, or a
+  proposal with a doubt in it, such as "Maybe `prefer_simpler_iterators`?".
+  Answer it and stop there. When you can't tell which kind a comment is (an
+  emoji, "nicer before"), ask.
+- To answer "Would it be possible …?", say whether it is possible and what it
+  would cost: the code and tests that it adds, the new ways it could go wrong,
+  and how many places it would change in this repository, which you count by
+  running it or searching. Then recommend for or against. For example,
+  supporting switch arms that other arms separate would have doubled
+  `merge_identical_switch_arms`, could have sent a value to a different body,
+  and flagged nothing in ciach, so it wasn't worth building.
+- Weigh the value of every addition against its cost before you build it,
+  also one that you thought of yourself. When it finds nothing in this
+  repository or in `example/`, or when it adds more code than the problem
+  warrants, say so instead of building it.
+- A lint's fix must never change what the code does. When a new case would
+  need a proof that a rewrite keeps the behavior, such as the order in which
+  switch arms match, keep to the cases that are safe without the proof, and ask
+  before building it.
+- When a reviewer's proposal is tentative and you would choose something else,
+  such as another name, propose your choice in the reply and wait for an
+  answer before you push it.
+- When an answer to a comment would make the pull request much bigger than the
+  comment suggests, such as a new file, a file that doubles or more tests than
+  the pull request had, stop and ask, with the numbers.
+- The rules that say to do all that a comment asks, to do the companion work
+  and not to leave a case out apply to requests. They never turn a question
+  into a request.
+
 # Review comments
 
 - Read the whole review: review bodies, conversation comments and every
   thread, not only the inline comments. Reread the whole thread before you say
   that a fix is done.
-- A short remark on a line that the pull request made wrong ("this PR updates
-  this behavior") asks you to fix that line. When a reviewer asks only for an
-  answer, answer and don't commit. When you can't tell what a comment wants (an
-  emoji, "nicer before"), ask, and never undo something that the reviewer asked
-  for earlier.
+- Never undo something that the reviewer asked for earlier.
 - Do all that a comment asks: both halves of a two-part request, and an edit of
   the description when asked, not an offer to make one. Do obvious companion
   work, such as a CI job for a new SDK floor, instead of offering it. When a
-  reviewer proposes a concrete shape, such as a config format, build that one
-  or say why not.
+  reviewer proposes a concrete shape, such as a config format, build that one,
+  or say why not and propose yours before building it.
 - When a reviewer flags a pattern, fix every instance in the pull request, and
   name the places in existing code that have the same problem. When they
   suggest a change to one line, don't copy it onto code that didn't have the
