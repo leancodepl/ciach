@@ -11,6 +11,7 @@ import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/settle/dead_spans.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
 import 'package:ciach/src/settle/transitive.dart';
+import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location;
 
 /// The candidates whose references came from `probeMembers`: the uses it
@@ -80,18 +81,22 @@ final class ProbedReferences {
       totalFiles: unsure.keys.map((c) => c.path).toSet().length,
       rootPath: _rootPath,
     );
-    final added = <int, Set<Location>>{};
-    for (final (j, candidate) in fetched.checked.indexed) {
-      final i = unsure[candidate]!;
-      (added[i] ??= {}).addAll(fetched.refs[j]);
-      // A namesake in another variant shares the references, as
-      // `ConditionalImports.share` does with the first ones.
-      for (final namesake in _namesakes[i]) {
-        (added[namesake] ??= {}).addAll(
-          _classifier.externalRefs(candidate, fetched.refs[j]),
+    final added =
+        [
+          for (final (j, candidate) in fetched.checked.indexed) ...[
+            (index: unsure[candidate]!, refs: fetched.refs[j]),
+            // A namesake in another variant shares the references, as
+            // `ConditionalImports.share` does with the first ones.
+            for (final namesake in _namesakes[unsure[candidate]!])
+              (
+                index: namesake,
+                refs: _classifier.externalRefs(candidate, fetched.refs[j]),
+              ),
+          ],
+        ].groupFoldBy<int, Set<Location>>(
+          (addition) => addition.index,
+          (refs, addition) => (refs ?? {})..addAll(addition.refs),
         );
-      }
-    }
     return [
       for (final (i, refs) in refsByCandidate.indexed)
         if (added[i] case final extra?) {...refs, ...extra}.toList() else refs,
