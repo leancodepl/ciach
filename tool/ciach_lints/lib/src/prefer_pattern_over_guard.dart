@@ -13,13 +13,14 @@ import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
-import 'package:analyzer/dart/element/nullability_suffix.dart';
 import 'package:analyzer/dart/element/type.dart';
+import 'package:analyzer/dart/element/type_system.dart';
 import 'package:analyzer/error/error.dart';
 import 'package:analyzer/source/source_range.dart';
 import 'package:analyzer_plugin/utilities/change_builder/change_builder_core.dart';
 import 'package:analyzer_plugin/utilities/fixes/fixes.dart';
 import 'package:analyzer_plugin/utilities/range_factory.dart';
+import 'package:ciach_lints/src/guard_tests.dart';
 
 /// Flags a `when` clause that tests a variable of its own pattern in a way
 /// that the pattern can: `v is T`, `v != null`, and a comparison of `v` with
@@ -111,16 +112,18 @@ class MoveGuardIntoPattern({required super.context})
 }
 
 /// A [guarded] pattern whose `when` clause makes tests that the pattern can
-/// make: the [moves] that put them in the pattern, and the [rest] of the
-/// clause's `&&` operands.
+/// make: the [moves] that put them in the pattern, the [moved] operands of
+/// the clause, and the [rest] of its `&&` operands.
 class GuardRewrite._({
   required final GuardedPattern guarded,
   required final List<_Move> moves,
+  required final List<Expression> moved,
   required final List<Expression> rest,
   required final String content,
 }) {
   /// The rewrite of [guarded] in [content], the file's text, or `null` when
-  /// its `when` clause makes no test that the pattern can make.
+  /// its `when` clause makes no test that the pattern can make. It moves
+  /// every test that applying the fix again and again would move.
   static GuardRewrite? of(GuardedPattern guarded, String content) {
     final whenClause = guarded.whenClause;
     if (whenClause == null) {
@@ -138,34 +141,36 @@ class GuardRewrite._({
         ) ??
         guarded;
     final operands = _andOperands(whenClause.expression).toList();
-    final moves = <_Move>[];
+    final testsByVariable = <DeclaredVariablePattern, List<GuardTest>>{};
     for (final operand in operands) {
-      final test = _testOf(operand);
-      final declaration = variables.declarations[test?.variable.element];
-      if ((test, declaration) case (final test?, final declaration?)
-          when !moves.any((move) => move.declaration == declaration)) {
-        if (_Move.of(operand, test, declaration, scope, content)
-            case final move?) {
-          moves.add(move);
-        }
+      final test = guardTestOf(operand);
+      if ((test, variables.declarations[test?.variable.element]) case (
+        final test?,
+        final declaration?,
+      )) {
+        (testsByVariable[declaration] ??= []).add(test);
       }
     }
+    final moves = testsByVariable.entries
+        .map((entry) => _Move.of(entry.key, entry.value, scope, content))
+        .nonNulls
+        .toList();
     if (moves.isEmpty) {
       return null;
     }
-    final moved = {for (final move in moves) move.operand};
+    final moved = {for (final move in moves) ...move.operands};
     return GuardRewrite._(
       guarded: guarded,
       moves: moves,
+      moved: operands.where(moved.contains).toList(),
       rest: operands.where((operand) => !moved.contains(operand)).toList(),
       content: content,
     );
   }
 
   /// The moved tests, quoted, for the message: `'v is T' and 'w != null'`.
-  String get movedTests => moves
-      .map((move) => "'${_sourceOf(move.operand, content)}'")
-      .join(' and ');
+  String get movedTests =>
+      moved.map((operand) => "'${_sourceOf(operand, content)}'").join(' and ');
 
   /// The source of the rewritten pattern and what remains of its `when`
   /// clause.
@@ -190,131 +195,6 @@ class GuardRewrite._({
   }();
 }
 
-/// The test that an operand of a `when` clause makes on a [variable].
-sealed class _Test(final SimpleIdentifier variable);
-
-/// `variable is type`.
-final class _TypeTest(super.variable, final TypeAnnotation type) extends _Test;
-
-/// `variable != null`.
-final class _NullTest(super.variable) extends _Test;
-
-/// A test that the [pattern] makes, such as `> 0` or `true`. It
-/// [pinsValue] when the pattern matches one value only, so that the
-/// variable is redundant.
-final class _ValueTest(
-  super.variable,
-  final String pattern, {
-  required final bool pinsValue,
-}) extends _Test;
-
-/// Relational operators and the operators they become when their operands
-/// swap places: `0 < v` is `v > 0`.
-const _swapped = {
-  '==': '==',
-  '!=': '!=',
-  '<': '>',
-  '<=': '>=',
-  '>': '<',
-  '>=': '<=',
-};
-
-/// The test that [operand] makes on one variable, or `null` when it makes
-/// none that a pattern can make.
-_Test? _testOf(Expression operand) => switch (operand) {
-  IsExpression(
-    expression: final SimpleIdentifier variable,
-    notOperator: null,
-    :final type,
-  ) =>
-    _TypeTest(variable, type),
-  BinaryExpression(
-    operator: Token(type: .BANG_EQ),
-    leftOperand: final SimpleIdentifier variable,
-    rightOperand: NullLiteral(),
-  ) ||
-  BinaryExpression(
-    operator: Token(type: .BANG_EQ),
-    leftOperand: NullLiteral(),
-    rightOperand: final SimpleIdentifier variable,
-  ) => _NullTest(variable),
-  BinaryExpression(
-    :final operator,
-    leftOperand: final SimpleIdentifier variable,
-    :final rightOperand,
-  )
-      when _swapped.containsKey(operator.lexeme) && _isConstant(rightOperand) =>
-    _comparison(variable, operator.lexeme, rightOperand),
-  BinaryExpression(
-    :final operator,
-    :final leftOperand,
-    rightOperand: final SimpleIdentifier variable,
-  )
-      when _swapped.containsKey(operator.lexeme) && _isConstant(leftOperand) =>
-    _comparison(variable, _swapped[operator.lexeme]!, leftOperand),
-  SimpleIdentifier(:final staticType) when _isBool(staticType) => _ValueTest(
-    operand,
-    'true',
-    pinsValue: true,
-  ),
-  PrefixExpression(
-    operator: Token(type: .BANG),
-    operand: final SimpleIdentifier variable,
-  )
-      when _isBool(variable.staticType) =>
-    _ValueTest(variable, 'false', pinsValue: true),
-  _ => null,
-};
-
-/// The test `variable <operator> constant`.
-_ValueTest _comparison(
-  SimpleIdentifier variable,
-  String operator,
-  Expression constant,
-) => switch (operator) {
-  '==' => _ValueTest(variable, constant.toSource(), pinsValue: true),
-  _ => _ValueTest(
-    variable,
-    '$operator ${constant.toSource()}',
-    pinsValue: false,
-  ),
-};
-
-/// Whether [type] is `bool`, not `bool?`.
-bool _isBool(DartType? type) =>
-    type != null &&
-    type.isDartCoreBool &&
-    type.nullabilitySuffix == NullabilitySuffix.none;
-
-/// Whether [expression] can be a constant pattern: a literal, a negated
-/// number, or the name of a constant.
-bool _isConstant(Expression expression) => switch (expression) {
-  BooleanLiteral() ||
-  IntegerLiteral() ||
-  DoubleLiteral() ||
-  NullLiteral() ||
-  SimpleStringLiteral() => true,
-  PrefixExpression(
-    operator: Token(type: .MINUS),
-    operand: IntegerLiteral() || DoubleLiteral(),
-  ) =>
-    true,
-  SimpleIdentifier(:final element) ||
-  PrefixedIdentifier(:final element) ||
-  PropertyAccess(
-    target: Identifier(),
-    propertyName: SimpleIdentifier(:final element),
-  ) ||
-  DotShorthandPropertyAccess(
-    propertyName: SimpleIdentifier(:final element),
-  ) => switch (element) {
-    PropertyAccessorElement(:final variable) => variable.isConst,
-    VariableElement(:final isConst) => isConst,
-    _ => false,
-  },
-  _ => false,
-};
-
 /// The operands of [expression] joined by `&&`, or [expression] itself.
 Iterable<Expression> _andOperands(Expression expression) sync* {
   if (expression case BinaryExpression(
@@ -332,62 +212,170 @@ Iterable<Expression> _andOperands(Expression expression) sync* {
 /// A replacement of the source in [range] with [code].
 final class _Edit(final SourceRange range, final String code);
 
-/// The move of the test that an [operand] of a `when` clause makes on the
-/// variable of [declaration] into the pattern: [edit] rewrites the
-/// declaration.
-final class _Move({
-  required final Expression operand,
+/// The tests on the variable of [declaration] that move into it: the
+/// [operands] that made them leave the `when` clause, the [type] that the
+/// variable gets, whether it gets a null check, and the [valueTests] whose
+/// patterns join it or, when they [replaced] it, stand in its place.
+final class _Move._({
   required final DeclaredVariablePattern declaration,
-  required final _Edit edit,
+  required final List<Expression> operands,
+  required final TypeAnnotation? type,
+  required final bool nullChecked,
+  required final List<ValueTest> valueTests,
+  required final bool replaced,
+  required final String content,
 }) {
-  /// The move of [test], made by [operand], into [declaration], or `null`
-  /// when [test] pins the variable's value and [scope] reads the variable
-  /// somewhere else. [content] is the file's text.
+  /// The move of [tests], the tests on the variable of [declaration], or
+  /// `null` when none of them can move. [scope] is the node in which the
+  /// variable can be read, and [content] is the file's text.
+  ///
+  /// Moving a test can let a test before it move, as a pinned value can
+  /// replace the variable once nothing else reads it, so the tests are tried
+  /// in order until a pass moves none.
   static _Move? of(
-    Expression operand,
-    _Test test,
     DeclaredVariablePattern declaration,
+    List<GuardTest> tests,
     AstNode scope,
     String content,
   ) {
-    final declared = _sourceOf(declaration, content);
-    final bound = _withUnaryPatterns(declaration);
-    final readElsewhere = _readsOutside(scope, test.variable, operand);
-    final declarationEdit = switch (test) {
-      _TypeTest(:final type) => _Edit(
-        range.node(declaration),
-        _typed(declaration, _sourceOf(type, content)),
-      ),
-      _NullTest() => _Edit(range.node(declaration), '$declared?'),
-      _ValueTest(pinsValue: true) when readElsewhere => null,
-      // The test follows the variable and the null check or cast around it:
-      // `final v? && > 0`.
-      _ValueTest(:final pattern) when readElsewhere => _Edit(
-        range.node(bound),
-        '${_sourceOf(bound, content)} && $pattern',
-      ),
-      _ValueTest(:final pattern) => _Edit(
-        range.node(declaration),
-        _grouped(pattern, declaration),
-      ),
-    };
-    if (declarationEdit == null) {
+    final typeSystem = _libraryOf(declaration).typeSystem;
+    var type = declaration.type;
+    var nullChecked = false;
+    final valueTests = <ValueTest>[];
+    var replaced = false;
+    final moved = <Expression>[];
+    var moving = true;
+    while (moving) {
+      moving = false;
+      for (final test in tests) {
+        if (moved.contains(test.operand)) {
+          continue;
+        }
+        final readElsewhere = _readsOutside(scope, test.variable, [
+          ...moved,
+          test.operand,
+        ]);
+        switch (test) {
+          case TypeTest(type: final tested)
+              when _narrows(tested, type, typeSystem):
+            type = tested;
+          case NullTest():
+            nullChecked = true;
+          case ValueTest(pinsValue: false) when readElsewhere:
+            valueTests.add(test);
+          case ValueTest() when !readElsewhere:
+            valueTests.add(test);
+            replaced = true;
+          case TypeTest() || ValueTest():
+            continue;
+        }
+        moved.add(test.operand);
+        moving = true;
+      }
+    }
+    if (moved.isEmpty) {
       return null;
     }
+    return _Move._(
+      declaration: declaration,
+      operands: moved,
+      type: type,
+      nullChecked: nullChecked,
+      valueTests: valueTests,
+      replaced: replaced,
+      content: content,
+    );
+  }
+
+  /// The rewrite of the declaration, with the null check or cast around it.
+  late final _Edit edit = () {
+    final library = _libraryOf(declaration);
+    // Once a test has replaced the variable, the patterns stand in the
+    // variable's place, in the order in which they moved.
+    final patterns = valueTests.map((test) => test.pattern);
+    // Patterns that replace a typed variable keep its type, as
+    // `int() && > 0`, unless the matched value has that type already or
+    // every pattern pins a value of that type.
+    final keepsType =
+        replaced &&
+        switch ((type?.type, declaration.matchedValueType)) {
+          (final typed?, final matched?) =>
+            !library.typeSystem.isSubtypeOf(matched, typed) &&
+                !valueTests.every((test) => _pinsValueOf(test, typed, library)),
+          _ => false,
+        };
+    final core = switch ((replaced, type)) {
+      (true, final type?) when keepsType => [
+        '${_sourceOf(type, content)}()',
+        ...patterns,
+      ].join(' && '),
+      (true, _) => patterns.join(' && '),
+      (false, final type?) when type != declaration.type => _typed(
+        declaration,
+        _sourceOf(type, content),
+      ),
+      (false, _) => _sourceOf(declaration, content),
+    };
+    // A non-nullable type already rules out `null`.
+    final excludesNull =
+        (!replaced || keepsType) &&
+        switch (type?.type) {
+          final typed? => library.typeSystem.isNonNullable(typed),
+          null => false,
+        };
+    final nullCheck = nullChecked && !excludesNull;
+    final bound = _withUnaryPatterns(declaration);
+    final grouped = replaced && (nullCheck || bound != declaration)
+        ? '($core)'
+        : core;
+    final before = content.substring(bound.offset, declaration.offset);
+    final after = content.substring(declaration.end, bound.end);
+    final rewritten = [
+      '$before${nullCheck ? '$grouped?' : grouped}$after',
+      if (!replaced) ...patterns,
+    ].join(' && ');
     // A shorthand field, `:final v`, needs its name once its pattern is more
     // than the variable and the null check or cast around it.
-    final edit = switch ((test, bound.parent)) {
-      (_ValueTest(), final PatternField field) when field.name?.name == null =>
-        _Edit(
-          range.node(field),
-          '${declaration.name.lexeme}: '
-          '${_applied(declarationEdit, bound, content)}',
-        ),
-      _ => declarationEdit,
+    return switch (bound.parent) {
+      PatternField(name: PatternFieldName(name: null)) && final field
+          when valueTests.isNotEmpty =>
+        _Edit(range.node(field), '${declaration.name.lexeme}: $rewritten'),
+      _ => _Edit(range.node(bound), rewritten),
     };
-    return _Move(operand: operand, declaration: declaration, edit: edit);
-  }
+  }();
 }
+
+/// The library of [declaration]. `_PatternVariables` keeps only the
+/// declarations that have an element, and a local variable is in one
+/// library.
+LibraryElement _libraryOf(DeclaredVariablePattern declaration) =>
+    declaration.declaredFragment!.element.library!;
+
+/// Whether [tested] can replace [declared], the type that a variable has:
+/// when the variable has none, or [tested] is a subtype of it.
+bool _narrows(
+  TypeAnnotation tested,
+  TypeAnnotation? declared,
+  TypeSystem typeSystem,
+) => switch ((tested.type, declared)) {
+  (_, null) => true,
+  (final testedType?, TypeAnnotation(type: final declaredType?)) =>
+    typeSystem.isSubtypeOf(testedType, declaredType),
+  _ => false,
+};
+
+/// Whether [test] pins a value of [type] that isn't a number, so that every
+/// value that it matches has [type]. A pinned `3` matches `3.0` too.
+bool _pinsValueOf(ValueTest test, DartType type, LibraryElement library) =>
+    switch (test.pinnedType) {
+      final pinned? =>
+        library.typeSystem.isSubtypeOf(pinned, type) &&
+            !library.typeSystem.isSubtypeOf(
+              pinned,
+              library.typeProvider.numType,
+            ),
+      null => false,
+    };
 
 /// [declaration] with [type] as its type: `final T v` for `final v`, and
 /// `T v` for `var v`.
@@ -406,23 +394,14 @@ DartPattern _withUnaryPatterns(DartPattern pattern) => switch (pattern.parent) {
   _ => pattern,
 };
 
-/// The source of [node] with [edit], which is inside it, applied.
-String _applied(_Edit edit, AstNode node, String content) =>
-    '${content.substring(node.offset, edit.range.offset)}${edit.code}'
-    '${content.substring(edit.range.end, node.end)}';
-
-/// [code] in parentheses when it replaces a [declaration] that a cast or
-/// null-check pattern applies to: `(> 0)?`, as a relational pattern can't
-/// take a `?` and doesn't match a nullable value.
-String _grouped(String code, DeclaredVariablePattern declaration) =>
-    switch (declaration.parent) {
-      CastPattern() || NullCheckPattern() || NullAssertPattern() => '($code)',
-      _ => code,
-    };
-
-/// Whether [scope] reads the variable of [variable] outside [operand].
-bool _readsOutside(AstNode scope, SimpleIdentifier variable, AstNode operand) {
-  final reads = _Reads(variable.element, outside: operand);
+/// Whether [scope] reads the variable of [variable] outside every one of
+/// [operands].
+bool _readsOutside(
+  AstNode scope,
+  SimpleIdentifier variable,
+  List<AstNode> operands,
+) {
+  final reads = _Reads(variable.element, outside: operands);
   scope.accept(reads);
   return reads.found;
 }
@@ -444,15 +423,17 @@ class _PatternVariables() extends RecursiveAstVisitor<void> {
   }
 }
 
-/// Finds whether a node reads [element] outside the node [outside].
-class _Reads(final Element? element, {required final AstNode outside})
+/// Finds whether a node reads [element] outside every node in [outside].
+class _Reads(final Element? element, {required final List<AstNode> outside})
     extends RecursiveAstVisitor<void> {
   bool found = false;
 
   @override
   void visitSimpleIdentifier(SimpleIdentifier node) {
     if (node.element == element &&
-        (node.offset < outside.offset || node.end > outside.end)) {
+        outside.every(
+          (operand) => node.end <= operand.offset || node.offset >= operand.end,
+        )) {
       found = true;
     }
   }
