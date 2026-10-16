@@ -35,7 +35,8 @@ extension Let<T extends Object> on T {
   /// [flagged], in order of appearance, each spanning the snippet or, for one
   /// starting with `switch`, the whole switch up to its closing brace, and
   /// each suggesting the matching entry of [sketches] when given; and that
-  /// applying every offered [ReplaceWithLet] yields [fixed].
+  /// applying every offered [ReplaceWithLet] yields [fixed], which compiles
+  /// and leaves nothing for the lint to flag.
   Future<void> assertRewrites(
     String code,
     List<String> flagged, {
@@ -62,6 +63,8 @@ extension Let<T extends Object> on T {
         ),
     ]);
     expect(await applyFixes(code, PreferLet.code, ReplaceWithLet.new), fixed);
+    final file = newFile('$testPackageLibPath/fixed.dart', fixed);
+    expect((await resolveFile(file.path)).diagnostics, isEmpty);
   }
 
   Future<void> test_switchToChain() async {
@@ -302,6 +305,71 @@ ${_import}class C {
 }
 int h(C c) => c.s?.let((s) => s.length + 1) ?? -1;
 int i(C c, int s) => c.s?.let((it) => it.length + s) ?? 0;
+''',
+    );
+  }
+
+  Future<void> test_conditionalOnPrivateField() async {
+    await assertRewrites(
+      '''
+class C {
+  String? _s;
+  int f() => _s == null ? 0 : _s!.length + 1;
+}
+int g(C c) => c._s != null ? c._s!.length + 1 : -1;
+''',
+      [
+        '_s == null ? 0 : _s!.length + 1',
+        'c._s != null ? c._s!.length + 1 : -1',
+      ],
+      sketches: ['_s?.let((s) => …) ?? …', 'c._s?.let((s) => …) ?? …'],
+      fixed:
+          '''
+${_import}class C {
+  String? _s;
+  int f() => _s?.let((s) => s.length + 1) ?? 0;
+}
+int g(C c) => c._s?.let((s) => s.length + 1) ?? -1;
+''',
+    );
+  }
+
+  Future<void> test_conditionalOnFieldNamedOnlyWithUnderscores() async {
+    await assertRewrites(
+      '''
+class C {
+  String? __;
+}
+int f(C c) => c.__ != null ? c.__!.length + 1 : -1;
+''',
+      ['c.__ != null ? c.__!.length + 1 : -1'],
+      sketches: ['c.__?.let((it) => …) ?? …'],
+      fixed:
+          '''
+${_import}class C {
+  String? __;
+}
+int f(C c) => c.__?.let((it) => it.length + 1) ?? -1;
+''',
+    );
+  }
+
+  Future<void> test_conditionalOnPrivateFieldClashingWithAParameter() async {
+    await assertRewrites(
+      '''
+class C {
+  String? _s;
+}
+int f(C c, int s) => c._s == null ? 0 : c._s!.length + s;
+''',
+      ['c._s == null ? 0 : c._s!.length + s'],
+      sketches: ['c._s?.let((it) => …) ?? …'],
+      fixed:
+          '''
+${_import}class C {
+  String? _s;
+}
+int f(C c, int s) => c._s?.let((it) => it.length + s) ?? 0;
 ''',
     );
   }
