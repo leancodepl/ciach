@@ -191,7 +191,8 @@ final class OverrideRemovals {
 
   /// The span to delete for the override at [location], or `null` when it has
   /// to stay: an unscanned file, a declaration that cannot be read, a kind
-  /// this tool won't delete, or one a `// ciach:` marker keeps.
+  /// this tool won't delete, one a `// ciach:` marker keeps, or a declaring
+  /// parameter without a [StructuralChecks.declaringParameterCut].
   Future<CoupledRemoval?> _removalFor(Location location) async {
     final path = SourceIndex.pathOf(location.uri);
     if (!_scannedPaths.contains(path)) {
@@ -216,11 +217,21 @@ final class OverrideRemovals {
         null) {
       return null;
     }
-    // Deleting a declaring parameter changes the constructor signature at
-    // every call site.
-    if (kind == .field &&
-        await _isDeclaringParameter(uri, path, found.parent, start)) {
-      return null;
+    // A declaring parameter stays as a plain parameter, so that the
+    // constructor keeps its signature.
+    final DeclarationRange? cut;
+    switch (kind == .field
+        ? await _isDeclaringParameter(uri, path, found.parent, start)
+        : false) {
+      case false:
+        cut = null;
+      case true:
+        cut = _sources.declaringParameterCut(path, node);
+        if (cut == null) {
+          return null;
+        }
+      case null:
+        return null;
     }
     // No reference to check: the server answers a member's references for
     // its whole family of overrides, so the member being dead means none of
@@ -230,13 +241,13 @@ final class OverrideRemovals {
       kind: kind,
       range: node.codeRange.toDeclarationRange,
       fullRange: node.range.toDeclarationRange,
-      cut: null,
+      cut: cut,
     );
   }
 
   /// Whether the field named at [name] is a declaring parameter of [type]'s
-  /// primary constructor. `true` when the shape cannot be read.
-  Future<bool> _isDeclaringParameter(
+  /// primary constructor. `null` when the shape cannot be read.
+  Future<bool?> _isDeclaringParameter(
     Uri uri,
     String path,
     Outline? type,
@@ -247,11 +258,11 @@ final class OverrideRemovals {
       ranges = await _client.selectionRanges(uri, [name]);
     } on LspRequestException catch (e) {
       recordProblem(_uncheckedOverride, e, path: path, position: name);
-      return true;
+      return null;
     }
     final innermost = ranges.single;
     if (innermost == null) {
-      return true;
+      return null;
     }
     _sources.cacheSelectionRange(path, name, innermost);
     return _sources.isNameInTypeHeader(path, name, type);

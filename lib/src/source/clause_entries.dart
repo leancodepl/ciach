@@ -48,12 +48,13 @@ extension ClauseEntries on SourceIndex {
         if (!token.isComment) token.start,
   ];
 
-  /// Returns the clause entry at [loc] if [loc] is a whole entry of a `with` or
-  /// `implements` clause, like `M` in `class A with M {}`.
+  /// Returns the clause entry at [loc] if [loc] starts an entry of a `with` or
+  /// `implements` clause, like `M` in `class A with M {}` or in
+  /// `class A with M<int> {}`.
   ///
   /// [unit] is the outline of the file that holds [loc]. Returns `null` for any
   /// other reference to [name], such as a type annotation, an `extends` or `on`
-  /// clause, or `p.M` or `M<int>`.
+  /// clause, `p.M`, or a type argument like the `M` in `implements List<M>`.
   ClauseEntry? clauseEntryAt(Location loc, String name, Outline unit) {
     final path = SourceIndex.pathOf(loc.uri);
     final type = selectionRangeAt(path, loc.range.start);
@@ -62,7 +63,7 @@ extension ClauseEntries on SourceIndex {
     if (type == null ||
         clause == null ||
         keyword == null ||
-        type.range != loc.range ||
+        type.range.start != loc.range.start ||
         semanticTokens(path)?.startingAt(loc.range.start)?.text != name) {
       return null;
     }

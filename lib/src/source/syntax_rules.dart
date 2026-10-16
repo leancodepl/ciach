@@ -11,9 +11,13 @@
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
+import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/source/source_index.dart';
+import 'package:ciach/src/source/symbols.dart';
+import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location, Position, SelectionRange;
+import 'package:pro_lsp/pro_lsp.dart'
+    show Location, Position, Range, SelectionRange;
 
 /// Structural checks over a declaration or a reference, read from the
 /// server's semantic tokens and selection ranges cached in [SourceIndex]. When
@@ -70,6 +74,45 @@ extension StructuralChecks on SourceIndex {
     candidate.symbol.selectionRange.start,
     candidate.containerOutline,
   );
+
+  /// Returns the range that `--remove` deletes to turn the declaring parameter
+  /// [field] in [path] into a plain parameter, which keeps the constructor's
+  /// signature: its annotations and its `covariant`, `var` or `final`, up to
+  /// its type or name. `@override final int at` becomes `int at`.
+  ///
+  /// Returns `null` when [field] has no `var` or `final`, or when `required`
+  /// stands between its annotations and that keyword, so that one range can't
+  /// hold both.
+  DeclarationRange? declaringParameterCut(String path, Outline field) {
+    final name = field.element.range?.start;
+    final tokens = name?.let(
+      (name) => semanticTokens(path)?.between(field.codeRange.start, name),
+    );
+    final modifiers = tokens?.where(
+      (t) =>
+          t.isKeyword && const {'covariant', 'var', 'final'}.contains(t.text),
+    );
+    final (first, last) = (modifiers?.firstOrNull, modifiers?.lastOrNull);
+    if (name == null || tokens == null || first == null || last == null) {
+      return null;
+    }
+    // The first token that isn't a comment is the `@` of the first annotation.
+    final annotation = leadingMetadata(
+      path,
+      field,
+    ).firstWhereOrNull((t) => !t.isComment);
+    if (annotation != null &&
+        tokens.any((t) => t.isKeyword && t.text == 'required')) {
+      return null;
+    }
+    final end =
+        tokens.firstWhereOrNull((t) => last.start.isBefore(t.start))?.start ??
+        name;
+    return Range(
+      start: annotation?.start ?? first.start,
+      end: end,
+    ).toDeclarationRange;
+  }
 
   /// Whether the declaration named at [position] in [path] is in [type]'s
   /// header rather than its body.

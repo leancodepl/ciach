@@ -7,8 +7,8 @@ import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
 /// The source `--remove` would delete: each removable finding's
-/// [UnusedDeclaration.fullRange] and its coupled removals. A reference inside
-/// these spans keeps nothing alive.
+/// [UnusedDeclaration.cut], or else its [UnusedDeclaration.fullRange], and its
+/// coupled removals. A reference inside these spans keeps nothing alive.
 final class DeadSpans {
   DeadSpans._(this._byPath);
 
@@ -29,14 +29,14 @@ final class DeadSpans {
       }
       byPath
           .putIfAbsent(absoluteUnder(finding.filePath, rootPath), () => [])
-          .add((range: finding.fullRange, owner: finding));
+          .add((range: finding.cut ?? finding.fullRange, owner: finding));
       for (final coupled in finding.coupledRemovals) {
         if (!includeClauseCuts && coupled.kind == clauseCutKind) {
           continue;
         }
         byPath
             .putIfAbsent(absoluteUnder(coupled.filePath, rootPath), () => [])
-            .add((range: coupled.fullRange, owner: finding));
+            .add((range: coupled.cut ?? coupled.fullRange, owner: finding));
       }
     }
     return DeadSpans._(byPath);

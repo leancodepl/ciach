@@ -2,13 +2,13 @@
 // its clauses.
 // Scanned by its own test, with and without `transitive`.
 
-/// Used only in the `implements` clause of `Painter` -> USED without transitive,
-/// UNUSED with it.
-abstract interface class Shape<T> {}
+/// Used only in the bound of `Painter`'s type parameter -> USED without
+/// transitive, UNUSED with it.
+abstract interface class Shape {}
 
 /// Used only in the `with` clause of `Tile` -> UNUSED (class), reported
 /// without its method.
-mixin Painter implements Shape<int> {
+mixin Painter<T extends Shape> {
   void paint() {}
 }
 

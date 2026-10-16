@@ -51,7 +51,7 @@ void main() {
   final Pump pump = Turbine();
   pump.start();
   Tap().drip();
-  print([Dial(), Spigot(), const Meter(1), Pair()]);
+  print([Dial(), Spigot(), const Meter(1), Scale(weight: 1), Pair()]);
   print(Mixed().live);
 
   // References ReferencedAsTypeOnly as a *type* only (never constructs it), so

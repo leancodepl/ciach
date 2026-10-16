@@ -478,11 +478,45 @@ void main() {
       expect(overridesOf(gauge).single.kind, SymbolKind.field);
     });
 
-    test('keeps a member whose override is a declaring parameter', () async {
-      final rating = finding(await runOverrides(), 'Rated.rating');
-      expect(rating.removalBlocked, isTrue);
-      expect(rating.coupledRemovals, isEmpty);
-    });
+    test(
+      '--remove turns an override that is a declaring parameter into a plain parameter',
+      () async {
+        final copy = Directory.systemTemp.createTempSync('ciach_overrides_');
+        addTearDown(() => copy.deleteSync(recursive: true));
+        copyTree(Directory(fixturePath), copy);
+        const fixture = 'lib/scenarios/overrides.dart';
+        final result = await Ciach(
+          .new(
+            rootPath: copy.path,
+            exportedPackages: const [],
+            includeGlobs: const [fixture],
+          ),
+        ).run();
+
+        expect(finding(result, 'Rated').removalBlocked, isFalse);
+        removeDeclarations(result.unused, copy.path);
+
+        expect(
+          File(p.join(copy.path, fixture)).readAsStringSync(),
+          contains('''
+class const Meter(
+  /// The value.
+  int rating,
+);
+'''),
+        );
+      },
+    );
+
+    test(
+      'keeps a member whose override has annotations before `required`',
+      () async {
+        final weight = finding(await runOverrides(), 'Weighed.weight');
+        expect(weight.removalBlocked, isTrue);
+        expect(weight.coupledRemovals, isEmpty);
+        expect(weight.hint, Verdict.overriddenHint);
+      },
+    );
 
     test('couples an override sharing a field statement', () async {
       // `final int left = 1, right = 2;`: each variable is coupled as a field,
@@ -1188,7 +1222,7 @@ void main() {
         ('Checked.check', null),
         ('Primed.prime', null),
         ('Frame.frame', null),
-        ('Holder.hold', null),
+        ('Holder', Verdict.namedOnlyInClausesHint),
         ('Sketch', Verdict.namedOnlyInClausesHint),
         ('Glazed', Verdict.namedOnlyInClausesHint),
         ('Lacquer.lacquer', null),
@@ -1221,6 +1255,7 @@ void main() {
         expect(source, contains('class Canvas {\n}\n'));
         expect(source, contains('class Easel extends Object with Tidy {}\n'));
         expect(source, contains('class Checker with Checked {}\n'));
+        expect(source, contains('class Held {}\n'));
         expect(source, contains('class Brushed with Primed, Brush {}\n'));
         expect(source, contains('class Sketched(final int size);\n'));
         expect(source, contains('class Varnished = Object with Varnish;\n'));
@@ -1228,12 +1263,12 @@ void main() {
         expect(source, isNot(contains('Painter')));
         expect(source, isNot(contains('Drawable')));
         expect(source, isNot(contains('Plain')));
+        expect(source, isNot(contains('Holder')));
         expect(source, isNot(contains('Sketch ')));
         expect(source, isNot(contains('Glazed')));
         expect(result.emptiedContainers.map((c) => c.name), [
           'Checked',
           'Frame',
-          'Holder',
           'Lacquer',
           'Primed',
         ]);
@@ -1991,22 +2026,53 @@ void main() {
       );
     });
 
+    test('a dead declaring parameter is a removable field', () async {
+      final result = await runPrimary();
+      // A parameter group's own brackets must not be taken for the body.
+      for (final qualified in const [
+        'Endpoint.port',
+        'Chip.badge',
+        'Ranged.high',
+        'Secret.seed',
+      ]) {
+        final decl = findByQualified(result, qualified);
+        expect(decl, isNotNull, reason: 'nothing ever reads $qualified');
+        expect(
+          (decl!.kind, decl.removalBlocked, decl.hint),
+          (SymbolKind.field, false, null),
+        );
+      }
+    });
+
     test(
-      'a dead declaring parameter is reported but removal-blocked',
+      '--remove turns dead declaring parameters into plain parameters',
       () async {
-        final result = await runPrimary();
-        // A parameter group's own brackets must not be taken for the body.
-        for (final qualified in const [
-          'Endpoint.port',
-          'Chip.badge',
-          'Ranged.high',
-        ]) {
-          final decl = findByQualified(result, qualified);
-          expect(decl, isNotNull, reason: 'nothing ever reads $qualified');
-          expect(decl!.kind, SymbolKind.field);
-          expect(decl.removalBlocked, isTrue);
-          expect(decl.hint, contains('declaring parameter'));
-        }
+        final copy = Directory.systemTemp.createTempSync('ciach_primary_');
+        addTearDown(() => copy.deleteSync(recursive: true));
+        copyTree(Directory(fixturePath), copy);
+        const fixture = 'lib/scenarios/primary_constructors.dart';
+        final result = await Ciach(
+          .new(
+            rootPath: copy.path,
+            exportedPackages: const [],
+            includeGlobs: const [fixture],
+            kinds: const {.field},
+          ),
+        ).run();
+
+        removeDeclarations(result.unused, copy.path);
+
+        final source = File(p.join(copy.path, fixture)).readAsStringSync();
+        expect(
+          source,
+          contains('class Endpoint(final String host, int port);'),
+        );
+        expect(
+          source,
+          contains('class Chip({required var String label, int badge = 0}) {'),
+        );
+        expect(source, contains('class Ranged(var int low, [int high = 10]);'));
+        expect(source, contains('class const Secret._(int seed);'));
       },
     );
 

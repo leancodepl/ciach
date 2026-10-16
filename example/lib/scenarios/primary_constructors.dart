@@ -1,7 +1,8 @@
-// Fixture for Dart 3.13 primary constructors. The rule it pins down: a dead
-// declaration in a class HEADER is reported but never auto-removed, while the
-// BODY of the same class stays ordinary ground. Scanned only by the dedicated
-// primary-constructor tests; see test/finder_test.dart.
+// Fixture for Dart 3.13 primary constructors. The rules it pins down: a dead
+// primary constructor is reported but never auto-removed, and `--remove` turns
+// a dead declaring parameter into a plain parameter, while the BODY of the
+// same class stays ordinary ground. Scanned only by the dedicated
+// primary-constructor tests; see test/finder/finder_test.dart.
 
 // --- Live: nothing here may be reported ---
 
@@ -50,7 +51,7 @@ class Registry {
   int deadCounter = 0;
 }
 
-// --- Dead, but report-only: declared in the header ---
+// --- Dead declaring parameters: `--remove` drops their `var` or `final` ---
 
 class Endpoint(final String host, final int port);
 

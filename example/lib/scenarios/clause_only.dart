@@ -55,7 +55,8 @@ class Frame {
 
 class Picture extends Frame {}
 
-/// Generic -> stays; only its method is reported.
+/// Generic, and used only in a `with` clause -> UNUSED (class), reported
+/// without its method.
 mixin Holder<T> {
   void hold() {}
 }

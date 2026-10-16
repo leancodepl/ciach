@@ -40,14 +40,26 @@ class Dial implements Gauge {
   final num reading = 0;
 }
 
-/// Kept alive as the supertype of `Meter`.
+/// Used only in the `implements` clause of `Meter` -> UNUSED (class).
 abstract class Rated {
-  /// Never read -> UNUSED, but `Meter` declares its override in the class
-  /// header, where deleting it changes the constructor signature: report-only.
+  /// Never read -> UNUSED. `Meter` declares its override in the class header,
+  /// so `--remove` leaves a plain parameter there.
   int get rating;
 }
 
-class const Meter(@override final int rating) implements Rated;
+class const Meter(
+  /// The value.
+  @override final int rating,
+) implements Rated;
+
+/// Kept alive as the supertype of `Scale`.
+abstract class Weighed {
+  /// Never read -> UNUSED, but report-only: `Scale` declares its override with
+  /// an annotation before `required`.
+  int get weight;
+}
+
+class Scale({@override required var int weight}) implements Weighed;
 
 /// Kept alive as the supertype of `Pair`.
 abstract class Paired {
