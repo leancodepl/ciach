@@ -8,7 +8,7 @@
 // ignore_for_file: non_constant_identifier_names
 
 import 'package:analyzer_testing/analysis_rule/analysis_rule.dart';
-import 'package:ciach_lints/src/prefer_none_and_where_not.dart';
+import 'package:ciach_lints/src/avoid_negated_iterable_predicates.dart';
 import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 
@@ -16,7 +16,7 @@ import 'support/fixes.dart';
 
 void main() {
   defineReflectiveSuite(() {
-    defineReflectiveTests(PreferNoneAndWhereNotTest);
+    defineReflectiveTests(AvoidNegatedIterablePredicatesTest);
   });
 }
 
@@ -36,10 +36,10 @@ extension<T> on Iterable<T> {
 ''';
 
 @reflectiveTest
-class PreferNoneAndWhereNotTest() extends AnalysisRuleTest {
+class AvoidNegatedIterablePredicatesTest() extends AnalysisRuleTest {
   @override
   void setUp() {
-    rule = PreferNoneAndWhereNot();
+    rule = AvoidNegatedIterablePredicates();
     super.setUp();
     newPackage('collection').addFile('lib/collection.dart', '''
 extension IterableExtension<T> on Iterable<T> {
@@ -73,7 +73,11 @@ extension IterableExtension<T> on Iterable<T> {
     final needsImport =
         replacement.contains('none(') || replacement.contains('whereNot(');
     expect(
-      await applyFixes(code, PreferNoneAndWhereNot.code, RemoveNegation.new),
+      await applyFixes(
+        code,
+        AvoidNegatedIterablePredicates.code,
+        RemoveNegation.new,
+      ),
       '${needsImport || imported ? _import : ''}$_helpers'
       '${snippet.replaceFirst(flagged, replacement)}',
     );

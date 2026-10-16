@@ -25,11 +25,11 @@ import 'package:analyzer_plugin/utilities/range_factory.dart';
 /// `xs.none(f)` for `!xs.any(f)`, `xs.whereNot(f)` for
 /// `xs.where((x) => !f(x))`, `!xs.every(f)` for `xs.any((x) => !f(x))`.
 /// `none` and `whereNot` come from `package:collection`.
-class PreferNoneAndWhereNot() extends AnalysisRule {
+class AvoidNegatedIterablePredicates() extends AnalysisRule {
   this : super(name: code.lowerCaseName, description: code.problemMessage);
 
   static const code = LintCode(
-    'prefer_none_and_where_not',
+    'avoid_negated_iterable_predicates',
     "'{0}' says the same with fewer negations.",
     correctionMessage: "Try replacing it with '{0}'.",
     severity: .WARNING,

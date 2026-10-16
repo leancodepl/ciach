@@ -149,9 +149,12 @@ make sure it can't be read as its opposite (`dead` for containers not yet
 proven live), and avoid stutter (`button-button`). When two fields hold nearly
 the same data, make the difference show in their names.
 
-A name claims no more than the code does, and it doesn't list every case
-either. `_directiveEnd` claimed every directive for a function that skips only
-some, and `_libraryImportOrPartOfEnd` listed every case; both were rejected.
+A name claims no more than the code does, and it doesn't list cases either.
+`_directiveEnd` claimed every directive for a function that skips only some,
+`_libraryImportOrPartOfEnd` listed every case, and the lint name
+`prefer_none_and_where_not` listed two of the five methods that the lint
+suggests; all three were rejected. Name a lint after what it flags:
+`avoid_negated_iterable_predicates`.
 Name a predicate after the property that the caller tests (`isDeclaration`),
 not after the case that prompted it (`isUnitTest`). Make every value of an enum
 answer the same question.
@@ -243,8 +246,8 @@ explicit null check.
   tear-offs to lambdas that only forward, `min` and `max` to hand-written
   ternaries, and `package:collection` equalities to comparison loops. Write
   `map[key] ??= value` for a value that you already have, and memoize with
-  `CachedMap`. `prefer_none_and_where_not` replaces negations with `none(f)`
-  and `whereNot(f)`, and `any((x) => !f(x))` with `!every(f)`.
+  `CachedMap`. `avoid_negated_iterable_predicates` replaces negations with
+  `none(f)` and `whereNot(f)`, and `any((x) => !f(x))` with `!every(f)`.
 - A type that has its own name and meaning, such as `QualifiedMember`, is a
   class, not a record typedef. A record that a function returns or yields has
   named fields. Never model data as a preformatted string whose format a
