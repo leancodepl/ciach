@@ -1,7 +1,9 @@
 ## Unreleased
 
-- Stop listing a used member under "Recovered references" when one of its
-  uses is in unused code and `exported-packages` covers its package.
+- With `exported-packages`, fix two problems with a member of a type that no
+  other package can reach, when the member is used in unused code. If it is
+  also used in live code, it no longer shows up under "Recovered references".
+  If that live use is in an excluded file, it is no longer reported as unused.
   ([#149](https://github.com/leancodepl/ciach/pull/149))
 - `--remove` now lists the files that it deleted and the declarations that it
   left empty one per line. Before, it listed them on one line, separated by
