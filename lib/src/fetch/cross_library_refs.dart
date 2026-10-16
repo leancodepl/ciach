@@ -19,12 +19,8 @@ import 'package:ciach/src/source/reference_kinds.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/concurrency.dart';
-import 'package:ciach/src/util/log.dart';
-import 'package:ciach/src/util/plural.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
-
-final _log = Logger('ciach.finder');
 
 typedef _Site = ({Uri uri, Position position});
 
@@ -99,12 +95,6 @@ class CrossLibraryReferences {
       return empty;
     }
 
-    _log.fine(
-      () =>
-          'Looking up ${plural(sites.length, 'possible use', 'possible uses')} of '
-          '${plural(emptyRefNames.length, 'name', 'names')}; most named: '
-          '${_mostNamed(sites.map((site) => site.name))}.',
-    );
     final perSite = await mapPooled(sites, concurrency, (site) async {
       try {
         return await client.definition(site.uri, site.position);
@@ -193,15 +183,6 @@ class CrossLibraryReferences {
       }
     }
   }
-
-  /// The five most frequent [names], with their counts.
-  static String _mostNamed(Iterable<String> names) => names
-      .groupFoldBy<String, int>((name) => name, (count, _) => (count ?? 0) + 1)
-      .entries
-      .sortedBy<num>((e) => -e.value)
-      .take(5)
-      .map((e) => '${e.key} (${e.value})')
-      .join(', ');
 
   /// Whether [token] is a use of a local variable, which carries no
   /// modifiers.
