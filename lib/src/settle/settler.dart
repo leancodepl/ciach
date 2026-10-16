@@ -137,26 +137,26 @@ final class Settler {
       conditionalImports: _conditionalImports,
       client: client,
       candidates: candidates,
-      refsByCandidate: refsByCandidate,
       rootPath: rootPath,
       probed: probed,
     );
+    var refs = refsByCandidate;
 
     var crossLib = CrossLibraryReferences.empty;
     var deadSpans = options.transitive
-        ? _transitive.allUnreached(candidates, refsByCandidate, rootPath)
+        ? _transitive.allUnreached(candidates, refs, rootPath)
         : DeadSpans.empty;
     _Verdicts settled;
     Map<UnusedDeclaration, int> candidateOf;
     for (var round = 1; ; round++) {
-      final liveRefs = TransitiveSweep.liveRefs(refsByCandidate, deadSpans);
+      final liveRefs = TransitiveSweep.liveRefs(refs, deadSpans);
       crossLib = crossLib.merged(
         await _recovery.recover(client, candidates, liveRefs),
       );
       final result = await _round(
         client,
         candidates,
-        refsByCandidate,
+        refs,
         liveRefs,
         crossLib.whereNot(deadSpans.covers),
         deadSpans,
@@ -176,15 +176,18 @@ final class Settler {
       // The spans of round 1 are not checked this way: they count everything
       // that no live code reaches as dead, and most of that is alive again in
       // later rounds.
-      final next = await probedRefs.addFullReferences(
-        () => _transitive.sweep(
-          candidates,
-          refsByCandidate,
-          crossLib,
-          result.candidateOf,
-          rootPath,
-        ),
+      DeadSpans sweep() => _transitive.sweep(
+        candidates,
+        refs,
+        crossLib,
+        result.candidateOf,
+        rootPath,
       );
+      final swept = sweep();
+      final withFull = await probedRefs.withFullReferences(refs, swept);
+      final refsChanged = !identical(withFull, refs);
+      refs = withFull;
+      final next = refsChanged ? sweep() : swept;
       if (next.sameAs(deadSpans)) {
         if (round > 1) {
           _log.fine('Settled after ${plural(round, 'round', 'rounds')}.');

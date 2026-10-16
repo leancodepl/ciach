@@ -29,7 +29,6 @@ final class ProbedReferences {
     required ConditionalImports conditionalImports,
     required LspClient client,
     required List<Candidate> candidates,
-    required List<List<Location>> refsByCandidate,
     required String rootPath,
     required Set<Candidate> probed,
   }) : _fetch = fetch,
@@ -37,7 +36,6 @@ final class ProbedReferences {
        _conditionalImports = conditionalImports,
        _client = client,
        _candidates = candidates,
-       _refsByCandidate = refsByCandidate,
        _rootPath = rootPath,
        _probed = {...probed};
 
@@ -46,31 +44,34 @@ final class ProbedReferences {
   final ConditionalImports _conditionalImports;
   final LspClient _client;
   final List<Candidate> _candidates;
-  final List<List<Location>> _refsByCandidate;
   final String _rootPath;
+
+  /// The probed candidates whose full references haven't been fetched yet.
   final Set<Candidate> _probed;
 
   late final _namesakes = _conditionalImports.namesakesIn(_candidates);
 
-  /// Returns the dead spans that [spans] computes from the current
-  /// references, after giving each probed candidate that has no live use
-  /// left its full references.
+  /// Returns [refsByCandidate] with its full references added to each
+  /// probed candidate that the dead [spans] leave without a live use, and to
+  /// its namesakes.
   ///
   /// Such a candidate's probed uses all lie in dead code, but the files that
   /// the probe read may not hold all its uses: `make().close()` calls
   /// `Helper.close` in a file that never names `Helper`. So ciach asks the
-  /// server for every reference before it calls the candidate dead, and
-  /// recomputes the spans, which the added references can only shrink. A
-  /// candidate is asked for at most once.
-  Future<DeadSpans> addFullReferences(DeadSpans Function() spans) async {
-    final dead = spans();
-    final liveRefs = TransitiveSweep.liveRefs(_refsByCandidate, dead);
+  /// server for every reference before it calls the candidate dead. The added
+  /// references can only shrink the spans, so a candidate is asked for at
+  /// most once.
+  Future<List<List<Location>>> withFullReferences(
+    List<List<Location>> refsByCandidate,
+    DeadSpans spans,
+  ) async {
+    final liveRefs = TransitiveSweep.liveRefs(refsByCandidate, spans);
     final unsure = <Candidate, int>{
       for (final (i, candidate) in _candidates.indexed)
         if (liveRefs[i].isEmpty && _probed.contains(candidate)) candidate: i,
     };
     if (unsure.isEmpty) {
-      return dead;
+      return refsByCandidate;
     }
     _probed.removeAll(unsure.keys);
     final fetched = await _fetch.references(
@@ -79,18 +80,21 @@ final class ProbedReferences {
       totalFiles: unsure.keys.map((c) => c.path).toSet().length,
       rootPath: _rootPath,
     );
+    final added = <int, Set<Location>>{};
     for (final (j, candidate) in fetched.checked.indexed) {
       final i = unsure[candidate]!;
-      _add(i, fetched.refs[j]);
+      (added[i] ??= {}).addAll(fetched.refs[j]);
       // A namesake in another variant shares the references, as
       // `ConditionalImports.share` does with the first ones.
       for (final namesake in _namesakes[i]) {
-        _add(namesake, _classifier.externalRefs(candidate, fetched.refs[j]));
+        (added[namesake] ??= {}).addAll(
+          _classifier.externalRefs(candidate, fetched.refs[j]),
+        );
       }
     }
-    return spans();
+    return [
+      for (final (i, refs) in refsByCandidate.indexed)
+        if (added[i] case final extra?) {...refs, ...extra}.toList() else refs,
+    ];
   }
-
-  void _add(int i, List<Location> refs) =>
-      _refsByCandidate[i] = {..._refsByCandidate[i], ...refs}.toList();
 }

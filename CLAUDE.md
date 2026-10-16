@@ -236,7 +236,8 @@ explicit null check.
 
 # Idioms
 
-- Return a result; never fill a list that the caller passes in. A function that
+- Return a result; never fill a list that the caller passes in, or replace its
+  elements. A function that
   only builds a collection is `sync*`, or an expression body with a collection
   literal that uses `for`, `if` and `?key:`. A plain filter is `where(f)`, with
   `.toSet()` or `.toList()` when needed, not a collection-for literal. Never
