@@ -303,6 +303,7 @@ class Ciach {
         scannedPaths: files.where(opened.contains).toSet(),
         rootPath: rootPath,
         analysisRoot: analysisRoot,
+        probed: fetched.probed,
       );
     } finally {
       await client.dispose();
@@ -355,8 +356,15 @@ class Ciach {
   ///
   /// Members of an unexported type wait until the types' references show
   /// which ones another package can reach; the rest are settled by
-  /// [probeMembers] first.
-  Future<({List<Candidate> candidates, List<List<Location>> refsByCandidate})>
+  /// [probeMembers] first, and the settling completes the uses it found before
+  /// calling one dead.
+  Future<
+    ({
+      List<Candidate> candidates,
+      List<List<Location>> refsByCandidate,
+      Set<Candidate> probed,
+    })
+  >
   _references(
     LspClient client,
     List<Candidate> collected, {
@@ -386,7 +394,11 @@ class Ciach {
 
     await fetch(collected.whereNot(gated.contains).toList(), totalFiles);
     if (api == null || gated.isEmpty) {
-      return (candidates: candidates, refsByCandidate: refsByCandidate);
+      return (
+        candidates: candidates,
+        refsByCandidate: refsByCandidate,
+        probed: const <Candidate>{},
+      );
     }
     final types = await ReachableTypes.find(
       client: client,
@@ -410,7 +422,11 @@ class Ciach {
     candidates.addAll(probed.used);
     refsByCandidate.addAll(probed.refs);
     await fetch(probed.rest, probed.rest.map((c) => c.path).toSet().length);
-    return (candidates: candidates, refsByCandidate: refsByCandidate);
+    return (
+      candidates: candidates,
+      refsByCandidate: refsByCandidate,
+      probed: probed.used.toSet(),
+    );
   }
 
   /// Opens [path] in the server, noting it in [_directiveOnly] if [checkEmpty]
