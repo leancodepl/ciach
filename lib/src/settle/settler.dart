@@ -143,10 +143,6 @@ final class Settler {
     );
 
     var crossLib = CrossLibraryReferences.empty;
-    // Round 1 assumes everything no live code reaches is dead, which later
-    // rounds narrow down as they would for a full set of references, so only
-    // the spans of actual findings call for the full references of probed
-    // candidates.
     var deadSpans = options.transitive
         ? _transitive.allUnreached(candidates, refsByCandidate, rootPath)
         : DeadSpans.empty;
@@ -175,6 +171,9 @@ final class Settler {
       if (!options.transitive) {
         break;
       }
+      // Only the spans that the sweep finds get full references, not those of
+      // round 1, which count everything that no live code reaches as dead:
+      // most of that is alive again in later rounds.
       final next = await probedRefs.addFullReferences(
         () => _transitive.sweep(
           candidates,
