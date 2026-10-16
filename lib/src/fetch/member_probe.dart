@@ -41,7 +41,7 @@ probeMembers({
   for (final MapEntry(key: member, value: mentions)
       in mentionsOfMember.entries) {
     final use = mentions.firstWhereOrNull(
-      (mention) => definitionsOf[mention]!.any((t) => _declares(member, t)),
+      (mention) => definitionsOf[mention]!.any(member.isNamedAt),
     );
     if (use == null) {
       rest.add(member);
@@ -140,7 +140,3 @@ List<String> _spellings(Candidate member) =>
       'new' => [member.container!, 'new'],
       final name => [name],
     };
-
-bool _declares(Candidate member, Location target) =>
-    SourceIndex.pathOf(target.uri) == member.path &&
-    member.symbol.selectionRange.contains(target.range.start);

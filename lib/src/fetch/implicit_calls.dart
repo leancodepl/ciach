@@ -24,9 +24,9 @@ import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/source/comment_stripping.dart';
 import 'package:ciach/src/source/source_index.dart';
-import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/concurrency.dart';
 import 'package:ciach/src/util/log.dart';
+import 'package:ciach/src/util/plural.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart'
     show DiagnosticMessage, Location, Position, Range;
@@ -48,7 +48,9 @@ Future<Map<Candidate, List<Location>>> findImplicitCalls({
   if (calls.isEmpty) {
     return const {};
   }
-  _log.info('Looking up the implicit uses of ${calls.length} `call` methods…');
+  _log.info(
+    'Looking up the implicit uses of ${plural(calls.length, '`call` method', '`call` methods')}…',
+  );
   final callsByPath = calls.groupListsBy((call) => call.path);
   final errorsBefore = _errorKeys(client);
   for (final MapEntry(key: path, value: inFile) in callsByPath.entries) {
@@ -87,7 +89,7 @@ Future<Map<Candidate, List<Location>>> findImplicitCalls({
   return {
     for (final call in calls)
       if (selected
-              .where((use) => _declares(call, use.target))
+              .where((use) => call.isNamedAt(use.target))
               .map((use) => use.site)
               .toList()
           case final uses when uses.isNotEmpty)
@@ -186,14 +188,9 @@ Future<List<Range>> _usesAmong(
     text: rewritten,
     calls: [
       for (final (:site, :offset) in callOffsets)
-        (site: site, call: _positionIn(rewrittenStarts, offset)),
+        (site: site, call: positionIn(rewrittenStarts, offset)),
     ],
   );
-}
-
-Position _positionIn(List<int> lineStarts, int offset) {
-  final line = lowerBound(lineStarts, offset + 1) - 1;
-  return .new(line: line, character: offset - lineStarts[line]);
 }
 
 /// The method that each inserted `call` in [rewritten] resolves to, with the
@@ -229,7 +226,3 @@ Future<List<({Location site, Location target})>> _selectedCalls(
         ),
   ];
 }
-
-bool _declares(Candidate call, Location target) =>
-    SourceIndex.pathOf(target.uri) == call.path &&
-    call.symbol.selectionRange.contains(target.range.start);

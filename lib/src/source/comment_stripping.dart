@@ -14,6 +14,8 @@
 library;
 
 import 'package:ciach/src/util/extensions.dart';
+import 'package:collection/collection.dart';
+import 'package:pro_lsp/pro_lsp.dart' show Position;
 
 final _nonNewline = RegExp(r'[^\n]');
 
@@ -194,6 +196,12 @@ List<int> lineStartsOf(String content) => [
   for (var i = 0; i < content.length; i++)
     if (content[i] == '\n') i + 1,
 ];
+
+/// The LSP position of [offset] in content whose lines start at [lineStarts].
+Position positionIn(List<int> lineStarts, int offset) {
+  final line = lowerBound(lineStarts, offset + 1) - 1;
+  return .new(line: line, character: offset - lineStarts[line]);
+}
 
 /// Whether [comment] applies to the next line only: an analyzer
 /// `// ignore:`, a custom_lint `// expect_lint:` or a spell checker's
