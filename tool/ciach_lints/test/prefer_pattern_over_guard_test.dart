@@ -7,12 +7,9 @@
 // test_reflective_loader discovers tests by their `test_` prefix.
 // ignore_for_file: non_constant_identifier_names
 
-import 'package:analyzer_testing/analysis_rule/analysis_rule.dart';
-import 'package:ciach_lints/src/prefer_pattern_over_guard.dart';
-import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 
-import 'support/fixes.dart';
+import 'support/pattern_over_guard.dart';
 
 void main() {
   defineReflectiveSuite(() {
@@ -20,56 +17,8 @@ void main() {
   });
 }
 
-/// Declarations that the snippets of the tests match on.
-const _types = '''
-enum Kind { a, b }
-
-class Token {
-  Token(this.kind, this.flag, this.text);
-  final Kind kind;
-  final bool flag;
-  final String? text;
-}
-''';
-
 @reflectiveTest
-class PreferPatternOverGuardTest() extends AnalysisRuleTest {
-  @override
-  void setUp() {
-    rule = PreferPatternOverGuard();
-    super.setUp();
-  }
-
-  /// Checks that [snippet], after [_types], gets one diagnostic on the
-  /// `when` clause [flagged], whose correction suggests [replacement], and
-  /// that the fix turns it into [fixed].
-  Future<void> assertMoves(
-    String snippet,
-    String flagged, {
-    required String replacement,
-    required String fixed,
-  }) async {
-    final code = '$_types\n$snippet';
-    await assertDiagnostics(code, [
-      lint(
-        code.indexOf(flagged),
-        flagged.length,
-        correctionContains: "'$replacement'",
-      ),
-    ]);
-    expect(
-      await applyFixes(
-        code,
-        PreferPatternOverGuard.code,
-        MoveGuardIntoPattern.new,
-      ),
-      '$_types\n$fixed',
-    );
-  }
-
-  Future<void> assertKeeps(String snippet) =>
-      assertNoDiagnostics('$_types\n$snippet');
-
+class PreferPatternOverGuardTest() extends PatternOverGuardTest {
   Future<void> test_typeTest() async {
     await assertMoves(
       r'''
@@ -203,6 +152,57 @@ void f(int n) {
       fixed: '''
 void f(int n) {
   if (n case >= 2) print('many');
+}
+''',
+    );
+  }
+
+  Future<void> test_comparisonOfUnreadTypedVariableKeepsTheType() async {
+    await assertMoves(
+      '''
+void f(Object o) {
+  if (o case final int v when v > 0) print('positive');
+}
+''',
+      'when v > 0',
+      replacement: 'int() && > 0',
+      fixed: '''
+void f(Object o) {
+  if (o case int() && > 0) print('positive');
+}
+''',
+    );
+  }
+
+  Future<void> test_comparisonOfUnreadVariableOfTheMatchedType() async {
+    await assertMoves(
+      '''
+void f(int n) {
+  if (n case final int v when v > 0) print('positive');
+}
+''',
+      'when v > 0',
+      replacement: '> 0',
+      fixed: '''
+void f(int n) {
+  if (n case > 0) print('positive');
+}
+''',
+    );
+  }
+
+  Future<void> test_comparisonOfPositionalRecordField() async {
+    await assertMoves(
+      '''
+void f((int, int) pair) {
+  if (pair case (final a, final b) when a > 0) print(b);
+}
+''',
+      'when a > 0',
+      replacement: '(> 0, final b)',
+      fixed: '''
+void f((int, int) pair) {
+  if (pair case (> 0, final b)) print(b);
 }
 ''',
     );
@@ -429,61 +429,6 @@ void f(Token t) {
       fixed: '''
 void f(Token t) {
   if (t case Token(text: (!= 'x')?)) print('not x');
-}
-''',
-    );
-  }
-
-  Future<void> test_otherOperandsStay() async {
-    await assertMoves(
-      '''
-void f(Object o, bool enabled) {
-  if (o case final v when v is int && enabled) print(v);
-}
-''',
-      'when v is int && enabled',
-      replacement: 'final int v when enabled',
-      fixed: '''
-void f(Object o, bool enabled) {
-  if (o case final int v when enabled) print(v);
-}
-''',
-    );
-  }
-
-  Future<void> test_oneMovePerVariable() async {
-    await assertMoves(
-      '''
-void f(Object o) {
-  if (o case final v when v is int && v > 0) print(v);
-}
-''',
-      'when v is int && v > 0',
-      replacement: 'final int v when v > 0',
-      fixed: '''
-void f(Object o) {
-  if (o case final int v when v > 0) print(v);
-}
-''',
-    );
-  }
-
-  Future<void> test_twoVariables() async {
-    await assertMoves(
-      r'''
-void f((int?, Object) pair) {
-  if (pair case (final a, final b) when a != null && b is String) {
-    print('$a$b');
-  }
-}
-''',
-      'when a != null && b is String',
-      replacement: '(final a?, final String b)',
-      fixed: r'''
-void f((int?, Object) pair) {
-  if (pair case (final a?, final String b)) {
-    print('$a$b');
-  }
 }
 ''',
     );
