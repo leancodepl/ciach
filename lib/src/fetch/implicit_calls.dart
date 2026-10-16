@@ -54,7 +54,8 @@ Future<Map<Candidate, List<Location>>> findImplicitCalls({
   for (final MapEntry(key: path, value: inFile) in callsByPath.entries) {
     client.didChange(File(path).uri, _withCallsRenamed(sources, path, inFile));
   }
-  await client.waitForChangesAnalyzed();
+  final renamedFile = File(callsByPath.keys.first).uri;
+  await client.waitForChangesAnalyzed(renamedFile);
   final errorsByPath = _errorKeys(
     client,
   ).difference(errorsBefore).groupListsBy((error) => error.path);
@@ -81,7 +82,7 @@ Future<Map<Candidate, List<Location>>> findImplicitCalls({
   for (final path in rewritten.keys) {
     client.didChange(File(path).uri, sources.content(path));
   }
-  await client.waitForChangesAnalyzed();
+  await client.waitForChangesAnalyzed(renamedFile);
 
   return {
     for (final call in calls)
