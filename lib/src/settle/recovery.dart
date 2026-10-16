@@ -41,37 +41,48 @@ final class ReferenceRecovery {
   /// earlier round are skipped.
   ///
   /// [refsByCandidate] are every reference the server reported, live or not.
-  /// Their sites are not looked up again: the server already said what each
-  /// refers to.
+  /// Most of their sites are not looked up again: the server already said what
+  /// each refers to. A site can also use a declaration that shares it, such as
+  /// the constructor at `Foo()` that the server reports for the class `Foo`,
+  /// or the setter at `x += 1` reported for the getter `x`, so the reported
+  /// references of a declaration whose sibling has none are looked up too.
   Future<CrossLibraryReferences> recover(
     LspClient client,
     List<Candidate> candidates,
     List<List<Location>> liveRefs,
     List<List<Location>> refsByCandidate,
   ) {
+    final unsure = [
+      for (final (i, candidate) in candidates.indexed)
+        if (_classifier.externalRefs(candidate, liveRefs[i]).isEmpty &&
+            candidate.symbol.kind != .class$ &&
+            !candidate.isExtension)
+          candidate,
+    ];
     final emptyRefNames = <String>{
-      for (var i = 0; i < candidates.length; i++)
-        if (_classifier.externalRefs(candidates[i], liveRefs[i]).isEmpty &&
-            candidates[i].symbol.kind != .class$ &&
-            !candidates[i].isExtension) ...[
-          _simpleName(candidates[i].symbol.name),
-          // An unnamed constructor is spelled by the class name at an
-          // ordinary `Foo(…)` site but as `new` at a dot-shorthand one
-          // (`.new(…)`), so probe for both spellings.
-          candidates[i].symbol.declarationName(candidates[i].container),
-        ],
+      for (final candidate in unsure) ...[
+        _simpleName(candidate.symbol.name),
+        // An unnamed constructor is spelled by the class name at an
+        // ordinary `Foo(…)` site but as `new` at a dot-shorthand one
+        // (`.new(…)`), so probe for both spellings.
+        candidate.symbol.declarationName(candidate.container),
+      ],
     }..removeAll(_probedNames);
     if (emptyRefNames.isEmpty) {
       return .value(.empty);
     }
     _probedNames.addAll(emptyRefNames);
+    final siblings = _Siblings(unsure);
     _log.info('Recovering cross-library references…');
     return CrossLibraryReferences.resolve(
       client: client,
       sources: _sources,
       candidates: candidates,
       emptyRefNames: emptyRefNames,
-      reportedRefs: refsByCandidate.flattened,
+      reportedRefs: [
+        for (final (i, candidate) in candidates.indexed)
+          if (!siblings.anyOf(candidate)) ...refsByCandidate[i],
+      ],
       concurrency: _concurrency,
     );
   }
@@ -125,4 +136,28 @@ final class ReferenceRecovery {
   /// which is the identifier a usage site spells.
   static String _simpleName(String name) =>
       name.contains('.') ? name.split('.').last : name;
+}
+
+/// The candidates with no live reference, by the declarations that may share
+/// their sites: the other members of the same container with the same name
+/// (a getter and its setter), and the type they belong to (a class and its
+/// constructors).
+final class _Siblings {
+  _Siblings(Iterable<Candidate> unsure)
+    : _byName = unsure.groupSetsBy(_nameIn),
+      _containers = {for (final candidate in unsure) ?candidate.container};
+
+  final Map<(String?, String), Set<Candidate>> _byName;
+  final Set<String> _containers;
+
+  static (String?, String) _nameIn(Candidate candidate) => (
+    candidate.container,
+    ReferenceRecovery._simpleName(candidate.symbol.name),
+  );
+
+  /// Whether a candidate other than [candidate] may use its sites.
+  bool anyOf(Candidate candidate) =>
+      _containers.contains(candidate.symbol.name) ||
+      (_byName[_nameIn(candidate)]?.any((other) => other != candidate) ??
+          false);
 }
