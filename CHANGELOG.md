@@ -1,5 +1,9 @@
 ## Unreleased
 
+- Unused `call` methods are now reported. Before, every `call` method was
+  skipped, because a call such as `obj(1)` or a tear-off such as
+  `int Function(int) f = obj` left no reference that ciach could find.
+  ([#151](https://github.com/leancodepl/ciach/pull/151))
 - `--remove` now lists the files that it deleted and the declarations that it
   left empty one per line. Before, it listed them on one line, separated by
   commas. ([#136](https://github.com/leancodepl/ciach/pull/136))
