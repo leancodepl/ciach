@@ -108,7 +108,9 @@ easy-to-follow sentences, not how it works inside.
   with a short hint that doesn't list its members.
 - A lint's message and fix title say what the fix will do to the flagged code,
   and show the replacement. The fix produces the shortest idiomatic form:
-  `s?.length` before `s?.let(…)`.
+  `s?.length` before `s?.let(…)`. It leaves nothing for the lint to flag, so
+  it makes every rewrite that running it again would make, and its tests
+  check that the fixed code compiles with no diagnostics.
 
 # Code comments
 
