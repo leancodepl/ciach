@@ -82,15 +82,20 @@ void main() => make().close();
     },
   );
 
-  test('a member used in dead code and live only in an excluded file that '
-      "doesn't name its type is used", () async {
-    final result = await Ciach(
-      .new(
-        rootPath: root.path,
-        exportedPackages: const ['**'],
-        excludeGlobs: const ['bin/**'],
-      ),
-    ).run();
-    expect(result.unused.map((d) => d.qualifiedName), ['_dead', 'Helper.stop']);
-  });
+  test(
+    "a member used in dead code and live only in an excluded file that doesn't name its type is used",
+    () async {
+      final result = await Ciach(
+        .new(
+          rootPath: root.path,
+          exportedPackages: const ['**'],
+          excludeGlobs: const ['bin/**'],
+        ),
+      ).run();
+      expect(result.unused.map((d) => d.qualifiedName), [
+        '_dead',
+        'Helper.stop',
+      ]);
+    },
+  );
 }

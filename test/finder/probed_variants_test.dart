@@ -60,17 +60,19 @@ void main() => make().close();
 
   tearDownAll(() => root.deleteSync(recursive: true));
 
-  test('a member of both variants used in dead code and live only in an '
-      'excluded file is used in both', () async {
-    final result = await Ciach(
-      .new(
-        rootPath: root.path,
-        exportedPackages: const ['**'],
-        excludeGlobs: const ['bin/**'],
-      ),
-    ).run();
-    expect(result.unused.map((d) => (d.filePath, d.qualifiedName)), [
-      ('lib/demo.dart', '_dead'),
-    ]);
-  });
+  test(
+    'a member of both variants used in dead code and live only in an excluded file is used in both',
+    () async {
+      final result = await Ciach(
+        .new(
+          rootPath: root.path,
+          exportedPackages: const ['**'],
+          excludeGlobs: const ['bin/**'],
+        ),
+      ).run();
+      expect(result.unused.map((d) => (d.filePath, d.qualifiedName)), [
+        ('lib/demo.dart', '_dead'),
+      ]);
+    },
+  );
 }
