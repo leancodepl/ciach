@@ -372,9 +372,14 @@ class Ciach {
     required String rootPath,
   }) async {
     final api = _publicApi;
+    // A namesake in another conditional-import variant shares the references
+    // of a member, so a member of a variant gets all of them at once.
     final gated = api == null
         ? const <Candidate>{}
-        : collected.where(ReachableTypes.isGated).toSet();
+        : collected
+              .where(ReachableTypes.isGated)
+              .whereNot((c) => _conditionalImports.contains(c.path))
+              .toSet();
     final candidates = <Candidate>[];
     final refsByCandidate = <List<Location>>[];
     Future<void> fetch(List<Candidate> batch, int files) async {
