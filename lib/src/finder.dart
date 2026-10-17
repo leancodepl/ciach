@@ -43,8 +43,10 @@ import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/model/finder_result.dart';
+import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
 import 'package:ciach/src/settle/settler.dart';
+import 'package:ciach/src/settle/unused_parameters.dart';
 import 'package:ciach/src/settle/verdict.dart';
 import 'package:ciach/src/source/directives.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
@@ -121,6 +123,12 @@ class Ciach {
   );
 
   late final _fetch = ReferenceFetch(options: options, sources: _sources);
+
+  late final _unusedParameters = UnusedParameters(
+    sources: _sources,
+    fetch: _fetch,
+    concurrency: options.concurrency,
+  );
 
   late final _settler = Settler(
     options: options,
@@ -272,9 +280,12 @@ class Ciach {
         options.concurrency,
         (path) => opened.contains(path)
             ? _collector.collect(client, path, rootPath)
-            : .value(const <Candidate>[]),
+            : .value((
+                candidates: const <Candidate>[],
+                parameterOwners: const <Candidate>[],
+              )),
       );
-      final collected = [for (final list in perFile) ...list];
+      final collected = [for (final file in perFile) ...file.candidates];
       _collector.reportSkipped();
 
       // Phase 2: check references for every candidate through a single global
@@ -296,13 +307,30 @@ class Ciach {
       await _fetch.selectionRanges(client, candidates, refsByCandidate);
 
       // Phase 3: settle the verdicts; with `transitive`, in rounds.
-      settled = await _settler.settle(
+      final declarations = await _settler.settle(
         client,
         candidates,
         refsByCandidate,
         scannedPaths: files.where(opened.contains).toSet(),
         rootPath: rootPath,
         analysisRoot: analysisRoot,
+      );
+
+      // Phase 4: the parameters that the bodies never read.
+      final parameters = await _unusedParameters.findings(
+        client,
+        [for (final file in perFile) ...file.parameterOwners],
+        [...declarations.unused, ...declarations.docOnly],
+        rootPath,
+      );
+      settled = (
+        unused: [
+          ...declarations.unused,
+          ...parameters,
+        ].sorted(compareByLocation),
+        docOnly: declarations.docOnly,
+        recovered: declarations.recovered,
+        emptied: declarations.emptied,
       );
     } finally {
       await client.dispose();

@@ -10,6 +10,7 @@
 
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/gen_l10n.dart';
+import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
@@ -154,6 +155,9 @@ class FinderOptions {
   /// The server reports an `extension` as [SymbolKind.namespace]; an
   /// `extension type` shares it and is remapped to [SymbolKind.struct].
   ///
+  /// [parameterKind] reports the parameters that the body of a function,
+  /// method or constructor never reads.
+  ///
   /// Operator overloads are *not* a separate kind here: the analysis server
   /// reports them as plain [SymbolKind.method] declarations named `+`, `==`,
   /// etc. — see [skipOperators] for how they're excluded by default instead.
@@ -171,5 +175,6 @@ class FinderOptions {
     .variable,
     .constant,
     .enumMember,
+    parameterKind,
   };
 }

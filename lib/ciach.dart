@@ -44,7 +44,8 @@ export 'src/model/unused_declaration.dart'
         DeadReferrer,
         DeclarationRange,
         SymbolKindLabel,
-        UnusedDeclaration;
+        UnusedDeclaration,
+        parameterKind;
 export 'src/project_config/project_config.dart' show ProjectConfig;
 export 'src/remove/remover.dart' show RemovalException, removeDeclarations;
 export 'src/workspace/packages.dart' show UnresolvedPackagesException;
