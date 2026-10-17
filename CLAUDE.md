@@ -121,7 +121,8 @@ an example when a term is abstract. Keep it about as short as the doc comments
 of its neighbors. Don't add doc comments that the member's siblings lack or
 that repeat the name, and don't describe the internal steps or why a caller
 needs the member. When a name confuses a reader, rename it instead of
-lengthening its comment.
+lengthening its comment. A class's doc comment says in a few sentences what
+the class decides; its special cases go on the members that handle them.
 
 A comment says what the code can't show: why a condition needs all rather than
 any, which part of a category a function handles and why, whether paths are
@@ -327,6 +328,12 @@ explicit null check.
   should change. When the complete change is possible, make it in the same pull
   request and list the cases that block it, instead of only reporting what a
   later pull request could remove.
+- When ciach can't be sure that a declaration is unused, it keeps it. A
+  missed finding is acceptable; a removal that breaks the build of the user's
+  code, or of a package that uses it, is the worst outcome, and no speedup
+  justifies the risk. When a check trusts an answer that may be wrong, such
+  as the server's references or a guess about which files hold the uses, make
+  it err toward keeping.
 - Don't leave a case out as a shortcut, and never because of a limit that you
   haven't checked ("can't be told apart"). Check what the exclusion does to the
   rest of the code, and whether it undoes the point of the pull request. This

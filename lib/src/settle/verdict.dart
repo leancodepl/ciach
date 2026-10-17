@@ -8,7 +8,6 @@ import 'package:ciach/src/settle/remove_safety.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/source/syntax_rules.dart';
-import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location;
 
@@ -178,7 +177,7 @@ final class Verdict {
         : symbol.selectionRange.start;
     final name = symbol.declarationName(candidate.container);
     // `extension on T` is no name to qualify members by.
-    final container = _isInUnnamedExtension(candidate)
+    final container = candidate.isInUnnamedExtension
         ? null
         : candidate.container;
     return .new(
@@ -193,8 +192,7 @@ final class Verdict {
       line: start.line + 1,
       column: start.character + 1,
       // A member of a private type is as private as the type.
-      isPrivate:
-          isPrivateName(name) || (container?.let(isPrivateName) ?? false),
+      isPrivate: candidate.isPrivate,
       container: container,
       isEnumValue: candidate.isEnumValue,
       range: symbol.declarationRange,
@@ -215,9 +213,6 @@ final class Verdict {
         .constructor || .field => _sources.isDeclaredInTypeHeader(candidate),
         _ => false,
       };
-
-  bool _isInUnnamedExtension(Candidate candidate) =>
-      candidate.containerOutline?.element.isUnnamedExtension ?? false;
 
   /// Whether [candidate] goes with an already-dead class's own declaration —
   /// any constructor, or a declaring parameter — so a single removal is not

@@ -29,6 +29,16 @@ void main() {
     expect(sums[3], 6);
   });
 
+  test('get reads the cached value', () {
+    var calls = 0;
+    final lengths = CachedMap<String, int>((key) {
+      calls++;
+      return key.length;
+    });
+    expect(['ab', 'ab'].map(lengths.get), [2, 2]);
+    expect(calls, 1);
+  });
+
   test('keeps a set value and recomputes an invalidated one', () {
     var calls = 0;
     final values = CachedMap<String, int>((_) => ++calls);

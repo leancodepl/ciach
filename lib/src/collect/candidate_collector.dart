@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/collect/exposed_types.dart';
 import 'package:ciach/src/collect/kept_declarations.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/freezed.dart';
@@ -62,9 +63,11 @@ final class CandidateCollector {
   /// `--verbose`.
   void reportSkipped() => _kept.report();
 
-  /// The declarations of the open file [path] worth checking.
+  /// The declarations of the open file [path] worth checking, where
+  /// [exposedTypes] reads the same [client].
   Future<List<Candidate>> collect(
     LspClient client,
+    ExposedTypes exposedTypes,
     String path,
     String rootPath,
   ) async {
@@ -91,6 +94,7 @@ final class CandidateCollector {
     if (_conditionalImports.contains(path)) {
       declaredInVariants[path] = ConditionalImports.pairingNames(symbols);
     }
+    final exposed = await exposedTypes.of(path, outline);
     final relativePath = relativePosix(path, rootPath);
     final markers = _Markers(IgnoreMarkers.parse(_sources.content(path)));
     // The whole walk has to run before the filter: it records the entry-point
@@ -106,6 +110,7 @@ final class CandidateCollector {
       false,
       _OutlineIndex(outline),
       markers,
+      exposed,
     ).toList();
     markers.warnAbout(relativePath);
     return _kept.withoutContainers(candidates, relativePath).toList();
@@ -127,6 +132,7 @@ final class CandidateCollector {
     bool parentIsEnum,
     _OutlineIndex outlines,
     _Markers markers,
+    Map<String, ExposedMembers> exposedTypes,
   ) sync* {
     final statement = _Statement();
     for (final (symbol, outline) in _declarations(
@@ -151,6 +157,11 @@ final class CandidateCollector {
         isPreventInstantiationCtor: symbol.isPreventInstantiationMarker(
           symbols,
         ),
+        isInExposedType: switch (exposedTypes[container]) {
+          .all => true,
+          .instance => symbol.kind != .constructor && !_isStatic(path, symbol),
+          null => false,
+        },
       );
       final exports = exportsOf(symbol, leadingMetadata) ?? containerExports;
       if (_isCandidate(
@@ -180,9 +191,21 @@ final class CandidateCollector {
         symbol.kind == .enum$,
         outlines,
         markers,
+        exposedTypes,
       );
     }
   }
+
+  /// Whether [symbol] in [path] is a static member. A value of a type or of
+  /// its subtype reaches no constructors or static members, so those of a
+  /// private type stay private unless a type alias names the type.
+  bool _isStatic(String path, DocumentSymbol symbol) =>
+      _sources
+          .semanticTokens(path)
+          ?.startingAt(symbol.selectionRange.start)
+          ?.modifiers
+          .contains('static') ??
+      false;
 
   /// Pairs each of [symbols] with its outline entry, and skips a symbol the
   /// outline doesn't list.
@@ -215,12 +238,13 @@ final class CandidateCollector {
   }
 
   /// Whether [candidate] is public and left out: by `--no-public`, or as part
-  /// of an API that `exported-packages` leaves out.
+  /// of an API that `exported-packages` leaves out. A private declaration is
+  /// never left out, and a member of a private type is private too.
   bool _skipsPublic(Candidate candidate) {
-    final symbol = candidate.symbol;
-    if (isPrivateName(symbol.name)) {
+    if (candidate.isPrivate) {
       return false;
     }
+    final symbol = candidate.symbol;
     return !options.includePublic ||
         (_publicApi?.exposes(
               candidate.path,
