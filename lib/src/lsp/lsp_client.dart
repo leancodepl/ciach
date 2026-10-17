@@ -396,17 +396,8 @@ class LspClient {
       .unmodifiable(_diagnostics);
 
   /// Completes once the server has analyzed the content that every
-  /// [didChange] so far sent.
-  ///
-  /// The server starts handling messages in the order that they arrive, and
-  /// its `didChange` handler applies the new content before it returns. So
-  /// when the server answers a request about any open document, it has taken
-  /// in every change sent before the request; the request names the document
-  /// changed last only because that one is open. A change also marks the
-  /// analysis as started at once, and in every run so far the
-  /// `$/analyzerStatus` report of that arrived before the answer. After the
-  /// answer, an idle server has nothing left to analyze, and an idle report
-  /// that the server sent before the changes is already read.
+  /// [didChange] so far sent. The server handles messages in order, so it
+  /// answers the `foldingRange` request sent here after those changes.
   Future<void> waitForChangesAnalyzed() async {
     if (_lastChanged case final changed?) {
       await _guard(
