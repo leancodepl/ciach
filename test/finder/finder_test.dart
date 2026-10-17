@@ -1270,10 +1270,16 @@ void main() {
             ),
         };
         const painter = ('Painter', Verdict.namedOnlyInClausesHint, '');
+        const labeled = ('Labeled', Verdict.namedOnlyInClausesHint, '');
 
-        expect(findings(await run(transitive: false)), {painter});
+        expect(findings(await run(transitive: false)), {painter, labeled});
         final result = await run(transitive: true);
-        expect(findings(result), {('Shape', null, 'Painter'), painter});
+        expect(findings(result), {
+          ('Shape', null, 'Painter'),
+          painter,
+          ('Label', null, 'Labeled'),
+          labeled,
+        });
         expect(messages, isNot(contains(startsWith('Stopping after'))));
 
         removeDeclarations(result.unused, copy.path);
@@ -1284,6 +1290,7 @@ void main() {
         expect(source, contains('class Tile {}\n'));
         expect(source, isNot(contains('Shape')));
         expect(source, isNot(contains('Painter')));
+        expect(source, isNot(contains('Label')));
       },
     );
   });

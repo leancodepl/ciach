@@ -129,7 +129,11 @@ final class Settler {
     _Verdicts settled;
     Map<UnusedDeclaration, int> candidateOf;
     for (var round = 1; ; round++) {
-      final liveRefs = TransitiveSweep.liveRefs(refsByCandidate, deadSpans);
+      final liveRefs = TransitiveSweep.liveRefs(
+        candidates,
+        refsByCandidate,
+        deadSpans,
+      );
       crossLib = crossLib.merged(
         await _recovery.recover(client, candidates, liveRefs),
       );
@@ -436,6 +440,7 @@ final class Settler {
           (blockedByState ? Verdict.pairedStateHint : null),
       onlyReferencedFrom: deadSpans.referrersAmong(
         _classifier.externalRefs(candidate, refsByCandidate[i]),
+        referenced: candidate.key,
       ),
     );
   }

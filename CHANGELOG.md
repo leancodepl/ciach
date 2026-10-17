@@ -1,8 +1,10 @@
 ## Unreleased
 
 - A generic class or mixin that only `with` or `implements` clauses name is now
-  reported, and `--remove` deletes it from those clauses. Before, only its
-  members were removed. ([#153](https://github.com/leancodepl/ciach/pull/153))
+  reported, and `--remove` deletes it from those clauses together with its
+  type arguments. A type that only those type arguments name is reported in
+  the same run. Before, only the members of such a class or mixin were
+  removed. ([#153](https://github.com/leancodepl/ciach/pull/153))
 - `--remove` now lists the files that it deleted and the declarations that it
   left empty one per line. Before, it listed them on one line, separated by
   commas. ([#136](https://github.com/leancodepl/ciach/pull/136))

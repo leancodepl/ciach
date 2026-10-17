@@ -12,7 +12,14 @@ mixin Painter<T extends Shape> {
   void paint() {}
 }
 
-class Tile with Painter {}
+/// Used only as the type argument of `Labeled` in `Tile` -> USED without
+/// transitive, UNUSED with it.
+abstract interface class Label {}
+
+/// Used only in the `implements` clause of `Tile` -> UNUSED (class).
+abstract interface class Labeled<T> {}
+
+class Tile with Painter implements Labeled<Label> {}
 
 /// An entry point -> skipped; keeps `Tile` live.
 @pragma('vm:entry-point')
