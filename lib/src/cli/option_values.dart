@@ -13,6 +13,7 @@
 library;
 
 import 'package:ciach/ciach.dart';
+import 'package:ciach/src/cli/removed_options.dart';
 import 'package:collection/collection.dart';
 
 /// Friendly `--kinds` names mapped to LSP symbol kinds.
@@ -40,7 +41,7 @@ String get kindNames => kindAliases.keys.sorted().join(', ');
 
 /// The accepted `--also` values: what is skipped by default, each a known
 /// source of false positives.
-const alsoNames = ['overrides', 'operators', 'tojson', 'union-members'];
+const alsoNames = ['overrides', 'tojson', 'union-members'];
 
 /// Parses the `--also` values (comma-separated, repeatable).
 ///
@@ -52,6 +53,11 @@ Set<String> parseAlso(List<String> raw) {
       for (final name in entry.split(','))
         if (name.trim() case final trimmed when trimmed.isNotEmpty) trimmed,
   };
+  if (names.firstWhereOrNull(removedAlsoValues.containsKey) case final value?) {
+    throw FormatException(
+      '`$value` under `also` was removed: ${removedAlsoValues[value]}.',
+    );
+  }
   if (names.whereNot(alsoNames.contains).firstOrNull case final unknown?) {
     throw FormatException(
       "Unknown value '$unknown' for `also`. Valid values: ${alsoNames.join(', ')}.",

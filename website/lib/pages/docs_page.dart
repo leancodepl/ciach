@@ -98,7 +98,7 @@ const _options = [
     'Report only declarations that nothing uses. By default, a declaration used only by other dead code is reported too, naming what uses it.',
   ),
   (
-    '--also overrides,operators,tojson,union-members',
+    '--also overrides,tojson,union-members',
     'Opt back into a category skipped by default.',
   ),
   ('--generated', 'Scan generated files too.'),
@@ -132,9 +132,9 @@ const _skips = [
     '--also overrides',
   ),
   (
-    'Operator overloads',
-    'The server does not resolve `a + b` to the declaration.',
-    '--also operators',
+    'Operators that override one from the SDK or another package, such as ==',
+    'The SDK calls `==` with no code that names it.',
+    null,
   ),
   (
     '// ciach:ignore markers',

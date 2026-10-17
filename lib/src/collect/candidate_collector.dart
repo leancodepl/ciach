@@ -295,9 +295,6 @@ final class CandidateCollector {
     if (_skipsPublic(candidate)) {
       return false;
     }
-    if (options.skipOperators && symbol.isOperator) {
-      return false;
-    }
     // Already represented by the header's constructor symbol.
     if (symbol.isPrimaryConstructorBody) {
       return false;

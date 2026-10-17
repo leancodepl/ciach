@@ -13,6 +13,7 @@
 library;
 
 import 'package:ciach/src/util/extensions.dart';
+import 'package:collection/collection.dart';
 
 /// What a removed option became: the values for the option with the config
 /// key `key` to take. No values set it to an empty list.
@@ -21,7 +22,6 @@ typedef Replacement = ({String key, List<String> values});
 /// The removed flags that became a value of `--also`, by config key.
 const _alsoFlags = {
   'overrides': 'overrides',
-  'operators': 'operators',
   'report-tojson': 'tojson',
   'unused-union-members': 'union-members',
 };
@@ -37,6 +37,11 @@ const removedKeys = {
   'generated-suffix',
 };
 
+/// The values that `also` no longer takes, each with why it is not needed.
+const removedAlsoValues = {
+  'operators': 'operators are reported by default now, so drop it',
+};
+
 /// Why setting the removed option [key] to [value] (`true` or `false` for a
 /// flag) is not needed any more, or what to use instead, in the config file
 /// when [inConfig].
@@ -47,6 +52,9 @@ String removedOptionAdvice(
 }) {
   if (key == 'fail-public' && value == false) {
     return 'every finding counts toward the exit code; to leave out what other packages can import, list those packages in `exported-packages`';
+  }
+  if (key == 'operators' && value == false) {
+    return 'operators are reported by default now; to keep one, mark it with `// ciach:ignore`';
   }
   return switch (_replacementFor(key, value)) {
     null => 'that is the default now, so drop it',
@@ -94,7 +102,19 @@ String? removedOptionMessage(List<String> arguments) {
     }
     final match = _longOption.firstMatch(argument);
     final key = match?.namedGroup('name');
-    if (match == null || key == null || !removedKeys.contains(key)) {
+    if (match == null || key == null) {
+      continue;
+    }
+    if (key == 'also') {
+      // The values of `--also` may be the next argument.
+      final values =
+          match.namedGroup('value') ?? arguments.elementAtOrNull(i + 1);
+      if (values?.split(',').firstWhereOrNull(removedAlsoValues.containsKey)
+          case final value?) {
+        return '`--also $value` was removed: ${removedAlsoValues[value]}.';
+      }
+    }
+    if (!removedKeys.contains(key)) {
       continue;
     }
     final Object? value = switch (key) {

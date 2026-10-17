@@ -1,5 +1,14 @@
 # Migrating
 
+## From 0.7 to 0.8
+
+### Operators are reported by default
+
+ciach now finds the uses of operators, so it reports an unused operator like
+any other method, and `--also operators` is gone. Drop `operators` from
+`--also` and from `also:` in `ciach.yaml`. To keep an operator that ciach
+reports, mark it with [`// ciach:ignore`](README.md#ignore-markers).
+
 ## From 0.6 to 0.7
 
 ### Removed options

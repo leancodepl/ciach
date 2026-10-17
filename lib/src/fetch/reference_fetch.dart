@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/fetch/implicit_calls.dart';
+import 'package:ciach/src/fetch/operator_uses.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
@@ -15,7 +16,7 @@ import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/plural.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
+import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location, Position;
 
 final _log = Logger('ciach.finder');
 
@@ -55,8 +56,9 @@ final class ReferenceFetch {
     final fetched = await mapPooled(candidates, options.concurrency, (
       candidate,
     ) async {
-      // The server would answer for an unnamed extension's `on` type.
-      final refs = candidate.isUnnamedExtension
+      // The server would answer for an unnamed extension's `on` type. The
+      // uses of an operator come from `findOperatorUses` instead.
+      final refs = candidate.isUnnamedExtension || candidate.symbol.isOperator
           ? const <Location>[]
           : await _referencesOf(client, candidate);
       if (remainingPerFile.update(candidate.path, (n) => n - 1) == 0) {
@@ -79,39 +81,55 @@ final class ReferenceFetch {
     return (checked: checked, refs: refs);
   }
 
-  /// [candidates] and [refs], with the implicit uses of each `call` method,
-  /// which the reference query misses, added to its references. When the
-  /// lookup fails, the `call` methods are left out, so they are never
-  /// reported.
+  /// [candidates] and [refs], with the uses that the reference query misses
+  /// added: the implicit uses of each `call` method, and the uses of each
+  /// operator. An operator whose uses can't be found, such as `==`, is left
+  /// out, and so is every `call` method or operator when its lookup fails, so
+  /// that they are never reported.
   Future<({List<Candidate> checked, List<List<Location>> refs})>
-  withImplicitCalls(
+  withImplicitUses(
     LspClient client,
     List<Candidate> candidates,
-    List<List<Location>> refs,
-  ) async {
-    final usesOf = await findImplicitCalls(
+    List<List<Location>> refs, {
+    required String analysisRoot,
+  }) async {
+    final callUses = await findImplicitCalls(
       client: client,
       sources: _sources,
       calls: candidates.where((c) => c.symbol.isCallMethod).toList(),
       concurrency: options.concurrency,
     );
-    if (usesOf == null) {
-      final kept = [
-        for (final (i, candidate) in candidates.indexed)
-          if (!candidate.symbol.isCallMethod) (candidate, refs[i]),
-      ];
-      return (
-        checked: [for (final (candidate, _) in kept) candidate],
-        refs: [for (final (_, candidateRefs) in kept) candidateRefs],
-      );
-    }
-    await semanticTokensFor(client, usesOf.values.toList());
+    final operatorUses = await findOperatorUses(
+      client: client,
+      sources: _sources,
+      operators: candidates.where((c) => c.symbol.isOperator).toList(),
+      analysisRoot: analysisRoot,
+    );
+    bool isChecked(Candidate candidate) => switch (candidate.symbol) {
+      DocumentSymbol(isCallMethod: true) => callUses != null,
+      DocumentSymbol(isOperator: true) =>
+        operatorUses?.containsKey(candidate) ?? false,
+      _ => true,
+    };
+    final checked = [
+      for (final (i, candidate) in candidates.indexed)
+        if (isChecked(candidate))
+          (
+            candidate,
+            [
+              ...refs[i],
+              ...?callUses?[candidate],
+              ...?operatorUses?[candidate],
+            ],
+          ),
+    ];
+    await semanticTokensFor(client, [
+      ...?callUses?.values,
+      ...?operatorUses?.values,
+    ]);
     return (
-      checked: candidates,
-      refs: [
-        for (final (i, candidate) in candidates.indexed)
-          [...refs[i], ...?usesOf[candidate]],
-      ],
+      checked: [for (final (candidate, _) in checked) candidate],
+      refs: [for (final (_, candidateRefs) in checked) candidateRefs],
     );
   }
 

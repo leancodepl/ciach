@@ -132,8 +132,6 @@ enum CiachOption<V> implements OptionDefinition<V> {
       allowedHelp: {
         'overrides':
             '@override members, often reached polymorphically or by a framework.',
-        'operators':
-            'Operator overloads: the analysis server never resolves `a + b` to the operator, so a used one is reported every time.',
         'tojson':
             'toJson() hooks, which `jsonEncode(obj)` calls by dynamic dispatch.',
         'union-members':

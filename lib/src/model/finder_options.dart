@@ -30,7 +30,6 @@ class FinderOptions {
     this.includeGenerated = false,
     this.additionalGeneratedGlobs = const [],
     this.skipOverrides = true,
-    this.skipOperators = true,
     this.unusedUnionMembers = false,
     this.reportToJson = false,
     this.transitive = true,
@@ -87,13 +86,6 @@ class FinderOptions {
   /// Whether to skip declarations annotated with `@override` (they are usually
   /// reached polymorphically, which a plain reference search can miss).
   final bool skipOverrides;
-
-  /// Whether to skip operator overloads (`operator +`, `operator ==`, …).
-  /// The analysis server's reference search does not resolve infix operator
-  /// syntax (`a + b`) back to the operator's declaration, so a used operator
-  /// overload is reported as unused every time — on by default to avoid that
-  /// false positive.
-  final bool skipOperators;
 
   /// Whether to also flag a class as dead when its only non-self references
   /// are *type patterns* over its (sealed) supertype — `case` patterns in
@@ -156,7 +148,7 @@ class FinderOptions {
   ///
   /// Operator overloads are *not* a separate kind here: the analysis server
   /// reports them as plain [SymbolKind.method] declarations named `+`, `==`,
-  /// etc. — see [skipOperators] for how they're excluded by default instead.
+  /// etc.
   static const defaultKinds = <SymbolKind>{
     .class$,
     .interface$,

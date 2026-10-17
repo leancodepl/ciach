@@ -20,6 +20,7 @@ library;
 import 'dart:io';
 
 import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/fetch/unsaved_changes.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
@@ -29,8 +30,7 @@ import 'package:ciach/src/util/concurrency.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/plural.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart'
-    show Diagnostic, Location, Position, Range;
+import 'package:pro_lsp/pro_lsp.dart' show Location, Position, Range;
 
 final _log = Logger('ciach.implicit_calls');
 
@@ -57,46 +57,12 @@ Future<Map<Candidate, List<Location>>?> findImplicitCalls({
     'Looking up the implicit uses of ${plural(calls.length, '`call` method', '`call` methods')}…',
   );
   final callsByPath = calls.groupListsBy((call) => call.path);
-  // The files whose content on the server differs from the file on disk.
-  // Sending the content of the file on disk again would start another
-  // analysis of everything that imports it.
-  final changed = <String>{};
-  void change(String path, String text) {
-    client.didChange(File(path).uri, text);
-    if (text == sources.content(path)) {
-      changed.remove(path);
-    } else {
-      changed.add(path);
-    }
-  }
-
+  final changes = UnsavedChanges(client, sources);
   try {
-    final errorsBefore = _errors(client);
     for (final MapEntry(key: path, value: inFile) in callsByPath.entries) {
-      change(path, _withCallsRenamed(sources, path, inFile));
+      changes.change(path, _withCallsRenamed(sources, path, inFile));
     }
-    await client.waitForChangesAnalyzed();
-    final errorsAfter = _errors(client);
-    final newErrorsByPath = {
-      for (final MapEntry(key: path, value: errors) in errorsAfter.entries)
-        if (errors.difference(errorsBefore[path] ?? const {}) case final added
-            when added.isNotEmpty)
-          path: added,
-    };
-    // A use can be in a file that ciach doesn't scan, such as one that
-    // `--exclude` skips. It has to be open to be rewritten and to get an
-    // outline.
-    for (final path in newErrorsByPath.keys) {
-      client.ensureOpen(File(path).uri, sources.content(path));
-    }
-    final usesByPath = Map.fromIterables(
-      newErrorsByPath.keys,
-      await Future.wait([
-        for (final MapEntry(key: path, value: errors)
-            in newErrorsByPath.entries)
-          _usesAmong(client, path, errors),
-      ]),
-    );
+    final usesByPath = await changes.newErrors();
 
     // Each use becomes `(expression).call`, and the renamed methods get their
     // names back.
@@ -104,9 +70,10 @@ Future<Map<Candidate, List<Location>>?> findImplicitCalls({
       for (final MapEntry(key: path, value: uses) in usesByPath.entries)
         if (uses.isNotEmpty) path: _RewrittenFile.of(sources, path, uses),
     };
-    for (final path in {...callsByPath.keys, ...rewritten.keys}) {
-      change(path, rewritten[path]?.text ?? sources.content(path));
+    for (final MapEntry(key: path, value: file) in rewritten.entries) {
+      changes.change(path, file.text);
     }
+    changes.restoreExcept(rewritten.keys.toSet());
     final wrappedUses = [
       for (final file in rewritten.values) ...file.wrappedUses,
     ];
@@ -135,12 +102,8 @@ Future<Map<Candidate, List<Location>>?> findImplicitCalls({
     recordProblem(_lookupFailed, e, path: calls.first.path);
     return null;
   } finally {
-    for (final path in changed.toList()) {
-      change(path, sources.content(path));
-    }
-    // Later stages read outlines and diagnostics of the restored files.
     try {
-      await client.waitForChangesAnalyzed();
+      await changes.restore();
     } on LspRequestException catch (e) {
       recordProblem(_lookupFailed, e, path: calls.first.path);
     }
@@ -159,33 +122,6 @@ String _withCallsRenamed(
       (text, start) =>
           text.replaceRange(start, start + _renamed.length, _renamed),
     );
-
-/// The errors that the server publishes, by file. A use of a removed `call`
-/// method is always an error.
-Map<String, Set<Diagnostic>> _errors(LspClient client) => {
-  for (final MapEntry(key: uri, value: diagnostics)
-      in client.diagnostics.entries)
-    SourceIndex.pathOf(uri): {
-      for (final diagnostic in diagnostics)
-        if (diagnostic.severity == .error) diagnostic,
-    },
-};
-
-/// The ranges of [errors] that can be uses of a `call` method. An error at a
-/// declaration's name, such as a class that no longer implements its
-/// interface, is not one, and wrapping that name would break the file.
-Future<Set<Range>> _usesAmong(
-  LspClient client,
-  String path,
-  Set<Diagnostic> errors,
-) async {
-  final names = {
-    for (final outline in (await client.outline(File(path).uri)).descendants)
-      ?outline.element.range,
-  };
-  // Two errors can have the same range, and one wrap is enough.
-  return errors.map((error) => error.range).whereNot(names.contains).toSet();
-}
 
 /// [location] in the unchanged content of its file, when the file is one of
 /// [rewritten].

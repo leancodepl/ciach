@@ -24,7 +24,6 @@ class ResolvedOptions {
     required this.unusedTranslations,
     required this.detected,
     required this.overrides,
-    required this.operators,
     required this.unusedUnionMembers,
     required this.reportToJson,
     required this.transitive,
@@ -67,8 +66,6 @@ class ResolvedOptions {
   /// Whether to report `@override` members — inverted for the finder.
   final bool overrides;
 
-  /// Whether to report operator overloads — inverted for the finder.
-  final bool operators;
   final bool unusedUnionMembers;
   final bool reportToJson;
   final bool transitive;
@@ -121,7 +118,6 @@ class ResolvedOptions {
     exportedPackages: exportedPackages,
     includeGenerated: includeGenerated,
     skipOverrides: !overrides,
-    skipOperators: !operators,
     unusedUnionMembers: unusedUnionMembers,
     reportToJson: reportToJson,
     transitive: transitive,
@@ -187,7 +183,6 @@ ResolvedOptions resolveOptions(
         ? ProjectConfig.read(rootPath.absoluteNormalized)
         : ProjectConfig.none,
     overrides: also.contains('overrides'),
-    operators: also.contains('operators'),
     unusedUnionMembers: also.contains('union-members'),
     reportToJson: also.contains('tojson'),
     transitive: configuration.value(CiachOption.transitive),
