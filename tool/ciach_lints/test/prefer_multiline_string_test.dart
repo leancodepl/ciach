@@ -6,14 +6,12 @@
 // test_reflective_loader discovers tests by their `test_` prefix.
 // ignore_for_file: non_constant_identifier_names
 
-import 'package:analysis_server_plugin/edit/dart/correction_producer.dart';
-import 'package:analyzer/dart/analysis/results.dart';
-import 'package:analyzer_plugin/protocol/protocol_common.dart';
-import 'package:analyzer_plugin/utilities/change_builder/change_builder_core.dart';
 import 'package:analyzer_testing/analysis_rule/analysis_rule.dart';
 import 'package:ciach_lints/src/prefer_multiline_string.dart';
 import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
+
+import 'support/fixes.dart';
 
 void main() {
   defineReflectiveSuite(() {
@@ -272,28 +270,9 @@ const s = 'a\n\'\'\'\n"""';
     expect(await _applyFix(code), isNull);
   }
 
-  // Hand-rolled until https://github.com/dart-lang/sdk/issues/61785 ships.
-  Future<String?> _applyFix(String code) async {
-    final file = newFile(testFile.path, code);
-    final unit = await resolveFile(file.path);
-    final library = await unit.session.getResolvedLibrary(
-      file.path,
-    ) as ResolvedLibraryResult;
-    final diagnostic = unit.diagnostics.singleWhere(
-      (diagnostic) => diagnostic.diagnosticCode == PreferMultilineString.code,
-    );
-    final producer = ConvertToMultilineString(
-      context: CorrectionProducerContext.createResolved(
-        libraryResult: library,
-        unitResult: unit,
-        diagnostic: diagnostic,
-        selectionOffset: diagnostic.offset,
-        selectionLength: diagnostic.length,
-      ),
-    );
-    final builder = ChangeBuilder(session: unit.session);
-    await producer.compute(builder);
-    final edits = builder.sourceChange.getFileEdit(file.path)?.edits;
-    return edits == null ? null : SourceEdit.applySequence(code, edits);
-  }
+  Future<String?> _applyFix(String code) => applyFixes(
+    code,
+    PreferMultilineString.code,
+    ConvertToMultilineString.new,
+  );
 }
