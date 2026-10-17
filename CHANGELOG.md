@@ -1,5 +1,8 @@
 ## Unreleased
 
+- Report unused `call` methods. Before, every `call` method was skipped,
+  also one that nothing calls.
+  ([#151](https://github.com/leancodepl/ciach/pull/151))
 - With `exported-packages`, a member used in unused code and in live code is
   no longer reported as unused or listed under "Recovered references".
   ([#149](https://github.com/leancodepl/ciach/pull/149))

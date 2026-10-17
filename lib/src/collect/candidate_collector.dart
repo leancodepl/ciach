@@ -298,11 +298,6 @@ final class CandidateCollector {
     if (options.skipOperators && symbol.isOperator) {
       return false;
     }
-    // Always skipped (no flag): implicit-call syntax is unresolvable, like
-    // operators.
-    if (symbol.isCallMethod) {
-      return false;
-    }
     // Already represented by the header's constructor symbol.
     if (symbol.isPrimaryConstructorBody) {
       return false;

@@ -9,6 +9,7 @@
  */
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
@@ -62,6 +63,9 @@ class LspClient {
   /// starts analyzing it. An idle report in between doesn't end the wait.
   bool _awaitingAnalysis = false;
 
+  /// Whether the last `$/analyzerStatus` said that the server is analyzing.
+  bool _analyzing = false;
+
   /// The empty directory the server starts in when [initialize] gets
   /// analysis options. [dispose] deletes it.
   Directory? _emptyRoot;
@@ -69,6 +73,14 @@ class LspClient {
   final _outlines = <String, Outline>{};
 
   final _outlineWaiters = <String, Completer<Outline>>{};
+
+  final _diagnostics = <String, List<lsp.Diagnostic>>{};
+
+  /// The version of each open document, raised by every [didChange].
+  final _versions = <String, int>{};
+
+  /// The document that [didChange] changed last.
+  Uri? _lastChanged;
 
   /// Recent `window/logMessage` errors, oldest first.
   final _loggedErrors = <String>[];
@@ -144,6 +156,9 @@ class LspClient {
       const _CustomMethod(_publishOutlineMethod),
       (params, context) async => wrapper._onPublishOutline(params),
     );
+    client.textDocument.onPublishDiagnostics((params, context) async {
+      wrapper._diagnostics[params.uri] = params.diagnostics;
+    });
     client.window.onLogMessage((params, context) async {
       if (params.type == .error) {
         wrapper._onLoggedError(params.message);
@@ -296,8 +311,8 @@ class LspClient {
   }
 
   void _onAnalyzerStatus(Object? params) {
-    final analyzing = params is Map && params['isAnalyzing'] == true;
-    if (analyzing) {
+    _analyzing = params is Map && params['isAnalyzing'] == true;
+    if (_analyzing) {
       _awaitingAnalysis = false;
     } else if (!_awaitingAnalysis) {
       final waiters = List.of(_idleWaiters);
@@ -377,8 +392,30 @@ class LspClient {
     return completer.future.whenComplete(timer.cancel);
   }
 
+  /// The diagnostics that the server last published, keyed by document URI.
+  Map<String, List<lsp.Diagnostic>> get diagnostics =>
+      UnmodifiableMapView(_diagnostics);
+
+  /// Completes once the server has analyzed the content that every
+  /// [didChange] so far sent. The server handles messages in order, so it
+  /// answers the `foldingRange` request sent here after those changes.
+  Future<void> waitForChangesAnalyzed() async {
+    if (_lastChanged case final changed?) {
+      await _guard(
+        lsp.RequestMethod.foldingRange.value,
+        () => _client.server.textDocument.foldingRange(
+          .new(textDocument: .new(uri: changed.toString())),
+        ),
+      );
+    }
+    if (_analyzing) {
+      await waitForAnalysisComplete();
+    }
+  }
+
   /// Notifies the server that [uri] is open with the given [text].
   void didOpen(Uri uri, String text) {
+    _versions[uri.toString()] = 1;
     _client.server.textDocument.didOpen(
       .new(
         textDocument: .new(
@@ -387,6 +424,33 @@ class LspClient {
           version: 1,
           text: text,
         ),
+      ),
+    );
+  }
+
+  /// Opens [uri] with [text], unless it is open already.
+  void ensureOpen(Uri uri, String text) {
+    if (!_versions.containsKey(uri.toString())) {
+      didOpen(uri, text);
+    }
+  }
+
+  /// Replaces the content of the open document [uri] with [text], for this
+  /// session only; the file on disk doesn't change.
+  void didChange(Uri uri, String text) {
+    final key = uri.toString();
+    _lastChanged = uri;
+    // The server publishes the outline of the new content.
+    _outlines.remove(key);
+    _client.server.textDocument.didChange(
+      .new(
+        textDocument: .new(
+          uri: key,
+          version: _versions.update(key, (version) => version + 1),
+        ),
+        contentChanges: [
+          .textDocumentContentChangeWholeDocument(.new(text: text)),
+        ],
       ),
     );
   }

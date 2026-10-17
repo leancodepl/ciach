@@ -118,7 +118,9 @@ easy-to-follow sentences, not how it works inside.
 A function's doc comment starts with what the function does or returns
 ("Returns …"), says what a parameter holds when that isn't obvious, and gives
 an example when a term is abstract. Keep it about as short as the doc comments
-of its neighbors. Don't add doc comments that the member's siblings lack or
+of its neighbors. Leave the evidence for a claim, such as the SDK
+code that you read or how many runs you checked, to the pull request and the
+review reply. Don't add doc comments that the member's siblings lack or
 that repeat the name, and don't describe the internal steps or why a caller
 needs the member. When a name confuses a reader, rename it instead of
 lengthening its comment.
@@ -299,12 +301,12 @@ explicit null check.
   that guards correctness belongs in the library API, not only in the CLI. A
   request to unify two code paths ends with one code path, not two lists.
 - Don't write code without a reason: a guard for a case that can't happen (a
-  test must fail without each condition), a shortcut that nobody measured, a
-  stored copy of a value that you can compute, a field that only carries state
-  from one method to another, a value built twice, a one-field JSON object, an
-  unused style or variant, or a factory left over from a refactor. Before
-  wrapping a library call or its exception, check what the exception already
-  carries.
+  test must fail without each condition), a shortcut that nobody measured
+  (copying only the lists that change instead of all of them), a stored copy
+  of a value that you can compute, a field that only carries state from one
+  method to another, a value built twice, a one-field JSON object, an unused
+  style or variant, or a factory left over from a refactor. Before wrapping a
+  library call or its exception, check what the exception already carries.
 - Don't put one caller's special case into a general function's result, such
   as a `null` placeholder in a list; handle it in that caller.
 - When a later step adds to data that an earlier step combined, such as the
@@ -390,7 +392,10 @@ against `example/` in `test/finder/`.
 
 Name a file after what it holds, one concern per file: one report format per
 `report/<format>_report.dart`, the `with`/`implements` clause rule in
-`settle/clause_only_types.dart`. A lower layer doesn't import a higher one: a
+`settle/clause_only_types.dart`. A new helper goes in a file whose name covers
+it, also when a similar helper already sits in a file about something else:
+`positionIn` doesn't belong in `comment_stripping.dart` just because
+`lineStartsOf` was there. A lower layer doesn't import a higher one: a
 doc link to a higher-layer name goes in backticks instead of an import. Some
 existing imports break this, such as `conventions/` importing
 `collect/candidates.dart`; don't add more.

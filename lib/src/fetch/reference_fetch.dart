@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/fetch/implicit_calls.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
@@ -76,6 +77,42 @@ final class ReferenceFetch {
       }
     }
     return (checked: checked, refs: refs);
+  }
+
+  /// [candidates] and [refs], with the implicit uses of each `call` method,
+  /// which the reference query misses, added to its references. When the
+  /// lookup fails, the `call` methods are left out, so they are never
+  /// reported.
+  Future<({List<Candidate> checked, List<List<Location>> refs})>
+  withImplicitCalls(
+    LspClient client,
+    List<Candidate> candidates,
+    List<List<Location>> refs,
+  ) async {
+    final usesOf = await findImplicitCalls(
+      client: client,
+      sources: _sources,
+      calls: candidates.where((c) => c.symbol.isCallMethod).toList(),
+      concurrency: options.concurrency,
+    );
+    if (usesOf == null) {
+      final kept = [
+        for (final (i, candidate) in candidates.indexed)
+          if (!candidate.symbol.isCallMethod) (candidate, refs[i]),
+      ];
+      return (
+        checked: [for (final (candidate, _) in kept) candidate],
+        refs: [for (final (_, candidateRefs) in kept) candidateRefs],
+      );
+    }
+    await semanticTokensFor(client, usesOf.values.toList());
+    return (
+      checked: candidates,
+      refs: [
+        for (final (i, candidate) in candidates.indexed)
+          [...refs[i], ...?usesOf[candidate]],
+      ],
+    );
   }
 
   Future<List<Location>?> _referencesOf(
