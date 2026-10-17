@@ -23,6 +23,7 @@ import 'package:ciach/src/settle/whole_types.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/plural.dart';
+import 'package:ciach/src/util/stages.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location;
 
@@ -124,40 +125,60 @@ final class Settler {
 
     var crossLib = CrossLibraryReferences.empty;
     var deadSpans = options.transitive
-        ? _transitive.allUnreached(candidates, refsByCandidate, rootPath)
+        ? stage(
+            'Find the declarations that no live code reaches',
+            () =>
+                _transitive.allUnreached(candidates, refsByCandidate, rootPath),
+          )
         : DeadSpans.empty;
     _Verdicts settled;
     Map<UnusedDeclaration, int> candidateOf;
     for (var round = 1; ; round++) {
-      final liveRefs = TransitiveSweep.liveRefs(refsByCandidate, deadSpans);
-      crossLib = crossLib.merged(
-        await _recovery.recover(client, candidates, liveRefs, refsByCandidate),
-      );
-      final result = await _round(
-        client,
-        candidates,
-        refsByCandidate,
-        liveRefs,
-        crossLib.whereNot(deadSpans.covers),
-        deadSpans,
-        superclasses,
-        overrides,
-        scannedPaths,
-        rootPath,
-        analysisRoot,
-      );
+      final (:result, :next) = await stage('Settle a round', () async {
+        final liveRefs = TransitiveSweep.liveRefs(refsByCandidate, deadSpans);
+        crossLib = crossLib.merged(
+          await stage(
+            'Recover the references that the search missed',
+            () => _recovery.recover(
+              client,
+              candidates,
+              liveRefs,
+              refsByCandidate,
+            ),
+          ),
+        );
+        final result = await _round(
+          client,
+          candidates,
+          refsByCandidate,
+          liveRefs,
+          crossLib.whereNot(deadSpans.covers),
+          deadSpans,
+          superclasses,
+          overrides,
+          scannedPaths,
+          rootPath,
+          analysisRoot,
+        );
+        final next = options.transitive
+            ? stage(
+                'Sweep the findings that no live reference reaches',
+                () => _transitive.sweep(
+                  candidates,
+                  refsByCandidate,
+                  crossLib,
+                  result.candidateOf,
+                  rootPath,
+                ),
+              )
+            : null;
+        return (result: result, next: next);
+      });
       settled = result.settled;
       candidateOf = result.candidateOf;
-      if (!options.transitive) {
+      if (next == null) {
         break;
       }
-      final next = _transitive.sweep(
-        candidates,
-        refsByCandidate,
-        crossLib,
-        result.candidateOf,
-        rootPath,
-      );
       if (next.sameAs(deadSpans)) {
         if (round > 1) {
           _log.fine('Settled after ${plural(round, 'round', 'rounds')}.');
@@ -206,10 +227,13 @@ final class Settler {
     String rootPath,
     String analysisRoot,
   ) async {
-    final statuses = [
-      for (var i = 0; i < candidates.length; i++)
-        _classifier.classify(candidates[i], liveRefs[i], crossLib),
-    ];
+    final statuses = stage(
+      'Classify references',
+      () => [
+        for (var i = 0; i < candidates.length; i++)
+          _classifier.classify(candidates[i], liveRefs[i], crossLib),
+      ],
+    );
 
     final recovered = _recovery.warnings(
       candidates,
@@ -229,13 +253,16 @@ final class Settler {
 
     final deadClassNames = _deadClassNames(candidates, statuses);
 
-    final safety = await RemoveSafety.analyze(
-      _sources,
-      candidates,
-      statuses,
-      liveRefs,
-      deadClassNames,
-      superclasses.needsConstructorArguments,
+    final safety = await stage(
+      'Check which findings can be removed safely',
+      () => RemoveSafety.analyze(
+        _sources,
+        candidates,
+        statuses,
+        liveRefs,
+        deadClassNames,
+        superclasses.needsConstructorArguments,
+      ),
     );
 
     // `--remove` keeps a type that only doc comments mention, and its members.
@@ -267,16 +294,19 @@ final class Settler {
 
     // Remove a dead member's overrides with it. If an override has to stay,
     // for example because it is in a doc-only type, keep the member too.
-    final overridden = await overrides.couple(
-      candidates,
-      [
-        for (final index in reported)
-          if (_verdict.canBeOverridden(candidates[index])) index,
-      ],
-      kept: DeadSpans.of([
-        for (final type in docOnlyTypes) _verdict.finding(type, rootPath),
-      ], rootPath),
-      concurrency: options.concurrency,
+    final overridden = await stage(
+      'Find the overrides of dead members',
+      () => overrides.couple(
+        candidates,
+        [
+          for (final index in reported)
+            if (_verdict.canBeOverridden(candidates[index])) index,
+        ],
+        kept: DeadSpans.of([
+          for (final type in docOnlyTypes) _verdict.finding(type, rootPath),
+        ], rootPath),
+        concurrency: options.concurrency,
+      ),
     );
 
     final unused = <UnusedDeclaration>[];
@@ -312,7 +342,10 @@ final class Settler {
     // Make the fields and variables `--remove` can't cut out report-only now,
     // so that the next `--transitive` round keeps alive what they reference,
     // and a class that keeps one isn't listed as left empty.
-    final cut = await _variableCuts.withCuts(client, unused, rootPath);
+    final cut = await stage(
+      'Work out how to cut out dead fields and variables',
+      () => _variableCuts.withCuts(client, unused, rootPath),
+    );
     final cutCandidateOf = {
       for (final (k, finding) in cut.indexed) finding: candidateOf[unused[k]]!,
     };
@@ -323,17 +356,21 @@ final class Settler {
         (i) => reportOnlyTypes.containsKey(candidates[i].containerKey),
       );
     _removableBefore.addAll(removable);
-    for (final (i, finding) in await _clauseOnly.findings(
-      client,
-      candidates,
-      statuses,
-      refsByCandidate,
-      liveRefs,
-      removable,
-      deadSpans,
-      scannedPaths,
-      rootPath,
-    )) {
+    final clauseOnly = await stage(
+      'Find the types that only `with` and `implements` clauses name',
+      () => _clauseOnly.findings(
+        client,
+        candidates,
+        statuses,
+        refsByCandidate,
+        liveRefs,
+        removable,
+        deadSpans,
+        scannedPaths,
+        rootPath,
+      ),
+    );
+    for (final (i, finding) in clauseOnly) {
       cut.add(finding);
       cutCandidateOf[finding] = i;
     }
