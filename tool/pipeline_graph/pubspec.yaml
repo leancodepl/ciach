@@ -1,0 +1,14 @@
+name: pipeline_graph
+description: Draws the calls that a ciach scan makes as a Mermaid flowchart.
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+dependencies:
+  analyzer: ^14.0.0
+  path: ^1.9.1
+
+dev_dependencies:
+  leancode_lint: ^27.0.0
+  test: ^1.31.2
