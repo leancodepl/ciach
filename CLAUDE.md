@@ -47,7 +47,8 @@ End every entry with a link to its pull request, never to an issue:
 entry, run `dart run tool/check_changelog.dart --pr N`; CI runs the same check.
 
 Write an entry for the people who use ciach. In one to three short, plain
-sentences, say what was added, fixed or changed, as they will see it. For a
+sentences, say what was added, fixed or changed, as they will see it, and keep
+it about as long as the entries around it. For a
 fix, say what went wrong before. Leave out how it was implemented: no class or
 method names, internal terms or reasoning about the code.
 
@@ -129,7 +130,9 @@ algorithm a loop implements. Define a domain term, such as "variant", where it
 first appears, and give a loop whose result isn't obvious a one-line example.
 Give concrete values: "the server names it `extension on String`", not "the
 server's placeholder name". A comment doesn't explain Dart, argue against an
-alternative that nobody proposed, or retell how the code came to be.
+alternative that nobody proposed, or retell how the code came to be. Put a
+comment at the code that it explains: a reason why a step is skipped goes
+where the step runs, not next to the code before it.
 
 A file whose purpose isn't obvious gets a library doc comment, and a long
 inline fixture gets a comment on each part. Put such an explanation in the
@@ -233,9 +236,10 @@ explicit null check.
 
 # Idioms
 
-- Return a result; never fill a list that the caller passes in. A function that
-  only builds a collection is `sync*`, or an expression body with a collection
-  literal that uses `for`, `if` and `?key:`. A plain filter is `where(f)`, with
+- Return a result; never fill a list that the caller passes in, or replace its
+  elements. A function that only builds a collection is `sync*`, or an
+  expression body with a collection literal that uses `for`, `if` and
+  `?key:`. A plain filter is `where(f)`, with
   `.toSet()` or `.toList()` when needed, not a collection-for literal. Never
   turn a collection literal into an imperative loop unless asked; when a
   literal gets busy, give its predicate a named local.
@@ -303,6 +307,9 @@ explicit null check.
   carries.
 - Don't put one caller's special case into a general function's result, such
   as a `null` placeholder in a list; handle it in that caller.
+- When a later step adds to data that an earlier step combined, such as the
+  references that conditional-import variants share, combine them again in
+  that step, instead of keeping the step's input away from it.
 - Don't add what nobody asked for: a flag that turns the new behavior off, a
   deprecated alias, a second accepted spelling of an input, or a second quick
   fix that goes the other way. Ask first. Reject a wrong input with an error
