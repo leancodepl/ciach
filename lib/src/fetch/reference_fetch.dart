@@ -110,10 +110,7 @@ final class ReferenceFetch {
       checked: candidates,
       refs: [
         for (final (i, candidate) in candidates.indexed)
-          if (usesOf[candidate] case final uses?)
-            [...refs[i], ...uses]
-          else
-            refs[i],
+          [...refs[i], ...?usesOf[candidate]],
       ],
     );
   }

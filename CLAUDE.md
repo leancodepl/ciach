@@ -301,12 +301,12 @@ explicit null check.
   that guards correctness belongs in the library API, not only in the CLI. A
   request to unify two code paths ends with one code path, not two lists.
 - Don't write code without a reason: a guard for a case that can't happen (a
-  test must fail without each condition), a shortcut that nobody measured, a
-  stored copy of a value that you can compute, a field that only carries state
-  from one method to another, a value built twice, a one-field JSON object, an
-  unused style or variant, or a factory left over from a refactor. Before
-  wrapping a library call or its exception, check what the exception already
-  carries.
+  test must fail without each condition), a shortcut that nobody measured
+  (copying only the lists that change instead of all of them), a stored copy
+  of a value that you can compute, a field that only carries state from one
+  method to another, a value built twice, a one-field JSON object, an unused
+  style or variant, or a factory left over from a refactor. Before wrapping a
+  library call or its exception, check what the exception already carries.
 - Don't put one caller's special case into a general function's result, such
   as a `null` placeholder in a list; handle it in that caller.
 - When a later step adds to data that an earlier step combined, such as the
