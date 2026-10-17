@@ -78,10 +78,14 @@ class const Hero({required final String version, super.key})
       ),
     ]),
     css(bg.selector).styles(
-      position: const .absolute(),
+      position: const .absolute(
+        top: .zero,
+        left: .zero,
+        bottom: .zero,
+        right: .zero,
+      ),
       zIndex: const .new(-1),
       raw: {
-        'inset': '0',
         'background':
             'radial-gradient(55% 45% at 72% 18%, ${accentAlpha(0.14).value}, '
             'transparent 65%), '
@@ -98,7 +102,7 @@ class const Hero({required final String version, super.key})
       css('&').styles(display: .grid, alignItems: .center, gap: .all(3.rem)),
       shrinkableChildren(),
       css.media(.all(minWidth: 1000.px), [
-        css('&').styles(raw: {'grid-template-columns': '1.05fr 1fr'}),
+        css('&').styles(gridTemplate: fractionColumns([1.05, 1])),
       ]),
     ]),
     css(_copy.selector, [shrinkableChildren()]),
@@ -155,21 +159,21 @@ class const Hero({required final String version, super.key})
         ),
         border: hairline(border2Color),
         radius: const .circular(radius),
+        shadow: shadow,
         alignItems: .center,
         gap: .all(0.75.rem),
         backgroundColor: surfaceColor,
-        raw: {'box-shadow': shadow},
       ),
       css('& code').styles(
         minWidth: .zero,
         overflow: const .only(x: .auto),
+        flex: growToFill,
         fontSize: 0.95.rem,
         whiteSpace: .noWrap,
-        raw: {'flex': '1'},
       ),
       css.media(.all(maxWidth: 540.px), [
         css('&').styles(flexWrap: .wrap),
-        css('& code').styles(order: -1, raw: {'flex-basis': '100%'}),
+        css('& code').styles(flex: .basis(100.percent), order: -1),
         css('& ${Highlight.prompt.selector}').styles(display: .none),
       ]),
     ]),

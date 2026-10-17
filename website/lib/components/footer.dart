@@ -35,9 +35,10 @@ class const SiteFooter({required final String version, super.key})
           horizontal: .zero,
         ),
         border: .only(bottom: hairlineSide(borderColor)),
+        backgroundColor: bg2Color,
         raw: {
-          'background':
-              'radial-gradient(50% 60% at 50% 100%, ${accentAlpha(0.12).value}, transparent 70%), var(--bg-2)',
+          'background-image':
+              'radial-gradient(50% 60% at 50% 100%, ${accentAlpha(0.12).value}, transparent 70%)',
         },
       ),
       css('& h2')
@@ -70,10 +71,10 @@ class const SiteFooter({required final String version, super.key})
         css('&:hover').styles(color: accentColor),
       ]),
       css.media(.all(minWidth: 760.px), [
-        css('&').styles(raw: {'grid-template-columns': '1fr 1fr'}),
+        css('&').styles(gridTemplate: fractionColumns([1, 1])),
       ]),
       css.media(.all(minWidth: 1000.px), [
-        css('&').styles(raw: {'grid-template-columns': '1.6fr 1fr 1fr 1.4fr'}),
+        css('&').styles(gridTemplate: fractionColumns([1.6, 1, 1, 1.4])),
       ]),
     ]),
     css('${_brand.selector} p').styles(

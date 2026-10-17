@@ -56,11 +56,14 @@ class const Features({super.key}) extends StatelessComponent {
     css(_grid.selector, [
       css('&').styles(
         display: .grid,
+        gridTemplate: const .new(
+          columns: .new([
+            .repeat(.autoFit, [
+              .new(.minmax(.new(.expression('min(100%, 300px)')), .fr(1))),
+            ]),
+          ]),
+        ),
         gap: .all(1.rem),
-        raw: {
-          'grid-template-columns':
-              'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
-        },
       ),
       shrinkableChildren(),
     ]),
@@ -68,11 +71,11 @@ class const Features({super.key}) extends StatelessComponent {
       css('&')
           .styles(display: .flex, flexDirection: .column, gap: .all(0.6.rem)),
       css('&:hover').styles(
+        border: hairline(border2Color),
         transform: .translate(y: (-2).px),
-        raw: {'border-color': 'var(--border-2)'},
       ),
       css('& h3').styles(margin: .zero),
-      css('& p').styles(raw: {'flex': '1'}),
+      css('& p').styles(flex: growToFill),
     ]),
     css(_icon.selector).styles(
       display: .inlineGrid,
@@ -81,9 +84,10 @@ class const Features({super.key}) extends StatelessComponent {
       margin: .only(bottom: 0.5.rem),
       border: hairline(accentAlpha(0.3)),
       radius: .circular(12.px),
+      alignItems: .center,
+      justifyItems: .center,
       color: accentColor,
       backgroundColor: accentSoftColor,
-      raw: {'place-items': 'center'},
     ),
   ];
 

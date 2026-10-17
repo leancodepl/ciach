@@ -212,7 +212,14 @@ class const DocsPage({required final String version, super.key})
       ),
       shrinkableChildren(),
       css.media(_wide, [
-        css('&').styles(raw: {'grid-template-columns': '220px minmax(0, 1fr)'}),
+        css('&').styles(
+          gridTemplate: .new(
+            columns: .new([
+              .new(.new(220.px)),
+              const .new(.minmax(.new(.zero), .fr(1))),
+            ]),
+          ),
+        ),
       ]),
     ]),
     // The table of contents: a sticky column beside the text on wide screens,
@@ -227,9 +234,9 @@ class const DocsPage({required final String version, super.key})
         css.media(_narrow, [
           css('&').styles(
             display: .flex,
+            border: const .only(left: .none()),
             flexWrap: .wrap,
             gap: .all(0.4.rem),
-            raw: {'border-left': '0'},
           ),
         ]),
       ]),
@@ -244,9 +251,12 @@ class const DocsPage({required final String version, super.key})
           color: text2Color,
           fontSize: 0.95.rem,
         ),
-        css(
-          '&:hover, &${DocsToc.active.selector}',
-        ).styles(color: textColor, raw: {'border-left-color': 'var(--accent)'}),
+        css('&:hover, &${DocsToc.active.selector}').styles(
+          border: .only(
+            left: .new(color: accentColor, width: 2.px),
+          ),
+          color: textColor,
+        ),
         css.media(_narrow, [
           css('&').styles(
             padding: .symmetric(vertical: 0.35.rem, horizontal: 0.75.rem),
@@ -256,7 +266,7 @@ class const DocsPage({required final String version, super.key})
             fontSize: 0.85.rem,
           ),
           css('&:hover, &${DocsToc.active.selector}')
-              .styles(raw: {'border-color': 'var(--accent)'}),
+              .styles(border: hairline(accentColor)),
         ]),
       ]),
       css.media(_wide, [
@@ -329,7 +339,7 @@ class const DocsPage({required final String version, super.key})
       ),
       css('& tbody', [
         css('& tr:last-child th, & tr:last-child td')
-            .styles(raw: {'border-bottom': '0'}),
+            .styles(border: const .only(bottom: .none())),
         css('& th', [
           css('&').styles(fontWeight: .w500),
           css('& code').styles(whiteSpace: .noWrap),
@@ -340,9 +350,9 @@ class const DocsPage({required final String version, super.key})
       css('&:not(${_compare.selector}) tbody th').styles(width: 1.percent),
       css('& td').styles(color: text2Color),
       css('& code${_flag.selector}').styles(
+        border: hairline(accentAlpha(0.3)),
         color: accentColor,
         whiteSpace: .noWrap,
-        raw: {'border-color': accentAlpha(0.3).value},
       ),
       // Tables stack: one card per row, column names as small labels.
       css.media(_stacked, [
@@ -352,8 +362,9 @@ class const DocsPage({required final String version, super.key})
           padding: .symmetric(vertical: 0.9.rem, horizontal: 1.1.rem),
           border: .only(bottom: hairlineSide(borderColor)),
         ),
-        css('& tbody tr:last-child').styles(raw: {'border-bottom': '0'}),
-        css('& th, & td').styles(padding: .zero, raw: {'border': '0'}),
+        css('& tbody tr:last-child')
+            .styles(border: const .only(bottom: .none())),
+        css('& th, & td').styles(padding: .zero, border: .none),
         css('& tbody th').styles(
           margin: .only(bottom: 0.5.rem),
           whiteSpace: .normal,

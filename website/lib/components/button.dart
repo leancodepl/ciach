@@ -65,12 +65,11 @@ class const Button(
     ]),
     css(_secondary.selector, [
       css('&').styles(
+        border: hairline(border2Color),
         color: textColor,
         backgroundColor: surfaceColor,
-        raw: {'border-color': 'var(--border-2)'},
       ),
-      css('&:hover')
-          .styles(color: textColor, raw: {'border-color': 'var(--accent)'}),
+      css('&:hover').styles(border: hairline(accentColor), color: textColor),
     ]),
   ];
 

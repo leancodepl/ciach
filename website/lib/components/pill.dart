@@ -39,11 +39,11 @@ class const Pill(
     ),
     css(_accent.selector, [
       css('&').styles(
+        border: hairline(accentAlpha(0.4)),
         color: accentColor,
         backgroundColor: accentSoftColor,
-        raw: {'border-color': accentAlpha(0.4).value},
       ),
-      css('&:hover').styles(raw: {'border-color': 'var(--accent)'}),
+      css('&:hover').styles(border: hairline(accentColor)),
     ]),
   ];
 
