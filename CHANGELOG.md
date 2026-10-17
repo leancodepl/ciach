@@ -1,5 +1,10 @@
 ## Unreleased
 
+- ciach now reports a parameter that the body of its function, method or
+  constructor never reads, with the kind `parameter`. Such a finding is
+  report-only and counts toward `--set-exit-if-changed`. Overrides, functions
+  that code tears off, and parameters named `_` are left out.
+  ([#155](https://github.com/leancodepl/ciach/pull/155))
 - Scans are faster: the check for uses that the reference search missed
   takes less time. On a large package, it went from about 110 to 30 seconds.
   ([#139](https://github.com/leancodepl/ciach/pull/139))

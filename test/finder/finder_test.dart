@@ -27,25 +27,12 @@ import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 import 'package:test/test.dart';
 
-void main() {
-  // The example package doubles as the test fixture: a real `sample_pkg`
-  // package with a known mix of used and unused declarations.
-  final fixturePath = p.join(Directory.current.path, 'example');
+import '../support/example_package.dart';
 
-  setUpAll(() async {
-    // The fixture is a real package; the analysis server needs its
-    // package_config.json to resolve `package:sample_pkg/...` imports.
-    final config = File(
-      p.join(fixturePath, '.dart_tool', 'package_config.json'),
-    );
-    if (!config.existsSync()) {
-      final result = await Process.run(Platform.resolvedExecutable, [
-        'pub',
-        'get',
-      ], workingDirectory: fixturePath);
-      expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
-    }
-  });
+void main() {
+  final fixturePath = examplePath;
+
+  setUpAll(resolveExample);
 
   Future<FinderResult> runFinder({
     bool includePublic = true,

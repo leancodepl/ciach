@@ -8,11 +8,18 @@
 
 import 'package:meta/meta.dart';
 
+// The stubs print `description` so that it isn't an unused parameter.
 @isTestGroup
-void suite(String description, void Function() body) => body();
+void suite(String description, void Function() body) {
+  print(description);
+  body();
+}
 
 @isTest
-void spec(String description, void Function() body) => body();
+void spec(String description, void Function() body) {
+  print(description);
+  body();
+}
 
 void main() {
   suite('outer', () {
