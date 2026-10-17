@@ -19,8 +19,9 @@ import 'package:collection/collection.dart';
 /// `switch (x) { final v? => f(v), null => d }`, `x == null ? null : f(x)`,
 /// `x == null ? d : f(x)`, and `a.b == null ? d : f(a.b!)` for a value a null
 /// check cannot promote. A null-aware chain (`x?.length`) or `x?.let(f)` from
-/// `lib/src/extensions.dart`, with `?? d` for a fallback other than `null`,
-/// says the same in one expression.
+/// ciach's `lib/src/util/extensions.dart`, with `?? d` for a fallback other
+/// than `null`, says the same in one expression. A rewrite to `let` is
+/// reported only in a package that can import that library.
 class PreferLet() extends AnalysisRule {
   this : super(name: code.lowerCaseName, description: code.problemMessage);
 
@@ -39,15 +40,24 @@ class PreferLet() extends AnalysisRule {
     RuleVisitorRegistry registry,
     RuleContext context,
   ) {
-    final visitor = _Visitor(this, context.typeSystem);
+    final visitor = _Visitor(
+      this,
+      context.typeSystem,
+      canImportLet:
+          context.libraryElement?.session.uriConverter.uriToPath(_extensions) !=
+          null,
+    );
     registry
       ..addSwitchExpression(this, visitor)
       ..addConditionalExpression(this, visitor);
   }
 }
 
-class _Visitor(final AnalysisRule rule, final TypeSystem typeSystem)
-    extends SimpleAstVisitor<void> {
+class _Visitor(
+  final AnalysisRule rule,
+  final TypeSystem typeSystem, {
+  required final bool canImportLet,
+}) extends SimpleAstVisitor<void> {
   @override
   void visitSwitchExpression(SwitchExpression node) => _check(node, 'switch');
 
@@ -61,6 +71,9 @@ class _Visitor(final AnalysisRule rule, final TypeSystem typeSystem)
       return;
     }
     final rewrite = rewriteOf(shape, (node) => node.toSource());
+    if (rewrite.usesLet && !canImportLet) {
+      return;
+    }
     rule.reportAtNode(node, arguments: [kind, rewrite.sketch]);
   }
 }
@@ -472,6 +485,9 @@ String? _tearOff(
   _ => null,
 };
 
+/// The library that declares `let`.
+final _extensions = Uri.parse('package:ciach/src/util/extensions.dart');
+
 /// Applies [rewriteOf] to the flagged expression, importing the extension
 /// when `let` is used and the file lacks it.
 class ReplaceWithLet({required super.context})
@@ -480,10 +496,6 @@ class ReplaceWithLet({required super.context})
     'ciach_lints.fix.replaceWithLet',
     DartFixKindPriority.standard,
     "Replace with '{0}'",
-  );
-
-  static final _extensions = Uri.parse(
-    'package:ciach/src/util/extensions.dart',
   );
 
   late final _rewrite = rewriteOf(

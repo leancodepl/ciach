@@ -12,6 +12,7 @@ import 'support/fixes.dart';
 void main() {
   defineReflectiveSuite(() {
     defineReflectiveTests(PreferLetTest);
+    defineReflectiveTests(PreferLetWithoutExtensionTest);
   });
 }
 
@@ -419,5 +420,31 @@ int? f(String? s) {
   return length;
 }
 ''');
+  }
+}
+
+/// A package that can't import ciach's `lib/src/util/extensions.dart`.
+@reflectiveTest
+class PreferLetWithoutExtensionTest() extends AnalysisRuleTest {
+  @override
+  void setUp() {
+    rule = PreferLet();
+    super.setUp();
+  }
+
+  Future<void> test_onlyTheNullAwareChainIsReported() async {
+    const chain = 's == null ? null : s.length';
+    const code =
+        '''
+int? f(String? s) => $chain;
+int? g(String? s) => s != null ? int.parse(s) : null;
+''';
+    await assertDiagnostics(code, [
+      lint(
+        code.indexOf(chain),
+        chain.length,
+        correctionContains: "'s?.length'",
+      ),
+    ]);
   }
 }
