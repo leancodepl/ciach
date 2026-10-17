@@ -1059,6 +1059,20 @@ void main() {
     },
   );
 
+  test(
+    'an unused member of an unnamed extension in an exported library is reported',
+    () async {
+      final result = await Ciach(
+        .new(
+          rootPath: fixturePath,
+          exportedPackages: const ['**'],
+          includeGlobs: const ['lib/scenarios/private_types.dart'],
+        ),
+      ).run();
+      expect(result.unused.map((d) => d.qualifiedName), contains('sextupled'));
+    },
+  );
+
   const extensionFixture = [
     'lib/scenarios/extensions_emptied.dart',
     'lib/scenarios/extensions_emptied_uses.dart',

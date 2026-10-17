@@ -2,7 +2,9 @@
 
 - `--no-public` now also reports the unused members of a private type or an
   unnamed extension, such as `_Foo.reset`. A member that other packages reach
-  through a public subtype or type alias counts as public.
+  through a public subtype or type alias counts as public. With
+  `exported-packages`, the unused members of an unnamed extension are
+  reported too, since no other library can call them.
   ([#135](https://github.com/leancodepl/ciach/pull/135))
 - Scans are faster: the check for uses that the reference search missed
   takes less time. On a large package, it went from about 110 to 30 seconds.
