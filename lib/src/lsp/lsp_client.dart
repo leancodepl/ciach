@@ -397,16 +397,14 @@ class LspClient {
       UnmodifiableMapView(_diagnostics);
 
   /// Completes once the server has analyzed the content that every
-  /// [didChange] so far sent. The server handles messages in order, so it
-  /// answers the `foldingRange` request sent here after those changes.
+  /// [didChange] so far sent. The server handles messages in order, and to
+  /// answer the `hover` request sent here, it resolves the changed file. It
+  /// reports `isAnalyzing: true` before it starts that work, so when the
+  /// answer arrives, either the analysis of every changed file and of the
+  /// files that import them is running or it has finished.
   Future<void> waitForChangesAnalyzed() async {
     if (_lastChanged case final changed?) {
-      await _guard(
-        lsp.RequestMethod.foldingRange.value,
-        () => _client.server.textDocument.foldingRange(
-          .new(textDocument: .new(uri: changed.toString())),
-        ),
-      );
+      await hover(changed, const .new(line: 0, character: 0));
     }
     if (_analyzing) {
       await waitForAnalysisComplete();
@@ -435,11 +433,16 @@ class LspClient {
     }
   }
 
-  /// Replaces the content of the open document [uri] with [text], for this
-  /// session only; the file on disk doesn't change.
+  /// Replaces the content of the document [uri] with [text], for this session
+  /// only; the file on disk doesn't change. A document that isn't open, such
+  /// as a file that the scan skips, is opened with [text].
   void didChange(Uri uri, String text) {
     final key = uri.toString();
     _lastChanged = uri;
+    if (!_versions.containsKey(key)) {
+      didOpen(uri, text);
+      return;
+    }
     // The server publishes the outline of the new content.
     _outlines.remove(key);
     _client.server.textDocument.didChange(
@@ -584,6 +587,36 @@ class LspClient {
     final definition = result.asDefinition;
     return definition?.asLocationList ?? [?definition?.asLocation];
   }
+
+  /// The class, mixin, enum or extension type that declares the member at
+  /// [position] in [uri], or `null` when there is none, as for a member of an
+  /// extension.
+  Future<lsp.TypeHierarchyItem?> declaringType(
+    Uri uri,
+    lsp.Position position,
+  ) async {
+    final items = await _guard(
+      lsp.RequestMethod.prepareTypeHierarchy.value,
+      () => _client.server.textDocument.prepareTypeHierarchy(
+        .new(
+          textDocument: .new(uri: uri.toString()),
+          position: position,
+        ),
+      ),
+    );
+    return items?.firstOrNull;
+  }
+
+  /// The direct supertypes of [type]: its superclass, its interfaces, its
+  /// mixins and the `on` types of a mixin.
+  Future<List<lsp.TypeHierarchyItem>> supertypes(
+    lsp.TypeHierarchyItem type,
+  ) async =>
+      await _guard<List<lsp.TypeHierarchyItem>?>(
+        lsp.RequestMethod.supertypes.value,
+        () => _client.server.typeHierarchy.supertypes(.new(item: type)),
+      ) ??
+      const [];
 
   /// The syntax nodes enclosing each of [positions] in [uri], innermost first.
   /// `null` where the server has no answer.

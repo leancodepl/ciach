@@ -50,7 +50,6 @@ void main() {
   Future<FinderResult> runFinder({
     bool includePublic = true,
     bool skipOverrides = true,
-    bool skipOperators = true,
     Set<SymbolKind>? kinds,
     // The scenario fixtures under lib/scenarios/ are scanned only by their
     // dedicated tests; exclude them from the default-run assertions.
@@ -63,7 +62,6 @@ void main() {
       rootPath: fixturePath,
       includePublic: includePublic,
       skipOverrides: skipOverrides,
-      skipOperators: skipOperators,
       kinds: kinds ?? FinderOptions.defaultKinds,
       excludeGlobs: exclude,
       includeGlobs: include,
@@ -75,7 +73,6 @@ void main() {
   Future<Set<String>> findUnused({
     bool includePublic = true,
     bool skipOverrides = true,
-    bool skipOperators = true,
     Set<SymbolKind>? kinds,
     List<String> exclude = const ['lib/scenarios/**'],
     List<String> include = const [],
@@ -83,7 +80,6 @@ void main() {
     final result = await runFinder(
       includePublic: includePublic,
       skipOverrides: skipOverrides,
-      skipOperators: skipOperators,
       kinds: kinds,
       exclude: exclude,
       include: include,
@@ -123,6 +119,7 @@ void main() {
       'Direction.west',
       'Loud.whisper',
       'IntExtras.tripled',
+      'Vector2.-',
       // Private constructors are reported like any other dead code. The sole,
       // zero-parameter `SoleMarker._()` also carries a prevent-instantiation
       // hint (asserted separately below).
@@ -130,11 +127,6 @@ void main() {
       'MultiCtor._unused',
       'ParamCtor._',
     });
-  });
-
-  test('including operators also reports operator overloads', () async {
-    final unused = await findUnused(skipOperators: false);
-    expect(unused, containsAll(['Vector2.+', 'Vector2.-']));
   });
 
   test('does not report a `call` method that an invoked object uses', () async {

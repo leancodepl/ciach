@@ -13,6 +13,7 @@
 library;
 
 import 'package:ciach/ciach.dart';
+import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 
 /// Friendly `--kinds` names mapped to LSP symbol kinds.
@@ -40,18 +41,36 @@ String get kindNames => kindAliases.keys.sorted().join(', ');
 
 /// The accepted `--also` values: what is skipped by default, each a known
 /// source of false positives.
-const alsoNames = ['overrides', 'operators', 'tojson', 'union-members'];
+const alsoNames = ['overrides', 'tojson', 'union-members'];
+
+/// The values in [raw], whose entries each hold comma-separated `also`
+/// values.
+Set<String> splitAlso(Iterable<String> raw) => {
+  for (final entry in raw)
+    for (final name in entry.split(','))
+      if (name.trim() case final trimmed when trimmed.isNotEmpty) trimmed,
+};
+
+/// The values that `also` no longer takes, each with why it is not needed.
+const _removedAlsoValues = {
+  'operators': 'operators are reported by default now, so drop it',
+};
+
+/// The first of [values] that `also` no longer takes, with why it is not
+/// needed, or `null` when there is none.
+({String value, String advice})? removedAlsoValue(Set<String> values) => values
+    .firstWhereOrNull(_removedAlsoValues.containsKey)
+    ?.let((value) => (value: value, advice: _removedAlsoValues[value]!));
 
 /// Parses the `--also` values (comma-separated, repeatable).
 ///
 /// Throws a [FormatException] naming the offending value on an unknown one,
 /// which the command line would catch by itself, but a config file would not.
 Set<String> parseAlso(List<String> raw) {
-  final names = {
-    for (final entry in raw)
-      for (final name in entry.split(','))
-        if (name.trim() case final trimmed when trimmed.isNotEmpty) trimmed,
-  };
+  final names = splitAlso(raw);
+  if (removedAlsoValue(names) case (:final value, :final advice)) {
+    throw FormatException('`$value` under `also` was removed: $advice.');
+  }
   if (names.whereNot(alsoNames.contains).firstOrNull case final unknown?) {
     throw FormatException(
       "Unknown value '$unknown' for `also`. Valid values: ${alsoNames.join(', ')}.",

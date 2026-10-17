@@ -12,7 +12,9 @@
 /// instead.
 library;
 
+import 'package:ciach/src/cli/option_values.dart';
 import 'package:ciach/src/util/extensions.dart';
+import 'package:collection/collection.dart';
 
 /// What a removed option became: the values for the option with the config
 /// key `key` to take. No values set it to an empty list.
@@ -21,7 +23,6 @@ typedef Replacement = ({String key, List<String> values});
 /// The removed flags that became a value of `--also`, by config key.
 const _alsoFlags = {
   'overrides': 'overrides',
-  'operators': 'operators',
   'report-tojson': 'tojson',
   'unused-union-members': 'union-members',
 };
@@ -45,16 +46,19 @@ String removedOptionAdvice(
   Object? value, {
   required bool inConfig,
 }) {
-  if (key == 'fail-public' && value == false) {
-    return 'every finding counts toward the exit code; to leave out what other packages can import, list those packages in `exported-packages`';
-  }
-  return switch (_replacementFor(key, value)) {
-    null => 'that is the default now, so drop it',
-    final replacement when inConfig =>
-      'use `${replacement.key}: [${replacement.values.map(_quoted).join(', ')}]`',
-    (:final key, values: []) => 'use `--$key=`',
-    (:final key, :final values) =>
-      'use ${values.map((value) => '`--$key ${_quoted(value)}`').join(' ')}',
+  return switch ((key, value)) {
+    ('fail-public', false) =>
+      'every finding counts toward the exit code; to leave out what other packages can import, list those packages in `exported-packages`',
+    ('operators', false) =>
+      'operators are reported by default now; to keep one, mark it with `// ciach:ignore`',
+    _ => switch (_replacementFor(key, value)) {
+      null => 'that is the default now, so drop it',
+      final replacement when inConfig =>
+        'use `${replacement.key}: [${replacement.values.map(_quoted).join(', ')}]`',
+      (:final key, values: []) => 'use `--$key=`',
+      (:final key, :final values) =>
+        'use ${values.map((value) => '`--$key ${_quoted(value)}`').join(' ')}',
+    },
   };
 }
 
@@ -94,7 +98,20 @@ String? removedOptionMessage(List<String> arguments) {
     }
     final match = _longOption.firstMatch(argument);
     final key = match?.namedGroup('name');
-    if (match == null || key == null || !removedKeys.contains(key)) {
+    if (match == null || key == null) {
+      continue;
+    }
+    // The values of `--also` may be the next argument.
+    final alsoValues = key == 'also'
+        ? match.namedGroup('value') ?? arguments.elementAtOrNull(i + 1)
+        : null;
+    if (removedAlsoValue(splitAlso([?alsoValues])) case (
+      :final value,
+      :final advice,
+    )) {
+      return '`--also $value` was removed: $advice.';
+    }
+    if (!removedKeys.contains(key)) {
       continue;
     }
     final Object? value = switch (key) {
