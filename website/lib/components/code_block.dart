@@ -46,8 +46,8 @@ class const CodeBlock({
         border: hairline(borderColor),
         radius: const .circular(radius),
         overflow: .hidden,
+        shadow: shadow,
         backgroundColor: surfaceColor,
-        raw: {'box-shadow': shadow},
       ),
       css('& pre').styles(
         padding: .only(
@@ -97,13 +97,13 @@ class const CodeBlock({
     css(_title.selector).styles(
       minWidth: .zero,
       overflow: .hidden,
+      flex: growToFill,
       color: mutedColor,
       textAlign: .center,
       fontFamily: fontMono,
       fontSize: 0.75.rem,
       textOverflow: .ellipsis,
       whiteSpace: .noWrap,
-      raw: {'flex': '1'},
     ),
     css(Highlight.line.selector)
         .styles(display: .inlineBlock, minWidth: 100.percent),

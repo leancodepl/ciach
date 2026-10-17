@@ -60,7 +60,7 @@ class const CiachDemo({super.key}) extends StatelessComponent {
       css('&').styles(display: .grid, alignItems: .start, gap: .all(1.25.rem)),
       shrinkableChildren(),
       css.media(.all(minWidth: 760.px), [
-        css('&').styles(raw: {'grid-template-columns': '1fr 1fr'}),
+        css('&').styles(gridTemplate: fractionColumns([1, 1])),
       ]),
     ]),
     // Dead lines: struck and faded. Without JavaScript that is the resting

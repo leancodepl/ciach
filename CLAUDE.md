@@ -274,6 +274,13 @@ explicit null check.
 - In `website/`, keep a component's styles next to it as Jaspr `@css`, make
   repeated pieces (buttons, cards, pills) components, and write `.only()`,
   `.symmetric()` or `.all()` rather than `fromLTRB()`.
+- In `website/`, set a CSS property through its typed `Styles` parameter
+  whenever Jaspr has one, even when the parameter writes longhands or a whole
+  border: `flex: growToFill`, not `raw: {'flex': '1'}`, and
+  `border: hairline(accentColor)`, not `raw: {'border-color': …}`. When the
+  parameter's type has no constructor for a value, pass `.expression()`, as in
+  `maxWidth: const .expression('none')`. Keep `raw` for what Jaspr can't
+  express, such as custom properties, gradients and `calc()` delays.
 
 # Design
 
