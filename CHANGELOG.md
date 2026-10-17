@@ -4,6 +4,9 @@
   unnamed extension, such as `_Foo.reset`. A member that other packages reach
   through a public subtype or type alias counts as public.
   ([#135](https://github.com/leancodepl/ciach/pull/135))
+- Scans are faster: the check for uses that the reference search missed
+  takes less time. On a large package, it went from about 110 to 30 seconds.
+  ([#139](https://github.com/leancodepl/ciach/pull/139))
 - `--remove` now lists the files that it deleted and the declarations that it
   left empty one per line. Before, it listed them on one line, separated by
   commas. ([#136](https://github.com/leancodepl/ciach/pull/136))
