@@ -14,11 +14,8 @@ part 'nav_bar.scopes.dart';
 /// a visitor can go from any page. Every item is a real link; in-page
 /// sections are reached by scrolling.
 @scopedCss
-class NavBar extends StatelessComponent {
-  const NavBar({required this.page, super.key});
-
-  final SitePage page;
-
+class const NavBar({required final SitePage page, super.key})
+    extends StatelessComponent {
   static const _class = _$NavBarScope;
 
   static final _root = _class.root;

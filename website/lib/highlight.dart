@@ -17,7 +17,7 @@ import 'package:syntax_highlight_lite/syntax_highlight_lite.dart' as sh;
 
 part 'highlight.scopes.dart';
 
-enum Language {
+enum Language() {
   dart,
   yaml,
   shell,
@@ -40,7 +40,7 @@ Future<void> initHighlighting() async {
 /// The classes highlighted code is rendered with: one per line, and one per
 /// token kind. `CodeBlock` gives them their look.
 @scopedCss
-abstract final class Highlight {
+abstract final class Highlight() {
   static const _class = _$HighlightScope;
 
   /// Every line of highlighted code.

@@ -1,3 +1,5 @@
+# Every other package in the repository includes this file, so that all of
+# them run the same lint rules and plugins.
 include: package:leancode_lint/analysis_options.yaml
 
 linter:

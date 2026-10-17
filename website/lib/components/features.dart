@@ -8,13 +8,7 @@ import 'package:jaspr_class_scope/jaspr_class_scope.dart';
 
 part 'features.scopes.dart';
 
-class _Feature {
-  const _Feature(this.icon, this.title, this.body);
-
-  final Icon icon;
-  final String title;
-  final String body;
-}
+class const _Feature(final Icon icon, final String title, final String body);
 
 const _features = [
   _Feature(
@@ -50,9 +44,7 @@ const _features = [
 ];
 
 @scopedCss
-class Features extends StatelessComponent {
-  const Features({super.key});
-
+class const Features({super.key}) extends StatelessComponent {
   static const _class = _$FeaturesScope;
 
   static final _grid = _class('grid');

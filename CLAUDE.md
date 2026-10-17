@@ -400,6 +400,11 @@ calls goes in `lib/src/cli/`. Handle a stage's failures inside that stage, not
 in the code that runs the stages. Mark committed generated files as
 `linguist-generated` in `.gitattributes`.
 
+Every package in the repository depends on the same `leancode_lint` version and
+includes the root `analysis_options.yaml`, so that all of them run the same
+lint rules and plugins; `website/` adds `jaspr_lints`. A package turns a rule
+off only in its own `analysis_options.yaml`, with a comment that says why.
+
 # File size
 
 Keep a file under about 500 lines. Split by responsibility, not by line count:
@@ -560,9 +565,9 @@ by hand. Indent a multi-line `run: |` script consistently.
 Use the newest patch of the Dart SDK line CI installs (`sdk: 'x.y'` in
 `.github/workflows/test.yml`): an older patch can format differently. Then
 run what CI runs. In the root, where `dart pub get` also resolves `example/`:
-`dart analyze`, `dart format --set-exit-if-changed .` and `dart test`. In
-`tool/ciach_lints/`: `dart pub get` and `dart test`. In `website/`, a Dart
-package of its own with its own workflow: `dart pub get`,
+`dart analyze --fatal-infos`, `dart format --set-exit-if-changed .` and
+`dart test`. In `tool/ciach_lints/`: `dart pub get` and `dart test`. In
+`website/`, a Dart package of its own with its own workflow: `dart pub get`,
 `dart analyze --fatal-infos`, `dart format --set-exit-if-changed .` and
 `dart test`, which renders the committed assets and compares them.
 

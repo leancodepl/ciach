@@ -231,8 +231,7 @@ class EmptyFallback({
       (.loopElement, final loop?, final guard?) => (
         range: range.node(loop),
         code:
-            'if (${guard.condition(leftSource)}) '
-            '${_loopWith(loop, guard.iterable(leftSource), textOf)}',
+            'if (${guard.condition(leftSource)}) ${_loopWith(loop, guard.iterable(leftSource), textOf)}',
       ),
       (.loopStatement, final loop?, final guard?) => (
         range: range.node(loop),
@@ -254,8 +253,7 @@ class EmptyFallback({
     String iterable,
     String Function(SourceRange range) textOf,
   ) =>
-      '${textOf(range.startStart(loop, expression))}$iterable'
-      '${textOf(range.endEnd(expression, loop))}';
+      '${textOf(range.startStart(loop, expression))}$iterable${textOf(range.endEnd(expression, loop))}';
 
   /// [loop] inside the `if` of [guard], with its lines indented one step
   /// more, except those that start inside a multi-line string.
@@ -278,9 +276,10 @@ class EmptyFallback({
       expression.end,
       strings.ranges,
     );
-    return 'if (${guard.condition(leftSource)}) {\n'
-        '$indent  $before${guard.iterable(leftSource)}$after\n'
-        '$indent}';
+    return '''
+if (${guard.condition(leftSource)}) {
+$indent  $before${guard.iterable(leftSource)}$after
+$indent}''';
   }
 
   /// [text], which starts at [start] in the file, with each line after its
