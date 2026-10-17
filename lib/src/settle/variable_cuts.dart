@@ -25,8 +25,7 @@ final class VariableCuts {
   final SourceIndex _sources;
 
   /// Returns [unused] with [UnusedDeclaration.cut] set on each removable field
-  /// and top-level variable, both findings and coupled removals. A cut that is
-  /// already set, as on a declaring parameter, stays.
+  /// and top-level variable, both findings and coupled removals.
   ///
   /// It first fetches the selection ranges this needs, for these variables
   /// only. The cuts are worked out in one call, so two removed variables of
@@ -49,15 +48,14 @@ final class VariableCuts {
       coupled.range.startLine,
       coupled.range.startColumn,
     );
-    bool needsCut(SymbolKind kind, DeclarationRange? cut) =>
-        declaratorKinds.contains(kind) && cut == null;
+    bool isDeclarator(SymbolKind kind) => declaratorKinds.contains(kind);
 
     final removable = unused.whereNot((finding) => finding.removalBlocked);
     final declarators = [
       for (final finding in removable) ...[
-        if (needsCut(finding.kind, finding.cut)) ofFinding(finding),
+        if (isDeclarator(finding.kind)) ofFinding(finding),
         for (final coupled in finding.coupledRemovals)
-          if (needsCut(coupled.kind, coupled.cut)) ofCoupled(coupled),
+          if (isDeclarator(coupled.kind)) ofCoupled(coupled),
       ],
     ];
     await _fetch.fetchSelectionRanges(
@@ -73,12 +71,10 @@ final class VariableCuts {
     );
     final cuts = _sources.declaratorCuts(declarators);
     UnusedDeclaration withCuts(UnusedDeclaration finding) {
-      final cut = needsCut(finding.kind, finding.cut)
-          ? cuts[ofFinding(finding)]
-          : finding.cut;
+      final cut = isDeclarator(finding.kind) ? cuts[ofFinding(finding)] : null;
       final coupledRemovals = [
         for (final coupled in finding.coupledRemovals)
-          if (needsCut(coupled.kind, coupled.cut))
+          if (isDeclarator(coupled.kind))
             (
               filePath: coupled.filePath,
               kind: coupled.kind,
@@ -89,9 +85,11 @@ final class VariableCuts {
           else
             coupled,
       ];
-      if (needsCut(finding.kind, cut) ||
+      bool lacksCut(SymbolKind kind, DeclarationRange? cut) =>
+          isDeclarator(kind) && cut == null;
+      if (lacksCut(finding.kind, cut) ||
           coupledRemovals.any(
-            (coupled) => needsCut(coupled.kind, coupled.cut),
+            (coupled) => lacksCut(coupled.kind, coupled.cut),
           )) {
         return finding.copyWith(removalBlocked: true, hint: Verdict.noCutHint);
       }

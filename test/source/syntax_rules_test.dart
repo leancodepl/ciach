@@ -6,7 +6,6 @@ import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/syntax_rules.dart';
-import 'package:ciach/src/util/extensions.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart'
     show DocumentSymbol, Location, Position, Range, SelectionRange, SymbolKind;
@@ -365,100 +364,6 @@ class Point(var int x) {
         ),
         isFalse,
       );
-    });
-  });
-
-  group('declaringParameterCut', () {
-    /// Returns the declaring parameter that [pieces] spell, separated by
-    /// spaces, without its cut, or `null` when it has no cut. The last piece is
-    /// the name, and the pieces before [codeStart] are annotations.
-    String? withoutCut(List<(String, String)> pieces, {int codeStart = 0}) {
-      final tokens = <SemanticToken>[];
-      var column = 0;
-      for (final (text, type) in pieces) {
-        tokens.add(token(0, column, text, type));
-        column += text.length + 1;
-      }
-      final source = pieces.map((piece) => piece.$1).join(' ');
-      load(source, tokens, const {});
-      final name = tokens.last;
-      final cut = sources.declaringParameterCut(
-        path,
-        .new(
-          element: .new(
-            kind: .field,
-            name: name.text,
-            range: range(0, name.character, 0, source.length),
-          ),
-          range: range(0, 0, 0, source.length),
-          codeRange: range(0, tokens[codeStart].character, 0, source.length),
-          children: const [],
-        ),
-      );
-      return cut?.let(
-        (cut) =>
-            source.substring(0, cut.startColumn) +
-            source.substring(cut.endColumn),
-      );
-    }
-
-    test('drops the `final` of a declaring parameter', () {
-      expect(
-        withoutCut([
-          ('final', 'keyword'),
-          ('int', 'class'),
-          ('at', 'property'),
-        ]),
-        'int at',
-      );
-    });
-
-    test('drops the annotations together with `covariant` and `var`', () {
-      expect(
-        withoutCut([
-          ('@', 'annotation'),
-          ('override', 'annotation'),
-          ('covariant', 'keyword'),
-          ('var', 'keyword'),
-          ('num', 'class'),
-          ('at', 'property'),
-        ], codeStart: 2),
-        'num at',
-      );
-    });
-
-    test('keeps `required` in front of the type', () {
-      expect(
-        withoutCut([
-          ('required', 'keyword'),
-          ('var', 'keyword'),
-          ('int', 'class'),
-          ('at', 'property'),
-        ]),
-        'required int at',
-      );
-    });
-
-    test('drops a `final` that has no type after it', () {
-      expect(withoutCut([('final', 'keyword'), ('at', 'property')]), 'at');
-    });
-
-    test('has no cut for annotations before `required`', () {
-      expect(
-        withoutCut([
-          ('@', 'annotation'),
-          ('override', 'annotation'),
-          ('required', 'keyword'),
-          ('var', 'keyword'),
-          ('int', 'class'),
-          ('at', 'property'),
-        ], codeStart: 2),
-        isNull,
-      );
-    });
-
-    test('has no cut for a parameter without `var` or `final`', () {
-      expect(withoutCut([('int', 'class'), ('at', 'property')]), isNull);
     });
   });
 

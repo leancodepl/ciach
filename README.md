@@ -351,8 +351,7 @@ Review the diff, as you would after any automated refactor.
 What goes with a removed declaration:
 
 - Its overrides, wherever they live: a call through any subclass would have
-  referenced the member, so they are dead too. An override that is a declaring
-  parameter loses only its annotations and its `var` or `final`.
+  referenced the member, so they are dead too.
 - A file left with only `library`, `import` or `part of` directives, an
   [empty file](#empty-files) found before removal, and the `import`s of them
   elsewhere. A file that still `export`s or owns a `part` stays.
@@ -361,12 +360,6 @@ What goes with a removed declaration:
   too, type arguments included. If other code names it, say as a type or
   after `extends`, or if it is the only mixin of `class A = B with M;`, only
   its members go, and the summary lists the emptied declaration.
-
-A declaring parameter of a primary constructor can't go without changing every
-call. So when its field is unused, `--remove` deletes only its annotations and
-its `covariant`, `var` or `final`, and a plain parameter stays:
-`class Endpoint(final String host, final int port);` becomes
-`class Endpoint(final String host, int port);`.
 
 A plain `//` comment right above a removed declaration stays, because it may be
 about the code around it rather than the declaration. The summary lists each
@@ -389,9 +382,8 @@ marked `unsafe to auto-remove — remove manually` and left in place:
 | A sealed member matched only by type patterns (`--also union-members`) | its `case` arms would need rewriting |
 | A used enum whose values are all unused | `enum E {}` doesn't compile |
 | The sole constructor of a live class with `final` fields, or whose superclass needs constructor arguments | the implicit default constructor can't replace it |
-| A primary constructor | only part of the class header |
-| A declaring parameter with annotations before `required`, or a member that it overrides | the annotations and the `var` or `final` can't be deleted in one piece |
-| A member whose override is in a file the run didn't scan | that override can't be deleted, and would be left overriding nothing |
+| A primary constructor or its declaring parameters | only part of the class header |
+| A member whose override is a declaring parameter, or is in a file the run didn't scan | that override can't be deleted, and would be left overriding nothing |
 | A gen-l10n message | gen-l10n would generate it again from the ARB file |
 | A type that only doc comments mention | the links would dangle |
 

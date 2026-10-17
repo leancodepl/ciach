@@ -114,10 +114,8 @@ class UnusedDeclaration {
 
   /// For a `field`, `variable` or `constant`, the text `--remove` deletes: the
   /// whole statement when all its variables go, or this variable and one
-  /// adjacent comma when others stay. For a declaring parameter of a primary
-  /// constructor, it is the annotations and the `var` or `final`, so that a
-  /// plain parameter stays. `null` when the finder couldn't work it out;
-  /// `--remove` then leaves the variable in place.
+  /// adjacent comma when others stay. `null` when the finder couldn't work it
+  /// out; `--remove` then leaves the variable in place.
   final DeclarationRange? cut;
 
   /// Whether this is an enum value (e.g. `south` in `enum Direction`).

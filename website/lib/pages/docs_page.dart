@@ -168,8 +168,7 @@ const _reportOnly = [
   'A sealed member matched only by type patterns (`--also union-members`).',
   'A used enum whose values are all unused.',
   'The sole constructor of a live class with final fields or super forwarding.',
-  'A primary constructor.',
-  'A declaring parameter with annotations before `required`, or a member that it overrides.',
+  'A primary constructor or its declaring parameters.',
 ];
 
 Component _markOf(bool yes) => yes
