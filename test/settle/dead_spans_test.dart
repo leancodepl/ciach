@@ -1,5 +1,7 @@
 import 'package:ciach/ciach.dart';
+import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/settle/dead_spans.dart';
+import 'package:ciach/src/source/clause_entries.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position;
 import 'package:test/test.dart';
 
@@ -52,6 +54,76 @@ void main() {
       final spans = DeadSpans.of([finding('f', (0, 0), (2, 0))], rootPath);
       expect(spans.ownerOf(path, const .new(line: 3, character: 0)), isNull);
       expect(spans.ownerOf('/root/lib/b.dart', inside), isNull);
+    });
+  });
+
+  group('DeadSpans.ownerOf with a referenced type', () {
+    // Line 3 is `class Held with C<Arg>, D {}`, and removing `C` and `D`
+    // deletes ` with C<Arg>, D`.
+    const clause = (startLine: 3, startColumn: 10, endLine: 3, endColumn: 26);
+    const atC = Position(line: 3, character: 16);
+    const atArg = Position(line: 3, character: 18);
+    const atD = Position(line: 3, character: 24);
+
+    /// A type declared on [line] that `--remove` also removes from the
+    /// clause on line 3.
+    UnusedDeclaration clauseOnly(String name, int line) =>
+        finding(name, (line, 0), (line, 10)).copyWith(
+          coupledRemovals: [
+            (
+              filePath: 'lib/a.dart',
+              kind: clauseCutKind,
+              range: clause,
+              fullRange: clause,
+              cut: clause,
+            ),
+          ],
+        );
+
+    DeclKey key(String name) => .new(path, name);
+
+    test("keeps a reference that the type's own clause removal deletes", () {
+      final c = clauseOnly('C', 0);
+      final spans = DeadSpans.of([c], rootPath);
+
+      expect(spans.ownerOf(path, atC, referenced: key('C')), isNull);
+      expect(spans.ownerOf(path, atC), c);
+    });
+
+    test(
+      'keeps a reference that a clause removal shared with another type deletes',
+      () {
+        final spans = DeadSpans.of([
+          clauseOnly('C', 0),
+          clauseOnly('D', 1),
+        ], rootPath);
+
+        expect(spans.ownerOf(path, atC, referenced: key('C')), isNull);
+        expect(spans.ownerOf(path, atD, referenced: key('D')), isNull);
+      },
+    );
+
+    test('deletes a reference in the type arguments of a removed entry', () {
+      final c = clauseOnly('C', 0);
+
+      expect(
+        DeadSpans.of([
+          c,
+        ], rootPath).ownerOf(path, atArg, referenced: key('Arg')),
+        c,
+      );
+    });
+
+    test('deletes a reference in a clause of a removed declaration', () {
+      final held = finding('Held', (3, 0), (3, 29));
+
+      expect(
+        DeadSpans.of([
+          clauseOnly('C', 0),
+          held,
+        ], rootPath).ownerOf(path, atC, referenced: key('C')),
+        held,
+      );
     });
   });
 

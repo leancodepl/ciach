@@ -93,32 +93,29 @@ final class TransitiveSweep {
       ],
     ];
     final dead = unreached(removable, uses);
-    // Removing a dead type also removes its clause entries. Keep those entries
-    // as references here, so the next round reports the type as used only in
-    // clauses and not as unused.
-    return DeadSpans.of(
-      [
-        for (final MapEntry(key: finding, value: i) in candidateOf.entries)
-          if (dead.contains(i)) finding,
-      ],
-      rootPath,
-      includeClauseCuts: false,
-    );
+    return DeadSpans.of([
+      for (final MapEntry(key: finding, value: i) in candidateOf.entries)
+        if (dead.contains(i)) finding,
+    ], rootPath);
   }
 
-  /// [refsByCandidate] less the references inside [deadSpans].
+  /// [refsByCandidate] less the references inside [deadSpans]. A dead type's
+  /// own entries in `with` and `implements` clauses stay, so that the next
+  /// round reports the type as used only in clauses and not as unused.
   static List<List<Location>> liveRefs(
+    List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
     DeadSpans deadSpans,
   ) => deadSpans.isEmpty
       ? refsByCandidate
       : [
-          for (final refs in refsByCandidate)
+          for (final (i, refs) in refsByCandidate.indexed)
             [
               for (final loc in refs)
                 if (!deadSpans.covers(
                   SourceIndex.pathOf(loc.uri),
                   loc.range.start,
+                  referenced: candidates[i].key,
                 ))
                   loc,
             ],

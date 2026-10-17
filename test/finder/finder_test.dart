@@ -1171,7 +1171,7 @@ void main() {
         ('Checked.check', null),
         ('Primed.prime', null),
         ('Frame.frame', null),
-        ('Holder.hold', null),
+        ('Holder', Verdict.namedOnlyInClausesHint),
         ('Sketch', Verdict.namedOnlyInClausesHint),
         ('Glazed', Verdict.namedOnlyInClausesHint),
         ('Lacquer.lacquer', null),
@@ -1203,6 +1203,7 @@ void main() {
         expect(source, contains('class Canvas {\n}\n'));
         expect(source, contains('class Easel extends Object with Tidy {}\n'));
         expect(source, contains('class Checker with Checked {}\n'));
+        expect(source, contains('class Held {}\n'));
         expect(source, contains('class Brushed with Primed, Brush {}\n'));
         expect(source, contains('class Sketched(final int size);\n'));
         expect(source, contains('class Varnished = Object with Varnish;\n'));
@@ -1210,12 +1211,12 @@ void main() {
         expect(source, isNot(contains('Painter')));
         expect(source, isNot(contains('Drawable')));
         expect(source, isNot(contains('Plain')));
+        expect(source, isNot(contains('Holder')));
         expect(source, isNot(contains('Sketch ')));
         expect(source, isNot(contains('Glazed')));
         expect(result.emptiedContainers.map((c) => c.name), [
           'Checked',
           'Frame',
-          'Holder',
           'Lacquer',
           'Primed',
         ]);
@@ -1250,10 +1251,16 @@ void main() {
             ),
         };
         const painter = ('Painter', Verdict.namedOnlyInClausesHint, '');
+        const labeled = ('Labeled', Verdict.namedOnlyInClausesHint, '');
 
-        expect(findings(await run(transitive: false)), {painter});
+        expect(findings(await run(transitive: false)), {painter, labeled});
         final result = await run(transitive: true);
-        expect(findings(result), {('Shape', null, 'Painter'), painter});
+        expect(findings(result), {
+          ('Shape', null, 'Painter'),
+          painter,
+          ('Label', null, 'Labeled'),
+          labeled,
+        });
         expect(messages, isNot(contains(startsWith('Stopping after'))));
 
         removeDeclarations(result.unused, copy.path);
@@ -1264,6 +1271,7 @@ void main() {
         expect(source, contains('class Tile {}\n'));
         expect(source, isNot(contains('Shape')));
         expect(source, isNot(contains('Painter')));
+        expect(source, isNot(contains('Label')));
       },
     );
   });

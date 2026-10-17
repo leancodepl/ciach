@@ -357,9 +357,9 @@ What goes with a removed declaration:
   elsewhere. A file that still `export`s or owns a `part` stays.
 - A class or mixin whose members are all unused and that only `with` or
   `implements` clauses name is reported and removed whole, from those clauses
-  too. If other code names it, say as a type or after `extends`, if it is
-  generic, or if it is the only mixin of `class A = B with M;`, only its
-  members go, and the summary lists the emptied declaration.
+  too, type arguments included. If other code names it, say as a type or
+  after `extends`, or if it is the only mixin of `class A = B with M;`, only
+  its members go, and the summary lists the emptied declaration.
 
 A plain `//` comment right above a removed declaration stays, because it may be
 about the code around it rather than the declaration. The summary lists each
