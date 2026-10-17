@@ -99,7 +99,7 @@ final class ProbedReferences {
         );
     return [
       for (final (i, refs) in refsByCandidate.indexed)
-        if (added[i] case final extra?) {...refs, ...extra}.toList() else refs,
+        {...refs, ...?added[i]}.toList(),
     ];
   }
 }
