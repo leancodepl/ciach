@@ -77,36 +77,37 @@ Future<Map<Candidate, List<Location>>?> findImplicitCalls({
     final wrappedUses = [
       for (final file in rewritten.values) ...file.wrappedUses,
     ];
+    // Unlike `definitionsOrEmpty`, a failed lookup fails the whole step:
+    // reading it as no use would report a `call` method that is used.
     final methodsOf = Map.fromIterables(
       wrappedUses,
-      await mapPooled(
-        wrappedUses,
-        concurrency,
-        (wrapped) => client.definition(wrapped.uri, wrapped.call),
-      ),
+      await mapPooled(wrappedUses, concurrency, (wrapped) async {
+        final methods = await client.definition(wrapped.uri, wrapped.call);
+        return [
+          for (final method in methods) _inOriginal(method, rewritten, sources),
+        ];
+      }),
     );
-    return {
+    final usesOf = {
       for (final call in calls)
         if ([
               for (final MapEntry(key: wrapped, value: methods)
                   in methodsOf.entries)
-                if (methods
-                    .map((method) => _inOriginal(method, rewritten, sources))
-                    .any(call.isNamedAt))
+                if (methods.any(call.isNamedAt))
                   Location(uri: wrapped.uri.toString(), range: wrapped.use),
             ]
             case final uses when uses.isNotEmpty)
           call: uses,
     };
+    await changes.restore();
+    return usesOf;
   } on LspRequestException catch (e) {
     recordProblem(_lookupFailed, e, path: calls.first.path);
     return null;
   } finally {
-    try {
-      await changes.restore();
-    } on LspRequestException catch (e) {
-      recordProblem(_lookupFailed, e, path: calls.first.path);
-    }
+    // After a failure, the files are restored without waiting for their
+    // analysis, which would need another request to the server.
+    changes.revert();
   }
 }
 
@@ -242,9 +243,9 @@ final class _RewrittenFile {
       return sources.positionOf(path, offset - shift);
     }
 
-    return Location(
+    return .new(
       uri: location.uri,
-      range: Range(
+      range: .new(
         start: original(location.range.start),
         end: original(location.range.end),
       ),

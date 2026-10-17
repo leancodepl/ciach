@@ -66,4 +66,5 @@ void main() {
   print(const Circle() - const Circle());
   print({const Point(1)});
   print(const OnlyUsedFromDeadCode());
+  print(const Both() + const Both());
 }

@@ -53,10 +53,8 @@ Set<String> parseAlso(List<String> raw) {
       for (final name in entry.split(','))
         if (name.trim() case final trimmed when trimmed.isNotEmpty) trimmed,
   };
-  if (names.firstWhereOrNull(removedAlsoValues.containsKey) case final value?) {
-    throw FormatException(
-      '`$value` under `also` was removed: ${removedAlsoValues[value]}.',
-    );
+  if (removedAlsoValue(names) case (:final value, :final advice)) {
+    throw FormatException('`$value` under `also` was removed: $advice.');
   }
   if (names.whereNot(alsoNames.contains).firstOrNull case final unknown?) {
     throw FormatException(

@@ -34,7 +34,12 @@ final class UnsavedChanges {
 
   /// Sends [text] as the content of [path].
   void change(String path, String text) {
-    _client.didChange(File(path).uri, text);
+    final uri = File(path).uri;
+    // A declaration can be in a file that ciach doesn't scan, such as one that
+    // `--exclude` skips. The server changes only an open document.
+    _client
+      ..ensureOpen(uri, _sources.content(path))
+      ..didChange(uri, text);
     if (text == _sources.content(path)) {
       _changed.remove(path);
     } else {
@@ -65,7 +70,7 @@ final class UnsavedChanges {
     for (final path in newErrorsByPath.keys) {
       _client.ensureOpen(File(path).uri, _sources.content(path));
     }
-    return Map.fromIterables(
+    return .fromIterables(
       newErrorsByPath.keys,
       await Future.wait([
         for (final MapEntry(key: path, value: errors)
@@ -78,9 +83,13 @@ final class UnsavedChanges {
   /// Restores every changed file, and waits until the server has analyzed
   /// them, because later stages read their outlines and diagnostics.
   Future<void> restore() async {
-    restoreExcept(const {});
+    revert();
     await _client.waitForChangesAnalyzed();
   }
+
+  /// Sends the content on disk of every changed file, without waiting for
+  /// the analysis. Does nothing after [restore].
+  void revert() => restoreExcept(const {});
 
   /// The ranges of [errors] in [path] that are not at a declaration's name.
   Future<Set<Range>> _outsideNames(String path, Set<Diagnostic> errors) async {

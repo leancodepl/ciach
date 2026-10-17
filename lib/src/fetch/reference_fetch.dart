@@ -104,6 +104,7 @@ final class ReferenceFetch {
       sources: _sources,
       operators: candidates.where((c) => c.symbol.isOperator).toList(),
       analysisRoot: analysisRoot,
+      concurrency: options.concurrency,
     );
     bool isChecked(Candidate candidate) => switch (candidate.symbol) {
       DocumentSymbol(isCallMethod: true) => callUses != null,

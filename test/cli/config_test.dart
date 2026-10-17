@@ -292,6 +292,10 @@ concurrency: 4
         '`--also operators` was removed: operators are reported by default now, so drop it.',
       );
       expect(
+        removedOptionMessage(['--also', 'overrides, operators']),
+        '`--also operators` was removed: operators are reported by default now, so drop it.',
+      );
+      expect(
         removedOptionMessage(['--exported']),
         '`--exported` was removed: that is the default now, so drop it.',
       );

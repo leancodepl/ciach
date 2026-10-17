@@ -38,9 +38,19 @@ const removedKeys = {
 };
 
 /// The values that `also` no longer takes, each with why it is not needed.
-const removedAlsoValues = {
+const _removedAlsoValues = {
   'operators': 'operators are reported by default now, so drop it',
 };
+
+/// The first value in [entries], which hold comma-separated `also` values,
+/// that `also` no longer takes, with why it is not needed, or `null` when
+/// there is none.
+({String value, String advice})? removedAlsoValue(Iterable<String> entries) =>
+    entries
+        .expand((entry) => entry.split(','))
+        .map((value) => value.trim())
+        .firstWhereOrNull(_removedAlsoValues.containsKey)
+        ?.let((value) => (value: value, advice: _removedAlsoValues[value]!));
 
 /// Why setting the removed option [key] to [value] (`true` or `false` for a
 /// flag) is not needed any more, or what to use instead, in the config file
@@ -50,19 +60,19 @@ String removedOptionAdvice(
   Object? value, {
   required bool inConfig,
 }) {
-  if (key == 'fail-public' && value == false) {
-    return 'every finding counts toward the exit code; to leave out what other packages can import, list those packages in `exported-packages`';
-  }
-  if (key == 'operators' && value == false) {
-    return 'operators are reported by default now; to keep one, mark it with `// ciach:ignore`';
-  }
-  return switch (_replacementFor(key, value)) {
-    null => 'that is the default now, so drop it',
-    final replacement when inConfig =>
-      'use `${replacement.key}: [${replacement.values.map(_quoted).join(', ')}]`',
-    (:final key, values: []) => 'use `--$key=`',
-    (:final key, :final values) =>
-      'use ${values.map((value) => '`--$key ${_quoted(value)}`').join(' ')}',
+  return switch ((key, value)) {
+    ('fail-public', false) =>
+      'every finding counts toward the exit code; to leave out what other packages can import, list those packages in `exported-packages`',
+    ('operators', false) =>
+      'operators are reported by default now; to keep one, mark it with `// ciach:ignore`',
+    _ => switch (_replacementFor(key, value)) {
+      null => 'that is the default now, so drop it',
+      final replacement when inConfig =>
+        'use `${replacement.key}: [${replacement.values.map(_quoted).join(', ')}]`',
+      (:final key, values: []) => 'use `--$key=`',
+      (:final key, :final values) =>
+        'use ${values.map((value) => '`--$key ${_quoted(value)}`').join(' ')}',
+    },
   };
 }
 
@@ -105,14 +115,12 @@ String? removedOptionMessage(List<String> arguments) {
     if (match == null || key == null) {
       continue;
     }
-    if (key == 'also') {
-      // The values of `--also` may be the next argument.
-      final values =
-          match.namedGroup('value') ?? arguments.elementAtOrNull(i + 1);
-      if (values?.split(',').firstWhereOrNull(removedAlsoValues.containsKey)
-          case final value?) {
-        return '`--also $value` was removed: ${removedAlsoValues[value]}.';
-      }
+    // The values of `--also` may be the next argument.
+    final alsoValues = key == 'also'
+        ? match.namedGroup('value') ?? arguments.elementAtOrNull(i + 1)
+        : null;
+    if (removedAlsoValue([?alsoValues]) case (:final value, :final advice)) {
+      return '`--also $value` was removed: $advice.';
     }
     if (!removedKeys.contains(key)) {
       continue;

@@ -204,6 +204,33 @@ class Circle extends Round {
   Round operator -(Round other) => this;
 }
 
+/// [Both] overrides `+` of [Left] and of [Right], and code uses `+` only
+/// through [Both].
+abstract class Left {
+  const Left();
+
+  Left operator +(Left other);
+}
+
+abstract class Right {
+  Left operator +(Left other);
+}
+
+class Both extends Left implements Right {
+  const Both();
+
+  @override
+  Left operator +(Left other) => this;
+}
+
+/// Only `GoldRing` in operators_ring.dart overrides `~`, and code uses `~`
+/// only through `GoldRing`. No test scans that file.
+abstract class Ring {
+  const Ring();
+
+  Ring operator ~();
+}
+
 /// Its `==` is never reported, even with `--also overrides`: the SDK calls it
 /// from `Set`, `Map` and `List.contains`.
 class Point {
