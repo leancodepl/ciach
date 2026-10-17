@@ -17,6 +17,7 @@ import 'package:analyzer/source/source_range.dart';
 import 'package:analyzer_plugin/utilities/change_builder/change_builder_core.dart';
 import 'package:analyzer_plugin/utilities/fixes/fixes.dart';
 import 'package:analyzer_plugin/utilities/range_factory.dart';
+import 'package:ciach_lints/src/names.dart';
 import 'package:ciach_lints/src/promotion.dart';
 
 /// Flags `xs ?? const []` and other empty collection fallbacks that only
@@ -156,7 +157,7 @@ class EmptyFallback({
     PrefixedIdentifier(identifier: SimpleIdentifier(:final name)) ||
     PropertyAccess(
       propertyName: SimpleIdentifier(:final name),
-    ) => _nameAfterUnderscores.firstMatch(name)?.namedGroup('name'),
+    ) => withoutLeadingUnderscores(name),
     _ => null,
   };
 
@@ -357,10 +358,6 @@ class _NameUses(final String name, {required final AstNode skip})
   bool _inSkip(AstNode node) =>
       node.offset >= skip.offset && node.end <= skip.end;
 }
-
-/// Matches a name that has a character other than `_`. Its `name` group holds
-/// the name without its leading underscores, as `items` for `_items`.
-final _nameAfterUnderscores = RegExp('^_*(?<name>[^_].*)');
 
 /// Collects the ranges of the multi-line string literals in a node.
 class _MultilineStrings() extends RecursiveAstVisitor<void> {
