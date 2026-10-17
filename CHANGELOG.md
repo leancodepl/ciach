@@ -1,5 +1,11 @@
 ## Unreleased
 
+- **Breaking:** Unused operators are reported by default, and
+  `--also operators` is gone. Before, operators were skipped, and with
+  `--also operators`, an operator that only other libraries or relational
+  patterns used was reported as unused. `==` is still never reported. See
+  [MIGRATION.md](MIGRATION.md).
+  ([#157](https://github.com/leancodepl/ciach/pull/157))
 - Report unused `call` methods. Before, every `call` method was skipped,
   also one that nothing calls.
   ([#151](https://github.com/leancodepl/ciach/pull/151))
