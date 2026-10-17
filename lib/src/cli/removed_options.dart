@@ -12,6 +12,7 @@
 /// instead.
 library;
 
+import 'package:ciach/src/cli/option_values.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 
@@ -36,21 +37,6 @@ const removedKeys = {
   'fail-public',
   'generated-suffix',
 };
-
-/// The values that `also` no longer takes, each with why it is not needed.
-const _removedAlsoValues = {
-  'operators': 'operators are reported by default now, so drop it',
-};
-
-/// The first value in [entries], which hold comma-separated `also` values,
-/// that `also` no longer takes, with why it is not needed, or `null` when
-/// there is none.
-({String value, String advice})? removedAlsoValue(Iterable<String> entries) =>
-    entries
-        .expand((entry) => entry.split(','))
-        .map((value) => value.trim())
-        .firstWhereOrNull(_removedAlsoValues.containsKey)
-        ?.let((value) => (value: value, advice: _removedAlsoValues[value]!));
 
 /// Why setting the removed option [key] to [value] (`true` or `false` for a
 /// flag) is not needed any more, or what to use instead, in the config file
@@ -119,7 +105,10 @@ String? removedOptionMessage(List<String> arguments) {
     final alsoValues = key == 'also'
         ? match.namedGroup('value') ?? arguments.elementAtOrNull(i + 1)
         : null;
-    if (removedAlsoValue([?alsoValues]) case (:final value, :final advice)) {
+    if (removedAlsoValue(splitAlso([?alsoValues])) case (
+      :final value,
+      :final advice,
+    )) {
       return '`--also $value` was removed: $advice.';
     }
     if (!removedKeys.contains(key)) {

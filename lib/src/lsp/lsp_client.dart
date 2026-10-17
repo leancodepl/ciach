@@ -433,11 +433,16 @@ class LspClient {
     }
   }
 
-  /// Replaces the content of the open document [uri] with [text], for this
-  /// session only; the file on disk doesn't change.
+  /// Replaces the content of the document [uri] with [text], for this session
+  /// only; the file on disk doesn't change. A document that isn't open, such
+  /// as a file that the scan skips, is opened with [text].
   void didChange(Uri uri, String text) {
     final key = uri.toString();
     _lastChanged = uri;
+    if (!_versions.containsKey(key)) {
+      didOpen(uri, text);
+      return;
+    }
     // The server publishes the outline of the new content.
     _outlines.remove(key);
     _client.server.textDocument.didChange(

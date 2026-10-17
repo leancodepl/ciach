@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/fetch/implicit_calls.dart';
 import 'package:ciach/src/fetch/operator_uses.dart';
+import 'package:ciach/src/fetch/unsaved_changes.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
@@ -16,11 +17,14 @@ import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/plural.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location, Position;
+import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
 final _log = Logger('ciach.finder');
 
 const _uncheckedDeclaration = 'Could not find references; kept.';
+
+const _implicitUsesUnchecked =
+    'Could not restore the files after looking up the uses of `call` methods and operators; kept them all.';
 
 const _noSemanticTokens =
     'Could not read comments and annotations; findings may be missed.';
@@ -93,41 +97,41 @@ final class ReferenceFetch {
     List<List<Location>> refs, {
     required String analysisRoot,
   }) async {
+    final changes = UnsavedChanges(client, _sources);
     final callUses = await findImplicitCalls(
       client: client,
       sources: _sources,
+      changes: changes,
       calls: candidates.where((c) => c.symbol.isCallMethod).toList(),
       concurrency: options.concurrency,
     );
     final operatorUses = await findOperatorUses(
       client: client,
       sources: _sources,
+      changes: changes,
       operators: candidates.where((c) => c.symbol.isOperator).toList(),
       analysisRoot: analysisRoot,
       concurrency: options.concurrency,
     );
-    bool isChecked(Candidate candidate) => switch (candidate.symbol) {
-      DocumentSymbol(isCallMethod: true) => callUses != null,
-      DocumentSymbol(isOperator: true) =>
-        operatorUses?.containsKey(candidate) ?? false,
-      _ => true,
-    };
+    var usesOf = {...?callUses, ...?operatorUses};
+    try {
+      await changes.restore();
+    } on LspRequestException catch (e) {
+      // A lookup that failed has recorded the problem already.
+      if (usesOf.isNotEmpty) {
+        recordProblem(_implicitUsesUnchecked, e, path: usesOf.keys.first.path);
+      }
+      usesOf = const {};
+    }
+    // Each lookup has a key for every candidate that it checked.
     final checked = [
       for (final (i, candidate) in candidates.indexed)
-        if (isChecked(candidate))
-          (
-            candidate,
-            [
-              ...refs[i],
-              ...?callUses?[candidate],
-              ...?operatorUses?[candidate],
-            ],
-          ),
+        if (!(candidate.symbol.isCallMethod || candidate.symbol.isOperator))
+          (candidate, refs[i])
+        else if (usesOf[candidate] case final uses?)
+          (candidate, [...refs[i], ...uses]),
     ];
-    await semanticTokensFor(client, [
-      ...?callUses?.values,
-      ...?operatorUses?.values,
-    ]);
+    await semanticTokensFor(client, usesOf.values.toList());
     return (
       checked: [for (final (candidate, _) in checked) candidate],
       refs: [for (final (_, candidateRefs) in checked) candidateRefs],

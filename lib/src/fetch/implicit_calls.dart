@@ -42,11 +42,13 @@ const _lookupFailed =
     'Could not look up the implicit uses of `call` methods; kept them all.';
 
 /// The uses of each of [calls] that the server reports no reference for, by
-/// candidate; a `call` method without such a use is left out. `null` when a
-/// request to the server failed, so that the uses are unknown.
+/// candidate, or `null` when a request to the server failed, so that the uses
+/// are unknown. The files stay changed in [changes] until the caller restores
+/// them.
 Future<Map<Candidate, List<Location>>?> findImplicitCalls({
   required LspClient client,
   required SourceIndex sources,
+  required UnsavedChanges changes,
   required List<Candidate> calls,
   required int concurrency,
 }) async {
@@ -56,12 +58,12 @@ Future<Map<Candidate, List<Location>>?> findImplicitCalls({
   _log.info(
     'Looking up the implicit uses of ${plural(calls.length, '`call` method', '`call` methods')}…',
   );
-  final callsByPath = calls.groupListsBy((call) => call.path);
-  final changes = UnsavedChanges(client, sources);
   try {
-    for (final MapEntry(key: path, value: inFile) in callsByPath.entries) {
-      changes.change(path, _withCallsRenamed(sources, path, inFile));
-    }
+    changes.show({
+      for (final MapEntry(key: path, value: inFile)
+          in calls.groupListsBy((call) => call.path).entries)
+        path: _withCallsRenamed(sources, path, inFile),
+    });
     final usesByPath = await changes.newErrors();
 
     // Each use becomes `(expression).call`, and the renamed methods get their
@@ -70,10 +72,10 @@ Future<Map<Candidate, List<Location>>?> findImplicitCalls({
       for (final MapEntry(key: path, value: uses) in usesByPath.entries)
         if (uses.isNotEmpty) path: _RewrittenFile.of(sources, path, uses),
     };
-    for (final MapEntry(key: path, value: file) in rewritten.entries) {
-      changes.change(path, file.text);
-    }
-    changes.restoreExcept(rewritten.keys.toSet());
+    changes.show({
+      for (final MapEntry(key: path, value: file) in rewritten.entries)
+        path: file.text,
+    });
     final wrappedUses = [
       for (final file in rewritten.values) ...file.wrappedUses,
     ];
@@ -88,26 +90,18 @@ Future<Map<Candidate, List<Location>>?> findImplicitCalls({
         ];
       }),
     );
-    final usesOf = {
+    return {
       for (final call in calls)
-        if ([
-              for (final MapEntry(key: wrapped, value: methods)
-                  in methodsOf.entries)
-                if (methods.any(call.isNamedAt))
-                  Location(uri: wrapped.uri.toString(), range: wrapped.use),
-            ]
-            case final uses when uses.isNotEmpty)
-          call: uses,
+        call: [
+          for (final MapEntry(key: wrapped, value: methods)
+              in methodsOf.entries)
+            if (methods.any(call.isNamedAt))
+              .new(uri: wrapped.uri.toString(), range: wrapped.use),
+        ],
     };
-    await changes.restore();
-    return usesOf;
   } on LspRequestException catch (e) {
     recordProblem(_lookupFailed, e, path: calls.first.path);
     return null;
-  } finally {
-    // After a failure, the files are restored without waiting for their
-    // analysis, which would need another request to the server.
-    changes.revert();
   }
 }
 

@@ -44,7 +44,8 @@ const _newName = r'o$$$$$$$$';
 
 /// The uses of each of [operators] that ciach can check, by candidate. A use
 /// of any member of an operator's override hierarchy counts for each member,
-/// as the reference search counts a call of a method through a subclass.
+/// as the reference search counts a call of a method through a subclass. The
+/// files stay changed in [changes] until the caller restores them.
 ///
 /// An operator is left out when its hierarchy has a member outside
 /// [analysisRoot], such as `Object.==`, because the uses of that member can't
@@ -53,6 +54,7 @@ const _newName = r'o$$$$$$$$';
 Future<Map<Candidate, List<Location>>?> findOperatorUses({
   required LspClient client,
   required SourceIndex sources,
+  required UnsavedChanges changes,
   required List<Candidate> operators,
   required String analysisRoot,
   required int concurrency,
@@ -63,7 +65,6 @@ Future<Map<Candidate, List<Location>>?> findOperatorUses({
   _log.info(
     'Looking up the uses of ${plural(operators.length, 'operator', 'operators')}…',
   );
-  final changes = UnsavedChanges(client, sources);
   try {
     final hierarchies = await operatorHierarchies(
       client,
@@ -71,40 +72,42 @@ Future<Map<Candidate, List<Location>>?> findOperatorUses({
       analysisRoot: analysisRoot,
       concurrency: concurrency,
     );
-    final rounds = _rounds(
-      hierarchies.where((h) => _renamed(sources, h.members) != null),
-    );
+    final rounds = _rounds([
+      for (final hierarchy in hierarchies)
+        if (_renamedNames(sources, hierarchy.members) case final names?)
+          (hierarchy: hierarchy, names: names),
+    ]);
     final usesOf = <Candidate, List<Location>>{};
     for (final (i, round) in rounds.indexed) {
       _log.fine(
-        '[${i + 1}/${rounds.length}] ${round.map((h) => '`${h.name}`').join(', ')}',
+        '[${i + 1}/${rounds.length}] ${round.map((r) => '`${r.hierarchy.name}`').join(', ')}',
       );
-      final renamed = _renamed(sources, {
-        for (final hierarchy in round) ...hierarchy.members,
-      })!;
-      for (final MapEntry(key: path, value: text) in renamed.entries) {
-        changes.change(path, text);
-      }
-      changes.restoreExcept(renamed.keys.toSet());
+      changes.show(
+        _renamed(sources, [
+          for (final (:names, hierarchy: _) in round) ...names,
+        ]),
+      );
       final errors = await changes.newErrors();
-      for (final hierarchy in round) {
+      for (final (:hierarchy, names: _) in round) {
         final uses = _usesOf(hierarchy, round, errors, sources);
         for (final operator in hierarchy.operators) {
           usesOf[operator] = uses;
         }
       }
     }
-    await changes.restore();
     return usesOf;
   } on LspRequestException catch (e) {
     recordProblem(_lookupFailed, e, path: operators.first.path);
     return null;
-  } finally {
-    // After a failure, the files are restored without waiting for their
-    // analysis, which would need another request to the server.
-    changes.revert();
   }
 }
+
+/// A hierarchy, with the offsets that its rename replaces in each file.
+typedef _Renamable = ({OperatorHierarchy hierarchy, List<_RenamedName> names});
+
+/// The text that a rename replaces, from the `operator` keyword to the end of
+/// the name: `operator +`.
+typedef _RenamedName = ({String path, int start, int end});
 
 /// The uses of [hierarchy] among [errors], the new errors by file of the
 /// [round] that renamed it. In a round of several hierarchies, an error at an
@@ -112,19 +115,16 @@ Future<Map<Candidate, List<Location>>?> findOperatorUses({
 /// each of them.
 List<Location> _usesOf(
   OperatorHierarchy hierarchy,
-  List<OperatorHierarchy> round,
+  List<_Renamable> round,
   Map<String, Set<Range>> errors,
   SourceIndex sources,
 ) => [
   for (final MapEntry(key: path, value: ranges) in errors.entries)
     for (final range in ranges)
-      if (round.length == 1 ||
-          switch (sources.textOf(path, range)) {
-            final text when round.any((other) => other.name == text) =>
-              text == hierarchy.name,
-            _ => true,
-          })
-        Location(uri: File(path).uri.toString(), range: range),
+      if (sources.textOf(path, range) case final text
+          when text == hierarchy.name ||
+              round.none((other) => other.hierarchy.name == text))
+        .new(uri: File(path).uri.toString(), range: range),
 ];
 
 /// [hierarchies] grouped into rounds that rename them together.
@@ -137,48 +137,73 @@ List<Location> _usesOf(
 /// supertype of `bool`. So the hierarchies whose operators all return `bool`
 /// share rounds, one for each name, such as `<` and `>=`, so that the text of
 /// an error tells which of them it belongs to.
-List<List<OperatorHierarchy>> _rounds(Iterable<OperatorHierarchy> hierarchies) {
-  final shared = <List<OperatorHierarchy>>[];
-  final own = <List<OperatorHierarchy>>[];
-  for (final hierarchy in hierarchies) {
-    if (!hierarchy.returnsBool) {
-      own.add([hierarchy]);
+List<List<_Renamable>> _rounds(List<_Renamable> hierarchies) {
+  final shared = <List<_Renamable>>[];
+  final own = <List<_Renamable>>[];
+  for (final renamable in hierarchies) {
+    if (!_returnsBool(renamable.hierarchy)) {
+      own.add([renamable]);
     } else if (shared.firstWhereOrNull(
-          (round) => round.none((other) => other.name == hierarchy.name),
+          (round) => round.none(
+            (other) => other.hierarchy.name == renamable.hierarchy.name,
+          ),
         )
         case final round?) {
-      round.add(hierarchy);
+      round.add(renamable);
     } else {
-      shared.add([hierarchy]);
+      shared.add([renamable]);
     }
   }
   return [...own, ...shared];
 }
 
-/// The content of each file of [members] with the members renamed to
-/// [_newName], or `null` when something other than whitespace, such as a
-/// comment, separates a member's name from the `operator` keyword.
-Map<String, String>? _renamed(
+/// Whether the candidates of [hierarchy] are members of classes, mixins or
+/// enums and return `bool`. The members that they override return a
+/// supertype of `bool`, and those that override them return `bool`.
+bool _returnsBool(OperatorHierarchy hierarchy) => hierarchy.operators.every(
+  (operator) =>
+      !operator.isExtensionMember &&
+      operator.outline.element.returnType == 'bool',
+);
+
+/// The text that renaming [members] replaces, or `null` when something other
+/// than whitespace, such as a comment, separates a member's name from the
+/// `operator` keyword.
+List<_RenamedName>? _renamedNames(
   SourceIndex sources,
-  Set<OperatorDeclaration> members,
+  Set<DeclarationName> members,
 ) {
-  final renamed = <String, String>{};
-  for (final OperatorDeclaration(:path, :name) in members) {
-    final text = renamed[path] ?? sources.content(path);
-    final nameEnd = sources.offsetOf(path, name.end)!;
+  final names = <_RenamedName>[];
+  for (final member in members) {
+    final path = member.path;
     // The outline gives the range of the name, but not of the keyword.
-    final beforeName = text
-        .substring(0, sources.offsetOf(path, name.start))
+    final beforeName = sources
+        .content(path)
+        .substring(0, sources.offsetOf(path, member.range.start))
         .trimRight();
     if (!beforeName.endsWith(_keyword)) {
       return null;
     }
-    final keywordStart = beforeName.length - _keyword.length;
-    renamed[path] = text.replaceRange(
-      keywordStart,
-      nameEnd,
-      _newName.padRight(nameEnd - keywordStart),
-    );
+    names.add((
+      path: path,
+      start: beforeName.length - _keyword.length,
+      end: sources.offsetOf(path, member.range.end)!,
+    ));
   }
-  return renamed;
+  return names;
 }
+
+/// The content of each file of [names] with each of them replaced by
+/// [_newName].
+Map<String, String> _renamed(SourceIndex sources, List<_RenamedName> names) => {
+  for (final MapEntry(key: path, value: inFile)
+      in names.groupListsBy((name) => name.path).entries)
+    path: inFile.fold(
+      sources.content(path),
+      (text, name) => text.replaceRange(
+        name.start,
+        name.end,
+        _newName.padRight(name.end - name.start),
+      ),
+    ),
+};

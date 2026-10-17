@@ -10,6 +10,7 @@
 
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
+import 'package:ciach/src/util/extensions.dart';
 import 'package:pro_lsp/pro_lsp.dart'
     show DocumentSymbol, Position, Range, SymbolKind;
 
@@ -180,6 +181,34 @@ T? lastStartingAtOrBefore<T>(
 }
 
 /// Position geometry against a symbol's source range.
+/// The symbol among [symbols], which are in source order, whose range covers
+/// [position].
+DocumentSymbol? symbolCovering(
+  List<DocumentSymbol> symbols,
+  Position position,
+) => switch (lastStartingAtOrBefore(
+  symbols,
+  position,
+  (symbol) => symbol.range.start,
+)) {
+  final symbol? when position.within(symbol) => symbol,
+  _ => null,
+};
+
+/// The symbol among [symbols] and their children whose name starts at
+/// [position]: the enclosing symbol at each level is the last one starting at
+/// or before it.
+DocumentSymbol? symbolNamedAt(
+  List<DocumentSymbol> symbols,
+  Position position,
+) => switch (symbolCovering(symbols, position)) {
+  null => null,
+  final symbol when symbol.selectionRange.start == position => symbol,
+  final symbol => symbol.children?.let(
+    (children) => symbolNamedAt(children, position),
+  ),
+};
+
 extension PositionGeometry on Position {
   /// Whether this position is at or before [end].
   bool atOrBefore(Position end) =>
