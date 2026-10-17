@@ -9,6 +9,7 @@
  */
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
@@ -393,7 +394,7 @@ class LspClient {
 
   /// The diagnostics that the server last published, keyed by document URI.
   Map<String, List<lsp.Diagnostic>> get diagnostics =>
-      .unmodifiable(_diagnostics);
+      UnmodifiableMapView(_diagnostics);
 
   /// Completes once the server has analyzed the content that every
   /// [didChange] so far sent. The server handles messages in order, so it
@@ -439,6 +440,8 @@ class LspClient {
   void didChange(Uri uri, String text) {
     final key = uri.toString();
     _lastChanged = uri;
+    // The server publishes the outline of the new content.
+    _outlines.remove(key);
     _client.server.textDocument.didChange(
       .new(
         textDocument: .new(

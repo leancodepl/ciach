@@ -141,7 +141,7 @@ List<LeftComment> _leftComments(
     for (final fromEnd in keptComments[filePath]!) {
       left.add((
         filePath: filePath,
-        line: lowerBound(starts, content.length - fromEnd + 1),
+        line: positionIn(starts, content.length - fromEnd).line + 1,
       ));
     }
   }

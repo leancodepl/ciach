@@ -108,3 +108,9 @@ class StaticCall {
 class UnusedStaticCall {
   static int call() => 1;
 }
+
+/// Torn off from a conditional expression and a `??` expression, whose
+/// static type is this class.
+class InComposite {
+  int call(int x) => x;
+}

@@ -19,6 +19,11 @@ void main() {
   print(ExplicitWithArgument().call(InExplicitArgument()()));
   print(const Wrapped()());
   print(SelfInvoked().twice(1));
+  final maybe = DateTime.now().isUtc ? null : InComposite();
+  final int Function(int) branch = DateTime.now().isUtc
+      ? InComposite()
+      : maybe ?? InComposite();
+  print(branch);
   print(Level.low());
   print(WithCallable()());
   print(NamedParameter()(x: 1));

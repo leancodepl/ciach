@@ -20,15 +20,17 @@ library;
 import 'dart:io';
 
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/fetch/definitions.dart';
+import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/source/line_starts.dart';
 import 'package:ciach/src/source/source_index.dart';
+import 'package:ciach/src/util/concurrency.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/plural.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart'
-    show DiagnosticMessage, DiagnosticSeverity, Location, Position, Range;
+    show Diagnostic, Location, Position, Range;
 
 final _log = Logger('ciach.implicit_calls');
 
@@ -36,9 +38,13 @@ final _log = Logger('ciach.implicit_calls');
 /// length of `call`, so every position after it stays the same.
 const _renamed = r'ca$l';
 
+const _lookupFailed =
+    'Could not look up the implicit uses of `call` methods; kept them all.';
+
 /// The uses of each of [calls] that the server reports no reference for, by
-/// candidate; a `call` method without such a use is left out.
-Future<Map<Candidate, List<Location>>> findImplicitCalls({
+/// candidate; a `call` method without such a use is left out. `null` when a
+/// request to the server failed, so that the uses are unknown.
+Future<Map<Candidate, List<Location>>?> findImplicitCalls({
   required LspClient client,
   required SourceIndex sources,
   required List<Candidate> calls,
@@ -65,26 +71,29 @@ Future<Map<Candidate, List<Location>>> findImplicitCalls({
   }
 
   try {
-    // A previous lookup may still be restoring its files.
-    await client.waitForChangesAnalyzed();
     final errorsBefore = _errors(client);
     for (final MapEntry(key: path, value: inFile) in callsByPath.entries) {
       change(path, _withCallsRenamed(sources, path, inFile));
     }
     await client.waitForChangesAnalyzed();
-    final errorsByPath = _errors(
-      client,
-    ).difference(errorsBefore).groupListsBy((error) => error.path);
+    final errorsAfter = _errors(client);
+    final newErrorsByPath = {
+      for (final MapEntry(key: path, value: errors) in errorsAfter.entries)
+        if (errors.difference(errorsBefore[path] ?? const {}) case final added
+            when added.isNotEmpty)
+          path: added,
+    };
     // A use can be in a file that ciach doesn't scan, such as one that
     // `--exclude` skips. It has to be open to be rewritten and to get an
     // outline.
-    for (final path in errorsByPath.keys) {
+    for (final path in newErrorsByPath.keys) {
       client.ensureOpen(File(path).uri, sources.content(path));
     }
     final usesByPath = Map.fromIterables(
-      errorsByPath.keys,
+      newErrorsByPath.keys,
       await Future.wait([
-        for (final MapEntry(key: path, value: errors) in errorsByPath.entries)
+        for (final MapEntry(key: path, value: errors)
+            in newErrorsByPath.entries)
           _usesAmong(client, path, errors),
       ]),
     );
@@ -98,53 +107,45 @@ Future<Map<Candidate, List<Location>>> findImplicitCalls({
     for (final path in {...callsByPath.keys, ...rewritten.keys}) {
       change(path, rewritten[path]?.text ?? sources.content(path));
     }
-    final lookups = <_Lookup>[
-      for (final MapEntry(key: path, value: file) in rewritten.entries)
-        for (final (:use, :call) in file.explicitCalls)
-          (uri: File(path).uri, use: use, call: call),
+    final wrappedUses = [
+      for (final file in rewritten.values) ...file.wrappedUses,
     ];
-    final methodsOf = await definitionsOrEmpty(
-      client,
-      lookups,
-      (lookup) => (uri: lookup.uri, position: lookup.call),
-      concurrency,
+    final methodsOf = Map.fromIterables(
+      wrappedUses,
+      await mapPooled(
+        wrappedUses,
+        concurrency,
+        (wrapped) => client.definition(wrapped.uri, wrapped.call),
+      ),
     );
-    return _usesOf(callsByPath, lookups, methodsOf);
+    return {
+      for (final call in calls)
+        if ([
+              for (final MapEntry(key: wrapped, value: methods)
+                  in methodsOf.entries)
+                if (methods
+                    .map((method) => _inOriginal(method, rewritten, sources))
+                    .any(call.isNamedAt))
+                  Location(uri: wrapped.uri.toString(), range: wrapped.use),
+            ]
+            case final uses when uses.isNotEmpty)
+          call: uses,
+    };
+  } on LspRequestException catch (e) {
+    recordProblem(_lookupFailed, e, path: calls.first.path);
+    return null;
   } finally {
     for (final path in changed.toList()) {
       change(path, sources.content(path));
     }
+    // Later stages read outlines and diagnostics of the restored files.
+    try {
+      await client.waitForChangesAnalyzed();
+    } on LspRequestException catch (e) {
+      recordProblem(_lookupFailed, e, path: calls.first.path);
+    }
   }
 }
-
-/// A use in the file `uri`, and the position of the `call` that wraps it in
-/// the rewritten file.
-typedef _Lookup = ({Uri uri, Range use, Position call});
-
-/// The uses that [lookups] found, by the method in [callsByPath] that each
-/// one selects; [methodsOf] holds the definitions of each lookup's `call`.
-Map<Candidate, List<Location>> _usesOf(
-  Map<String, List<Candidate>> callsByPath,
-  List<_Lookup> lookups,
-  Map<_Lookup, List<Location>> methodsOf,
-) =>
-    [
-          for (final lookup in lookups)
-            for (final method in methodsOf[lookup]!)
-              if (callsByPath[SourceIndex.pathOf(method.uri)]?.firstWhereOrNull(
-                    (call) => call.isNamedAt(method),
-                  )
-                  case final call?)
-                (
-                  call: call,
-                  use: Location(uri: lookup.uri.toString(), range: lookup.use),
-                ),
-        ]
-        .groupListsBy((found) => found.call)
-        .map(
-          (call, found) =>
-              .new(call, [for (final (:use, call: _) in found) use]),
-        );
 
 /// [path]'s content with the names of [calls] replaced by [_renamed].
 String _withCallsRenamed(
@@ -159,20 +160,15 @@ String _withCallsRenamed(
           text.replaceRange(start, start + _renamed.length, _renamed),
     );
 
-/// An error that the server publishes, compared before and after the
-/// rename. A use of a removed `call` method is always an error.
-typedef _Error = ({String path, Range range, DiagnosticMessage message});
-
-Set<_Error> _errors(LspClient client) => {
+/// The errors that the server publishes, by file. A use of a removed `call`
+/// method is always an error.
+Map<String, Set<Diagnostic>> _errors(LspClient client) => {
   for (final MapEntry(key: uri, value: diagnostics)
       in client.diagnostics.entries)
-    for (final diagnostic in diagnostics)
-      if (diagnostic.severity == DiagnosticSeverity.error)
-        (
-          path: SourceIndex.pathOf(uri),
-          range: diagnostic.range,
-          message: diagnostic.message,
-        ),
+    SourceIndex.pathOf(uri): {
+      for (final diagnostic in diagnostics)
+        if (diagnostic.severity == .error) diagnostic,
+    },
 };
 
 /// The ranges of [errors] that can be uses of a `call` method. An error at a
@@ -181,7 +177,7 @@ Set<_Error> _errors(LspClient client) => {
 Future<Set<Range>> _usesAmong(
   LspClient client,
   String path,
-  List<_Error> errors,
+  Set<Diagnostic> errors,
 ) async {
   final names = {
     for (final outline in (await client.outline(File(path).uri)).descendants)
@@ -191,10 +187,43 @@ Future<Set<Range>> _usesAmong(
   return errors.map((error) => error.range).whereNot(names.contains).toSet();
 }
 
+/// [location] in the unchanged content of its file, when the file is one of
+/// [rewritten].
+Location _inOriginal(
+  Location location,
+  Map<String, _RewrittenFile> rewritten,
+  SourceIndex sources,
+) =>
+    rewritten[SourceIndex.pathOf(location.uri)]?.inOriginal(
+      location,
+      sources,
+    ) ??
+    location;
+
+/// A use, wrapped as `(use).call` in a rewritten file.
+final class _WrappedUse {
+  _WrappedUse(this.uri, this.use, this.call);
+
+  /// The file of the use.
+  final Uri uri;
+
+  /// The use in the unchanged content.
+  final Range use;
+
+  /// The position of the `call` that wraps [use] in the rewritten content.
+  final Position call;
+}
+
 /// The content of a file with its uses of `call` methods rewritten as
 /// `(use).call`.
 final class _RewrittenFile {
-  _RewrittenFile._(this.text, this.explicitCalls);
+  _RewrittenFile._(
+    this.path,
+    this.text,
+    this.wrappedUses,
+    this._insertions,
+    this._lineStarts,
+  );
 
   /// Wraps each of [uses] in [path]'s content as `(use).call`.
   factory _RewrittenFile.of(SourceIndex sources, String path, Set<Range> uses) {
@@ -205,20 +234,15 @@ final class _RewrittenFile {
     // closes first, and an outer use opens first.
     final insertions =
         [
-          for (final use in uses) ...[
-            (
-              offset: sources.offsetOf(path, use.start)!,
-              otherEnd: sources.offsetOf(path, use.end)!,
-              closes: false,
-              use: use,
-            ),
-            (
-              offset: sources.offsetOf(path, use.end)!,
-              otherEnd: sources.offsetOf(path, use.start)!,
-              closes: true,
-              use: use,
-            ),
-          ],
+          for (final use in uses)
+            if ((
+                  sources.offsetOf(path, use.start)!,
+                  sources.offsetOf(path, use.end)!,
+                )
+                case (final start, final end)) ...[
+              (offset: start, otherEnd: end, closes: false, use: use),
+              (offset: end, otherEnd: start, closes: true, use: use),
+            ],
         ].sorted(
           (a, b) =>
               switch ((a.offset.compareTo(b.offset), a.closes, b.closes)) {
@@ -230,30 +254,64 @@ final class _RewrittenFile {
         );
     final text = StringBuffer();
     final callOffsets = <({Range use, int offset})>[];
+    final inserted = <({int offset, int length})>[];
     var copied = 0;
     for (final (:offset, :closes, :use, otherEnd: _) in insertions) {
       text.write(content.substring(copied, offset));
       copied = offset;
+      final insertion = closes ? ').call' : '(';
       if (closes) {
         callOffsets.add((use: use, offset: text.length + ').'.length));
-        text.write(').call');
-      } else {
-        text.write('(');
       }
+      inserted.add((offset: text.length, length: insertion.length));
+      text.write(insertion);
     }
     text.write(content.substring(copied));
     final rewritten = text.toString();
     final lineStarts = lineStartsOf(rewritten);
-    return ._(rewritten, [
-      for (final (:use, :offset) in callOffsets)
-        (use: use, call: positionIn(lineStarts, offset)),
-    ]);
+    return ._(
+      path,
+      rewritten,
+      [
+        for (final (:use, :offset) in callOffsets)
+          _WrappedUse(File(path).uri, use, positionIn(lineStarts, offset)),
+      ],
+      inserted,
+      lineStarts,
+    );
   }
+
+  final String path;
 
   /// The content with every use wrapped.
   final String text;
 
-  /// Each use in the unchanged content, with the position of the `call` that
-  /// wraps it in [text].
-  final List<({Range use, Position call})> explicitCalls;
+  /// The uses, each with the position of the `call` that wraps it in [text].
+  final List<_WrappedUse> wrappedUses;
+
+  /// Where [text] has inserted characters, in order.
+  final List<({int offset, int length})> _insertions;
+
+  /// The offset at which each line of [text] starts.
+  final List<int> _lineStarts;
+
+  /// [location], which is in [text], in the unchanged content.
+  Location inOriginal(Location location, SourceIndex sources) {
+    Position original(Position position) {
+      final offset = _lineStarts[position.line] + position.character;
+      final shift = _insertions
+          .takeWhile((insertion) => insertion.offset < offset)
+          .map((insertion) => insertion.length)
+          .sum;
+      return sources.positionOf(path, offset - shift);
+    }
+
+    return Location(
+      uri: location.uri,
+      range: Range(
+        start: original(location.range.start),
+        end: original(location.range.end),
+      ),
+    );
+  }
 }

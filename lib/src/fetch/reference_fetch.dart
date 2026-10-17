@@ -40,8 +40,6 @@ final class ReferenceFetch {
   /// Queries `textDocument/references` for every candidate through one global
   /// pool, reporting `[done/total]` progress as each file's last query lands.
   /// A candidate whose request failed is left out, so it is never reported.
-  /// A `call` method's references also include its implicit uses, which the
-  /// query misses.
   Future<({List<Candidate> checked, List<List<Location>> refs})> references(
     LspClient client,
     List<Candidate> candidates, {
@@ -78,17 +76,44 @@ final class ReferenceFetch {
         refs.add(candidateRefs);
       }
     }
-    final implicitCalls = await findImplicitCalls(
+    return (checked: checked, refs: refs);
+  }
+
+  /// [candidates] and [refs], with the implicit uses of each `call` method,
+  /// which the reference query misses, added to its references. When the
+  /// lookup fails, the `call` methods are left out, so they are never
+  /// reported.
+  Future<({List<Candidate> checked, List<List<Location>> refs})>
+  withImplicitCalls(
+    LspClient client,
+    List<Candidate> candidates,
+    List<List<Location>> refs,
+  ) async {
+    final usesOf = await findImplicitCalls(
       client: client,
       sources: _sources,
-      calls: checked.where((c) => c.symbol.isCallMethod).toList(),
+      calls: candidates.where((c) => c.symbol.isCallMethod).toList(),
       concurrency: options.concurrency,
     );
+    if (usesOf == null) {
+      final kept = [
+        for (final (i, candidate) in candidates.indexed)
+          if (!candidate.symbol.isCallMethod) (candidate, refs[i]),
+      ];
+      return (
+        checked: [for (final (candidate, _) in kept) candidate],
+        refs: [for (final (_, candidateRefs) in kept) candidateRefs],
+      );
+    }
+    await semanticTokensFor(client, usesOf.values.toList());
     return (
-      checked: checked,
+      checked: candidates,
       refs: [
-        for (final (i, candidate) in checked.indexed)
-          [...refs[i], ...?implicitCalls[candidate]],
+        for (final (i, candidate) in candidates.indexed)
+          if (usesOf[candidate] case final uses?)
+            [...refs[i], ...uses]
+          else
+            refs[i],
       ],
     );
   }
