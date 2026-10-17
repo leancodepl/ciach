@@ -6,12 +6,7 @@ import 'package:jaspr_class_scope/jaspr_class_scope.dart';
 
 part 'faq.scopes.dart';
 
-class FaqEntry {
-  const FaqEntry(this.question, this.answer);
-
-  final String question;
-  final String answer;
-}
+class const FaqEntry(final String question, final String answer);
 
 /// Shared with the FAQPage JSON-LD, so the structured data and the visible
 /// answers can never drift apart. Backticks mark inline code; the structured
@@ -52,9 +47,7 @@ const faqEntries = [
 
 /// FAQ as `<details>` disclosures: no script, every answer in the HTML.
 @scopedCss
-class Faq extends StatelessComponent {
-  const Faq({super.key});
-
+class const Faq({super.key}) extends StatelessComponent {
   static const _class = _$FaqScope;
 
   static final _root = _class.root;

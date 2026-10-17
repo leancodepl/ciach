@@ -48,14 +48,12 @@ const _githubOutput = '''
 ::warning file=lib/orphans.dart,line=22,col=7,title=Unused declaration::Unused class 'FullyDeadClass'
 ::notice file=lib/greeting.dart,line=41,col=6,title=Referenced only from a doc comment::function '_docOnlyMentioned' has no code references, only a dartdoc link''';
 
-class _Format {
-  const _Format(this.id, this.command, this.output, this.language);
-
-  final String id;
-  final String command;
-  final String output;
-  final Language language;
-}
+class const _Format(
+  final String id,
+  final String command,
+  final String output,
+  final Language language,
+);
 
 const _formats = [
   _Format('text', 'ciach', _textOutput, .console),
@@ -66,9 +64,7 @@ const _formats = [
 /// Output-format switcher built from radio inputs and CSS alone, so all three
 /// samples are in the HTML for crawlers and the page needs no script for it.
 @scopedCss
-class OutputFormats extends StatelessComponent {
-  const OutputFormats({super.key});
-
+class const OutputFormats({super.key}) extends StatelessComponent {
   static const _class = _$OutputFormatsScope;
 
   static final _tabs = _class('tabs');

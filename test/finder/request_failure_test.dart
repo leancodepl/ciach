@@ -122,11 +122,7 @@ exec ${_quoted(Platform.resolvedExecutable)} ${_quoted(proxy.path)} "\$@"
     'a declaration the server fails on is kept and reported as a problem, and the run goes on',
     () async {
       final result = await Ciach(
-        .new(
-          rootPath: packagePath,
-          exportedPackages: const [],
-          dartExecutable: proxyDart(),
-        ),
+        .new(rootPath: packagePath, dartExecutable: proxyDart()),
       ).run();
 
       expect(result.unused.map((d) => d.name), ['reallyUnused']);
@@ -143,11 +139,7 @@ exec ${_quoted(Platform.resolvedExecutable)} ${_quoted(proxy.path)} "\$@"
   test('a server that dies stops the run with its exit', () async {
     await expectLater(
       Ciach(
-        .new(
-          rootPath: packagePath,
-          exportedPackages: const [],
-          dartExecutable: proxyDart(die: true),
-        ),
+        .new(rootPath: packagePath, dartExecutable: proxyDart(die: true)),
       ).run(),
       throwsA(
         isA<AnalysisServerExitedException>()
