@@ -104,6 +104,10 @@ final class Candidate {
       !isInExposedType &&
       ((container?.let(isPrivateName) ?? false) || isInUnnamedExtension);
 
+  /// Whether this declaration is private: by its own name, or as a member of
+  /// a private type.
+  bool get isPrivate => hasPrivateName || isInPrivateType;
+
   /// Whether this is a class, enum, mixin or extension type. Extensions are
   /// left out because code uses their members without naming them.
   bool get isType =>

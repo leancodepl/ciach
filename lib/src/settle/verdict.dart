@@ -192,7 +192,7 @@ final class Verdict {
       line: start.line + 1,
       column: start.character + 1,
       // A member of a private type is as private as the type.
-      isPrivate: candidate.hasPrivateName || candidate.isInPrivateType,
+      isPrivate: candidate.isPrivate,
       container: container,
       isEnumValue: candidate.isEnumValue,
       range: symbol.declarationRange,

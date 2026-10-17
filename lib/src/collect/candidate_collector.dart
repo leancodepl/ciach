@@ -250,11 +250,11 @@ final class CandidateCollector {
   /// the package is in `exported-packages`, `ReachableTypes` then keeps the
   /// members of `_Tool`, after the references of the types are fetched.
   bool _skipsPublic(Candidate candidate) {
-    if (candidate.hasPrivateName) {
+    if (candidate.isPrivate) {
       return false;
     }
     final symbol = candidate.symbol;
-    return (!options.includePublic && !candidate.isInPrivateType) ||
+    return !options.includePublic ||
         (_publicApi?.exposes(
               candidate.path,
               candidate.container ?? symbol.name,
