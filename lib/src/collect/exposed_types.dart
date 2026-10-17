@@ -34,23 +34,12 @@ enum ExposedMembers {
 }
 
 /// Which private types other libraries can reach through a public
-/// declaration, so that their members are as public as that declaration.
+/// declaration, so that their members count as public.
 ///
-/// A public declaration exposes the private types that its signature names,
-/// in any file of the library: `_Tool makeTool()` hands out a `_Tool`,
-/// `class Circle extends _Base {}` passes on the members of `_Base`, and
-/// `typedef Alias = _Aliased;` also lets `Alias.create()` call a constructor.
-/// A public variable whose type is inferred exposes the private types in the
-/// type that the analysis server infers, such as `List<_Item>`. An exposed
-/// private type in turn exposes the private types that its header and its
-/// public members name. A body never hands a type out.
-///
-/// Two names in a header expose nothing: a bound matters only to a type that
-/// uses its type parameters, and an extension adds members to its `on` type
-/// without handing it out. A concrete class that implements a private type
-/// declares the members of that type itself, but it still exposes the type:
-/// removing a member of the type removes its overrides too. When a library
-/// can't be read, all of its private types count as exposed.
+/// A public declaration in any file of the library exposes the private types
+/// that its signature or header names, such as `_Tool` in `_Tool makeTool()`.
+/// An exposed private type exposes the ones that its own signatures name. A
+/// body never hands a type out.
 final class ExposedTypes {
   ExposedTypes(this._client, this._sources);
 
@@ -71,7 +60,8 @@ final class ExposedTypes {
       CachedMap<String, Future<Map<String, ExposedMembers>?>>(_readLibrary);
 
   /// The private types declared in [path], whose outline is [unit], whose
-  /// members a public declaration exposes, and which of them it exposes.
+  /// members a public declaration exposes, and which of them it exposes; all
+  /// of them when the library can't be read.
   Future<Map<String, ExposedMembers>> of(String path, Outline unit) async {
     final types = unit.children
         .map((type) => type.element)
@@ -220,7 +210,10 @@ final class ExposedTypes {
   }
 
   /// Returns the private names in the header of the type [node] that expose
-  /// a type, such as `_Base` in `class Circle extends _Base`.
+  /// a type, such as `_Base` in `class Circle extends _Base`. A bound counts
+  /// only when the type uses its type parameters, and the `on` type of an
+  /// extension never does. A type that a concrete class implements counts
+  /// too: removing one of its members also removes the override.
   Iterable<String> _headerNames(
     String path,
     Outline node,
