@@ -49,6 +49,10 @@ class Explicit {
   int call() => 1;
 }
 
+class ExplicitTearOff {
+  int call() => 1;
+}
+
 /// Invoked only in an argument of an explicit `.call(…)`.
 class InExplicitArgument {
   int call() => 1;

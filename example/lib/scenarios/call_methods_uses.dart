@@ -16,6 +16,8 @@ void main() {
   final Handler handler = HandlerImpl();
   handler();
   print(Explicit().call());
+  final explicitTearOff = ExplicitTearOff().call;
+  print(explicitTearOff);
   print(ExplicitWithArgument().call(InExplicitArgument()()));
   print(const Wrapped()());
   print(SelfInvoked().twice(1));
