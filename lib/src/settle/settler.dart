@@ -1,4 +1,5 @@
 import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/flutter_widgets.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/fetch/cross_library_refs.dart';
@@ -11,6 +12,7 @@ import 'package:ciach/src/settle/clause_only_types.dart';
 import 'package:ciach/src/settle/dead_spans.dart';
 import 'package:ciach/src/settle/emptied_containers.dart';
 import 'package:ciach/src/settle/overrides.dart';
+import 'package:ciach/src/settle/probed_references.dart';
 import 'package:ciach/src/settle/recovery.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
 import 'package:ciach/src/settle/removable.dart';
@@ -59,11 +61,13 @@ final class Settler {
     required ReferenceClassifier classifier,
     required Verdict verdict,
     required ReferenceFetch fetch,
+    required ConditionalImports conditionalImports,
   }) : _sources = sources,
        _freezed = freezed,
        _classifier = classifier,
        _verdict = verdict,
-       _fetch = fetch;
+       _fetch = fetch,
+       _conditionalImports = conditionalImports;
 
   final FinderOptions options;
   final SourceIndex _sources;
@@ -71,6 +75,7 @@ final class Settler {
   final ReferenceClassifier _classifier;
   final Verdict _verdict;
   final ReferenceFetch _fetch;
+  final ConditionalImports _conditionalImports;
 
   late final _recovery = ReferenceRecovery(
     sources: _sources,
@@ -106,6 +111,9 @@ final class Settler {
   static const _maxRounds = 16;
 
   /// The findings for [candidates], from the server's [refsByCandidate].
+  /// The references of the [probed] candidates are the uses `probeMembers`
+  /// found, to which a round adds their full references before calling one
+  /// dead.
   Future<Settled> settle(
     LspClient client,
     List<Candidate> candidates,
@@ -113,6 +121,7 @@ final class Settler {
     required Set<String> scannedPaths,
     required String rootPath,
     required String analysisRoot,
+    Set<Candidate> probed = const {},
   }) async {
     final superclasses = SuperclassChecks(client);
     final overrides = OverrideRemovals(
@@ -122,21 +131,32 @@ final class Settler {
       rootPath: rootPath,
     );
 
+    final probedRefs = ProbedReferences(
+      fetch: _fetch,
+      classifier: _classifier,
+      conditionalImports: _conditionalImports,
+      client: client,
+      candidates: candidates,
+      rootPath: rootPath,
+      probed: probed,
+    );
+    var refs = refsByCandidate;
+
     var crossLib = CrossLibraryReferences.empty;
     var deadSpans = options.transitive
-        ? _transitive.allUnreached(candidates, refsByCandidate, rootPath)
+        ? _transitive.allUnreached(candidates, refs, rootPath)
         : DeadSpans.empty;
     _Verdicts settled;
     Map<UnusedDeclaration, int> candidateOf;
     for (var round = 1; ; round++) {
-      final liveRefs = TransitiveSweep.liveRefs(refsByCandidate, deadSpans);
+      final liveRefs = TransitiveSweep.liveRefs(refs, deadSpans);
       crossLib = crossLib.merged(
-        await _recovery.recover(client, candidates, liveRefs, refsByCandidate),
+        await _recovery.recover(client, candidates, liveRefs, refs),
       );
       final result = await _round(
         client,
         candidates,
-        refsByCandidate,
+        refs,
         liveRefs,
         crossLib.whereNot(deadSpans.covers),
         deadSpans,
@@ -151,13 +171,20 @@ final class Settler {
       if (!options.transitive) {
         break;
       }
-      final next = _transitive.sweep(
+      // A probed member's uses come only from the files that name its type, so
+      // before the next round calls it dead, its full references are added.
+      // The spans of round 1 are not checked this way: they count everything
+      // that no live code reaches as dead, and most of that is alive again in
+      // later rounds.
+      DeadSpans sweep() => _transitive.sweep(
         candidates,
-        refsByCandidate,
+        refs,
         crossLib,
         result.candidateOf,
         rootPath,
       );
+      refs = await probedRefs.withFullReferences(refs, sweep());
+      final next = sweep();
       if (next.sameAs(deadSpans)) {
         if (round > 1) {
           _log.fine('Settled after ${plural(round, 'round', 'rounds')}.');

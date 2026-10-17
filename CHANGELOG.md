@@ -7,6 +7,9 @@
   `exported-packages`, the unused members of an unnamed extension are
   reported too, since no other library can call them.
   ([#135](https://github.com/leancodepl/ciach/pull/135))
+- With `exported-packages`, a member used in unused code and in live code is
+  no longer reported as unused or listed under "Recovered references".
+  ([#149](https://github.com/leancodepl/ciach/pull/149))
 - Scans are faster: the check for uses that the reference search missed
   takes less time. On a large package, it went from about 110 to 30 seconds.
   ([#139](https://github.com/leancodepl/ciach/pull/139))
