@@ -165,7 +165,7 @@ final class ExposedTypes {
     final carrier = _carrierOf(node.element);
     final members = await Future.wait(
       node.children
-          .where(_isPublicMember)
+          .where((member) => _isPublicMember(member, node.element.name))
           .map((member) => _signatureNames(path, member)),
     );
     return [
@@ -283,12 +283,13 @@ final class ExposedTypes {
   static String? _carrierOf(OutlineElement type) =>
       isPrivateName(type.name) ? type.name : null;
 
-  /// Whether other libraries can name [member]. The outline names a
-  /// constructor after its class: `_Item` and `_Item.named`.
-  static bool _isPublicMember(Outline member) =>
+  /// Whether other libraries can name [member] of the type [type].
+  static bool _isPublicMember(Outline member, String type) =>
       !isPrivateName(switch (member.element) {
-        OutlineElement(kind: .constructor, :final name) =>
-          name.indexOfOrNull('.')?.let((dot) => name.substring(dot + 1)) ?? '',
+        OutlineElement(kind: .constructor, :final name) => constructorName(
+          name,
+          type,
+        ),
         OutlineElement(:final name) => name,
       });
 

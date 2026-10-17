@@ -34,6 +34,7 @@ import 'dart:io';
 
 import 'package:ciach/src/collect/candidate_collector.dart';
 import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/collect/exposed_types.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/fetch/member_probe.dart';
@@ -262,27 +263,19 @@ class Ciach {
         for (final path in files)
           if (_openFile(client, path, checkEmpty: true)) path,
       };
-      // The outlines of the other files of a scanned library show which of its
-      // private types a public type alias exposes.
-      final packages = PackageResolver();
-      for (final path in {
-        for (final path in files)
-          if (libraryOf(path, packages) case final library?)
-            ...filesOfLibrary(library, packages),
-      }.difference(opened)) {
-        _openFile(client, path);
-      }
+      _openOtherLibraryFiles(client, files, opened);
       empty = _emptyFiles();
 
       // Phase 1: collect candidate declarations, concurrently.
       _log.info(
         'Collecting declarations from ${plural(files.length, 'file', 'files')}…',
       );
+      final exposedTypes = ExposedTypes(client, _sources);
       final perFile = await mapPooled(
         files,
         options.concurrency,
         (path) => opened.contains(path)
-            ? _collector.collect(client, path, rootPath)
+            ? _collector.collect(client, exposedTypes, path, rootPath)
             : .value(const <Candidate>[]),
       );
       final collected = [for (final list in perFile) ...list];
@@ -438,6 +431,23 @@ class Ciach {
       refsByCandidate: refsByCandidate,
       probed: probed.used.toSet(),
     );
+  }
+
+  /// Opens the files of the libraries of [files] that aren't [opened]. Their
+  /// outlines show which private types of a scanned library a public
+  /// declaration exposes.
+  void _openOtherLibraryFiles(
+    LspClient client,
+    List<String> files,
+    Set<String> opened,
+  ) {
+    final packages = PackageResolver();
+    final libraries = {for (final path in files) ?libraryOf(path, packages)};
+    for (final path in {
+      for (final library in libraries) ...filesOfLibrary(library, packages),
+    }.difference(opened)) {
+      _openFile(client, path);
+    }
   }
 
   /// Opens [path] in the server, noting it in [_directiveOnly] if [checkEmpty]

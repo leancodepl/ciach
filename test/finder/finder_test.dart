@@ -1040,20 +1040,25 @@ void main() {
     },
   );
 
-  test(
-    '--no-public keeps the members of a private class that an exported package hands out',
-    () async {
-      final result = await Ciach(
-        .new(
-          rootPath: fixturePath,
-          exportedPackages: const ['**'],
-          includePublic: false,
-          includeGlobs: const ['lib/scenarios/private_types_leaked.dart'],
-        ),
-      ).run();
-      expect(result.unused.map((d) => d.qualifiedName), ['_Tool._spare']);
-    },
-  );
+  for (final (option, includePublic) in [
+    ('--no-public', false),
+    ('--public', true),
+  ]) {
+    test(
+      '$option keeps the members of a private class that an exported package hands out',
+      () async {
+        final result = await Ciach(
+          .new(
+            rootPath: fixturePath,
+            exportedPackages: const ['**'],
+            includePublic: includePublic,
+            includeGlobs: const ['lib/scenarios/private_types_leaked.dart'],
+          ),
+        ).run();
+        expect(result.unused.map((d) => d.qualifiedName), ['_Tool._spare']);
+      },
+    );
+  }
 
   test(
     'an unused member of an unnamed extension in an exported library is reported',

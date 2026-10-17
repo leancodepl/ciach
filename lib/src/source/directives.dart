@@ -1,5 +1,4 @@
 import 'package:ciach/src/source/comment_stripping.dart';
-import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/reachability.dart';
 import 'package:ciach/src/workspace/packages.dart';
 import 'package:collection/collection.dart';
@@ -51,18 +50,20 @@ extension type Directive._(RegExpMatch _match) {
 
 /// The library that the file at [path] belongs to: the file that its
 /// `part of` directive names, through parts of parts, or [path] itself.
-/// `null` when the directive names a library by its name, not its file.
+/// `null` when a directive names a library by its name, not its file, or when
+/// the `part of` directives form a cycle, which doesn't compile.
 String? libraryOf(String path, PackageResolver packages) {
-  final partOf = _partDirectivesIn(
-    path,
-  ).firstWhereOrNull((directive) => directive.isPartOf);
-  if (partOf == null) {
-    return path;
+  final seen = <String>{};
+  for (String? file = path; file != null && seen.add(file);) {
+    final partOf = _partDirectivesIn(
+      file,
+    ).firstWhereOrNull((directive) => directive.isPartOf);
+    if (partOf == null) {
+      return file;
+    }
+    file = partOf.pathsFrom(file, packages).firstOrNull;
   }
-  return partOf
-      .pathsFrom(path, packages)
-      .firstOrNull
-      ?.let((owner) => libraryOf(owner, packages));
+  return null;
 }
 
 /// The files of [library]: itself and its parts, through parts of parts.

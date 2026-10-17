@@ -44,9 +44,6 @@ final class CandidateCollector {
   final FinderOptions options;
   final SourceIndex _sources;
 
-  /// Built on the first [collect], which supplies the client.
-  ExposedTypes? _exposedTypes;
-
   /// Freezed-union tracking, fed as candidates are collected.
   final FreezedUnions _freezed;
 
@@ -66,9 +63,11 @@ final class CandidateCollector {
   /// `--verbose`.
   void reportSkipped() => _kept.report();
 
-  /// The declarations of the open file [path] worth checking.
+  /// The declarations of the open file [path] worth checking, where
+  /// [exposedTypes] reads the same [client].
   Future<List<Candidate>> collect(
     LspClient client,
+    ExposedTypes exposedTypes,
     String path,
     String rootPath,
   ) async {
@@ -95,10 +94,7 @@ final class CandidateCollector {
     if (_conditionalImports.contains(path)) {
       declaredInVariants[path] = ConditionalImports.pairingNames(symbols);
     }
-    final exposedTypes = await (_exposedTypes ??= ExposedTypes(
-      client,
-      _sources,
-    )).of(path, outline);
+    final exposed = await exposedTypes.of(path, outline);
     final relativePath = relativePosix(path, rootPath);
     final markers = _Markers(IgnoreMarkers.parse(_sources.content(path)));
     // The whole walk has to run before the filter: it records the entry-point
@@ -114,7 +110,7 @@ final class CandidateCollector {
       false,
       _OutlineIndex(outline),
       markers,
-      exposedTypes,
+      exposed,
     ).toList();
     markers.warnAbout(relativePath);
     return _kept.withoutContainers(candidates, relativePath).toList();
