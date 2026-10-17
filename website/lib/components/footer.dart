@@ -11,11 +11,8 @@ import 'package:jaspr_class_scope/jaspr_class_scope.dart';
 part 'footer.scopes.dart';
 
 @scopedCss
-class SiteFooter extends StatelessComponent {
-  const SiteFooter({required this.version, super.key});
-
-  final String version;
-
+class const SiteFooter({required final String version, super.key})
+    extends StatelessComponent {
   static const _class = _$SiteFooterScope;
 
   static final _root = _class.root;

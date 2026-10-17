@@ -104,9 +104,7 @@ int area(Shape shape) => shape.a + shape.b + shape.c;
 void main() => print(area(Square()));
 ''');
 
-    final result = await Ciach(
-      .new(rootPath: package.path, exportedPackages: const []),
-    ).run();
+    final result = await Ciach(.new(rootPath: package.path)).run();
 
     expect([
       for (final d in result.unused)
@@ -129,9 +127,7 @@ class Impl extends Base {
 void main() => print(Impl());
 ''');
 
-    final result = await Ciach(
-      .new(rootPath: package.path, exportedPackages: const []),
-    ).run();
+    final result = await Ciach(.new(rootPath: package.path)).run();
     final hook = result.unused.singleWhere(
       (d) => d.qualifiedName == 'Base.hook',
     );
@@ -152,9 +148,7 @@ void main() => print(Impl());
       return logging.cancel();
     });
 
-    final result = await Ciach(
-      .new(rootPath: package.path, exportedPackages: const []),
-    ).run();
+    final result = await Ciach(.new(rootPath: package.path)).run();
 
     expect(
       {for (final d in result.unused) '${d.filePath}:${d.qualifiedName}'},

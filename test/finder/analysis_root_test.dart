@@ -85,13 +85,8 @@ void main() => usedByApp();
 
   tearDown(() => repo.deleteSync(recursive: true));
 
-  Future<FinderResult> run({String? analysisRoot}) => Ciach(
-    .new(
-      rootPath: corePath,
-      analysisRootPath: analysisRoot,
-      exportedPackages: const [],
-    ),
-  ).run();
+  Future<FinderResult> run({String? analysisRoot}) =>
+      Ciach(.new(rootPath: corePath, analysisRootPath: analysisRoot)).run();
 
   Set<String> namesOf(FinderResult result) => {
     for (final decl in result.unused) decl.name,

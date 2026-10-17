@@ -7,7 +7,7 @@
 /// Sole, zero-parameter private constructor: the classic prevent-instantiation
 /// shape. It is never referenced, so it IS reported as unused — and carries the
 /// `abstract final class` hint. The class is kept alive by `SoleMarker.tag`.
-// ignore: prefer_abstract_final_class
+// ignore: leancode_lint/prefer_abstract_final_class
 class SoleMarker {
   SoleMarker._();
 

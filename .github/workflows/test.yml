@@ -38,7 +38,7 @@ jobs:
         working-directory: tool/ciach_lints
 
       - name: Run analyzer
-        run: dart analyze
+        run: dart analyze --fatal-infos
 
       - name: Run tests
         run: dart test

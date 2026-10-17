@@ -32,20 +32,20 @@ ClientOptions get defaultClientOptions => ClientOptions(
   clients: {
     'copy_button': ClientLoader(
       (p) => _copy_button.CopyButton(
-        text: p['text'] as String,
-        label: p['label'] as String?,
+        text: p.get<String>('text'),
+        label: p.get<String?>('label'),
       ),
       loader: _copy_button.loadLibrary,
     ),
     'demo_trigger': ClientLoader(
-      (p) => _demo_trigger.DemoTrigger(targetId: p['targetId'] as String),
+      (p) => _demo_trigger.DemoTrigger(targetId: p.get<String>('targetId')),
       loader: _demo_trigger.loadLibrary,
     ),
     'docs_toc': ClientLoader(
       (p) => _docs_toc.DocsToc(
-        path: p['path'] as String,
-        ids: (p['ids'] as List<Object?>).cast<String>(),
-        labels: (p['labels'] as List<Object?>).cast<String>(),
+        path: p.get<String>('path'),
+        ids: p.get<List<Object?>>('ids').cast<String>(),
+        labels: p.get<List<Object?>>('labels').cast<String>(),
       ),
       loader: _docs_toc.loadLibrary,
     ),
