@@ -1023,37 +1023,41 @@ void main() {
     );
   });
 
-  test('--no-public reports the members of a private type or an unnamed '
-      'extension', () async {
-    final result = await runFinder(
-      includePublic: false,
-      include: const ['lib/scenarios/private_types.dart'],
-      exclude: const [],
-    );
-    expect(result.unused.map((d) => d.qualifiedName), [
-      '_Settings.new',
-      '_Settings.reset',
-      '_Painter.repaint',
-      '_Doubling.quadrupled',
-      'sextupled',
-      '_Level.isLow',
-      '_Id.next',
-      '_Root.helper',
-    ]);
-  });
-
-  test('--no-public keeps the members of a private class that an exported '
-      'package hands out', () async {
-    final result = await Ciach(
-      .new(
-        rootPath: fixturePath,
-        exportedPackages: const ['**'],
+  test(
+    '--no-public reports the members of a private type or an unnamed extension',
+    () async {
+      final result = await runFinder(
         includePublic: false,
-        includeGlobs: const ['lib/scenarios/private_types_leaked.dart'],
-      ),
-    ).run();
-    expect(result.unused.map((d) => d.qualifiedName), ['_Tool._spare']);
-  });
+        include: const ['lib/scenarios/private_types.dart'],
+        exclude: const [],
+      );
+      expect(result.unused.map((d) => d.qualifiedName), [
+        '_Settings.new',
+        '_Settings.reset',
+        '_Painter.repaint',
+        '_Doubling.quadrupled',
+        'sextupled',
+        '_Level.isLow',
+        '_Id.next',
+        '_Root.helper',
+      ]);
+    },
+  );
+
+  test(
+    '--no-public keeps the members of a private class that an exported package hands out',
+    () async {
+      final result = await Ciach(
+        .new(
+          rootPath: fixturePath,
+          exportedPackages: const ['**'],
+          includePublic: false,
+          includeGlobs: const ['lib/scenarios/private_types_leaked.dart'],
+        ),
+      ).run();
+      expect(result.unused.map((d) => d.qualifiedName), ['_Tool._spare']);
+    },
+  );
 
   const extensionFixture = [
     'lib/scenarios/extensions_emptied.dart',

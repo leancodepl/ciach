@@ -57,8 +57,7 @@ final class ExposedTypes {
       'Could not list the subtypes; its members count as public.';
 
   static const _unreadAliases =
-      'Could not read the type aliases of the library; the members of its '
-      'private types count as public.';
+      'Could not read the type aliases of the library; the members of its private types count as public.';
 
   late final _outlines = CachedMap<String, Future<Outline>>(
     (path) => _client.outline(File(path).uri),
@@ -133,7 +132,7 @@ final class ExposedTypes {
   Future<bool> _queryPublicSubtype(TypeHierarchyItem type) async {
     try {
       final subtypes = await _client.subtypesOf(type);
-      if (subtypes.any((subtype) => !isPrivateName(subtype.name))) {
+      if (!subtypes.every((subtype) => isPrivateName(subtype.name))) {
         return true;
       }
       final viaPrivate = await Future.wait(
