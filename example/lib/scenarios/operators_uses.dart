@@ -58,6 +58,7 @@ void main() {
   if (Level.low case < Level.high) {
     print('low');
   }
+  print(const Ordered(1) < const Ordered(2));
   print(ScaledBox() * 3);
   print(Meters(1) + Meters(2));
   print(const Box([1]) + const Box([2]));

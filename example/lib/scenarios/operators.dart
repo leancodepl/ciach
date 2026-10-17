@@ -3,7 +3,7 @@
 // operators_uses.dart. Scanned only by the dedicated test (excluded from the
 // default-run assertions); see test/finder/operators_test.dart.
 // Expected findings: every operator of NoneUsed, the binary `-` of
-// UnaryMinusOnly, Shape.+, Square.+, onlyFromDeadCode and
+// UnaryMinusOnly, Ordered.>, Shape.+, Square.+, onlyFromDeadCode and
 // OnlyUsedFromDeadCode.*.
 
 /// Declares every operator that a class can declare but `==`, and
@@ -139,6 +139,17 @@ enum Level {
   high;
 
   bool operator <(Level other) => index < other.index;
+}
+
+/// Only its `<` is used. Its `>` is renamed in the same round as the
+/// comparisons of [Version], and the uses of those don't count for it.
+class Ordered {
+  const Ordered(this.rank);
+
+  final int rank;
+
+  bool operator <(Ordered other) => rank < other.rank;
+  bool operator >(Ordered other) => rank > other.rank;
 }
 
 mixin Scaled {

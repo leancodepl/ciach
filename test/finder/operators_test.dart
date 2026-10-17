@@ -94,6 +94,7 @@ void main() {
         container: 'NoneUsed',
       ),
     declaredAt('UnaryMinusOnly.-', 'UnaryMinusOnly operator -(UnaryMinusOnly'),
+    declaredAt('Ordered.>', 'bool operator >(Ordered other)'),
     declaredAt('Shape.+', 'Shape operator +(Shape other);'),
     declaredAt('onlyFromDeadCode', 'onlyFromDeadCode() =>'),
     declaredAt('OnlyUsedFromDeadCode.*', 'OnlyUsedFromDeadCode operator *('),

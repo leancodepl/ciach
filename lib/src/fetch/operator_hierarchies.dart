@@ -49,6 +49,18 @@ final class OperatorHierarchy {
 
   final Set<OperatorDeclaration> members;
   final List<Candidate> operators;
+
+  /// The name of every member: `+`, `[]=` or `>=`.
+  String get name => operators.first.symbol.name;
+
+  /// Whether the candidates are members of classes, mixins or enums and
+  /// return `bool`, as comparisons do. The members that they override return
+  /// a supertype of `bool`, and those that override them return `bool`.
+  bool get returnsBool => operators.every(
+    (operator) =>
+        !operator.isExtensionMember &&
+        operator.outline.element.returnType == 'bool',
+  );
 }
 
 /// The override hierarchies of [operators] whose members are all inside
@@ -91,9 +103,32 @@ final class _HierarchyLookup {
     (uri) => _client.documentSymbol(.parse(uri)),
   );
 
-  /// The direct supertypes of each type, by the type's name.
-  final _supertypes =
-      <({String uri, Range name}), Future<List<TypeHierarchyItem>>>{};
+  late final _implementations =
+      CachedMap<OperatorDeclaration, Future<List<Location>>>(
+        (member) =>
+            _client.implementations(File(member.path).uri, member.name.start),
+      );
+
+  /// The type hierarchy item of each type, by its name.
+  late final _types = CachedMap<_TypeName, Future<TypeHierarchyItem?>>(
+    (type) => _client.declaringType(.parse(type.uri), type.name.start),
+  );
+
+  /// The direct supertypes of each type, by its name.
+  late final _supertypes =
+      CachedMap<_TypeName, Future<List<TypeHierarchyItem>>>(
+        (type) async =>
+            await (await _types[type])?.let(_client.supertypes) ?? const [],
+      );
+
+  /// The operators like an operator of a type in the supertypes of that type,
+  /// by the type and the operator. The operators of one type share these
+  /// lookups.
+  late final _overridden =
+      CachedMap<
+        ({_TypeName type, String name, bool isUnary}),
+        Future<List<Location>>
+      >(_overriddenIn);
 
   /// [operator] and every member of its hierarchy, or `null` when one of them
   /// is outside the analysis root, such as `Object.==`.
@@ -103,55 +138,76 @@ final class _HierarchyLookup {
       operator.symbol.selectionRange,
     );
     final members = {start};
-    final pending = [start];
+    // The server lists the overrides of an override among those of the member
+    // that it overrides, so only a member reached through a supertype needs
+    // its own lookup.
+    final pending = [(member: start, listsOverrides: true)];
     while (pending.isNotEmpty) {
-      final member = pending.removeLast();
-      final uri = File(member.path).uri;
-      final related = [
-        ...await _client.implementations(uri, member.name.start),
-        ...await _overridden(member, operator.symbol),
-      ];
-      for (final location in related) {
+      final (:member, :listsOverrides) = pending.removeLast();
+      final overrides = listsOverrides
+          ? await _implementations[member]
+          : const <Location>[];
+      final overridden =
+          await (await _declaringType(member))?.let(
+            (type) =>
+                _overridden[(
+                  type: type,
+                  name: operator.symbol.name,
+                  isUnary: operator.symbol.hasNoParameters,
+                )],
+          ) ??
+          const <Location>[];
+      for (final location in [...overrides, ...overridden]) {
         if (!_isInside(location.uri)) {
           return null;
         }
         final found = OperatorDeclaration.at(location);
         if (members.add(found)) {
-          pending.add(found);
+          pending.add((
+            member: found,
+            listsOverrides: !overrides.contains(location),
+          ));
         }
       }
     }
     return members;
   }
 
-  /// The operators like [operator] in the supertypes of the type that
-  /// declares [member], transitively. The server's `super` request names only
-  /// one of them when the type has two supertypes that declare the operator.
-  Future<List<Location>> _overridden(
-    OperatorDeclaration member,
-    DocumentSymbol operator,
+  /// The name of the type that declares [member], or `null` for a member of
+  /// an extension, which has no supertypes.
+  Future<_TypeName?> _declaringType(OperatorDeclaration member) async {
+    final uri = File(member.path).uri.toString();
+    final symbols = await _symbols[uri];
+    return symbols
+        .firstWhereOrNull(
+          (symbol) =>
+              symbol.kind != .namespace &&
+              symbol.range.contains(member.name.start),
+        )
+        ?.let<_TypeName>((type) => (uri: uri, name: type.selectionRange));
+  }
+
+  /// The operators in the supertypes of the type of [lookup], transitively,
+  /// that have the name of its operator and are unary when that operator is:
+  /// a class can declare both `-()` and `-(other)`. The server's `super`
+  /// request names only one of them when the type has two supertypes that
+  /// declare the operator.
+  Future<List<Location>> _overriddenIn(
+    ({_TypeName type, String name, bool isUnary}) lookup,
   ) async {
-    final declaringType = await _client.declaringType(
-      File(member.path).uri,
-      member.name.start,
-    );
-    if (declaringType == null) {
-      return const [];
-    }
     final overridden = <Location>[];
-    final seen = <({String uri, Range name})>{};
-    final pending = [declaringType];
+    final seen = <_TypeName>{};
+    final pending = [lookup.type];
     while (pending.isNotEmpty) {
-      final type = pending.removeLast();
-      final supertypes = _supertypes[_nameOf(type)] ??= _client.supertypes(
-        type,
-      );
-      for (final supertype in await supertypes) {
-        if (!seen.add(_nameOf(supertype))) {
+      for (final supertype in await _supertypes[pending.removeLast()]) {
+        final name = (uri: supertype.uri, name: supertype.selectionRange);
+        if (!seen.add(name)) {
           continue;
         }
-        pending.add(supertype);
-        if (await _operatorIn(supertype, operator) case final declared?) {
+        _types[name] = .value(supertype);
+        pending.add(name);
+        if (await _operatorIn(name, lookup.name, isUnary: lookup.isUnary)
+            case final declared?) {
           overridden.add(declared);
         }
       }
@@ -159,29 +215,23 @@ final class _HierarchyLookup {
     return overridden;
   }
 
-  /// [type]'s own operator with the name of [operator], and unary when
-  /// [operator] is: a class can declare both `-()` and `-(other)`.
+  /// The operator named [name] that [type] declares, unary when [isUnary] is.
   Future<Location?> _operatorIn(
-    TypeHierarchyItem type,
-    DocumentSymbol operator,
-  ) async {
-    final declaration = (await _symbols[type.uri]).firstWhereOrNull(
-      (symbol) => symbol.selectionRange == type.selectionRange,
-    );
-    return declaration?.children
-        ?.firstWhereOrNull(
-          (member) =>
-              member.isOperator &&
-              member.name == operator.name &&
-              member.hasNoParameters == operator.hasNoParameters,
-        )
-        ?.let<Location>(
-          (member) => .new(uri: type.uri, range: member.selectionRange),
-        );
-  }
-
-  ({String uri, Range name}) _nameOf(TypeHierarchyItem type) =>
-      (uri: type.uri, name: type.selectionRange);
+    _TypeName type,
+    String name, {
+    required bool isUnary,
+  }) async => (await _symbols[type.uri])
+      .firstWhereOrNull((symbol) => symbol.selectionRange == type.name)
+      ?.children
+      ?.firstWhereOrNull(
+        (member) =>
+            member.isOperator &&
+            member.name == name &&
+            member.hasNoParameters == isUnary,
+      )
+      ?.let<Location>(
+        (member) => .new(uri: type.uri, range: member.selectionRange),
+      );
 
   /// Whether [uri] names a file inside the analysis root.
   bool _isInside(String uri) {
@@ -190,3 +240,7 @@ final class _HierarchyLookup {
         p.isWithin(_analysisRoot, parsed.toFilePath());
   }
 }
+
+/// A class, mixin, enum or extension type, by the file and the range of its
+/// name.
+typedef _TypeName = ({String uri, Range name});

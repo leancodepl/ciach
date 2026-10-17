@@ -14,11 +14,6 @@
 /// error at each use once the operator is gone. So the operator and every
 /// member of its override hierarchy are renamed in unsaved copies of their
 /// files, and every new error is a use.
-///
-/// Each hierarchy is renamed in a round of its own. After `a + b` fails, the
-/// type of the expression is unknown, so the server reports no error at the
-/// `*` of `(a + b) * c`, which would hide that use if `*` were renamed in the
-/// same round.
 library;
 
 import 'dart:io';
@@ -32,7 +27,8 @@ import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/plural.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location;
+import 'package:collection/collection.dart';
+import 'package:pro_lsp/pro_lsp.dart' show Location, Range;
 
 final _log = Logger('ciach.operator_uses');
 
@@ -75,27 +71,27 @@ Future<Map<Candidate, List<Location>>?> findOperatorUses({
       analysisRoot: analysisRoot,
       concurrency: concurrency,
     );
+    final rounds = _rounds(
+      hierarchies.where((h) => _renamed(sources, h.members) != null),
+    );
     final usesOf = <Candidate, List<Location>>{};
-    for (final (i, hierarchy) in hierarchies.indexed) {
-      final renamed = _renamed(sources, hierarchy.members);
-      if (renamed == null) {
-        continue;
-      }
+    for (final (i, round) in rounds.indexed) {
       _log.fine(
-        '[${i + 1}/${hierarchies.length}] `${hierarchy.operators.first.symbol.name}`',
+        '[${i + 1}/${rounds.length}] ${round.map((h) => '`${h.name}`').join(', ')}',
       );
+      final renamed = _renamed(sources, {
+        for (final hierarchy in round) ...hierarchy.members,
+      })!;
       for (final MapEntry(key: path, value: text) in renamed.entries) {
         changes.change(path, text);
       }
       changes.restoreExcept(renamed.keys.toSet());
-      final uses = [
-        for (final MapEntry(key: path, value: ranges)
-            in (await changes.newErrors()).entries)
-          for (final range in ranges)
-            Location(uri: File(path).uri.toString(), range: range),
-      ];
-      for (final operator in hierarchy.operators) {
-        usesOf[operator] = uses;
+      final errors = await changes.newErrors();
+      for (final hierarchy in round) {
+        final uses = _usesOf(hierarchy, round, errors, sources);
+        for (final operator in hierarchy.operators) {
+          usesOf[operator] = uses;
+        }
       }
     }
     await changes.restore();
@@ -108,6 +104,55 @@ Future<Map<Candidate, List<Location>>?> findOperatorUses({
     // analysis, which would need another request to the server.
     changes.revert();
   }
+}
+
+/// The uses of [hierarchy] among [errors], the new errors by file of the
+/// [round] that renamed it. In a round of several hierarchies, an error at an
+/// operator belongs to the hierarchy with that name, and any other error to
+/// each of them.
+List<Location> _usesOf(
+  OperatorHierarchy hierarchy,
+  List<OperatorHierarchy> round,
+  Map<String, Set<Range>> errors,
+  SourceIndex sources,
+) => [
+  for (final MapEntry(key: path, value: ranges) in errors.entries)
+    for (final range in ranges)
+      if (round.length == 1 ||
+          switch (sources.textOf(path, range)) {
+            final text when round.any((other) => other.name == text) =>
+              text == hierarchy.name,
+            _ => true,
+          })
+        Location(uri: File(path).uri.toString(), range: range),
+];
+
+/// [hierarchies] grouped into rounds that rename them together.
+///
+/// Most hierarchies get a round of their own. After `a + b` fails, the server
+/// doesn't know the type of the expression, so the server reports no error at
+/// the `*` of `(a + b) * c`, which would hide that use if `*` were renamed in
+/// the same round. A comparison such as `a < b` gives a `bool`, though, and no
+/// class, mixin, enum or extension type that declares an operator is a
+/// supertype of `bool`. So the hierarchies whose operators all return `bool`
+/// share rounds, one for each name, such as `<` and `>=`, so that the text of
+/// an error tells which of them it belongs to.
+List<List<OperatorHierarchy>> _rounds(Iterable<OperatorHierarchy> hierarchies) {
+  final shared = <List<OperatorHierarchy>>[];
+  final own = <List<OperatorHierarchy>>[];
+  for (final hierarchy in hierarchies) {
+    if (!hierarchy.returnsBool) {
+      own.add([hierarchy]);
+    } else if (shared.firstWhereOrNull(
+          (round) => round.none((other) => other.name == hierarchy.name),
+        )
+        case final round?) {
+      round.add(hierarchy);
+    } else {
+      shared.add([hierarchy]);
+    }
+  }
+  return [...own, ...shared];
 }
 
 /// The content of each file of [members] with the members renamed to
