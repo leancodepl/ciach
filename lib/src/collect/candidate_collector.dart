@@ -242,13 +242,8 @@ final class CandidateCollector {
   }
 
   /// Whether [candidate] is public and left out: by `--no-public`, or as part
-  /// of an API that `exported-packages` leaves out.
-  ///
-  /// `--no-public` checks a member of a private type or an unnamed extension,
-  /// because the member is as private as the type. A public function can still
-  /// hand the type to another package, as `makeTool()` hands out `_Tool`. When
-  /// the package is in `exported-packages`, `ReachableTypes` then keeps the
-  /// members of `_Tool`, after the references of the types are fetched.
+  /// of an API that `exported-packages` leaves out. A member of a private
+  /// type counts as private, so `--no-public` checks it.
   bool _skipsPublic(Candidate candidate) {
     if (candidate.isPrivate) {
       return false;
