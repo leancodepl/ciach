@@ -14,7 +14,7 @@ final class CachedMap<K, V> {
       : _values[key] = _compute(key);
 
   /// The value for [key], as [operator []] reads it, so that the map can be
-  /// passed where a function is expected: `keys.map(cache)`.
+  /// torn off where a function is expected: `keys.map(cache.call)`.
   V call(K key) => this[key];
 
   /// Caches [value] for [key] in place of computing it.

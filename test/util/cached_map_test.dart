@@ -35,7 +35,7 @@ void main() {
       calls++;
       return key.length;
     });
-    expect(['ab', 'ab'].map(lengths), [2, 2]);
+    expect(['ab', 'ab'].map(lengths.call), [2, 2]);
     expect(calls, 1);
   });
 
