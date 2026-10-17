@@ -29,13 +29,13 @@ void main() {
     expect(sums[3], 6);
   });
 
-  test('calling the map reads the cached value', () {
+  test('get reads the cached value', () {
     var calls = 0;
     final lengths = CachedMap<String, int>((key) {
       calls++;
       return key.length;
     });
-    expect(['ab', 'ab'].map(lengths.call), [2, 2]);
+    expect(['ab', 'ab'].map(lengths.get), [2, 2]);
     expect(calls, 1);
   });
 

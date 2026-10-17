@@ -81,7 +81,7 @@ final class ExposedTypes {
       return const {};
     }
     _outlines[path] = .value(unit);
-    final aliased = await libraryOf(path, _packages)?.let(_aliasedIn.call);
+    final aliased = await libraryOf(path, _packages)?.let(_aliasedIn.get);
     final exposed = await Future.wait([
       for (final type in types)
         _exposedMembers(path, type, aliased).then((members) => (type, members)),
@@ -134,9 +134,7 @@ final class ExposedTypes {
       if (!subtypes.every((subtype) => isPrivateName(subtype.name))) {
         return true;
       }
-      final viaPrivate = await Future.wait(
-        subtypes.map(_hasPublicSubtype.call),
-      );
+      final viaPrivate = await Future.wait(subtypes.map(_hasPublicSubtype.get));
       return viaPrivate.contains(true);
     } on LspRequestException catch (e) {
       recordProblem(
