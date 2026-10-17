@@ -76,8 +76,9 @@ final class DeadSpans {
     DeclKey? referenced,
   }) {
     final spans = [
-      for (final span in _byPath[path] ?? const <_Span>[])
-        if (_contains(span.range, position)) span,
+      if (_byPath[path] case final inFile?)
+        for (final span in inFile)
+          if (_contains(span.range, position)) span,
     ];
     final inOwnClause =
         referenced != null && spans.any((span) => span.clauseOf == referenced);
