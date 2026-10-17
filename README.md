@@ -548,7 +548,9 @@ dart test          # spins up a real analysis server against the example/ packag
 
 The implementation lives under `lib/src/`; the CLI entry point is `bin/`.
 `lib/src/finder.dart` runs a scan as a pipeline, and its doc comment maps the
-directories under `lib/src/` to the stages. Tests mirror that layout under
+directories under `lib/src/` to the stages. [doc/pipeline.md](doc/pipeline.md)
+draws the steps of a scan, and a test checks that the diagram matches the code.
+Tests mirror that layout under
 `test/`; `test/finder/` runs the whole finder against the `example/` package.
 
 ## License

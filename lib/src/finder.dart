@@ -27,6 +27,8 @@
 /// | `report/`         | The output formats.                                                   |
 /// | `cli/`            | The command line: options, the config file, the console.              |
 /// | `util/`           | Small helpers with no knowledge of ciach.                             |
+///
+/// `doc/pipeline.md` draws the steps that the code marks with `stage(…)`.
 library;
 
 import 'dart:async';
@@ -53,6 +55,7 @@ import 'package:ciach/src/util/concurrency.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:ciach/src/util/plural.dart';
+import 'package:ciach/src/util/stages.dart';
 import 'package:ciach/src/workspace/analysis_options.dart';
 import 'package:ciach/src/workspace/file_discovery.dart';
 import 'package:ciach/src/workspace/packages.dart';
@@ -191,7 +194,10 @@ class Ciach {
       );
     }
 
-    final discovered = discoverDartFilesSplit(options);
+    final discovered = stage(
+      'Discover Dart files',
+      () => discoverDartFilesSplit(options),
+    );
     final files = discovered.candidates;
     _log.info(
       'Discovered ${plural(files.length, 'Dart file', 'Dart files')} to scan.',
@@ -225,8 +231,9 @@ class Ciach {
     }
 
     _log.info('Starting Dart analysis server…');
-    final client = await LspClient.start(
-      dartExecutable: options.dartExecutable,
+    final client = await stage(
+      'Start the analysis server',
+      () => LspClient.start(dartExecutable: options.dartExecutable),
     );
 
     final Settled settled;
@@ -242,12 +249,14 @@ class Ciach {
       if (analysisOptions.isNotEmpty) {
         _log.config('Analyzing without lint rules and analyzer plugins.');
       }
-      await client.initialize(
-        Directory(analysisRoot).uri,
-        analysisOptions: analysisOptions,
-      );
-      _log.info('Waiting for initial analysis to complete…');
-      await client.waitForAnalysisComplete();
+      await stage('Wait for the initial analysis', () async {
+        await client.initialize(
+          Directory(analysisRoot).uri,
+          analysisOptions: analysisOptions,
+        );
+        _log.info('Waiting for initial analysis to complete…');
+        await client.waitForAnalysisComplete();
+      });
 
       // Phase 0: open every file first, so the server analyzes them in one
       // pass and keeps them resident. Generated files are opened so references
@@ -255,54 +264,71 @@ class Ciach {
       _log.info(
         'Opening ${plural(files.length + discovered.warmOnly.length, 'file', 'files')}…',
       );
-      final opened = <String>{
-        for (final path in discovered.warmOnly)
-          if (_openFile(client, path)) path,
-        for (final path in files)
-          if (_openFile(client, path, checkEmpty: true)) path,
-      };
+      final opened = stage(
+        'Open files',
+        () => <String>{
+          for (final path in discovered.warmOnly)
+            if (_openFile(client, path)) path,
+          for (final path in files)
+            if (_openFile(client, path, checkEmpty: true)) path,
+        },
+      );
       empty = _emptyFiles();
 
       // Phase 1: collect candidate declarations, concurrently.
       _log.info(
         'Collecting declarations from ${plural(files.length, 'file', 'files')}…',
       );
-      final perFile = await mapPooled(
-        files,
-        options.concurrency,
-        (path) => opened.contains(path)
-            ? _collector.collect(client, path, rootPath)
-            : .value(const <Candidate>[]),
-      );
-      final collected = [for (final list in perFile) ...list];
-      _collector.reportSkipped();
+      final collected = await stage('Collect declarations', () async {
+        final perFile = await mapPooled(
+          files,
+          options.concurrency,
+          (path) => opened.contains(path)
+              ? _collector.collect(client, path, rootPath)
+              : .value(const <Candidate>[]),
+        );
+        _collector.reportSkipped();
+        return [for (final list in perFile) ...list];
+      });
 
       // Phase 2: check references for every candidate through a single global
       // pool, so the server stays saturated instead of stalling between files.
-      final fetched = await _references(
-        client,
-        collected,
-        totalFiles: files.length,
-        rootPath: rootPath,
+      final fetched = await stage(
+        'Fetch references',
+        () => _references(
+          client,
+          collected,
+          totalFiles: files.length,
+          rootPath: rootPath,
+        ),
       );
-      final (:candidates, :refsByCandidate) = _conditionalImports.share(
-        fetched.candidates,
-        fetched.refsByCandidate,
-        _collector.declaredInVariants,
-        _classifier,
-        onDropped: _logDropped,
+      final (:candidates, :refsByCandidate) = stage(
+        'Share references between conditional-import variants',
+        () => _conditionalImports.share(
+          fetched.candidates,
+          fetched.refsByCandidate,
+          _collector.declaredInVariants,
+          _classifier,
+          onDropped: _logDropped,
+        ),
       );
       declarationsChecked = candidates.length;
-      await _fetch.selectionRanges(client, candidates, refsByCandidate);
+      await stage(
+        'Fetch selection ranges',
+        () => _fetch.selectionRanges(client, candidates, refsByCandidate),
+      );
 
       // Phase 3: settle the verdicts; with `transitive`, in rounds.
-      settled = await _settler.settle(
-        client,
-        candidates,
-        refsByCandidate,
-        scannedPaths: files.where(opened.contains).toSet(),
-        rootPath: rootPath,
-        analysisRoot: analysisRoot,
+      settled = await stage(
+        'Settle findings',
+        () => _settler.settle(
+          client,
+          candidates,
+          refsByCandidate,
+          scannedPaths: files.where(opened.contains).toSet(),
+          rootPath: rootPath,
+          analysisRoot: analysisRoot,
+        ),
       );
     } finally {
       await client.dispose();
@@ -369,47 +395,71 @@ class Ciach {
         : collected.where(ReachableTypes.isGated).toSet();
     final candidates = <Candidate>[];
     final refsByCandidate = <List<Location>>[];
-    Future<void> fetch(List<Candidate> batch, int files) async {
+    Future<void> fetch(
+      String name,
+      List<Candidate> batch,
+      int files,
+    ) => stage(name, () async {
       _log.info(
         'Checking references for ${plural(batch.length, 'declaration', 'declarations')}…',
       );
-      final fetched = await _fetch.references(
-        client,
-        batch,
-        totalFiles: files,
-        rootPath: rootPath,
+      final fetched = await stage(
+        'Find references',
+        () => _fetch.references(
+          client,
+          batch,
+          totalFiles: files,
+          rootPath: rootPath,
+        ),
       );
-      await _fetch.semanticTokensFor(client, fetched.refs);
+      await stage(
+        'Fetch semantic tokens at the references',
+        () => _fetch.semanticTokensFor(client, fetched.refs),
+      );
       candidates.addAll(fetched.checked);
       refsByCandidate.addAll(fetched.refs);
-    }
+    });
 
-    await fetch(collected.whereNot(gated.contains).toList(), totalFiles);
+    await fetch(
+      'Check references',
+      collected.whereNot(gated.contains).toList(),
+      totalFiles,
+    );
     if (api == null || gated.isEmpty) {
       return (candidates: candidates, refsByCandidate: refsByCandidate);
     }
-    final types = await ReachableTypes.find(
-      client: client,
-      sources: _sources,
-      fetch: _fetch,
-      api: api,
-      candidates: candidates,
-      refs: refsByCandidate,
+    final types = await stage(
+      'Find the types that exported signatures hand out',
+      () => ReachableTypes.find(
+        client: client,
+        sources: _sources,
+        fetch: _fetch,
+        api: api,
+        candidates: candidates,
+        refs: refsByCandidate,
+      ),
     );
     final internal = gated.where(types.isInternal).toList();
     _log.info(
       'Looking up uses of ${plural(internal.length, 'member', 'members')} of unexported types…',
     );
-    final probed = await probeMembers(
-      client: client,
-      sources: _sources,
-      types: types,
-      members: internal,
-      concurrency: options.concurrency,
+    final probed = await stage(
+      'Look up uses of members of unexported types',
+      () => probeMembers(
+        client: client,
+        sources: _sources,
+        types: types,
+        members: internal,
+        concurrency: options.concurrency,
+      ),
     );
     candidates.addAll(probed.used);
     refsByCandidate.addAll(probed.refs);
-    await fetch(probed.rest, probed.rest.map((c) => c.path).toSet().length);
+    await fetch(
+      'Check references of the members that no lookup found used',
+      probed.rest,
+      probed.rest.map((c) => c.path).toSet().length,
+    );
     return (candidates: candidates, refsByCandidate: refsByCandidate);
   }
 

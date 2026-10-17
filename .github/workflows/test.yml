@@ -37,6 +37,10 @@ jobs:
         run: dart pub get
         working-directory: tool/ciach_lints
 
+      - name: Download pipeline graph pub dependencies
+        run: dart pub get
+        working-directory: tool/pipeline_graph
+
       - name: Run analyzer
         run: dart analyze --fatal-infos
 
@@ -46,6 +50,10 @@ jobs:
       - name: Run lint plugin tests
         run: dart test
         working-directory: tool/ciach_lints
+
+      - name: Run pipeline graph tests
+        run: dart test
+        working-directory: tool/pipeline_graph
 
       - name: Check formatting
         run: dart format --set-exit-if-changed .
