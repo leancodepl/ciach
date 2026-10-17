@@ -18,9 +18,7 @@ part 'og_card.scopes.dart';
 /// not part of any page, so it carries its own sizing rules instead of adding
 /// them to the site's stylesheet.
 @scopedCss
-class OgCard extends StatelessComponent {
-  const OgCard({super.key});
-
+class const OgCard({super.key}) extends StatelessComponent {
   static const width = 1200;
   static const height = 630;
 

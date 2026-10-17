@@ -541,7 +541,7 @@ logger; listen on `Logger.root.onRecord` to see the records.
 
 ```bash
 dart pub get
-dart analyze
+dart analyze --fatal-infos
 dart test          # spins up a real analysis server against the example/ package
 ```
 

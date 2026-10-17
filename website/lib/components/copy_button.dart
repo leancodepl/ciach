@@ -17,14 +17,13 @@ part 'copy_button.scopes.dart';
 /// JavaScript disabled and the shipped script stays tiny.
 @client
 @scopedCss
-class CopyButton extends StatefulComponent {
-  const CopyButton({required this.text, this.label, super.key});
-
-  final String text;
+class const CopyButton({
+  required final String text,
 
   /// Visible label. Omit for an icon-only button.
-  final String? label;
-
+  final String? label,
+  super.key,
+}) extends StatefulComponent {
   static const _class = _$CopyButtonScope;
 
   static final _root = _class.root;
@@ -72,7 +71,7 @@ class CopyButton extends StatefulComponent {
   State<CopyButton> createState() => _CopyButtonState();
 }
 
-class _CopyButtonState extends State<CopyButton> {
+class _CopyButtonState() extends State<CopyButton> {
   bool _copied = false;
   Timer? _resetTimer;
 

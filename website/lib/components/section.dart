@@ -11,24 +11,15 @@ part 'section.scopes.dart';
 /// pointing at its heading, so the outline reads well for crawlers and screen
 /// readers alike.
 @scopedCss
-class Section extends StatelessComponent {
-  const Section({
-    required this.id,
-    required this.eyebrow,
-    required this.heading,
-    required this.children,
-    this.lead,
-    this.classes,
-    super.key,
-  });
-
-  final String id;
-  final String eyebrow;
-  final String heading;
-  final String? lead;
-  final List<Component> children;
-  final ClassName? classes;
-
+class const Section({
+  required final String id,
+  required final String eyebrow,
+  required final String heading,
+  required final List<Component> children,
+  final String? lead,
+  final ClassName? classes,
+  super.key,
+}) extends StatelessComponent {
   static const _class = _$SectionScope;
 
   static final _root = _class.root;
@@ -76,18 +67,12 @@ class Section extends StatelessComponent {
 
 /// A docs-page section: a linkable heading followed by its content.
 @scopedCss
-class DocSection extends StatelessComponent {
-  const DocSection({
-    required this.id,
-    required this.heading,
-    required this.children,
-    super.key,
-  });
-
-  final String id;
-  final String heading;
-  final List<Component> children;
-
+class const DocSection({
+  required final String id,
+  required final String heading,
+  required final List<Component> children,
+  super.key,
+}) extends StatelessComponent {
   static const _class = _$DocSectionScope;
 
   static final _root = _class.root;
@@ -132,7 +117,7 @@ class DocSection extends StatelessComponent {
 /// Classes for running text, shared by the landing page's sections and the
 /// docs.
 @scopedCss
-abstract final class Prose {
+abstract final class Prose() {
   static const _class = _$ProseScope;
 
   /// The small accented label above a heading.

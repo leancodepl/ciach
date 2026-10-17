@@ -9,33 +9,23 @@ part 'code_block.scopes.dart';
 
 /// A highlighted, copyable code sample in a window-like frame.
 @scopedCss
-class CodeBlock extends StatelessComponent {
-  const CodeBlock({
-    required this.source,
-    required this.language,
-    this.title,
-    this.copyText,
-    this.deadLines = const {},
-    this.lineNumbers = false,
-    this.classes,
-    super.key,
-  });
-
-  final String source;
-  final Language language;
+class const CodeBlock({
+  required final String source,
+  required final Language language,
 
   /// Shown in the frame's title bar, e.g. a file name.
-  final String? title;
+  final String? title,
 
   /// What the copy button copies. Defaults to [source]; pass `''` to hide the
   /// button.
-  final String? copyText;
+  final String? copyText,
 
   /// 1-based lines to render struck through as dead code.
-  final Set<int> deadLines;
-  final bool lineNumbers;
-  final ClassName? classes;
-
+  final Set<int> deadLines = const {},
+  final bool lineNumbers = false,
+  final ClassName? classes,
+  super.key,
+}) extends StatelessComponent {
   static const _class = _$CodeBlockScope;
 
   // The frame, shared with [Terminal].
@@ -225,23 +215,16 @@ class CodeBlock extends StatelessComponent {
 }
 
 /// A terminal transcript whose lines appear one after another.
-class Terminal extends StatelessComponent {
-  const Terminal({
-    required this.transcript,
-    this.title = 'zsh',
-    this.animated = false,
-    this.copyText = '',
-    super.key,
-  });
-
-  final String transcript;
-  final String title;
+class const Terminal({
+  required final String transcript,
+  final String title = 'zsh',
 
   /// Reveal lines sequentially with a CSS animation (respects
   /// `prefers-reduced-motion`).
-  final bool animated;
-  final String copyText;
-
+  final bool animated = false,
+  final String copyText = '',
+  super.key,
+}) extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     return figure(

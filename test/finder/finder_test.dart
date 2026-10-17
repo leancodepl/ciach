@@ -61,7 +61,6 @@ void main() {
   }) => Ciach(
     .new(
       rootPath: fixturePath,
-      exportedPackages: const [],
       includePublic: includePublic,
       skipOverrides: skipOverrides,
       skipOperators: skipOperators,
@@ -535,7 +534,6 @@ void main() {
     Future<FinderResult> runUnions({required bool flag}) => Ciach(
       .new(
         rootPath: fixturePath,
-        exportedPackages: const [],
         unusedUnionMembers: flag,
         includeGlobs: const ['lib/scenarios/unions.dart'],
       ),
@@ -666,11 +664,7 @@ void main() {
       final before = file.readAsStringSync();
 
       final result = await Ciach(
-        .new(
-          rootPath: copy.path,
-          exportedPackages: const [],
-          includeGlobs: fixture,
-        ),
+        .new(rootPath: copy.path, includeGlobs: fixture),
       ).run();
       expect(result.unused, isNotEmpty);
       removeDeclarations(result.unused, copy.path);
@@ -919,14 +913,8 @@ void main() {
         final copy = Directory.systemTemp.createTempSync('ciach_transitive_');
         addTearDown(() => copy.deleteSync(recursive: true));
         copyTree(Directory(fixturePath), copy);
-        Future<FinderResult> run() => Ciach(
-          .new(
-            rootPath: copy.path,
-            exportedPackages: const [],
-            includeGlobs: fixture,
-            transitive: true,
-          ),
-        ).run();
+        Future<FinderResult> run() =>
+            Ciach(.new(rootPath: copy.path, includeGlobs: fixture)).run();
 
         final first = await run();
         expect(names(first.unused), containsAll(['_ping', '_Chicken']));
@@ -972,13 +960,8 @@ void main() {
       addTearDown(() => copy.deleteSync(recursive: true));
       copyTree(Directory(fixturePath), copy);
       final file = File(p.join(copy.path, fixture.single));
-      Future<FinderResult> run() => Ciach(
-        .new(
-          rootPath: copy.path,
-          exportedPackages: const [],
-          includeGlobs: fixture,
-        ),
-      ).run();
+      Future<FinderResult> run() =>
+          Ciach(.new(rootPath: copy.path, includeGlobs: fixture)).run();
 
       removeDeclarations((await run()).unused, copy.path);
 
@@ -1203,7 +1186,6 @@ void main() {
         final result = await Ciach(
           .new(
             rootPath: copy.path,
-            exportedPackages: const [],
             includeGlobs: fixture,
             // With transitive reporting nothing in the fixture survives; the
             // test below covers that.
@@ -1253,7 +1235,6 @@ void main() {
         Future<FinderResult> run({required bool transitive}) => Ciach(
           .new(
             rootPath: copy.path,
-            exportedPackages: const [],
             includeGlobs: fixture,
             transitive: transitive,
           ),
@@ -1374,7 +1355,6 @@ void main() {
       final result = await Ciach(
         .new(
           rootPath: fixturePath,
-          exportedPackages: const [],
           includeGlobs: const ['lib/scenarios/serialization.dart'],
           reportToJson: reportToJson,
         ),

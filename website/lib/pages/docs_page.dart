@@ -181,11 +181,8 @@ Component _markOf(bool yes) => yes
 /// Everything past the landing page, on one page with a sticky table of
 /// contents. The README on GitHub stays the exhaustive reference.
 @scopedCss
-class DocsPage extends StatelessComponent {
-  const DocsPage({required this.version, super.key});
-
-  final String version;
-
+class const DocsPage({required final String version, super.key})
+    extends StatelessComponent {
   static const _class = _$DocsPageScope;
 
   static final _docs = _class('docs');

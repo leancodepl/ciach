@@ -41,8 +41,8 @@ extension type Directive._(RegExpMatch _match) {
   /// schemes and unknown packages are left out.
   List<String> pathsFrom(String from, PackageResolver packages) => [
     for (final uri in uris)
-      if (packages.resolve(uri.namedGroup('uri')!, from) case final path?
-          when path != unknownPackage)
+      if (packages.resolve(uri.namedGroup('uri')!, from)
+          case final path? && != unknownPackage)
         path,
   ];
 }

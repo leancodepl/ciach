@@ -40,10 +40,13 @@ Map<String, _Definition> _definitions(
 ) => {
   if (rootName != null) ..._definedIn(rootName, rootBuildYaml),
   // In a pub workspace, package_config.json is in the root of the workspace.
-  for (final Package(:name, :root)
-      in PackageResolver().configOf(rootPath)?.packages ?? const <Package>[])
-    if (name != rootName && root.isScheme('file'))
-      ..._definedIn(name, readYamlMap(p.join(root.toFilePath(), 'build.yaml'))),
+  if (PackageResolver().configOf(rootPath)?.packages case final packages?)
+    for (final Package(:name, :root) in packages)
+      if (name != rootName && root.isScheme('file'))
+        ..._definedIn(
+          name,
+          readYamlMap(p.join(root.toFilePath(), 'build.yaml')),
+        ),
 };
 
 Map<String, _Definition> _definedIn(

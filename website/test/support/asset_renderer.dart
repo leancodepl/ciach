@@ -20,15 +20,10 @@ import 'package:puppeteer/puppeteer.dart';
 /// relative URLs such as the self-hosted fonts resolve as they do in
 /// production; `file://` pages would refuse to load fonts from another
 /// directory.
-class AssetRenderer {
-  AssetRenderer._(this._browser, this._server);
-
+class AssetRenderer._(final Browser _browser, final HttpServer _server) {
   /// The Chrome for Testing build every render uses. A different build can
   /// antialias differently, so bump it and regenerate the assets together.
   static const chromeVersion = '152.0.7977.42';
-
-  final Browser _browser;
-  final HttpServer _server;
 
   /// The HTML the server answers `/component.html` with.
   Uint8List? _page;
