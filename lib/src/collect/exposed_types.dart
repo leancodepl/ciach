@@ -74,7 +74,9 @@ final class ExposedTypes {
   /// The private types declared in [path], whose outline is [unit], whose
   /// members a public declaration exposes, and which of them it exposes.
   Future<Map<String, ExposedMembers>> of(String path, Outline unit) async {
-    final types = unit.children.map((type) => type.element).where(_hasMembers);
+    final types = unit.children
+        .map((type) => type.element)
+        .where(_isExposablePrivateType);
     if (types.isEmpty) {
       return const {};
     }
@@ -120,7 +122,7 @@ final class ExposedTypes {
 
   /// Whether [element] is a private class, mixin or extension type, whose
   /// members a public declaration may expose.
-  static bool _hasMembers(OutlineElement element) =>
+  static bool _isExposablePrivateType(OutlineElement element) =>
       const <OutlineKind>{
         .class$,
         .mixin,
