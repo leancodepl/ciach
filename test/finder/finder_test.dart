@@ -993,7 +993,7 @@ void main() {
   });
 
   test('a member of a private type or an unnamed extension is reported as '
-      'private, unless a public class inherits it', () async {
+      'private, unless a public declaration exposes the type', () async {
     final result = await runFinder(
       include: const ['lib/scenarios/private_types.dart'],
       exclude: const [],
@@ -1019,6 +1019,17 @@ void main() {
         ('_Aliased.util', false),
         ('_PartAliased.partAliased', false),
         ('_InPart.parted', false),
+        ('_Tier.isTop', false),
+        ('_Tool.use', false),
+        ('_Tool.make', true),
+        ('_Tool.part', false),
+        ('_Part.fit', false),
+        ('_Item.weigh', false),
+        ('_Gauge.calibrate', false),
+        ('_Crate.create', true),
+        ('_Crate.open', false),
+        ('_Visited.visit', false),
+        ('_Held.grip', false),
       ],
     );
   });
@@ -1040,6 +1051,8 @@ void main() {
         '_Level.isLow',
         '_Id.next',
         '_Root.helper',
+        '_Tool.make',
+        '_Crate.create',
       ]);
     },
   );

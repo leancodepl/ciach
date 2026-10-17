@@ -502,38 +502,6 @@ class LspClient {
     };
   }
 
-  /// The type named at [position] in [uri], via
-  /// `textDocument/prepareTypeHierarchy`, or `null` when nothing is named
-  /// there.
-  Future<lsp.TypeHierarchyItem?> typeHierarchyItemAt(
-    Uri uri,
-    lsp.Position position,
-  ) async {
-    final items = await _guard(
-      lsp.RequestMethod.prepareTypeHierarchy.value,
-      () => _client.server.textDocument.prepareTypeHierarchy(
-        .new(
-          textDocument: .new(uri: uri.toString()),
-          position: position,
-        ),
-      ),
-    );
-    return items?.firstOrNull;
-  }
-
-  /// The direct subtypes of [type], via `typeHierarchy/subtypes`: the types
-  /// that extend, implement or mix it in, or name it in an `on` clause,
-  /// anywhere in the workspace.
-  Future<List<lsp.TypeHierarchyItem>> subtypesOf(
-    lsp.TypeHierarchyItem type,
-  ) async {
-    final subtypes = await _guard(
-      lsp.RequestMethod.subtypes.value,
-      () => _client.server.typeHierarchy.subtypes(.new(item: type)),
-    );
-    return subtypes ?? const [];
-  }
-
   /// The members that override the member at [position] in [uri], via
   /// `textDocument/implementation`. Empty when nothing overrides it.
   Future<List<lsp.Location>> implementations(

@@ -200,9 +200,9 @@ final class CandidateCollector {
     }
   }
 
-  /// Whether [symbol] in [path] is a static member. A subtype inherits no
-  /// constructors or static members, so those of a private type stay private
-  /// when only a public type that extends it exposes it.
+  /// Whether [symbol] in [path] is a static member. A value of a type or of
+  /// its subtype reaches no constructors or static members, so those of a
+  /// private type stay private unless a type alias names the type.
   bool _isStatic(String path, DocumentSymbol symbol) =>
       _sources
           .semanticTokens(path)

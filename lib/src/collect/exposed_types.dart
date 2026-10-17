@@ -16,13 +16,16 @@ import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/cached_map.dart';
 import 'package:ciach/src/util/extensions.dart';
+import 'package:ciach/src/util/reachability.dart';
 import 'package:ciach/src/workspace/packages.dart';
-import 'package:pro_lsp/pro_lsp.dart' show TypeHierarchyItem;
+import 'package:collection/collection.dart';
+import 'package:pro_lsp/pro_lsp.dart' show Position;
 
 /// The members of a private type that other libraries can reach through a
 /// public declaration.
 enum ExposedMembers {
-  /// The instance members, which a public subtype inherits.
+  /// The instance members, which a value of the type or of a public subtype
+  /// lets other libraries call.
   instance,
 
   /// All of them, which a public type alias names: `Alias.create()` calls a
@@ -31,21 +34,23 @@ enum ExposedMembers {
 }
 
 /// Which private types other libraries can reach through a public
-/// declaration, so their members are as public as that declaration.
+/// declaration, so that their members are as public as that declaration.
 ///
-/// A public type reaches a private one by naming it as a supertype, as in
-/// `class Circle extends _Base {}`, where `Circle().area()` calls
-/// `_Base.area`, or `abstract class Shape implements _Shape {}` and
-/// `mixin Mixer on _Host {}`, directly or through other private types. The
-/// analysis server's type hierarchy lists these subtypes, in any file of the
-/// library. A public `typedef Alias = _Aliased;` in any file of the library
-/// reaches `_Aliased` too.
+/// A public declaration exposes the private types that its signature names,
+/// in any file of the library: `_Tool makeTool()` hands out a `_Tool`,
+/// `class Circle extends _Base {}` passes on the members of `_Base`, and
+/// `typedef Alias = _Aliased;` also lets `Alias.create()` call a constructor.
+/// A public variable whose type is inferred exposes the private types in the
+/// type that the analysis server infers, such as `List<_Item>`. An exposed
+/// private type in turn exposes the private types that its header and its
+/// public members name. A body never hands a type out.
 ///
-/// A concrete class that implements a private type declares the members
-/// itself, so the type's own are out of reach, but they count as reachable
-/// too: a member wrongly called public is only skipped by `--no-public`.
-/// For the same reason, a type whose library can't be read counts as
-/// reachable.
+/// Two names in a header expose nothing: a bound matters only to a type that
+/// uses its type parameters, and an extension adds members to its `on` type
+/// without handing it out. A concrete class that implements a private type
+/// declares the members of that type itself, but it still exposes the type:
+/// removing a member of the type removes its overrides too. When a library
+/// can't be read, all of its private types count as exposed.
 final class ExposedTypes {
   ExposedTypes(this._client, this._sources);
 
@@ -53,23 +58,17 @@ final class ExposedTypes {
   final SourceIndex _sources;
   final _packages = PackageResolver();
 
-  static const _unreadSubtypes =
-      'Could not list the subtypes; its members count as public.';
-
-  static const _unreadAliases =
-      'Could not read the type aliases of the library; the members of its private types count as public.';
+  static const _unreadLibrary =
+      'Could not read the library; the members of its private types count as public.';
 
   late final _outlines = CachedMap<String, Future<Outline>>(
     (path) => _client.outline(File(path).uri),
   );
 
-  late final _hasPublicSubtype = CachedMap<TypeHierarchyItem, Future<bool>>(
-    _queryPublicSubtype,
-  );
-
-  /// The private names that the public type aliases of a library name, by
-  /// the path of the library; `null` when a file of it can't be read.
-  late final _aliasedIn = CachedMap<String, Future<Set<String>?>>(_readAliases);
+  /// The private names that each library exposes, by the path of the
+  /// library; `null` when a file of it can't be read.
+  late final _exposedIn =
+      CachedMap<String, Future<Map<String, ExposedMembers>?>>(_readLibrary);
 
   /// The private types declared in [path], whose outline is [unit], whose
   /// members a public declaration exposes, and which of them it exposes.
@@ -81,105 +80,245 @@ final class ExposedTypes {
       return const {};
     }
     _outlines[path] = .value(unit);
-    final aliased = await libraryOf(path, _packages)?.let(_aliasedIn.get);
-    final exposed = await Future.wait([
-      for (final type in types)
-        _exposedMembers(path, type, aliased).then((members) => (type, members)),
-    ]);
-    return {for (final (type, members) in exposed) type.name: ?members};
+    final exposed = await libraryOf(path, _packages)?.let(_exposedIn.get);
+    return switch (exposed) {
+      null => {for (final type in types) type.name: .all},
+      _ => {for (final type in types) type.name: ?exposed[type.name]},
+    };
   }
 
-  Future<ExposedMembers?> _exposedMembers(
-    String path,
-    OutlineElement type,
-    Set<String>? aliased,
-  ) async {
-    if (aliased == null || aliased.contains(type.name)) {
-      return .all;
-    }
-    try {
-      final item = await _client.typeHierarchyItemAt(
-        File(path).uri,
-        type.range!.start,
-      );
-      if (item == null || !await _hasPublicSubtype[item]) {
-        return null;
-      }
-      return .instance;
-    } on LspRequestException catch (e) {
-      recordProblem(
-        _unreadSubtypes,
-        e,
-        path: path,
-        position: type.range!.start,
-      );
-      return .instance;
-    }
-  }
-
-  /// Whether [element] is a private class, mixin or extension type, whose
-  /// members a public declaration may expose.
+  /// Whether [element] is a private class, mixin, enum or extension type,
+  /// whose members a public declaration may expose.
   static bool _isExposablePrivateType(OutlineElement element) =>
       const <OutlineKind>{
         .class$,
         .mixin,
+        .enum$,
         .extensionType,
       }.contains(element.kind) &&
       element.range != null &&
       isPrivateName(element.name);
 
-  Future<bool> _queryPublicSubtype(TypeHierarchyItem type) async {
-    try {
-      final subtypes = await _client.subtypesOf(type);
-      if (!subtypes.every((subtype) => isPrivateName(subtype.name))) {
-        return true;
-      }
-      final viaPrivate = await Future.wait(subtypes.map(_hasPublicSubtype.get));
-      return viaPrivate.contains(true);
-    } on LspRequestException catch (e) {
-      recordProblem(
-        _unreadSubtypes,
-        e,
-        path: SourceIndex.pathOf(type.uri),
-        position: type.selectionRange.start,
-      );
-      return true;
-    }
-  }
-
-  Future<Set<String>?> _readAliases(String library) async {
+  Future<Map<String, ExposedMembers>?> _readLibrary(String library) async {
     try {
       final perFile = await Future.wait(
-        filesOfLibrary(library, _packages).map(_aliasedNamesIn),
+        filesOfLibrary(library, _packages).map(_mentionsIn),
       );
-      return {for (final names in perFile) ...names};
+      return _exposedBy(perFile.flattened);
     } on LspRequestException catch (e) {
-      recordProblem(_unreadAliases, e, path: library);
+      recordProblem(_unreadLibrary, e, path: library);
       return null;
     }
   }
 
-  /// The private names in the public type aliases of [path].
-  Future<Set<String>> _aliasedNamesIn(String path) async {
-    final aliases = (await _outlines[path]).children.where(
-      (alias) =>
-          alias.element.kind == .typeAlias &&
-          !isPrivateName(alias.element.name),
-    );
-    if (aliases.isEmpty) {
-      return const {};
-    }
+  /// Returns the private names that the public declarations among
+  /// [mentions] reach, directly or through other private names, and which
+  /// members of each they expose.
+  static Map<String, ExposedMembers> _exposedBy(Iterable<_Mention> mentions) {
+    final byCarrier = mentions.groupSetsBy((mention) => mention.carrier);
+    final reached = reachableFrom<String?>([
+      null,
+    ], (carrier) => byCarrier[carrier]?.map((mention) => mention.name) ?? []);
+    final all = {
+      for (final mention in mentions)
+        if (mention.members == .all && reached.contains(mention.carrier))
+          mention.name,
+    };
+    return {
+      for (final name in reached.nonNulls)
+        name: all.contains(name) ? .all : .instance,
+    };
+  }
+
+  Future<Iterable<_Mention>> _mentionsIn(String path) async {
+    final unit = await _outlines[path];
     final tokens =
         _sources.semanticTokens(path) ??
         await _client.semanticTokens(File(path).uri, _sources.lines(path));
-    return {
-      for (final alias in aliases)
-        for (final token in tokens.between(
-          alias.codeRange.start,
-          alias.codeRange.end,
-        ))
-          if (!token.isKeyword && !token.isComment && isPrivateName(token.text))
-            token.text,
-    };
+    final perDeclaration = await Future.wait(
+      unit.children.map((node) => _mentionsBy(path, node, tokens)),
+    );
+    return perDeclaration.flattened;
   }
+
+  /// Returns the private names that the top-level declaration [node] names
+  /// where other libraries can reach them.
+  Future<Iterable<_Mention>> _mentionsBy(
+    String path,
+    Outline node,
+    List<SemanticToken> tokens,
+  ) async => switch (node.element) {
+    OutlineElement(isUnnamedExtension: true) => const [],
+    OutlineElement(
+      kind: .class$ || .mixin || .enum$ || .extension || .extensionType,
+    ) =>
+      await _typeMentions(path, node, tokens),
+    OutlineElement(kind: .typeAlias || .functionTypeAlias || .classTypeAlias) =>
+      _aliasMentions(path, node, tokens),
+    OutlineElement(
+      kind: .function || .getter || .setter || .topLevelVariable,
+      :final name,
+    )
+        when !isPrivateName(name) =>
+      [
+        for (final type in await _signatureNames(path, node))
+          _Mention(null, type),
+      ],
+    _ => const [],
+  };
+
+  Future<Iterable<_Mention>> _typeMentions(
+    String path,
+    Outline node,
+    List<SemanticToken> tokens,
+  ) async {
+    final carrier = _carrierOf(node.element);
+    final members = await Future.wait(
+      node.children
+          .where(_isPublicMember)
+          .map((member) => _signatureNames(path, member)),
+    );
+    return [
+      for (final name in {
+        ..._headerNames(path, node, tokens),
+        ...members.flattened,
+      })
+        _Mention(carrier, name),
+    ];
+  }
+
+  /// Returns the private names in the type alias [node]. The type that a
+  /// public `typedef Alias = _Aliased;` names first exposes all of its
+  /// members, since `Alias.create()` calls a constructor.
+  Iterable<_Mention> _aliasMentions(
+    String path,
+    Outline node,
+    List<SemanticToken> tokens,
+  ) {
+    final element = node.element;
+    final carrier = _carrierOf(element);
+    // A function type alias can name a type before its own name:
+    // `typedef _Item Make();`.
+    final names = _privateNames(
+      tokens.between(node.codeRange.start, node.codeRange.end),
+    );
+    if (element.kind != .typeAlias) {
+      return names.map((name) => _Mention(carrier, name));
+    }
+    final aliased = _typeParametersEnd(path, element)?.let(
+      (end) => tokens
+          .between(end, node.codeRange.end)
+          .firstWhereOrNull((token) => !token.isComment),
+    );
+    return names.map(
+      (name) => _Mention(
+        carrier,
+        name,
+        aliased == null || name == aliased.text ? .all : .instance,
+      ),
+    );
+  }
+
+  /// Returns the private names in the header of the type [node] that expose
+  /// a type, such as `_Base` in `class Circle extends _Base`.
+  Iterable<String> _headerNames(
+    String path,
+    Outline node,
+    List<SemanticToken> tokens,
+  ) {
+    final element = node.element;
+    final nameEnd = element.range!.end;
+    final bodyStart =
+        node.children.firstOrNull?.range.start ?? node.codeRange.end;
+    final listEnd = _typeParametersEnd(path, element);
+    if (listEnd == null) {
+      return _privateNames(tokens.between(nameEnd, bodyStart));
+    }
+    final usesTypeParameters = tokens
+        .between(listEnd, node.codeRange.end)
+        .any((token) => token.type == 'typeParameter');
+    return _privateNames([
+      if (usesTypeParameters) ...tokens.between(nameEnd, listEnd),
+      if (element.kind != .extension) ...tokens.between(listEnd, bodyStart),
+    ]);
+  }
+
+  /// Returns where the type parameters of [element] end in [path], or where
+  /// its name ends when it has none; `null` when the source doesn't match the
+  /// text that the outline gives for them.
+  Position? _typeParametersEnd(String path, OutlineElement element) {
+    final nameEnd = element.range!.end;
+    final typeParameters = element.typeParameters;
+    if (typeParameters == null || typeParameters.isEmpty) {
+      return nameEnd;
+    }
+    final start = _sources.offsetOf(path, nameEnd);
+    // The outline gives the type parameters as text without line breaks:
+    // `<T extends _S, U>`. Matching its characters with any whitespace in
+    // between finds where the list ends in the source.
+    final list = RegExp(
+      [
+        '',
+        ...typeParameters.replaceAll(RegExp(r'\s'), '').split(''),
+      ].map(RegExp.escape).join(r'\s*'),
+    );
+    return start
+        ?.let((start) => list.matchAsPrefix(_sources.content(path), start))
+        ?.end
+        .let((end) => _sources.positionOf(path, end));
+  }
+
+  /// Returns the private names in the signature of [node]: its type
+  /// parameters, parameters and declared type, or the type that the server
+  /// infers for a variable without one.
+  Future<Set<String>> _signatureNames(String path, Outline node) async {
+    final OutlineElement(
+      :kind,
+      :range,
+      :returnType,
+      :parameters,
+      :typeParameters,
+    ) = node.element;
+    final signature = switch ((kind, returnType)) {
+      (.field || .topLevelVariable, '') =>
+        await _client.hover(File(path).uri, range!.start) ?? '',
+      _ => [?typeParameters, ?parameters, ?returnType].join(' '),
+    };
+    return {for (final match in _privateName.allMatches(signature)) match[0]!};
+  }
+
+  static String? _carrierOf(OutlineElement type) =>
+      isPrivateName(type.name) ? type.name : null;
+
+  /// Whether other libraries can name [member]. The outline names a
+  /// constructor after its class: `_Item` and `_Item.named`.
+  static bool _isPublicMember(Outline member) =>
+      !isPrivateName(switch (member.element) {
+        OutlineElement(kind: .constructor, :final name) =>
+          name.indexOfOrNull('.')?.let((dot) => name.substring(dot + 1)) ?? '',
+        OutlineElement(:final name) => name,
+      });
+
+  static Set<String> _privateNames(Iterable<SemanticToken> tokens) => {
+    for (final token in tokens)
+      if (!token.isComment && isPrivateName(token.text)) token.text,
+  };
 }
+
+/// A private name that a declaration names where other libraries can reach
+/// it: [carrier] is the private declaration that names it, or `null` for a
+/// public declaration.
+final class _Mention {
+  const _Mention(this.carrier, this.name, [this.members = .instance]);
+
+  final String? carrier;
+  final String name;
+
+  /// The members of [name] that [carrier] exposes when other libraries can
+  /// reach it.
+  final ExposedMembers members;
+}
+
+/// A private name in a signature, which the outline and a hover give only as
+/// text.
+final _privateName = RegExp(r'(?<![\w$])_[\w$]*');

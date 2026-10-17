@@ -5,8 +5,8 @@
  */
 
 // Members of a private type or an unnamed extension are private, whatever
-// their own names, unless a public type names theirs as a supertype. Only the private-type
-// tests in test/finder/finder_test.dart scan this file.
+// their own names, unless a public declaration exposes the type. Only the
+// private-type tests in test/finder/finder_test.dart scan this file.
 
 part 'private_types_part.dart';
 
@@ -24,6 +24,14 @@ void main() {
   print(<Alias>[]);
   print(<PartAlias>[]);
   print(FromPart());
+  print(<Tier>[]);
+  print(makeTool());
+  print(items);
+  print(Ruler());
+  print(_Gauge());
+  print(<Stock>[]);
+  print(<Visit>[]);
+  print(Holder<_Held>().held);
 }
 
 /// Constructed by `main` -> USED.
@@ -128,4 +136,82 @@ class _InPart {
   /// Never called -> UNUSED, but public: `FromPart`, in the part file,
   /// inherits it.
   void parted() {}
+}
+
+enum _Tier {
+  top;
+
+  /// Never read -> UNUSED, but public: `Tier.top.isTop` reads it.
+  bool get isTop => this == top;
+}
+
+typedef Tier = _Tier;
+
+/// Called by `main` -> USED. Hands out a `_Tool`.
+_Tool makeTool() => _Tool();
+
+class _Tool {
+  /// Never called -> UNUSED, but public: `makeTool().use()` calls it.
+  void use() {}
+
+  /// Never called -> UNUSED, private: no other library can name `_Tool`.
+  static void make() {}
+
+  /// Never read -> UNUSED, but public: `makeTool().part` reads it.
+  _Part get part => _Part();
+}
+
+class _Part {
+  /// Never called -> UNUSED, but public: `makeTool().part.fit()` calls it.
+  void fit() {}
+}
+
+/// Read by `main` -> USED. Its inferred type is `List<_Item>`.
+final items = [_Item()];
+
+class _Item {
+  /// Never called -> UNUSED, but public: `items.first.weigh()` calls it.
+  void weigh() {}
+}
+
+class _Gauge {
+  /// Never called -> UNUSED, but public: removing it would also remove the
+  /// override in `Ruler`.
+  void calibrate() {}
+}
+
+class Ruler implements _Gauge {
+  /// Never called, but an override -> removed only with `_Gauge.calibrate`.
+  @override
+  void calibrate() {}
+}
+
+class _Crate {
+  /// Never called -> UNUSED, private: `Stock` names `_Crate` only as a type
+  /// argument, so `Stock.create()` doesn't compile.
+  _Crate.create();
+
+  /// Never called -> UNUSED, but public: `Stock` holds `_Crate`s.
+  void open() {}
+}
+
+typedef Stock = List<_Crate>;
+
+class _Visited {
+  /// Never called -> UNUSED, but public: a `Visit` callback receives a
+  /// `_Visited`.
+  void visit() {}
+}
+
+typedef Visit = void Function(_Visited);
+
+class _Held {
+  /// Never called -> UNUSED, but public: `Holder().held?.grip()` calls it.
+  void grip() {}
+}
+
+/// Unlike the bound of `Circle`, this one reaches other libraries through
+/// `held`.
+class Holder<T extends _Held> {
+  T? held;
 }

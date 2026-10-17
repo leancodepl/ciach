@@ -86,8 +86,9 @@ final class Candidate {
   bool get isExtensionMember => containerSymbol?.kind == .namespace;
 
   /// Whether this is a member of a private type that a public declaration
-  /// of its library exposes, so other libraries can reach it: a subtype
-  /// inherits its instance members, and a type alias names all of them.
+  /// of its library exposes, so other libraries can reach it: a value of the
+  /// type lets them call its instance members, and a type alias names all of
+  /// them.
   final bool isInExposedType;
 
   bool get isInUnnamedExtension =>
