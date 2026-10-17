@@ -123,12 +123,11 @@ bool _isConstant(Expression expression) => switch (expression) {
   IntegerLiteral() ||
   DoubleLiteral() ||
   NullLiteral() ||
-  SimpleStringLiteral() => true,
+  SimpleStringLiteral() ||
   PrefixExpression(
     operator: Token(type: .MINUS),
     operand: IntegerLiteral() || DoubleLiteral(),
-  ) =>
-    true,
+  ) => true,
   SimpleIdentifier(:final element) ||
   PrefixedIdentifier(:final element) ||
   PropertyAccess(

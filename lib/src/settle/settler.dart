@@ -135,7 +135,7 @@ final class Settler {
         deadSpans,
       );
       crossLib = crossLib.merged(
-        await _recovery.recover(client, candidates, liveRefs),
+        await _recovery.recover(client, candidates, liveRefs, refsByCandidate),
       );
       final result = await _round(
         client,

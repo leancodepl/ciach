@@ -8,7 +8,7 @@ import 'package:jaspr_class_scope/jaspr_class_scope.dart';
 part 'button.scopes.dart';
 
 /// How a [Button] is filled.
-enum ButtonVariant {
+enum ButtonVariant() {
   /// Accent fill with dark text: the one action a section wants taken.
   primary,
 
@@ -19,20 +19,13 @@ enum ButtonVariant {
 /// A pill-shaped call to action that links somewhere. [external] links open
 /// in a new tab.
 @scopedCss
-class Button extends StatelessComponent {
-  const Button(
-    this.children, {
-    required this.href,
-    this.variant = .primary,
-    this.external = false,
-    super.key,
-  });
-
-  final List<Component> children;
-  final String href;
-  final ButtonVariant variant;
-  final bool external;
-
+class const Button(
+  final List<Component> children, {
+  required final String href,
+  final ButtonVariant variant = .primary,
+  final bool external = false,
+  super.key,
+}) extends StatelessComponent {
   static const _class = _$ButtonScope;
 
   static final _root = _class.root;

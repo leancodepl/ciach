@@ -1,10 +1,12 @@
 # ciach.leancode.co
 
 The [ciach](https://pub.dev/packages/ciach) landing page, a static
-[Jaspr](https://jaspr.site) site.
+[Jaspr](https://jaspr.site) site. It uses Jaspr from the commit on the `next`
+branch that `dependency_overrides` in `pubspec.yaml` names. Activate the Jaspr
+CLI from the same commit with the `dart pub global activate` command in the
+`installCommand` of `vercel.json`, then run:
 
 ```bash
-dart pub global activate jaspr_cli 0.23.4
 dart pub get
 jaspr serve
 ```

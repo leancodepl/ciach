@@ -78,8 +78,7 @@ extension IterableExtension<T> on Iterable<T> {
         AvoidNegatedIterablePredicates.code,
         RemoveNegation.new,
       ),
-      '${needsImport || imported ? _import : ''}$_helpers'
-      '${snippet.replaceFirst(flagged, replacement)}',
+      '${needsImport || imported ? _import : ''}$_helpers${snippet.replaceFirst(flagged, replacement)}',
     );
   }
 

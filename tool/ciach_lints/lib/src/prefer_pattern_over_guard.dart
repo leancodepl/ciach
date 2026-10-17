@@ -21,6 +21,7 @@ import 'package:analyzer_plugin/utilities/change_builder/change_builder_core.dar
 import 'package:analyzer_plugin/utilities/fixes/fixes.dart';
 import 'package:analyzer_plugin/utilities/range_factory.dart';
 import 'package:ciach_lints/src/guard_tests.dart';
+import 'package:collection/collection.dart';
 
 /// Flags a `when` clause that tests a variable of its own pattern in a way
 /// that the pattern can: `v is T`, `v != null`, and a comparison of `v` with
@@ -163,7 +164,7 @@ class GuardRewrite._({
       guarded: guarded,
       moves: moves,
       moved: operands.where(moved.contains).toList(),
-      rest: operands.where((operand) => !moved.contains(operand)).toList(),
+      rest: operands.whereNot(moved.contains).toList(),
       content: content,
     );
   }
@@ -190,8 +191,7 @@ class GuardRewrite._({
     final source = pieces.join();
     return rest.isEmpty
         ? source
-        : '$source when '
-              '${rest.map((operand) => _sourceOf(operand, content)).join(' && ')}';
+        : '$source when ${rest.map((operand) => _sourceOf(operand, content)).join(' && ')}';
   }();
 }
 

@@ -65,9 +65,7 @@ void main() {
   tearDownAll(() => root.deleteSync(recursive: true));
 
   test('lists the containers --remove leaves empty', () async {
-    final result = await Ciach(
-      .new(rootPath: root.path, exportedPackages: const []),
-    ).run();
+    final result = await Ciach(.new(rootPath: root.path)).run();
 
     expect(result.unused.map((d) => d.qualifiedName), [
       'Painter.paint',

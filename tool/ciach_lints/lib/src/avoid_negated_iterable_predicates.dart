@@ -166,8 +166,7 @@ class NegationRewrite._({
       final (:method, :negate) = rewritten;
       final argumentCode = predicate?.code ?? _sourceOf(argument, content);
       final callCode =
-          '${_sourceOf(target, content)}${operator?.lexeme ?? '.'}$method'
-          '($argumentCode)';
+          '${_sourceOf(target, content)}${operator?.lexeme ?? '.'}$method($argumentCode)';
       final code = switch ((negate, negated)) {
         (true, false) when _isTarget(node) => '(!$callCode)',
         (true, _) => '!$callCode',
@@ -211,7 +210,7 @@ bool _isTarget(Expression node) => switch (node.parent) {
   ('none', true, false) => (method: 'any', negate: false),
   ('any', false, true) => (method: 'every', negate: true),
   ('every', false, true) => (method: 'none', negate: false),
-  ('none', false, true) => (method: 'every', negate: false),
+  ('none', false, true) ||
   ('any', true, true) => (method: 'every', negate: false),
   ('every', true, true) => (method: 'any', negate: false),
   ('none', true, true) => (method: 'every', negate: true),

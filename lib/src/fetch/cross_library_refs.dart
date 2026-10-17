@@ -14,10 +14,12 @@ import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
+import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/reference_kinds.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/concurrency.dart';
+import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
 typedef _Site = ({Uri uri, Position position});
@@ -60,11 +62,14 @@ class CrossLibraryReferences {
 
   /// Only the [emptyRefNames] (simple names of the zero-reference [candidates])
   /// are probed, so a package with no false positives issues no extra requests.
+  /// The sites of the [reportedRefs] are not: the server already resolved
+  /// them.
   static Future<CrossLibraryReferences> resolve({
     required LspClient client,
     required SourceIndex sources,
     required List<Candidate> candidates,
     required Set<String> emptyRefNames,
+    required Iterable<Location> reportedRefs,
     required int concurrency,
   }) async {
     if (emptyRefNames.isEmpty) {
@@ -74,7 +79,7 @@ class CrossLibraryReferences {
     final byPosition = <_DeclPosition, Candidate>{
       for (final candidate in candidates) _positionOf(candidate): candidate,
     };
-    final declarations = byPosition.keys.toSet();
+    final reported = reportedRefs.map(_positionOfLocation).toSet();
 
     final sites = [
       for (final path in sources.scannedPaths)
@@ -82,7 +87,8 @@ class CrossLibraryReferences {
           sources: sources,
           path: path,
           names: emptyRefNames,
-          declarations: declarations,
+          skipped: (position) =>
+              byPosition.containsKey(position) || reported.contains(position),
         ),
     ];
     if (sites.isEmpty) {
@@ -109,8 +115,7 @@ class CrossLibraryReferences {
     for (final (i, (:uri, :position, :name)) in sites.indexed) {
       final site = (uri: uri, position: position);
       for (final loc in perSite[i]) {
-        final start = loc.range.start;
-        final pos = (SourceIndex.pathOf(loc.uri), start.line, start.character);
+        final pos = _positionOfLocation(loc);
         if (byPosition[pos] case final declaration?) {
           if (!_isSelfUse(site, declaration)) {
             usageByDecl.putIfAbsent(pos, () => {}).add(site);
@@ -172,14 +177,29 @@ class CrossLibraryReferences {
     for (final (i, member) in members.indexed) {
       final uses = elsewhere[_simpleName(member.symbol.name)]!;
       for (final loc in perMember[i]) {
-        final start = loc.range.start;
-        final pos = (SourceIndex.pathOf(loc.uri), start.line, start.character);
-        if (uses[pos] case final sites?) {
+        if (uses[_positionOfLocation(loc)] case final sites?) {
           usageByDecl.putIfAbsent(_positionOf(member), () => {}).addAll(sites);
         }
       }
     }
   }
+
+  /// Whether [token] is a use of a local variable, which carries no
+  /// modifiers.
+  static bool _isLocalVariable(SemanticToken token) =>
+      token.type == 'variable' && token.modifiers.isEmpty;
+
+  /// Whether [token] declares something. The server marks a name in a `show`
+  /// or `hide` combinator, after [lastKeyword], as a declaration too, though
+  /// it uses what it names.
+  static bool _isDeclaration(SemanticToken token, String? lastKeyword) =>
+      token.isDeclaration && !const {'show', 'hide'}.contains(lastKeyword);
+
+  static _DeclPosition _positionOfLocation(Location loc) => (
+    SourceIndex.pathOf(loc.uri),
+    loc.range.start.line,
+    loc.range.start.character,
+  );
 
   static _DeclPosition _positionOfSite(_Site site) =>
       (site.uri.toFilePath(), site.position.line, site.position.character);
@@ -249,15 +269,25 @@ class CrossLibraryReferences {
     required SourceIndex sources,
     required String path,
     required Set<String> names,
-    required Set<_DeclPosition> declarations,
+    required bool Function(_DeclPosition position) skipped,
   }) sync* {
     if (sources.semanticTokens(path) case final tokens?) {
       final uri = File(path).uri;
+      String? lastKeyword;
       for (final token in tokens) {
-        // A declaration's own name resolves to itself; a doc link is not a use.
+        if (token.isKeyword) {
+          lastKeyword = token.text;
+          continue;
+        }
+        // A declaration's own name resolves to itself, a reported reference
+        // to what the server said, and a doc link is not a use. Neither is a
+        // local variable: the server marks a use of a top-level variable or a
+        // field as a property, and `this.field` as an instance variable.
         if (_memberTokenTypes.contains(token.type) &&
+            !_isLocalVariable(token) &&
+            !_isDeclaration(token, lastKeyword) &&
             names.contains(token.text) &&
-            !declarations.contains((path, token.line, token.character)) &&
+            !skipped((path, token.line, token.character)) &&
             !sources.isDocLine(path, token.line)) {
           yield (uri: uri, position: token.start, name: token.text);
         }

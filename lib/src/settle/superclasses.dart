@@ -48,7 +48,7 @@ final class SuperclassChecks {
     if (superclass == null) {
       return false;
     }
-    return _bySuperclass[(superclass.uri, superclass.range.start)];
+    return await _bySuperclass[(superclass.uri, superclass.range.start)];
   }
 
   Future<bool> _needsArguments(String superclassUri, Position start) async {

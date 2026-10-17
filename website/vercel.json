@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "installCommand": "dart pub get && dart pub global activate jaspr_cli 0.23.4",
+  "installCommand": "dart pub get && dart pub global activate --source git https://github.com/schultek/jaspr --git-path packages/jaspr_cli --git-ref 99edc8e5bcd47cb738eedc07da11b372cfadbc2e",
   "buildCommand": "bash tool/build.sh",
   "outputDirectory": "build/jaspr",
   "headers": [

@@ -61,6 +61,8 @@ final class SemanticToken {
 
   bool get isKeyword => type == 'keyword';
 
+  bool get isDeclaration => modifiers.contains('declaration');
+
   /// Whether this is the name of an `@[name]` annotation.
   bool isAnnotationNamed(String name) =>
       modifiers.contains('annotation') && text == name;

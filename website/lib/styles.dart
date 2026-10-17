@@ -176,7 +176,7 @@ List<StyleRule> get _reset => [
 
 /// Site-wide utility classes. Every component may use them, so they render as
 /// written instead of being scoped to one.
-abstract final class Utility {
+abstract final class Utility() {
   /// Centers the content in a column of at most `--container`.
   static const container = ClassName.shared('container');
 
