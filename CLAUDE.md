@@ -394,11 +394,10 @@ calls goes in `lib/src/cli/`. Handle a stage's failures inside that stage, not
 in the code that runs the stages. Mark committed generated files as
 `linguist-generated` in `.gitattributes`.
 
-Every package in the repository depends on the same `leancode_lint` version.
-Every package but `website/` includes the root `analysis_options.yaml`, so that
-they run the same lint rules and plugins; the `analysis_options.yaml` of
-`website/` says why it can't. A package turns a rule off only in its own
-`analysis_options.yaml`, with a comment that says why.
+Every package in the repository depends on the same `leancode_lint` version and
+includes the root `analysis_options.yaml`, so that all of them run the same
+lint rules and plugins; `website/` adds `jaspr_lints`. A package turns a rule
+off only in its own `analysis_options.yaml`, with a comment that says why.
 
 # File size
 
