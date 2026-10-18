@@ -247,13 +247,15 @@ explicit null check.
   literal gets busy, give its predicate a named local.
 - Keep an `Iterable` lazy when it is read once or in part, and use a `Set` when
   duplicates mean nothing.
-- Prefer `for (final (i, x) in xs.indexed)` to an index loop, collection
-  methods (`where`, `firstWhereOrNull`) to loops with early returns,
-  tear-offs to lambdas that only forward, `min` and `max` to hand-written
-  ternaries, and `package:collection` equalities to comparison loops. Write
-  `map[key] ??= value` for a value that you already have, and memoize with
-  `CachedMap`. `avoid_negated_iterable_predicates` replaces negations with
-  `none(f)` and `whereNot(f)`, and `any((x) => !f(x))` with `!every(f)`.
+- Prefer collection methods (`where`, `firstWhereOrNull`) to loops with early
+  returns, tear-offs to lambdas that only forward, `min` and `max` to
+  hand-written ternaries, and `package:collection` equalities to comparison
+  loops. Write `map[key] ??= value` for a value that you already have, and
+  memoize with `CachedMap`. `prefer_indexed_loop` replaces an index loop that
+  reads `xs[i]` with `for (final x in xs)` or
+  `for (final (i, x) in xs.indexed)`. `avoid_negated_iterable_predicates`
+  replaces negations with `none(f)` and `whereNot(f)`, and
+  `any((x) => !f(x))` with `!every(f)`.
 - A type that has its own name and meaning, such as `QualifiedMember`, is a
   class, not a record typedef. A record that a function returns or yields has
   named fields. Never model data as a preformatted string whose format a

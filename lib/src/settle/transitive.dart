@@ -40,8 +40,8 @@ final class TransitiveSweep {
     String rootPath,
   ) {
     final allDead = {
-      for (var i = 0; i < candidates.length; i++)
-        _verdict.finding(candidates[i], rootPath): i,
+      for (final (i, candidate) in candidates.indexed)
+        _verdict.finding(candidate, rootPath): i,
     };
     final unreached = sweep(
       candidates,
