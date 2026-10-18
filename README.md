@@ -87,7 +87,7 @@ usage or analysis error.
 | `--config <path>` | auto | Read this config file instead of the discovered one. See [Configuration file](#configuration-file). |
 | `--no-config` | off | Ignore the config file. |
 | `--analysis-root <path>` | the scanned path | Count references from this whole directory, not just the scanned package. See [Monorepos](#monorepos). |
-| `--[no-]public` | on | Report public declarations too. Off reports only private (`_`-prefixed) ones. |
+| `--[no-]public` | on | Report public declarations too. Off reports only private ones: `_`-prefixed, or members of an unnamed extension. |
 | `--[no-]generated` | off | Scan generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, …) too. |
 | `--exported-packages <glob>` | none | Packages that code outside the analysis imports, such as one published to pub.dev: their public API is not reported. Repeatable. See [Library packages](#library-packages). |
 | `--[no-]project-config` | on | Read [entry points](#entry-points) and [generated files](#generated-files) from `pubspec.yaml`, `build.yaml`, `l10n.yaml`, `analysis_options.yaml` and `firebase.json`. |

@@ -984,6 +984,38 @@ void main() {
     );
   });
 
+  group('a member of an unnamed extension', () {
+    const fixture = ['lib/scenarios/unnamed_extensions.dart'];
+
+    test('is reported as private', () async {
+      final result = await runFinder(include: fixture, exclude: const []);
+      expect(
+        [for (final d in result.unused) (d.qualifiedName, d.isPrivate)],
+        [('sextupled', true)],
+      );
+    });
+
+    test('is reported with `--no-public`', () async {
+      final result = await runFinder(
+        includePublic: false,
+        include: fixture,
+        exclude: const [],
+      );
+      expect(result.unused.map((d) => d.qualifiedName), ['sextupled']);
+    });
+
+    test('is reported in a library of an exported package', () async {
+      final result = await Ciach(
+        .new(
+          rootPath: fixturePath,
+          exportedPackages: const ['**'],
+          includeGlobs: fixture,
+        ),
+      ).run();
+      expect(result.unused.map((d) => d.qualifiedName), ['sextupled']);
+    });
+  });
+
   const extensionFixture = [
     'lib/scenarios/extensions_emptied.dart',
     'lib/scenarios/extensions_emptied_uses.dart',
