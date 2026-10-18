@@ -17,9 +17,9 @@ import 'package:jaspr/jaspr.dart';
 
 /// What is skipped, why, and the flag that opts back in.
 const _skips = [
-  ('main', 'the entry point is never unused', null),
+  ('`main`', 'the entry point is never unused', null),
   (
-    'testExecutable in a flutter_test_config.dart',
+    '`testExecutable` in a `flutter_test_config.dart`',
     '`flutter test` calls it',
     null,
   ),
@@ -29,7 +29,7 @@ const _skips = [
     '--no-project-config',
   ),
   (
-    '@override members',
+    '`@override` members',
     'often reached polymorphically or by a framework (`build`, `initState`, '
         '`==`, …), which a name-based search misses. One that overrides a dead '
         'member is dead too, and `--remove` takes both',
@@ -41,22 +41,22 @@ const _skips = [
     '--also operators',
   ),
   (
-    'Declarations and files marked // ciach:ignore',
+    'Declarations and files marked `// ciach:ignore`',
     'they are kept on purpose',
     null,
   ),
   (
-    "@pragma('vm:entry-point')",
+    "`@pragma('vm:entry-point')`",
     'reachable from native code or reflection',
     null,
   ),
   (
-    '@JSExport, and the public members of a @JSExport class',
+    '`@JSExport`, and the public members of a `@JSExport` class',
     'JavaScript can call them',
     null,
   ),
   (
-    'test_… methods of a @reflectiveTest class',
+    '`test_…` methods of a `@reflectiveTest` class',
     'they run through `dart:mirrors`',
     null,
   ),
@@ -68,13 +68,13 @@ const _skips = [
     '--generated',
   ),
   (
-    'toJson()',
+    '`toJson()`',
     '`jsonEncode(obj)` calls it by dynamic dispatch, leaving no reference',
     '--also tojson',
   ),
   ('Type parameters', 'always used within their scope', null),
   (
-    'dartdoc [Xxx] links',
+    'dartdoc `[Xxx]` links',
     'not a code reference; reported as doc-only instead',
     null,
   ),
@@ -142,7 +142,7 @@ class const SkipsSection({super.key}) extends StatelessComponent {
         rows: [
           for (final (what, why, flag) in _skips)
             [
-              code([.text(what)]),
+              span(rich(what)),
               span(rich(why)),
               if (flag != null)
                 code(classes: DocsTable.flag.name, [.text(flag)])

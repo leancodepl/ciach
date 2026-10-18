@@ -96,6 +96,11 @@ class const DocSection({
       ),
       css('& p')
           .styles(color: text2Color, lineHeight: const .expression('1.7')),
+      css('& p a, & li a').styles(
+        color: accentColor,
+        textDecoration: underlined,
+        raw: {'text-underline-offset': '0.15em'},
+      ),
     ]),
   ];
 

@@ -55,7 +55,12 @@ class const RemovingSection({super.key}) extends StatelessComponent {
           'asking:',
         ),
       ),
-      const CodeBlock(source: _prompt, language: .console, copyText: ''),
+      const CodeBlock(
+        source: _prompt,
+        language: .console,
+        copyText: '',
+        wrap: false,
+      ),
       p(
         rich(
           '`--force` skips the prompt. With no terminal to confirm on and no '

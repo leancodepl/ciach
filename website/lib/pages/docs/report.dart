@@ -45,7 +45,12 @@ class const ReportSection({super.key}) extends StatelessComponent {
     id: 'report',
     heading: 'Reading the report',
     children: [
-      const CodeBlock(source: _report, language: .console, copyText: ''),
+      const CodeBlock(
+        source: _report,
+        language: .console,
+        copyText: '',
+        wrap: false,
+      ),
       p(
         rich(
           'An unused class, mixin, extension, extension type or enum is '
@@ -63,7 +68,12 @@ class const ReportSection({super.key}) extends StatelessComponent {
           'code references get a section of their own, in every format:',
         ),
       ),
-      const CodeBlock(source: _docOnly, language: .console, copyText: ''),
+      const CodeBlock(
+        source: _docOnly,
+        language: .console,
+        copyText: '',
+        wrap: false,
+      ),
       p(
         rich(
           'They never count toward `--set-exit-if-changed`, `--remove` never '
@@ -84,7 +94,12 @@ class const ReportSection({super.key}) extends StatelessComponent {
           'A file with nothing but comments and `library`, `import` or `part of` directives gets a section too:',
         ),
       ),
-      const CodeBlock(source: _emptyFiles, language: .console, copyText: ''),
+      const CodeBlock(
+        source: _emptyFiles,
+        language: .console,
+        copyText: '',
+        wrap: false,
+      ),
       p(
         rich(
           'These count toward `--set-exit-if-changed`. `--remove` deletes them '
@@ -101,7 +116,12 @@ class const ReportSection({super.key}) extends StatelessComponent {
           'dead cycles too: declarations that only reference each other.',
         ),
       ),
-      const CodeBlock(source: _transitive, language: .console, copyText: ''),
+      const CodeBlock(
+        source: _transitive,
+        language: .console,
+        copyText: '',
+        wrap: false,
+      ),
       p(
         rich(
           'Each such finding names what it is only referenced from, so a chain '

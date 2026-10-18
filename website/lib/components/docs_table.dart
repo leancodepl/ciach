@@ -72,9 +72,6 @@ abstract final class DocsTable() {
           css('& code').styles(whiteSpace: .noWrap),
         ]),
       ]),
-      // Flag and name columns hug their chips so the prose column gets the
-      // room.
-      css('&:not(${compare.selector}) tbody th').styles(width: 1.percent),
       css('& td').styles(color: text2Color),
       css('& code${flag.selector}').styles(
         border: hairline(accentAlpha(0.3)),
