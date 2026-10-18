@@ -60,8 +60,6 @@ extension ClauseEntries on SourceIndex {
     final type = selectionRangeAt(path, loc.range.start);
     final clause = type?.parent?.range;
     final keyword = clause?.let((clause) => _keywordOf(path, clause));
-    // At the name of a generic entry, the server's innermost node is the whole
-    // `M<int>`, so only its start matches the reference to `M`.
     if (type == null ||
         clause == null ||
         keyword == null ||

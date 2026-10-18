@@ -137,10 +137,9 @@ alternative that nobody proposed, or retell how the code came to be. Put a
 comment at the code that it explains: a reason why a step is skipped goes
 where the step runs, not next to the code before it.
 
-A file whose purpose isn't obvious gets a library doc comment, also an
-existing file that a change makes harder to follow, and a long inline fixture
-gets a comment on each part. Put such an explanation in the code; a reviewer
-who asks for it shouldn't find it only in a review reply.
+A file whose purpose isn't obvious gets a library doc comment, and a long
+inline fixture gets a comment on each part. When a reviewer asks you to explain
+code, answer in the reply, and add a comment only when they ask for one.
 Keep the borders of a Markdown table in a doc comment aligned, and leave a TODO
 at a workaround for a bug that a later pull request will fix.
 
