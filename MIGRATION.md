@@ -1,6 +1,6 @@
 # Migrating
 
-## From 0.7 to 0.8
+## From 0.7 to the next release
 
 ### Operators are reported by default
 
