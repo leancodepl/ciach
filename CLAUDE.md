@@ -76,6 +76,9 @@ easy-to-follow sentences, not how it works inside.
   add it to the example configs in README.md and `lib/src/cli/usage.dart`.
 - Take sample output from a real run on `example/`, and paste it as it is.
   Never compose it by hand.
+- README.md starts with a `## Contents` list of its `##` and `###` headings.
+  `test/readme_toc_test.dart` checks it against the file, so run `dart test`
+  after changing a heading.
 - README.md covers the current version. Removed options and upgrade steps go in
   MIGRATION.md. Notes for library users go in the doc comment of the API that
   they concern, and notes on which tool versions a parser supports go next to

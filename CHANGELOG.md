@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Restructure the README.
+  ([#162](https://github.com/leancodepl/ciach/pull/162))
 - Report unused unnamed extensions and their members in an exported package
   and with `--no-public`, and label them `(private)`.
   ([#160](https://github.com/leancodepl/ciach/pull/160))
