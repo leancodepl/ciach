@@ -76,8 +76,9 @@ easy-to-follow sentences, not how it works inside.
 - Take sample output from a real run on `example/`, and paste it as it is.
   Never compose it by hand.
 - README.md covers the current version. Removed options and upgrade steps go in
-  MIGRATION.md, under "From 0.7 to the next release" until a release names the
-  version. Don't guess the number of a version that isn't released. Notes for library users go in the doc comment of the API that
+  MIGRATION.md, under a heading such as "From 0.7 to the next release" until
+  the release names the version. Don't guess the number of an unreleased
+  version. Notes for library users go in the doc comment of the API that
   they concern, and notes on which tool versions a parser supports go next to
   that parser. Leave out warnings about conventions that a lint already
   enforces.
