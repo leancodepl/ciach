@@ -1,3 +1,17 @@
+/// The parts of the source that `--remove` would delete, so that a reference
+/// inside them doesn't count as a use.
+///
+/// With `--transitive`, each round's findings become dead spans, and the next
+/// round leaves out the references inside them: a helper that only a dead
+/// function calls is then reported in the same run, and names that function as
+/// what it is only referenced from.
+///
+/// A removal from a `with` or `implements` clause is a dead span too, but a
+/// reference to a type that it removes still counts, so that the type stays a
+/// type that only clauses use instead of an unused one: removing `C` from
+/// `class A with C<T>` makes `T` unused, but not `C`.
+library;
+
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/source/clause_entries.dart';
@@ -8,10 +22,7 @@ import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
 /// The source `--remove` would delete: each removable finding's
-/// [UnusedDeclaration.fullRange] and its coupled removals. A reference inside
-/// these spans keeps nothing alive, except that a reference to a type in a
-/// `with` or `implements` clause still counts when the removal of that type
-/// is what deletes it.
+/// [UnusedDeclaration.fullRange] and its coupled removals.
 final class DeadSpans {
   DeadSpans._(this._byPath);
 

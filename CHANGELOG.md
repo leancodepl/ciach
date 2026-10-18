@@ -1,10 +1,8 @@
 ## Unreleased
 
 - A generic class or mixin that only `with` or `implements` clauses name is now
-  reported, and `--remove` deletes it from those clauses together with its
-  type arguments. A type that only those type arguments name is reported in
-  the same run. Before, only the members of such a class or mixin were
-  removed. ([#153](https://github.com/leancodepl/ciach/pull/153))
+  reported and removed like any other, and so is a type that only its type
+  arguments there name. ([#153](https://github.com/leancodepl/ciach/pull/153))
 - Scans are faster: the check for uses that the reference search missed
   takes less time. On a large package, it went from about 110 to 30 seconds.
   ([#139](https://github.com/leancodepl/ciach/pull/139))
