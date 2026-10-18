@@ -68,6 +68,15 @@ enum Icon(final List<String> paths) {
   );
 }
 
+/// How Jaspr passes an [Icon] to a client component: by name.
+extension type IconCodec(Icon icon) implements Icon {
+  @decoder
+  factory decode(String name) => .new(Icon.values.byName(name));
+
+  @encoder
+  String encode() => icon.name;
+}
+
 /// The favicon: [Icon.ciach] in the CTA yellow on a black square, [size]
 /// pixels on a side with corners of [radius] in the 64-unit viewBox. Written
 /// to `web/favicon.svg` and rasterized into the other icons by

@@ -11,6 +11,7 @@ import 'package:ciach_website/components/copy_button.dart'
 import 'package:ciach_website/components/demo_trigger.dart'
     deferred as _demo_trigger;
 import 'package:ciach_website/components/docs_toc.dart' deferred as _docs_toc;
+import 'package:ciach_website/components/icons.dart' as _icons;
 
 /// Default [ClientOptions] for use with your Jaspr project.
 ///
@@ -35,7 +36,7 @@ ClientOptions get defaultClientOptions => ClientOptions(
         text: p.get<String>('text'),
         label: p.get<String?>('label'),
         title: p.get<String>('title'),
-        icon: p.get<String>('icon'),
+        icon: _icons.IconCodec.decode(p.get<String>('icon')),
       ),
       loader: _copy_button.loadLibrary,
     ),

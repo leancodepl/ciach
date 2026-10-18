@@ -26,9 +26,7 @@ class const CopyButton({
   /// What the button copies, for the tooltip and screen readers.
   final String title = 'Copy to clipboard',
 
-  /// The name of the [Icon] to show. A client component's parameters have to
-  /// be serializable, so the icon is named rather than passed.
-  final String icon = 'copy',
+  final Icon icon = .copy,
   super.key,
 }) extends StatefulComponent {
   static const _class = _$CopyButtonScope;
@@ -131,7 +129,7 @@ class _CopyButtonState() extends State<CopyButton> {
       onClick: _copy,
       [
         span(classes: (CopyButton._icon + CopyButton._idle).name, [
-          Icon.values.byName(component.icon).build(size: 16),
+          component.icon.build(size: 16),
         ]),
         span(classes: (CopyButton._icon + CopyButton._done).name, [
           Icon.check.build(size: 16),

@@ -158,7 +158,7 @@ class const DocHeading({
       CopyButton(
         text: '${canonicalUrl}docs#$fragment',
         title: 'Copy link to this section',
-        icon: 'link',
+        icon: .link,
       ),
     ]);
   }
