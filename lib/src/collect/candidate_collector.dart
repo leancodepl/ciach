@@ -288,11 +288,13 @@ final class CandidateCollector {
           isMixin: candidate.isMixin,
         ),
       ),
-      // The signature of an operator and of an override is fixed.
+      // The signature of an operator, of an override and of a `call` method,
+      // which an object passed as a function also uses, is fixed.
       parameters:
           options.kinds.contains(parameterKind) &&
           _parameterOwnerKinds.contains(symbol.kind) &&
           !symbol.isOperator &&
+          !symbol.isCallMethod &&
           leadingMetadata.none((t) => t.isAnnotationNamed('override')),
     );
     if (!checks.references && !checks.parameters) {

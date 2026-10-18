@@ -226,8 +226,8 @@ passes an argument for the parameter, and it counts toward
 `--set-exit-if-changed`. A parameter is not reported when something other than
 the calls fixes the signature, or when it is unused on purpose:
 
-- in an `@override` member, a member that another one overrides, and an
-  abstract or `external` member;
+- in an `@override` member, a member that another one overrides, a `call`
+  method, and an abstract or `external` member;
 - in a function that code tears off, as `list.forEach(log)` does, and in an
   [entry point](#entry-points);
 - a parameter named `_`, `this.x`, `super.x`, and a declaring parameter of a

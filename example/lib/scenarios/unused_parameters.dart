@@ -80,6 +80,11 @@ void apply(void Function(int item) callback) {
   callback(1);
 }
 
+class Greeter {
+  /// A `call` method: an object passed as a function uses it too.
+  void call(String name) => print('hello');
+}
+
 abstract class Shape {
   /// Abstract: no body reads its parameters.
   double area(double scale);
@@ -159,4 +164,5 @@ void useParameters() {
   native(1);
   print('a'.shout(2));
   print(Level.values);
+  Greeter()('a');
 }
