@@ -5,6 +5,15 @@
   report-only and counts toward `--set-exit-if-changed`. Overrides, functions
   that code tears off, and parameters named `_` are left out.
   ([#156](https://github.com/leancodepl/ciach/pull/156))
+- Report unused unnamed extensions and their members in an exported package
+  and with `--no-public`, and label them `(private)`.
+  ([#160](https://github.com/leancodepl/ciach/pull/160))
+- Report unused `call` methods. Before, every `call` method was skipped,
+  also one that nothing calls.
+  ([#151](https://github.com/leancodepl/ciach/pull/151))
+- With `exported-packages`, a member used in unused code and in live code is
+  no longer reported as unused or listed under "Recovered references".
+  ([#149](https://github.com/leancodepl/ciach/pull/149))
 - Scans are faster: the check for uses that the reference search missed
   takes less time. On a large package, it went from about 110 to 30 seconds.
   ([#139](https://github.com/leancodepl/ciach/pull/139))

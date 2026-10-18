@@ -178,7 +178,7 @@ final class Verdict {
         : symbol.selectionRange.start;
     final name = symbol.declarationName(candidate.container);
     // `extension on T` is no name to qualify members by.
-    final container = _isInUnnamedExtension(candidate)
+    final container = candidate.isInUnnamedExtension
         ? null
         : candidate.container;
     return .new(
@@ -192,9 +192,12 @@ final class Verdict {
       // LSP positions are zero-based; report them one-based for humans.
       line: start.line + 1,
       column: start.character + 1,
-      // A member of a private type is as private as the type.
+      // A member of a private type is as private as the type, and no other
+      // library can use an unnamed extension or its members.
       isPrivate:
-          isPrivateName(name) || (container?.let(isPrivateName) ?? false),
+          isPrivateName(name) ||
+          (container?.let(isPrivateName) ?? false) ||
+          candidate.belongsToUnnamedExtension,
       container: container,
       isEnumValue: candidate.isEnumValue,
       range: symbol.declarationRange,
@@ -215,9 +218,6 @@ final class Verdict {
         .constructor || .field => _sources.isDeclaredInTypeHeader(candidate),
         _ => false,
       };
-
-  bool _isInUnnamedExtension(Candidate candidate) =>
-      candidate.containerOutline?.element.isUnnamedExtension ?? false;
 
   /// Whether [candidate] goes with an already-dead class's own declaration —
   /// any constructor, or a declaring parameter — so a single removal is not

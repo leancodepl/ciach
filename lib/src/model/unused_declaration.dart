@@ -105,7 +105,8 @@ class UnusedDeclaration {
   final int column;
 
   /// Whether the declaration is library-private: its name or the name of the
-  /// type that declares it starts with `_`.
+  /// type that declares it starts with `_`, or it is an unnamed extension or
+  /// one of its members.
   final bool isPrivate;
 
   /// Enclosing declaration name (e.g. the class for a method), if any.

@@ -65,8 +65,9 @@ class FinderOptions {
   /// Which symbol kinds are considered declarations worth reporting.
   final Set<SymbolKind> kinds;
 
-  /// Whether to report public declarations (those not starting with `_`).
-  /// Private declarations are always reported when unused.
+  /// Whether to report public declarations: those whose name doesn't start
+  /// with `_`, other than an unnamed extension and its members. Private
+  /// declarations are always reported when unused.
   final bool includePublic;
 
   /// Globs, relative to [rootPath], of the packages that packages outside the

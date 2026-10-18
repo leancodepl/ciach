@@ -16,7 +16,7 @@ everyday declaration kinds, referenced (or not) from `bin/app.dart`.
 | `lib/shapes.dart` | an enum, a mixin, and an abstract class with an `@override` |
 | `lib/extensions.dart` | an extension method and operator overloading |
 | `lib/orphans.dart` | classes never referenced at all, and one referenced only as a type |
-| `lib/callables.dart` | a callable class (`call` method), whose implicit-call use is skipped |
+| `lib/callables.dart` | a callable class whose `call` method is used only by invoking an instance |
 | `lib/private_ctors.dart` | private constructors reported like any dead code, with a prevent-instantiation hint on the sole zero-parameter `Foo._()` |
 | `test/flutter_test_config.dart` | the `flutter test` hook `testExecutable`, called by nothing on disk yet never reported |
 
@@ -38,6 +38,7 @@ expected; each is scanned only by its own test, never by the demo run above.
 | `dot_shorthands.dart`, `dot_shorthand_uses.dart` | every context a `.name` dot shorthand is allowed in, including nested constructor shorthands |
 | `primary_constructors.dart` | primary constructors: a dead declaration in the class header is report-only, while the class body stays removable |
 | `extensions_emptied.dart`, `extensions_emptied_uses.dart` | an extension whose every member is dead is reported (and removed) as the whole extension, unless a `show` names it; an extension type is dead when nothing names it |
+| `call_methods.dart`, `call_methods_uses.dart` | every form of use that keeps a `call` method alive: an invoked object, a tear-off and an explicit `.call` |
 | `xref_*.dart` | the cross-library reference recovery, and telling same-named members apart |
 
 Run the finder against the demo tier from the repository root:

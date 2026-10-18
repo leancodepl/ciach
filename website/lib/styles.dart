@@ -37,9 +37,14 @@ const radius = Unit.variable('--radius');
 const radiusSm = Unit.variable('--radius-sm');
 const headerHeight = Unit.variable('--header-h');
 
-/// `var(--shadow)`, for the `box-shadow` slot of a `raw` map: `BoxShadow` has no
-/// variable form.
-const shadow = 'var(--shadow)';
+/// The drop shadow under raised panels.
+final shadow = BoxShadow(
+  offsetX: .zero,
+  offsetY: 24.px,
+  blur: 60.px,
+  spread: (-32).px,
+  color: Palette.black.alpha(0.9),
+);
 
 /// The accent at a given alpha, for borders and glows.
 Color accentAlpha(double alpha) => Palette.ctaYellow.alpha(alpha);
@@ -54,6 +59,16 @@ const reducedMotion = MediaQuery.raw('(prefers-reduced-motion: reduce)');
 /// for a nested `css()` rule. They may hold wide code samples, which should
 /// scroll instead of stretching the page.
 StyleRule shrinkableChildren() => css('& > *').styles(minWidth: .zero);
+
+/// Lets a flex item take an equal share of the free space, as CSS `flex: 1`
+/// does.
+const growToFill = Flex(grow: 1, basis: Unit.percent(0));
+
+/// Grid columns that split the width in the ratio of [fractions]: `[1, 1]`
+/// gives two equal columns.
+GridTemplate fractionColumns(List<double> fractions) => .new(
+  columns: .new([for (final fraction in fractions) .new(.fr(fraction))]),
+);
 
 /// A 1px solid border in [color].
 Border hairline(Color color) => .all(color: color, width: 1.px);
@@ -101,7 +116,6 @@ List<StyleRule> get _tokens => [
       '--radius-sm': '8px',
       '--container': '1160px',
       '--header-h': '68px',
-      '--shadow': '0 24px 60px -32px ${Palette.black.alpha(0.9).value}',
       'color-scheme': 'dark',
     },
   ),
@@ -196,20 +210,17 @@ abstract final class Utility() {
 List<StyleRule> get _utilities => [
   css(Utility.container.selector).styles(
     width: const .expression('min(100% - 2.5rem, var(--container))'),
-    raw: {'margin-inline': 'auto'},
+    margin: const .symmetric(horizontal: .auto),
   ),
   css(Utility.srOnly.selector).styles(
     width: 1.px,
     height: 1.px,
     padding: .zero,
     margin: .all((-1).px),
+    border: .none,
     overflow: .hidden,
     whiteSpace: .noWrap,
-    raw: {
-      'position': 'absolute !important',
-      'clip': 'rect(0 0 0 0)',
-      'border': '0',
-    },
+    raw: {'position': 'absolute !important', 'clip': 'rect(0 0 0 0)'},
   ),
   css(Utility.accent.selector).styles(color: accentColor),
   css(Utility.muted.selector).styles(color: mutedColor),
