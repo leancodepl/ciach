@@ -1,5 +1,8 @@
 ## Unreleased
 
+- Report unused unnamed extensions and their members in an exported package
+  and with `--no-public`, and label them `(private)`.
+  ([#160](https://github.com/leancodepl/ciach/pull/160))
 - Report unused `call` methods. Before, every `call` method was skipped,
   also one that nothing calls.
   ([#151](https://github.com/leancodepl/ciach/pull/151))

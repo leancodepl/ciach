@@ -85,6 +85,14 @@ final class Candidate {
 
   bool get isExtensionMember => containerSymbol?.kind == .namespace;
 
+  bool get isInUnnamedExtension =>
+      containerOutline?.element.isUnnamedExtension ?? false;
+
+  /// Whether this is an unnamed extension or one of its members, which no
+  /// other library can use.
+  bool get belongsToUnnamedExtension =>
+      isUnnamedExtension || isInUnnamedExtension;
+
   /// Whether this is a class, enum, mixin or extension type. Extensions are
   /// left out because code uses their members without naming them.
   bool get isType =>

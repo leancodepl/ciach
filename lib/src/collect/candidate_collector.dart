@@ -215,10 +215,11 @@ final class CandidateCollector {
   }
 
   /// Whether [candidate] is public and left out: by `--no-public`, or as part
-  /// of an API that `exported-packages` leaves out.
+  /// of an API that `exported-packages` leaves out. An unnamed extension and
+  /// its members are private, since no other library can use them.
   bool _skipsPublic(Candidate candidate) {
     final symbol = candidate.symbol;
-    if (isPrivateName(symbol.name)) {
+    if (isPrivateName(symbol.name) || candidate.belongsToUnnamedExtension) {
       return false;
     }
     return !options.includePublic ||
