@@ -26,7 +26,7 @@ final class DeadSpans {
       byPath.putIfAbsent(path, () => []).add((
         range: finding.fullRange,
         owner: finding,
-        clauseOf: null,
+        clauseEntryOf: null,
       ));
       for (final coupled in finding.coupledRemovals) {
         byPath
@@ -34,7 +34,7 @@ final class DeadSpans {
             .add((
               range: coupled.fullRange,
               owner: finding,
-              clauseOf: coupled.kind == clauseCutKind
+              clauseEntryOf: coupled.kind == clauseCutKind
                   ? .new(path, finding.name)
                   : null,
             ));
@@ -83,10 +83,11 @@ final class DeadSpans {
           if (_contains(span.range, position)) span,
     ];
     final inOwnClause =
-        referenced != null && spans.any((span) => span.clauseOf == referenced);
+        referenced != null &&
+        spans.any((span) => span.clauseEntryOf == referenced);
     _Span? outermost;
     for (final span in spans) {
-      if ((!inOwnClause || span.clauseOf == null) &&
+      if ((!inOwnClause || span.clauseEntryOf == null) &&
           (outermost == null || _isOutside(span.range, outermost.range))) {
         outermost = span;
       }
@@ -170,10 +171,10 @@ final class DeadSpans {
       Position(line: range.endLine, character: range.endColumn);
 }
 
-/// `clauseOf` is the type that a removal from a `with` or `implements` clause
-/// removes, and `null` for any other span.
+/// `clauseEntryOf` is the key of the type whose `with` or `implements` entry
+/// the span is, and `null` for any other span.
 typedef _Span = ({
   DeclarationRange range,
   UnusedDeclaration owner,
-  DeclKey? clauseOf,
+  DeclKey? clauseEntryOf,
 });
