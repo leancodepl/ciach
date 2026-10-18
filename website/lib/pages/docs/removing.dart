@@ -64,9 +64,7 @@ class const RemovingSection({super.key}) extends StatelessComponent {
       p(
         rich(
           '`--force` skips the prompt. With no terminal to confirm on and no '
-          '`--force`, nothing is removed. Run `dart format` afterward: removal '
-          "cuts along the analyzer's syntax, so `int a = 1, b = 2;` loses just "
-          "`b` or the whole statement, but it doesn't tidy up spacing.",
+          '`--force`, nothing is removed. Run `dart format` afterward.',
         ),
       ),
       p(
@@ -116,22 +114,12 @@ class const RemovingSection({super.key}) extends StatelessComponent {
       p(
         rich(
           'A plain `//` comment right above a removed declaration stays, '
-          'because it may be about the code around it rather than the '
-          'declaration. The summary lists each such comment with its line in '
-          'the changed file, so you can check whether it still belongs. A '
-          'comment with a blank line after it is not listed, and neither is a '
-          'comment for a tool, such as `// ciach:ignore-end` or '
-          '`// dart format on`.',
-        ),
-      ),
-      p(
-        rich(
-          'An `// ignore:`, `// expect_lint:` or `// cspell:disable-next-line` '
-          'comment right above a removed declaration goes with it, since it '
-          'only applies to the next line. So does a `//` comment at the end of '
-          'the last line of a removed declaration, or of a removed `import`. A '
-          'comment for a tool there, such as `// coverage:ignore-start`, '
-          'stays, so the range it opens or closes keeps both ends.',
+          'because it may be about the code around it, and the summary lists '
+          'it with its line so you can check whether it still belongs. An '
+          '`// ignore:`, `// expect_lint:` or `// cspell:disable-next-line` '
+          'comment above the declaration, and a `//` comment at the end of '
+          'its last line, go with it. A comment for a tool, such as '
+          '`// coverage:ignore-start`, always stays.',
         ),
       ),
       const DocHeading(

@@ -48,6 +48,13 @@ class const RunningSection({super.key}) extends StatelessComponent {
           'Exit codes: `0` success, `1` something found with `--set-exit-if-changed`, `2` a usage or analysis error.',
         ),
       ),
+      p(
+        rich(
+          'A large Flutter app takes tens of seconds to analyze. `--no-public` '
+          'is by far the cheapest mode, and `--include` and `--exclude` narrow '
+          'the scan while references are still counted from everywhere.',
+        ),
+      ),
     ],
   );
 }

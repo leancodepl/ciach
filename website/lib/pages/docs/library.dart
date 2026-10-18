@@ -29,8 +29,8 @@ class const LibrarySection({super.key}) extends StatelessComponent {
   Component build(BuildContext context) => DocSection(
     id: 'library',
     heading: 'Library API',
-    children: [
-      const p([
+    children: const [
+      p([
         .text('The finder behind the CLI is exported from '),
         code([.text('package:ciach/ciach.dart')]),
         .text(
@@ -39,17 +39,10 @@ class const LibrarySection({super.key}) extends StatelessComponent {
           'doc-only findings in their own list.',
         ),
       ]),
-      const CodeBlock(
+      CodeBlock(
         source: _library,
         language: .dart,
         title: 'tool/dead_code.dart',
-      ),
-      p(
-        rich(
-          'ciach logs through `package:logging`, with loggers such as '
-          '`ciach.finder` and `ciach.lsp`. It never configures the root '
-          'logger; listen on `Logger.root.onRecord` to see the records.',
-        ),
       ),
     ],
   );

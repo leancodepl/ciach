@@ -79,6 +79,10 @@ const _unreadableFile = 'Could not read these files; skipped.';
 /// into findings with [ReferenceClassifier] deciding used/unused, [Verdict]
 /// deciding how a dead candidate is reported, and the `conventions/` rules
 /// keeping framework-driven declarations alive.
+///
+/// A run logs through `package:logging`, with loggers such as `ciach.finder`
+/// and `ciach.lsp`, and never configures the root logger: listen on
+/// `Logger.root.onRecord` to see the records.
 class Ciach {
   /// Creates a finder that runs with the given [options].
   Ciach(this.options);

@@ -66,10 +66,7 @@ class const ReportSection({super.key}) extends StatelessComponent {
       ),
       p(
         rich(
-          'A dartdoc `[Xxx]` link resolves to a real declaration, so the '
-          'analysis server counts it as a reference. A comment mentioning '
-          'something is not code calling it, though, so declarations with no '
-          'code references get a section of their own, in every format:',
+          'A declaration that only dartdoc `[Xxx]` links mention gets a section of its own, in every format:',
         ),
       ),
       const CodeBlock(
@@ -122,10 +119,9 @@ class const ReportSection({super.key}) extends StatelessComponent {
       ),
       p(
         rich(
-          'A reference from a finding still counts as a use, so a helper '
-          'called only by dead code would show up only after that code is '
-          'removed and ciach runs again. ciach reports it in the same run, and '
-          'dead cycles too: declarations that only reference each other.',
+          'A declaration used only by other dead code is reported in the '
+          'same run, and so are dead cycles: declarations that only reference '
+          'each other.',
         ),
       ),
       const CodeBlock(

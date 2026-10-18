@@ -252,9 +252,7 @@ class const SkipsSection({super.key}) extends StatelessComponent {
       ul(classes: Prose.checklist.name, [
         li(
           rich(
-            'The files build_runner writes into the source tree, read from the '
-            'outputs the applied builders declare in `build.yaml` and every '
-            '`build.<name>.yaml`.',
+            'The files build_runner writes into the source tree, as `build.yaml` configures them.',
           ),
         ),
         li(

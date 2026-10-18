@@ -11,7 +11,6 @@ import 'package:ciach_website/pages/docs/library.dart';
 import 'package:ciach_website/pages/docs/limitations.dart';
 import 'package:ciach_website/pages/docs/options.dart';
 import 'package:ciach_website/pages/docs/packages.dart';
-import 'package:ciach_website/pages/docs/performance.dart';
 import 'package:ciach_website/pages/docs/removing.dart';
 import 'package:ciach_website/pages/docs/report.dart';
 import 'package:ciach_website/pages/docs/running.dart';
@@ -37,7 +36,6 @@ const _toc = [
   ('ci', 'CI'),
   ('compared', 'vs. the analyzer'),
   ('limitations', 'Limitations'),
-  ('performance', 'Performance'),
   ('library', 'Library API'),
   ('faq', 'FAQ'),
 ];
@@ -217,7 +215,6 @@ class const DocsPage({required final String version, super.key})
             const CiSection(),
             const ComparedSection(),
             const LimitationsSection(),
-            const PerformanceSection(),
             const LibrarySection(),
             const DocSection(id: 'faq', heading: 'FAQ', children: [Faq()]),
           ]),

@@ -89,8 +89,7 @@ ciach -v                                  # explain each step
 Run `dart pub get` first in every package ciach scans. The report goes to
 stdout and everything else to stderr. Exit code `1` means something was found
 with `--set-exit-if-changed`, `2` a usage or analysis error. `--no-public` is
-by far the cheapest mode. See [Running ciach][docs-running] and
-[Performance][docs-performance].
+by far the cheapest mode. See [Running ciach][docs-running].
 
 ## Reading the report
 
@@ -333,7 +332,6 @@ We are **top-tier experts** focused on Flutter Enterprise solutions.
 [docs-config]: https://ciach.leancode.co/docs#config
 [docs-packages]: https://ciach.leancode.co/docs#packages
 [docs-ci]: https://ciach.leancode.co/docs#ci
-[docs-performance]: https://ciach.leancode.co/docs#performance
 [upstream-bugs]: https://github.com/leancodepl/ciach/blob/main/doc/upstream_bugs.md
 
 [pub-badge]: https://img.shields.io/pub/v/ciach?style=for-the-badge&logo=dart
