@@ -58,10 +58,12 @@ void main() {
     List<String> include = const [],
     List<EntryPoint> entryPoints = const [],
     bool transitive = false,
+    List<String> exportedPackages = const [],
   }) => Ciach(
     .new(
       rootPath: fixturePath,
       includePublic: includePublic,
+      exportedPackages: exportedPackages,
       skipOverrides: skipOverrides,
       skipOperators: skipOperators,
       kinds: kinds ?? FinderOptions.defaultKinds,
@@ -137,10 +139,8 @@ void main() {
     expect(unused, containsAll(['Vector2.+', 'Vector2.-']));
   });
 
-  test('skips call methods by default', () async {
+  test('does not report a `call` method that an invoked object uses', () async {
     final unused = await findUnused();
-    // `Multiplier.call` is used via implicit-call syntax, unresolvable like an
-    // operator, so skipped.
     expect(unused, isNot(contains('Multiplier.call')));
     // The rest of the fixture is genuinely used.
     expect(unused, isNot(contains('Multiplier')));
@@ -984,6 +984,44 @@ void main() {
       [for (final d in result.unused) (d.qualifiedName, d.isPrivate)],
       [('_Settings.new', true), ('_Settings.reset', true)],
     );
+  });
+
+  group('an unnamed extension and its members', () {
+    const fixture = ['lib/scenarios/unnamed_extensions.dart'];
+    const unused = [
+      'sextupled',
+      'isSmall',
+      'ignored',
+      'seven',
+      'third',
+      'extension on String',
+    ];
+
+    test('are reported as private', () async {
+      final result = await runFinder(include: fixture, exclude: const []);
+      expect(
+        [for (final d in result.unused) (d.qualifiedName, d.isPrivate)],
+        [for (final name in unused) (name, true)],
+      );
+    });
+
+    test('are reported with `--no-public`', () async {
+      final result = await runFinder(
+        includePublic: false,
+        include: fixture,
+        exclude: const [],
+      );
+      expect(result.unused.map((d) => d.qualifiedName), unused);
+    });
+
+    test('are reported in a library of an exported package', () async {
+      final result = await runFinder(
+        exportedPackages: const ['**'],
+        include: fixture,
+        exclude: const [],
+      );
+      expect(result.unused.map((d) => d.qualifiedName), unused);
+    });
   });
 
   const extensionFixture = [

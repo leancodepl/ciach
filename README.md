@@ -87,7 +87,7 @@ usage or analysis error.
 | `--config <path>` | auto | Read this config file instead of the discovered one. See [Configuration file](#configuration-file). |
 | `--no-config` | off | Ignore the config file. |
 | `--analysis-root <path>` | the scanned path | Count references from this whole directory, not just the scanned package. See [Monorepos](#monorepos). |
-| `--[no-]public` | on | Report public declarations too. Off reports only private (`_`-prefixed) ones. |
+| `--[no-]public` | on | Report public declarations too. Off reports only private ones: `_`-prefixed, or an unnamed extension and its members. |
 | `--[no-]generated` | off | Scan generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, …) too. |
 | `--exported-packages <glob>` | none | Packages that code outside the analysis imports, such as one published to pub.dev: their public API is not reported. Repeatable. See [Library packages](#library-packages). |
 | `--[no-]project-config` | on | Read [entry points](#entry-points) and [generated files](#generated-files) from `pubspec.yaml`, `build.yaml`, `l10n.yaml`, `analysis_options.yaml` and `firebase.json`. |
@@ -227,7 +227,6 @@ opts back in at that cost.
 | Entry points from the [project config](#entry-points) | a framework or a tool calls them | `--no-project-config` |
 | `@override` members | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses. One that overrides a dead member is dead too, and `--remove` [takes both](#removing-declarations) | `--also overrides` |
 | Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--also operators` |
-| `call` methods | `obj(…)` is unresolvable the same way | — |
 | Declarations and files marked [`// ciach:ignore`](#ignore-markers) | they are kept on purpose | — |
 | `@pragma('vm:entry-point')` | reachable from native code or reflection | — |
 | `@JSExport`, and the public members of a `@JSExport` class | JavaScript can call them | — |
@@ -514,9 +513,9 @@ deleting blindly:
 The time goes to the analysis server: it analyzes the whole package once per
 run, tens of seconds for a large Flutter app, then answers one reference query
 per declaration, `-j` of them at a time. The lever is how much you ask for.
-`--no-public` is by far the cheapest mode, since a private declaration's query
-searches one library instead of the whole workspace, and it surfaces the
-highest-confidence dead code anyway. `--include` and `--exclude` narrow the
+`--no-public` is by far the cheapest mode, since the query for a `_`-prefixed
+declaration searches one library instead of the whole workspace, and it
+surfaces the highest-confidence dead code anyway. `--include` and `--exclude` narrow the
 scan while still counting references from everywhere.
 
 ## Library usage

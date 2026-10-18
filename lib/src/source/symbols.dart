@@ -50,9 +50,8 @@ extension SymbolChecks on DocumentSymbol {
   /// Whether this is an operator overload (`operator +`, `operator ==`, …).
   bool get isOperator => kind == .method && _operatorNames.contains(name);
 
-  /// Whether this is a `call` method (callable via implicit-call syntax
-  /// `obj(...)`). The reference search can't resolve that syntax back to the
-  /// declaration — like an infix operator — so a used `call` reads as unused.
+  /// Whether this is a `call` method, which an object invoked like a function
+  /// (`obj(...)`) uses without a reference that the server reports.
   bool get isCallMethod => kind == .method && name == 'call';
 
   /// Whether this is a private constructor (`Foo._`, `Foo._named`). The server

@@ -48,9 +48,10 @@ entry, run `dart run tool/check_changelog.dart --pr N`; CI runs the same check.
 
 Write an entry for the people who use ciach. In one to three short, plain
 sentences, say what was added, fixed or changed, as they will see it, and keep
-it about as long as the entries around it. For a fix, say what went wrong
-before. Leave out how it was implemented: no class or method names, internal
-terms or reasoning about the code.
+it about as long as the entries around it, also after a later commit adds an
+effect to it. For a fix, say what went wrong before. Leave out how it was
+implemented: no class or method names, internal terms or reasoning about the
+code.
 
 Every pull request that changes what users see adds its entry under
 `## Unreleased`, without being asked. Write one entry per change and name every
@@ -118,7 +119,9 @@ easy-to-follow sentences, not how it works inside.
 A function's doc comment starts with what the function does or returns
 ("Returns …"), says what a parameter holds when that isn't obvious, and gives
 an example when a term is abstract. Keep it about as short as the doc comments
-of its neighbors. Don't add doc comments that the member's siblings lack or
+of its neighbors. Leave the evidence for a claim, such as the SDK
+code that you read or how many runs you checked, to the pull request and the
+review reply. Don't add doc comments that the member's siblings lack or
 that repeat the name, and don't describe the internal steps or why a caller
 needs the member. When a name confuses a reader, rename it instead of
 lengthening its comment.
@@ -130,12 +133,14 @@ algorithm a loop implements. Define a domain term, such as "variant", where it
 first appears, and give a loop whose result isn't obvious a one-line example.
 Give concrete values: "the server names it `extension on String`", not "the
 server's placeholder name". A comment doesn't explain Dart, argue against an
-alternative that nobody proposed, or retell how the code came to be.
+alternative that nobody proposed, or retell how the code came to be. Put a
+comment at the code that it explains: a reason why a step is skipped goes
+where the step runs, not next to the code before it.
 
 A file whose purpose isn't obvious gets a library doc comment, also an
 existing file that a change makes harder to follow, and a long inline fixture
-gets a comment on each part. Put such an explanation in the
-code; a reviewer who asks for it shouldn't find it only in a review reply.
+gets a comment on each part. Put such an explanation in the code; a reviewer
+who asks for it shouldn't find it only in a review reply.
 Keep the borders of a Markdown table in a doc comment aligned, and leave a TODO
 at a workaround for a bug that a later pull request will fix.
 
@@ -155,8 +160,10 @@ A name claims no more than the code does, and it doesn't list cases either.
 `_directiveEnd` claimed every directive for a function that skips only some,
 `_libraryImportOrPartOfEnd` listed every case, and the lint name
 `prefer_none_and_where_not` listed two of the five methods that the lint
-suggests; all three were rejected. Name a lint after what it flags:
-`avoid_negated_iterable_predicates`.
+suggests; all three were rejected. Name a lint after what it flags,
+`avoid_negated_iterable_predicates`, or after the form that its fix writes,
+`prefer_let`. That form covers every rewrite of the fix: `prefer_indexed_loop`
+was rejected because its fix also writes plain `for-in` loops.
 Name a predicate after the property that the caller tests (`isDeclaration`),
 not after the case that prompted it (`isUnitTest`). Make every value of an enum
 answer the same question.
@@ -235,21 +242,24 @@ explicit null check.
 
 # Idioms
 
-- Return a result; never fill a list that the caller passes in. A function that
-  only builds a collection is `sync*`, or an expression body with a collection
-  literal that uses `for`, `if` and `?key:`. A plain filter is `where(f)`, with
+- Return a result; never fill a list that the caller passes in, or replace its
+  elements. A function that only builds a collection is `sync*`, or an
+  expression body with a collection literal that uses `for`, `if` and
+  `?key:`. A plain filter is `where(f)`, with
   `.toSet()` or `.toList()` when needed, not a collection-for literal. Never
   turn a collection literal into an imperative loop unless asked; when a
   literal gets busy, give its predicate a named local.
 - Keep an `Iterable` lazy when it is read once or in part, and use a `Set` when
   duplicates mean nothing.
-- Prefer `for (final (i, x) in xs.indexed)` to an index loop, collection
-  methods (`where`, `firstWhereOrNull`) to loops with early returns,
-  tear-offs to lambdas that only forward, `min` and `max` to hand-written
-  ternaries, and `package:collection` equalities to comparison loops. Write
-  `map[key] ??= value` for a value that you already have, and memoize with
-  `CachedMap`. `avoid_negated_iterable_predicates` replaces negations with
-  `none(f)` and `whereNot(f)`, and `any((x) => !f(x))` with `!every(f)`.
+- Prefer collection methods (`where`, `firstWhereOrNull`) to loops with early
+  returns, tear-offs to lambdas that only forward, `min` and `max` to
+  hand-written ternaries, and `package:collection` equalities to comparison
+  loops. Write `map[key] ??= value` for a value that you already have, and
+  memoize with `CachedMap`. `prefer_for_in_loop` replaces an index loop that
+  reads `xs[i]` with `for (final x in xs)` or
+  `for (final (i, x) in xs.indexed)`. `avoid_negated_iterable_predicates`
+  replaces negations with `none(f)` and `whereNot(f)`, and
+  `any((x) => !f(x))` with `!every(f)`.
 - A type that has its own name and meaning, such as `QualifiedMember`, is a
   class, not a record typedef. A record that a function returns or yields has
   named fields. Never model data as a preformatted string whose format a
@@ -270,6 +280,13 @@ explicit null check.
 - In `website/`, keep a component's styles next to it as Jaspr `@css`, make
   repeated pieces (buttons, cards, pills) components, and write `.only()`,
   `.symmetric()` or `.all()` rather than `fromLTRB()`.
+- In `website/`, set a CSS property through its typed `Styles` parameter
+  whenever Jaspr has one, even when the parameter writes longhands or a whole
+  border: `flex: growToFill`, not `raw: {'flex': '1'}`, and
+  `border: hairline(accentColor)`, not `raw: {'border-color': …}`. When the
+  parameter's type has no constructor for a value, pass `.expression()`, as in
+  `maxWidth: const .expression('none')`. Keep `raw` for what Jaspr can't
+  express, such as custom properties, gradients and `calc()` delays.
 
 # Design
 
@@ -297,14 +314,17 @@ explicit null check.
   that guards correctness belongs in the library API, not only in the CLI. A
   request to unify two code paths ends with one code path, not two lists.
 - Don't write code without a reason: a guard for a case that can't happen (a
-  test must fail without each condition), a shortcut that nobody measured, a
-  stored copy of a value that you can compute, a field that only carries state
-  from one method to another, a value built twice, a one-field JSON object, an
-  unused style or variant, or a factory left over from a refactor. Before
-  wrapping a library call or its exception, check what the exception already
-  carries.
+  test must fail without each condition), a shortcut that nobody measured
+  (copying only the lists that change instead of all of them), a stored copy
+  of a value that you can compute, a field that only carries state from one
+  method to another, a value built twice, a one-field JSON object, an unused
+  style or variant, or a factory left over from a refactor. Before wrapping a
+  library call or its exception, check what the exception already carries.
 - Don't put one caller's special case into a general function's result, such
   as a `null` placeholder in a list; handle it in that caller.
+- When a later step adds to data that an earlier step combined, such as the
+  references that conditional-import variants share, combine them again in
+  that step, instead of keeping the step's input away from it.
 - Don't add what nobody asked for: a flag that turns the new behavior off, a
   deprecated alias, a second accepted spelling of an input, or a second quick
   fix that goes the other way. Ask first. Reject a wrong input with an error
@@ -385,7 +405,10 @@ against `example/` in `test/finder/`.
 
 Name a file after what it holds, one concern per file: one report format per
 `report/<format>_report.dart`, the `with`/`implements` clause rule in
-`settle/clause_only_types.dart`. A lower layer doesn't import a higher one: a
+`settle/clause_only_types.dart`. A new helper goes in a file whose name covers
+it, also when a similar helper already sits in a file about something else:
+`positionIn` doesn't belong in `comment_stripping.dart` just because
+`lineStartsOf` was there. A lower layer doesn't import a higher one: a
 doc link to a higher-layer name goes in backticks instead of an import. Some
 existing imports break this, such as `conventions/` importing
 `collect/candidates.dart`; don't add more.
