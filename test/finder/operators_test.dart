@@ -146,12 +146,15 @@ void main() {
   Future<Set<String>> findUnusedIn({
     required String library,
     required String main,
+    bool skipOverrides = true,
   }) async {
     final root = writeTempPackage('ops', {
       'lib/ops.dart': library,
       'bin/main.dart': main,
     });
-    final result = await Ciach(.new(rootPath: root.path)).run();
+    final result = await Ciach(
+      .new(rootPath: root.path, skipOverrides: skipOverrides),
+    ).run();
     return result.unused.map((d) => d.qualifiedName).toSet();
   }
 
@@ -204,6 +207,61 @@ void main() => print((const Split() + const Split()) / const Split());
 ''',
         ),
         {'Split.-', 'Split.*'},
+      );
+    },
+  );
+
+  /// `C` overrides the operators of `B`, which overrides those of `A`, and
+  /// code uses `+` only through `B`.
+  const chain = '''
+class A {
+  const A();
+
+  A operator +(A other) => this;
+  A operator -(A other) => this;
+}
+
+class B extends A {
+  const B();
+
+  @override
+  A operator +(A other) => this;
+  @override
+  A operator -(A other) => this;
+}
+
+class C extends B {
+  const C();
+
+  @override
+  A operator +(A other) => this;
+  @override
+  A operator -(A other) => this;
+}
+''';
+  const chainUses = '''
+import 'package:ops/ops.dart';
+
+void main() => print([const B() + const A(), const C()]);
+''';
+
+  test(
+    'counts a use through the middle class of an override chain for `A.+`, and reports the unused `A.-`',
+    () async {
+      expect(await findUnusedIn(library: chain, main: chainUses), {'A.-'});
+    },
+  );
+
+  test(
+    'with `--also overrides`, counts a use through the middle class of an override chain for every `+`, and reports every `-`',
+    () async {
+      expect(
+        await findUnusedIn(
+          library: chain,
+          main: chainUses,
+          skipOverrides: false,
+        ),
+        {'A.-', 'B.-', 'C.-'},
       );
     },
   );
