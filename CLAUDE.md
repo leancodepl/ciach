@@ -49,7 +49,8 @@ entry, run `dart run tool/check_changelog.dart --pr N`; CI runs the same check.
 Write an entry for the people who use ciach. In one to three short, plain
 sentences, say what was added, fixed or changed, as they will see it, and keep
 it about as long as the entries around it. For a
-fix, say what went wrong before. Leave out how it was implemented: no class or
+fix, say what went wrong before. For a new or changed behavior, say only what
+it is now, not how ciach behaved before. Leave out how it was implemented: no class or
 method names, internal terms or reasoning about the code.
 
 Every pull request that changes what users see adds its entry under
