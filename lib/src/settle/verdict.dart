@@ -192,11 +192,12 @@ final class Verdict {
       // LSP positions are zero-based; report them one-based for humans.
       line: start.line + 1,
       column: start.character + 1,
-      // A member of a private type or of an unnamed extension is private too.
+      // A member of a private type is as private as the type, and no other
+      // library can use an unnamed extension or its members.
       isPrivate:
           isPrivateName(name) ||
           (container?.let(isPrivateName) ?? false) ||
-          candidate.isInUnnamedExtension,
+          candidate.belongsToUnnamedExtension,
       container: container,
       isEnumValue: candidate.isEnumValue,
       range: symbol.declarationRange,
