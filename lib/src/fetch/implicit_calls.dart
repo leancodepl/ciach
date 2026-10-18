@@ -110,13 +110,13 @@ String _withCallsRenamed(
   SourceIndex sources,
   String path,
   List<Candidate> calls,
-) => calls
-    .map((call) => sources.offsetOf(path, call.symbol.selectionRange.start)!)
-    .fold(
-      sources.content(path),
-      (text, start) =>
-          text.replaceRange(start, start + _renamed.length, _renamed),
-    );
+) => sources.contentWith(path, [
+  for (final call in calls)
+    (
+      offset: sources.offsetOf(path, call.symbol.selectionRange.start)!,
+      text: _renamed,
+    ),
+]);
 
 /// [location] in the unchanged content of its file, when the file is one of
 /// [rewritten].

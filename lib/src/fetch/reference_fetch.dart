@@ -97,41 +97,7 @@ final class ReferenceFetch {
     List<List<Location>> refs, {
     required String analysisRoot,
   }) async {
-    final changes = UnsavedChanges(client, _sources);
-    Map<Candidate, List<Location>>? callUses;
-    Map<Candidate, List<Location>>? operatorUses;
-    try {
-      callUses = await findImplicitCalls(
-        client: client,
-        sources: _sources,
-        changes: changes,
-        calls: candidates.where((c) => c.symbol.isCallMethod).toList(),
-        concurrency: options.concurrency,
-      );
-      // The operator lookup asks about positions in the files on disk.
-      await changes.restore();
-      operatorUses = await findOperatorUses(
-        client: client,
-        sources: _sources,
-        changes: changes,
-        operators: candidates.where((c) => c.symbol.isOperator).toList(),
-        analysisRoot: analysisRoot,
-        concurrency: options.concurrency,
-      );
-      await changes.restore();
-    } on LspRequestException catch (e) {
-      // A lookup that failed has recorded the problem already.
-      if ({...?callUses, ...?operatorUses}.keys.firstOrNull
-          case final candidate?) {
-        recordProblem(_implicitUsesUnchecked, e, path: candidate.path);
-      }
-      callUses = operatorUses = null;
-    } finally {
-      // After a failure, the content on disk is sent without waiting for its
-      // analysis.
-      changes.show(const {});
-    }
-    final usesOf = {...?callUses, ...?operatorUses};
+    final usesOf = await _implicitUses(client, candidates, analysisRoot);
     // Each lookup has a key for every candidate that it checked.
     final checked = [
       for (final (i, candidate) in candidates.indexed)
@@ -145,6 +111,54 @@ final class ReferenceFetch {
       checked: [for (final (candidate, _) in checked) candidate],
       refs: [for (final (_, candidateRefs) in checked) candidateRefs],
     );
+  }
+
+  /// The uses of the `call` methods and operators among [candidates] that
+  /// the reference query misses, by candidate. A candidate that wasn't checked
+  /// has no key.
+  Future<Map<Candidate, List<Location>>> _implicitUses(
+    LspClient client,
+    List<Candidate> candidates,
+    String analysisRoot,
+  ) async {
+    final calls = candidates.where((c) => c.symbol.isCallMethod).toList();
+    final operators = candidates.where((c) => c.symbol.isOperator).toList();
+    if (calls.isEmpty && operators.isEmpty) {
+      return const {};
+    }
+    // The operator lookup asks about positions in the files on disk, so it
+    // plans its rounds before the call lookup changes them.
+    final operatorLookup = await OperatorLookup.plan(
+      client: client,
+      sources: _sources,
+      operators: operators,
+      analysisRoot: analysisRoot,
+      concurrency: options.concurrency,
+    );
+    final changes = UnsavedChanges(client, _sources);
+    try {
+      final callUses = await findImplicitCalls(
+        client: client,
+        sources: _sources,
+        changes: changes,
+        calls: calls,
+        concurrency: options.concurrency,
+      );
+      final operatorUses = await operatorLookup?.usesIn(changes);
+      await changes.restore();
+      return {...?callUses, ...?operatorUses};
+    } on LspRequestException catch (e) {
+      recordProblem(
+        _implicitUsesUnchecked,
+        e,
+        path: [...calls, ...operators].first.path,
+      );
+      return const {};
+    } finally {
+      // After an exception, the content on disk is sent without waiting for
+      // its analysis.
+      changes.show(const {});
+    }
   }
 
   Future<List<Location>?> _referencesOf(

@@ -105,11 +105,8 @@ String? removedOptionMessage(List<String> arguments) {
     final alsoValues = key == 'also'
         ? match.namedGroup('value') ?? arguments.elementAtOrNull(i + 1)
         : null;
-    if (removedAlsoValue(splitAlso([?alsoValues])) case (
-      :final value,
-      :final advice,
-    )) {
-      return '`--also $value` was removed: $advice.';
+    if (splitAlso([?alsoValues]).contains('operators')) {
+      return '`--also operators` was removed: $operatorsReported, so drop it.';
     }
     if (!removedKeys.contains(key)) {
       continue;

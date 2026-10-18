@@ -14,7 +14,7 @@ import 'package:ciach/src/util/extensions.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-import '../support/package_config.dart';
+import '../support/temp_package.dart';
 
 void main() {
   final fixturePath = p.join(Directory.current.path, 'example');
@@ -147,18 +147,10 @@ void main() {
     required String library,
     required String main,
   }) async {
-    final root = Directory.systemTemp.createTempSync('ciach_operators_');
-    addTearDown(() => root.deleteSync(recursive: true));
-    void write(String path, String contents) => File(p.join(root.path, path))
-      ..createSync(recursive: true)
-      ..writeAsStringSync(contents);
-    write('.dart_tool/package_config.json', packageConfig({'ops': '.'}));
-    write('pubspec.yaml', '''
-name: ops
-environment: {sdk: ^3.13.0}
-''');
-    write('lib/ops.dart', library);
-    write('bin/main.dart', main);
+    final root = writeTempPackage('ops', {
+      'lib/ops.dart': library,
+      'bin/main.dart': main,
+    });
     final result = await Ciach(.new(rootPath: root.path)).run();
     return result.unused.map((d) => d.qualifiedName).toSet();
   }
@@ -188,7 +180,7 @@ void main() => print(const Flags()[1]);
   );
 
   test(
-    'keeps an operator whose name is on the line after the `operator` keyword, and finds the uses of the others',
+    'checks an operator whose name follows the `operator` keyword on the next line or after a comment',
     () async {
       // `dart format` would join the lines, so the fixture is written here.
       expect(
@@ -199,17 +191,19 @@ class Split {
 
   Split operator
   -(Split other) => this;
-  Split operator +(Split other) => this;
+  Split operator /* divides */ /(Split other) => this;
+  Split operator
+  +(Split other) => this;
   Split operator *(Split other) => this;
 }
 ''',
           main: '''
 import 'package:ops/ops.dart';
 
-void main() => print(const Split() + const Split());
+void main() => print((const Split() + const Split()) / const Split());
 ''',
         ),
-        {'Split.*'},
+        {'Split.-', 'Split.*'},
       );
     },
   );

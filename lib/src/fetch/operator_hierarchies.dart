@@ -71,8 +71,10 @@ Future<List<OperatorHierarchy>> operatorHierarchies(
   required int concurrency,
 }) async {
   final lookup = _HierarchyLookup(client, analysisRoot);
-  final checked = operators.where((o) => o.symbol.name != '==').toList();
-  final membersOf = await mapPooled(checked, concurrency, lookup.membersOf);
+  // The lookup of an `==` would reach `Object.==` and leave it out too, after
+  // requests for its overrides and supertypes.
+  final lookedUp = operators.where((o) => o.symbol.name != '==').toList();
+  final membersOf = await mapPooled(lookedUp, concurrency, lookup.membersOf);
   var hierarchies = <OperatorHierarchy>[];
   for (final (i, members) in membersOf.indexed) {
     if (members == null) {
@@ -90,7 +92,7 @@ Future<List<OperatorHierarchy>> operatorHierarchies(
         {...members, for (final hierarchy in overlapping) ...hierarchy.members},
         [
           for (final hierarchy in overlapping) ...hierarchy.operators,
-          checked[i],
+          lookedUp[i],
         ],
       ),
     ];
@@ -192,19 +194,20 @@ final class _HierarchyLookup {
   }
 
   /// The operators of [kind] in the supertypes of the type that declares
-  /// [member]. A member of an extension has none.
+  /// [member]. An extension has no type hierarchy, so a member of one has
+  /// none.
   Future<List<Location>> _overriddenOf(
     DeclarationName member,
     _OperatorKind kind,
   ) async =>
-      switch (symbolCovering(await _symbols[member.uri], member.range.start)) {
-        DocumentSymbol(kind: != .namespace) && final type =>
-          await _overridden[(
-            type: .new(member.uri, type.selectionRange),
-            operator: kind,
-          )],
-        _ => const [],
-      };
+      await symbolCovering(await _symbols[member.uri], member.range.start)?.let(
+        (type) =>
+            _overridden[(
+              type: .new(member.uri, type.selectionRange),
+              operator: kind,
+            )],
+      ) ??
+      const [];
 
   /// The operators of [operator]'s kind in the supertypes of [type],
   /// transitively. The server's `super` request names only one of them when

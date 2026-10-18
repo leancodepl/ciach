@@ -594,18 +594,15 @@ class LspClient {
   Future<lsp.TypeHierarchyItem?> declaringType(
     Uri uri,
     lsp.Position position,
-  ) async {
-    final items = await _guard(
-      lsp.RequestMethod.prepareTypeHierarchy.value,
-      () => _client.server.textDocument.prepareTypeHierarchy(
-        .new(
-          textDocument: .new(uri: uri.toString()),
-          position: position,
-        ),
+  ) async => (await _guard(
+    lsp.RequestMethod.prepareTypeHierarchy.value,
+    () => _client.server.textDocument.prepareTypeHierarchy(
+      .new(
+        textDocument: .new(uri: uri.toString()),
+        position: position,
       ),
-    );
-    return items?.firstOrNull;
-  }
+    ),
+  ))?.firstOrNull;
 
   /// The direct supertypes of [type]: its superclass, its interfaces, its
   /// mixins and the `on` types of a mixin.

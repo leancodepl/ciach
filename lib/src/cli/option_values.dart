@@ -13,7 +13,6 @@
 library;
 
 import 'package:ciach/ciach.dart';
-import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 
 /// Friendly `--kinds` names mapped to LSP symbol kinds.
@@ -51,17 +50,9 @@ Set<String> splitAlso(Iterable<String> raw) => {
       if (name.trim() case final trimmed when trimmed.isNotEmpty) trimmed,
 };
 
-/// Why the removed `operators` options are not needed.
+/// Why the removed `operators` options, `operators` under `also` included,
+/// are not needed.
 const operatorsReported = 'operators are reported by default now';
-
-/// The values that `also` no longer takes, each with why it is not needed.
-const _removedAlsoValues = {'operators': '$operatorsReported, so drop it'};
-
-/// The first of [values] that `also` no longer takes, with why it is not
-/// needed, or `null` when there is none.
-({String value, String advice})? removedAlsoValue(Set<String> values) => values
-    .firstWhereOrNull(_removedAlsoValues.containsKey)
-    ?.let((value) => (value: value, advice: _removedAlsoValues[value]!));
 
 /// Parses the `--also` values (comma-separated, repeatable).
 ///
@@ -69,8 +60,10 @@ const _removedAlsoValues = {'operators': '$operatorsReported, so drop it'};
 /// which the command line would catch by itself, but a config file would not.
 Set<String> parseAlso(List<String> raw) {
   final names = splitAlso(raw);
-  if (removedAlsoValue(names) case (:final value, :final advice)) {
-    throw FormatException('`$value` under `also` was removed: $advice.');
+  if (names.contains('operators')) {
+    throw const FormatException(
+      '`operators` under `also` was removed: $operatorsReported, so drop it.',
+    );
   }
   if (names.whereNot(alsoNames.contains).firstOrNull case final unknown?) {
     throw FormatException(

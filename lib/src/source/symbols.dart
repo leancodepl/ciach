@@ -135,13 +135,23 @@ extension SymbolChecks on DocumentSymbol {
 
 extension OutlineChildren on Outline {
   /// The child covering [position].
-  Outline? childAt(Position position) {
-    final child = lastStartingAtOrBefore(
-      children,
-      position,
-      (child) => child.range.start,
-    );
-    return child != null && position.atOrBefore(child.range.end) ? child : null;
+  Outline? childAt(Position position) =>
+      lastCovering(children, position, (child) => child.range);
+
+  /// The node whose name starts at [position], with the node it is declared
+  /// in. A name is inside every range around it, so this descends.
+  ({Outline node, Outline parent})? namedAt(Position position) {
+    var parent = this;
+    while (true) {
+      final child = parent.childAt(position);
+      if (child == null) {
+        return null;
+      }
+      if (child.element.range?.start == position) {
+        return (node: child, parent: parent);
+      }
+      parent = child;
+    }
   }
 }
 
@@ -180,19 +190,28 @@ T? lastStartingAtOrBefore<T>(
   return lo == 0 ? null : items[lo - 1];
 }
 
+/// The last of [items] whose range, by [rangeOf], covers [position]. [items]
+/// must be in source order and must not overlap, as the declarations at one
+/// level of a file do.
+T? lastCovering<T>(
+  List<T> items,
+  Position position,
+  Range Function(T item) rangeOf,
+) => switch (lastStartingAtOrBefore(
+  items,
+  position,
+  (item) => rangeOf(item).start,
+)) {
+  final item? when rangeOf(item).contains(position) => item,
+  _ => null,
+};
+
 /// The symbol among [symbols], which are in source order, whose range covers
 /// [position].
 DocumentSymbol? symbolCovering(
   List<DocumentSymbol> symbols,
   Position position,
-) => switch (lastStartingAtOrBefore(
-  symbols,
-  position,
-  (symbol) => symbol.range.start,
-)) {
-  final symbol? when position.within(symbol) => symbol,
-  _ => null,
-};
+) => lastCovering(symbols, position, (symbol) => symbol.range);
 
 /// The symbol among [symbols] and their children whose name starts at
 /// [position]: the enclosing symbol at each level is the last one starting at
