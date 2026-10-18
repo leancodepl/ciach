@@ -17,8 +17,10 @@ import 'package:pro_lsp/pro_lsp.dart'
 
 /// The `kind` of a [CoupledRemoval] that removes a type from a `with` or
 /// `implements` clause, like `M` from `class A with M {}`. It borrows the kind
-/// of a type parameter, which no other removal has, so `--transitive` can tell
-/// these removals apart.
+/// of a type parameter, which no other removal has, so `DeadSpans` can tell
+/// these removals apart. Its `range` and `fullRange` cover the entry, like
+/// `M<int>`, and its `cut` is the text that `--remove` deletes, which can hold
+/// other entries too.
 const clauseCutKind = SymbolKind.typeParameter;
 
 /// A type named in a `with` or `implements` clause.
@@ -118,16 +120,15 @@ extension ClauseEntries on SourceIndex {
       if (cut == null && keepsOne) {
         continue;
       }
-      final range = (cut ?? whole).toDeclarationRange;
-      final removal = (
-        filePath: relativePosix(path, rootPath),
-        kind: clauseCutKind,
-        range: range,
-        fullRange: range,
-        cut: range,
-      );
       for (final entry in all.sublist(i, j)) {
-        cuts[byName[entry.start]!] = removal;
+        final range = entry.toDeclarationRange;
+        cuts[byName[entry.start]!] = (
+          filePath: relativePosix(path, rootPath),
+          kind: clauseCutKind,
+          range: range,
+          fullRange: range,
+          cut: (cut ?? whole).toDeclarationRange,
+        );
       }
     }
     return cuts;

@@ -99,23 +99,19 @@ final class TransitiveSweep {
     ], rootPath);
   }
 
-  /// [refsByCandidate] less the references inside [deadSpans]. A dead type's
-  /// own entries in `with` and `implements` clauses stay, so that the next
-  /// round reports the type as used only in clauses and not as unused.
+  /// [refsByCandidate] less the references inside [deadSpans].
   static List<List<Location>> liveRefs(
-    List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
     DeadSpans deadSpans,
   ) => deadSpans.isEmpty
       ? refsByCandidate
       : [
-          for (final (i, refs) in refsByCandidate.indexed)
+          for (final refs in refsByCandidate)
             [
               for (final loc in refs)
                 if (!deadSpans.covers(
                   SourceIndex.pathOf(loc.uri),
                   loc.range.start,
-                  referenced: candidates[i].key,
                 ))
                   loc,
             ],

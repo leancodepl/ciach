@@ -19,7 +19,15 @@ abstract interface class Label {}
 /// Used only in the `implements` clause of `Tile` -> UNUSED (class).
 abstract interface class Labeled<T> {}
 
-class Tile with Painter implements Labeled<Label> {}
+/// Used only as the type argument of `Bordered` in `Tile` -> USED without
+/// transitive, UNUSED with it and reported as only referenced from
+/// `Bordered`.
+abstract interface class Border {}
+
+/// Used only in the `implements` clause of `Tile` -> UNUSED (class).
+abstract interface class Bordered<T> {}
+
+class Tile with Painter implements Labeled<Label>, Bordered<Border> {}
 
 /// An entry point -> skipped; keeps `Tile` live.
 @pragma('vm:entry-point')

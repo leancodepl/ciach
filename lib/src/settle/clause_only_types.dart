@@ -118,7 +118,6 @@ final class ClauseOnlyTypes {
             hint: Verdict.namedOnlyInClausesHint,
             onlyReferencedFrom: deadSpans.referrersAmong(
               _classifier.externalRefs(candidates[i], refsByCandidate[i]),
-              referenced: candidates[i].key,
             ),
           ),
         ),

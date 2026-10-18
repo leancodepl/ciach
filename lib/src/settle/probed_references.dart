@@ -66,11 +66,7 @@ final class ProbedReferences {
     List<List<Location>> refsByCandidate,
     DeadSpans spans,
   ) async {
-    final liveRefs = TransitiveSweep.liveRefs(
-      _candidates,
-      refsByCandidate,
-      spans,
-    );
+    final liveRefs = TransitiveSweep.liveRefs(refsByCandidate, spans);
     final unsure = <Candidate, int>{
       for (final (i, candidate) in _candidates.indexed)
         if (liveRefs[i].isEmpty && _probed.contains(candidate)) candidate: i,

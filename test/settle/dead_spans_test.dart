@@ -1,5 +1,4 @@
 import 'package:ciach/ciach.dart';
-import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/settle/dead_spans.dart';
 import 'package:ciach/src/source/clause_entries.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position;
@@ -57,71 +56,65 @@ void main() {
     });
   });
 
-  group('DeadSpans.ownerOf with a referenced type', () {
-    // Line 3 is `class Held with C<Arg>, D {}`, and removing `C` and `D`
-    // deletes ` with C<Arg>, D`.
-    const clause = (startLine: 3, startColumn: 10, endLine: 3, endColumn: 26);
+  group('DeadSpans.ownerOf in a clause entry', () {
+    // Line 3 is `class Held with C<Arg>, D<Other> {}`, and removing `C` and `D`
+    // deletes ` with C<Arg>, D<Other>`.
+    const clause = (startLine: 3, startColumn: 10, endLine: 3, endColumn: 32);
     const atC = Position(line: 3, character: 16);
     const atArg = Position(line: 3, character: 18);
-    const atD = Position(line: 3, character: 24);
+    const atOther = Position(line: 3, character: 26);
 
     /// A type declared on [line] that `--remove` also removes from the
-    /// clause on line 3.
-    UnusedDeclaration clauseOnly(String name, int line) =>
-        finding(name, (line, 0), (line, 10)).copyWith(
-          coupledRemovals: [
-            (
-              filePath: 'lib/a.dart',
-              kind: clauseCutKind,
-              range: clause,
-              fullRange: clause,
-              cut: clause,
-            ),
-          ],
-        );
+    /// clause on line 3, where its entry spans the columns in [entry].
+    UnusedDeclaration clauseOnly(String name, int line, (int, int) entry) {
+      final range = (
+        startLine: 3,
+        startColumn: entry.$1,
+        endLine: 3,
+        endColumn: entry.$2,
+      );
+      return finding(name, (line, 0), (line, 10)).copyWith(
+        coupledRemovals: [
+          (
+            filePath: 'lib/a.dart',
+            kind: clauseCutKind,
+            range: range,
+            fullRange: range,
+            cut: clause,
+          ),
+        ],
+      );
+    }
 
-    DeclKey key(String name) => .new(path, name);
-
-    test("keeps a reference that the type's own clause removal deletes", () {
-      final c = clauseOnly('C', 0);
+    test('keeps a reference to the type at the start of its own entry', () {
+      final c = clauseOnly('C', 0, (16, 22));
       final spans = DeadSpans.of([c], rootPath);
 
-      expect(spans.ownerOf(path, atC, referenced: key('C')), isNull);
-      expect(spans.ownerOf(path, atC), c);
+      expect(spans.ownerOf(path, atC), isNull);
+      expect(spans.ownersOf(path, atC), [c]);
     });
 
-    test(
-      'keeps a reference that a clause removal shared with another type deletes',
-      () {
-        final spans = DeadSpans.of([
-          clauseOnly('C', 0),
-          clauseOnly('D', 1),
-        ], rootPath);
-
-        expect(spans.ownerOf(path, atC, referenced: key('C')), isNull);
-        expect(spans.ownerOf(path, atD, referenced: key('D')), isNull);
-      },
-    );
-
-    test('deletes a reference in the type arguments of a removed entry', () {
-      final c = clauseOnly('C', 0);
-
-      expect(
-        DeadSpans.of([
-          c,
-        ], rootPath).ownerOf(path, atArg, referenced: key('Arg')),
-        c,
-      );
+    test('assigns a reference in type arguments to the entry holding it', () {
+      final c = clauseOnly('C', 0, (16, 22));
+      final d = clauseOnly('D', 1, (24, 32));
+      for (final order in [
+        [c, d],
+        [d, c],
+      ]) {
+        final spans = DeadSpans.of(order, rootPath);
+        expect(spans.ownerOf(path, atArg), c);
+        expect(spans.ownerOf(path, atOther), d);
+      }
     });
 
     test('deletes a reference in a clause of a removed declaration', () {
-      final held = finding('Held', (3, 0), (3, 29));
+      final held = finding('Held', (3, 0), (3, 35));
 
       expect(
         DeadSpans.of([
-          clauseOnly('C', 0),
+          clauseOnly('C', 0, (16, 22)),
           held,
-        ], rootPath).ownerOf(path, atC, referenced: key('C')),
+        ], rootPath).ownerOf(path, atC),
         held,
       );
     });

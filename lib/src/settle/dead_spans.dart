@@ -1,4 +1,3 @@
-import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/source/clause_entries.dart';
 import 'package:ciach/src/source/source_index.dart';
@@ -9,34 +8,24 @@ import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
 /// The source `--remove` would delete: each removable finding's
 /// [UnusedDeclaration.fullRange] and its coupled removals. A reference inside
-/// these spans keeps nothing alive, except that a reference to a type in a
-/// `with` or `implements` clause still counts when the removal of that type
-/// is what deletes it.
+/// these spans keeps nothing alive, except the name of a type at the start of
+/// its own entry in a `with` or `implements` clause.
 final class DeadSpans {
   DeadSpans._(this._byPath);
 
   /// The spans of the findings `--remove` would delete, by absolute path.
   factory DeadSpans.of(Iterable<UnusedDeclaration> findings, String rootPath) {
-    final removable = findings.whereNot((finding) => finding.removalBlocked);
-    // One cut can remove the entries of several types, as ` with C, D` does.
-    final typesByClauseCut = <CoupledRemoval, Set<DeclKey>>{};
-    for (final finding in removable) {
-      for (final coupled in finding.coupledRemovals) {
-        if (coupled.kind == clauseCutKind) {
-          (typesByClauseCut[coupled] ??= {}).add(
-            .new(absoluteUnder(finding.filePath, rootPath), finding.name),
-          );
-        }
-      }
-    }
     final byPath = <String, List<_Span>>{};
-    for (final finding in removable) {
+    for (final finding in findings) {
+      if (finding.removalBlocked) {
+        continue;
+      }
       byPath
           .putIfAbsent(absoluteUnder(finding.filePath, rootPath), () => [])
           .add((
             range: finding.fullRange,
             owner: finding,
-            clauseEntriesOf: const {},
+            isClauseEntry: false,
           ));
       for (final coupled in finding.coupledRemovals) {
         byPath
@@ -44,7 +33,7 @@ final class DeadSpans {
             .add((
               range: coupled.fullRange,
               owner: finding,
-              clauseEntriesOf: typesByClauseCut[coupled] ?? const {},
+              isClauseEntry: coupled.kind == clauseCutKind,
             ));
       }
     }
@@ -65,34 +54,24 @@ final class DeadSpans {
 
   bool get isNotEmpty => _byPath.isNotEmpty;
 
-  /// Whether a finding's removal deletes [position] in [path]. With
-  /// [referenced], the position holds a reference to that declaration; see
-  /// [ownerOf].
-  bool covers(String path, Position position, {DeclKey? referenced}) =>
-      ownerOf(path, position, referenced: referenced) != null;
+  bool covers(String path, Position position) =>
+      ownerOf(path, position) != null;
 
   /// The outermost finding whose removal deletes [position] in [path].
   ///
-  /// With [referenced], the position holds a reference to that declaration.
-  /// `--remove` deletes a type that only `with` or `implements` clauses name
-  /// together with its entries in them, so a reference to the type in its own
-  /// entry still counts here. Otherwise the type would be reported as unused,
-  /// and `--remove` would delete it but leave the entry. In
-  /// `class A with C<T> {}`, the reference to `C` counts, and the reference to
-  /// `T` doesn't, so `T` is reported as only referenced from `C`.
-  UnusedDeclaration? ownerOf(
-    String path,
-    Position position, {
-    DeclKey? referenced,
-  }) {
-    final inFile = _byPath[path];
-    if (inFile == null) {
+  /// The name of a type at the start of its own clause entry, like `C` in
+  /// `class A with C<T> {}`, has no owner. `--remove` deletes the type with
+  /// the entry, but if the name didn't count as a reference, the type would
+  /// be reported as unused, and `--remove` would leave the entry.
+  UnusedDeclaration? ownerOf(String path, Position position) {
+    final spans = _byPath[path];
+    if (spans == null) {
       return null;
     }
     _Span? outermost;
-    for (final span in inFile) {
+    for (final span in spans) {
       if (_contains(span.range, position) &&
-          !span.clauseEntriesOf.contains(referenced) &&
+          !(span.isClauseEntry && position == _start(span.range)) &&
           (outermost == null || _isOutside(span.range, outermost.range))) {
         outermost = span;
       }
@@ -100,30 +79,25 @@ final class DeadSpans {
     return outermost?.owner;
   }
 
-  /// Every finding whose removal deletes [position] in [path].
+  /// Every finding whose removal deletes [position] in [path]. Unlike
+  /// [ownerOf], this includes the type whose clause entry starts at
+  /// [position], so that the entry doesn't keep the type alive in the
+  /// transitive sweep.
   Iterable<UnusedDeclaration> ownersOf(String path, Position position) => {
     if (_byPath[path] case final spans?)
       for (final span in spans)
         if (_contains(span.range, position)) span.owner,
   };
 
-  /// The findings whose removal deletes one of [refs], the references to
-  /// [referenced], in source order. A declaration with no other references
-  /// is dead only because they are.
-  List<DeadReferrer> referrersAmong(
-    Iterable<Location> refs, {
-    required DeclKey referenced,
-  }) {
+  /// The findings whose removal deletes one of [refs], in source order. A
+  /// declaration with no other references is dead only because they are.
+  List<DeadReferrer> referrersAmong(Iterable<Location> refs) {
     if (isEmpty) {
       return const [];
     }
     final owners = <UnusedDeclaration>[];
     for (final loc in refs) {
-      final owner = ownerOf(
-        SourceIndex.pathOf(loc.uri),
-        loc.range.start,
-        referenced: referenced,
-      );
+      final owner = ownerOf(SourceIndex.pathOf(loc.uri), loc.range.start);
       if (owner != null && owners.none((seen) => identical(seen, owner))) {
         owners.add(owner);
       }
@@ -176,10 +150,10 @@ final class DeadSpans {
       Position(line: range.endLine, character: range.endColumn);
 }
 
-/// `clauseEntriesOf` holds the keys of the types whose `with` or `implements`
-/// entries the span is, and is empty for any other span.
+/// `isClauseEntry` is true for the span of a type's entry in a `with` or
+/// `implements` clause, which starts with the type's name.
 typedef _Span = ({
   DeclarationRange range,
   UnusedDeclaration owner,
-  Set<DeclKey> clauseEntriesOf,
+  bool isClauseEntry,
 });
