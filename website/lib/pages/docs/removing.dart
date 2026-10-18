@@ -77,7 +77,11 @@ class const RemovingSection({super.key}) extends StatelessComponent {
           'refactor.',
         ),
       ),
-      const h3([.text('What goes with a removed declaration')]),
+      const DocHeading(
+        fragment: 'removed-with',
+        text: 'What goes with a removed declaration',
+        subsection: true,
+      ),
       ul(classes: Prose.checklist.name, [
         li(
           rich(
@@ -104,7 +108,11 @@ class const RemovingSection({super.key}) extends StatelessComponent {
           ),
         ),
       ]),
-      const h3([.text('Comments next to removed code')]),
+      const DocHeading(
+        fragment: 'removed-comments',
+        text: 'Comments next to removed code',
+        subsection: true,
+      ),
       p(
         rich(
           'A plain `//` comment right above a removed declaration stays, '
@@ -126,7 +134,11 @@ class const RemovingSection({super.key}) extends StatelessComponent {
           'stays, so the range it opens or closes keeps both ends.',
         ),
       ),
-      const h3([.text('Report-only findings')]),
+      const DocHeading(
+        fragment: 'report-only',
+        text: 'Report-only findings',
+        subsection: true,
+      ),
       p(
         rich(
           'Findings that cannot be removed without breaking the build are '

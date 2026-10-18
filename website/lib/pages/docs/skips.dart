@@ -169,7 +169,11 @@ class const SkipsSection({super.key}) extends StatelessComponent {
           'hint suggesting `abstract final class` instead.',
         ),
       ),
-      const h3([.text('Entry points')]),
+      const DocHeading(
+        fragment: 'entry-points',
+        text: 'Entry points',
+        subsection: true,
+      ),
       p(
         rich(
           'Some declarations are only called from code a tool generates, so '
@@ -206,7 +210,11 @@ class const SkipsSection({super.key}) extends StatelessComponent {
           'each skipped entry point.',
         ),
       ),
-      const h3([.text('Ignore markers')]),
+      const DocHeading(
+        fragment: 'ignore-markers',
+        text: 'Ignore markers',
+        subsection: true,
+      ),
       p(
         rich(
           'A `// ciach:ignore` comment keeps a declaration from being reported or removed:',
@@ -231,7 +239,11 @@ class const SkipsSection({super.key}) extends StatelessComponent {
           'word, and `-v` names each kept declaration.',
         ),
       ),
-      const h3([.text('Generated files')]),
+      const DocHeading(
+        fragment: 'generated-files',
+        text: 'Generated files',
+        subsection: true,
+      ),
       const p([
         .text(
           'Besides files named like generated code or carrying a generated-code banner, ciach treats these as generated:',

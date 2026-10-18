@@ -34,6 +34,8 @@ ClientOptions get defaultClientOptions => ClientOptions(
       (p) => _copy_button.CopyButton(
         text: p.get<String>('text'),
         label: p.get<String?>('label'),
+        title: p.get<String>('title'),
+        icon: p.get<String>('icon'),
       ),
       loader: _copy_button.loadLibrary,
     ),

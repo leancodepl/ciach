@@ -75,6 +75,7 @@ ServerOptions get defaultServerOptions => ServerOptions(
     ..._icons.Logo.styles,
     ..._nav_bar.NavBar.styles,
     ..._pill.Pill.styles,
+    ..._section.DocHeading.styles,
     ..._section.DocSection.styles,
     ..._section.Prose.styles,
     ..._section.Section.styles,
@@ -87,6 +88,8 @@ ServerOptions get defaultServerOptions => ServerOptions(
 Map<String, Object?> __copy_buttonCopyButton(_copy_button.CopyButton c) => {
   'text': c.text,
   'label': c.label,
+  'title': c.title,
+  'icon': c.icon,
 };
 Map<String, Object?> __demo_triggerDemoTrigger(_demo_trigger.DemoTrigger c) => {
   'targetId': c.targetId,

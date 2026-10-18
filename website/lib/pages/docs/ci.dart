@@ -69,7 +69,11 @@ class const CiSection({super.key}) extends StatelessComponent {
           'on a runner, `--ci` applies the CI ones elsewhere.',
         ),
       ),
-      const h3([.text('GitHub Actions')]),
+      const DocHeading(
+        fragment: 'github-actions',
+        text: 'GitHub Actions',
+        subsection: true,
+      ),
       const CodeBlock(
         source: _workflow,
         language: .yaml,
@@ -85,7 +89,11 @@ class const CiSection({super.key}) extends StatelessComponent {
           'run ciach from the repository root; `ciach app` still works.',
         ),
       ),
-      const h3([.text('Azure Pipelines and TeamCity')]),
+      const DocHeading(
+        fragment: 'azure-teamcity',
+        text: 'Azure Pipelines and TeamCity',
+        subsection: true,
+      ),
       const CodeBlock(source: _pipeline, language: .yaml, copyText: ''),
       p(
         rich(
@@ -96,7 +104,11 @@ class const CiSection({super.key}) extends StatelessComponent {
           'TeamCity, which names no checkout to it.',
         ),
       ),
-      const h3([.text('Reports for other tools')]),
+      const DocHeading(
+        fragment: 'other-tools',
+        text: 'Reports for other tools',
+        subsection: true,
+      ),
       const p([
         .text(
           'Three formats are files for another tool to import, so redirect them:',

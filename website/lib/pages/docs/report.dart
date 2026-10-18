@@ -59,7 +59,11 @@ class const ReportSection({super.key}) extends StatelessComponent {
           'needs at least one value.',
         ),
       ),
-      const h3([.text('Doc-only findings')]),
+      const DocHeading(
+        fragment: 'doc-only',
+        text: 'Doc-only findings',
+        subsection: true,
+      ),
       p(
         rich(
           'A dartdoc `[Xxx]` link resolves to a real declaration, so the '
@@ -88,7 +92,11 @@ class const ReportSection({super.key}) extends StatelessComponent {
           'while doc comments still link to it.',
         ),
       ),
-      const h3([.text('Empty files')]),
+      const DocHeading(
+        fragment: 'empty-files',
+        text: 'Empty files',
+        subsection: true,
+      ),
       p(
         rich(
           'A file with nothing but comments and `library`, `import` or `part of` directives gets a section too:',
@@ -107,7 +115,11 @@ class const ReportSection({super.key}) extends StatelessComponent {
           'which is left to you.',
         ),
       ),
-      const h3([.text('Transitively dead code')]),
+      const DocHeading(
+        fragment: 'transitive',
+        text: 'Transitively dead code',
+        subsection: true,
+      ),
       p(
         rich(
           'A reference from a finding still counts as a use, so a helper '
@@ -133,7 +145,11 @@ class const ReportSection({super.key}) extends StatelessComponent {
           'rest shows up after a removal and another run.',
         ),
       ),
-      const h3([.text('Not analyzed')]),
+      const DocHeading(
+        fragment: 'not-analyzed',
+        text: 'Not analyzed',
+        subsection: true,
+      ),
       p(
         rich(
           'If the analysis server fails on a declaration or a file, the run '

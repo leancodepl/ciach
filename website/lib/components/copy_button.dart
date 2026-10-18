@@ -22,6 +22,13 @@ class const CopyButton({
 
   /// Visible label. Omit for an icon-only button.
   final String? label,
+
+  /// What the button copies, for the tooltip and screen readers.
+  final String title = 'Copy to clipboard',
+
+  /// The name of the [Icon] to show. A client component's parameters have to
+  /// be serializable, so the icon is named rather than passed.
+  final String icon = 'copy',
   super.key,
 }) extends StatefulComponent {
   static const _class = _$CopyButtonScope;
@@ -115,16 +122,16 @@ class _CopyButtonState() extends State<CopyButton> {
         if (label == null) CopyButton._iconOnly.name,
         if (_copied) CopyButton._isCopied.name,
       ].join(' '),
-      attributes: const {
+      attributes: {
         'type': 'button',
-        'aria-label': 'Copy to clipboard',
+        'aria-label': component.title,
         'aria-live': 'polite',
-        'title': 'Copy to clipboard',
+        'title': component.title,
       },
       onClick: _copy,
       [
         span(classes: (CopyButton._icon + CopyButton._idle).name, [
-          Icon.copy.build(size: 16),
+          Icon.values.byName(component.icon).build(size: 16),
         ]),
         span(classes: (CopyButton._icon + CopyButton._done).name, [
           Icon.check.build(size: 16),

@@ -25,7 +25,11 @@ class const PackagesSection({super.key}) extends StatelessComponent {
     id: 'packages',
     heading: 'Packages and monorepos',
     children: [
-      const h3([.text('Library packages')]),
+      const DocHeading(
+        fragment: 'library-packages',
+        text: 'Library packages',
+        subsection: true,
+      ),
       p(
         rich(
           'By default, ciach checks the API of every package, which suits an '
@@ -49,7 +53,11 @@ class const PackagesSection({super.key}) extends StatelessComponent {
         title: 'ciach.yaml',
       ),
       p(rich('`-v` says which packages are left out.')),
-      const h3([.text('Monorepos')]),
+      const DocHeading(
+        fragment: 'monorepos',
+        text: 'Monorepos',
+        subsection: true,
+      ),
       p(
         rich(
           'In a monorepo where sibling packages depend on this one by `path:`, '
