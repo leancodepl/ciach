@@ -25,11 +25,11 @@ import 'package:collection/collection.dart';
 /// body reads `xs[i]`, doesn't use `xs` otherwise and doesn't change `i`.
 /// `for (final x in xs)` says the same when the body uses `i` only in
 /// `xs[i]`, and `for (final (i, x) in xs.indexed)` otherwise.
-class PreferIndexedLoop() extends AnalysisRule {
+class PreferForInLoop() extends AnalysisRule {
   this : super(name: code.lowerCaseName, description: code.problemMessage);
 
   static const code = LintCode(
-    'prefer_indexed_loop',
+    'prefer_for_in_loop',
     "'for ({0})' reads the same elements without indexing the list.",
     correctionMessage: "Try replacing the loop header with 'for ({0})'.",
     severity: .WARNING,
@@ -59,7 +59,7 @@ class _Visitor(final AnalysisRule rule, final RuleContext context)
   void visitForElement(ForElement node) => _check(node);
 
   void _check(ForLoop<AstNode> node) {
-    if (IndexedLoopRewrite.of(node, context.typeSystem, context.typeProvider)
+    if (ForInLoopRewrite.of(node, context.typeSystem, context.typeProvider)
         case final rewrite?) {
       rule.reportAtOffset(
         node.forKeyword.offset,
@@ -85,7 +85,7 @@ class LoopOverElements({required super.context})
   );
 
   late final _rewrite = switch (node) {
-    final ForLoop<AstNode> loop => IndexedLoopRewrite.of(
+    final ForLoop<AstNode> loop => ForInLoopRewrite.of(
       loop,
       typeSystem,
       typeProvider,
@@ -161,7 +161,7 @@ InterpolationExpression? _bracedInterpolation(IndexExpression read) {
 /// The new header of a flagged loop, which declares the [element] between
 /// [beforeElement] and [afterElement], the `final x = xs[i];` [declaration]
 /// that the element replaces, if any, and the other [reads] of `xs[i]`.
-class IndexedLoopRewrite._({
+class ForInLoopRewrite._({
   required final String beforeElement,
   required final String element,
   required final String afterElement,
@@ -173,7 +173,7 @@ class IndexedLoopRewrite._({
 
   /// The rewrite of [loop], or `null` when [loop] is no index loop over a
   /// `List` or its body needs the index loop.
-  static IndexedLoopRewrite? of(
+  static ForInLoopRewrite? of(
     ForLoop<AstNode> loop,
     TypeSystem typeSystem,
     TypeProvider typeProvider,
@@ -221,7 +221,7 @@ class IndexedLoopRewrite._({
       }
       final declaration = _declarationOfRead(body, uses.reads);
       final declared = declaration?.variables.variables.single;
-      return IndexedLoopRewrite._(
+      return ForInLoopRewrite._(
         beforeElement: uses.usesIndex ? 'final (${name.lexeme}, ' : 'final ',
         element: declared?.name.lexeme ?? _unusedName(loop),
         afterElement: uses.usesIndex ? ') in $source.indexed' : ' in $source',

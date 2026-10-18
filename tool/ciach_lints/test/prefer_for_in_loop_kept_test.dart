@@ -8,22 +8,22 @@
 // ignore_for_file: non_constant_identifier_names
 
 import 'package:analyzer_testing/analysis_rule/analysis_rule.dart';
-import 'package:ciach_lints/src/prefer_indexed_loop.dart';
+import 'package:ciach_lints/src/prefer_for_in_loop.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 
 void main() {
   defineReflectiveSuite(() {
-    defineReflectiveTests(PreferIndexedLoopKeptTest);
+    defineReflectiveTests(PreferForInLoopKeptTest);
   });
 }
 
-/// The loops that `prefer_indexed_loop` leaves as they are, because the
+/// The loops that `prefer_for_in_loop` leaves as they are, because the
 /// rewrite could change what they do.
 @reflectiveTest
-class PreferIndexedLoopKeptTest() extends AnalysisRuleTest {
+class PreferForInLoopKeptTest() extends AnalysisRuleTest {
   @override
   void setUp() {
-    rule = PreferIndexedLoop();
+    rule = PreferForInLoop();
     super.setUp();
   }
 

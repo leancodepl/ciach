@@ -158,8 +158,10 @@ A name claims no more than the code does, and it doesn't list cases either.
 `_directiveEnd` claimed every directive for a function that skips only some,
 `_libraryImportOrPartOfEnd` listed every case, and the lint name
 `prefer_none_and_where_not` listed two of the five methods that the lint
-suggests; all three were rejected. Name a lint after what it flags:
-`avoid_negated_iterable_predicates`.
+suggests; all three were rejected. Name a lint after what it flags,
+`avoid_negated_iterable_predicates`, or after the form that its fix writes,
+`prefer_let`. That form covers every rewrite of the fix: `prefer_indexed_loop`
+was rejected because its fix also writes plain `for-in` loops.
 Name a predicate after the property that the caller tests (`isDeclaration`),
 not after the case that prompted it (`isUnitTest`). Make every value of an enum
 answer the same question.
@@ -251,7 +253,7 @@ explicit null check.
   returns, tear-offs to lambdas that only forward, `min` and `max` to
   hand-written ternaries, and `package:collection` equalities to comparison
   loops. Write `map[key] ??= value` for a value that you already have, and
-  memoize with `CachedMap`. `prefer_indexed_loop` replaces an index loop that
+  memoize with `CachedMap`. `prefer_for_in_loop` replaces an index loop that
   reads `xs[i]` with `for (final x in xs)` or
   `for (final (i, x) in xs.indexed)`. `avoid_negated_iterable_predicates`
   replaces negations with `none(f)` and `whereNot(f)`, and

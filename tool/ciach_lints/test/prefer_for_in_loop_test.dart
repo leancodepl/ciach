@@ -8,7 +8,7 @@
 // ignore_for_file: non_constant_identifier_names
 
 import 'package:analyzer_testing/analysis_rule/analysis_rule.dart';
-import 'package:ciach_lints/src/prefer_indexed_loop.dart';
+import 'package:ciach_lints/src/prefer_for_in_loop.dart';
 import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 
@@ -16,7 +16,7 @@ import 'support/fixes.dart';
 
 void main() {
   defineReflectiveSuite(() {
-    defineReflectiveTests(PreferIndexedLoopTest);
+    defineReflectiveTests(PreferForInLoopTest);
   });
 }
 
@@ -33,10 +33,10 @@ extension Indexed<T> on Iterable<T> {
 ''';
 
 @reflectiveTest
-class PreferIndexedLoopTest() extends AnalysisRuleTest {
+class PreferForInLoopTest() extends AnalysisRuleTest {
   @override
   void setUp() {
-    rule = PreferIndexedLoop();
+    rule = PreferForInLoop();
     super.setUp();
   }
 
@@ -56,7 +56,7 @@ class PreferIndexedLoopTest() extends AnalysisRuleTest {
       lint(start, end - start, messageContainsAll: ["'for ($header)'"]),
     ]);
     expect(
-      await applyFixes(flagged, PreferIndexedLoop.code, LoopOverElements.new),
+      await applyFixes(flagged, PreferForInLoop.code, LoopOverElements.new),
       '$fixed$_indexed',
     );
     final file = newFile('$testPackageLibPath/fixed.dart', '$fixed$_indexed');
@@ -356,7 +356,7 @@ void f(List<int> xs) {
 ''';
     final [change] = await fixChanges(
       '$code$_indexed',
-      PreferIndexedLoop.code,
+      PreferForInLoop.code,
       LoopOverElements.new,
     );
     final [group] = change.linkedEditGroups;
@@ -388,7 +388,7 @@ void f(List<int> xs) {
   }
 }
 $_indexed''',
-      PreferIndexedLoop.code,
+      PreferForInLoop.code,
       LoopOverElements.new,
     );
     expect(change.linkedEditGroups, isEmpty);

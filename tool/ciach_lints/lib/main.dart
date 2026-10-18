@@ -9,7 +9,7 @@ import 'package:analysis_server_plugin/registry.dart';
 import 'package:ciach_lints/src/avoid_empty_collection_fallback.dart';
 import 'package:ciach_lints/src/avoid_negated_iterable_predicates.dart';
 import 'package:ciach_lints/src/merge_identical_switch_arms.dart';
-import 'package:ciach_lints/src/prefer_indexed_loop.dart';
+import 'package:ciach_lints/src/prefer_for_in_loop.dart';
 import 'package:ciach_lints/src/prefer_let.dart';
 import 'package:ciach_lints/src/prefer_multiline_string.dart';
 import 'package:ciach_lints/src/prefer_pattern_over_guard.dart';
@@ -60,7 +60,7 @@ final class CiachLintsPlugin() extends Plugin {
       )
       ..registerWarningRule(MergeIdenticalSwitchArms())
       ..registerFixForRule(MergeIdenticalSwitchArms.code, MergeSwitchArms.new)
-      ..registerWarningRule(PreferIndexedLoop())
-      ..registerFixForRule(PreferIndexedLoop.code, LoopOverElements.new);
+      ..registerWarningRule(PreferForInLoop())
+      ..registerFixForRule(PreferForInLoop.code, LoopOverElements.new);
   }
 }
