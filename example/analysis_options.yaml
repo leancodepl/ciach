@@ -16,3 +16,6 @@ analyzer:
     unnecessary_const_in_enum_constructor: ignore
     unnecessary_type_name_in_constructor: ignore
     use_primary_constructors: ignore
+    # lib/scenarios/call_methods_uses.dart tears `call` off implicitly, a use
+    # that ciach has to find.
+    implicit_call_tearoffs: ignore

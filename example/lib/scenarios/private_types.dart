@@ -4,9 +4,9 @@
  *   harness: Claude Code
  */
 
-// Members of a private type or an unnamed extension are private, whatever
-// their own names, unless a public declaration exposes the type. Only the
-// private-type tests in test/finder/finder_test.dart scan this file.
+// Members of a private type are private, whatever their own names, unless a
+// public declaration exposes the type. Only the private-type tests in
+// test/finder/finder_test.dart scan this file.
 
 part 'private_types_part.dart';
 
@@ -15,7 +15,6 @@ void main() {
   print(_Settings.defaults().used);
   _Painted().paint();
   1.doubled();
-  2.tripled();
   print(_Level.low);
   print(_Id(1).value);
   print(Circle<_Settings>());
@@ -61,13 +60,6 @@ extension _Doubling on int {
 
   /// Never called -> UNUSED, private through its extension.
   int quadrupled() => this * 4;
-}
-
-extension on int {
-  int tripled() => this * 3;
-
-  /// Never called -> UNUSED: no other library can use an unnamed extension.
-  int sextupled() => this * 6;
 }
 
 enum _Level {

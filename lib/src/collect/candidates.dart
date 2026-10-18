@@ -92,6 +92,8 @@ final class Candidate {
   /// them.
   final bool isInExposedType;
 
+  /// Whether this is a member of an unnamed extension, which no other
+  /// library can use.
   bool get isInUnnamedExtension =>
       containerOutline?.element.isUnnamedExtension ?? false;
 
