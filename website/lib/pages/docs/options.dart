@@ -56,32 +56,35 @@ const _options = [
   ('-v', 'Narrate the run on stderr with timings.'),
 ];
 
-Component optionsSection() => DocSection(
-  id: 'options',
-  heading: 'Options',
-  children: [
-    docsTable(
-      columns: const ['Flag', 'What it does'],
-      rows: [
-        for (final (flag, what) in _options)
-          [
-            span([
-              // One chip per flag, so a row listing several wraps between
-              // them rather than inside one.
-              for (final (i, f) in flag.split(', ').indexed) ...[
-                if (i > 0) const .text(' '),
-                code([.text(f)]),
-              ],
-            ]),
-            span(rich(what)),
-          ],
-      ],
-    ),
-    p(classes: Prose.note.name, [
-      const code([.text('ciach --help')]),
-      const .text(' describes every option; so does the '),
-      externalLink(readmeOptionsUrl, [const .text('options table')]),
-      const .text(' in the README.'),
-    ]),
-  ],
-);
+class const OptionsSection({super.key}) extends StatelessComponent {
+  @override
+  Component build(BuildContext context) => DocSection(
+    id: 'options',
+    heading: 'Options',
+    children: [
+      docsTable(
+        columns: const ['Flag', 'What it does'],
+        rows: [
+          for (final (flag, what) in _options)
+            [
+              span([
+                // One chip per flag, so a row listing several wraps between
+                // them rather than inside one.
+                for (final (i, f) in flag.split(', ').indexed) ...[
+                  if (i > 0) const .text(' '),
+                  code([.text(f)]),
+                ],
+              ]),
+              span(rich(what)),
+            ],
+        ],
+      ),
+      p(classes: Prose.note.name, [
+        const code([.text('ciach --help')]),
+        const .text(' describes every option; so does the '),
+        externalLink(readmeOptionsUrl, [const .text('options table')]),
+        const .text(' in the README.'),
+      ]),
+    ],
+  );
+}

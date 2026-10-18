@@ -126,143 +126,146 @@ class Catalog {                       // everything named in the range
 }
 // ciach:ignore-end''';
 
-Component skipsSection() => DocSection(
-  id: 'skips',
-  heading: 'What it skips by default',
-  children: [
-    const p([
-      .text(
-        'Each of these is a known source of false positives. Where there is a flag, it opts back in at that cost.',
+class const SkipsSection({super.key}) extends StatelessComponent {
+  @override
+  Component build(BuildContext context) => DocSection(
+    id: 'skips',
+    heading: 'What it skips by default',
+    children: [
+      const p([
+        .text(
+          'Each of these is a known source of false positives. Where there is a flag, it opts back in at that cost.',
+        ),
+      ]),
+      docsTable(
+        columns: const ['Skipped', 'Why', 'Flag'],
+        rows: [
+          for (final (what, why, flag) in _skips)
+            [
+              code([.text(what)]),
+              span(rich(why)),
+              if (flag != null)
+                code(classes: DocsTable.flag.name, [.text(flag)])
+              else
+                span(classes: Utility.muted.name, const [.text('—')]),
+            ],
+        ],
       ),
-    ]),
-    docsTable(
-      columns: const ['Skipped', 'Why', 'Flag'],
-      rows: [
-        for (final (what, why, flag) in _skips)
-          [
-            code([.text(what)]),
-            span(rich(why)),
-            if (flag != null)
-              code(classes: DocsTable.flag.name, [.text(flag)])
-            else
-              span(classes: Utility.muted.name, const [.text('—')]),
-          ],
-      ],
-    ),
-    p(
-      rich(
-        'The variants of a conditional import, like `io.dart` and `web.dart` '
-        "in `import 'io.dart' if (dart.library.js_interop) 'web.dart';`, are "
-        'checked together: a public declaration shares the references of its '
-        'namesakes in the other variants, and is reported and removed only '
-        'with them. A variant whose other variant is not scanned is not '
-        'checked.',
-      ),
-    ),
-    p(
-      rich(
-        'Private constructors are not skipped: an unused `ClassName._` is '
-        'dead code like any other. A sole `ClassName._()` with no '
-        'parameters, the classic prevent-instantiation marker, comes with a '
-        'hint suggesting `abstract final class` instead.',
-      ),
-    ),
-    const h3([.text('Entry points')]),
-    p(
-      rich(
-        'Some declarations are only called from code a tool generates, so '
-        'nothing in the package references them: `flutter test` runs '
-        '`testExecutable`, flutter_tools calls `MyPlugin.registerWith()`. '
-        'ciach knows about `main` and `testExecutable`, and reads these from '
-        "the project's own config files:",
-      ),
-    ),
-    docsTable(
-      columns: const ['Source', 'Entry point'],
-      rows: [
-        for (final (source, entryPoint) in _entryPoints)
-          [span(rich(source)), span(rich(entryPoint))],
-      ],
-    ),
-    p(
-      rich(
-        'List any other entry points under `entry-points:` in `ciach.yaml`:',
-      ),
-    ),
-    const CodeBlock(
-      source: _entryPointsConfig,
-      language: .yaml,
-      title: 'ciach.yaml',
-    ),
-    p(
-      rich(
-        'A matching declaration is neither reported nor removed. A member '
-        "rule also keeps its type, while the type's other members are still "
-        'checked. A rule that names a class or extension type also keeps its '
-        'unnamed constructor, but not its named ones. Name a constructor the '
-        'way the report does: `MyWidget.new` or `MyWidget.named`. `-v` names '
-        'each skipped entry point.',
-      ),
-    ),
-    const h3([.text('Ignore markers')]),
-    p(
-      rich(
-        'A `// ciach:ignore` comment keeps a declaration from being reported or removed:',
-      ),
-    ),
-    const CodeBlock(source: _markers, language: .dart, copyText: ''),
-    p(
-      rich(
-        '`// ciach:ignore-file` anywhere in a file keeps the whole file: '
-        'ciach still counts the uses of other code in it, but reports and '
-        'changes nothing in it.',
-      ),
-    ),
-    p(
-      rich(
-        'Any declaration can be marked, enum values and constructors '
-        "included. Marking a member also keeps its type, while the type's "
-        'other members are still checked. Free text may follow a marker, as '
-        'a reason. Only `//` comments count: a marker in a doc comment, a '
-        'block comment or a string does nothing. ciach warns about a marker '
-        'that keeps nothing, an unclosed range, and an unknown `// ciach:` '
-        'word, and `-v` names each kept declaration.',
-      ),
-    ),
-    const h3([.text('Generated files')]),
-    const p([
-      .text(
-        'Besides files named like generated code or carrying a generated-code banner, ciach treats these as generated:',
-      ),
-    ]),
-    ul(classes: Prose.checklist.name, [
-      li(
+      p(
         rich(
-          'The files build_runner writes into the source tree, read from the '
-          'outputs the applied builders declare in `build.yaml` and every '
-          '`build.<name>.yaml`.',
+          'The variants of a conditional import, like `io.dart` and `web.dart` '
+          "in `import 'io.dart' if (dart.library.js_interop) 'web.dart';`, are "
+          'checked together: a public declaration shares the references of its '
+          'namesakes in the other variants, and is reported and removed only '
+          'with them. A variant whose other variant is not scanned is not '
+          'checked.',
         ),
       ),
-      li(
+      p(
         rich(
-          'The files `flutter gen-l10n` writes, as `l10n.yaml` configures '
-          'them. The template file is scanned instead, and its unused '
-          'messages reported; `--no-unused-translations` treats it as '
-          'generated too.',
+          'Private constructors are not skipped: an unused `ClassName._` is '
+          'dead code like any other. A sole `ClassName._()` with no '
+          'parameters, the classic prevent-instantiation marker, comes with a '
+          'hint suggesting `abstract final class` instead.',
         ),
       ),
-      li(
+      const h3([.text('Entry points')]),
+      p(
         rich(
-          'The `firebase_options*.dart` files `flutterfire configure` writes, as `firebase.json` records them.',
+          'Some declarations are only called from code a tool generates, so '
+          'nothing in the package references them: `flutter test` runs '
+          '`testExecutable`, flutter_tools calls `MyPlugin.registerWith()`. '
+          'ciach knows about `main` and `testExecutable`, and reads these from '
+          "the project's own config files:",
         ),
       ),
-    ]),
-    const p([
-      .text(
-        'Every package under the scanned path is read from its own files, so '
-        'scanning the root of a pub workspace or monorepo covers all of its '
-        'members.',
+      docsTable(
+        columns: const ['Source', 'Entry point'],
+        rows: [
+          for (final (source, entryPoint) in _entryPoints)
+            [span(rich(source)), span(rich(entryPoint))],
+        ],
       ),
-    ]),
-  ],
-);
+      p(
+        rich(
+          'List any other entry points under `entry-points:` in `ciach.yaml`:',
+        ),
+      ),
+      const CodeBlock(
+        source: _entryPointsConfig,
+        language: .yaml,
+        title: 'ciach.yaml',
+      ),
+      p(
+        rich(
+          'A matching declaration is neither reported nor removed. A member '
+          "rule also keeps its type, while the type's other members are still "
+          'checked. A rule that names a class or extension type also keeps its '
+          'unnamed constructor, but not its named ones. Name a constructor the '
+          'way the report does: `MyWidget.new` or `MyWidget.named`. `-v` names '
+          'each skipped entry point.',
+        ),
+      ),
+      const h3([.text('Ignore markers')]),
+      p(
+        rich(
+          'A `// ciach:ignore` comment keeps a declaration from being reported or removed:',
+        ),
+      ),
+      const CodeBlock(source: _markers, language: .dart, copyText: ''),
+      p(
+        rich(
+          '`// ciach:ignore-file` anywhere in a file keeps the whole file: '
+          'ciach still counts the uses of other code in it, but reports and '
+          'changes nothing in it.',
+        ),
+      ),
+      p(
+        rich(
+          'Any declaration can be marked, enum values and constructors '
+          "included. Marking a member also keeps its type, while the type's "
+          'other members are still checked. Free text may follow a marker, as '
+          'a reason. Only `//` comments count: a marker in a doc comment, a '
+          'block comment or a string does nothing. ciach warns about a marker '
+          'that keeps nothing, an unclosed range, and an unknown `// ciach:` '
+          'word, and `-v` names each kept declaration.',
+        ),
+      ),
+      const h3([.text('Generated files')]),
+      const p([
+        .text(
+          'Besides files named like generated code or carrying a generated-code banner, ciach treats these as generated:',
+        ),
+      ]),
+      ul(classes: Prose.checklist.name, [
+        li(
+          rich(
+            'The files build_runner writes into the source tree, read from the '
+            'outputs the applied builders declare in `build.yaml` and every '
+            '`build.<name>.yaml`.',
+          ),
+        ),
+        li(
+          rich(
+            'The files `flutter gen-l10n` writes, as `l10n.yaml` configures '
+            'them. The template file is scanned instead, and its unused '
+            'messages reported; `--no-unused-translations` treats it as '
+            'generated too.',
+          ),
+        ),
+        li(
+          rich(
+            'The `firebase_options*.dart` files `flutterfire configure` writes, as `firebase.json` records them.',
+          ),
+        ),
+      ]),
+      const p([
+        .text(
+          'Every package under the scanned path is read from its own files, so '
+          'scanning the root of a pub workspace or monorepo covers all of its '
+          'members.',
+        ),
+      ]),
+    ],
+  );
+}

@@ -34,58 +34,61 @@ Component _markOf(bool yes) => yes
         const [.text('—')],
       );
 
-Component comparedSection() => DocSection(
-  id: 'compared',
-  heading: 'Compared with the analyzer',
-  children: [
-    const p([
-      .text(
-        'The Dart analyzer already flags unused private declarations through ',
-      ),
-      code([.text('unused_element')]),
-      .text(
-        ' and friends, one library at a time. ciach starts where that stops.',
-      ),
-    ]),
-    div(classes: DocsTable.wrap.name, [
-      table(classes: (DocsTable.table + DocsTable.compare).name, [
-        const thead([
-          tr([
-            th(attributes: {'scope': 'col'}, [.text('')]),
-            th(
-              attributes: {'scope': 'col'},
-              [
-                code([.text('dart analyze')]),
-              ],
-            ),
-            th(
-              attributes: {'scope': 'col'},
-              [
-                code([.text('ciach')]),
-              ],
-            ),
+class const ComparedSection({super.key}) extends StatelessComponent {
+  @override
+  Component build(BuildContext context) => DocSection(
+    id: 'compared',
+    heading: 'Compared with the analyzer',
+    children: [
+      const p([
+        .text(
+          'The Dart analyzer already flags unused private declarations through ',
+        ),
+        code([.text('unused_element')]),
+        .text(
+          ' and friends, one library at a time. ciach starts where that stops.',
+        ),
+      ]),
+      div(classes: DocsTable.wrap.name, [
+        table(classes: (DocsTable.table + DocsTable.compare).name, [
+          const thead([
+            tr([
+              th(attributes: {'scope': 'col'}, [.text('')]),
+              th(
+                attributes: {'scope': 'col'},
+                [
+                  code([.text('dart analyze')]),
+                ],
+              ),
+              th(
+                attributes: {'scope': 'col'},
+                [
+                  code([.text('ciach')]),
+                ],
+              ),
+            ]),
+          ]),
+          tbody([
+            for (final (capability, analyzer, ciach) in _comparison)
+              tr([
+                th(attributes: const {'scope': 'row'}, [.text(capability)]),
+                td(
+                  attributes: const {'data-label': 'dart analyze'},
+                  [_markOf(analyzer)],
+                ),
+                td(attributes: const {'data-label': 'ciach'}, [_markOf(ciach)]),
+              ]),
           ]),
         ]),
-        tbody([
-          for (final (capability, analyzer, ciach) in _comparison)
-            tr([
-              th(attributes: const {'scope': 'row'}, [.text(capability)]),
-              td(
-                attributes: const {'data-label': 'dart analyze'},
-                [_markOf(analyzer)],
-              ),
-              td(attributes: const {'data-label': 'ciach'}, [_markOf(ciach)]),
-            ]),
-        ]),
       ]),
-    ]),
-    const p([
-      .text(
-        'Both resolve references the same way, because ciach asks '
-        'the analysis server. The difference is scope and the '
-        'removal step. Dart Code Metrics covers unused code as well, '
-        'as part of a larger commercial toolset.',
-      ),
-    ]),
-  ],
-);
+      const p([
+        .text(
+          'Both resolve references the same way, because ciach asks '
+          'the analysis server. The difference is scope and the '
+          'removal step. Dart Code Metrics covers unused code as well, '
+          'as part of a larger commercial toolset.',
+        ),
+      ]),
+    ],
+  );
+}

@@ -42,97 +42,100 @@ const _reportOnly = [
   ('A type that only doc comments mention', 'the links would dangle'),
 ];
 
-Component removingSection() => DocSection(
-  id: 'removing',
-  heading: 'Removing dead code',
-  children: [
-    p(
-      rich(
-        '`--remove` deletes every reported declaration, doc comment and '
-        'annotations included, after showing what it is about to remove and '
-        'asking:',
-      ),
-    ),
-    const CodeBlock(source: _prompt, language: .console, copyText: ''),
-    p(
-      rich(
-        '`--force` skips the prompt. With no terminal to confirm on and no '
-        '`--force`, nothing is removed. Run `dart format` afterward: removal '
-        "cuts along the analyzer's syntax, so `int a = 1, b = 2;` loses just "
-        "`b` or the whole statement, but it doesn't tidy up spacing.",
-      ),
-    ),
-    p(
-      rich(
-        'Removal acts on whatever the finder reports, so it inherits the '
-        'same false-positive risk, which `--also overrides,operators` widens '
-        'considerably. Review the diff, as you would after any automated '
-        'refactor.',
-      ),
-    ),
-    const h3([.text('What goes with a removed declaration')]),
-    ul(classes: Prose.checklist.name, [
-      li(
+class const RemovingSection({super.key}) extends StatelessComponent {
+  @override
+  Component build(BuildContext context) => DocSection(
+    id: 'removing',
+    heading: 'Removing dead code',
+    children: [
+      p(
         rich(
-          'Its overrides, wherever they live: a call through any subclass '
-          'would have referenced the member, so they are dead too.',
+          '`--remove` deletes every reported declaration, doc comment and '
+          'annotations included, after showing what it is about to remove and '
+          'asking:',
         ),
       ),
-      li(
+      const CodeBlock(source: _prompt, language: .console, copyText: ''),
+      p(
         rich(
-          'A file left with only `library`, `import` or `part of` '
-          'directives, an empty file found before removal, and the `import`s '
-          'of them elsewhere. A file that still `export`s or owns a `part` '
-          'stays.',
+          '`--force` skips the prompt. With no terminal to confirm on and no '
+          '`--force`, nothing is removed. Run `dart format` afterward: removal '
+          "cuts along the analyzer's syntax, so `int a = 1, b = 2;` loses just "
+          "`b` or the whole statement, but it doesn't tidy up spacing.",
         ),
       ),
-      li(
+      p(
         rich(
-          'A class or mixin whose members are all unused and that only '
-          '`with` or `implements` clauses name is reported and removed whole, '
-          'from those clauses too. If other code names it, say as a type or '
-          'after `extends`, if it is generic, or if it is the only mixin of '
-          '`class A = B with M;`, only its members go, and the summary lists '
-          'the emptied declaration.',
+          'Removal acts on whatever the finder reports, so it inherits the '
+          'same false-positive risk, which `--also overrides,operators` widens '
+          'considerably. Review the diff, as you would after any automated '
+          'refactor.',
         ),
       ),
-    ]),
-    const h3([.text('Comments next to removed code')]),
-    p(
-      rich(
-        'A plain `//` comment right above a removed declaration stays, '
-        'because it may be about the code around it rather than the '
-        'declaration. The summary lists each such comment with its line in '
-        'the changed file, so you can check whether it still belongs. A '
-        'comment with a blank line after it is not listed, and neither is a '
-        'comment for a tool, such as `// ciach:ignore-end` or '
-        '`// dart format on`.',
+      const h3([.text('What goes with a removed declaration')]),
+      ul(classes: Prose.checklist.name, [
+        li(
+          rich(
+            'Its overrides, wherever they live: a call through any subclass '
+            'would have referenced the member, so they are dead too.',
+          ),
+        ),
+        li(
+          rich(
+            'A file left with only `library`, `import` or `part of` '
+            'directives, an empty file found before removal, and the `import`s '
+            'of them elsewhere. A file that still `export`s or owns a `part` '
+            'stays.',
+          ),
+        ),
+        li(
+          rich(
+            'A class or mixin whose members are all unused and that only '
+            '`with` or `implements` clauses name is reported and removed whole, '
+            'from those clauses too. If other code names it, say as a type or '
+            'after `extends`, if it is generic, or if it is the only mixin of '
+            '`class A = B with M;`, only its members go, and the summary lists '
+            'the emptied declaration.',
+          ),
+        ),
+      ]),
+      const h3([.text('Comments next to removed code')]),
+      p(
+        rich(
+          'A plain `//` comment right above a removed declaration stays, '
+          'because it may be about the code around it rather than the '
+          'declaration. The summary lists each such comment with its line in '
+          'the changed file, so you can check whether it still belongs. A '
+          'comment with a blank line after it is not listed, and neither is a '
+          'comment for a tool, such as `// ciach:ignore-end` or '
+          '`// dart format on`.',
+        ),
       ),
-    ),
-    p(
-      rich(
-        'An `// ignore:`, `// expect_lint:` or `// cspell:disable-next-line` '
-        'comment right above a removed declaration goes with it, since it '
-        'only applies to the next line. So does a `//` comment at the end of '
-        'the last line of a removed declaration, or of a removed `import`. A '
-        'comment for a tool there, such as `// coverage:ignore-start`, '
-        'stays, so the range it opens or closes keeps both ends.',
+      p(
+        rich(
+          'An `// ignore:`, `// expect_lint:` or `// cspell:disable-next-line` '
+          'comment right above a removed declaration goes with it, since it '
+          'only applies to the next line. So does a `//` comment at the end of '
+          'the last line of a removed declaration, or of a removed `import`. A '
+          'comment for a tool there, such as `// coverage:ignore-start`, '
+          'stays, so the range it opens or closes keeps both ends.',
+        ),
       ),
-    ),
-    const h3([.text('Report-only findings')]),
-    p(
-      rich(
-        'Findings that cannot be removed without breaking the build are '
-        'report-only, marked `unsafe to auto-remove — remove manually` and '
-        'left in place.',
+      const h3([.text('Report-only findings')]),
+      p(
+        rich(
+          'Findings that cannot be removed without breaking the build are '
+          'report-only, marked `unsafe to auto-remove — remove manually` and '
+          'left in place.',
+        ),
       ),
-    ),
-    docsTable(
-      columns: const ['Report-only finding', 'Why'],
-      rows: [
-        for (final (finding, why) in _reportOnly)
-          [span(rich(finding)), span(rich(why))],
-      ],
-    ),
-  ],
-);
+      docsTable(
+        columns: const ['Report-only finding', 'Why'],
+        rows: [
+          for (final (finding, why) in _reportOnly)
+            [span(rich(finding)), span(rich(why))],
+        ],
+      ),
+    ],
+  );
+}
