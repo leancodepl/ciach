@@ -19,6 +19,7 @@ import 'package:analyzer/error/error.dart';
 import 'package:analyzer_plugin/utilities/change_builder/change_builder_core.dart';
 import 'package:analyzer_plugin/utilities/fixes/fixes.dart';
 import 'package:analyzer_plugin/utilities/range_factory.dart';
+import 'package:collection/collection.dart';
 
 /// Flags a loop `for (var i = 0; i < xs.length; i++)` over a `List` whose
 /// body reads `xs[i]`, doesn't use `xs` otherwise and doesn't change `i`.
@@ -70,9 +71,13 @@ class _Visitor(final AnalysisRule rule, final RuleContext context)
 }
 
 /// Replaces the header of the flagged loop and each `xs[i]` in its body with
-/// the element.
+/// the element, and removes a `final x = xs[i];` whose name the element takes.
+/// A new name is one linked edit, so that an editor lets the user rename every
+/// copy at once.
 class LoopOverElements({required super.context})
     extends ResolvedCorrectionProducer {
+  static const _elementGroup = 'element';
+
   static const kind = FixKind(
     'ciach_lints.fix.loopOverElements',
     DartFixKindPriority.standard,
@@ -101,16 +106,35 @@ class LoopOverElements({required super.context})
   Future<void> compute(ChangeBuilder builder) async {
     if ((node, _rewrite) case (final ForLoop<AstNode> loop, final rewrite?)) {
       await builder.addDartFileEdit(file, (builder) {
-        builder.addSimpleReplacement(
+        void writeElement(EditBuilder builder) {
+          if (rewrite.declaration == null) {
+            builder.addSimpleLinkedEdit(_elementGroup, rewrite.element);
+          } else {
+            builder.write(rewrite.element);
+          }
+        }
+
+        builder.addReplacement(
           range.startEnd(loop.leftParenthesis, loop.rightParenthesis),
-          '(${rewrite.header})',
+          (builder) {
+            builder.write('(${rewrite.beforeElement}');
+            writeElement(builder);
+            builder.write('${rewrite.afterElement})');
+          },
         );
+        if (rewrite.declaration case final declaration?) {
+          builder.addDeletion(
+            range.endEnd(declaration.beginToken.previous!, declaration),
+          );
+        }
         for (final read in rewrite.reads) {
-          final (replaced, code) = switch (_bracedInterpolation(read)) {
-            final interpolation? => (interpolation, '\$${rewrite.element}'),
-            null => (read, rewrite.element),
-          };
-          builder.addSimpleReplacement(range.node(replaced), code);
+          final interpolation = _bracedInterpolation(read);
+          builder.addReplacement(range.node(interpolation ?? read), (builder) {
+            if (interpolation != null) {
+              builder.write(r'$');
+            }
+            writeElement(builder);
+          });
         }
       });
     }
@@ -134,14 +158,19 @@ InterpolationExpression? _bracedInterpolation(IndexExpression read) {
   return null;
 }
 
-/// The [header] that loops over the elements of a flagged loop's list, the
-/// name of the [element] in it, and the [reads] of `xs[i]` that the element
-/// replaces.
+/// The new header of a flagged loop, which declares the [element] between
+/// [beforeElement] and [afterElement], the `final x = xs[i];` [declaration]
+/// that the element replaces, if any, and the other [reads] of `xs[i]`.
 class IndexedLoopRewrite._({
-  required final String header,
+  required final String beforeElement,
   required final String element,
+  required final String afterElement,
+  required final VariableDeclarationStatement? declaration,
   required final List<IndexExpression> reads,
 }) {
+  /// The new header, such as `final (i, x) in xs.indexed`.
+  String get header => '$beforeElement$element$afterElement';
+
   /// The rewrite of [loop], or `null` when [loop] is no index loop over a
   /// `List` or its body needs the index loop.
   static IndexedLoopRewrite? of(
@@ -190,13 +219,16 @@ class IndexedLoopRewrite._({
       if (uses.blocked || uses.reads.isEmpty) {
         return null;
       }
-      final element = _elementName(list, loop);
+      final declaration = _declarationOfRead(body, uses.reads);
+      final declared = declaration?.variables.variables.single;
       return IndexedLoopRewrite._(
-        header: uses.usesIndex
-            ? 'final (${name.lexeme}, $element) in $source.indexed'
-            : 'final $element in $source',
-        element: element,
-        reads: uses.reads,
+        beforeElement: uses.usesIndex ? 'final (${name.lexeme}, ' : 'final ',
+        element: declared?.name.lexeme ?? _unusedName(loop),
+        afterElement: uses.usesIndex ? ') in $source.indexed' : ' in $source',
+        declaration: declaration,
+        reads: uses.reads
+            .whereNot((read) => read == declared?.initializer)
+            .toList(),
       );
     }
     return null;
@@ -255,22 +287,32 @@ Element? _rootOf(Expression list) => switch (list) {
   _ => null,
 };
 
-/// The name of the element in the new header: the singular of the list's
-/// last name (`candidate` for `candidates`), or `element` when the name
-/// isn't a regular plural or its singular is a reserved word (`classes`). A name that the loop already contains gets a
-/// number, so that the element shadows nothing that the loop reads.
-String _elementName(Expression list, ForLoop<AstNode> loop) {
-  final last = switch (list) {
-    SimpleIdentifier(:final name) => name,
-    PrefixedIdentifier(:final identifier) => identifier.name,
-    PropertyAccess(:final propertyName) => propertyName.name,
-    _ => '',
-  };
-  final base = switch (_singularOf(last)) {
-    final singular? when Keyword.keywords[singular]?.isReservedWord != true =>
-      singular,
-    _ => 'element',
-  };
+/// The first statement in the block of a loop with the [body] that is
+/// `final x = xs[i];`, one of [reads] with no type, or `null`. The element can
+/// take its name.
+VariableDeclarationStatement? _declarationOfRead(
+  AstNode body,
+  List<IndexExpression> reads,
+) => switch (body) {
+  Block(:final statements) =>
+    statements.whereType<VariableDeclarationStatement>().firstWhereOrNull(
+      (statement) => switch (statement.variables) {
+        VariableDeclarationList(
+          isFinal: true,
+          lateKeyword: null,
+          type: null,
+          variables: [VariableDeclaration(:final IndexExpression initializer)],
+        ) =>
+          reads.contains(initializer),
+        _ => false,
+      },
+    ),
+  _ => null,
+};
+
+/// `element`, with a number when [loop] already contains that name, so that
+/// the element shadows nothing that the loop reads.
+String _unusedName(ForLoop<AstNode> loop) {
   final taken = {
     for (
       Token? token = loop.beginToken;
@@ -279,32 +321,11 @@ String _elementName(Expression list, ForLoop<AstNode> loop) {
     )
       if (token.isIdentifier) token.lexeme,
   };
-  if (!taken.contains(base)) {
-    return base;
-  }
   return Iterable.generate(
     taken.length + 1,
-    (n) => '$base${n + 2}',
+    (n) => n == 0 ? 'element' : 'element${n + 1}',
   ).firstWhere((name) => !taken.contains(name));
 }
-
-/// The singular of [plural] for the regular English plurals, or `null`:
-/// `entries` → `entry`, `classes` → `class`, `xs` → `x`.
-String? _singularOf(String plural) => switch (plural) {
-  _ when plural.endsWith('ies') && plural.length > 3 =>
-    '${plural.substring(0, plural.length - 3)}y',
-  _ when RegExp(r'(ss|x|ch|sh|tus)es$').hasMatch(plural) => plural.substring(
-    0,
-    plural.length - 2,
-  ),
-  _
-      when plural.endsWith('s') &&
-          !plural.endsWith('ss') &&
-          !plural.endsWith('us') &&
-          plural.length > 1 =>
-    plural.substring(0, plural.length - 1),
-  _ => null,
-};
 
 /// The uses of a loop's [index] and of its list, whose source is
 /// [listSource], in the loop's body: the [reads] of `xs[i]`, whether the body
