@@ -48,7 +48,8 @@ entry, run `dart run tool/check_changelog.dart --pr N`; CI runs the same check.
 
 Write an entry for the people who use ciach. In one to three short, plain
 sentences, say what was added, fixed or changed, as they will see it, and keep
-it about as long as the entries around it. For a
+it about as long as the entries around it, also after a later commit adds an
+effect to it. For a
 fix, say what went wrong before. Leave out how it was implemented: no class or
 method names, internal terms or reasoning about the code.
 
