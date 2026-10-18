@@ -17,26 +17,34 @@ final class DeadSpans {
 
   /// The spans of the findings `--remove` would delete, by absolute path.
   factory DeadSpans.of(Iterable<UnusedDeclaration> findings, String rootPath) {
-    final byPath = <String, List<_Span>>{};
-    for (final finding in findings) {
-      if (finding.removalBlocked) {
-        continue;
+    final removable = findings.whereNot((finding) => finding.removalBlocked);
+    // One cut can remove the entries of several types, as ` with C, D` does.
+    final typesByClauseCut = <CoupledRemoval, Set<DeclKey>>{};
+    for (final finding in removable) {
+      for (final coupled in finding.coupledRemovals) {
+        if (coupled.kind == clauseCutKind) {
+          (typesByClauseCut[coupled] ??= {}).add(
+            .new(absoluteUnder(finding.filePath, rootPath), finding.name),
+          );
+        }
       }
-      final path = absoluteUnder(finding.filePath, rootPath);
-      byPath.putIfAbsent(path, () => []).add((
-        range: finding.fullRange,
-        owner: finding,
-        clauseEntryOf: null,
-      ));
+    }
+    final byPath = <String, List<_Span>>{};
+    for (final finding in removable) {
+      byPath
+          .putIfAbsent(absoluteUnder(finding.filePath, rootPath), () => [])
+          .add((
+            range: finding.fullRange,
+            owner: finding,
+            clauseEntriesOf: const {},
+          ));
       for (final coupled in finding.coupledRemovals) {
         byPath
             .putIfAbsent(absoluteUnder(coupled.filePath, rootPath), () => [])
             .add((
               range: coupled.fullRange,
               owner: finding,
-              clauseEntryOf: coupled.kind == clauseCutKind
-                  ? .new(path, finding.name)
-                  : null,
+              clauseEntriesOf: typesByClauseCut[coupled] ?? const {},
             ));
       }
     }
@@ -77,17 +85,14 @@ final class DeadSpans {
     Position position, {
     DeclKey? referenced,
   }) {
-    final spans = [
-      if (_byPath[path] case final inFile?)
-        for (final span in inFile)
-          if (_contains(span.range, position)) span,
-    ];
-    final inOwnClause =
-        referenced != null &&
-        spans.any((span) => span.clauseEntryOf == referenced);
+    final inFile = _byPath[path];
+    if (inFile == null) {
+      return null;
+    }
     _Span? outermost;
-    for (final span in spans) {
-      if ((!inOwnClause || span.clauseEntryOf == null) &&
+    for (final span in inFile) {
+      if (_contains(span.range, position) &&
+          !span.clauseEntriesOf.contains(referenced) &&
           (outermost == null || _isOutside(span.range, outermost.range))) {
         outermost = span;
       }
@@ -171,10 +176,10 @@ final class DeadSpans {
       Position(line: range.endLine, character: range.endColumn);
 }
 
-/// `clauseEntryOf` is the key of the type whose `with` or `implements` entry
-/// the span is, and `null` for any other span.
+/// `clauseEntriesOf` holds the keys of the types whose `with` or `implements`
+/// entries the span is, and is empty for any other span.
 typedef _Span = ({
   DeclarationRange range,
   UnusedDeclaration owner,
-  DeclKey? clauseEntryOf,
+  Set<DeclKey> clauseEntriesOf,
 });
