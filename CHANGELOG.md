@@ -1,14 +1,10 @@
 ## Unreleased
 
-- `--no-public` now also reports the unused members of a private type, such
-  as `_Foo.reset`. A member that other packages reach through a public
-  declaration, such as a subtype, a type alias or a function that returns the
-  type, counts as public.
+- `--no-public` now also reports the unused members of a private type,
+  unless a public declaration hands the type out to other packages.
   ([#135](https://github.com/leancodepl/ciach/pull/135))
-- Report an unused unnamed extension, and the unused members of one, in an
-  exported package. Before, they were left out as public API, though no other
-  library can use them. `--no-public` now reports them too, and every report
-  labels them `(private)`.
+- Report unused unnamed extensions and their members in an exported package
+  and with `--no-public`, and label them `(private)`.
   ([#160](https://github.com/leancodepl/ciach/pull/160))
 - Report unused `call` methods. Before, every `call` method was skipped,
   also one that nothing calls.
