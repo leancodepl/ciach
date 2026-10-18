@@ -120,14 +120,16 @@ extension ClauseEntries on SourceIndex {
       if (cut == null && keepsOne) {
         continue;
       }
+      final filePath = relativePosix(path, rootPath);
+      final removed = (cut ?? whole).toDeclarationRange;
       for (final entry in all.sublist(i, j)) {
         final range = entry.toDeclarationRange;
         cuts[byName[entry.start]!] = (
-          filePath: relativePosix(path, rootPath),
+          filePath: filePath,
           kind: clauseCutKind,
           range: range,
           fullRange: range,
-          cut: (cut ?? whole).toDeclarationRange,
+          cut: removed,
         );
       }
     }

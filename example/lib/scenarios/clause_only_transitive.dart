@@ -13,7 +13,8 @@ mixin Painter<T extends Shape> {
 }
 
 /// Used only as the type argument of `Labeled` in `Tile` -> USED without
-/// transitive, UNUSED with it.
+/// transitive, UNUSED with it and reported as only referenced from
+/// `Labeled`.
 abstract interface class Label {}
 
 /// Used only in the `implements` clause of `Tile` -> UNUSED (class).

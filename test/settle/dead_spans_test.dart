@@ -65,13 +65,19 @@ void main() {
     const atOther = Position(line: 3, character: 26);
 
     /// A type declared on [line] that `--remove` also removes from the
-    /// clause on line 3, where its entry spans the columns in [entry].
-    UnusedDeclaration clauseOnly(String name, int line, (int, int) entry) {
+    /// clause on line 3, where its entry starts at [startColumn] and ends at
+    /// [endColumn].
+    UnusedDeclaration clauseOnly(
+      String name,
+      int line,
+      int startColumn,
+      int endColumn,
+    ) {
       final range = (
         startLine: 3,
-        startColumn: entry.$1,
+        startColumn: startColumn,
         endLine: 3,
-        endColumn: entry.$2,
+        endColumn: endColumn,
       );
       return finding(name, (line, 0), (line, 10)).copyWith(
         coupledRemovals: [
@@ -86,8 +92,10 @@ void main() {
       );
     }
 
+    final c = clauseOnly('C', 0, 16, 22);
+    final d = clauseOnly('D', 1, 24, 32);
+
     test('keeps a reference to the type at the start of its own entry', () {
-      final c = clauseOnly('C', 0, (16, 22));
       final spans = DeadSpans.of([c], rootPath);
 
       expect(spans.ownerOf(path, atC), isNull);
@@ -95,8 +103,6 @@ void main() {
     });
 
     test('assigns a reference in type arguments to the entry holding it', () {
-      final c = clauseOnly('C', 0, (16, 22));
-      final d = clauseOnly('D', 1, (24, 32));
       for (final order in [
         [c, d],
         [d, c],
@@ -110,13 +116,7 @@ void main() {
     test('deletes a reference in a clause of a removed declaration', () {
       final held = finding('Held', (3, 0), (3, 35));
 
-      expect(
-        DeadSpans.of([
-          clauseOnly('C', 0, (16, 22)),
-          held,
-        ], rootPath).ownerOf(path, atC),
-        held,
-      );
+      expect(DeadSpans.of([c, held], rootPath).ownerOf(path, atC), held);
     });
   });
 
