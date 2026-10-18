@@ -66,10 +66,12 @@ final class DeadSpans {
   /// The outermost finding whose removal deletes [position] in [path].
   ///
   /// With [referenced], the position holds a reference to that declaration.
-  /// When the removal of [referenced] from a `with` or `implements` clause
-  /// deletes the position, no clause removal counts: removing `C` from
-  /// `with C, D` doesn't make `C` or `D` unused, but it does make `T` in
-  /// `with C<T>` unused.
+  /// `--remove` deletes a type that only `with` or `implements` clauses name
+  /// together with its entries in them, so a reference to the type in its own
+  /// entry still counts here. Otherwise the type would be reported as unused,
+  /// and `--remove` would delete it but leave the entry. In
+  /// `class A with C<T> {}`, the reference to `C` counts, and the reference to
+  /// `T` doesn't, so `T` is reported as only referenced from `C`.
   UnusedDeclaration? ownerOf(
     String path,
     Position position, {
