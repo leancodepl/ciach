@@ -51,10 +51,11 @@ Set<String> splitAlso(Iterable<String> raw) => {
       if (name.trim() case final trimmed when trimmed.isNotEmpty) trimmed,
 };
 
+/// Why the removed `operators` options are not needed.
+const operatorsReported = 'operators are reported by default now';
+
 /// The values that `also` no longer takes, each with why it is not needed.
-const _removedAlsoValues = {
-  'operators': 'operators are reported by default now, so drop it',
-};
+const _removedAlsoValues = {'operators': '$operatorsReported, so drop it'};
 
 /// The first of [values] that `also` no longer takes, with why it is not
 /// needed, or `null` when there is none.

@@ -50,7 +50,7 @@ String removedOptionAdvice(
     ('fail-public', false) =>
       'every finding counts toward the exit code; to leave out what other packages can import, list those packages in `exported-packages`',
     ('operators', false) =>
-      'operators are reported by default now; to keep one, mark it with `// ciach:ignore`',
+      '$operatorsReported; to keep one, mark it with `// ciach:ignore`',
     _ => switch (_replacementFor(key, value)) {
       null => 'that is the default now, so drop it',
       final replacement when inConfig =>

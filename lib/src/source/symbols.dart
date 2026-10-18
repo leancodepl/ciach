@@ -180,7 +180,6 @@ T? lastStartingAtOrBefore<T>(
   return lo == 0 ? null : items[lo - 1];
 }
 
-/// Position geometry against a symbol's source range.
 /// The symbol among [symbols], which are in source order, whose range covers
 /// [position].
 DocumentSymbol? symbolCovering(
@@ -209,6 +208,7 @@ DocumentSymbol? symbolNamedAt(
   ),
 };
 
+/// Position geometry against a symbol's source range.
 extension PositionGeometry on Position {
   /// Whether this position is at or before [end].
   bool atOrBefore(Position end) =>

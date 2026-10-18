@@ -7,7 +7,9 @@
 ciach now finds the uses of operators, so it reports an unused operator like
 any other method, and `--also operators` is gone. Drop `operators` from
 `--also` and from `also:` in `ciach.yaml`. To keep an operator that ciach
-reports, mark it with [`// ciach:ignore`](README.md#ignore-markers).
+reports, mark it with [`// ciach:ignore`](README.md#ignore-markers). Code
+that uses ciach as a library drops the `skipOperators` argument of
+`FinderOptions`.
 
 ## From 0.6 to 0.7
 

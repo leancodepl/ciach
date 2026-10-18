@@ -62,6 +62,8 @@ final class OperatorHierarchy {
 
 /// The override hierarchies of [operators] whose members are all inside
 /// [analysisRoot]. Two operators in one hierarchy share it.
+///
+/// `==` is always left out: every `==` overrides `Object.==`.
 Future<List<OperatorHierarchy>> operatorHierarchies(
   LspClient client,
   List<Candidate> operators, {
@@ -69,28 +71,48 @@ Future<List<OperatorHierarchy>> operatorHierarchies(
   required int concurrency,
 }) async {
   final lookup = _HierarchyLookup(client, analysisRoot);
-  final membersOf = await mapPooled(operators, concurrency, lookup.membersOf);
-  final hierarchies = <OperatorHierarchy>[];
+  final checked = operators.where((o) => o.symbol.name != '==').toList();
+  final membersOf = await mapPooled(checked, concurrency, lookup.membersOf);
+  var hierarchies = <OperatorHierarchy>[];
   for (final (i, members) in membersOf.indexed) {
     if (members == null) {
       continue;
     }
-    // Both lookups found the whole hierarchy, so their members are the same.
-    if (hierarchies.firstWhereOrNull(
-          (hierarchy) => hierarchy.members.containsAll(members),
-        )
-        case final hierarchy?) {
-      hierarchy.operators.add(operators[i]);
-    } else {
-      hierarchies.add(.new(members, [operators[i]]));
-    }
+    // Two lookups in one hierarchy can stop at different members, such as
+    // when the server lists an override for one member and not for another,
+    // so the hierarchies that share a member are merged.
+    final overlapping = hierarchies
+        .where((hierarchy) => hierarchy.members.any(members.contains))
+        .toList();
+    hierarchies = [
+      ...hierarchies.whereNot(overlapping.contains),
+      .new(
+        {...members, for (final hierarchy in overlapping) ...hierarchy.members},
+        [
+          for (final hierarchy in overlapping) ...hierarchy.operators,
+          checked[i],
+        ],
+      ),
+    ];
   }
   return hierarchies;
 }
 
 /// An operator's name and whether it is unary: a class can declare both
 /// `-()` and `-(other)`.
-typedef _OperatorKind = ({String name, bool isUnary});
+final class _OperatorKind {
+  const _OperatorKind(this.name, {required this.isUnary});
+
+  final String name;
+  final bool isUnary;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _OperatorKind && other.name == name && other.isUnary == isUnary;
+
+  @override
+  int get hashCode => Object.hash(name, isUnary);
+}
 
 /// The requests that find the members of a hierarchy, with the answers that
 /// the hierarchies of several operators share.
@@ -132,8 +154,8 @@ final class _HierarchyLookup {
   /// [operator] and every member of its hierarchy, or `null` when one of them
   /// is outside the analysis root, such as `Object.==`.
   Future<Set<DeclarationName>?> membersOf(Candidate operator) async {
-    final kind = (
-      name: operator.symbol.name,
+    final kind = _OperatorKind(
+      operator.symbol.name,
       isUnary: operator.symbol.hasNoParameters,
     );
     final start = DeclarationName(
@@ -176,7 +198,7 @@ final class _HierarchyLookup {
     _OperatorKind kind,
   ) async =>
       switch (symbolCovering(await _symbols[member.uri], member.range.start)) {
-        final type? when type.kind != .namespace =>
+        DocumentSymbol(kind: != .namespace) && final type =>
           await _overridden[(
             type: .new(member.uri, type.selectionRange),
             operator: kind,

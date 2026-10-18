@@ -98,31 +98,40 @@ final class ReferenceFetch {
     required String analysisRoot,
   }) async {
     final changes = UnsavedChanges(client, _sources);
-    final callUses = await findImplicitCalls(
-      client: client,
-      sources: _sources,
-      changes: changes,
-      calls: candidates.where((c) => c.symbol.isCallMethod).toList(),
-      concurrency: options.concurrency,
-    );
-    final operatorUses = await findOperatorUses(
-      client: client,
-      sources: _sources,
-      changes: changes,
-      operators: candidates.where((c) => c.symbol.isOperator).toList(),
-      analysisRoot: analysisRoot,
-      concurrency: options.concurrency,
-    );
-    var usesOf = {...?callUses, ...?operatorUses};
+    Map<Candidate, List<Location>>? callUses;
+    Map<Candidate, List<Location>>? operatorUses;
     try {
+      callUses = await findImplicitCalls(
+        client: client,
+        sources: _sources,
+        changes: changes,
+        calls: candidates.where((c) => c.symbol.isCallMethod).toList(),
+        concurrency: options.concurrency,
+      );
+      // The operator lookup asks about positions in the files on disk.
+      await changes.restore();
+      operatorUses = await findOperatorUses(
+        client: client,
+        sources: _sources,
+        changes: changes,
+        operators: candidates.where((c) => c.symbol.isOperator).toList(),
+        analysisRoot: analysisRoot,
+        concurrency: options.concurrency,
+      );
       await changes.restore();
     } on LspRequestException catch (e) {
       // A lookup that failed has recorded the problem already.
-      if (usesOf.isNotEmpty) {
-        recordProblem(_implicitUsesUnchecked, e, path: usesOf.keys.first.path);
+      if ({...?callUses, ...?operatorUses}.keys.firstOrNull
+          case final candidate?) {
+        recordProblem(_implicitUsesUnchecked, e, path: candidate.path);
       }
-      usesOf = const {};
+      callUses = operatorUses = null;
+    } finally {
+      // After a failure, the content on disk is sent without waiting for its
+      // analysis.
+      changes.show(const {});
     }
+    final usesOf = {...?callUses, ...?operatorUses};
     // Each lookup has a key for every candidate that it checked.
     final checked = [
       for (final (i, candidate) in candidates.indexed)
