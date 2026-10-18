@@ -34,10 +34,10 @@ lib/web.dart  (a conditional-import variant: remove its `if` clause and the file
 
 const _transitive = '''
 lib/report.dart
-  12:6  function  _buildReport   (private)
-  20:6  function  _formatRow     (private)  (only referenced from dead _buildReport (lib/report.dart:12))
-  40:6  function  _ping          (private)  (only referenced from dead _pong (lib/report.dart:42))
-  42:6  function  _pong          (private)  (only referenced from dead _ping (lib/report.dart:40))''';
+  12:6  function  _build      (private)
+  20:6  function  _formatRow  (private)  (only referenced from dead _build (lib/report.dart:12))
+  40:6  function  _ping       (private)  (only referenced from dead _pong (lib/report.dart:42))
+  42:6  function  _pong       (private)  (only referenced from dead _ping (lib/report.dart:40))''';
 
 class const ReportSection({super.key}) extends StatelessComponent {
   @override
