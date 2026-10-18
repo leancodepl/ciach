@@ -1,5 +1,8 @@
 ## Unreleased
 
+- `--no-public` now also reports the unused members of a private type,
+  unless a public declaration hands the type out to other packages.
+  ([#135](https://github.com/leancodepl/ciach/pull/135))
 - Report unused unnamed extensions and their members in an exported package
   and with `--no-public`, and label them `(private)`.
   ([#160](https://github.com/leancodepl/ciach/pull/160))

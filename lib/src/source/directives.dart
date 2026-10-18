@@ -1,4 +1,5 @@
 import 'package:ciach/src/source/comment_stripping.dart';
+import 'package:ciach/src/util/reachability.dart';
 import 'package:ciach/src/workspace/packages.dart';
 import 'package:collection/collection.dart';
 
@@ -46,6 +47,46 @@ extension type Directive._(RegExpMatch _match) {
         path,
   ];
 }
+
+/// The library that the file at [path] belongs to: the file that its
+/// `part of` directive names, through parts of parts, or [path] itself.
+/// `null` when a directive names a library by its name, not its file, or when
+/// the `part of` directives form a cycle, which doesn't compile.
+String? libraryOf(String path, PackageResolver packages) {
+  final seen = <String>{};
+  for (String? file = path; file != null && seen.add(file);) {
+    final partOf = _partDirectivesIn(
+      file,
+    ).firstWhereOrNull((directive) => directive.isPartOf);
+    if (partOf == null) {
+      return file;
+    }
+    file = partOf.pathsFrom(file, packages).firstOrNull;
+  }
+  return null;
+}
+
+/// The files of [library]: itself and its parts, through parts of parts.
+Set<String> filesOfLibrary(String library, PackageResolver packages) =>
+    reachableFrom(
+      [library],
+      (path) => [
+        for (final directive in _partDirectivesIn(path))
+          if (!directive.isPartOf) ...directive.pathsFrom(path, packages),
+      ],
+    );
+
+/// The `part` and `part of` directives of the file at [path].
+Iterable<Directive> _partDirectivesIn(String path) {
+  final content = readSource(path) ?? '';
+  // Only a file that may hold one is parsed: stripping comments is slow.
+  if (!_maybePart.hasMatch(content)) {
+    return const [];
+  }
+  return Directive.allIn(content).where((d) => d.keyword == 'part');
+}
+
+final _maybePart = RegExp(r'^[ \t]*part\b', multiLine: true);
 
 /// Whether [content] has nothing but comments and `library`, `import` or
 /// `part of` directives. An `export` or `part` directive counts as content: the

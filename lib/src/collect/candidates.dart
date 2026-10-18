@@ -55,6 +55,7 @@ final class Candidate {
     required this.isPreventInstantiationCtor,
     this.containerSymbol,
     this.containerOutline,
+    this.isInExposedType = false,
   });
 
   final Uri uri;
@@ -85,6 +86,12 @@ final class Candidate {
 
   bool get isExtensionMember => containerSymbol?.kind == .namespace;
 
+  /// Whether this is a member of a private type that a public declaration
+  /// of its library exposes, so other libraries can reach it: a value of the
+  /// type lets them call its instance members, and a type alias names all of
+  /// them.
+  final bool isInExposedType;
+
   bool get isInUnnamedExtension =>
       containerOutline?.element.isUnnamedExtension ?? false;
 
@@ -92,6 +99,20 @@ final class Candidate {
   /// other library can use.
   bool get belongsToUnnamedExtension =>
       isUnnamedExtension || isInUnnamedExtension;
+
+  /// Whether this declaration's own name starts with `_`. An unnamed
+  /// constructor's name is `new`.
+  bool get hasPrivateName => isPrivateName(symbol.declarationName(container));
+
+  /// Whether this is a member of a type whose name starts with `_` and that
+  /// no public declaration of its library exposes.
+  bool get isInPrivateType =>
+      !isInExposedType && (container?.let(isPrivateName) ?? false);
+
+  /// Whether this declaration is private: by its own name, as an unnamed
+  /// extension or one of its members, or as a member of a private type.
+  bool get isPrivate =>
+      hasPrivateName || belongsToUnnamedExtension || isInPrivateType;
 
   /// Whether this is a class, enum, mixin or extension type. Extensions are
   /// left out because code uses their members without naming them.

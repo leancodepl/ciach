@@ -975,16 +975,85 @@ void main() {
     });
   });
 
-  test('a member of a private class is reported as private', () async {
+  test(
+    'a member of a private type is reported as private, unless a public declaration exposes the type',
+    () async {
+      final result = await runFinder(
+        include: const ['lib/scenarios/private_types.dart'],
+        exclude: const [],
+      );
+      expect(
+        [for (final d in result.unused) (d.qualifiedName, d.isPrivate)],
+        [
+          ('_Settings.new', true),
+          ('_Settings.reset', true),
+          ('_Painter.repaint', true),
+          ('_Doubling.quadrupled', true),
+          ('_Level.isLow', true),
+          ('_Id.next', true),
+          ('_Root.deep', false),
+          ('_Root.helper', true),
+          // Only its `implements` clause uses it, so it goes as a whole.
+          ('_Measured', true),
+          ('_Host.host', false),
+          ('_Aliased.new', false),
+          ('_Aliased.create', false),
+          ('_Aliased.aliased', false),
+          ('_Aliased.util', false),
+          ('_PartAliased.partAliased', false),
+          ('_InPart.parted', false),
+          ('_Tier.isTop', false),
+          ('_Tool.use', false),
+          ('_Tool.make', true),
+          ('_Tool.part', false),
+          ('_Part.fit', false),
+          ('_Item.weigh', false),
+          ('_Gauge.calibrate', false),
+          ('_Crate.create', true),
+          ('_Crate.open', false),
+          ('_Visited.visit', false),
+          ('_Held.grip', false),
+        ],
+      );
+    },
+  );
+
+  test('--no-public reports the members of a private type', () async {
     final result = await runFinder(
+      includePublic: false,
       include: const ['lib/scenarios/private_types.dart'],
       exclude: const [],
     );
-    expect(
-      [for (final d in result.unused) (d.qualifiedName, d.isPrivate)],
-      [('_Settings.new', true), ('_Settings.reset', true)],
-    );
+    expect(result.unused.map((d) => d.qualifiedName), [
+      '_Settings.new',
+      '_Settings.reset',
+      '_Painter.repaint',
+      '_Doubling.quadrupled',
+      '_Level.isLow',
+      '_Id.next',
+      '_Root.helper',
+      '_Tool.make',
+      '_Crate.create',
+    ]);
   });
+
+  for (final (option, includePublic) in [
+    ('--no-public', false),
+    ('--public', true),
+  ]) {
+    test(
+      '$option keeps the members of a private class that an exported package hands out',
+      () async {
+        final result = await runFinder(
+          exportedPackages: const ['**'],
+          includePublic: includePublic,
+          include: const ['lib/scenarios/private_types_leaked.dart'],
+          exclude: const [],
+        );
+        expect(result.unused.map((d) => d.qualifiedName), ['_Tool._spare']);
+      },
+    );
+  }
 
   group('an unnamed extension and its members', () {
     const fixture = ['lib/scenarios/unnamed_extensions.dart'];

@@ -8,7 +8,6 @@ import 'package:ciach/src/settle/remove_safety.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/source/syntax_rules.dart';
-import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Location;
 
@@ -194,10 +193,7 @@ final class Verdict {
       column: start.character + 1,
       // A member of a private type is as private as the type, and no other
       // library can use an unnamed extension or its members.
-      isPrivate:
-          isPrivateName(name) ||
-          (container?.let(isPrivateName) ?? false) ||
-          candidate.belongsToUnnamedExtension,
+      isPrivate: candidate.isPrivate,
       container: container,
       isEnumValue: candidate.isEnumValue,
       range: symbol.declarationRange,

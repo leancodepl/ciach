@@ -118,15 +118,8 @@ extension SymbolChecks on DocumentSymbol {
   /// [container] already carries the class, so strip that prefix and report the
   /// unnamed constructor as `new` — yielding `Foo.named` / `Foo.new` once
   /// combined with the container, rather than `Foo.Foo.named` / `Foo.Foo`.
-  String declarationName(String? container) {
-    if (kind != .constructor) {
-      return name;
-    }
-    if (container != null && name.startsWith('$container.')) {
-      return name.substring(container.length + 1);
-    }
-    return name.isEmpty || name == container ? 'new' : name;
-  }
+  String declarationName(String? container) =>
+      kind == .constructor ? constructorName(name, container) : name;
 
   /// The symbol's code, body included.
   DeclarationRange get declarationRange => range.toDeclarationRange;
@@ -203,3 +196,13 @@ extension PositionGeometry on Position {
 /// its simple segment starts with `_`.
 bool isPrivateName(String name) =>
     (name.contains('.') ? name.split('.').last : name).startsWith('_');
+
+/// The name of the constructor that the analysis server names [name] in the
+/// class [container]: `named` for `Foo.named`, and `new` for `Foo`, the
+/// unnamed constructor.
+String constructorName(String name, String? container) {
+  if (container != null && name.startsWith('$container.')) {
+    return name.substring(container.length + 1);
+  }
+  return name.isEmpty || name == container ? 'new' : name;
+}

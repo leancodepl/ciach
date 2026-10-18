@@ -94,7 +94,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/public',
       defaultsTo: true,
       helpText:
-          'Report unused public declarations too. Disable to report only private declarations, which are the highest-confidence dead code: those whose name starts with an underscore, and unnamed extensions and their members.',
+          'Report unused public declarations too. Disable to report only private declarations, which are the highest-confidence dead code: those whose name starts with an underscore, unnamed extensions and their members, and the members of such types that no public declaration hands out.',
     ),
   ),
   exportedPackages(

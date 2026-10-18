@@ -13,6 +13,10 @@ final class CachedMap<K, V> {
       ? _values[key] as V
       : _values[key] = _compute(key);
 
+  /// The value for [key], as [operator []] reads it, so that the map can be
+  /// torn off where a function is expected: `keys.map(cache.get)`.
+  V get(K key) => this[key];
+
   /// Caches [value] for [key] in place of computing it.
   void operator []=(K key, V value) => _values[key] = value;
 

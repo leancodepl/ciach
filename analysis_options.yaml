@@ -2,6 +2,11 @@
 # them run the same lint rules and plugins.
 include: package:leancode_lint/analysis_options.yaml
 
+linter:
+  rules:
+    # pana scores the package with package:lints, which has this rule.
+    implicit_call_tearoffs: true
+
 plugins:
   # Pinned to the master commit adding `cognitive_complexity`; go back to a
   # version constraint once it is published.
