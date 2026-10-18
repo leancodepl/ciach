@@ -26,10 +26,10 @@ for (final decl in result.unused) {
 
 class const LibrarySection({super.key}) extends StatelessComponent {
   @override
-  Component build(BuildContext context) => DocSection(
+  Component build(BuildContext context) => const DocSection(
     id: 'library',
     heading: 'Library API',
-    children: const [
+    children: [
       p([
         .text('The finder behind the CLI is exported from '),
         code([.text('package:ciach/ciach.dart')]),
