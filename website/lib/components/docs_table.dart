@@ -138,14 +138,13 @@ Component docsTable({
   table(classes: DocsTable.table.name, [
     thead([
       tr([
-        for (final column in columns)
-          th(attributes: const {'scope': 'col'}, [.text(column)]),
+        for (final column in columns) th(scope: 'col', [.text(column)]),
       ]),
     ]),
     tbody([
       for (final row in rows)
         tr([
-          th(attributes: const {'scope': 'row'}, [row.first]),
+          th(scope: 'row', [row.first]),
           for (final (i, cell) in row.skip(1).indexed)
             td(attributes: {'data-label': columns[i + 1]}, [cell]),
         ]),

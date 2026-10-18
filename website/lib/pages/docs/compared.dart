@@ -53,25 +53,19 @@ class const ComparedSection({super.key}) extends StatelessComponent {
         table(classes: (DocsTable.table + DocsTable.compare).name, [
           const thead([
             tr([
-              th(attributes: {'scope': 'col'}, [.text('')]),
-              th(
-                attributes: {'scope': 'col'},
-                [
-                  code([.text('dart analyze')]),
-                ],
-              ),
-              th(
-                attributes: {'scope': 'col'},
-                [
-                  code([.text('ciach')]),
-                ],
-              ),
+              th(scope: 'col', [.text('')]),
+              th(scope: 'col', [
+                code([.text('dart analyze')]),
+              ]),
+              th(scope: 'col', [
+                code([.text('ciach')]),
+              ]),
             ]),
           ]),
           tbody([
             for (final (capability, analyzer, ciach) in _comparison)
               tr([
-                th(attributes: const {'scope': 'row'}, [.text(capability)]),
+                th(scope: 'row', [.text(capability)]),
                 td(
                   attributes: const {'data-label': 'dart analyze'},
                   [_markOf(analyzer)],
