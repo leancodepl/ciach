@@ -109,6 +109,7 @@ extension ClauseEntries on SourceIndex {
     if (all == null || whole == null) {
       return const {};
     }
+    final filePath = relativePosix(path, rootPath);
     final byName = {for (final entry in removed) entry.name: entry};
     final cuts = <ClauseEntry, CoupledRemoval>{};
     for (final (i, j, cut) in listCuts(
@@ -120,8 +121,7 @@ extension ClauseEntries on SourceIndex {
       if (cut == null && keepsOne) {
         continue;
       }
-      final filePath = relativePosix(path, rootPath);
-      final removed = (cut ?? whole).toDeclarationRange;
+      final deleted = (cut ?? whole).toDeclarationRange;
       for (final entry in all.sublist(i, j)) {
         final range = entry.toDeclarationRange;
         cuts[byName[entry.start]!] = (
@@ -129,7 +129,7 @@ extension ClauseEntries on SourceIndex {
           kind: clauseCutKind,
           range: range,
           fullRange: range,
-          cut: removed,
+          cut: deleted,
         );
       }
     }

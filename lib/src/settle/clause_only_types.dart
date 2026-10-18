@@ -112,9 +112,7 @@ final class ClauseOnlyTypes {
           _verdict.finding(
             candidates[i],
             rootPath,
-            coupledRemovals: {
-              for (final entry in entries) cuts[entry]!,
-            }.toList(),
+            coupledRemovals: [for (final entry in entries) cuts[entry]!],
             hint: Verdict.namedOnlyInClausesHint,
             onlyReferencedFrom: deadSpans.referrersAmong(
               _classifier.externalRefs(candidates[i], refsByCandidate[i]),

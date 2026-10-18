@@ -96,21 +96,21 @@ void main() {
     final d = clauseOnly('D', 1, 24, 32);
 
     test('keeps a reference to the type at the start of its own entry', () {
-      final spans = DeadSpans.of([c], rootPath);
-
-      expect(spans.ownerOf(path, atC), isNull);
-      expect(spans.ownersOf(path, atC), [c]);
+      expect(DeadSpans.of([c], rootPath).ownerOf(path, atC), isNull);
     });
 
-    test('assigns a reference in type arguments to the entry holding it', () {
-      for (final order in [
-        [c, d],
-        [d, c],
-      ]) {
-        final spans = DeadSpans.of(order, rootPath);
-        expect(spans.ownerOf(path, atArg), c);
-        expect(spans.ownerOf(path, atOther), d);
-      }
+    test('lists the type as an owner of the start of its own entry', () {
+      expect(DeadSpans.of([c], rootPath).ownersOf(path, atC), [c]);
+    });
+
+    // In both tests, the type whose entry holds the reference comes second,
+    // so that a lookup that takes the first span that holds it fails.
+    test('assigns a type argument of the first entry to its type', () {
+      expect(DeadSpans.of([d, c], rootPath).ownerOf(path, atArg), c);
+    });
+
+    test('assigns a type argument of the last entry to its type', () {
+      expect(DeadSpans.of([c, d], rootPath).ownerOf(path, atOther), d);
     });
 
     test('deletes a reference in a clause of a removed declaration', () {

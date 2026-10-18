@@ -57,12 +57,9 @@ final class DeadSpans {
   bool covers(String path, Position position) =>
       ownerOf(path, position) != null;
 
-  /// The outermost finding whose removal deletes [position] in [path].
-  ///
-  /// The name of a type at the start of its own clause entry, like `C` in
-  /// `class A with C<T> {}`, has no owner. `--remove` deletes the type with
-  /// the entry, but if the name didn't count as a reference, the type would
-  /// be reported as unused, and `--remove` would leave the entry.
+  /// The outermost finding whose removal deletes [position] in [path]. The
+  /// name of a type at the start of its own clause entry, like `C` in
+  /// `class A with C<T> {}`, has no owner.
   UnusedDeclaration? ownerOf(String path, Position position) {
     final spans = _byPath[path];
     if (spans == null) {
@@ -70,6 +67,9 @@ final class DeadSpans {
     }
     _Span? outermost;
     for (final span in spans) {
+      // `--remove` deletes `C` with its entry, but if the name didn't count as
+      // a reference, `C` would be reported as unused, and `--remove` would
+      // leave the entry.
       if (_contains(span.range, position) &&
           !(span.isClauseEntry && position == _start(span.range)) &&
           (outermost == null || _isOutside(span.range, outermost.range))) {
@@ -81,8 +81,7 @@ final class DeadSpans {
 
   /// Every finding whose removal deletes [position] in [path]. Unlike
   /// [ownerOf], this includes the type whose clause entry starts at
-  /// [position], so that the entry doesn't keep the type alive in the
-  /// transitive sweep.
+  /// [position].
   Iterable<UnusedDeclaration> ownersOf(String path, Position position) => {
     if (_byPath[path] case final spans?)
       for (final span in spans)
