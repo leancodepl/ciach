@@ -57,10 +57,12 @@ void main() {
     List<String> include = const [],
     List<EntryPoint> entryPoints = const [],
     bool transitive = false,
+    List<String> exportedPackages = const [],
   }) => Ciach(
     .new(
       rootPath: fixturePath,
       includePublic: includePublic,
+      exportedPackages: exportedPackages,
       skipOverrides: skipOverrides,
       kinds: kinds ?? FinderOptions.defaultKinds,
       excludeGlobs: exclude,
@@ -974,6 +976,44 @@ void main() {
       [for (final d in result.unused) (d.qualifiedName, d.isPrivate)],
       [('_Settings.new', true), ('_Settings.reset', true)],
     );
+  });
+
+  group('an unnamed extension and its members', () {
+    const fixture = ['lib/scenarios/unnamed_extensions.dart'];
+    const unused = [
+      'sextupled',
+      'isSmall',
+      'ignored',
+      'seven',
+      'third',
+      'extension on String',
+    ];
+
+    test('are reported as private', () async {
+      final result = await runFinder(include: fixture, exclude: const []);
+      expect(
+        [for (final d in result.unused) (d.qualifiedName, d.isPrivate)],
+        [for (final name in unused) (name, true)],
+      );
+    });
+
+    test('are reported with `--no-public`', () async {
+      final result = await runFinder(
+        includePublic: false,
+        include: fixture,
+        exclude: const [],
+      );
+      expect(result.unused.map((d) => d.qualifiedName), unused);
+    });
+
+    test('are reported in a library of an exported package', () async {
+      final result = await runFinder(
+        exportedPackages: const ['**'],
+        include: fixture,
+        exclude: const [],
+      );
+      expect(result.unused.map((d) => d.qualifiedName), unused);
+    });
   });
 
   const extensionFixture = [

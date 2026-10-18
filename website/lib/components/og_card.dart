@@ -83,6 +83,7 @@ class const OgCard({super.key}) extends StatelessComponent {
       ),
       css('& ${Hero.installCommand.selector}', [
         css('&').styles(
+          maxWidth: const .expression('none'),
           padding: .only(
             top: 0.9.rem,
             right: 1.6.rem,
@@ -90,7 +91,6 @@ class const OgCard({super.key}) extends StatelessComponent {
             left: 1.4.rem,
           ),
           gap: .all(1.rem),
-          raw: {'max-width': 'none'},
         ),
         css('& code').styles(overflow: .visible, fontSize: 1.55.rem),
       ]),

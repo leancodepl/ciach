@@ -105,8 +105,8 @@ List<SemanticToken> decodeSemanticTokens(
         length: length,
         type: legend.tokenTypes[typeIndex],
         modifiers: {
-          for (var bit = 0; bit < legend.tokenModifiers.length; bit++)
-            if ((modifierBits >> bit) & 1 == 1) legend.tokenModifiers[bit],
+          for (final (bit, tokenModifier) in legend.tokenModifiers.indexed)
+            if ((modifierBits >> bit) & 1 == 1) tokenModifier,
         },
         text: lines[line].substring(character, character + length),
       ),

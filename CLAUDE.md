@@ -48,7 +48,8 @@ entry, run `dart run tool/check_changelog.dart --pr N`; CI runs the same check.
 
 Write an entry for the people who use ciach. In one to three short, plain
 sentences, say what was added, fixed or changed, as they will see it, and keep
-it about as long as the entries around it. For a
+it about as long as the entries around it, also after a later commit adds an
+effect to it. For a
 fix, say what went wrong before. For a new or changed behavior, say only what
 it is now, not how ciach behaved before. Leave out how it was implemented: no class or
 method names, internal terms or reasoning about the code.
@@ -161,8 +162,10 @@ A name claims no more than the code does, and it doesn't list cases either.
 `_directiveEnd` claimed every directive for a function that skips only some,
 `_libraryImportOrPartOfEnd` listed every case, and the lint name
 `prefer_none_and_where_not` listed two of the five methods that the lint
-suggests; all three were rejected. Name a lint after what it flags:
-`avoid_negated_iterable_predicates`.
+suggests; all three were rejected. Name a lint after what it flags,
+`avoid_negated_iterable_predicates`, or after the form that its fix writes,
+`prefer_let`. That form covers every rewrite of the fix: `prefer_indexed_loop`
+was rejected because its fix also writes plain `for-in` loops.
 Name a predicate after the property that the caller tests (`isDeclaration`),
 not after the case that prompted it (`isUnitTest`). Make every value of an enum
 answer the same question.
@@ -250,13 +253,15 @@ explicit null check.
   literal gets busy, give its predicate a named local.
 - Keep an `Iterable` lazy when it is read once or in part, and use a `Set` when
   duplicates mean nothing.
-- Prefer `for (final (i, x) in xs.indexed)` to an index loop, collection
-  methods (`where`, `firstWhereOrNull`) to loops with early returns,
-  tear-offs to lambdas that only forward, `min` and `max` to hand-written
-  ternaries, and `package:collection` equalities to comparison loops. Write
-  `map[key] ??= value` for a value that you already have, and memoize with
-  `CachedMap`. `avoid_negated_iterable_predicates` replaces negations with
-  `none(f)` and `whereNot(f)`, and `any((x) => !f(x))` with `!every(f)`.
+- Prefer collection methods (`where`, `firstWhereOrNull`) to loops with early
+  returns, tear-offs to lambdas that only forward, `min` and `max` to
+  hand-written ternaries, and `package:collection` equalities to comparison
+  loops. Write `map[key] ??= value` for a value that you already have, and
+  memoize with `CachedMap`. `prefer_for_in_loop` replaces an index loop that
+  reads `xs[i]` with `for (final x in xs)` or
+  `for (final (i, x) in xs.indexed)`. `avoid_negated_iterable_predicates`
+  replaces negations with `none(f)` and `whereNot(f)`, and
+  `any((x) => !f(x))` with `!every(f)`.
 - A type that has its own name and meaning, such as `QualifiedMember`, is a
   class, not a record typedef. A record that a function returns or yields has
   named fields. Never model data as a preformatted string whose format a
@@ -277,6 +282,13 @@ explicit null check.
 - In `website/`, keep a component's styles next to it as Jaspr `@css`, make
   repeated pieces (buttons, cards, pills) components, and write `.only()`,
   `.symmetric()` or `.all()` rather than `fromLTRB()`.
+- In `website/`, set a CSS property through its typed `Styles` parameter
+  whenever Jaspr has one, even when the parameter writes longhands or a whole
+  border: `flex: growToFill`, not `raw: {'flex': '1'}`, and
+  `border: hairline(accentColor)`, not `raw: {'border-color': …}`. When the
+  parameter's type has no constructor for a value, pass `.expression()`, as in
+  `maxWidth: const .expression('none')`. Keep `raw` for what Jaspr can't
+  express, such as custom properties, gradients and `calc()` delays.
 
 # Design
 

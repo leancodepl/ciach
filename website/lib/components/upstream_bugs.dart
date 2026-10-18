@@ -77,8 +77,11 @@ class const UpstreamBugs({super.key}) extends StatelessComponent {
           .styles(color: mutedColor, fontFamily: fontMono, fontSize: 0.85.rem),
       css('&:hover').styles(color: accentColor),
     ]),
-    css(_title.selector)
-        .styles(minWidth: .zero, color: textColor, raw: {'flex': '1 1 16rem'}),
+    css(_title.selector).styles(
+      minWidth: .zero,
+      flex: .new(grow: 1, basis: 16.rem),
+      color: textColor,
+    ),
   ];
 
   @override
