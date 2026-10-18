@@ -68,7 +68,9 @@ enum Icon(final List<String> paths) {
   );
 }
 
-/// How Jaspr passes an [Icon] to a client component: by name.
+/// How Jaspr passes an [Icon] to a client component: by name. Jaspr's
+/// builder reads `@decoder` and `@encoder` from classes and extension types,
+/// not from enums, so the methods can't sit on [Icon] itself.
 extension type IconCodec(Icon icon) implements Icon {
   @decoder
   factory decode(String name) => .new(Icon.values.byName(name));
