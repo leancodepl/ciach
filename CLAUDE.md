@@ -76,6 +76,11 @@ easy-to-follow sentences, not how it works inside.
   add it to the example configs in README.md and `lib/src/cli/usage.dart`.
 - Take sample output from a real run on `example/`, and paste it as it is.
   Never compose it by hand.
+- README.md is the short path through ciach: install, run, read the report,
+  the options. The docs page holds every detail, one section per file under
+  `website/lib/pages/docs/`, and each README section links to its section
+  there. Put a new detail on the docs page, and in README.md only when every
+  user needs it.
 - README.md starts with a `## Contents` list of its `##` and `###` headings.
   `test/readme_toc_test.dart` checks it against the file, so run `dart test`
   after changing a heading.

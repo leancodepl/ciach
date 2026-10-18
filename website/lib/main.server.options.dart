@@ -11,6 +11,7 @@ import 'package:ciach_website/components/ciach_demo.dart' as _ciach_demo;
 import 'package:ciach_website/components/code_block.dart' as _code_block;
 import 'package:ciach_website/components/copy_button.dart' as _copy_button;
 import 'package:ciach_website/components/demo_trigger.dart' as _demo_trigger;
+import 'package:ciach_website/components/docs_table.dart' as _docs_table;
 import 'package:ciach_website/components/docs_toc.dart' as _docs_toc;
 import 'package:ciach_website/components/faq.dart' as _faq;
 import 'package:ciach_website/components/features.dart' as _features;
@@ -65,6 +66,7 @@ ServerOptions get defaultServerOptions => ServerOptions(
     ..._ciach_demo.CiachDemo.styles,
     ..._code_block.CodeBlock.styles,
     ..._copy_button.CopyButton.styles,
+    ..._docs_table.DocsTable.styles,
     ..._faq.Faq.styles,
     ..._features.Features.styles,
     ..._footer.SiteFooter.styles,
