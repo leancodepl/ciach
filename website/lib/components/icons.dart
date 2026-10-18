@@ -114,9 +114,10 @@ abstract final class Logo() {
       width: 32.px,
       height: 32.px,
       radius: .circular(9.px),
+      alignItems: .center,
+      justifyItems: .center,
       color: accentInkColor,
       backgroundColor: accentColor,
-      raw: {'place-items': 'center'},
     ),
     css(large.selector, [
       css('&').styles(fontSize: 1.6.rem),

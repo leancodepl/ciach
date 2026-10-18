@@ -188,13 +188,6 @@ int _skipInterpolation(String content, int from) {
   return i;
 }
 
-/// The offset at which each line of [content] starts.
-List<int> lineStartsOf(String content) => [
-  0,
-  for (var i = 0; i < content.length; i++)
-    if (content[i] == '\n') i + 1,
-];
-
 /// Whether [comment] applies to the next line only: an analyzer
 /// `// ignore:`, a custom_lint `// expect_lint:` or a spell checker's
 /// `// cspell:disable-next-line`.

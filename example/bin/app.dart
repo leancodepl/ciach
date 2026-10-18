@@ -67,9 +67,8 @@ void main() {
   print(describeExpression(signal));
   print(isIfCaseSignal(signal));
 
-  // Invokes `Multiplier.call` via implicit-call syntax, which a reference
-  // search can't resolve back to the declaration (like an operator), so a used
-  // `call` is skipped rather than misreported.
+  // Invokes `Multiplier.call` by invoking the object, which the reference
+  // search doesn't report, so ciach finds this use another way.
   const multiplier = Multiplier(2);
   print(multiplier(21));
 

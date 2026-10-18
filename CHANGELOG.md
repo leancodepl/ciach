@@ -1,12 +1,13 @@
 ## Unreleased
 
-- `--no-public` now also reports the unused members of a private type or an
-  unnamed extension, such as `_Foo.reset`. A member that other packages reach
-  through a public declaration, such as a subtype, a type alias or a function
-  that returns the type, counts as public. With
-  `exported-packages`, the unused members of an unnamed extension are
-  reported too, since no other library can call them.
+- `--no-public` now also reports the unused members of a private type, such
+  as `_Foo.reset`. A member that other packages reach through a public
+  declaration, such as a subtype, a type alias or a function that returns the
+  type, counts as public.
   ([#135](https://github.com/leancodepl/ciach/pull/135))
+- Report unused `call` methods. Before, every `call` method was skipped,
+  also one that nothing calls.
+  ([#151](https://github.com/leancodepl/ciach/pull/151))
 - With `exported-packages`, a member used in unused code and in live code is
   no longer reported as unused or listed under "Recovered references".
   ([#149](https://github.com/leancodepl/ciach/pull/149))

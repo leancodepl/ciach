@@ -137,10 +137,8 @@ void main() {
     expect(unused, containsAll(['Vector2.+', 'Vector2.-']));
   });
 
-  test('skips call methods by default', () async {
+  test('does not report a `call` method that an invoked object uses', () async {
     final unused = await findUnused();
-    // `Multiplier.call` is used via implicit-call syntax, unresolvable like an
-    // operator, so skipped.
     expect(unused, isNot(contains('Multiplier.call')));
     // The rest of the fixture is genuinely used.
     expect(unused, isNot(contains('Multiplier')));

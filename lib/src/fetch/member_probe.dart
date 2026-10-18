@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/fetch/definitions.dart';
 import 'package:ciach/src/fetch/reachable_types.dart';
 import 'package:ciach/src/fetch/reference_fetch.dart';
-import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/source/reference_kinds.dart';
 import 'package:ciach/src/source/source_index.dart';
@@ -31,9 +31,12 @@ probeMembers({
     for (final member in members)
       member: _mentionsOf(member, types, mentionsByFile),
   };
-  final definitionsOf = await _definitions(client, {
-    for (final mentions in mentionsOfMember.values) ...mentions,
-  }, concurrency);
+  final definitionsOf = await definitionsOrEmpty(
+    client,
+    {for (final mentions in mentionsOfMember.values) ...mentions},
+    (mention) => (uri: File(mention.path).uri, position: mention.range.start),
+    concurrency,
+  );
 
   final used = <Candidate>[];
   final refs = <List<Location>>[];
@@ -41,7 +44,7 @@ probeMembers({
   for (final MapEntry(key: member, value: mentions)
       in mentionsOfMember.entries) {
     final use = mentions.firstWhereOrNull(
-      (mention) => definitionsOf[mention]!.any((t) => _declares(member, t)),
+      (mention) => definitionsOf[mention]!.any(member.isNamedAt),
     );
     if (use == null) {
       rest.add(member);
@@ -109,27 +112,6 @@ List<_Mention> _mentionsOf(
             mention,
 ];
 
-/// Where each of [mentions] resolves to.
-Future<Map<_Mention, List<Location>>> _definitions(
-  LspClient client,
-  Set<_Mention> mentions,
-  int concurrency,
-) async {
-  final ordered = mentions.toList();
-  final definitions = await mapPooled(ordered, concurrency, (mention) async {
-    try {
-      return await client.definition(
-        File(mention.path).uri,
-        mention.range.start,
-      );
-    } on LspRequestException {
-      // Unresolved, the mention proves nothing; the reference search decides.
-      return const <Location>[];
-    }
-  });
-  return Map.fromIterables(ordered, definitions);
-}
-
 /// A place where a name is written.
 typedef _Mention = ({String path, Range range});
 
@@ -140,7 +122,3 @@ List<String> _spellings(Candidate member) =>
       'new' => [member.container!, 'new'],
       final name => [name],
     };
-
-bool _declares(Candidate member, Location target) =>
-    SourceIndex.pathOf(target.uri) == member.path &&
-    member.symbol.selectionRange.contains(target.range.start);
