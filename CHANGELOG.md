@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Shorten the README to the essentials, and move the rest to the docs at
+  ciach.leancode.co. ([#163](https://github.com/leancodepl/ciach/pull/163))
 - Restructure the README.
   ([#162](https://github.com/leancodepl/ciach/pull/162))
 - Report unused unnamed extensions and their members in an exported package
