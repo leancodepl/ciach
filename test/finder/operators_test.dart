@@ -142,18 +142,28 @@ void main() {
   );
 
   /// The names of the declarations that a scan of a package reports, with
-  /// [library] as `lib/ops.dart` and [main] as `bin/main.dart`.
+  /// [library] as `lib/ops.dart`, [main] as `bin/main.dart` and the other
+  /// [files] by their paths.
   Future<Set<String>> findUnusedIn({
     required String library,
     required String main,
+    Map<String, String> files = const {},
     bool skipOverrides = true,
+    bool includePublic = true,
+    List<String> exportedPackages = const [],
   }) async {
     final root = writeTempPackage('ops', {
       'lib/ops.dart': library,
       'bin/main.dart': main,
+      ...files,
     });
     final result = await Ciach(
-      .new(rootPath: root.path, skipOverrides: skipOverrides),
+      .new(
+        rootPath: root.path,
+        skipOverrides: skipOverrides,
+        includePublic: includePublic,
+        exportedPackages: exportedPackages,
+      ),
     ).run();
     return result.unused.map((d) => d.qualifiedName).toSet();
   }
@@ -262,6 +272,77 @@ void main() => print([const B() + const A(), const C()]);
           skipOverrides: false,
         ),
         {'A.-', 'B.-', 'C.-'},
+      );
+    },
+  );
+
+  /// `Public` is in the package's API, `_Private` is private, and `Hidden` is
+  /// in a file that the package doesn't export. Each has an unused `+` and an
+  /// unused method.
+  const visibility = '''
+import 'src/hidden.dart';
+
+class Public {
+  const Public();
+
+  Public operator +(Public other) => this;
+  void method() {}
+}
+
+class _Private {
+  const _Private();
+
+  _Private operator +(_Private other) => this;
+  void method() {}
+}
+
+void useHidden() => print([const _Private(), const Hidden()]);
+''';
+  const visibilityFiles = {
+    'lib/src/hidden.dart': '''
+class Hidden {
+  const Hidden();
+
+  Hidden operator +(Hidden other) => this;
+  void method() {}
+}
+''',
+  };
+  const visibilityUses = '''
+import 'package:ops/ops.dart';
+
+void main() {
+  print(const Public());
+  useHidden();
+}
+''';
+
+  test(
+    'with `exported-packages`, leaves out the operators of an exported class and reports the others, as it does methods',
+    () async {
+      expect(
+        await findUnusedIn(
+          library: visibility,
+          main: visibilityUses,
+          files: visibilityFiles,
+          exportedPackages: const ['**'],
+        ),
+        {'_Private.+', '_Private.method', 'Hidden.+', 'Hidden.method'},
+      );
+    },
+  );
+
+  test(
+    'with `--no-public`, reports no operator, because the name of an operator is public, as it reports no public method of a private class',
+    () async {
+      expect(
+        await findUnusedIn(
+          library: visibility,
+          main: visibilityUses,
+          files: visibilityFiles,
+          includePublic: false,
+        ),
+        isEmpty,
       );
     },
   );
