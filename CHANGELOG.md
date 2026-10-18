@@ -1,8 +1,8 @@
 ## Unreleased
 
-- `--no-public` now also reports the unused members of an unnamed extension,
-  and an exported package no longer leaves them out, since no other library
-  can call them. The report labels them `(private)`.
+- Report the unused members of an unnamed extension in an exported package.
+  Before, they were left out as public API, though no other library can call
+  them. `--no-public` now reports them too, labeled `(private)`.
   ([#160](https://github.com/leancodepl/ciach/pull/160))
 - Report unused `call` methods. Before, every `call` method was skipped,
   also one that nothing calls.
