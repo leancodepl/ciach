@@ -234,8 +234,8 @@ final class Settler {
     String analysisRoot,
   ) async {
     final statuses = [
-      for (var i = 0; i < candidates.length; i++)
-        _classifier.classify(candidates[i], liveRefs[i], crossLib),
+      for (final (i, candidate) in candidates.indexed)
+        _classifier.classify(candidate, liveRefs[i], crossLib),
     ];
 
     final recovered = _recovery.warnings(
@@ -272,10 +272,10 @@ final class Settler {
     ];
 
     final reported = <int>{
-      for (var i = 0; i < candidates.length; i++)
+      for (final (i, candidate) in candidates.indexed)
         if (statuses[i] == .unused &&
             !_verdict.isSuppressed(
-              candidates[i],
+              candidate,
               i,
               freezedUnionArms,
               deadClassNames,
