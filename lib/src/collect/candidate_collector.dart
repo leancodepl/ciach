@@ -239,8 +239,8 @@ final class CandidateCollector {
 
   /// Whether [candidate] is public and left out: by `--no-public`, or as part
   /// of an API that `exported-packages` leaves out. A private declaration is
-  /// never left out, and a member of a private type or an unnamed extension
-  /// is private too.
+  /// never left out, nor is an unnamed extension, its members or a member of
+  /// a private type.
   bool _skipsPublic(Candidate candidate) {
     if (candidate.isPrivate) {
       return false;

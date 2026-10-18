@@ -92,25 +92,27 @@ final class Candidate {
   /// them.
   final bool isInExposedType;
 
-  /// Whether this is a member of an unnamed extension, which no other
-  /// library can use.
   bool get isInUnnamedExtension =>
       containerOutline?.element.isUnnamedExtension ?? false;
+
+  /// Whether this is an unnamed extension or one of its members, which no
+  /// other library can use.
+  bool get belongsToUnnamedExtension =>
+      isUnnamedExtension || isInUnnamedExtension;
 
   /// Whether this declaration's own name starts with `_`. An unnamed
   /// constructor's name is `new`.
   bool get hasPrivateName => isPrivateName(symbol.declarationName(container));
 
-  /// Whether this is a member of a type that no other library can name or
-  /// reach through a public declaration: one whose name starts with `_`, or
-  /// an unnamed extension.
+  /// Whether this is a member of a type whose name starts with `_` and that
+  /// no public declaration of its library exposes.
   bool get isInPrivateType =>
-      !isInExposedType &&
-      ((container?.let(isPrivateName) ?? false) || isInUnnamedExtension);
+      !isInExposedType && (container?.let(isPrivateName) ?? false);
 
-  /// Whether this declaration is private: by its own name, or as a member of
-  /// a private type.
-  bool get isPrivate => hasPrivateName || isInPrivateType;
+  /// Whether this declaration is private: by its own name, as an unnamed
+  /// extension or one of its members, or as a member of a private type.
+  bool get isPrivate =>
+      hasPrivateName || belongsToUnnamedExtension || isInPrivateType;
 
   /// Whether this is a class, enum, mixin or extension type. Extensions are
   /// left out because code uses their members without naming them.

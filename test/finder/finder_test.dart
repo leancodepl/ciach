@@ -58,10 +58,12 @@ void main() {
     List<String> include = const [],
     List<EntryPoint> entryPoints = const [],
     bool transitive = false,
+    List<String> exportedPackages = const [],
   }) => Ciach(
     .new(
       rootPath: fixturePath,
       includePublic: includePublic,
+      exportedPackages: exportedPackages,
       skipOverrides: skipOverrides,
       skipOperators: skipOperators,
       kinds: kinds ?? FinderOptions.defaultKinds,
@@ -1042,48 +1044,52 @@ void main() {
     test(
       '$option keeps the members of a private class that an exported package hands out',
       () async {
-        final result = await Ciach(
-          .new(
-            rootPath: fixturePath,
-            exportedPackages: const ['**'],
-            includePublic: includePublic,
-            includeGlobs: const ['lib/scenarios/private_types_leaked.dart'],
-          ),
-        ).run();
+        final result = await runFinder(
+          exportedPackages: const ['**'],
+          includePublic: includePublic,
+          include: const ['lib/scenarios/private_types_leaked.dart'],
+          exclude: const [],
+        );
         expect(result.unused.map((d) => d.qualifiedName), ['_Tool._spare']);
       },
     );
   }
 
-  group('a member of an unnamed extension', () {
+  group('an unnamed extension and its members', () {
     const fixture = ['lib/scenarios/unnamed_extensions.dart'];
+    const unused = [
+      'sextupled',
+      'isSmall',
+      'ignored',
+      'seven',
+      'third',
+      'extension on String',
+    ];
 
-    test('is reported as private', () async {
+    test('are reported as private', () async {
       final result = await runFinder(include: fixture, exclude: const []);
       expect(
         [for (final d in result.unused) (d.qualifiedName, d.isPrivate)],
-        [('sextupled', true)],
+        [for (final name in unused) (name, true)],
       );
     });
 
-    test('is reported with `--no-public`', () async {
+    test('are reported with `--no-public`', () async {
       final result = await runFinder(
         includePublic: false,
         include: fixture,
         exclude: const [],
       );
-      expect(result.unused.map((d) => d.qualifiedName), ['sextupled']);
+      expect(result.unused.map((d) => d.qualifiedName), unused);
     });
 
-    test('is reported in a library of an exported package', () async {
-      final result = await Ciach(
-        .new(
-          rootPath: fixturePath,
-          exportedPackages: const ['**'],
-          includeGlobs: fixture,
-        ),
-      ).run();
-      expect(result.unused.map((d) => d.qualifiedName), ['sextupled']);
+    test('are reported in a library of an exported package', () async {
+      final result = await runFinder(
+        exportedPackages: const ['**'],
+        include: fixture,
+        exclude: const [],
+      );
+      expect(result.unused.map((d) => d.qualifiedName), unused);
     });
   });
 

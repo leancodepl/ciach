@@ -5,9 +5,10 @@
   declaration, such as a subtype, a type alias or a function that returns the
   type, counts as public.
   ([#135](https://github.com/leancodepl/ciach/pull/135))
-- Report the unused members of an unnamed extension in an exported package.
-  Before, they were left out as public API, though no other library can call
-  them. `--no-public` now reports them too, labeled `(private)`.
+- Report an unused unnamed extension, and the unused members of one, in an
+  exported package. Before, they were left out as public API, though no other
+  library can use them. `--no-public` now reports them too, and every report
+  labels them `(private)`.
   ([#160](https://github.com/leancodepl/ciach/pull/160))
 - Report unused `call` methods. Before, every `call` method was skipped,
   also one that nothing calls.
