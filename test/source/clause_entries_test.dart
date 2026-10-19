@@ -230,6 +230,27 @@ class F extends B with C {}
     },
   );
 
+  test('removes a generic entry together with its type arguments', () async {
+    expect(
+      await cutFrom(
+        '${types}mixin G<T> {}\nclass A with C, G<List<int>> {}\n',
+        'with C',
+        ['G'],
+      ),
+      '${types}mixin G<T> {}\nclass A with C {}\n',
+    );
+  });
+
+  test('returns no entry for a type argument of a clause entry', () async {
+    final (_, _, _, entries) = await entriesIn(
+      '${types}abstract class A implements Comparable<C> {}\n',
+      'implements',
+      ['C'],
+    );
+
+    expect(entries.single, isNull);
+  });
+
   test(
     'returns no entry for a type named outside a with or implements clause',
     () async {
