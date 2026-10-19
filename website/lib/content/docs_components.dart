@@ -27,12 +27,12 @@ class const DocsComponents() implements CustomComponent {
 
   @override
   Component? create(Node node, NodesBuilder builder) => switch (node) {
-    ElementNode(tag: 'section', :final attributes, :final children) =>
-      DocSection(
-        id: attributes['id']!,
-        heading: attributes['heading']!,
-        children: [builder.build(children)],
-      ),
+    ElementNode(
+      tag: 'section',
+      attributes: {'id': final id, 'heading': final heading},
+      :final children,
+    ) =>
+      DocSection(id: id, heading: heading, children: [builder.build(children)]),
     ElementNode(tag: 'h3', attributes: {'id': final id}) => DocHeading(
       fragment: id,
       text: node.innerText,
