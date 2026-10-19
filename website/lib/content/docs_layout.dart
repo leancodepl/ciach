@@ -1,52 +1,36 @@
-import 'package:ciach_website/components/docs_table.dart';
+/*
+ * AI-Provenance:
+ *   model: claude-fable-5-1
+ *   harness: Claude Code
+ *   plugins:
+ *     - lean-ai-provenance
+ *   skills:
+ *     - mark-ai-provenance
+ */
+
 import 'package:ciach_website/components/docs_toc.dart';
 import 'package:ciach_website/components/faq.dart';
 import 'package:ciach_website/components/section.dart';
 import 'package:ciach_website/components/shell.dart';
-import 'package:ciach_website/pages/docs/ci.dart';
-import 'package:ciach_website/pages/docs/compared.dart';
-import 'package:ciach_website/pages/docs/config.dart';
-import 'package:ciach_website/pages/docs/install.dart';
-import 'package:ciach_website/pages/docs/library.dart';
-import 'package:ciach_website/pages/docs/limitations.dart';
-import 'package:ciach_website/pages/docs/options.dart';
-import 'package:ciach_website/pages/docs/packages.dart';
-import 'package:ciach_website/pages/docs/removing.dart';
-import 'package:ciach_website/pages/docs/report.dart';
-import 'package:ciach_website/pages/docs/running.dart';
-import 'package:ciach_website/pages/docs/skips.dart';
 import 'package:ciach_website/seo.dart';
 import 'package:ciach_website/site.dart';
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_class_scope/jaspr_class_scope.dart';
+import 'package:jaspr_content/jaspr_content.dart';
 
-part 'docs_page.scopes.dart';
+part 'docs_layout.scopes.dart';
 
-const _toc = [
-  ('install', 'Install'),
-  ('running', 'Running ciach'),
-  ('report', 'The report'),
-  ('skips', 'Skips'),
-  ('removing', 'Removing'),
-  ('options', 'Options'),
-  ('config', 'Configuration'),
-  ('packages', 'Packages and monorepos'),
-  ('ci', 'CI'),
-  ('compared', 'vs. the analyzer'),
-  ('limitations', 'Limitations'),
-  ('library', 'Library API'),
-  ('faq', 'FAQ'),
-];
-
-/// Everything past the landing page, on one page with a sticky table of
-/// contents: the reference that README.md points to. Each section is a file
-/// under `docs/`, and the tables are styled by [DocsTable].
+/// The docs page around its Markdown: the reference that README.md points
+/// to, with a sticky table of contents built from the page's `h2` headings.
+/// The page's title, lead and description come from its frontmatter.
 @scopedCss
-class const DocsPage({required final String version, super.key})
-    extends StatelessComponent {
-  static const _class = _$DocsPageScope;
+class const DocsLayout({
+  /// The ciach version shown in the page shell.
+  required final String version,
+}) implements PageLayout {
+  static const _class = _$DocsLayoutScope;
 
   static final _docs = _class('docs');
   static final _nav = _class('nav');
@@ -165,18 +149,33 @@ class const DocsPage({required final String version, super.key})
   static final _narrow = MediaQuery.all(maxWidth: 959.px);
 
   @override
-  Component build(BuildContext context) {
+  Pattern get name => 'docs';
+
+  @override
+  Component buildLayout(Page page, Component child) {
+    final (title, description, lead) = switch (page.data.page) {
+      {
+        'title': final String title,
+        'description': final String description,
+        'lead': final String lead,
+      } =>
+        (title, description, lead),
+      _ => throw ArgumentError(
+        '${page.path} needs a title, a description and a lead in its frontmatter.',
+      ),
+    };
+    final entries = switch (page.data['toc']) {
+      final TableOfContents toc => toc.entries,
+      _ => const <TocEntry>[],
+    };
     return PageShell(
       page: .docs,
       version: version,
       children: [
         pageHead(
-          title: 'Docs — $siteName',
-          description:
-              'How to install, configure and run ciach, how to read its '
-              'report, what it skips and why, how --remove stays safe, the '
-              'library API and answers to common questions.',
-          path: 'docs',
+          title: '$title — $siteName',
+          description: description,
+          path: page.url.substring(1),
           structuredData: [faqStructuredData()],
         ),
         div(classes: (Utility.container + _docs).name, [
@@ -184,11 +183,11 @@ class const DocsPage({required final String version, super.key})
             classes: _nav.name,
             attributes: const {'aria-label': 'On this page'},
             [
-              p(classes: Prose.eyebrow.name, const [.text('Docs')]),
+              p(classes: Prose.eyebrow.name, [.text(title)]),
               DocsToc(
-                path: '/docs',
-                ids: [for (final (id, _) in _toc) id],
-                labels: [for (final (_, label) in _toc) label],
+                path: page.url,
+                ids: [for (final entry in entries) entry.id],
+                labels: [for (final entry in entries) entry.text],
               ),
               p(classes: _navFoot.name, [
                 externalLink(readmeUrl, [const .text('README on GitHub →')]),
@@ -197,26 +196,10 @@ class const DocsPage({required final String version, super.key})
           ),
           div(classes: _body.name, [
             header(classes: _head.name, [
-              const h1([.text('Docs')]),
-              p(classes: Prose.lead.name, const [
-                .text(
-                  'Install, configure and run ciach, and read its findings with confidence.',
-                ),
-              ]),
+              h1([.text(title)]),
+              p(classes: Prose.lead.name, [.text(lead)]),
             ]),
-            const InstallSection(),
-            const RunningSection(),
-            const ReportSection(),
-            const SkipsSection(),
-            const RemovingSection(),
-            const OptionsSection(),
-            const ConfigSection(),
-            const PackagesSection(),
-            const CiSection(),
-            const ComparedSection(),
-            const LimitationsSection(),
-            const LibrarySection(),
-            const DocSection(id: 'faq', heading: 'FAQ', children: [Faq()]),
+            child,
           ]),
         ]),
       ],

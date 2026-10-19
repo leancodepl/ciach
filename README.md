@@ -325,12 +325,12 @@ We are **top-tier experts** focused on Flutter Enterprise solutions.
 
 [site]: https://ciach.leancode.co/
 [docs]: https://ciach.leancode.co/docs
-[docs-running]: https://ciach.leancode.co/docs#running
-[docs-report]: https://ciach.leancode.co/docs#report
-[docs-skips]: https://ciach.leancode.co/docs#skips
-[docs-removing]: https://ciach.leancode.co/docs#removing
-[docs-config]: https://ciach.leancode.co/docs#config
-[docs-packages]: https://ciach.leancode.co/docs#packages
+[docs-running]: https://ciach.leancode.co/docs#running-ciach
+[docs-report]: https://ciach.leancode.co/docs#reading-the-report
+[docs-skips]: https://ciach.leancode.co/docs#what-it-skips-by-default
+[docs-removing]: https://ciach.leancode.co/docs#removing-dead-code
+[docs-config]: https://ciach.leancode.co/docs#configuration-file
+[docs-packages]: https://ciach.leancode.co/docs#packages-and-monorepos
 [docs-ci]: https://ciach.leancode.co/docs#ci
 [upstream-bugs]: https://github.com/leancodepl/ciach/blob/main/doc/upstream_bugs.md
 

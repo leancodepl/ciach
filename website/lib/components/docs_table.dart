@@ -10,7 +10,6 @@
 
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
-import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_class_scope/jaspr_class_scope.dart';
 
 part 'docs_table.scopes.dart';
@@ -26,9 +25,6 @@ abstract final class DocsTable() {
 
   /// The comparison table: a mark per tool in each row.
   static final compare = _class('compare');
-
-  /// The chip of a flag that opts back into a skipped category.
-  static final flag = _class('flag');
 
   /// A mark in the comparison table, [yes] or [no].
   static final mark = _class('mark');
@@ -73,11 +69,6 @@ abstract final class DocsTable() {
         ]),
       ]),
       css('& td').styles(color: text2Color),
-      css('& code${flag.selector}').styles(
-        border: hairline(accentAlpha(0.3)),
-        color: accentColor,
-        whiteSpace: .noWrap,
-      ),
       // Tables stack: one card per row, column names as small labels.
       css.media(_stacked, [
         css('& thead').styles(display: .none),
@@ -127,27 +118,3 @@ abstract final class DocsTable() {
   /// Where tables stack into one card per row.
   static final _stacked = MediaQuery.all(maxWidth: 640.px);
 }
-
-/// A table whose first column names each row. [columns] holds the header
-/// cells and each row of [rows] one cell per column. On a narrow screen the
-/// rows stack, and each cell is labeled with its column.
-Component docsTable({
-  required List<String> columns,
-  required List<List<Component>> rows,
-}) => div(classes: DocsTable.wrap.name, [
-  table(classes: DocsTable.table.name, [
-    thead([
-      tr([
-        for (final column in columns) th(scope: 'col', [.text(column)]),
-      ]),
-    ]),
-    tbody([
-      for (final row in rows)
-        tr([
-          th(scope: 'row', [row.first]),
-          for (final (i, cell) in row.skip(1).indexed)
-            td(attributes: {'data-label': columns[i + 1]}, [cell]),
-        ]),
-    ]),
-  ]),
-]);

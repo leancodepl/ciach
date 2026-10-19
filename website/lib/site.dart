@@ -36,9 +36,6 @@ const changelogUrl = '$repoUrl/blob/main/CHANGELOG.md';
 const issuesUrl = '$repoUrl/issues';
 const licenseUrl = '$repoUrl/blob/main/LICENSE';
 const readmeUrl = '$repoUrl#readme';
-const readmeOptionsUrl = '$repoUrl#options';
-const migrationUrl = '$repoUrl/blob/main/MIGRATION.md';
-const upstreamBugsUrl = '$repoUrl/blob/main/doc/upstream_bugs.md';
 const exampleUrl = '$repoUrl/tree/main/example';
 
 const _utm = 'utm_source=ciach-website&utm_medium=referral&utm_campaign=ciach';

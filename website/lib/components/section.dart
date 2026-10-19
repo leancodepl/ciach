@@ -179,9 +179,6 @@ abstract final class Prose() {
   /// The paragraph that links on from a section.
   static final more = _class('more');
 
-  /// A side remark under a table or sample.
-  static final note = _class('note');
-
   /// A list whose items are marked with a dash in the accent color.
   static final checklist = _class('checklist');
 
@@ -216,15 +213,10 @@ abstract final class Prose() {
       margin: .only(top: 1.5.rem),
       fontWeight: .w500,
     ),
-    css('${more.selector} a, ${note.selector} a').styles(
+    css('${more.selector} a').styles(
       color: accentColor,
       textDecoration: underlined,
       raw: {'text-underline-offset': '0.15em'},
-    ),
-    css(note.selector).styles(
-      margin: .only(top: 1.rem),
-      color: text2Color,
-      fontSize: 0.95.rem,
     ),
     css(checklist.selector, [
       css('&').styles(display: .grid, gap: .all(0.6.rem)),

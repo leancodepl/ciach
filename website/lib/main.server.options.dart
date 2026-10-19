@@ -24,7 +24,7 @@ import 'package:ciach_website/components/pill.dart' as _pill;
 import 'package:ciach_website/components/section.dart' as _section;
 import 'package:ciach_website/components/shell.dart' as _shell;
 import 'package:ciach_website/components/upstream_bugs.dart' as _upstream_bugs;
-import 'package:ciach_website/pages/docs_page.dart' as _docs_page;
+import 'package:ciach_website/content/docs_layout.dart' as _docs_layout;
 import 'package:ciach_website/styles.dart' as _styles;
 
 /// Default [ServerOptions] for use with your Jaspr project.
@@ -81,7 +81,7 @@ ServerOptions get defaultServerOptions => ServerOptions(
     ..._section.Section.styles,
     ..._shell.PageShell.styles,
     ..._upstream_bugs.UpstreamBugs.styles,
-    ..._docs_page.DocsPage.styles,
+    ..._docs_layout.DocsLayout.styles,
   ],
 );
 
