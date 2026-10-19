@@ -36,7 +36,7 @@ ClientOptions get defaultClientOptions => ClientOptions(
         text: p.get<String>('text'),
         label: p.get<String?>('label'),
         title: p.get<String>('title'),
-        icon: _icons.IconCodec.decode(p.get<String>('icon')),
+        icon: _icons.Icon.fromName(p.get<String>('icon')),
       ),
       loader: _copy_button.loadLibrary,
     ),

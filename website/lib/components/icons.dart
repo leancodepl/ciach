@@ -48,6 +48,13 @@ enum Icon(final List<String> paths) {
   book(['M4 4h7v16H4z', 'M13 4h7v16h-7z', 'M11 4a2 2 0 0 1 2 0']),
   search(['M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z', 'm20 20-4-4']);
 
+  /// How Jaspr passes an icon to a client component: by name.
+  @decoder
+  static Icon fromName(String name) => values.byName(name);
+
+  @encoder
+  String toName() => name;
+
   Component build({int size = 20, String? classes}) => svg(
     classes: classes,
     attributes: {
@@ -66,17 +73,6 @@ enum Icon(final List<String> paths) {
       for (final d in paths) path(attributes: {'d': d}, const []),
     ],
   );
-}
-
-/// How Jaspr passes an [Icon] to a client component: by name. Jaspr's
-/// builder reads `@decoder` and `@encoder` from classes and extension types,
-/// not from enums, so the methods can't sit on [Icon] itself.
-extension type IconCodec(Icon icon) implements Icon {
-  @decoder
-  factory decode(String name) => .new(Icon.values.byName(name));
-
-  @encoder
-  String encode() => icon.name;
 }
 
 /// The favicon: [Icon.ciach] in the CTA yellow on a black square, [size]

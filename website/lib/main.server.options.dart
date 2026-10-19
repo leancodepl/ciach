@@ -89,7 +89,7 @@ Map<String, Object?> __copy_buttonCopyButton(_copy_button.CopyButton c) => {
   'text': c.text,
   'label': c.label,
   'title': c.title,
-  'icon': _icons.IconCodec(c.icon).encode(),
+  'icon': c.icon.toName(),
 };
 Map<String, Object?> __demo_triggerDemoTrigger(_demo_trigger.DemoTrigger c) => {
   'targetId': c.targetId,
