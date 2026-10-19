@@ -1,9 +1,9 @@
 ## Unreleased
 
 - A generic class or mixin that only `with` or `implements` clauses name is now
-  reported and removed like any other. With `--transitive`, a type that only
-  the type arguments of such an entry name, like `T` in `with M<T>`, is
-  reported in the same run. ([#153](https://github.com/leancodepl/ciach/pull/153))
+  reported and removed like any other. A type that only its type arguments
+  there name, like `T` in `with M<T>`, is reported in the same run, except with
+  `--no-transitive`. ([#153](https://github.com/leancodepl/ciach/pull/153))
 - Report unused unnamed extensions and their members in an exported package
   and with `--no-public`, and label them `(private)`.
   ([#160](https://github.com/leancodepl/ciach/pull/160))
