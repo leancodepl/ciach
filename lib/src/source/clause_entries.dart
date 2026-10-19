@@ -17,8 +17,10 @@ import 'package:pro_lsp/pro_lsp.dart'
 
 /// The `kind` of a [CoupledRemoval] that removes a type from a `with` or
 /// `implements` clause, like `M` from `class A with M {}`. It borrows the kind
-/// of a type parameter, which no other removal has, so `--transitive` can tell
-/// these removals apart.
+/// of a type parameter, which no other removal has, so `DeadSpans` can tell
+/// these removals apart. Its `range` and `fullRange` cover the entry, like
+/// `M<int>`, and its `cut` is the text that `--remove` deletes, which can hold
+/// other entries too.
 const clauseCutKind = SymbolKind.typeParameter;
 
 /// A type named in a `with` or `implements` clause.
@@ -48,12 +50,13 @@ extension ClauseEntries on SourceIndex {
         if (!token.isComment) token.start,
   ];
 
-  /// Returns the clause entry at [loc] if [loc] is a whole entry of a `with` or
-  /// `implements` clause, like `M` in `class A with M {}`.
+  /// Returns the clause entry at [loc] if [loc] starts an entry of a `with` or
+  /// `implements` clause, like `M` in `class A with M {}` or in
+  /// `class A with M<int> {}`.
   ///
   /// [unit] is the outline of the file that holds [loc]. Returns `null` for any
   /// other reference to [name], such as a type annotation, an `extends` or `on`
-  /// clause, or `p.M` or `M<int>`.
+  /// clause, `p.M`, or a type argument like the `M` in `implements List<M>`.
   ClauseEntry? clauseEntryAt(Location loc, String name, Outline unit) {
     final path = SourceIndex.pathOf(loc.uri);
     final type = selectionRangeAt(path, loc.range.start);
@@ -62,7 +65,7 @@ extension ClauseEntries on SourceIndex {
     if (type == null ||
         clause == null ||
         keyword == null ||
-        type.range != loc.range ||
+        type.range.start != loc.range.start ||
         semanticTokens(path)?.startingAt(loc.range.start)?.text != name) {
       return null;
     }
@@ -106,6 +109,7 @@ extension ClauseEntries on SourceIndex {
     if (all == null || whole == null) {
       return const {};
     }
+    final filePath = relativePosix(path, rootPath);
     final byName = {for (final entry in removed) entry.name: entry};
     final cuts = <ClauseEntry, CoupledRemoval>{};
     for (final (i, j, cut) in listCuts(
@@ -117,16 +121,16 @@ extension ClauseEntries on SourceIndex {
       if (cut == null && keepsOne) {
         continue;
       }
-      final range = (cut ?? whole).toDeclarationRange;
-      final removal = (
-        filePath: relativePosix(path, rootPath),
-        kind: clauseCutKind,
-        range: range,
-        fullRange: range,
-        cut: range,
-      );
+      final deleted = (cut ?? whole).toDeclarationRange;
       for (final entry in all.sublist(i, j)) {
-        cuts[byName[entry.start]!] = removal;
+        final range = entry.toDeclarationRange;
+        cuts[byName[entry.start]!] = (
+          filePath: filePath,
+          kind: clauseCutKind,
+          range: range,
+          fullRange: range,
+          cut: deleted,
+        );
       }
     }
     return cuts;

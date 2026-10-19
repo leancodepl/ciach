@@ -49,9 +49,9 @@ entry, run `dart run tool/check_changelog.dart --pr N`; CI runs the same check.
 Write an entry for the people who use ciach. In one to three short, plain
 sentences, say what was added, fixed or changed, as they will see it, and keep
 it about as long as the entries around it, also after a later commit adds an
-effect to it. For a
-fix, say what went wrong before. Leave out how it was implemented: no class or
-method names, internal terms or reasoning about the code.
+effect to it. For a fix, say what went wrong before. Leave out how it was
+implemented: no class or method names, internal terms or reasoning about the
+code.
 
 Every pull request that changes what users see adds its entry under
 `## Unreleased`, without being asked. Write one entry per change and name every
@@ -148,8 +148,8 @@ comment at the code that it explains: a reason why a step is skipped goes
 where the step runs, not next to the code before it.
 
 A file whose purpose isn't obvious gets a library doc comment, and a long
-inline fixture gets a comment on each part. Put such an explanation in the
-code; a reviewer who asks for it shouldn't find it only in a review reply.
+inline fixture gets a comment on each part. When a reviewer asks you to explain
+code, answer in the reply, and add a comment only when they ask for one.
 Keep the borders of a Markdown table in a doc comment aligned, and leave a TODO
 at a workaround for a bug that a later pull request will fix.
 

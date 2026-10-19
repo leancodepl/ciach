@@ -2,6 +2,10 @@
 
 - Restructure the README.
   ([#162](https://github.com/leancodepl/ciach/pull/162))
+- A generic class or mixin that only `with` or `implements` clauses name is now
+  reported and removed like any other. A type named only in the type arguments
+  of such a class or mixin in a clause, like `T` in `with M<T>`, is reported in
+  the same run, except with `--no-transitive`. ([#153](https://github.com/leancodepl/ciach/pull/153))
 - Report unused unnamed extensions and their members in an exported package
   and with `--no-public`, and label them `(private)`.
   ([#160](https://github.com/leancodepl/ciach/pull/160))
