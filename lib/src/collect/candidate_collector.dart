@@ -12,6 +12,7 @@ import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/model/finder_options.dart';
+import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
@@ -19,11 +20,27 @@ import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:ciach/src/workspace/public_api.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Range;
+import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Range, SymbolKind;
 
 final _log = Logger('ciach.finder');
 
 const _uncollectedFile = 'Could not list declarations; file skipped.';
+
+/// The declarations of one file that a scan checks: `candidates` get their
+/// references checked, and `parameterOwners` are the functions, methods and
+/// constructors whose bodies are checked for parameters that they never read.
+typedef CollectedFile = ({
+  List<Candidate> candidates,
+  List<Candidate> parameterOwners,
+});
+
+/// What a scan checks about one declaration.
+typedef _Checks = ({bool references, bool parameters});
+
+const _noChecks = (references: false, parameters: false);
+
+/// The kinds of declaration whose parameters are checked.
+const _parameterOwnerKinds = <SymbolKind>{.function, .method, .constructor};
 
 /// Which declarations get their references checked: every document symbol
 /// of a scanned file, less the kinds, visibilities, entry points and
@@ -63,7 +80,7 @@ final class CandidateCollector {
   void reportSkipped() => _kept.report();
 
   /// The declarations of the open file [path] worth checking.
-  Future<List<Candidate>> collect(
+  Future<CollectedFile> collect(
     LspClient client,
     String path,
     String rootPath,
@@ -85,7 +102,10 @@ final class CandidateCollector {
         rethrow;
       }
       recordProblem(_uncollectedFile, e, path: path);
-      return const [];
+      return (
+        candidates: const <Candidate>[],
+        parameterOwners: const <Candidate>[],
+      );
     }
     _sources.cacheSemanticTokens(path, await pendingTokens);
     if (_conditionalImports.contains(path)) {
@@ -95,7 +115,7 @@ final class CandidateCollector {
     final markers = _Markers(IgnoreMarkers.parse(_sources.content(path)));
     // The whole walk has to run before the filter: it records the entry-point
     // containers the filter drops, and a container comes before its members.
-    final candidates = _collect(
+    final checked = _collect(
       uri,
       path,
       relativePath,
@@ -108,7 +128,16 @@ final class CandidateCollector {
       markers,
     ).toList();
     markers.warnAbout(relativePath);
-    return _kept.withoutContainers(candidates, relativePath).toList();
+    return (
+      candidates: _kept.withoutContainers([
+        for (final (:candidate, :checks) in checked)
+          if (checks.references) candidate,
+      ], relativePath).toList(),
+      parameterOwners: [
+        for (final (:candidate, :checks) in checked)
+          if (checks.parameters) candidate,
+      ],
+    );
   }
 
   /// Recursively walks the symbol tree, keeping only symbols worth checking,
@@ -116,7 +145,7 @@ final class CandidateCollector {
   ///
   /// [parentIsEnum] marks children of an enum declaration so their enum values
   /// are remapped to the `enum-value` kind.
-  Iterable<Candidate> _collect(
+  Iterable<({Candidate candidate, _Checks checks})> _collect(
     Uri uri,
     String path,
     String relativePath,
@@ -153,15 +182,16 @@ final class CandidateCollector {
         ),
       );
       final exports = exportsOf(symbol, leadingMetadata) ?? containerExports;
-      if (_isCandidate(
+      final checks = _checksOf(
         relativePath,
         candidate,
         leadingMetadata,
         containerExports: containerExports,
         markers: markers,
         start: start,
-      )) {
-        yield candidate;
+      );
+      if (checks.references || checks.parameters) {
+        yield (candidate: candidate, checks: checks);
       }
       final (
         childContainer,
@@ -230,9 +260,10 @@ final class CandidateCollector {
             false);
   }
 
-  /// Returns whether [candidate], whose doc comment and annotations start on
-  /// line [start], is checked: neither kept by one of [markers] nor left out.
-  bool _isCandidate(
+  /// Returns what is checked about [candidate], whose doc comment and
+  /// annotations start on line [start]: nothing when one of [markers] keeps it
+  /// or the options leave it out.
+  _Checks _checksOf(
     String relativePath,
     Candidate candidate,
     Iterable<SemanticToken> leadingMetadata, {
@@ -246,17 +277,41 @@ final class CandidateCollector {
         )
         case final kept?) {
       _kept.byMarker(relativePath, candidate, kept);
-      return false;
+      return _noChecks;
+    }
+    final symbol = candidate.symbol;
+    final checks = (
+      references: options.kinds.contains(
+        symbol.reportedKind(
+          parentIsEnum: candidate.isEnumValue,
+          isExtensionType: candidate.isExtensionType,
+          isMixin: candidate.isMixin,
+        ),
+      ),
+      // The signature of an operator, of an override and of a `call` method,
+      // which an object passed as a function also uses, is fixed.
+      parameters:
+          options.kinds.contains(parameterKind) &&
+          _parameterOwnerKinds.contains(symbol.kind) &&
+          !symbol.isOperator &&
+          !symbol.isCallMethod &&
+          leadingMetadata.none((t) => t.isAnnotationNamed('override')),
+    );
+    if (!checks.references && !checks.parameters) {
+      return _noChecks;
     }
     return _shouldConsider(
-      relativePath,
-      candidate,
-      leadingMetadata,
-      containerExports: containerExports,
-    );
+          relativePath,
+          candidate,
+          leadingMetadata,
+          containerExports: containerExports,
+        )
+        ? checks
+        : _noChecks;
   }
 
-  /// Returns whether the references to [candidate] should be checked.
+  /// Returns whether [candidate], of a kind that the options check, is
+  /// checked at all.
   bool _shouldConsider(
     String relativePath,
     Candidate candidate,
@@ -264,15 +319,6 @@ final class CandidateCollector {
     required ExportedMembers? containerExports,
   }) {
     final symbol = candidate.symbol;
-    if (!options.kinds.contains(
-      symbol.reportedKind(
-        parentIsEnum: candidate.isEnumValue,
-        isExtensionType: candidate.isExtensionType,
-        isMixin: candidate.isMixin,
-      ),
-    )) {
-      return false;
-    }
     // Only the messages of a gen-l10n file are checked: removing one from the
     // ARB file leaves the code around them.
     if (translationsOf(candidate, options.translations, options.rootPath) !=

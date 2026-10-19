@@ -1,5 +1,10 @@
 ## Unreleased
 
+- ciach now reports a parameter that the body of its function, method or
+  constructor never reads, with the kind `parameter`. Such a finding is
+  report-only and counts toward `--set-exit-if-changed`. Overrides, functions
+  that code tears off, and parameters named `_` are left out.
+  ([#156](https://github.com/leancodepl/ciach/pull/156))
 - A generic class or mixin that only `with` or `implements` clauses name is now
   reported and removed like any other. A type named only in the type arguments
   of such a class or mixin in a clause, like `T` in `with M<T>`, is reported in

@@ -101,7 +101,7 @@ usage or analysis error.
 | `-e, --exclude <glob>` | — | Skip these files: nothing in them is reported, but their references still count. Repeatable. |
 | `-i, --include <glob>` | — | Scan only these files. The references in other files still count. Repeatable. |
 | `--generated-glob <glob>` | — | Treat these files as generated: their references count, but nothing in them is reported or removed. For output without a suffix or banner, or code kept as is, like a vendored copy. Repeatable. |
-| `-k, --kinds <list>` | all | Report only these kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
+| `-k, --kinds <list>` | all | Report only these kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value, parameter`. |
 | `-f, --format <fmt>` | `text`; the service's on CI | `text`, `json`, `github`, `azure`, `teamcity`, `sarif`, `checkstyle` or `gitlab`. See [CI](#ci). |
 | `-j, --concurrency <n>` | `16` | Reference queries to run at once. |
 | `--[no-]color` | auto | Colorize the output. Honors `NO_COLOR`. |
@@ -208,6 +208,32 @@ count.
 A [report-only](#removing-declarations) finding stays in the code, so what it
 references stays used. `--no-transitive` reports only what nothing references
 at all; the rest shows up after a removal and another run.
+
+### Unused parameters
+
+A parameter that the body of its function, method or constructor never reads
+is reported with the kind `parameter`:
+
+```
+lib/scenarios/unused_parameters.dart
+  15:28  parameter  _sum.unused  (private)  (unsafe to auto-remove — remove manually)  (also remove its argument at every call)
+
+Found 1 unused declaration in 1 file (scanned 1 file, 2 declarations, 1.0s)
+```
+
+Such a finding is [report-only](#removing-declarations), because every call
+passes an argument for the parameter, and it counts toward
+`--set-exit-if-changed`. A parameter is not reported when something other than
+the calls fixes the signature, or when it is unused on purpose:
+
+- in an `@override` member, a member that another one overrides, a `call`
+  method, and an abstract or `external` member;
+- in a function that code tears off, as `list.forEach(log)` does, and in an
+  [entry point](#entry-points);
+- a parameter named `_`, `this.x`, `super.x`, and a declaring parameter of a
+  primary constructor, which is a field;
+- in a function that is reported as unused, also as a member of an unused
+  class, or that a [`// ciach:ignore`](#ignore-markers) marker keeps.
 
 ### Not analyzed
 
@@ -383,6 +409,7 @@ marked `unsafe to auto-remove — remove manually` and left in place:
 | The sole constructor of a live class with `final` fields, or whose superclass needs constructor arguments | the implicit default constructor can't replace it |
 | A primary constructor or its declaring parameters | only part of the class header |
 | A member whose override is a declaring parameter, or is in a file the run didn't scan | that override can't be deleted, and would be left overriding nothing |
+| An unused parameter | every call passes an argument for it |
 | A gen-l10n message | gen-l10n would generate it again from the ARB file |
 | A type that only doc comments mention | the links would dangle |
 

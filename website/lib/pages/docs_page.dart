@@ -164,6 +164,7 @@ const _reportOnly = [
   'A used enum whose values are all unused.',
   'The sole constructor of a live class with final fields or super forwarding.',
   'A primary constructor or its declaring parameters.',
+  'An unused parameter: every call passes an argument for it.',
 ];
 
 Component _markOf(bool yes) => yes

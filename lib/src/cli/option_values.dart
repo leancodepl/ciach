@@ -33,6 +33,7 @@ const kindAliases = <String, SymbolKind>{
   'variable': .variable,
   'constant': .constant,
   'enum-value': .enumMember,
+  'parameter': parameterKind,
 };
 
 /// The `--kinds` alias names, sorted, for help text and error messages.
