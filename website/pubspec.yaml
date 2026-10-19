@@ -6,6 +6,7 @@ environment:
   sdk: ^3.13.0
 
 dependencies:
+  collection: ^1.19.1
   jaspr: ^0.23.4
   jaspr_class_scope: ^0.1.1
   jaspr_content: ^0.5.4

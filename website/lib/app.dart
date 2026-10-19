@@ -4,6 +4,7 @@ import 'package:ciach_website/content/sections_extension.dart';
 import 'package:ciach_website/pages/home_page.dart';
 import 'package:ciach_website/seo.dart';
 import 'package:ciach_website/site.dart';
+import 'package:collection/collection.dart';
 import 'package:jaspr/server.dart';
 import 'package:jaspr_content/jaspr_content.dart' hide DocsLayout;
 import 'package:jaspr_content/theme.dart';
@@ -40,7 +41,7 @@ class const App({
             path: '/',
             builder: (context, state) => HomePage(version: version),
           ),
-          ...routes.expand((routes) => routes),
+          ...routes.flattened,
         ],
       ),
     ),
