@@ -77,9 +77,10 @@ easy-to-follow sentences, not how it works inside.
 - Take sample output from a real run on `example/`, and paste it as it is.
   Never compose it by hand.
 - README.md is the short path through ciach: install, run, read the report,
-  the options. The docs page holds every detail, written in Markdown in
-  `website/content/docs.md` with one `##` section per topic, and each README
-  section links to its section there by the id that the heading generates.
+  the options. The docs page holds every detail, written in Markdown with one
+  `##` section per file under `website/content/_partials/docs/`, which
+  `website/content/docs.md` includes in order, and each README section links
+  to its section there by the id that the heading generates.
   Put a new detail on the docs page, and in README.md only when every user
   needs it.
 - README.md starts with a `## Contents` list of its `##` and `###` headings.

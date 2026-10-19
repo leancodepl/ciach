@@ -11,7 +11,8 @@ import 'package:jaspr_content/theme.dart';
 import 'package:jaspr_router/jaspr_router.dart';
 
 /// The site: a lean landing page, and the pages under `content/`, which
-/// `jaspr_content` renders from Markdown in [DocsLayout]. Every route is
+/// `jaspr_content` renders from Markdown in [DocsLayout], one section per
+/// partial. Every route is
 /// rendered to static HTML at build time; only `CopyButton` and the table of
 /// contents hydrate on the client.
 class const App({
@@ -23,6 +24,8 @@ class const App({
   Component build(BuildContext context) => ContentApp.custom(
     loaders: [FilesystemLoader('content')],
     configResolver: PageConfig.all(
+      // The page includes one partial per section from `content/_partials/`.
+      templateEngine: const MustacheTemplateEngine(),
       parsers: const [MarkdownParser()],
       extensions: const [TableOfContentsExtension(), SectionsExtension()],
       components: const [DocsComponents()],

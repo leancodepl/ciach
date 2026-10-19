@@ -13,12 +13,14 @@ import 'dart:io';
 import 'package:markdown/markdown.dart' as md;
 import 'package:test/test.dart';
 
-/// The ids of the `h2` and `h3` headings of `content/docs.md`, as the
-/// `markdown` package generates them for the page.
+/// The ids of the `h2` and `h3` headings of the docs page, as the `markdown`
+/// package generates them for the partials that `content/docs.md` includes.
 Set<String> _headingIds() {
   final source = File('content/docs.md').readAsStringSync();
-  // The frontmatter, which jaspr_content strips before parsing.
-  final body = source.split('\n---\n').skip(1).join('\n---\n');
+  final body = [
+    for (final match in _include.allMatches(source))
+      File('content/_partials/${match.namedGroup('name')}').readAsStringSync(),
+  ].join('\n');
   final nodes = md.Document(extensionSet: md.ExtensionSet.gitHubWeb)
       .parse(body);
   return {
@@ -36,6 +38,7 @@ Set<String> _linkedFragments(File file) => {
 };
 
 final _fragment = RegExp(r'/docs#(?<fragment>[\w-]+)');
+final _include = RegExp(r'\{\{>\s*(?<name>\S+)\s*\}\}');
 
 /// The files that may link to the docs page: the site, its content and the
 /// README.
@@ -52,14 +55,17 @@ Iterable<File> _linkingFiles() sync* {
 }
 
 void main() {
-  test('every link to a section of the docs page names a heading of `content/docs.md`', () {
-    final ids = _headingIds();
-    for (final file in _linkingFiles()) {
-      expect(
-        _linkedFragments(file),
-        everyElement(isIn(ids)),
-        reason: file.path,
-      );
-    }
-  });
+  test(
+    'every link to a section of the docs page names a heading of the page',
+    () {
+      final ids = _headingIds();
+      for (final file in _linkingFiles()) {
+        expect(
+          _linkedFragments(file),
+          everyElement(isIn(ids)),
+          reason: file.path,
+        );
+      }
+    },
+  );
 }
