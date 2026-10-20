@@ -65,9 +65,8 @@ class const OgCard({
         margin: .only(top: 18.px),
         color: textColor,
         fontSize: 80.px,
-        fontWeight: .w700,
-        letterSpacing: (-0.035).em,
-        lineHeight: const .expression('1.02'),
+        fontWeight: .w500,
+        lineHeight: const .expression('1.08'),
       ),
       css('& ${Hero.leadText.selector}').styles(
         maxWidth: 60.rem,

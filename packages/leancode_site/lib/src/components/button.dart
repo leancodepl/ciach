@@ -39,7 +39,6 @@ class const Button(
         display: .inlineFlex,
         padding: .symmetric(vertical: 0.75.rem, horizontal: 1.2.rem),
         border: hairline(const .new('transparent')),
-        radius: .circular(999.px),
         cursor: .pointer,
         transition: .combine([
           .new('transform', duration: 150.ms, curve: .ease),

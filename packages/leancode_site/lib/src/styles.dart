@@ -30,11 +30,18 @@ const accentSoftColor = Color.variable('--accent-soft');
 const dangerColor = Color.variable('--danger');
 const okColor = Color.variable('--ok');
 
+/// Switzer, for body and UI.
 const fontSans = FontFamily.variable('--font-sans');
+
+/// Cabinet Grotesk, for display sizes and headings.
+const fontDisplay = FontFamily.variable('--font-display');
+
+/// The system's monospace, for code, paths and URLs.
 const fontMono = FontFamily.variable('--font-mono');
 
+/// The corner radius of a card. The design system keeps corners sharp:
+/// 0 for blocks and controls, this at most for cards.
 const radius = Unit.variable('--radius');
-const radiusSm = Unit.variable('--radius-sm');
 const headerHeight = Unit.variable('--header-h');
 
 /// The drop shadow under raised panels.
@@ -110,10 +117,10 @@ List<StyleRule> get _tokens => [
       '--tk-comment': '#767eaa',
       '--tk-annotation': '#ffcb6b',
       '--tk-function': '#89ddff',
-      '--font-sans': "'Space Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
-      '--font-mono': "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-      '--radius': '14px',
-      '--radius-sm': '8px',
+      '--font-sans': "'Switzer', Arial, sans-serif",
+      '--font-display': "'Cabinet Grotesk', Arial, sans-serif",
+      '--font-mono': 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+      '--radius': '4px',
       '--container': '1160px',
       '--header-h': '68px',
       'color-scheme': 'dark',
@@ -140,18 +147,20 @@ List<StyleRule> get _reset => [
     color: textColor,
     fontFamily: fontSans,
     fontSize: 1.0625.rem,
-    lineHeight: const .expression('1.6'),
+    lineHeight: const .expression('1.45'),
     backgroundColor: bgColor,
     raw: {
       '-webkit-font-smoothing': 'antialiased',
       'text-rendering': 'optimizeLegibility',
     },
   ),
+  // Headings are Cabinet Grotesk at 600; a display heading drops to 500 and
+  // a small title rises to 700 where it is styled.
   css('h1, h2, h3').styles(
     margin: .zero,
+    fontFamily: fontDisplay,
     fontWeight: .w600,
-    letterSpacing: (-0.02).em,
-    lineHeight: const .expression('1.15'),
+    lineHeight: const .expression('1.1'),
     raw: {'text-wrap': 'balance'},
   ),
   css('p').styles(margin: .zero),
@@ -160,7 +169,6 @@ List<StyleRule> get _reset => [
     css('&:hover').styles(color: accentColor),
   ]),
   css(':focus-visible').styles(
-    radius: .circular(4.px),
     outline: .new(
       color: accentColor,
       style: .solid,
@@ -175,7 +183,6 @@ List<StyleRule> get _reset => [
   css(':where(p, li, td, th) code:not(pre code)').styles(
     padding: .symmetric(vertical: 0.1.em, horizontal: 0.4.em),
     border: hairline(borderColor),
-    radius: .circular(6.px),
     fontSize: 0.85.em,
     whiteSpace: .noWrap,
     backgroundColor: surfaceColor,

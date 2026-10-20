@@ -45,7 +45,6 @@ class const CopyButton({
         display: .inlineFlex,
         padding: .symmetric(vertical: 0.4.rem, horizontal: 0.7.rem),
         border: hairline(border2Color),
-        radius: .circular(8.px),
         cursor: .pointer,
         transition: .combine([
           .new('color', duration: 150.ms, curve: .ease),

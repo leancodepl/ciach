@@ -98,8 +98,7 @@ class const DocSection({
       css('& h2')
           .styles(fontSize: const .expression('clamp(1.6rem, 2.6vw, 2rem)')),
       css('& h3').styles(fontSize: 1.15.rem),
-      css('& p')
-          .styles(color: text2Color, lineHeight: const .expression('1.7')),
+      css('& p').styles(color: text2Color),
       css('& p a, & li a').styles(
         color: accentColor,
         textDecoration: underlined,
@@ -208,11 +207,10 @@ abstract final class Prose() {
         alignItems: .center,
         gap: .all(0.5.rem),
         color: accentColor,
-        fontFamily: fontMono,
         fontSize: 0.8.rem,
         fontWeight: .w600,
         textTransform: .upperCase,
-        letterSpacing: 0.08.em,
+        letterSpacing: 0.18.em,
       ),
       css('&::before').styles(
         content: '',
@@ -228,7 +226,7 @@ abstract final class Prose() {
     ),
     css(more.selector).styles(
       margin: .only(top: 1.5.rem),
-      fontWeight: .w500,
+      fontWeight: .w600,
     ),
     css('${more.selector} a').styles(
       color: accentColor,

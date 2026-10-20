@@ -54,12 +54,11 @@ class const NavBar({required final String path, super.key})
         css('&').styles(
           display: .inlineFlex,
           padding: .symmetric(vertical: 0.5.rem, horizontal: 0.85.rem),
-          radius: .circular(999.px),
           alignItems: .center,
           gap: .all(0.45.rem),
           color: text2Color,
           fontSize: 0.95.rem,
-          fontWeight: .w500,
+          fontWeight: .w600,
         ),
         css('& svg').styles(color: mutedColor),
         css('&:hover, &${_active.selector}')

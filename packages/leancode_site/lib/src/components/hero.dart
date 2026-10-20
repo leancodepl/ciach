@@ -71,11 +71,11 @@ class const Hero({
         overflow: .hidden,
         raw: {'isolation': 'isolate'},
       ),
+      // A display heading: Cabinet Grotesk at 500, tracking 0.
       css('& h1').styles(
         fontSize: const .expression('clamp(2.5rem, 5.6vw, 4.25rem)'),
-        fontWeight: .w700,
-        letterSpacing: (-0.035).em,
-        lineHeight: const .expression('1.02'),
+        fontWeight: .w500,
+        lineHeight: const .expression('1.08'),
       ),
     ]),
     css(bg.selector).styles(

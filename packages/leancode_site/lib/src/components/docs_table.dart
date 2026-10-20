@@ -53,18 +53,17 @@ abstract final class DocsTable() {
       ),
       css('& thead th').styles(
         color: mutedColor,
-        fontFamily: fontMono,
         fontSize: 0.75.rem,
         fontWeight: .w600,
         textTransform: .upperCase,
-        letterSpacing: 0.08.em,
+        letterSpacing: 0.14.em,
         backgroundColor: surface2Color,
       ),
       css('& tbody', [
         css('& tr:last-child th, & tr:last-child td')
             .styles(border: const .only(bottom: .none())),
         css('& th', [
-          css('&').styles(fontWeight: .w500),
+          css('&').styles(fontWeight: .w600),
           css('& code').styles(whiteSpace: .noWrap),
         ]),
       ]),
@@ -87,11 +86,10 @@ abstract final class DocsTable() {
         css('& td + td').styles(margin: .only(top: 0.5.rem)),
         css('& td[data-label]::before').styles(
           color: mutedColor,
-          fontFamily: fontMono,
           fontSize: 0.7.rem,
           fontWeight: .w600,
           textTransform: .upperCase,
-          letterSpacing: 0.08.em,
+          letterSpacing: 0.14.em,
           raw: {'content': "attr(data-label) ': '"},
         ),
       ]),

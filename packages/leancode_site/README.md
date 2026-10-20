@@ -26,7 +26,7 @@ is built on it.
 
 | Library | What is in it |
 | --- | --- |
-| `leancode_site.dart` | `Palette`, the tokens and base styles, the fonts, the components, `SiteConfig`, `SiteHead`, `PageHead`, the highlighter. |
+| `leancode_site.dart` | `Palette`, the tokens and base styles, the fonts (Cabinet Grotesk and Switzer, see `lib/fonts/README.md`), the components, `SiteConfig`, `SiteHead`, `PageHead`, the highlighter. |
 | `server.dart` | `versionFromPubspec`, for the server entrypoint. |
 | `testing.dart` | `assetGoldenTests`, which renders a site's icons and social card and compares them with the committed files. |
 

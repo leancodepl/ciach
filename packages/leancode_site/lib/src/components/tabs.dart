@@ -65,7 +65,6 @@ class const Tabs({
       padding: .all(0.3.rem),
       margin: .only(bottom: 1.25.rem),
       border: hairline(borderColor),
-      radius: .circular(999.px),
       flexWrap: .wrap,
       gap: .all(0.25.rem),
       backgroundColor: surfaceColor,
@@ -74,7 +73,6 @@ class const Tabs({
     css(_tab.selector, [
       css('&').styles(
         padding: .symmetric(vertical: 0.5.rem, horizontal: 1.rem),
-        radius: .circular(999.px),
         cursor: .pointer,
         transition: .combine([
           .new('background-color', duration: 150.ms, curve: .ease),
@@ -82,7 +80,7 @@ class const Tabs({
         ]),
         color: text2Color,
         fontSize: 0.9.rem,
-        fontWeight: .w500,
+        fontWeight: .w600,
       ),
       css('& code').styles(fontSize: 0.85.rem),
       css('&:hover').styles(color: textColor),
