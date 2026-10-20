@@ -3,7 +3,7 @@ description: >-
   Dead code detector for Dart and Flutter. Finds unused classes, functions,
   methods, fields and enum values that nothing references, and removes them.
 # Keep in sync with `ciachVersion` in lib/src/version.dart.
-version: 0.7.0
+version: 0.7.1
 repository: https://github.com/leancodepl/ciach
 homepage: https://ciach.leancode.co
 issue_tracker: https://github.com/leancodepl/ciach/issues
