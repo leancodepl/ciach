@@ -33,11 +33,9 @@ class const Card(
         ]),
         backgroundColor: surfaceColor,
       ),
-      // A card title is a small title, which keeps 700.
       css('& h3').styles(
         margin: .only(bottom: 0.6.rem),
         fontSize: 1.2.rem,
-        fontWeight: .w700,
       ),
       css('& p').styles(color: text2Color, fontSize: 0.98.rem),
     ]),

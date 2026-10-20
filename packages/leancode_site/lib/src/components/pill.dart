@@ -29,11 +29,12 @@ class const Pill(
       display: .inlineFlex,
       padding: .symmetric(vertical: 0.3.rem, horizontal: 0.7.rem),
       border: hairline(border2Color),
+      radius: .circular(999.px),
       alignItems: .center,
       gap: .all(0.35.rem),
       color: text2Color,
       fontSize: 0.8.rem,
-      fontWeight: .w600,
+      fontWeight: .w500,
       backgroundColor: const .rgba(255, 255, 255, 0.02),
     ),
     css(_accent.selector, [

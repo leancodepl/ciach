@@ -94,6 +94,7 @@ class const DocsLayout() implements PageLayout {
             padding: .symmetric(vertical: 0.35.rem, horizontal: 0.75.rem),
             margin: .zero,
             border: hairline(border2Color),
+            radius: .circular(999.px),
             fontSize: 0.85.rem,
           ),
           css('&:hover, &${DocsToc.active.selector}')
@@ -128,7 +129,8 @@ class const DocsLayout() implements PageLayout {
     css(_head.selector, [
       css('& h1').styles(
         fontSize: const .expression('clamp(2.2rem, 4vw, 3rem)'),
-        fontWeight: .w500,
+        fontWeight: .w700,
+        letterSpacing: (-0.03).em,
       ),
       css('& ${Prose.lead.selector}').styles(margin: .only(top: 1.rem)),
     ]),

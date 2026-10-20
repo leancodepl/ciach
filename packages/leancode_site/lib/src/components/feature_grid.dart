@@ -55,7 +55,7 @@ class const FeatureGrid(
         border: hairline(border2Color),
         transform: .translate(y: (-2).px),
       ),
-      css('& h3').styles(margin: .zero, fontWeight: .w700),
+      css('& h3').styles(margin: .zero),
       css('& p:first-of-type').styles(flex: growToFill),
     ]),
     css(_icon.selector).styles(
@@ -64,6 +64,7 @@ class const FeatureGrid(
       height: 42.px,
       margin: .only(bottom: 0.5.rem),
       border: hairline(accentAlpha(0.3)),
+      radius: .circular(12.px),
       alignItems: .center,
       justifyItems: .center,
       color: accentColor,
@@ -83,7 +84,7 @@ class const FeatureGrid(
       margin: .only(top: 0.3.rem),
       color: accentColor,
       fontSize: 0.92.rem,
-      fontWeight: .w600,
+      fontWeight: .w500,
     ),
   ];
 

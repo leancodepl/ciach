@@ -31,6 +31,7 @@ class const PageShell({
         position: .fixed(top: 12.px, left: 12.px),
         zIndex: const .new(100),
         padding: .symmetric(vertical: 0.6.rem, horizontal: 1.rem),
+        radius: const .circular(radiusSm),
         transition: .new('transform', duration: 200.ms, curve: .ease),
         transform: .translate(y: (-200).percent),
         color: accentInkColor,

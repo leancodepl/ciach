@@ -85,10 +85,11 @@ class const SiteFooter({
       css('& h3').styles(
         margin: .only(bottom: 0.9.rem),
         color: mutedColor,
+        fontFamily: fontMono,
         fontSize: 0.75.rem,
         fontWeight: .w600,
         textTransform: .upperCase,
-        letterSpacing: 0.14.em,
+        letterSpacing: 0.08.em,
       ),
       css('& ul').styles(display: .grid, gap: .all(0.5.rem)),
       css('& li a', [

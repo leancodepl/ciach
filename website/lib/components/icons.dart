@@ -54,14 +54,15 @@ abstract final class Logo() {
       display: .inlineFlex,
       alignItems: .center,
       gap: .all(0.5.rem),
-      fontFamily: fontDisplay,
       fontSize: 1.25.rem,
       fontWeight: .w700,
+      letterSpacing: (-0.03).em,
     ),
     css(mark.selector).styles(
       display: .inlineGrid,
       width: 32.px,
       height: 32.px,
+      radius: .circular(9.px),
       alignItems: .center,
       justifyItems: .center,
       color: accentInkColor,
@@ -69,7 +70,8 @@ abstract final class Logo() {
     ),
     css(large.selector, [
       css('&').styles(fontSize: 2.1.rem),
-      css('& ${mark.selector}').styles(width: 56.px, height: 56.px),
+      css('& ${mark.selector}')
+          .styles(width: 56.px, height: 56.px, radius: .circular(15.px)),
     ]),
   ];
 }
