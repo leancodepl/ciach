@@ -1,56 +1,30 @@
+<!--
+AI-Provenance:
+  model: claude-fable-5-1
+  harness: Claude Code
+  plugins:
+    - lean-ai-provenance
+  skills:
+    - mark-ai-provenance
+-->
+
 # Example
 
-This directory is a small, self-contained Dart package (`sample_pkg`) with a
-deliberate mix of **used** and **unused** declarations, spread across several
-files so the report's per-file grouping actually has something to group. It
-doubles as the integration-test fixture, so it is a real, runnable
-demonstration of the tool.
+`example/` is a small Dart package, `sample_pkg`, with a deliberate mix of
+used and unused declarations across a few files: top-level functions and
+constants, a class with constructors, fields and properties, an enum, a mixin,
+an extension and an operator overload. It is also the fixture of the test
+suite: `lib/scenarios/` holds one file per detection rule, each saying up front
+what it covers, and the run below leaves them out.
 
-It comes in two tiers. The files directly under `lib/` are the **demo**: the
-everyday declaration kinds, referenced (or not) from `bin/app.dart`.
+From a clone of the repository, in its root:
 
-| File | Declarations it demonstrates |
-| --- | --- |
-| `lib/greeting.dart` | top-level functions, constants, and a mutable variable |
-| `lib/user.dart` | constructors, fields, methods, and a getter/setter pair |
-| `lib/shapes.dart` | an enum, a mixin, and an abstract class with an `@override` |
-| `lib/extensions.dart` | an extension method and operator overloading |
-| `lib/orphans.dart` | classes never referenced at all, and one referenced only as a type |
-| `lib/callables.dart` | a callable class whose `call` method is used only by invoking an instance |
-| `lib/private_ctors.dart` | private constructors reported like any dead code, with a prevent-instantiation hint on the sole zero-parameter `Foo._()` |
-| `test/flutter_test_config.dart` | the `flutter test` hook `testExecutable`, called by nothing on disk yet never reported |
-
-`lib/scenarios/` holds the **scenario fixtures**: one file (or a small cluster
-of them) per detection rule, each pinning down one behavior that is easy to
-regress. Every file says up front what it covers and which findings are
-expected; each is scanned only by its own test, never by the demo run above.
-
-| Fixture | Rule it pins down |
-| --- | --- |
-| `widgets.dart` | the `StatefulWidget`/`State` pairing, so a dead widget is reported as a class and its `State` is removed with it |
-| `unions.dart` | the opt-in `--also union-members` detection, across the three pattern-matching contexts |
-| `guards.dart` | the remove-safety guards: findings that must be report-only because removing them would not compile |
-| `enum_values.dart` | enum values reached only through `.values` iteration count as used |
-| `freezed_unions.dart` | `@freezed` union arms built only by a generated `fromJson` |
-| `serialization.dart` | the `toJson`/`fromJson` conventions, and `--also tojson` |
-| `comment_annotations.dart` | a comment mentioning `@override` or `vm:entry-point` does not skip the declaration below it |
-| `entry_points.dart`, `entry_points/flutter_test_config.dart` | an entry point is exempt by file and name, whatever its shape, and `entry-points` in `ciach.yaml` adds a project's own |
-| `dot_shorthands.dart`, `dot_shorthand_uses.dart` | every context a `.name` dot shorthand is allowed in, including nested constructor shorthands |
-| `primary_constructors.dart` | primary constructors: a dead declaration in the class header is report-only, while the class body stays removable |
-| `extensions_emptied.dart`, `extensions_emptied_uses.dart` | an extension whose every member is dead is reported (and removed) as the whole extension, unless a `show` names it; an extension type is dead when nothing names it |
-| `call_methods.dart`, `call_methods_uses.dart` | every form of use that keeps a `call` method alive: an invoked object, a tear-off and an explicit `.call` |
-| `operators.dart`, `operators_uses.dart`, `operators_ring.dart` | every form of use that keeps an operator alive: an expression, an index, a compound assignment and a relational pattern, also through an override in another file |
-| `xref_*.dart` | the cross-library reference recovery, and telling same-named members apart |
-
-Run the finder against the demo tier from the repository root:
-
-```console
-$ dart run ciach example --exclude 'lib/scenarios/**'
+```bash
+dart pub get
+dart run ciach example --exclude 'lib/scenarios/**'
 ```
 
-Expected output:
-
-```text
+```
 lib/extensions.dart
   13:7   method  IntExtras.tripled  (public)
   27:20  method  Vector2.-  (public)
@@ -85,32 +59,69 @@ lib/user.dart
   36:8   method       UsedClass.unusedMethod  (public)
   39:13  field        UsedClass._unusedField  (private)
 
-Found 22 unused declarations in 6 files (scanned 9 files, 63 declarations, ...s).
+Found 22 unused declarations in 6 files (scanned 9 files, 63 declarations, 2.3s)
 ```
 
-Things worth noticing:
+What the report shows:
 
-- Findings are **grouped by file**, one section per file, in the order the
-  files sort by path — that's what spreading the fixture across several files
-  buys you here.
-- Declarations that *are* referenced (e.g. `UsedClass`, `registerHandlers`,
-  `Direction.north`) are not reported, no matter which file references them
-  from. The mixin `Loud` is reported because only a `with` clause names it.
-- Constructors are reported as `Class.named` or `Class.new`; extension members
-  as `Extension.member`. `IntExtras` itself is not reported: an extension is
-  used through its members, and `doubled` is called.
-- `FullyDeadClass` is reported as the whole class, not as its constructor:
-  removing the class takes the constructor with it.
-- `_docOnlyMentioned` is reached only by a `[link]` in the doc comment of
-  `_referencesOnlyInDocs`, which is unused, so it is reported as used only by
-  that function.
-- `testExecutable` in `test/flutter_test_config.dart` is not reported: nothing
-  on disk calls it, but `flutter test` does, and ciach knows that contract.
-- `Dog.sound` (an `@override`) is skipped by default; add `--also overrides` to
-  include it — which also reveals `Animal.sound`, the abstract method it
-  implements.
+- Findings are grouped by file, in path order, with the line and column of
+  each declaration's name.
+- What `bin/app.dart` references is not reported: `UsedClass`,
+  `registerHandlers`, `Direction.north`, `IntExtras.doubled`.
+- A constructor is reported as `Class.named` or `Class.new`, and an extension
+  member as `Extension.member`. `IntExtras` itself is not reported, because
+  `doubled` is called.
+- `UnusedClass` and `FullyDeadClass` are reported once, as the class, without
+  their members: removing the class removes them too.
+- `_docOnlyMentioned` is named only by a doc comment of `_referencesOnlyInDocs`,
+  which is dead itself, so the finding says what it is only referenced from.
+- `Animal.sound` is never called. `Dog.sound` overrides it and is skipped by
+  default, as every `@override` is; `--also overrides` reports it too.
+- `Loud` is reported as the whole mixin: `whisper` is never called, and
+  `emphasize` only from `Dog.sound`. Only a `with` clause names the mixin, so
+  `--remove` deletes it from that clause as well.
 - `Vector2.-` is reported, and `Vector2.+` is not, because `bin/app.dart`
   adds two vectors with `+`.
-- Try `--no-public` to see only the highest-confidence, private dead code.
-- Drop the `--exclude` to scan the scenario fixtures too: they are deliberately
-  full of dead declarations, so the report gets much longer.
+- `testExecutable` in `test/flutter_test_config.dart` is not reported, because
+  `flutter test` calls it, and `Multiplier.call` is not reported, because an
+  instance is invoked as `multiplier(21)`.
+- `--no-public` narrows the report to the private declarations, and dropping
+  the `--exclude` adds the scenario fixtures, which are full of dead code on
+  purpose.
+
+Each file holds a few kinds of declaration:
+
+| File | Declarations |
+| --- | --- |
+| `lib/greeting.dart` | top-level functions, constants, and a mutable variable |
+| `lib/user.dart` | constructors, fields, methods, and a getter/setter pair |
+| `lib/shapes.dart` | an enum, a mixin, and an abstract class with an `@override` |
+| `lib/extensions.dart` | an extension method and operator overloading |
+| `lib/orphans.dart` | classes never referenced at all, and one referenced only as a type |
+| `lib/callables.dart` | a callable class whose `call` method is used only by invoking an instance |
+| `lib/private_ctors.dart` | private constructors reported like any dead code, with a prevent-instantiation hint on the sole zero-parameter `Foo._()` |
+| `test/flutter_test_config.dart` | the `flutter test` hook `testExecutable`, called by nothing on disk yet never reported |
+
+## Removing the findings
+
+`--remove` deletes what the report lists, after asking; `--force` skips the
+question:
+
+```bash
+dart run ciach example --exclude 'lib/scenarios/**' --remove --force
+```
+
+```
+Found 22 unused declarations in 6 files (scanned 9 files, 63 declarations, 2.6s)
+Removed 22 unused declarations from 6 files. Run `dart format` to tidy up spacing.
+Left 2 declarations empty because other code still uses them:
+  ReferencedAsTypeOnly (lib/orphans.dart)
+  Animal (lib/shapes.dart)
+Kept 1 comment that sat right above removed code. Check whether it still belongs:
+  lib/shapes.dart:22
+Note: SoleMarker._: looks like a prevent-instantiation constructor — for a non-instantiable static-only class, prefer `abstract final class`
+Note: Loud: only `with` or `implements` clauses use it; `--remove` also removes it from them
+```
+
+`ReferencedAsTypeOnly` and `Animal` stay, because other code names them as
+types, and only their members are gone.

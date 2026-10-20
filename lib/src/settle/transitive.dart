@@ -68,6 +68,8 @@ final class TransitiveSweep {
   ) {
     final spans = DeadSpans.of(candidateOf.keys, rootPath);
     final removable = removableIndices(candidateOf);
+    // A type's own entry in a clause counts as one of its containers, so
+    // that the entry doesn't keep the type alive.
     Iterable<int> containers(String path, Position position) => [
       for (final owner in spans.ownersOf(path, position)) candidateOf[owner]!,
     ];
@@ -87,23 +89,16 @@ final class TransitiveSweep {
             target: i,
             containers: containers(
               usage.path,
-              Position(line: usage.line, character: usage.character),
+              .new(line: usage.line, character: usage.character),
             ),
           ),
       ],
     ];
     final dead = unreached(removable, uses);
-    // Removing a dead type also removes its clause entries. Keep those entries
-    // as references here, so the next round reports the type as used only in
-    // clauses and not as unused.
-    return DeadSpans.of(
-      [
-        for (final MapEntry(key: finding, value: i) in candidateOf.entries)
-          if (dead.contains(i)) finding,
-      ],
-      rootPath,
-      includeClauseCuts: false,
-    );
+    return .of([
+      for (final MapEntry(key: finding, value: i) in candidateOf.entries)
+        if (dead.contains(i)) finding,
+    ], rootPath);
   }
 
   /// [refsByCandidate] less the references inside [deadSpans].

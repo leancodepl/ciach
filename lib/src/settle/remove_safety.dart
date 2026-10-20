@@ -83,7 +83,7 @@ class RemoveSafety {
           key,
     };
 
-    return RemoveSafety(
+    return .new(
       emptiedEnums: emptiedEnums,
       blockedCtorClasses: blockedCtorClasses,
       enumValuesIterated: tally.enumValuesIterated,

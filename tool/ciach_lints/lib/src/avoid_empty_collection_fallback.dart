@@ -139,11 +139,7 @@ class EmptyFallback({
         _ => null,
       };
       if (use != null) {
-        return EmptyFallback(
-          expression: expression,
-          left: leftOperand,
-          use: use,
-        );
+        return .new(expression: expression, left: leftOperand, use: use);
       }
     }
     return null;

@@ -30,7 +30,7 @@ void main() {
   };
 
   bool generated(List<String> globs, String path) => globs.any(
-    (glob) => Glob(glob, context: p.Context(style: .posix)).matches(path),
+    (glob) => Glob(glob, context: .new(style: .posix)).matches(path),
   );
 
   test('a file that does not parse is ignored', () {

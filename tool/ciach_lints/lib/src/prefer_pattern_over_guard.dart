@@ -160,7 +160,7 @@ class GuardRewrite._({
       return null;
     }
     final moved = {for (final move in moves) ...move.operands};
-    return GuardRewrite._(
+    return ._(
       guarded: guarded,
       moves: moves,
       moved: operands.where(moved.contains).toList(),
@@ -276,7 +276,7 @@ final class _Move._({
     if (moved.isEmpty) {
       return null;
     }
-    return _Move._(
+    return ._(
       declaration: declaration,
       operands: moved,
       type: type,
@@ -381,7 +381,7 @@ bool _pinsValueOf(ValueTest test, DartType type, LibraryElement library) =>
 /// `T v` for `var v`.
 String _typed(DeclaredVariablePattern declaration, String type) =>
     switch (declaration.keyword?.keyword) {
-      Keyword.FINAL => 'final $type ${declaration.name.lexeme}',
+      .FINAL => 'final $type ${declaration.name.lexeme}',
       _ => '$type ${declaration.name.lexeme}',
     };
 

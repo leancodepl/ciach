@@ -7,7 +7,6 @@
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/element/element.dart';
-import 'package:analyzer/dart/element/nullability_suffix.dart';
 import 'package:analyzer/dart/element/type.dart';
 
 /// The test that an [operand] of a `when` clause makes on a [variable].
@@ -101,20 +100,18 @@ ValueTest _comparison(
   String operator,
   Expression constant,
 ) => switch (operator) {
-  '==' => ValueTest(
+  '==' => .new(
     operand,
     variable,
     constant.toSource(),
     pinnedType: constant.staticType,
   ),
-  _ => ValueTest(operand, variable, '$operator ${constant.toSource()}'),
+  _ => .new(operand, variable, '$operator ${constant.toSource()}'),
 };
 
 /// Whether [type] is `bool`, not `bool?`.
 bool _isBool(DartType? type) =>
-    type != null &&
-    type.isDartCoreBool &&
-    type.nullabilitySuffix == NullabilitySuffix.none;
+    type != null && type.isDartCoreBool && type.nullabilitySuffix == .none;
 
 /// Whether [expression] can be a constant pattern: a literal, a negated
 /// number, or the name of a constant.

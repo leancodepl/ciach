@@ -179,9 +179,7 @@ ResolvedOptions resolveOptions(
     includeGenerated: configuration.value(CiachOption.generated),
     projectConfig: projectConfig,
     unusedTranslations: configuration.value(CiachOption.unusedTranslations),
-    detected: projectConfig
-        ? ProjectConfig.read(rootPath.absoluteNormalized)
-        : ProjectConfig.none,
+    detected: projectConfig ? .read(rootPath.absoluteNormalized) : .none,
     overrides: also.contains('overrides'),
     unusedUnionMembers: also.contains('union-members'),
     reportToJson: also.contains('tojson'),

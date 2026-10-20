@@ -11,20 +11,21 @@ part 'formats.scopes.dart';
 const _textOutput = '''
 lib/orphans.dart
   8:7   class        UnusedClass  (public)
-  10:8  method       UnusedClass.orphanMethod  (public)
   22:7  class        FullyDeadClass  (public)
   31:3  constructor  ReferencedAsTypeOnly.new  (public)
 
-Found 4 unused declarations in 1 file (scanned 1 file, 6 declarations, 0.7s)''';
+Found 3 unused declarations in 1 file (scanned 1 file, 6 declarations, 1.3s)''';
 
 const _jsonOutput = '''
 {
   "summary": {
     "filesScanned": 1,
     "declarationsChecked": 6,
-    "unusedCount": 4,
+    "unusedCount": 3,
     "docOnlyCount": 0,
-    "elapsedMs": 729
+    "emptyFileCount": 0,
+    "emptyVariantCount": 0,
+    "elapsedMs": 1317
   },
   "unused": [
     {
@@ -35,18 +36,44 @@ const _jsonOutput = '''
       "line": 8,
       "column": 7,
       "isPrivate": false
+    },
+    {
+      "name": "FullyDeadClass",
+      "qualifiedName": "FullyDeadClass",
+      "kind": "class",
+      "file": "lib/orphans.dart",
+      "line": 22,
+      "column": 7,
+      "isPrivate": false
+    },
+    {
+      "name": "new",
+      "qualifiedName": "ReferencedAsTypeOnly.new",
+      "kind": "constructor",
+      "file": "lib/orphans.dart",
+      "line": 31,
+      "column": 3,
+      "isPrivate": false,
+      "container": "ReferencedAsTypeOnly"
     }
   ],
   "docOnly": [],
+  "emptyFiles": [],
+  "emptyVariants": [],
+  "emptiedContainers": [
+    {
+      "filePath": "lib/orphans.dart",
+      "name": "ReferencedAsTypeOnly"
+    }
+  ],
   "warnings": [],
   "problems": []
 }''';
 
-const _githubOutput = '''
+const _githubOutput = """
 ::warning file=lib/orphans.dart,line=8,col=7,title=Unused declaration::Unused class 'UnusedClass'
-::warning file=lib/orphans.dart,line=10,col=8,title=Unused declaration::Unused method 'UnusedClass.orphanMethod'
 ::warning file=lib/orphans.dart,line=22,col=7,title=Unused declaration::Unused class 'FullyDeadClass'
-::notice file=lib/greeting.dart,line=41,col=6,title=Referenced only from a doc comment::function '_docOnlyMentioned' has no code references, only a dartdoc link''';
+::warning file=lib/orphans.dart,line=31,col=3,title=Unused declaration::Unused constructor 'ReferencedAsTypeOnly.new'""";
 
 class const _Format(
   final String id,
@@ -150,7 +177,10 @@ class const OutputFormats({super.key}) extends StatelessComponent {
       id: 'formats',
       eyebrow: 'Output',
       heading: 'Speaks human, machine and GitHub.',
-      lead: 'Pick the format with `-f`. Exit codes are the same in every one.',
+      lead:
+          'Pick the format with `-f`: `text`, `json` and `github` here, `azure`, '
+          '`teamcity`, `sarif`, `checkstyle` and `gitlab` for other services. Exit '
+          'codes are the same in every one.',
       children: [
         div(classes: _tabs.name, [
           for (final (index, format) in _formats.indexed)
@@ -188,6 +218,11 @@ class const OutputFormats({super.key}) extends StatelessComponent {
                   copyText: format.command,
                 ),
               ]),
+          ]),
+        ]),
+        p(classes: Prose.more.name, const [
+          a(href: '/docs#ci', [
+            .text('The other services and report formats →'),
           ]),
         ]),
       ],

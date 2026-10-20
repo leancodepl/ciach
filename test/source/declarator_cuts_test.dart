@@ -42,7 +42,7 @@ void main() {
     final tokens = await semanticTokensOrEmpty(client, sources, path);
     sources.cacheSemanticTokens(path, tokens);
     final fetch = ReferenceFetch(
-      options: FinderOptions(rootPath: tempDir.path),
+      options: .new(rootPath: tempDir.path),
       sources: sources,
     );
     final removed = [

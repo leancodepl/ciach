@@ -653,7 +653,7 @@ void main() {
     test('--remove keeps a doc-only type and its members', () async {
       final copy = Directory.systemTemp.createTempSync('ciach_doc_only_');
       addTearDown(() => copy.deleteSync(recursive: true));
-      copyTree(Directory(fixturePath), copy);
+      copyTree(.new(fixturePath), copy);
       final file = File(p.join(copy.path, fixture.single));
       final before = file.readAsStringSync();
 
@@ -906,7 +906,7 @@ void main() {
       () async {
         final copy = Directory.systemTemp.createTempSync('ciach_transitive_');
         addTearDown(() => copy.deleteSync(recursive: true));
-        copyTree(Directory(fixturePath), copy);
+        copyTree(.new(fixturePath), copy);
         Future<FinderResult> run() =>
             Ciach(.new(rootPath: copy.path, includeGlobs: fixture)).run();
 
@@ -952,7 +952,7 @@ void main() {
     test('--remove deletes each unused type and its members', () async {
       final copy = Directory.systemTemp.createTempSync('ciach_dead_types_');
       addTearDown(() => copy.deleteSync(recursive: true));
-      copyTree(Directory(fixturePath), copy);
+      copyTree(.new(fixturePath), copy);
       final file = File(p.join(copy.path, fixture.single));
       Future<FinderResult> run() =>
           Ciach(.new(rootPath: copy.path, includeGlobs: fixture)).run();
@@ -1201,7 +1201,7 @@ void main() {
         ('Checked.check', null),
         ('Primed.prime', null),
         ('Frame.frame', null),
-        ('Holder.hold', null),
+        ('Holder', Verdict.namedOnlyInClausesHint),
         ('Sketch', Verdict.namedOnlyInClausesHint),
         ('Glazed', Verdict.namedOnlyInClausesHint),
         ('Lacquer.lacquer', null),
@@ -1214,7 +1214,7 @@ void main() {
       () async {
         final copy = Directory.systemTemp.createTempSync('ciach_clauses_');
         addTearDown(() => copy.deleteSync(recursive: true));
-        copyTree(Directory(fixturePath), copy);
+        copyTree(.new(fixturePath), copy);
         final result = await Ciach(
           .new(
             rootPath: copy.path,
@@ -1233,6 +1233,7 @@ void main() {
         expect(source, contains('class Canvas {\n}\n'));
         expect(source, contains('class Easel extends Object with Tidy {}\n'));
         expect(source, contains('class Checker with Checked {}\n'));
+        expect(source, contains('class Held {}\n'));
         expect(source, contains('class Brushed with Primed, Brush {}\n'));
         expect(source, contains('class Sketched(final int size);\n'));
         expect(source, contains('class Varnished = Object with Varnish;\n'));
@@ -1240,12 +1241,12 @@ void main() {
         expect(source, isNot(contains('Painter')));
         expect(source, isNot(contains('Drawable')));
         expect(source, isNot(contains('Plain')));
+        expect(source, isNot(contains('Holder')));
         expect(source, isNot(contains('Sketch ')));
         expect(source, isNot(contains('Glazed')));
         expect(result.emptiedContainers.map((c) => c.name), [
           'Checked',
           'Frame',
-          'Holder',
           'Lacquer',
           'Primed',
         ]);
@@ -1263,7 +1264,7 @@ void main() {
         addTearDown(logging.cancel);
         final copy = Directory.systemTemp.createTempSync('ciach_clauses_');
         addTearDown(() => copy.deleteSync(recursive: true));
-        copyTree(Directory(fixturePath), copy);
+        copyTree(.new(fixturePath), copy);
         Future<FinderResult> run({required bool transitive}) => Ciach(
           .new(
             rootPath: copy.path,
@@ -1280,10 +1281,23 @@ void main() {
             ),
         };
         const painter = ('Painter', Verdict.namedOnlyInClausesHint, '');
+        const labeled = ('Labeled', Verdict.namedOnlyInClausesHint, '');
+        const bordered = ('Bordered', Verdict.namedOnlyInClausesHint, '');
 
-        expect(findings(await run(transitive: false)), {painter});
+        expect(findings(await run(transitive: false)), {
+          painter,
+          labeled,
+          bordered,
+        });
         final result = await run(transitive: true);
-        expect(findings(result), {('Shape', null, 'Painter'), painter});
+        expect(findings(result), {
+          ('Shape', null, 'Painter'),
+          painter,
+          ('Label', null, 'Labeled'),
+          labeled,
+          ('Border', null, 'Bordered'),
+          bordered,
+        });
         expect(messages, isNot(contains(startsWith('Stopping after'))));
 
         removeDeclarations(result.unused, copy.path);
@@ -1294,6 +1308,8 @@ void main() {
         expect(source, contains('class Tile {}\n'));
         expect(source, isNot(contains('Shape')));
         expect(source, isNot(contains('Painter')));
+        expect(source, isNot(contains('Label')));
+        expect(source, isNot(contains('Border')));
       },
     );
   });

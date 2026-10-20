@@ -205,7 +205,7 @@ final class _RewrittenFile {
       rewritten,
       [
         for (final (:use, :offset) in callOffsets)
-          _WrappedUse(File(path).uri, use, positionIn(lineStarts, offset)),
+          .new(File(path).uri, use, positionIn(lineStarts, offset)),
       ],
       inserted,
       lineStarts,

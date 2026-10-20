@@ -9,7 +9,7 @@ import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/source/clause_entries.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show Location, Range;
+import 'package:pro_lsp/pro_lsp.dart' show Range;
 import 'package:test/test.dart';
 
 import '../support/removal.dart';
@@ -47,7 +47,7 @@ void main() {
       path,
       sources,
       ReferenceFetch(
-        options: FinderOptions(rootPath: tempDir.path),
+        options: .new(rootPath: tempDir.path),
         sources: sources,
       ),
     );
@@ -87,7 +87,7 @@ void main() {
       [
         for (final (i, range) in ranges.indexed)
           sources.clauseEntryAt(
-            Location(uri: File(path).uri.toString(), range: range),
+            .new(uri: File(path).uri.toString(), range: range),
             names[i],
             unit,
           ),
@@ -229,6 +229,27 @@ class F extends B with C {}
       expect(extended.single?.keepsOne, isFalse);
     },
   );
+
+  test('removes a generic entry together with its type arguments', () async {
+    expect(
+      await cutFrom(
+        '${types}mixin G<T> {}\nclass A with C, G<List<int>> {}\n',
+        'with C',
+        ['G'],
+      ),
+      '${types}mixin G<T> {}\nclass A with C {}\n',
+    );
+  });
+
+  test('returns no entry for a type argument of a clause entry', () async {
+    final (_, _, _, entries) = await entriesIn(
+      '${types}abstract class A implements Comparable<C> {}\n',
+      'implements',
+      ['C'],
+    );
+
+    expect(entries.single, isNull);
+  });
 
   test(
     'returns no entry for a type named outside a with or implements clause',

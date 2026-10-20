@@ -33,9 +33,7 @@ const faqEntries = [
   ),
   FaqEntry(
     'How fast is it?',
-    'As fast as the analysis server: the package is analyzed once per run, '
-        'then one references query per declaration goes through a pool of 16 '
-        'concurrent requests. `--no-public` is by far the cheapest mode.',
+    'A large Flutter app takes tens of seconds. `--no-public` is by far the cheapest mode.',
   ),
   FaqEntry(
     'Which Dart versions are supported?',

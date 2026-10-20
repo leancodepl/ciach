@@ -172,7 +172,7 @@ class NegationRewrite._({
         (true, _) => '!$callCode',
         (false, _) => callCode,
       };
-      return NegationRewrite._(
+      return ._(
         code: code,
         needsCollection: method == 'none' || method == 'whereNot',
       );
@@ -243,7 +243,7 @@ final class _NegatedPredicate._(final String code) {
         ),
       ),
     )) {
-      return _NegatedPredicate._(switch (operand) {
+      return ._(switch (operand) {
         MethodInvocation(
           typeArguments: null,
           argumentList: ArgumentList(

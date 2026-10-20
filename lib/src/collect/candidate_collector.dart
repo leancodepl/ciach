@@ -92,7 +92,7 @@ final class CandidateCollector {
       declaredInVariants[path] = ConditionalImports.pairingNames(symbols);
     }
     final relativePath = relativePosix(path, rootPath);
-    final markers = _Markers(IgnoreMarkers.parse(_sources.content(path)));
+    final markers = _Markers(.parse(_sources.content(path)));
     // The whole walk has to run before the filter: it records the entry-point
     // containers the filter drops, and a container comes before its members.
     final candidates = _collect(
@@ -104,7 +104,7 @@ final class CandidateCollector {
       null,
       null,
       false,
-      _OutlineIndex(outline),
+      .new(outline),
       markers,
     ).toList();
     markers.warnAbout(relativePath);

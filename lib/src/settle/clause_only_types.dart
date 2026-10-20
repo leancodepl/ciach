@@ -42,10 +42,10 @@ final class ClauseOnlyTypes {
 
   /// Returns a finding, with its candidate index, for each such type whose
   /// members are all in [removable], the candidate indexes of the round's
-  /// removable findings. A generic type, or one with a clause entry that
-  /// can't be removed, gets no finding. Selection ranges are fetched only for
-  /// the clauses of these types. [refsByCandidate] still holds the references
-  /// into [deadSpans], which name what a type is only referenced from.
+  /// removable findings. A type with a clause entry that can't be removed gets
+  /// no finding. Selection ranges are fetched only for the clauses of these
+  /// types. [refsByCandidate] still holds the references into [deadSpans],
+  /// which name what a type is only referenced from.
   Future<List<(int, UnusedDeclaration)>> findings(
     LspClient client,
     List<Candidate> candidates,
@@ -63,7 +63,6 @@ final class ClauseOnlyTypes {
       final outline = candidate.outline.element;
       if (statuses[i] != .used ||
           !const <OutlineKind>{.class$, .mixin}.contains(outline.kind) ||
-          (outline.typeParameters?.isNotEmpty ?? false) ||
           (candidate.symbol.children?.length ?? 0) !=
               (members[candidate.key]?.removable ?? 0)) {
         continue;
@@ -75,7 +74,7 @@ final class ClauseOnlyTypes {
         for (final loc in refs)
           if (scannedPaths.contains(SourceIndex.pathOf(loc.uri)))
             ?client
-                .cachedOutline(Uri.parse(loc.uri))
+                .cachedOutline(.parse(loc.uri))
                 ?.let(
                   (unit) =>
                       _sources.clauseEntryAt(loc, candidate.symbol.name, unit),
@@ -113,9 +112,7 @@ final class ClauseOnlyTypes {
           _verdict.finding(
             candidates[i],
             rootPath,
-            coupledRemovals: {
-              for (final entry in entries) cuts[entry]!,
-            }.toList(),
+            coupledRemovals: [for (final entry in entries) cuts[entry]!],
             hint: Verdict.namedOnlyInClausesHint,
             onlyReferencedFrom: deadSpans.referrersAmong(
               _classifier.externalRefs(candidates[i], refsByCandidate[i]),

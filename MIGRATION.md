@@ -1,13 +1,13 @@
 # Migrating
 
-## From 0.7 to the next release
+## From 0.7.1 to the next release
 
 ### Operators are reported by default
 
 ciach now finds the uses of operators, so it reports an unused operator like
 any other method, and `--also operators` is gone. Drop `operators` from
 `--also` and from `also:` in `ciach.yaml`. To keep an operator that ciach
-reports, mark it with [`// ciach:ignore`](README.md#ignore-markers). Code
+reports, mark it with [`// ciach:ignore`](https://ciach.leancode.co/docs#ignore-markers). Code
 that uses ciach as a library drops the `skipOperators` argument of
 `FinderOptions`.
 

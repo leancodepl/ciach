@@ -10,7 +10,7 @@ import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/concurrency.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location, Position, Range;
+import 'package:pro_lsp/pro_lsp.dart' show Location, Range;
 
 /// Splits [members] into those a definition lookup finds used, with that
 /// use, and the rest.
@@ -50,9 +50,7 @@ probeMembers({
       rest.add(member);
     } else {
       used.add(member);
-      refs.add([
-        Location(uri: File(use.path).uri.toString(), range: use.range),
-      ]);
+      refs.add([.new(uri: File(use.path).uri.toString(), range: use.range)]);
     }
   }
   return (used: used, refs: refs, rest: rest);
@@ -88,7 +86,7 @@ Map<String, Map<String, List<_Mention>>> _mentionsByFile(
         path: path,
         range: Range(
           start: token.start,
-          end: Position(line: token.line, character: token.end),
+          end: .new(line: token.line, character: token.end),
         ),
       ));
     }

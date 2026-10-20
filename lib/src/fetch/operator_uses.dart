@@ -255,7 +255,7 @@ Future<List<_Rename>?> _renamesOf(
           final name?,
         )) {
       renames.add(
-        _Rename(path, keyword: sources.offsetOf(path, start)!, name: name),
+        .new(path, keyword: sources.offsetOf(path, start)!, name: name),
       );
     } else {
       return null;

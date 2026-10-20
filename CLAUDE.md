@@ -49,10 +49,10 @@ entry, run `dart run tool/check_changelog.dart --pr N`; CI runs the same check.
 Write an entry for the people who use ciach. In one to three short, plain
 sentences, say what was added, fixed or changed, as they will see it, and keep
 it about as long as the entries around it, also after a later commit adds an
-effect to it. For a
-fix, say what went wrong before. For a new or changed behavior, say only what
-it is now, not how ciach behaved before. Leave out how it was implemented: no class or
-method names, internal terms or reasoning about the code.
+effect to it. For a fix, say what went wrong before. For a new or changed
+behavior, say only what it is now, not how ciach behaved before. Leave out how
+it was implemented: no class or method names, internal terms or reasoning
+about the code.
 
 Every pull request that changes what users see adds its entry under
 `## Unreleased`, without being asked. Write one entry per change and name every
@@ -67,7 +67,7 @@ every change.
 
 # User docs
 
-README.md, the docs page in `website/lib/pages/docs_page.dart`, the `--help`
+README.md, the docs page in `website/content/docs.md`, the `--help`
 text and MIGRATION.md describe what ciach does and how to use it, in short,
 easy-to-follow sentences, not how it works inside.
 
@@ -77,6 +77,16 @@ easy-to-follow sentences, not how it works inside.
   add it to the example configs in README.md and `lib/src/cli/usage.dart`.
 - Take sample output from a real run on `example/`, and paste it as it is.
   Never compose it by hand.
+- README.md is the short path through ciach: install, run, read the report,
+  the options. The docs page holds every detail, written in Markdown with one
+  `##` section per file under `website/content/_partials/docs/`, which
+  `website/content/docs.md` includes in order, and each README section links
+  to its section there by the id that the heading generates.
+  Put a new detail on the docs page, and in README.md only when every user
+  needs it.
+- README.md starts with a `## Contents` list of its `##` and `###` headings.
+  `test/readme_toc_test.dart` checks it against the file, so run `dart test`
+  after changing a heading.
 - README.md covers the current version. Removed options and upgrade steps go in
   MIGRATION.md, under a heading such as "From 0.7 to the next release" until
   the release names the version. Don't guess the number of an unreleased
@@ -141,8 +151,8 @@ comment at the code that it explains: a reason why a step is skipped goes
 where the step runs, not next to the code before it.
 
 A file whose purpose isn't obvious gets a library doc comment, and a long
-inline fixture gets a comment on each part. Put such an explanation in the
-code; a reviewer who asks for it shouldn't find it only in a review reply.
+inline fixture gets a comment on each part. When a reviewer asks you to explain
+code, answer in the reply, and add a comment only when they ask for one.
 Keep the borders of a Markdown table in a doc comment aligned, and leave a TODO
 at a workaround for a bug that a later pull request will fix.
 
@@ -193,7 +203,11 @@ plain sentences with no `\n`; the parser wraps them (`usageLineLength`).
 Use a dot shorthand wherever the context type lets you: `.new(path, c)`
 rather than `DeclKey(path, c)`, `.plain` rather than `Style.plain`, including
 inside lambdas whose return type the context already fixes. Never replace a
-shorthand with the full type name.
+shorthand with the full type name. Annotation arguments are the exception:
+`@Timeout(Duration(minutes: 5))` stays, since `package:test` parses it with
+an evaluator of its own that knows no shorthands. leancode_lint's
+`prefer_dot_shorthand` rule, enabled in `analysis_options.yaml`, enforces all
+of this.
 
 # Nullable chains
 

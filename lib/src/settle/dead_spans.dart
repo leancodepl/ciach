@@ -8,20 +8,13 @@ import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
 /// The source `--remove` would delete: each removable finding's
 /// [UnusedDeclaration.fullRange] and its coupled removals. A reference inside
-/// these spans keeps nothing alive.
+/// these spans keeps nothing alive, except the name of a type at the start of
+/// its own entry in a `with` or `implements` clause.
 final class DeadSpans {
   DeadSpans._(this._byPath);
 
   /// The spans of the findings `--remove` would delete, by absolute path.
-  ///
-  /// If [includeClauseCuts] is false, the spans leave out the removals of
-  /// `with` and `implements` clause entries. Those entries then still count as
-  /// references to their types.
-  factory DeadSpans.of(
-    Iterable<UnusedDeclaration> findings,
-    String rootPath, {
-    bool includeClauseCuts = true,
-  }) {
+  factory DeadSpans.of(Iterable<UnusedDeclaration> findings, String rootPath) {
     final byPath = <String, List<_Span>>{};
     for (final finding in findings) {
       if (finding.removalBlocked) {
@@ -29,14 +22,19 @@ final class DeadSpans {
       }
       byPath
           .putIfAbsent(absoluteUnder(finding.filePath, rootPath), () => [])
-          .add((range: finding.fullRange, owner: finding));
+          .add((
+            range: finding.fullRange,
+            owner: finding,
+            isClauseEntry: false,
+          ));
       for (final coupled in finding.coupledRemovals) {
-        if (!includeClauseCuts && coupled.kind == clauseCutKind) {
-          continue;
-        }
         byPath
             .putIfAbsent(absoluteUnder(coupled.filePath, rootPath), () => [])
-            .add((range: coupled.fullRange, owner: finding));
+            .add((
+              range: coupled.fullRange,
+              owner: finding,
+              isClauseEntry: coupled.kind == clauseCutKind,
+            ));
       }
     }
     return DeadSpans._(byPath);
@@ -59,7 +57,9 @@ final class DeadSpans {
   bool covers(String path, Position position) =>
       ownerOf(path, position) != null;
 
-  /// The outermost finding whose removal deletes [position] in [path].
+  /// The outermost finding whose removal deletes [position] in [path]. The
+  /// name of a type at the start of its own clause entry, like `C` in
+  /// `class A with C<T> {}`, has no owner.
   UnusedDeclaration? ownerOf(String path, Position position) {
     final spans = _byPath[path];
     if (spans == null) {
@@ -67,7 +67,11 @@ final class DeadSpans {
     }
     _Span? outermost;
     for (final span in spans) {
+      // `--remove` deletes `C` with its entry, but if the name didn't count as
+      // a reference, `C` would be reported as unused, and `--remove` would
+      // leave the entry.
       if (_contains(span.range, position) &&
+          !(span.isClauseEntry && position == _start(span.range)) &&
           (outermost == null || _isOutside(span.range, outermost.range))) {
         outermost = span;
       }
@@ -75,7 +79,9 @@ final class DeadSpans {
     return outermost?.owner;
   }
 
-  /// Every finding whose removal deletes [position] in [path].
+  /// Every finding whose removal deletes [position] in [path]. Unlike
+  /// [ownerOf], this includes the type whose clause entry starts at
+  /// [position].
   Iterable<UnusedDeclaration> ownersOf(String path, Position position) => {
     if (_byPath[path] case final spans?)
       for (final span in spans)
@@ -137,10 +143,16 @@ final class DeadSpans {
       (_start(a) == _start(b) && _end(b).isBefore(_end(a)));
 
   static Position _start(DeclarationRange range) =>
-      Position(line: range.startLine, character: range.startColumn);
+      .new(line: range.startLine, character: range.startColumn);
 
   static Position _end(DeclarationRange range) =>
-      Position(line: range.endLine, character: range.endColumn);
+      .new(line: range.endLine, character: range.endColumn);
 }
 
-typedef _Span = ({DeclarationRange range, UnusedDeclaration owner});
+/// `isClauseEntry` is true for the span of a type's entry in a `with` or
+/// `implements` clause, which starts with the type's name.
+typedef _Span = ({
+  DeclarationRange range,
+  UnusedDeclaration owner,
+  bool isClauseEntry,
+});
