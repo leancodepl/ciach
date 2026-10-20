@@ -40,9 +40,10 @@ enum Palette(final int rgb) {
   /// [ctaYellow] lifted for the primary button's hover.
   ctaYellowLight(0xf5ff4d);
 
-  /// The 1px hairline between surfaces, and a stronger one for controls.
+  /// The 1px hairline between surfaces, and the outline of a control, as on
+  /// the design system's step number.
   static final line = white.alpha(0.12);
-  static final lineStrong = white.alpha(0.2);
+  static final lineStrong = white.alpha(0.35);
 
   Color get color => .value(rgb);
 

@@ -35,11 +35,11 @@ class const Pill(
       color: text2Color,
       fontSize: 0.8.rem,
       fontWeight: .w500,
-      backgroundColor: const .rgba(255, 255, 255, 0.02),
+      backgroundColor: const .rgba(255, 255, 255, 0.03),
     ),
     css(_accent.selector, [
       css('&').styles(
-        border: hairline(accentAlpha(0.4)),
+        border: hairline(accentAlpha(0.5)),
         color: accentColor,
         backgroundColor: accentSoftColor,
       ),

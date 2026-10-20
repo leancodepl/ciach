@@ -4,6 +4,8 @@ description: >-
   styles, the shared components and the plumbing a package landing page needs.
 version: 0.1.0
 repository: https://github.com/leancodepl/ciach/tree/main/packages/leancode_site
+# Not on pub.dev while it depends on an unpublished commit of jaspr; a site in
+# another repository depends on it from git, as the README shows.
 publish_to: none
 
 environment:
