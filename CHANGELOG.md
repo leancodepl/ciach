@@ -1,4 +1,4 @@
-## Unreleased
+## 0.7.1
 
 - Restructure the README.
   ([#162](https://github.com/leancodepl/ciach/pull/162))
