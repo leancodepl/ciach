@@ -1,7 +1,7 @@
 name: ciach
 description: >-
-  Finds unused (never-referenced) declarations in a Dart/Flutter package by
-  driving the Dart analysis server over LSP and querying textDocument/references.
+  Dead code detector for Dart and Flutter. Finds unused classes, functions,
+  methods, fields and enum values that nothing references, and removes them.
 # Keep in sync with `ciachVersion` in lib/src/version.dart.
 version: 0.7.0
 repository: https://github.com/leancodepl/ciach

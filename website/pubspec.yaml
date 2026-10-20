@@ -6,8 +6,10 @@ environment:
   sdk: ^3.13.0
 
 dependencies:
+  collection: ^1.19.1
   jaspr: ^0.23.4
   jaspr_class_scope: ^0.1.1
+  jaspr_content: ^0.5.4
   jaspr_router: ^0.9.0
   syntax_highlight_lite: ^0.0.1
   universal_web: ^1.1.0
@@ -19,6 +21,7 @@ dev_dependencies:
   jaspr_builder: ^0.23.4
   jaspr_class_scope_builder: ^0.1.0
   leancode_lint: ^27.0.0
+  markdown: ^7.3.1
   path: ^1.9.0
   puppeteer: ^3.26.0
   test: ^1.31.1
@@ -32,17 +35,22 @@ dependency_overrides:
     git:
       url: https://github.com/schultek/jaspr
       path: packages/jaspr
-      ref: 99edc8e5bcd47cb738eedc07da11b372cfadbc2e
+      ref: 9311973c7261b4a37ee2cb526466aa6934854851
   jaspr_builder:
     git:
       url: https://github.com/schultek/jaspr
       path: packages/jaspr_builder
-      ref: 99edc8e5bcd47cb738eedc07da11b372cfadbc2e
+      ref: 9311973c7261b4a37ee2cb526466aa6934854851
+  jaspr_content:
+    git:
+      url: https://github.com/schultek/jaspr
+      path: packages/jaspr_content
+      ref: 9311973c7261b4a37ee2cb526466aa6934854851
   jaspr_router:
     git:
       url: https://github.com/schultek/jaspr
       path: packages/jaspr_router
-      ref: 99edc8e5bcd47cb738eedc07da11b372cfadbc2e
+      ref: 9311973c7261b4a37ee2cb526466aa6934854851
 
 jaspr:
   mode: static

@@ -66,7 +66,7 @@ every change.
 
 # User docs
 
-README.md, the docs page in `website/lib/pages/docs_page.dart`, the `--help`
+README.md, the docs page in `website/content/docs.md`, the `--help`
 text and MIGRATION.md describe what ciach does and how to use it, in short,
 easy-to-follow sentences, not how it works inside.
 
@@ -76,6 +76,16 @@ easy-to-follow sentences, not how it works inside.
   add it to the example configs in README.md and `lib/src/cli/usage.dart`.
 - Take sample output from a real run on `example/`, and paste it as it is.
   Never compose it by hand.
+- README.md is the short path through ciach: install, run, read the report,
+  the options. The docs page holds every detail, written in Markdown with one
+  `##` section per file under `website/content/_partials/docs/`, which
+  `website/content/docs.md` includes in order, and each README section links
+  to its section there by the id that the heading generates.
+  Put a new detail on the docs page, and in README.md only when every user
+  needs it.
+- README.md starts with a `## Contents` list of its `##` and `###` headings.
+  `test/readme_toc_test.dart` checks it against the file, so run `dart test`
+  after changing a heading.
 - README.md covers the current version. Removed options and upgrade steps go in
   MIGRATION.md. Notes for library users go in the doc comment of the API that
   they concern, and notes on which tool versions a parser supports go next to

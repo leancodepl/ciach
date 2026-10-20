@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Restructure the README.
+  ([#162](https://github.com/leancodepl/ciach/pull/162))
 - A generic class or mixin that only `with` or `implements` clauses name is now
   reported and removed like any other. A type named only in the type arguments
   of such a class or mixin in a clause, like `T` in `with M<T>`, is reported in
