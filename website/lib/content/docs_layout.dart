@@ -8,17 +8,13 @@
  *     - mark-ai-provenance
  */
 
-import 'package:ciach_website/components/docs_toc.dart';
-import 'package:ciach_website/components/faq.dart';
-import 'package:ciach_website/components/section.dart';
-import 'package:ciach_website/components/shell.dart';
-import 'package:ciach_website/seo.dart';
+import 'package:ciach_website/content/faq.dart';
 import 'package:ciach_website/site.dart';
-import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_class_scope/jaspr_class_scope.dart';
 import 'package:jaspr_content/jaspr_content.dart';
+import 'package:leancode_site/leancode_site.dart';
 
 part 'docs_layout.scopes.dart';
 
@@ -26,10 +22,7 @@ part 'docs_layout.scopes.dart';
 /// to, with a sticky table of contents built from the page's `h2` headings.
 /// The page's title, lead and description come from its frontmatter.
 @scopedCss
-class const DocsLayout({
-  /// The ciach version shown in the page shell.
-  required final String version,
-}) implements PageLayout {
+class const DocsLayout() implements PageLayout {
   static const _class = _$DocsLayoutScope;
 
   static final _docs = _class('docs');
@@ -169,14 +162,14 @@ class const DocsLayout({
       _ => const <TocEntry>[],
     };
     return PageShell(
-      page: .docs,
-      version: version,
+      path: page.url,
+      footer: siteFooter,
       children: [
-        pageHead(
+        PageHead(
           title: '$title — $siteName',
           description: description,
           path: page.url.substring(1),
-          structuredData: [faqStructuredData()],
+          structuredData: [faqStructuredData(faqEntries)],
         ),
         div(classes: (Utility.container + _docs).name, [
           nav(

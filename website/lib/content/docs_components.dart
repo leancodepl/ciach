@@ -8,15 +8,12 @@
  *     - mark-ai-provenance
  */
 
-import 'package:ciach_website/components/code_block.dart';
-import 'package:ciach_website/components/docs_table.dart';
-import 'package:ciach_website/components/faq.dart';
-import 'package:ciach_website/components/section.dart';
-import 'package:ciach_website/highlight.dart';
+import 'package:ciach_website/content/faq.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_content/jaspr_content.dart';
 import 'package:jaspr_content/theme.dart';
+import 'package:leancode_site/leancode_site.dart';
 
 /// Renders the docs page's Markdown with the site's own components: its
 /// sections and headings, code blocks, tables, lists, external links and the
@@ -56,7 +53,7 @@ class const DocsComponents() implements CustomComponent {
     ElementNode(tag: 'a', attributes: {'href': final href}, :final children)
         when href.startsWith('http') =>
       externalLink(href, [builder.build(children)]),
-    ElementNode(tag: 'Faq') => const Faq(),
+    ElementNode(tag: 'Faq') => const Faq(faqEntries),
     _ => null,
   };
 }
@@ -80,11 +77,11 @@ Component _codeBlock(
       match.namedGroup('key')!:
           match.namedGroup('quoted') ?? match.namedGroup('bare') ?? '',
   };
-  final lang = Language.values.byName(language);
+  final lang = Language.named(language);
   final copy = switch (options['copy']) {
     'false' => '',
     final copy? => copy,
-    null => lang == .console ? '' : null,
+    null => lang.isConsole ? '' : null,
   };
   return CodeBlock(
     source: source.endsWith('\n')

@@ -1,5 +1,9 @@
-/// Site-wide constants: where the site lives and where it links to.
+/// Site-wide constants: where the site lives, where it links to, and how it
+/// describes itself to `leancode_site`.
 library;
+
+import 'package:ciach_website/components/icons.dart';
+import 'package:leancode_site/leancode_site.dart';
 
 /// Public URL of the deployed site. Preview deployments override it with
 /// `--dart-define=SITE_URL=https://…` at build time.
@@ -7,20 +11,6 @@ const siteUrl = String.fromEnvironment(
   'SITE_URL',
   defaultValue: 'https://ciach.leancode.co',
 );
-
-/// [siteUrl] with a guaranteed trailing slash, for canonical and Open Graph
-/// URLs.
-final canonicalUrl = siteUrl.endsWith('/') ? siteUrl : '$siteUrl/';
-
-/// The `<base href>` derived from [siteUrl], so relative asset paths still
-/// resolve if the site is ever served from a sub-path.
-final basePath = () {
-  final path = Uri.parse(siteUrl).path;
-  if (path.isEmpty || path == '/') {
-    return '/';
-  }
-  return path.endsWith('/') ? path : '$path/';
-}();
 
 const siteName = 'ciach';
 const tagline = 'Dead code detector for Dart and Flutter';
@@ -31,19 +21,50 @@ const description =
 
 const repoUrl = 'https://github.com/leancodepl/ciach';
 const pubUrl = 'https://pub.dev/packages/ciach';
-const pubScoreUrl = 'https://pub.dev/packages/ciach/score';
 const changelogUrl = '$repoUrl/blob/main/CHANGELOG.md';
 const issuesUrl = '$repoUrl/issues';
-const licenseUrl = '$repoUrl/blob/main/LICENSE';
 const readmeUrl = '$repoUrl#readme';
-const exampleUrl = '$repoUrl/tree/main/example';
-
-const _utm = 'utm_source=ciach-website&utm_medium=referral&utm_campaign=ciach';
-const leancodeUrl = 'https://leancode.co/?$_utm';
-const leancodeEstimateUrl = 'https://leancode.co/get-estimate?$_utm';
-const leancodePackagesUrl =
-    'https://pub.dev/packages?q=publisher%3Aleancode.co&sort=downloads';
-const patrolUrl = 'https://patrol.leancode.co/?$_utm';
 
 const installCommand = 'dart install ciach';
-const devDependencyCommand = 'dart pub add --dev ciach';
+
+/// The site as `leancode_site` sees it, at [version].
+SiteConfig siteConfig(String version) => .new(
+  name: siteName,
+  tagline: tagline,
+  description: description,
+  siteUrl: siteUrl,
+  version: version,
+  repoUrl: repoUrl,
+  pubUrl: pubUrl,
+  installCommand: installCommand,
+  logo: logo,
+  keywords: const [
+    'dart',
+    'flutter',
+    'dead code',
+    'unused code',
+    'static analysis',
+    'cli',
+  ],
+  alternateName: 'ciach dead code detector',
+  runtimePlatform: 'Dart SDK 3.10+',
+);
+
+/// The footer of every page.
+const siteFooter = SiteFooter(
+  ctaHeading: 'Ready to make the first ciach?',
+  columns: [
+    .new('Project', [
+      .new('pub.dev', pubUrl),
+      .new('GitHub', repoUrl),
+      .new('Changelog', changelogUrl),
+      .new('Issues', issuesUrl),
+    ]),
+    .new('Docs', [
+      .new('Install', '/docs#install', external: false),
+      .new('CI setup', '/docs#ci', external: false),
+      .new('Configuration', '/docs#configuration-file', external: false),
+      .new('FAQ', '/docs#faq', external: false),
+    ]),
+  ],
+);

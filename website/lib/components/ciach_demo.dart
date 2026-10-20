@@ -1,11 +1,8 @@
-import 'package:ciach_website/components/code_block.dart';
-import 'package:ciach_website/components/demo_trigger.dart';
-import 'package:ciach_website/components/section.dart';
-import 'package:ciach_website/highlight.dart';
-import 'package:ciach_website/styles.dart';
+import 'package:ciach_website/grammars/console_grammar.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_class_scope/jaspr_class_scope.dart';
+import 'package:leancode_site/leancode_site.dart';
 
 part 'ciach_demo.scopes.dart';
 
@@ -143,7 +140,11 @@ class const CiachDemo({super.key}) extends StatelessComponent {
             ),
           ]),
           div(classes: _terminal.name, const [
-            Terminal(transcript: _removeTranscript, title: 'ciach --remove'),
+            Terminal(
+              transcript: _removeTranscript,
+              language: console,
+              title: 'ciach --remove',
+            ),
           ]),
         ]),
         const DemoTrigger(targetId: 'remove-demo'),

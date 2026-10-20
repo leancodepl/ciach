@@ -3,7 +3,10 @@
 /// GitHub Actions workflow commands and `-v` timestamps.
 library;
 
-import 'package:ciach_website/grammars/shell_grammar.dart';
+import 'package:leancode_site/leancode_site.dart';
+
+/// ciach's own terminal output, with shell prompts.
+const console = Language('console', grammar: kConsoleGrammar, isConsole: true);
 
 const _kinds =
     'class|mixin|interface|enum value|enum|extension|function|method|'

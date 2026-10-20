@@ -23,8 +23,11 @@ fi
 $jaspr build --sitemap-domain "$SITE_URL" --dart-define=SITE_URL="$SITE_URL"
 
 # Ship only the rendered page and its assets, not build_runner's intermediate
-# package sources.
-rm -rf build/jaspr/packages build/jaspr/.dart_tool build/jaspr/.build.manifest
+# package sources. The fonts under packages/leancode_site/ are assets, and
+# stay.
+find build/jaspr/packages -mindepth 1 -maxdepth 1 ! -name leancode_site -exec rm -rf {} +
+find build/jaspr/packages/leancode_site -mindepth 1 -maxdepth 1 ! -name fonts -exec rm -rf {} +
+rm -rf build/jaspr/.dart_tool build/jaspr/.build.manifest
 
 if [ "$SITE_URL" != "$PRODUCTION_URL" ]; then
   printf 'User-agent: *\nDisallow: /\n' > build/jaspr/robots.txt

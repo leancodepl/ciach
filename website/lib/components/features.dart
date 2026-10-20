@@ -1,112 +1,45 @@
-import 'package:ciach_website/components/card.dart';
-import 'package:ciach_website/components/icons.dart';
-import 'package:ciach_website/components/section.dart';
-import 'package:ciach_website/styles.dart';
-import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
-import 'package:jaspr_class_scope/jaspr_class_scope.dart';
-
-part 'features.scopes.dart';
-
-class const _Feature(final Icon icon, final String title, final String body);
+import 'package:leancode_site/leancode_site.dart';
 
 const _features = [
-  _Feature(
+  Feature(
     .layers,
     'Every declaration kind',
     'Classes, enums and their values, functions, methods, constructors, fields, getters, variables and more.',
   ),
-  _Feature(
+  Feature(
     .search,
     'Backed by the real analyzer',
     'Reference queries go to the Dart analysis server: the same resolution your IDE uses, not a regex.',
   ),
-  _Feature(
+  Feature(
     .git,
     'Built for CI',
     'Annotations inline on the pull request diff and a non-zero exit when anything turns up.',
   ),
-  _Feature(
+  Feature(
     .shield,
     'Safe defaults',
     '`@override` members, operators, entry points, generated files and `toJson()` are skipped unless you opt in.',
   ),
-  _Feature(
+  Feature(
     .braces,
     'Text, JSON or GitHub output',
     'Human-readable by default, machine-readable on request.',
   ),
-  _Feature(
+  Feature(
     .cog,
     'A config file, optionally',
     'Every flag can live in `ciach.yaml`. The command line always wins.',
   ),
 ];
 
-@scopedCss
 class const Features({super.key}) extends StatelessComponent {
-  static const _class = _$FeaturesScope;
-
-  static final _grid = _class('grid');
-  static final _feature = _class('feature');
-  static final _icon = _class('icon');
-
-  @css
-  static List<StyleRule> get styles => [
-    css(_grid.selector, [
-      css('&').styles(
-        display: .grid,
-        gridTemplate: const .new(
-          columns: .new([
-            .repeat(.autoFit, [
-              .new(.minmax(.new(.expression('min(100%, 300px)')), .fr(1))),
-            ]),
-          ]),
-        ),
-        gap: .all(1.rem),
-      ),
-      shrinkableChildren(),
-    ]),
-    css(_feature.selector, [
-      css('&')
-          .styles(display: .flex, flexDirection: .column, gap: .all(0.6.rem)),
-      css('&:hover').styles(
-        border: hairline(border2Color),
-        transform: .translate(y: (-2).px),
-      ),
-      css('& h3').styles(margin: .zero),
-      css('& p').styles(flex: growToFill),
-    ]),
-    css(_icon.selector).styles(
-      display: .inlineGrid,
-      width: 42.px,
-      height: 42.px,
-      margin: .only(bottom: 0.5.rem),
-      border: hairline(accentAlpha(0.3)),
-      radius: .circular(12.px),
-      alignItems: .center,
-      justifyItems: .center,
-      color: accentColor,
-      backgroundColor: accentSoftColor,
-    ),
-  ];
-
   @override
-  Component build(BuildContext context) {
-    return Section(
-      id: 'features',
-      eyebrow: 'Features',
-      heading: 'Sharp, and careful about it.',
-      children: [
-        ul(classes: _grid.name, [
-          for (final feature in _features)
-            Card(classes: _feature, listItem: true, [
-              span(classes: _icon.name, [feature.icon.build(size: 22)]),
-              h3([.text(feature.title)]),
-              p(rich(feature.body)),
-            ]),
-        ]),
-      ],
-    );
-  }
+  Component build(BuildContext context) => const Section(
+    id: 'features',
+    eyebrow: 'Features',
+    heading: 'Sharp, and careful about it.',
+    children: [FeatureGrid(_features, minWidth: 300)],
+  );
 }
