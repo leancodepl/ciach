@@ -13,15 +13,18 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/args.dart';
+import 'package:ciach/src/cli/ci.dart';
 import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/console.dart';
 import 'package:ciach/src/cli/options.dart';
+import 'package:ciach/src/cli/removed_options.dart';
 import 'package:ciach/src/cli/report.dart';
+import 'package:ciach/src/cli/usage.dart';
 import 'package:ciach/src/cli/verbose.dart';
-import 'package:ciach/src/log.dart';
-import 'package:ciach/src/paths.dart';
-import 'package:ciach/src/plural.dart';
-import 'package:ciach/src/reporter.dart';
+import 'package:ciach/src/report/text_report.dart';
+import 'package:ciach/src/util/log.dart';
+import 'package:ciach/src/util/paths.dart';
+import 'package:ciach/src/util/plural.dart';
 import 'package:ciach/src/version.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
@@ -29,6 +32,9 @@ import 'package:config/config.dart';
 final _log = Logger('ciach.cli');
 
 final _console = Console.standard();
+
+/// The CI service the environment says this run is on, if any.
+final _detectedCi = CiRunner.detect(Platform.environment);
 
 Future<void> main(List<String> arguments) async {
   final logging = _console.attach();
@@ -43,17 +49,30 @@ Future<void> main(List<String> arguments) async {
   }
 }
 
-Future<int> _run(List<String> arguments) async {
-  final parser = buildParser();
-
-  final ArgResults args;
+/// [arguments] parsed by [parser], or `null` after logging why they don't
+/// parse: a removed option is named with what replaced it, anything else comes
+/// with the usage.
+ArgResults? _parse(ArgParser parser, List<String> arguments) {
+  if (removedOptionMessage(arguments) case final message?) {
+    _log.severe(message);
+    return null;
+  }
   try {
-    args = parser.parse(arguments);
+    return parser.parse(arguments);
   } on FormatException catch (e) {
     _log.severe('''
 ${e.message}
 
 ${usage(parser)}''');
+    return null;
+  }
+}
+
+Future<int> _run(List<String> arguments) async {
+  final parser = buildParser();
+
+  final args = _parse(parser, arguments);
+  if (args == null) {
     return 2;
   }
 
@@ -95,6 +114,7 @@ ${usage(parser)}''');
     verbose: resolved.verbose,
   );
   describeConfigSource(config, projectDir: projectDir).forEach(_log.config);
+  describeCi(resolved, detected: _detectedCi).forEach(_log.config);
 
   final rootDir = Directory(resolved.rootPath);
   if (!rootDir.existsSync()) {
@@ -163,7 +183,7 @@ void _removeUnused(
   final emptyCount = result.emptyFiles.length;
   if (blocked > 0) {
     _log.fine(
-      'Skipping $blocked of ${plural(result.unused.length, 'finding', 'findings')}: removing them safely would need a source rewrite (see --unused-union-members and remove safety).',
+      'Skipping $blocked of ${plural(result.unused.length, 'finding', 'findings')}: removing them safely would need a source rewrite (see --also union-members and remove safety).',
     );
   }
   if (count == 0 && emptyCount == 0) {
@@ -192,10 +212,10 @@ void _removeUnused(
       // Non-text formats aren't readable, so show the findings first.
       preamble: resolved.format == 'text'
           ? null
-          : Reporter.text(result, style: _console.errStyle),
+          : textReport(result, style: _console.errStyle),
     );
     if (!proceed) {
-      _console.output(Reporter.removal(null, style: _console.outStyle));
+      _console.output(removalReport(null, style: _console.outStyle));
       return;
     }
   }
@@ -206,10 +226,11 @@ void _removeUnused(
     emptyFiles: result.emptyFiles,
   );
   _console.output(
-    Reporter.removal(
+    removalReport(
       removal,
       removed: count,
       blocked: blocked,
+      emptied: result.emptiedContainers,
       notes: {
         for (final d in removable)
           if (d.hint case final hint?) '${d.qualifiedName}: $hint',
@@ -262,6 +283,7 @@ _loadOptions(
       configuration,
       // Progress goes to stderr, so default it on only for a terminal.
       progressDefault: _console.errIsTerminal,
+      detectedCi: _detectedCi,
     );
     return (config: config, configuration: configuration, resolved: resolved);
   } on UsageException catch (e) {

@@ -1,13 +1,16 @@
 import 'dart:io';
 
-import 'package:ciach/src/lsp/lsp_client.dart';
-import 'package:ciach/src/remover.dart';
-import 'package:ciach/src/style.dart';
+import 'package:ciach/src/lsp/exceptions.dart';
+import 'package:ciach/src/remove/remover.dart';
+import 'package:ciach/src/report/style.dart';
 import 'package:ciach/src/version.dart';
+import 'package:ciach/src/workspace/packages.dart';
 
 const _issueTracker = 'https://github.com/leancodepl/ciach/issues';
 
-/// A fatal [error] for stderr. The stack trace is shown only when [verbose].
+/// A fatal [error] for stderr. The stack trace is shown only when [verbose],
+/// and only for a bug in ciach or a failed server request: an error the user
+/// can fix, such as a package without `pub get`, has no use for it.
 String describeFatalError(
   Object error,
   StackTrace stackTrace, {
@@ -15,9 +18,10 @@ String describeFatalError(
   Style style = .plain,
 }) {
   final (message, detail, isBug) = switch (error) {
-    AnalysisServerExitedException(:final message) => (message, null, false),
+    AnalysisServerExitedException(:final message) ||
+    RemovalException(:final message) ||
+    UnresolvedPackagesException(:final message) => (message, null, false),
     LspRequestException(:final detail) => ('$error.', detail, false),
-    RemovalException(:final message) => (message, null, false),
     ProcessException(:final executable, :final message) => (
       'Could not start `$executable`: $message',
       null,
@@ -44,7 +48,7 @@ String describeFatalError(
       'This is a bug in ciach $ciachVersion; please report it at $_issueTracker with the -v output.',
     );
   }
-  if (verbose) {
+  if (verbose && (isBug || detail != null)) {
     buffer
       ..writeln()
       ..writeln(style.detail('$stackTrace'.trimRight()));

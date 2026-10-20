@@ -1,8 +1,10 @@
 import 'dart:io';
 
 import 'package:ciach/src/cli/args.dart';
+import 'package:ciach/src/cli/option_values.dart';
+import 'package:ciach/src/cli/removed_options.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
-import 'package:ciach/src/plural.dart';
+import 'package:ciach/src/util/plural.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
 import 'package:path/path.dart' as p;
@@ -47,10 +49,20 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
       throw FormatException('$origin: the top level must be a map of options.');
     }
 
-    final unknown = document.keys
-        .map((key) => '$key')
-        .whereNot(configKeys.contains)
-        .toList();
+    final settings = <String, Object?>{
+      for (final entry in document.entries)
+        // A valueless key (`public:`) counts as unset, and YAML collections
+        // are unwrapped to plain Dart ones.
+        if (entry.value case final value?)
+          '${entry.key}': value is Iterable ? value.toList() : value,
+    };
+    if (removedKeys.firstWhereOrNull(settings.containsKey) case final key?) {
+      throw FormatException(
+        '$origin: `$key` was removed: ${removedOptionAdvice(key, settings[key], inConfig: true)}.',
+      );
+    }
+
+    final unknown = settings.keys.whereNot(configKeys.contains).toList();
     if (unknown.isNotEmpty) {
       final valid = (configKeys.toList()..sort()).join(', ');
       throw FormatException(
@@ -58,17 +70,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
       );
     }
 
-    final file = ConfigFile._(
-      settings: {
-        for (final entry in document.entries)
-          // A valueless key (`public:`) counts as unset, and YAML collections
-          // are unwrapped to plain Dart ones.
-          if (entry.value case final value?)
-            '${entry.key}': value is Iterable ? value.toList() : value,
-      },
-      path: origin,
-      ignored: false,
-    );
+    final file = ConfigFile._(settings: settings, path: origin, ignored: false);
 
     // Resolution only asks for the keys it needs, so without checking the whole
     // file here, a bad value under an overridden option would go unreported.

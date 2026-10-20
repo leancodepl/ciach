@@ -75,7 +75,8 @@ void usePrimaryConstructors() {
   print(Delta(1, 2).to);
   print(Shifted(3).at);
   print(Suit.hearts.glyph);
-  print(Marked());
+  // Named as a type, so `Marker` isn't one that only a `with` clause uses.
+  print(<Marker>[Marked()]);
   print(Registry().tag);
   print(Registry.tagged('t'));
   print(Endpoint('localhost', 8080).host);

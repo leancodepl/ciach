@@ -1,10 +1,12 @@
-import 'package:ciach/src/candidates.dart';
-import 'package:ciach/src/directives.dart';
-import 'package:ciach/src/extensions.dart';
-import 'package:ciach/src/packages.dart';
-import 'package:ciach/src/reachability.dart';
-import 'package:ciach/src/reference_classifier.dart';
-import 'package:ciach/src/symbols.dart';
+import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/settle/reference_classifier.dart';
+import 'package:ciach/src/source/directives.dart';
+import 'package:ciach/src/source/symbols.dart';
+import 'package:ciach/src/util/cached_map.dart';
+import 'package:ciach/src/util/extensions.dart';
+import 'package:ciach/src/util/reachability.dart';
+import 'package:ciach/src/workspace/packages.dart';
+import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location;
 
 /// The variants of conditional imports and exports: the libraries one
@@ -111,6 +113,10 @@ final class ConditionalImports {
     return (candidates: kept, refsByCandidate: keptRefs);
   }
 
+  /// The indices of the namesakes of each of [candidates]; see [_namesakes].
+  List<List<int>> namesakesIn(List<Candidate> candidates) =>
+      _namesakes(candidates, candidates.map(_pairingNameOf).toList());
+
   /// The indices of each candidate's namesakes: the [candidates] with the same
   /// pairing name in one of its [counterpartFilesOf].
   List<List<int>> _namesakes(List<Candidate> candidates, List<String?> names) {
@@ -142,12 +148,12 @@ final class ConditionalImports {
     Map<String, Set<String>> declared,
   ) {
     bool lacksNamesake(int i, String name, String file) =>
-        switch (declared[file]) {
-          null => true,
-          final inFile =>
-            inFile.contains(name) &&
-                !namesakes[i].any((j) => candidates[j].path == file),
-        };
+        declared[file]?.let(
+          (inFile) =>
+              inFile.contains(name) &&
+              namesakes[i].none((j) => candidates[j].path == file),
+        ) ??
+        true;
 
     return reachableFrom([
       for (final (i, candidate) in candidates.indexed)
@@ -164,14 +170,16 @@ final class ConditionalImports {
       : null;
 }
 
-/// The directives of the Dart files under a root, each file read once. Paths
+/// The directives of the Dart files under a root, each file parsed once. Paths
 /// are absolute and normalized.
 final class _DirectiveIndex {
   _DirectiveIndex(String root) : _files = scanPackageTree(root).dartFiles;
 
   final Set<String> _files;
   final _packages = PackageResolver();
-  final _directives = <String, List<Directive>>{};
+  final _directives = CachedMap<String, List<Directive>>(
+    (path) => [...Directive.allIn(readSource(path) ?? '')],
+  );
 
   /// The [libraryFiles] of each variant, for every conditional directive.
   Iterable<List<Set<String>>> conditionalVariants() sync* {
@@ -181,7 +189,7 @@ final class _DirectiveIndex {
       if (content == null || !_maybeConditional.hasMatch(content)) {
         continue;
       }
-      for (final directive in _directivesOf(path, content)) {
+      for (final directive in _directives[path]) {
         if (directive.isConditional) {
           yield directive.pathsFrom(path, _packages).map(libraryFiles).toList();
         }
@@ -195,17 +203,11 @@ final class _DirectiveIndex {
   Set<String> libraryFiles(String library) => reachableFrom(
     [library],
     (path) => [
-      for (final directive in _directivesOf(path))
+      for (final directive in _directives[path])
         if (directive.keyword != 'import' && !directive.isPartOf)
           ...directive.pathsFrom(path, _packages).where(_files.contains),
     ],
   );
-
-  List<Directive> _directivesOf(String path, [String? content]) =>
-      _directives.putIfAbsent(
-        path,
-        () => [...Directive.allIn(content ?? readSource(path) ?? '')],
-      );
 }
 
 /// What may start a conditional `import` or `export`.

@@ -1,4 +1,4 @@
-import 'package:ciach/src/symbols.dart';
+import 'package:ciach/src/source/symbols.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position, Range;
 
 /// The token type and modifier names a `semanticTokens` response indexes into.
@@ -55,10 +55,13 @@ final class SemanticToken {
 
   int get end => character + length;
 
-  bool get isDocComment =>
-      type == 'comment' && modifiers.contains('documentation');
+  bool get isComment => type == 'comment';
+
+  bool get isDocComment => isComment && modifiers.contains('documentation');
 
   bool get isKeyword => type == 'keyword';
+
+  bool get isDeclaration => modifiers.contains('declaration');
 
   /// Whether this is the name of an `@[name]` annotation.
   bool isAnnotationNamed(String name) =>
@@ -101,8 +104,8 @@ List<SemanticToken> decodeSemanticTokens(
         length: length,
         type: legend.tokenTypes[typeIndex],
         modifiers: {
-          for (var bit = 0; bit < legend.tokenModifiers.length; bit++)
-            if ((modifierBits >> bit) & 1 == 1) legend.tokenModifiers[bit],
+          for (final (bit, tokenModifier) in legend.tokenModifiers.indexed)
+            if ((modifierBits >> bit) & 1 == 1) tokenModifier,
         },
         text: lines[line].substring(character, character + length),
       ),

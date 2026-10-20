@@ -14,23 +14,17 @@ part 'docs_toc.scopes.dart';
 /// otherwise resolve a bare `#fragment` against the site root.
 @client
 @scopedCss
-class DocsToc extends StatefulComponent {
-  const DocsToc({
-    required this.path,
-    required this.ids,
-    required this.labels,
-    super.key,
-  });
-
+class const DocsToc({
   /// Absolute path of the page the sections live on, e.g. `/docs`.
-  final String path;
+  required final String path,
 
   /// Section element ids, in page order.
-  final List<String> ids;
+  required final List<String> ids,
 
   /// Link labels, parallel to [ids].
-  final List<String> labels;
-
+  required final List<String> labels,
+  super.key,
+}) extends StatefulComponent {
   static const _class = _$DocsTocScope;
 
   /// The link to the section in view; the docs page styles it.
@@ -40,7 +34,7 @@ class DocsToc extends StatefulComponent {
   State<DocsToc> createState() => _DocsTocState();
 }
 
-class _DocsTocState extends State<DocsToc> {
+class _DocsTocState() extends State<DocsToc> {
   String? _active;
   JSFunction? _listener;
   bool _scheduled = false;

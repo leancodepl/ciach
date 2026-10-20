@@ -1,22 +1,17 @@
-include: package:leancode_lint/analysis_options.yaml
+include: ../analysis_options.yaml
 
 analyzer:
   exclude:
+    # Written by jaspr_builder.
     - lib/**.options.dart
 
-linter:
-  rules:
-    # jaspr_builder parses with analyzer 12, which accepts Dart 3.13 primary
-    # constructors only behind an experiment flag that `jaspr` cannot pass to
-    # build_runner, so the site keeps classic constructors until Jaspr moves
-    # to a newer analyzer.
-    use_primary_constructors: false
-    unnecessary_primary_constructor_body: false
-    unnecessary_type_name_in_constructor: false
-
 plugins:
+  # The commit of the jaspr overrides in pubspec.yaml.
   jaspr_lints:
-    version: ^0.7.2
+    git:
+      url: https://github.com/schultek/jaspr
+      path: packages/jaspr_lints
+      ref: 9311973c7261b4a37ee2cb526466aa6934854851
     diagnostics:
       prefer_html_components: true
       prefer_styles_getter: true

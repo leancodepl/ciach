@@ -1,3 +1,5 @@
+import 'package:ciach_website/components/copy_button.dart';
+import 'package:ciach_website/site.dart';
 import 'package:ciach_website/styles.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
@@ -11,24 +13,15 @@ part 'section.scopes.dart';
 /// pointing at its heading, so the outline reads well for crawlers and screen
 /// readers alike.
 @scopedCss
-class Section extends StatelessComponent {
-  const Section({
-    required this.id,
-    required this.eyebrow,
-    required this.heading,
-    required this.children,
-    this.lead,
-    this.classes,
-    super.key,
-  });
-
-  final String id;
-  final String eyebrow;
-  final String heading;
-  final String? lead;
-  final List<Component> children;
-  final ClassName? classes;
-
+class const Section({
+  required final String id,
+  required final String eyebrow,
+  required final String heading,
+  required final List<Component> children,
+  final String? lead,
+  final ClassName? classes,
+  super.key,
+}) extends StatelessComponent {
   static const _class = _$SectionScope;
 
   static final _root = _class.root;
@@ -76,18 +69,12 @@ class Section extends StatelessComponent {
 
 /// A docs-page section: a linkable heading followed by its content.
 @scopedCss
-class DocSection extends StatelessComponent {
-  const DocSection({
-    required this.id,
-    required this.heading,
-    required this.children,
-    super.key,
-  });
-
-  final String id;
-  final String heading;
-  final List<Component> children;
-
+class const DocSection({
+  required final String id,
+  required final String heading,
+  required final List<Component> children,
+  super.key,
+}) extends StatelessComponent {
   static const _class = _$DocSectionScope;
 
   static final _root = _class.root;
@@ -105,12 +92,14 @@ class DocSection extends StatelessComponent {
       shrinkableChildren(),
       css('& h2')
           .styles(fontSize: const .expression('clamp(1.6rem, 2.6vw, 2rem)')),
-      css('& h3').styles(
-        margin: .only(top: 1.rem),
-        fontSize: 1.15.rem,
-      ),
+      css('& h3').styles(fontSize: 1.15.rem),
       css('& p')
           .styles(color: text2Color, lineHeight: const .expression('1.7')),
+      css('& p a, & li a').styles(
+        color: accentColor,
+        textDecoration: underlined,
+        raw: {'text-underline-offset': '0.15em'},
+      ),
     ]),
   ];
 
@@ -121,18 +110,64 @@ class DocSection extends StatelessComponent {
       id: id,
       classes: _root.name,
       attributes: {'aria-labelledby': headingId},
-      [
-        h2(id: headingId, [.text(heading)]),
-        ...children,
-      ],
+      [DocHeading(fragment: id, id: headingId, text: heading), ...children],
     );
+  }
+}
+
+/// A docs heading with a button that copies the link to it; [fragment] is
+/// the part of that link after `#`. The heading is an `h2`, or an `h3` for a
+/// [subsection], with [id] or else [fragment] as its `id`.
+@scopedCss
+class const DocHeading({
+  required final String fragment,
+  required final String text,
+  final String? id,
+  final bool subsection = false,
+  super.key,
+}) extends StatelessComponent {
+  static const _class = _$DocHeadingScope;
+
+  static final _root = _class.root;
+  static final _subsection = _class('subsection');
+
+  @css
+  static List<StyleRule> get styles => [
+    css(_root.selector, [
+      css('&').styles(display: .flex, alignItems: .center, gap: .all(0.75.rem)),
+      // The button is kept out of the way until the reader points at the
+      // heading or tabs to it.
+      css('& button').styles(
+        opacity: 0.45,
+        transition: .new('opacity', duration: 150.ms, curve: .ease),
+      ),
+      css('&:hover button, & button:focus-visible').styles(opacity: 1),
+    ]),
+    css(_subsection.selector).styles(margin: .only(top: 1.rem)),
+  ];
+
+  @override
+  Component build(BuildContext context) {
+    final headingId = id ?? fragment;
+    final children = [Component.text(text)];
+    return div(classes: (_root + (subsection ? _subsection : null)).name, [
+      if (subsection)
+        h3(id: headingId, children)
+      else
+        h2(id: headingId, children),
+      CopyButton(
+        text: '${canonicalUrl}docs#$fragment',
+        title: 'Copy link to this section',
+        icon: .link,
+      ),
+    ]);
   }
 }
 
 /// Classes for running text, shared by the landing page's sections and the
 /// docs.
 @scopedCss
-abstract final class Prose {
+abstract final class Prose() {
   static const _class = _$ProseScope;
 
   /// The small accented label above a heading.
@@ -143,9 +178,6 @@ abstract final class Prose {
 
   /// The paragraph that links on from a section.
   static final more = _class('more');
-
-  /// A side remark under a table or sample.
-  static final note = _class('note');
 
   /// A list whose items are marked with a dash in the accent color.
   static final checklist = _class('checklist');
@@ -181,15 +213,10 @@ abstract final class Prose {
       margin: .only(top: 1.5.rem),
       fontWeight: .w500,
     ),
-    css('${more.selector} a, ${note.selector} a').styles(
+    css('${more.selector} a').styles(
       color: accentColor,
       textDecoration: underlined,
       raw: {'text-underline-offset': '0.15em'},
-    ),
-    css(note.selector).styles(
-      margin: .only(top: 1.rem),
-      color: text2Color,
-      fontSize: 0.95.rem,
     ),
     css(checklist.selector, [
       css('&').styles(display: .grid, gap: .all(0.6.rem)),

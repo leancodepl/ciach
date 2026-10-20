@@ -1,3 +1,5 @@
+import 'package:ciach/src/source/symbols.dart';
+import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
@@ -33,9 +35,12 @@ final class EntryPoint {
   /// Creates a rule that comes from the `entry-points` setting or from the
   /// project config.
   ///
-  /// Throws a [FormatException] for a [name] that is not an identifier
-  /// (optionally `Container.member`); the constructor throws for a glob that
-  /// does not parse.
+  /// Name a constructor the way the report prints it, such as `Class.new` or
+  /// `Class.named`.
+  ///
+  /// Throws a [FormatException] if [name] is not an identifier or
+  /// `Container.member`, or if it is `Class.Class`. The constructor throws for
+  /// a glob that does not parse.
   factory EntryPoint.fromConfig(
     String name, {
     List<String> files = const [],
@@ -51,6 +56,11 @@ final class EntryPoint {
         "'$name' is not a declaration name; expected an identifier such as 'registerWith' or 'MyPlugin.registerWith'.",
       );
     }
+    if (name.split('.') case [final type, final member] when member == type) {
+      throw FormatException(
+        "'$name' is not a valid name. Write the unnamed constructor as `$type.new`.",
+      );
+    }
     return .new(name: name, files: files, reason: reason);
   }
 
@@ -59,8 +69,9 @@ final class EntryPoint {
     r'^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)?$',
   );
 
-  /// `name` for a top-level declaration, `Container.member` for a member;
-  /// type parameters are not part of either.
+  /// The name of the declaration. A top-level declaration is `name` and a
+  /// member is `Container.member`. The unnamed constructor is `Class.new`.
+  /// Type parameters are not part of the name.
   final String name;
 
   /// The superclass that a [EntryPoint.publicMethodsOfSubclasses] rule
@@ -91,11 +102,17 @@ final class EntryPoint {
   /// root) inside [container] (`null` at the top level), meets this rule.
   /// Returns whether this rule matches [symbol]. [containerSuperclass] is
   /// called only for a [superclass] rule, because it has to parse the source.
+  ///
+  /// A rule that names a class or an extension type also matches the type's
+  /// unnamed constructor, because code that uses the type calls `Type()`.
+  /// Pass [inEnum] when [container] is an enum. Only the enum's own values
+  /// call its constructor, so the rule does not match it.
   bool matches(
     String relativePath,
     DocumentSymbol symbol,
     String? container, {
     String? Function()? containerSuperclass,
+    bool inEnum = false,
   }) {
     final bool named;
     if (superclass case final superclass?) {
@@ -105,10 +122,17 @@ final class EntryPoint {
           !symbol.name.startsWith('_') &&
           containerSuperclass?.call() == superclass;
     } else {
-      final qualified = container == null
-          ? symbol.name
-          : '$container.${symbol.name}';
-      named = qualified == name;
+      final qualified =
+          container?.let(
+            (container) => '$container.${symbol.declarationName(container)}',
+          ) ??
+          symbol.name;
+      named =
+          qualified == name ||
+          (container == name &&
+              !inEnum &&
+              symbol.kind == .constructor &&
+              symbol.declarationName(container) == 'new');
     }
     return named &&
         (_globs.isEmpty || _globs.any((glob) => glob.matches(relativePath)));
@@ -124,22 +148,23 @@ final class EntryPoint {
     final scoped = files.isEmpty
         ? ['$prefix/**']
         : [for (final file in files) '$prefix/$file'];
-    return switch (superclass) {
-      final superclass? => .publicMethodsOfSubclasses(
-        superclass,
-        reason: reason,
-        files: scoped,
-      ),
-      null => .new(name: name, reason: reason, files: scoped),
-    };
+    return superclass?.let(
+          (superclass) => .publicMethodsOfSubclasses(
+            superclass,
+            reason: reason,
+            files: scoped,
+          ),
+        ) ??
+        .new(name: name, reason: reason, files: scoped);
   }
 
   /// The text that shows the rule to the user. It is the [name] of the rule,
   /// or, for a [superclass] rule, a description of what the rule matches.
-  String get label => switch (superclass) {
-    final superclass? => 'public methods of `$superclass` subclasses',
-    null => name,
-  };
+  String get label =>
+      superclass?.let(
+        (superclass) => 'public methods of `$superclass` subclasses',
+      ) ??
+      name;
 
   @override
   String toString() =>
@@ -160,12 +185,14 @@ final class EntryPoints {
     DocumentSymbol symbol,
     String? container, {
     String? Function()? containerSuperclass,
+    bool inEnum = false,
   }) => _rules.firstWhereOrNull(
     (rule) => rule.matches(
       relativePath,
       symbol,
       container,
       containerSuperclass: containerSuperclass,
+      inEnum: inEnum,
     ),
   );
 }

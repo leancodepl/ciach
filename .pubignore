@@ -10,5 +10,5 @@ website/
 
 # Repository-only analyzer plugin and changelog check.
 tool/
-test/check_changelog_test.dart
+test/tool/check_changelog_test.dart
 CLAUDE.md

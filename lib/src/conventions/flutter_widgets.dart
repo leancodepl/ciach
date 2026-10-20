@@ -8,13 +8,13 @@
  *     - mark-ai-provenance
  */
 
-import 'package:ciach/src/candidates.dart';
+import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
-import 'package:ciach/src/models.dart';
-import 'package:ciach/src/paths.dart';
-import 'package:ciach/src/reference_kinds.dart';
-import 'package:ciach/src/source_index.dart';
-import 'package:ciach/src/symbols.dart';
+import 'package:ciach/src/model/unused_declaration.dart';
+import 'package:ciach/src/source/reference_kinds.dart';
+import 'package:ciach/src/source/source_index.dart';
+import 'package:ciach/src/source/symbols.dart';
+import 'package:ciach/src/util/paths.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location;
 
 /// Flutter `StatefulWidget`/`State` conventions: recognizing the `State<Widget>`
@@ -88,8 +88,7 @@ extension FlutterWidgets on SourceIndex {
         continue;
       }
       final before = out.length;
-      for (var j = 0; j < candidates.length; j++) {
-        final state = candidates[j];
+      for (final (j, state) in candidates.indexed) {
         if (state.symbol.kind != .class$ ||
             state.path != path ||
             identical(state, widget) ||
@@ -106,6 +105,7 @@ extension FlutterWidgets on SourceIndex {
             kind: state.symbol.kind,
             range: state.outline.codeRange.toDeclarationRange,
             fullRange: state.outline.range.toDeclarationRange,
+            cut: null,
           ));
         }
         break;

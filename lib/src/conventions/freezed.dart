@@ -8,11 +8,11 @@
  *     - mark-ai-provenance
  */
 
-import 'package:ciach/src/candidates.dart';
+import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
-import 'package:ciach/src/source_index.dart';
-import 'package:ciach/src/symbols.dart';
-import 'package:ciach/src/syntax_rules.dart';
+import 'package:ciach/src/source/source_index.dart';
+import 'package:ciach/src/source/symbols.dart';
+import 'package:ciach/src/source/syntax_rules.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
 /// `freezed` union conventions.
@@ -52,23 +52,20 @@ class FreezedUnions {
     SourceIndex sources,
   ) {
     final unionsWithUsedFromJson = <DeclKey>{};
-    for (var i = 0; i < candidates.length; i++) {
-      final c = candidates[i];
-      if (c.symbol.kind == .constructor &&
-          statuses[i] == .used &&
-          c.symbol.declarationName(c.container) == 'fromJson') {
-        if (c.containerKey case final key?) {
-          unionsWithUsedFromJson.add(key);
-        }
+    for (final (i, c) in candidates.indexed) {
+      if (c.containerKey case final key?
+          when c.symbol.kind == .constructor &&
+              statuses[i] == .used &&
+              c.symbol.declarationName(c.container) == 'fromJson') {
+        unionsWithUsedFromJson.add(key);
       }
     }
 
     final arms = <int>{};
-    for (var i = 0; i < candidates.length; i++) {
+    for (final (i, c) in candidates.indexed) {
       if (statuses[i] != .unused) {
         continue;
       }
-      final c = candidates[i];
       if (c.symbol.kind != .constructor) {
         continue;
       }

@@ -1,8 +1,10 @@
 import 'package:args/args.dart';
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/args.dart';
+import 'package:ciach/src/cli/ci.dart';
 import 'package:ciach/src/cli/config.dart';
-import 'package:ciach/src/paths.dart';
+import 'package:ciach/src/cli/option_values.dart';
+import 'package:ciach/src/util/paths.dart';
 import 'package:config/config.dart';
 
 /// A resolved [Configuration] in the types the rest of the tool works in: kind
@@ -13,12 +15,10 @@ class ResolvedOptions {
     required this.analysisRootPath,
     required this.includeGlobs,
     required this.excludeGlobs,
-    required this.additionalGeneratedSuffixes,
     required this.additionalGeneratedGlobs,
     required this.kinds,
     required this.includePublic,
-    required this.includeExported,
-    required this.failPublic,
+    required this.exportedPackages,
     required this.includeGenerated,
     required this.projectConfig,
     required this.unusedTranslations,
@@ -30,6 +30,7 @@ class ResolvedOptions {
     required this.transitive,
     required this.entryPoints,
     required this.setExitIfChanged,
+    required this.ci,
     required this.remove,
     required this.force,
     required this.format,
@@ -48,12 +49,13 @@ class ResolvedOptions {
   final String? analysisRootPath;
   final List<String> includeGlobs;
   final List<String> excludeGlobs;
-  final List<String> additionalGeneratedSuffixes;
   final List<String> additionalGeneratedGlobs;
   final Set<SymbolKind> kinds;
   final bool includePublic;
-  final bool includeExported;
-  final bool failPublic;
+
+  /// Globs of the packages whose API is left out; empty to check every
+  /// package's.
+  final List<String> exportedPackages;
   final bool includeGenerated;
   final bool projectConfig;
   final bool unusedTranslations;
@@ -73,17 +75,30 @@ class ResolvedOptions {
 
   /// The project's own entry points, from `entry-points` in the config file.
   final List<EntryPoint> entryPoints;
+
+  /// Whether findings fail the run. On by default on [ci].
   final bool setExitIfChanged;
+
+  /// The CI service the run is on, or `null` for a local run: `--ci` if given,
+  /// else what the environment says.
+  final CiRunner? ci;
   final bool remove;
   final bool force;
+
+  /// The output format; by default the CI service's annotation format, where
+  /// it has one.
   final String format;
 
   /// `--color`/`--no-color`, or `null` for auto.
   final bool? color;
 
   /// Whether to show scan progress. Always `false` when [verbose] is set, whose
-  /// durable lines the overwriting progress line would fight with.
+  /// durable lines the overwriting progress line would fight with, and off by
+  /// default on [ci], whose log keeps every overwrite.
   final bool showProgress;
+
+  /// Whether to narrate the run on stderr. On by default on [ci], where the
+  /// log is all there is to go on afterwards.
   final bool verbose;
   final int concurrency;
   final String? dartExecutable;
@@ -95,7 +110,6 @@ class ResolvedOptions {
     analysisRootPath: analysisRootPath,
     includeGlobs: includeGlobs,
     excludeGlobs: excludeGlobs,
-    additionalGeneratedSuffixes: additionalGeneratedSuffixes,
     additionalGeneratedGlobs: [
       ...additionalGeneratedGlobs,
       ...unusedTranslations
@@ -104,7 +118,7 @@ class ResolvedOptions {
     ],
     kinds: kinds,
     includePublic: includePublic,
-    includeExported: includeExported,
+    exportedPackages: exportedPackages,
     includeGenerated: includeGenerated,
     skipOverrides: !overrides,
     skipOperators: !operators,
@@ -129,48 +143,70 @@ CiachConfiguration resolveConfiguration(ArgResults args, ConfigFile config) =>
       configBroker: config,
     );
 
-/// The settings of [configuration]; [progressDefault] applies when progress
-/// is unset.
+/// The settings of [configuration]. [detectedCi] is the service the environment
+/// says the run is on; `--ci` and `--no-ci` overrule it. [progressDefault]
+/// applies when progress is unset, outside CI.
 ResolvedOptions resolveOptions(
   CiachConfiguration configuration, {
   required bool progressDefault,
+  required CiRunner? detectedCi,
 }) {
-  final verbose = configuration.value(CiachOption.verbose);
   final rootPath = configuration.value(CiachOption.path);
   final projectConfig = configuration.value(CiachOption.projectConfig);
+  final ci = switch (configuration.optionalValue(CiachOption.ci)) {
+    null => detectedCi,
+    true => detectedCi ?? .other,
+    false => null,
+  };
+  final defaults = ci?.defaults;
+  // Already validated by the option; this only splits the values.
+  final also = parseAlso(configuration.value(CiachOption.also));
+  final verbose =
+      configuration.optionalValue(CiachOption.verbose) ??
+      defaults?.verbose ??
+      false;
 
   return .new(
     rootPath: rootPath,
     analysisRootPath: configuration.optionalValue(CiachOption.analysisRoot),
     includeGlobs: configuration.value(CiachOption.include),
     excludeGlobs: configuration.value(CiachOption.exclude),
-    additionalGeneratedSuffixes: configuration.value(
-      CiachOption.generatedSuffix,
-    ),
     additionalGeneratedGlobs: configuration.value(CiachOption.generatedGlob),
     // Already validated by the option; this only converts the names.
     kinds: parseKinds(configuration.value(CiachOption.kinds)),
     includePublic: configuration.value(CiachOption.public),
-    includeExported: configuration.value(CiachOption.exported),
-    failPublic: configuration.value(CiachOption.failPublic),
+    // An empty value, the command line's way to give none, is no glob.
+    exportedPackages: [
+      for (final glob in configuration.value(CiachOption.exportedPackages))
+        if (glob.isNotEmpty) glob,
+    ],
     includeGenerated: configuration.value(CiachOption.generated),
     projectConfig: projectConfig,
     unusedTranslations: configuration.value(CiachOption.unusedTranslations),
     detected: projectConfig ? .read(rootPath.absoluteNormalized) : .none,
-    overrides: configuration.value(CiachOption.overrides),
-    operators: configuration.value(CiachOption.operators),
-    unusedUnionMembers: configuration.value(CiachOption.unusedUnionMembers),
-    reportToJson: configuration.value(CiachOption.reportToJson),
+    overrides: also.contains('overrides'),
+    operators: also.contains('operators'),
+    unusedUnionMembers: also.contains('union-members'),
+    reportToJson: also.contains('tojson'),
     transitive: configuration.value(CiachOption.transitive),
     entryPoints: configuration.value(CiachOption.entryPoints),
-    setExitIfChanged: configuration.value(CiachOption.setExitIfChanged),
+    setExitIfChanged:
+        configuration.optionalValue(CiachOption.setExitIfChanged) ??
+        defaults?.setExitIfChanged ??
+        false,
+    ci: ci,
     remove: configuration.value(CiachOption.remove),
     force: configuration.value(CiachOption.force),
-    format: configuration.value(CiachOption.format),
+    format:
+        configuration.optionalValue(CiachOption.format) ??
+        defaults?.format ??
+        formatNames.first,
     color: configuration.optionalValue(CiachOption.color),
     showProgress:
         !verbose &&
-        (configuration.optionalValue(CiachOption.progress) ?? progressDefault),
+        (configuration.optionalValue(CiachOption.progress) ??
+            defaults?.showProgress ??
+            progressDefault),
     verbose: verbose,
     concurrency: configuration.value(CiachOption.concurrency),
     dartExecutable: configuration.optionalValue(CiachOption.dart),

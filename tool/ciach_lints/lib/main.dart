@@ -6,8 +6,14 @@
 
 import 'package:analysis_server_plugin/plugin.dart';
 import 'package:analysis_server_plugin/registry.dart';
-import 'package:ciach_lints/src/prefer_dot_shorthand.dart';
+import 'package:ciach_lints/src/avoid_empty_collection_fallback.dart';
+import 'package:ciach_lints/src/avoid_negated_iterable_predicates.dart';
+import 'package:ciach_lints/src/merge_identical_switch_arms.dart';
+import 'package:ciach_lints/src/prefer_for_in_loop.dart';
+import 'package:ciach_lints/src/prefer_let.dart';
 import 'package:ciach_lints/src/prefer_multiline_string.dart';
+import 'package:ciach_lints/src/prefer_pattern_over_guard.dart';
+import 'package:ciach_lints/src/prefer_single_string_literal.dart';
 import 'package:ciach_lints/src/version_matches_pubspec.dart';
 
 final plugin = CiachLintsPlugin();
@@ -19,8 +25,8 @@ final class CiachLintsPlugin() extends Plugin {
   @override
   void register(PluginRegistry registry) {
     registry
-      ..registerWarningRule(PreferDotShorthand())
-      ..registerFixForRule(PreferDotShorthand.code, ReplaceWithDotShorthand.new)
+      ..registerWarningRule(PreferLet())
+      ..registerFixForRule(PreferLet.code, ReplaceWithLet.new)
       ..registerWarningRule(VersionMatchesPubspec())
       ..registerFixForRule(
         VersionMatchesPubspec.code,
@@ -31,6 +37,30 @@ final class CiachLintsPlugin() extends Plugin {
       ..registerFixForRule(
         PreferMultilineString.code,
         ConvertToMultilineString.new,
-      );
+      )
+      ..registerWarningRule(PreferSingleStringLiteral())
+      ..registerFixForRule(
+        PreferSingleStringLiteral.code,
+        JoinAdjacentStrings.new,
+      )
+      ..registerWarningRule(AvoidEmptyCollectionFallback())
+      ..registerFixForRule(
+        AvoidEmptyCollectionFallback.code,
+        SkipNullCollection.new,
+      )
+      ..registerWarningRule(PreferPatternOverGuard())
+      ..registerFixForRule(
+        PreferPatternOverGuard.code,
+        MoveGuardIntoPattern.new,
+      )
+      ..registerWarningRule(AvoidNegatedIterablePredicates())
+      ..registerFixForRule(
+        AvoidNegatedIterablePredicates.code,
+        RemoveNegation.new,
+      )
+      ..registerWarningRule(MergeIdenticalSwitchArms())
+      ..registerFixForRule(MergeIdenticalSwitchArms.code, MergeSwitchArms.new)
+      ..registerWarningRule(PreferForInLoop())
+      ..registerFixForRule(PreferForInLoop.code, LoopOverElements.new);
   }
 }

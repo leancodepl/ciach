@@ -1,0 +1,246 @@
+import 'dart:io';
+
+import 'package:ciach/src/source/directives.dart';
+import 'package:ciach/src/source/symbols.dart';
+import 'package:ciach/src/util/extensions.dart';
+import 'package:ciach/src/util/paths.dart';
+import 'package:ciach/src/workspace/packages.dart';
+import 'package:collection/collection.dart';
+import 'package:glob/glob.dart';
+import 'package:path/path.dart' as p;
+
+/// Declarations importable by other packages, read from directives only.
+final class PublicApi {
+  PublicApi._(
+    this._rootPath,
+    this._inLib,
+    this._libraryOf,
+    this._visible,
+    this.packages,
+  );
+
+  /// The API of the packages under [rootPath] that [exportedPackages] match:
+  /// globs, relative to [rootPath], of the packages that packages outside the
+  /// analysis import.
+  factory PublicApi.scan(
+    String rootPath, {
+    required List<String> exportedPackages,
+  }) {
+    final tree = scanPackageTree(rootPath);
+    final globs = [
+      for (final pattern in exportedPackages) Glob(pattern, context: p.posix),
+    ];
+    final packages = {
+      for (final libDir in tree.libDirs.sorted())
+        if (Directory(libDir).existsSync())
+          p.dirname(libDir): globs.any(
+            (glob) => glob.matches(relativePosix(p.dirname(libDir), rootPath)),
+          ),
+    };
+    final libDirs = {
+      for (final MapEntry(key: dir, value: exported) in packages.entries)
+        if (exported) p.join(dir, 'lib'),
+    };
+    final libDirOf = _libDirOf(tree.dartFiles, libDirs);
+    final libraries = _readDirectives(libDirOf.keys, .new());
+    final libraryOf = _libraryOfParts(libraries);
+    return ._(
+      rootPath,
+      libDirOf.keys.toSet(),
+      libraryOf,
+      _visibleNames(libraries, libraryOf, libDirOf),
+      packages,
+    );
+  }
+
+  /// The `lib/` each Dart file under one sits in: the nearest above it.
+  static Map<String, String> _libDirOf(
+    Set<String> dartFiles,
+    Set<String> libDirs,
+  ) => {for (final path in dartFiles) path: ?_nearestLibDir(path, libDirs)};
+
+  static String? _nearestLibDir(String path, Set<String> libDirs) {
+    for (
+      var dir = p.dirname(path);
+      dir != p.dirname(dir);
+      dir = p.dirname(dir)
+    ) {
+      if (libDirs.contains(dir)) {
+        return dir;
+      }
+    }
+    return null;
+  }
+
+  static Map<String, _Directives> _readDirectives(
+    Iterable<String> paths,
+    PackageResolver packages,
+  ) => {
+    for (final path in paths)
+      if (readSource(path) case final content?)
+        path: _Directives.parse(content, path, packages),
+  };
+
+  /// The library each part belongs to, through parts of parts.
+  static Map<String, String> _libraryOfParts(
+    Map<String, _Directives> libraries,
+  ) {
+    final ownerOf = {
+      for (final MapEntry(key: path, value: directives) in libraries.entries)
+        for (final part in directives.parts) part: path,
+    };
+    String libraryOf(String part) {
+      var library = part;
+      for (final seen = <String>{}; seen.add(library);) {
+        library = ownerOf[library] ?? library;
+      }
+      return library;
+    }
+
+    return {for (final part in ownerOf.keys) part: libraryOf(part)};
+  }
+
+  /// The names each library exposes: all of a library outside `lib/src/`,
+  /// then whatever exports pass on.
+  static Map<String, _Names> _visibleNames(
+    Map<String, _Directives> libraries,
+    Map<String, String> libraryOf,
+    Map<String, String> libDirOf,
+  ) {
+    final visible = <String, _Names>{};
+    final pending = <(String, _Names)>[
+      for (final path in libraries.keys)
+        if (!p.isWithin(p.join(libDirOf[path]!, 'src'), path))
+          (path, _Names.all),
+    ];
+    while (pending.isNotEmpty) {
+      final (library, names) = pending.removeLast();
+      final merged = visible[library]?.union(names) ?? names;
+      if (merged == visible[library]) {
+        continue;
+      }
+      visible[library] = merged;
+      if (libraries[library]?.exports case final exports?) {
+        pending.addAll([
+          for (final export in exports)
+            for (final target in export.paths)
+              (libraryOf[target] ?? target, export.names.intersection(merged)),
+        ]);
+      }
+    }
+    return visible;
+  }
+
+  final String _rootPath;
+  final Set<String> _inLib;
+  final Map<String, String> _libraryOf;
+  final Map<String, _Names> _visible;
+
+  /// The directory of every package with a `lib/` under the root, with
+  /// whether [PublicApi.scan]'s globs match it.
+  final Map<String, bool> packages;
+
+  /// Whether no package's API is part of this.
+  bool get isEmpty => _inLib.isEmpty;
+
+  /// Whether another package could import the file at [path]: one under a
+  /// package's `lib/`, or anywhere outside the scanned root.
+  bool isImportable(String path) =>
+      !p.isWithin(_rootPath, path) || _inLib.contains(path);
+
+  bool exposes(String path, String name) {
+    final library = _libraryOf[path] ?? path;
+    return !isPrivateName(name) && (_visible[library]?.admits(name) ?? false);
+  }
+}
+
+final _show = RegExp(r'\bshow\b(?<names>[^;]*?)(?=\b(?:show|hide)\b|$)');
+final _hide = RegExp(r'\bhide\b(?<names>[^;]*?)(?=\b(?:show|hide)\b|$)');
+
+final class _Directives {
+  _Directives(this.exports, this.parts);
+
+  factory _Directives.parse(
+    String content,
+    String path,
+    PackageResolver packages,
+  ) {
+    final exports = <_Export>[];
+    final parts = <String>[];
+    for (final directive in Directive.allIn(content)) {
+      switch (directive.keyword) {
+        case 'part' when !directive.isPartOf:
+          parts.addAll(directive.pathsFrom(path, packages).take(1));
+        case 'export' when directive.uris.isNotEmpty:
+          exports.add((
+            paths: directive.pathsFrom(path, packages),
+            names: _Names.parse(
+              directive.body.substring(directive.uris.last.end),
+            ),
+          ));
+      }
+    }
+    return .new(exports, parts);
+  }
+
+  final List<_Export> exports;
+  final List<String> parts;
+}
+
+/// The files an `export` names, as absolute paths (several when conditional),
+/// and the names it lets through.
+typedef _Export = ({List<String> paths, _Names names});
+
+/// The names a filter lets through: [shown] (all when `null`) less [hidden].
+final class _Names {
+  const _Names(this.shown, this.hidden);
+
+  /// The `show` and `hide` clauses in [combinators].
+  factory _Names.parse(String combinators) {
+    Set<String>? clause(RegExp keyword) => keyword
+        .firstMatch(combinators)
+        ?.let(
+          (match) => {
+            for (final name in match.namedGroup('names')!.split(','))
+              name.trim(),
+          },
+        );
+    return all.intersection(.new(clause(_show), clause(_hide) ?? const {}));
+  }
+
+  static const all = _Names(null, {});
+
+  final Set<String>? shown;
+  final Set<String> hidden;
+
+  bool admits(String name) =>
+      (shown?.contains(name) ?? true) && !hidden.contains(name);
+
+  /// The names both let through.
+  _Names intersection(_Names other) => switch ((shown, other.shown)) {
+    (null, null) => .new(null, hidden.union(other.hidden)),
+    (final a?, null) => .new(a.difference(other.hidden), const {}),
+    (null, final b?) => .new(b.difference(hidden), const {}),
+    (final a?, final b?) => .new(a.intersection(b), const {}),
+  };
+
+  /// The names either lets through.
+  _Names union(_Names other) => switch ((shown, other.shown)) {
+    (null, null) => .new(null, hidden.intersection(other.hidden)),
+    (final a?, null) => .new(null, other.hidden.difference(a)),
+    (null, final b?) => .new(null, hidden.difference(b)),
+    (final a?, final b?) => .new(a.union(b), const {}),
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      other is _Names &&
+      const SetEquality<String>().equals(shown, other.shown) &&
+      const SetEquality<String>().equals(hidden, other.hidden);
+
+  @override
+  int get hashCode => Object.hash(
+    const SetEquality<String>().hash(shown),
+    const SetEquality<String>().hash(hidden),
+  );
+}

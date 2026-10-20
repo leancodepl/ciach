@@ -17,14 +17,18 @@ part 'copy_button.scopes.dart';
 /// JavaScript disabled and the shipped script stays tiny.
 @client
 @scopedCss
-class CopyButton extends StatefulComponent {
-  const CopyButton({required this.text, this.label, super.key});
-
-  final String text;
+class const CopyButton({
+  required final String text,
 
   /// Visible label. Omit for an icon-only button.
-  final String? label;
+  final String? label,
 
+  /// What the button copies, for the tooltip and screen readers.
+  final String title = 'Copy to clipboard',
+
+  final Icon icon = .copy,
+  super.key,
+}) extends StatefulComponent {
   static const _class = _$CopyButtonScope;
 
   static final _root = _class.root;
@@ -52,17 +56,19 @@ class CopyButton extends StatefulComponent {
         alignItems: .center,
         gap: .all(0.4.rem),
         color: text2Color,
+        fontFamily: fontSans,
+        fontSize: 0.78.rem,
+        fontWeight: .w600,
+        lineHeight: const .expression('1'),
         backgroundColor: surfaceColor,
-        raw: {'font': '600 0.78rem/1 var(--font-sans)'},
       ),
-      css('&:hover')
-          .styles(color: textColor, raw: {'border-color': 'var(--accent)'}),
+      css('&:hover').styles(border: hairline(accentColor), color: textColor),
     ]),
     css(_iconOnly.selector).styles(padding: .all(0.4.rem)),
     css(_icon.selector).styles(display: .inlineFlex),
     css(_done.selector).styles(display: .none, color: okColor),
     css(_isCopied.selector, [
-      css('&').styles(color: okColor, raw: {'border-color': 'var(--ok)'}),
+      css('&').styles(border: hairline(okColor), color: okColor),
       css('& ${_idle.selector}').styles(display: .none),
       css('& ${_done.selector}').styles(display: .inlineFlex),
     ]),
@@ -72,7 +78,7 @@ class CopyButton extends StatefulComponent {
   State<CopyButton> createState() => _CopyButtonState();
 }
 
-class _CopyButtonState extends State<CopyButton> {
+class _CopyButtonState() extends State<CopyButton> {
   bool _copied = false;
   Timer? _resetTimer;
 
@@ -89,6 +95,8 @@ class _CopyButtonState extends State<CopyButton> {
     try {
       await web.window.navigator.clipboard.writeText(component.text).toDart;
     } on Object {
+      // Best effort: the browser may deny clipboard access, and then the
+      // button stays as it was.
       return;
     }
     if (!mounted) {
@@ -112,16 +120,16 @@ class _CopyButtonState extends State<CopyButton> {
         if (label == null) CopyButton._iconOnly.name,
         if (_copied) CopyButton._isCopied.name,
       ].join(' '),
-      attributes: const {
+      attributes: {
         'type': 'button',
-        'aria-label': 'Copy to clipboard',
+        'aria-label': component.title,
         'aria-live': 'polite',
-        'title': 'Copy to clipboard',
+        'title': component.title,
       },
       onClick: _copy,
       [
         span(classes: (CopyButton._icon + CopyButton._idle).name, [
-          Icon.copy.build(size: 16),
+          component.icon.build(size: 16),
         ]),
         span(classes: (CopyButton._icon + CopyButton._done).name, [
           Icon.check.build(size: 16),

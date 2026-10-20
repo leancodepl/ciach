@@ -11,11 +11,8 @@ import 'package:jaspr_class_scope/jaspr_class_scope.dart';
 part 'footer.scopes.dart';
 
 @scopedCss
-class SiteFooter extends StatelessComponent {
-  const SiteFooter({required this.version, super.key});
-
-  final String version;
-
+class const SiteFooter({required final String version, super.key})
+    extends StatelessComponent {
   static const _class = _$SiteFooterScope;
 
   static final _root = _class.root;
@@ -38,9 +35,10 @@ class SiteFooter extends StatelessComponent {
           horizontal: .zero,
         ),
         border: .only(bottom: hairlineSide(borderColor)),
+        backgroundColor: bg2Color,
         raw: {
-          'background':
-              'radial-gradient(50% 60% at 50% 100%, ${accentAlpha(0.12).value}, transparent 70%), var(--bg-2)',
+          'background-image':
+              'radial-gradient(50% 60% at 50% 100%, ${accentAlpha(0.12).value}, transparent 70%)',
         },
       ),
       css('& h2')
@@ -73,10 +71,10 @@ class SiteFooter extends StatelessComponent {
         css('&:hover').styles(color: accentColor),
       ]),
       css.media(.all(minWidth: 760.px), [
-        css('&').styles(raw: {'grid-template-columns': '1fr 1fr'}),
+        css('&').styles(gridTemplate: fractionColumns([1, 1])),
       ]),
       css.media(.all(minWidth: 1000.px), [
-        css('&').styles(raw: {'grid-template-columns': '1.6fr 1fr 1fr 1.4fr'}),
+        css('&').styles(gridTemplate: fractionColumns([1.6, 1, 1, 1.4])),
       ]),
     ]),
     css('${_brand.selector} p').styles(
@@ -167,7 +165,7 @@ class SiteFooter extends StatelessComponent {
                 a(href: '/docs#ci', [.text('CI setup')]),
               ]),
               li([
-                a(href: '/docs#config', [.text('Configuration')]),
+                a(href: '/docs#configuration-file', [.text('Configuration')]),
               ]),
               li([
                 a(href: '/docs#faq', [.text('FAQ')]),

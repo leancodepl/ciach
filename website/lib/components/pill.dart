@@ -10,14 +10,13 @@ part 'pill.scopes.dart';
 /// A small rounded badge: a version, a licence, a requirement. With [href] it
 /// links out; [accent] draws it in the accent color; [icon] leads the text.
 @scopedCss
-class Pill extends StatelessComponent {
-  const Pill(this.text, {this.href, this.accent = false, this.icon, super.key});
-
-  final String text;
-  final String? href;
-  final bool accent;
-  final Icon? icon;
-
+class const Pill(
+  final String text, {
+  final String? href,
+  final bool accent = false,
+  final Icon? icon,
+  super.key,
+}) extends StatelessComponent {
   static const _class = _$PillScope;
 
   /// Every pill; the social card resizes them.
@@ -40,11 +39,11 @@ class Pill extends StatelessComponent {
     ),
     css(_accent.selector, [
       css('&').styles(
+        border: hairline(accentAlpha(0.4)),
         color: accentColor,
         backgroundColor: accentSoftColor,
-        raw: {'border-color': accentAlpha(0.4).value},
       ),
-      css('&:hover').styles(raw: {'border-color': 'var(--accent)'}),
+      css('&:hover').styles(border: hairline(accentColor)),
     ]),
   ];
 

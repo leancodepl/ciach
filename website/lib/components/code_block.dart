@@ -9,33 +9,27 @@ part 'code_block.scopes.dart';
 
 /// A highlighted, copyable code sample in a window-like frame.
 @scopedCss
-class CodeBlock extends StatelessComponent {
-  const CodeBlock({
-    required this.source,
-    required this.language,
-    this.title,
-    this.copyText,
-    this.deadLines = const {},
-    this.lineNumbers = false,
-    this.classes,
-    super.key,
-  });
-
-  final String source;
-  final Language language;
+class const CodeBlock({
+  required final String source,
+  required final Language language,
 
   /// Shown in the frame's title bar, e.g. a file name.
-  final String? title;
+  final String? title,
 
   /// What the copy button copies. Defaults to [source]; pass `''` to hide the
   /// button.
-  final String? copyText;
+  final String? copyText,
 
   /// 1-based lines to render struck through as dead code.
-  final Set<int> deadLines;
-  final bool lineNumbers;
-  final ClassName? classes;
+  final Set<int> deadLines = const {},
 
+  /// Whether console output wraps like a terminal. Pass false for a report
+  /// with aligned columns, which scrolls instead.
+  final bool wrap = true,
+  final bool lineNumbers = false,
+  final ClassName? classes,
+  super.key,
+}) extends StatelessComponent {
   static const _class = _$CodeBlockScope;
 
   // The frame, shared with [Terminal].
@@ -56,8 +50,8 @@ class CodeBlock extends StatelessComponent {
         border: hairline(borderColor),
         radius: const .circular(radius),
         overflow: .hidden,
+        shadow: shadow,
         backgroundColor: surfaceColor,
-        raw: {'box-shadow': shadow},
       ),
       css('& pre').styles(
         padding: .only(
@@ -107,13 +101,13 @@ class CodeBlock extends StatelessComponent {
     css(_title.selector).styles(
       minWidth: .zero,
       overflow: .hidden,
+      flex: growToFill,
       color: mutedColor,
       textAlign: .center,
       fontFamily: fontMono,
       fontSize: 0.75.rem,
       textOverflow: .ellipsis,
       whiteSpace: .noWrap,
-      raw: {'flex': '1'},
     ),
     css(Highlight.line.selector)
         .styles(display: .inlineBlock, minWidth: 100.percent),
@@ -148,8 +142,8 @@ class CodeBlock extends StatelessComponent {
     css(Highlight.summary.selector).styles(color: okColor, fontWeight: .w600),
     css('${Highlight.punct.selector}, ${Highlight.operator.selector}')
         .styles(color: const .variable('--tk-function')),
-    // Transcripts wrap like a real terminal; code blocks keep scrolling because
-    // indentation there carries meaning.
+    // Transcripts wrap like a real terminal. Code and reports keep scrolling,
+    // because their columns carry meaning.
     css(_terminal.selector, [
       css('& pre').styles(
         color: text2Color,
@@ -192,8 +186,8 @@ class CodeBlock extends StatelessComponent {
     return figure(
       classes: [
         _root.name,
-        // Console output wraps like a terminal; real code scrolls.
-        if (language == .console) _terminal.name,
+        // Console output wraps like a terminal unless its columns matter.
+        if (language == .console && wrap) _terminal.name,
         if (lineNumbers) _numbered.name,
         ?classes?.name,
       ].join(' '),
@@ -225,23 +219,16 @@ class CodeBlock extends StatelessComponent {
 }
 
 /// A terminal transcript whose lines appear one after another.
-class Terminal extends StatelessComponent {
-  const Terminal({
-    required this.transcript,
-    this.title = 'zsh',
-    this.animated = false,
-    this.copyText = '',
-    super.key,
-  });
-
-  final String transcript;
-  final String title;
+class const Terminal({
+  required final String transcript,
+  final String title = 'zsh',
 
   /// Reveal lines sequentially with a CSS animation (respects
   /// `prefers-reduced-motion`).
-  final bool animated;
-  final String copyText;
-
+  final bool animated = false,
+  final String copyText = '',
+  super.key,
+}) extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     return figure(

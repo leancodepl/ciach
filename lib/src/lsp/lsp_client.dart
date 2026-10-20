@@ -9,14 +9,16 @@
  */
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:ciach/src/dart_executable.dart';
-import 'package:ciach/src/extensions.dart';
-import 'package:ciach/src/log.dart';
+import 'package:ciach/src/lsp/dart_executable.dart';
+import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
+import 'package:ciach/src/util/extensions.dart';
+import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/version.dart';
 import 'package:pro_lsp/pro_lsp.dart' as lsp;
 import 'package:stream_channel/stream_channel.dart';
@@ -57,9 +59,28 @@ class LspClient {
   /// Completers waiting for the server to become idle.
   final _idleWaiters = <Completer<void>>[];
 
+  /// True from when [initialize] adds the workspace folder until the server
+  /// starts analyzing it. An idle report in between doesn't end the wait.
+  bool _awaitingAnalysis = false;
+
+  /// Whether the last `$/analyzerStatus` said that the server is analyzing.
+  bool _analyzing = false;
+
+  /// The empty directory the server starts in when [initialize] gets
+  /// analysis options. [dispose] deletes it.
+  Directory? _emptyRoot;
+
   final _outlines = <String, Outline>{};
 
   final _outlineWaiters = <String, Completer<Outline>>{};
+
+  final _diagnostics = <String, List<lsp.Diagnostic>>{};
+
+  /// The version of each open document, raised by every [didChange].
+  final _versions = <String, int>{};
+
+  /// The document that [didChange] changed last.
+  Uri? _lastChanged;
 
   /// Recent `window/logMessage` errors, oldest first.
   final _loggedErrors = <String>[];
@@ -135,6 +156,9 @@ class LspClient {
       const _CustomMethod(_publishOutlineMethod),
       (params, context) async => wrapper._onPublishOutline(params),
     );
+    client.textDocument.onPublishDiagnostics((params, context) async {
+      wrapper._diagnostics[params.uri] = params.diagnostics;
+    });
     client.window.onLogMessage((params, context) async {
       if (params.type == .error) {
         wrapper._onLoggedError(params.message);
@@ -145,14 +169,27 @@ class LspClient {
   }
 
   /// Performs the `initialize` / `initialized` handshake for [rootUri].
-  Future<void> initialize(Uri rootUri) async {
+  ///
+  /// [analysisOptions] maps a path to the content the server uses instead of
+  /// the file on disk, for this session only. The server reads analysis
+  /// options when it sets up a folder. So with [analysisOptions], the server
+  /// starts in an empty directory, gets the new content, and only then gets
+  /// [rootUri].
+  Future<void> initialize(
+    Uri rootUri, {
+    Map<String, String> analysisOptions = const {},
+  }) async {
     final uri = rootUri.toString();
+    final emptyRoot = analysisOptions.isEmpty
+        ? null
+        : _emptyRoot = Directory.systemTemp.createTempSync('ciach_root_');
+    final startUri = emptyRoot?.uri.toString() ?? uri;
     final result = await _guard(
       lsp.RequestMethod.initialize.value,
       () => _client.start(
         clientInfo: const .new(name: 'ciach', version: ciachVersion),
-        rootUri: uri,
-        workspaceFolders: [.new(uri: uri, name: 'root')],
+        rootUri: startUri,
+        workspaceFolders: [.new(uri: startUri, name: 'root')],
         initializationOptions: const {'outline': true},
         // Hierarchical document symbols yield nested `DocumentSymbol[]` rather
         // than flat `SymbolInformation`; semantic tokens make the server send its
@@ -172,6 +209,30 @@ class LspClient {
       ),
     );
     _semanticTokensLegend = .fromCapabilities(result.capabilities.toJson());
+    if (emptyRoot == null) {
+      return;
+    }
+    for (final MapEntry(key: path, value: text) in analysisOptions.entries) {
+      _client.server.textDocument.didOpen(
+        .new(
+          textDocument: .new(
+            uri: File(path).uri.toString(),
+            languageId: .yAML,
+            version: 1,
+            text: text,
+          ),
+        ),
+      );
+    }
+    _awaitingAnalysis = true;
+    _client.server.workspace.didChangeWorkspaceFolders(
+      .new(
+        event: .new(
+          added: [.new(uri: uri, name: 'root')],
+          removed: [.new(uri: startUri, name: 'root')],
+        ),
+      ),
+    );
   }
 
   /// Runs [request]. Throws [AnalysisServerExitedException] if the server
@@ -192,10 +253,10 @@ class LspClient {
       }
       final failure = switch (e) {
         lsp.LspException(code: lsp.LspErrorCodes.unknownErrorCode) =>
-          switch (await _takeLoggedError(e.message)) {
-            final logged? => LspRequestException.fromLog(method, logged),
-            null => LspRequestException(method, e.message),
-          },
+          (await _takeLoggedError(e.message))?.let(
+                (logged) => LspRequestException.fromLog(method, logged),
+              ) ??
+              LspRequestException(method, e.message),
         lsp.LspException() => LspRequestException(
           method,
           '${e.message} (error ${e.code})',
@@ -250,8 +311,10 @@ class LspClient {
   }
 
   void _onAnalyzerStatus(Object? params) {
-    final analyzing = params is Map && params['isAnalyzing'] == true;
-    if (!analyzing) {
+    _analyzing = params is Map && params['isAnalyzing'] == true;
+    if (_analyzing) {
+      _awaitingAnalysis = false;
+    } else if (!_awaitingAnalysis) {
       final waiters = List.of(_idleWaiters);
       _idleWaiters.clear();
       for (final waiter in waiters) {
@@ -283,6 +346,9 @@ class LspClient {
       _outlineWaiters.remove(uri)?.complete(outline);
     }
   }
+
+  /// The outline of [uri] if the server has already sent it.
+  Outline? cachedOutline(Uri uri) => _outlines[uri.toString()];
 
   /// The outline of [uri]. Throws [LspRequestException] after [timeout].
   Future<Outline> outline(
@@ -326,8 +392,30 @@ class LspClient {
     return completer.future.whenComplete(timer.cancel);
   }
 
+  /// The diagnostics that the server last published, keyed by document URI.
+  Map<String, List<lsp.Diagnostic>> get diagnostics =>
+      UnmodifiableMapView(_diagnostics);
+
+  /// Completes once the server has analyzed the content that every
+  /// [didChange] so far sent. The server handles messages in order, so it
+  /// answers the `foldingRange` request sent here after those changes.
+  Future<void> waitForChangesAnalyzed() async {
+    if (_lastChanged case final changed?) {
+      await _guard(
+        lsp.RequestMethod.foldingRange.value,
+        () => _client.server.textDocument.foldingRange(
+          .new(textDocument: .new(uri: changed.toString())),
+        ),
+      );
+    }
+    if (_analyzing) {
+      await waitForAnalysisComplete();
+    }
+  }
+
   /// Notifies the server that [uri] is open with the given [text].
   void didOpen(Uri uri, String text) {
+    _versions[uri.toString()] = 1;
     _client.server.textDocument.didOpen(
       .new(
         textDocument: .new(
@@ -336,6 +424,33 @@ class LspClient {
           version: 1,
           text: text,
         ),
+      ),
+    );
+  }
+
+  /// Opens [uri] with [text], unless it is open already.
+  void ensureOpen(Uri uri, String text) {
+    if (!_versions.containsKey(uri.toString())) {
+      didOpen(uri, text);
+    }
+  }
+
+  /// Replaces the content of the open document [uri] with [text], for this
+  /// session only; the file on disk doesn't change.
+  void didChange(Uri uri, String text) {
+    final key = uri.toString();
+    _lastChanged = uri;
+    // The server publishes the outline of the new content.
+    _outlines.remove(key);
+    _client.server.textDocument.didChange(
+      .new(
+        textDocument: .new(
+          uri: key,
+          version: _versions.update(key, (version) => version + 1),
+        ),
+        contentChanges: [
+          .textDocumentContentChangeWholeDocument(.new(text: text)),
+        ],
       ),
     );
   }
@@ -506,65 +621,16 @@ class LspClient {
     await _client.close().ignoringErrors();
     try {
       await _process.exitCode.timeout(const .new(seconds: 5));
-    } on Object {
+    } on TimeoutException {
       _process.kill(.sigkill);
     }
     await _errorLogged.close();
+    try {
+      _emptyRoot?.deleteSync(recursive: true);
+    } on FileSystemException {
+      // The OS cleans up the temp directory later.
+    }
   }
-}
-
-/// One request failed; the server is still running.
-class LspRequestException implements Exception {
-  const LspRequestException(this.method, this.message, {this.detail});
-
-  /// Parses a logged exception: message line, then stack trace.
-  factory LspRequestException.fromLog(String method, String logged) {
-    final newline = logged.indexOf('\n');
-    return newline < 0
-        ? .new(method, logged)
-        : .new(
-            method,
-            logged.substring(0, newline),
-            detail: logged.substring(newline + 1).trimRight(),
-          );
-  }
-
-  /// The LSP method, e.g. `textDocument/references`.
-  final String method;
-
-  /// Why it failed, on one line.
-  final String message;
-
-  /// The server's stack trace, if logged.
-  final String? detail;
-
-  @override
-  String toString() => 'The Dart analysis server failed $method: $message';
-}
-
-/// The analysis server exited unexpectedly.
-class AnalysisServerExitedException implements Exception {
-  const AnalysisServerExitedException({
-    required this.executable,
-    required this.exitCode,
-    required this.stderr,
-  });
-
-  /// The `dart` the server was launched with.
-  final String executable;
-
-  final int exitCode;
-
-  /// The server's stderr, trimmed.
-  final String stderr;
-
-  String get message =>
-      '''
-The Dart analysis server (`$executable language-server`) exited unexpectedly with code $exitCode.
-${stderr.isEmpty ? 'It wrote nothing to stderr.' : 'Its stderr:\n$stderr'}''';
-
-  @override
-  String toString() => message;
 }
 
 /// Minimal [lsp.LSPMethod] implementation for a custom (non-spec) method,

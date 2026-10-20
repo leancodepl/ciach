@@ -6,12 +6,7 @@ import 'package:jaspr_class_scope/jaspr_class_scope.dart';
 
 part 'faq.scopes.dart';
 
-class FaqEntry {
-  const FaqEntry(this.question, this.answer);
-
-  final String question;
-  final String answer;
-}
+class const FaqEntry(final String question, final String answer);
 
 /// Shared with the FAQPage JSON-LD, so the structured data and the visible
 /// answers can never drift apart. Backticks mark inline code; the structured
@@ -21,28 +16,25 @@ const faqEntries = [
     'Does ciach work with Flutter apps?',
     'Yes, with any Dart package. `@override` members such as `build` and '
         '`initState` are skipped by default because frameworks reach them '
-        'polymorphically; pass `--overrides` to report them anyway.',
+        'polymorphically; pass `--also overrides` to report them anyway.',
   ),
   FaqEntry(
     'Is it safe to run `ciach --remove`?',
     'It shows the list and asks first, leaves ambiguous multi-declarator '
         'statements alone and marks findings whose removal would not compile '
         'as report-only. Still review the diff, as after any automated '
-        'refactor. `--overrides` and `--operators` widen the false-positive '
+        'refactor. `--also overrides,operators` widens the false-positive '
         'risk.',
   ),
   FaqEntry(
     'My library’s public API is reported as unused.',
-    'That is expected from inside the package. Use `--no-exported` to skip '
-        'it, `--no-public` to report only private declarations, or keep public '
-        'findings visible but out '
-        'of the exit code with `--set-exit-if-changed` `--no-fail-public`.',
+    'ciach can’t see importers outside the analysis. List the package in '
+        '`exported-packages` in `ciach.yaml`, and what other packages can '
+        'import from it is left out.',
   ),
   FaqEntry(
     'How fast is it?',
-    'As fast as the analysis server: the package is analyzed once per run, '
-        'then one references query per declaration goes through a pool of 16 '
-        'concurrent requests. `--no-public` is by far the cheapest mode.',
+    'A large Flutter app takes tens of seconds. `--no-public` is by far the cheapest mode.',
   ),
   FaqEntry(
     'Which Dart versions are supported?',
@@ -53,9 +45,7 @@ const faqEntries = [
 
 /// FAQ as `<details>` disclosures: no script, every answer in the HTML.
 @scopedCss
-class Faq extends StatelessComponent {
-  const Faq({super.key});
-
+class const Faq({super.key}) extends StatelessComponent {
   static const _class = _$FaqScope;
 
   static final _root = _class.root;
@@ -107,10 +97,11 @@ class Faq extends StatelessComponent {
           border: hairline(border2Color),
           radius: .circular(50.percent),
           transition: .new('transform', duration: 200.ms, curve: .ease),
+          alignItems: .center,
+          justifyItems: .center,
           flex: .none,
           color: accentColor,
           fontFamily: fontMono,
-          raw: {'place-items': 'center'},
         ),
         css('&:hover h3').styles(color: accentColor),
       ]),

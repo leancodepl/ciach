@@ -1,8 +1,10 @@
 import 'package:ciach/src/cli/args.dart';
+import 'package:ciach/src/cli/ci.dart';
 import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/options.dart';
-import 'package:ciach/src/models.dart';
-import 'package:ciach/src/plural.dart';
+import 'package:ciach/src/model/finder_options.dart';
+import 'package:ciach/src/model/unused_declaration.dart';
+import 'package:ciach/src/util/plural.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
@@ -43,6 +45,33 @@ List<String> describeConfigSource(
     ],
   ];
 }
+
+/// The `--verbose` account of CI detection: the service [resolved] settled on,
+/// how, and the defaults that changes; or the variable `--no-ci` overruled.
+/// Nothing for a plain local run. [detected] is what the environment said.
+List<String> describeCi(
+  ResolvedOptions resolved, {
+  required CiRunner? detected,
+}) {
+  final ci = resolved.ci;
+  if (ci == null) {
+    return [
+      if (detected != null)
+        'Treating the run as local (--no-ci), although ${detected.variable} is set.',
+    ];
+  }
+  final how = ci == detected ? '${ci.variable} is set' : '--ci';
+  final defaults = ci.defaults;
+  final changes = [
+    '--set-exit-if-changed defaults to ${_onOff(defaults.setExitIfChanged)}',
+    '--verbose to ${_onOff(defaults.verbose)}',
+    'progress to ${_onOff(defaults.showProgress)}',
+    if (defaults.format case final format?) '--format to $format',
+  ];
+  return ['On ${ci.label} ($how): ${changes.join(', ')}.'];
+}
+
+String _onOff(bool value) => value ? 'on' : 'off';
 
 /// The `--verbose` rundown of the run's settings: one line per config key, each
 /// naming the layer its value came from.
@@ -90,30 +119,28 @@ String _setting(
   // Unset, the analysis root is the scanned root.
   .analysisRoot => options.analysisRootPath ?? options.rootPath,
   .public => '${resolved.includePublic}',
-  .exported => '${resolved.includeExported}',
-  .failPublic => '${resolved.failPublic}',
+  .exportedPackages => _value(resolved.exportedPackages),
   .generated => '${resolved.includeGenerated}',
   .projectConfig => '${resolved.projectConfig}',
   .unusedTranslations => '${resolved.unusedTranslations}',
-  .overrides => '${resolved.overrides}',
-  .operators => '${resolved.operators}',
-  .unusedUnionMembers => '${resolved.unusedUnionMembers}',
-  .reportToJson => '${resolved.reportToJson}',
+  .also => _value([
+    if (resolved.overrides) 'overrides',
+    if (resolved.operators) 'operators',
+    if (resolved.reportToJson) 'tojson',
+    if (resolved.unusedUnionMembers) 'union-members',
+  ]),
   .transitive => '${resolved.transitive}',
   .setExitIfChanged => '${resolved.setExitIfChanged}',
+  .ci => '${resolved.ci != null}',
   .remove => '${resolved.remove}',
   .force => '${resolved.force}',
   .exclude => _value(resolved.excludeGlobs),
   .include => _value(resolved.includeGlobs),
-  .generatedSuffix => _value(resolved.additionalGeneratedSuffixes),
   .generatedGlob => _value(resolved.additionalGeneratedGlobs),
   .entryPoints => _value(resolved.entryPoints),
   .kinds => _kinds(resolved.kinds),
   .format => resolved.format,
-  .color => switch (resolved.color) {
-    null => 'auto',
-    final color => '$color',
-  },
+  .color => resolved.color?.toString() ?? 'auto',
   .progress => '${resolved.showProgress}',
   .verbose => '${resolved.verbose}',
   .concurrency => '${resolved.concurrency}',

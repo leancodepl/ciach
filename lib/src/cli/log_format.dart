@@ -1,6 +1,7 @@
 import 'package:ciach/src/cli/errors.dart';
-import 'package:ciach/src/log.dart';
-import 'package:ciach/src/style.dart';
+import 'package:ciach/src/report/style.dart';
+import 'package:ciach/src/util/extensions.dart';
+import 'package:ciach/src/util/log.dart';
 
 /// Formats log records for stderr.
 final class LogFormatter {
@@ -21,15 +22,16 @@ final class LogFormatter {
   String line(LogRecord record, Duration elapsed) {
     final message = record.message;
     final text = switch (record.level) {
-      >= .SEVERE => switch (record.error) {
-        final error? => describeFatalError(
-          error,
-          record.stackTrace ?? .empty,
-          verbose: verbose,
-          style: style,
-        ).trimRight(),
-        null => '${style.errorLabel('error:')} $message',
-      },
+      >= .SEVERE =>
+        record.error?.let(
+              (error) => describeFatalError(
+                error,
+                record.stackTrace ?? .empty,
+                verbose: verbose,
+                style: style,
+              ).trimRight(),
+            ) ??
+            '${style.errorLabel('error:')} $message',
       >= .WARNING => '${style.warningLabel('warning:')} $message',
       >= .INFO => message,
       >= .CONFIG => style.configuration(message),

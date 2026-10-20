@@ -8,31 +8,58 @@
  *     - mark-ai-provenance
  */
 
+/// A scan as a pipeline: discover the files, collect the candidates, fetch
+/// their references, settle the verdicts. [Ciach] wires the stages, and each
+/// directory under `lib/src/` holds one part of the work:
+///
+/// | Directory         | What it holds                                                         |
+/// |-------------------|-----------------------------------------------------------------------|
+/// | `model/`          | The options a run takes and the findings and results it returns.      |
+/// | `workspace/`      | The package on disk: Dart files, pubspecs, directives, public API.    |
+/// | `source/`         | Source text and the server's view of it: tokens, shapes, markers.     |
+/// | `lsp/`            | The analysis server session and what can go wrong with it.            |
+/// | `conventions/`    | Framework rules that keep declarations alive: Flutter, freezed, l10n. |
+/// | `project_config/` | Entry points and generated files read from the project's own config.  |
+/// | `collect/`        | Which declarations get checked.                                       |
+/// | `fetch/`          | Asking the server for references, and for what it misses.             |
+/// | `settle/`         | Turning references into findings.                                     |
+/// | `remove/`         | `--remove`: deleting findings and emptied files.                      |
+/// | `report/`         | The output formats.                                                   |
+/// | `cli/`            | The command line: options, the config file, the console.              |
+/// | `util/`           | Small helpers with no knowledge of ciach.                             |
+library;
+
 import 'dart:async';
 import 'dart:io';
 
-import 'package:ciach/src/candidate_collector.dart';
-import 'package:ciach/src/candidates.dart';
-import 'package:ciach/src/concurrency.dart';
+import 'package:ciach/src/collect/candidate_collector.dart';
+import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/freezed.dart';
-import 'package:ciach/src/directives.dart';
-import 'package:ciach/src/file_discovery.dart';
-import 'package:ciach/src/log.dart';
+import 'package:ciach/src/fetch/member_probe.dart';
+import 'package:ciach/src/fetch/reachable_types.dart';
+import 'package:ciach/src/fetch/reference_fetch.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
-import 'package:ciach/src/member_probe.dart';
-import 'package:ciach/src/models.dart';
-import 'package:ciach/src/paths.dart';
-import 'package:ciach/src/plural.dart';
-import 'package:ciach/src/problems.dart';
-import 'package:ciach/src/public_api.dart';
-import 'package:ciach/src/reachable_types.dart';
-import 'package:ciach/src/reference_classifier.dart';
-import 'package:ciach/src/reference_fetch.dart';
-import 'package:ciach/src/settler.dart';
-import 'package:ciach/src/source_index.dart';
-import 'package:ciach/src/verdict.dart';
+import 'package:ciach/src/lsp/problems.dart';
+import 'package:ciach/src/model/finder_options.dart';
+import 'package:ciach/src/model/finder_result.dart';
+import 'package:ciach/src/settle/reference_classifier.dart';
+import 'package:ciach/src/settle/settler.dart';
+import 'package:ciach/src/settle/verdict.dart';
+import 'package:ciach/src/source/directives.dart';
+import 'package:ciach/src/source/ignore_markers.dart';
+import 'package:ciach/src/source/source_index.dart';
+import 'package:ciach/src/util/concurrency.dart';
+import 'package:ciach/src/util/log.dart';
+import 'package:ciach/src/util/paths.dart';
+import 'package:ciach/src/util/plural.dart';
+import 'package:ciach/src/workspace/analysis_options.dart';
+import 'package:ciach/src/workspace/file_discovery.dart';
+import 'package:ciach/src/workspace/packages.dart';
+import 'package:ciach/src/workspace/path_dependents.dart';
+import 'package:ciach/src/workspace/public_api.dart';
 import 'package:collection/collection.dart';
+import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show Location;
 
 final _log = Logger('ciach.finder');
@@ -52,6 +79,10 @@ const _unreadableFile = 'Could not read these files; skipped.';
 /// into findings with [ReferenceClassifier] deciding used/unused, [Verdict]
 /// deciding how a dead candidate is reported, and the `conventions/` rules
 /// keeping framework-driven declarations alive.
+///
+/// A run logs through `package:logging`, with loggers such as `ciach.finder`
+/// and `ciach.lsp`, and never configures the root logger: listen on
+/// `Logger.root.onRecord` to see the records.
 class Ciach {
   /// Creates a finder that runs with the given [options].
   Ciach(this.options);
@@ -76,9 +107,9 @@ class Ciach {
   );
 
   /// What other packages can import, when exported declarations are left out.
-  late final PublicApi? _publicApi = options.includeExported
+  late final PublicApi? _publicApi = options.exportedPackages.isEmpty
       ? null
-      : .scan(options.rootPath);
+      : _exportedApi();
 
   /// The variants of the conditional imports under the analysis root.
   late final _conditionalImports = ConditionalImports.scan(
@@ -97,6 +128,8 @@ class Ciach {
 
   late final _settler = Settler(
     options: options,
+    fetch: _fetch,
+    conditionalImports: _conditionalImports,
     sources: _sources,
     freezed: _freezed,
     classifier: _classifier,
@@ -111,6 +144,40 @@ class Ciach {
   Future<FinderResult> run() {
     final problems = ProblemCollector(options.rootPath);
     return problems.collect(() => _run(problems));
+  }
+
+  /// Notes, for `-v`, the packages outside [rootPath] that depend on it by
+  /// `path:`: their uses are not counted, so what only they use reads as dead.
+  /// Not a warning, as scanning a package on its own can be the point; an
+  /// explicit --analysis-root, even the package itself, says it is.
+  void _notePathDependents(String rootPath) {
+    final dependents = pathDependentsOutside(rootPath, rootPath);
+    if (dependents.isEmpty) {
+      return;
+    }
+    final common = commonAncestor([rootPath, ...dependents]);
+    _log.config(
+      'Not counting uses in ${dependents.map(p.relative).join(', ')}, which depend on this package by `path:`: `--analysis-root ${p.relative(common)}` counts them, `--analysis-root ${p.relative(rootPath)}` silences this.',
+    );
+  }
+
+  /// The API of the packages that [FinderOptions.exportedPackages] match,
+  /// each package's verdict logged; `null` when none does.
+  PublicApi? _exportedApi() {
+    final api = PublicApi.scan(
+      options.rootPath,
+      exportedPackages: options.exportedPackages,
+    );
+    for (final MapEntry(key: dir, value: exported) in api.packages.entries) {
+      final name = relativePosix(dir, options.rootPath);
+      final package = name == '.' ? 'The scanned package' : name;
+      _log.config(
+        exported
+            ? '$package is in `exported-packages`: what other packages can import is left out.'
+            : '$package is not in `exported-packages`: its API is checked.',
+      );
+    }
+    return api.isEmpty ? null : api;
   }
 
   Future<FinderResult> _run(ProblemCollector problems) async {
@@ -130,6 +197,11 @@ class Ciach {
     _log.info(
       'Discovered ${plural(files.length, 'Dart file', 'Dart files')} to scan.',
     );
+    for (final path in discovered.ignored) {
+      _log.fine(
+        'Skipped ${relativePosix(path, rootPath)}: marked `// $ignoreFileMarker`.',
+      );
+    }
 
     if (files.isEmpty) {
       return .new(
@@ -139,6 +211,18 @@ class Ciach {
         declarationsChecked: 0,
         elapsed: stopwatch.elapsed,
       );
+    }
+
+    // Stop before analysis if a package hasn't had `pub get`: its imports
+    // wouldn't resolve, so code it uses would be reported as unused.
+    final unresolved = unresolvedPackages(files, rootPath);
+    if (unresolved.isNotEmpty) {
+      throw UnresolvedPackagesException([
+        for (final package in unresolved) relativePosix(package, rootPath),
+      ]);
+    }
+    if (options.includePublic && options.analysisRootPath == null) {
+      _notePathDependents(rootPath);
     }
 
     _log.info('Starting Dart analysis server…');
@@ -155,7 +239,14 @@ class Ciach {
           'Analyzing within $analysisRoot: references outside the scanned package count.',
         );
       }
-      await client.initialize(Directory(analysisRoot).uri);
+      final analysisOptions = analysisOptionsWithoutLints(analysisRoot);
+      if (analysisOptions.isNotEmpty) {
+        _log.config('Analyzing without lint rules and analyzer plugins.');
+      }
+      await client.initialize(
+        Directory(analysisRoot).uri,
+        analysisOptions: analysisOptions,
+      );
       _log.info('Waiting for initial analysis to complete…');
       await client.waitForAnalysisComplete();
 
@@ -195,9 +286,14 @@ class Ciach {
         totalFiles: files.length,
         rootPath: rootPath,
       );
-      final (:candidates, :refsByCandidate) = _conditionalImports.share(
+      final withCalls = await _fetch.withImplicitCalls(
+        client,
         fetched.candidates,
         fetched.refsByCandidate,
+      );
+      final (:candidates, :refsByCandidate) = _conditionalImports.share(
+        withCalls.checked,
+        withCalls.refs,
         _collector.declaredInVariants,
         _classifier,
         onDropped: _logDropped,
@@ -213,6 +309,7 @@ class Ciach {
         scannedPaths: files.where(opened.contains).toSet(),
         rootPath: rootPath,
         analysisRoot: analysisRoot,
+        probed: fetched.probed,
       );
     } finally {
       await client.dispose();
@@ -229,6 +326,7 @@ class Ciach {
       emptyVariants: empty.variants,
       recoveredReferences: settled.recovered,
       problems: problems.problems,
+      emptiedContainers: settled.emptied,
     );
   }
 
@@ -264,8 +362,15 @@ class Ciach {
   ///
   /// Members of an unexported type wait until the types' references show
   /// which ones another package can reach; the rest are settled by
-  /// [probeMembers] first.
-  Future<({List<Candidate> candidates, List<List<Location>> refsByCandidate})>
+  /// [probeMembers] first, and the settling adds their full references to the
+  /// uses it found before calling one dead.
+  Future<
+    ({
+      List<Candidate> candidates,
+      List<List<Location>> refsByCandidate,
+      Set<Candidate> probed,
+    })
+  >
   _references(
     LspClient client,
     List<Candidate> collected, {
@@ -295,7 +400,11 @@ class Ciach {
 
     await fetch(collected.whereNot(gated.contains).toList(), totalFiles);
     if (api == null || gated.isEmpty) {
-      return (candidates: candidates, refsByCandidate: refsByCandidate);
+      return (
+        candidates: candidates,
+        refsByCandidate: refsByCandidate,
+        probed: const <Candidate>{},
+      );
     }
     final types = await ReachableTypes.find(
       client: client,
@@ -319,7 +428,11 @@ class Ciach {
     candidates.addAll(probed.used);
     refsByCandidate.addAll(probed.refs);
     await fetch(probed.rest, probed.rest.map((c) => c.path).toSet().length);
-    return (candidates: candidates, refsByCandidate: refsByCandidate);
+    return (
+      candidates: candidates,
+      refsByCandidate: refsByCandidate,
+      probed: probed.used.toSet(),
+    );
   }
 
   /// Opens [path] in the server, noting it in [_directiveOnly] if [checkEmpty]

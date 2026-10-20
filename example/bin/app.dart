@@ -3,6 +3,7 @@ import 'package:sample_pkg/extensions.dart';
 import 'package:sample_pkg/greeting.dart';
 import 'package:sample_pkg/orphans.dart';
 import 'package:sample_pkg/private_ctors.dart';
+import 'package:sample_pkg/scenarios/doc_only_types.dart';
 import 'package:sample_pkg/scenarios/freezed_unions.dart';
 import 'package:sample_pkg/scenarios/overrides.dart';
 import 'package:sample_pkg/scenarios/overrides_impl.dart';
@@ -25,11 +26,12 @@ void main() {
   print(usedConstant);
   print(factorial(5));
   print(Walker().walk(3));
+  linksDocOnlyTypes();
   visitCount += 1;
 
   // Dog is instantiated (so both classes are used), but sound() is never
   // called. Animal.sound is therefore genuinely unused, and Dog.sound is only
-  // reported when overrides are included (--overrides).
+  // reported when overrides are included (--also overrides).
   final Animal animal = Dog();
   print(animal);
   (animal as Dog).pace(Direction.north);
@@ -58,16 +60,15 @@ void main() {
   print(typed);
 
   // Constructs LiveSignal -> a real, non-pattern use, so it is never flagged as
-  // a dead union member even under --unused-union-members. Also exercises the
+  // a dead union member even under --also union-members. Also exercises the
   // three pattern-matching sites over Signal.
   final Signal signal = LiveSignal();
   print(describeStatement(signal));
   print(describeExpression(signal));
   print(isIfCaseSignal(signal));
 
-  // Invokes `Multiplier.call` via implicit-call syntax, which a reference
-  // search can't resolve back to the declaration (like an operator), so a used
-  // `call` is skipped rather than misreported.
+  // Invokes `Multiplier.call` by invoking the object, which the reference
+  // search doesn't report, so ciach finds this use another way.
   const multiplier = Multiplier(2);
   print(multiplier(21));
 

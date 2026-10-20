@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:args/args.dart';
-import 'package:ciach/src/extensions.dart';
+import 'package:ciach/src/util/extensions.dart';
 
 /// Checks the CHANGELOG.md entries added since a base revision: each ends with
 /// a link to its pull request, `([#N](https://github.com/leancodepl/ciach/pull/N))`.

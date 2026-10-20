@@ -1,5 +1,5 @@
 // A sealed union whose members are reached only through pattern matching, to
-// exercise the opt-in --unused-union-members detection across the three
+// exercise the opt-in --also union-members detection across the three
 // removable/blocked contexts. The finder keys off the textual pattern shapes,
 // so no Flutter or other dependency is needed here.
 //
@@ -14,7 +14,7 @@ sealed class Signal {}
 class LiveSignal extends Signal {}
 
 /// Matched only by a `case` arm in a switch STATEMENT, never constructed.
-/// Dead under --unused-union-members; its arm is a clean whole-node removal.
+/// Dead under --also union-members; its arm is a clean whole-node removal.
 class StatementOnlySignal extends Signal {}
 
 /// Matched only by a switch-EXPRESSION arm, never constructed. Dead under the
@@ -24,7 +24,11 @@ class ExpressionOnlySignal extends Signal {}
 /// Matched only by an `if (x case …)`, never constructed. Dead under the flag,
 /// but its removal is BLOCKED (deleting the branch would rewrite control flow),
 /// so it is reported without a coupled removal.
-class IfCaseOnlySignal extends Signal {}
+class IfCaseOnlySignal extends Signal {
+  /// Never read -> UNUSED. The class is report-only, so `--remove` keeps it,
+  /// and this getter is reported on its own, since it can still go.
+  int get strength => 0;
+}
 
 /// A switch STATEMENT over [Signal]. The `default` keeps it non-exhaustive, so
 /// removing one member's arm leaves it valid.

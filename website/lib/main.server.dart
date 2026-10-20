@@ -6,25 +6,13 @@ import 'dart:io';
 import 'package:ciach_website/app.dart';
 import 'package:ciach_website/highlight.dart';
 import 'package:ciach_website/main.server.options.dart';
-import 'package:ciach_website/seo.dart';
-import 'package:ciach_website/site.dart';
 import 'package:jaspr/server.dart';
 
 Future<void> main() async {
   Jaspr.initializeApp(options: defaultServerOptions);
   await initHighlighting();
 
-  final version = _ciachVersion();
-
-  runApp(
-    Document(
-      lang: 'en',
-      base: basePath,
-      meta: siteMeta,
-      head: siteHead(version: version),
-      body: App(version: version),
-    ),
-  );
+  runApp(App(version: _ciachVersion()));
 }
 
 /// The ciach version, read from the package's own pubspec so the site can
@@ -39,12 +27,12 @@ String _ciachVersion() {
     if (!RegExp(r'^name:\s*ciach\s*$', multiLine: true).hasMatch(source)) {
       continue;
     }
-    final match = RegExp(
-      r'^version:\s*(\S+)',
-      multiLine: true,
-    ).firstMatch(source);
-    if (match != null) {
-      return match[1]!;
+    if (RegExp(
+          r'^version:\s*(?<version>\S+)',
+          multiLine: true,
+        ).firstMatch(source)
+        case final match?) {
+      return match.namedGroup('version')!;
     }
   }
   throw StateError('No ciach pubspec.yaml found; build from the repository.');

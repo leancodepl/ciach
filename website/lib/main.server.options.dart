@@ -11,6 +11,7 @@ import 'package:ciach_website/components/ciach_demo.dart' as _ciach_demo;
 import 'package:ciach_website/components/code_block.dart' as _code_block;
 import 'package:ciach_website/components/copy_button.dart' as _copy_button;
 import 'package:ciach_website/components/demo_trigger.dart' as _demo_trigger;
+import 'package:ciach_website/components/docs_table.dart' as _docs_table;
 import 'package:ciach_website/components/docs_toc.dart' as _docs_toc;
 import 'package:ciach_website/components/faq.dart' as _faq;
 import 'package:ciach_website/components/features.dart' as _features;
@@ -23,7 +24,7 @@ import 'package:ciach_website/components/pill.dart' as _pill;
 import 'package:ciach_website/components/section.dart' as _section;
 import 'package:ciach_website/components/shell.dart' as _shell;
 import 'package:ciach_website/components/upstream_bugs.dart' as _upstream_bugs;
-import 'package:ciach_website/pages/docs_page.dart' as _docs_page;
+import 'package:ciach_website/content/docs_layout.dart' as _docs_layout;
 import 'package:ciach_website/styles.dart' as _styles;
 
 /// Default [ServerOptions] for use with your Jaspr project.
@@ -65,6 +66,7 @@ ServerOptions get defaultServerOptions => ServerOptions(
     ..._ciach_demo.CiachDemo.styles,
     ..._code_block.CodeBlock.styles,
     ..._copy_button.CopyButton.styles,
+    ..._docs_table.DocsTable.styles,
     ..._faq.Faq.styles,
     ..._features.Features.styles,
     ..._footer.SiteFooter.styles,
@@ -73,18 +75,21 @@ ServerOptions get defaultServerOptions => ServerOptions(
     ..._icons.Logo.styles,
     ..._nav_bar.NavBar.styles,
     ..._pill.Pill.styles,
+    ..._section.DocHeading.styles,
     ..._section.DocSection.styles,
     ..._section.Prose.styles,
     ..._section.Section.styles,
     ..._shell.PageShell.styles,
     ..._upstream_bugs.UpstreamBugs.styles,
-    ..._docs_page.DocsPage.styles,
+    ..._docs_layout.DocsLayout.styles,
   ],
 );
 
 Map<String, Object?> __copy_buttonCopyButton(_copy_button.CopyButton c) => {
   'text': c.text,
   'label': c.label,
+  'title': c.title,
+  'icon': c.icon.toName(),
 };
 Map<String, Object?> __demo_triggerDemoTrigger(_demo_trigger.DemoTrigger c) => {
   'targetId': c.targetId,

@@ -8,13 +8,7 @@ import 'package:jaspr_class_scope/jaspr_class_scope.dart';
 
 part 'features.scopes.dart';
 
-class _Feature {
-  const _Feature(this.icon, this.title, this.body);
-
-  final Icon icon;
-  final String title;
-  final String body;
-}
+class const _Feature(final Icon icon, final String title, final String body);
 
 const _features = [
   _Feature(
@@ -50,9 +44,7 @@ const _features = [
 ];
 
 @scopedCss
-class Features extends StatelessComponent {
-  const Features({super.key});
-
+class const Features({super.key}) extends StatelessComponent {
   static const _class = _$FeaturesScope;
 
   static final _grid = _class('grid');
@@ -64,11 +56,14 @@ class Features extends StatelessComponent {
     css(_grid.selector, [
       css('&').styles(
         display: .grid,
+        gridTemplate: const .new(
+          columns: .new([
+            .repeat(.autoFit, [
+              .new(.minmax(.new(.expression('min(100%, 300px)')), .fr(1))),
+            ]),
+          ]),
+        ),
         gap: .all(1.rem),
-        raw: {
-          'grid-template-columns':
-              'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
-        },
       ),
       shrinkableChildren(),
     ]),
@@ -76,11 +71,11 @@ class Features extends StatelessComponent {
       css('&')
           .styles(display: .flex, flexDirection: .column, gap: .all(0.6.rem)),
       css('&:hover').styles(
+        border: hairline(border2Color),
         transform: .translate(y: (-2).px),
-        raw: {'border-color': 'var(--border-2)'},
       ),
       css('& h3').styles(margin: .zero),
-      css('& p').styles(raw: {'flex': '1'}),
+      css('& p').styles(flex: growToFill),
     ]),
     css(_icon.selector).styles(
       display: .inlineGrid,
@@ -89,9 +84,10 @@ class Features extends StatelessComponent {
       margin: .only(bottom: 0.5.rem),
       border: hairline(accentAlpha(0.3)),
       radius: .circular(12.px),
+      alignItems: .center,
+      justifyItems: .center,
       color: accentColor,
       backgroundColor: accentSoftColor,
-      raw: {'place-items': 'center'},
     ),
   ];
 

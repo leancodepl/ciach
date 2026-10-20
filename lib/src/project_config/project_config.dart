@@ -7,6 +7,7 @@ import 'package:ciach/src/project_config/custom_lint.dart';
 import 'package:ciach/src/project_config/dart_frog.dart';
 import 'package:ciach/src/project_config/flutter_gen_l10n.dart';
 import 'package:ciach/src/project_config/flutter_plugin.dart';
+import 'package:ciach/src/project_config/flutterfire.dart';
 import 'package:ciach/src/project_config/project_files.dart';
 import 'package:ciach/src/project_config/serverpod.dart';
 import 'package:path/path.dart' as p;
@@ -29,9 +30,17 @@ final class ProjectConfig {
     final entryPoints = <EntryPoint>[];
     final generatedGlobs = <String>{};
     final translations = <Translations>[];
-    for (final dir in packageDirs(rootPath)) {
+    final dirs = packageDirs(rootPath).toList();
+    final pluginDirs = {
+      for (final dir in dirs) ...analyzerPluginDirs(p.join(rootPath, dir)),
+    };
+    for (final dir in dirs) {
       final prefix = dir.isEmpty ? '' : escapeGlob(dir);
-      final package = ProjectConfig._package(p.join(rootPath, dir));
+      final packagePath = p.normalize(p.join(rootPath, dir));
+      final package = ProjectConfig._package(
+        packagePath,
+        loadedAsPlugin: pluginDirs.contains(packagePath),
+      );
       entryPoints.addAll([
         for (final e in package.entryPoints) e.within(prefix),
       ]);
@@ -53,7 +62,10 @@ final class ProjectConfig {
     );
   }
 
-  factory ProjectConfig._package(String packagePath) {
+  factory ProjectConfig._package(
+    String packagePath, {
+    required bool loadedAsPlugin,
+  }) {
     final pubspec = readPubspec(packagePath);
     final buildYamls = readBuildYamls(packagePath);
     final genL10n = readGenL10n(packagePath);
@@ -65,7 +77,10 @@ final class ProjectConfig {
             ...buildRunnerEntryPoints(pubspec, buildYaml),
           ...dartFrogEntryPoints(pubspec),
           ...serverpodEntryPoints(pubspec),
-          ...analysisServerPluginEntryPoints(pubspec),
+          ...analysisServerPluginEntryPoints(
+            pubspec,
+            loadedAsPlugin: loadedAsPlugin,
+          ),
           ...customLintEntryPoints(pubspec),
         ])
           '$rule': rule,
@@ -74,6 +89,7 @@ final class ProjectConfig {
         ...buildRunnerGeneratedGlobs(packagePath, pubspec, buildYamls),
         ?genL10n?.localesGlob,
         if (genL10n != null) escapeGlob(genL10n.template.dartFile),
+        ...flutterFireGeneratedGlobs(packagePath),
       }.toList(),
       translations: [?genL10n?.template],
     );

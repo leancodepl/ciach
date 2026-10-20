@@ -1,10 +1,27 @@
-include: package:leancode_lint/analysis_options.yaml
+include: ../analysis_options.yaml
 
 analyzer:
   errors:
+    # The fixtures use each live declaration in a statement of its own, often
+    # a `print`, and hold the unused ones for ciach to find.
     avoid_print: ignore
     cascade_invocations: ignore
-    # The dot-shorthand fixture needs statics that return their own class.
-    prefer_constructors_over_static_methods: ignore
     unused_element: ignore
     unused_field: ignore
+    # The dot-shorthand fixture needs statics that return their own class.
+    prefer_constructors_over_static_methods: ignore
+    # Except in lib/scenarios/primary_constructors.dart, the fixtures keep the
+    # syntax from before Dart 3.13, so that ciach is tested on both forms.
+    empty_container_bodies: ignore
+    unnecessary_const_in_enum_constructor: ignore
+    unnecessary_type_name_in_constructor: ignore
+    use_primary_constructors: ignore
+
+plugins:
+  leancode_lint:
+    version: ^28.0.0
+    diagnostics:
+      cognitive_complexity: true
+      # The fixtures reference members both by dot shorthand and by their type
+      # name, so that ciach is tested on both forms.
+      prefer_dot_shorthand: false

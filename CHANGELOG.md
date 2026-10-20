@@ -1,5 +1,128 @@
-## Unreleased
+## 0.7.1
 
+- Restructure the README.
+  ([#162](https://github.com/leancodepl/ciach/pull/162))
+- A generic class or mixin that only `with` or `implements` clauses name is now
+  reported and removed like any other. A type named only in the type arguments
+  of such a class or mixin in a clause, like `T` in `with M<T>`, is reported in
+  the same run, except with `--no-transitive`. ([#153](https://github.com/leancodepl/ciach/pull/153))
+- Report unused unnamed extensions and their members in an exported package
+  and with `--no-public`, and label them `(private)`.
+  ([#160](https://github.com/leancodepl/ciach/pull/160))
+- Report unused `call` methods. Before, every `call` method was skipped,
+  also one that nothing calls.
+  ([#151](https://github.com/leancodepl/ciach/pull/151))
+- With `exported-packages`, a member used in unused code and in live code is
+  no longer reported as unused or listed under "Recovered references".
+  ([#149](https://github.com/leancodepl/ciach/pull/149))
+- Scans are faster: the check for uses that the reference search missed
+  takes less time. On a large package, it went from about 110 to 30 seconds.
+  ([#139](https://github.com/leancodepl/ciach/pull/139))
+- `--remove` now lists the files that it deleted and the declarations that it
+  left empty one per line. Before, it listed them on one line, separated by
+  commas. ([#136](https://github.com/leancodepl/ciach/pull/136))
+- `--help` and README.md no longer say that a declaration used only from files
+  that `--exclude` skips is reported. The references in those files count, as
+  they did before. ([#136](https://github.com/leancodepl/ciach/pull/136))
+
+## 0.7.0
+
+- **Breaking:** `--overrides`, `--operators`, `--report-tojson` and
+  `--unused-union-members` are now one option, `--also`, and
+  `--generated-suffix` is replaced by `--generated-glob`. `--fail-public` is
+  gone. Using a removed option is an error that says what to use instead. See
+  [MIGRATION.md](MIGRATION.md).
+  ([#105](https://github.com/leancodepl/ciach/pull/105))
+- **Breaking:** `--transitive` is now on by default: a helper called only by
+  dead code, and a dead cycle, are reported in the same run instead of after
+  a removal and a second run. See [MIGRATION.md](MIGRATION.md).
+  ([#131](https://github.com/leancodepl/ciach/pull/131))
+- With `--unused-translations`, ciach reports only the unused messages of the
+  gen-l10n template file. Before, it also reported the code gen-l10n writes
+  around them, such as the delegate class, and said to remove it from the ARB
+  file. ([#134](https://github.com/leancodepl/ciach/pull/134))
+- An unused mixin is reported as a `mixin`, not a `class`, and a member of a
+  private class as private, not public.
+  ([#134](https://github.com/leancodepl/ciach/pull/134))
+- With `-v`, an error you can fix yourself, such as a package without
+  `pub get`, no longer comes with a stack trace that reads like a crash.
+  ([#134](https://github.com/leancodepl/ciach/pull/134))
+- ciach no longer runs your lint rules and analyzer plugins, which it doesn't
+  need. On a Flutter app with an analyzer plugin, a run now takes about a third
+  less time and much less memory. Your files and what `dart analyze` reports
+  stay the same. ([#132](https://github.com/leancodepl/ciach/pull/132))
+- `--remove` now lists the `//` comments it leaves right above removed code,
+  so you can check whether they still belong. It also deletes an `// ignore:`,
+  `// expect_lint:` or `// cspell:disable-next-line` comment above or at the end
+  of a removed declaration, which before stayed and applied to the next line.
+  ([#129](https://github.com/leancodepl/ciach/pull/129))
+- ciach now reports an unused class, mixin, extension, extension type or enum
+  once, instead of also listing each of its members. The same goes for a class
+  or mixin that only `with` or `implements` clauses use. A used enum whose
+  values are all unused is reported once and left in place.
+  ([#121](https://github.com/leancodepl/ciach/pull/121))
+- ciach now reports a class or mixin whose members are all unused and that
+  only `with` or `implements` clauses use, and `--remove` deletes it and
+  removes it from those clauses. When other code still uses such a type,
+  `--remove` keeps it empty and lists it in the summary; before, it left it
+  empty without saying so.
+  ([#118](https://github.com/leancodepl/ciach/pull/118))
+- `--remove` no longer breaks a field or variable statement with a comment
+  inside, such as `int a = 1, /* note */ b = 2;`. Before, it left `int ;`
+  behind, or kept a declarator it couldn't cut without saying so.
+  ([#128](https://github.com/leancodepl/ciach/pull/128))
+- New `exported-packages` option: list the packages that code outside the
+  analysis imports, such as one published to pub.dev, and ciach doesn't report
+  what other packages can import from them. `--exported` is gone.
+  ([#105](https://github.com/leancodepl/ciach/pull/105))
+- Unused translations are reported by default when an `l10n.yaml` is present.
+  ([#105](https://github.com/leancodepl/ciach/pull/105))
+- An analyzer plugin that `analysis_options.yaml` loads by path, and the files
+  that `flutterfire configure` writes, are no longer reported as unused.
+  ([#105](https://github.com/leancodepl/ciach/pull/105))
+- With `-v`, ciach suggests an `--analysis-root` when another package in the
+  repository uses the scanned one through a `path:` dependency.
+  ([#105](https://github.com/leancodepl/ciach/pull/105))
+- `--help` lists the options in groups.
+  ([#105](https://github.com/leancodepl/ciach/pull/105))
+- If a class, enum, mixin or extension type is mentioned only in doc comments
+  and has unused members, ciach now reports the type once, and `--remove`
+  leaves it alone. Before, ciach reported each unused member, and `--remove`
+  deleted them and left an empty type.
+  ([#116](https://github.com/leancodepl/ciach/pull/116))
+- In `entry-points`, you now write a constructor the way the report shows it:
+  `MyWidget.new` or `MyWidget.named`. Before, `MyWidget.new` matched nothing
+  and named constructors could not be listed at all. `MyWidget.MyWidget` is
+  now an error.
+  ([#117](https://github.com/leancodepl/ciach/pull/117))
+- An `entry-points` rule for a class or extension type now also keeps its
+  unnamed constructor. Before, ciach still reported that constructor as
+  unused. Named constructors and other members are still checked.
+  ([#115](https://github.com/leancodepl/ciach/pull/115))
+- Add `// ciach:ignore` comments that keep code from being reported or
+  removed. Put one above a declaration or at the end of its line, put
+  `// ciach:ignore-start` and `// ciach:ignore-end` around a range, or keep a
+  whole file with `// ciach:ignore-file`.
+  ([#104](https://github.com/leancodepl/ciach/pull/104))
+- If a scanned package hasn't had `dart pub get`, ciach now stops with exit
+  code 2 and lists that package. Before, it reported code used by that package
+  as unused.
+  ([#120](https://github.com/leancodepl/ciach/pull/120))
+- Stop reporting test calls as declarations. `test(...)`, `group(...)` and
+  calls to `@isTest` functions such as `testWidgets` were listed as unused
+  or doc-only, and `--remove` could delete them.
+  ([#119](https://github.com/leancodepl/ciach/pull/119))
+- Add `--format` values `azure` and `teamcity`, the default on their service
+  as `github` is on GitHub Actions, and `sarif`, `checkstyle` and `gitlab`
+  (Code Quality) reports for other tools to import.
+  ([#103](https://github.com/leancodepl/ciach/pull/103))
+- On GitHub Actions, GitLab CI and Azure Pipelines, report paths start at the
+  repository root wherever ciach runs from, not only when it runs there.
+  ([#103](https://github.com/leancodepl/ciach/pull/103))
+- On CI, detected from the environment, `--set-exit-if-changed` and
+  `--verbose` default to on, progress to off, and on GitHub Actions `--format`
+  to `github`; `--[no-]ci` overrides the detection.
+  ([#101](https://github.com/leancodepl/ciach/pull/101))
 - Report files with nothing but comments and `library`, `import` or
   `part of` directives, in an "Empty files" section. They count toward
   `--set-exit-if-changed`, and `--remove` deletes them with the directives

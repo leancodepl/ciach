@@ -7,24 +7,17 @@ import 'package:jaspr_class_scope/jaspr_class_scope.dart';
 
 part 'upstream_bugs.scopes.dart';
 
-class _Bug {
-  const _Bug({
-    required this.issue,
-    required this.title,
-    required this.commit,
-    this.fixedByUs = false,
-  });
-
+class const _Bug({
   /// The issue number in dart-lang/sdk.
-  final int issue;
-  final String title;
+  required final int issue,
+  required final String title,
 
   /// The dart-lang/sdk commit that fixed it.
-  final String commit;
+  required final String commit,
 
   /// Whether one of ciach's maintainers wrote the fix.
-  final bool fixedByUs;
-
+  final bool fixedByUs = false,
+}) {
   String get issueUrl => 'https://github.com/dart-lang/sdk/issues/$issue';
   String get commitUrl => 'https://github.com/dart-lang/sdk/commit/$commit';
 }
@@ -53,9 +46,7 @@ const _bugs = [
 /// issues, with the ones we fixed ourselves marked as such.
 /// `doc/upstream_bugs.md` at the repository root keeps the same list.
 @scopedCss
-class UpstreamBugs extends StatelessComponent {
-  const UpstreamBugs({super.key});
-
+class const UpstreamBugs({super.key}) extends StatelessComponent {
   static const _class = _$UpstreamBugsScope;
 
   static final _list = _class('list');
@@ -86,8 +77,11 @@ class UpstreamBugs extends StatelessComponent {
           .styles(color: mutedColor, fontFamily: fontMono, fontSize: 0.85.rem),
       css('&:hover').styles(color: accentColor),
     ]),
-    css(_title.selector)
-        .styles(minWidth: .zero, color: textColor, raw: {'flex': '1 1 16rem'}),
+    css(_title.selector).styles(
+      minWidth: .zero,
+      flex: .new(grow: 1, basis: 16.rem),
+      color: textColor,
+    ),
   ];
 
   @override

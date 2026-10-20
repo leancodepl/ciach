@@ -1,6 +1,6 @@
 <!--
 AI-Provenance:
-  model: claude-opus-4-8
+  model: claude-fable-5-1
   harness: Claude Code
   plugins:
     - lean-ai-provenance
@@ -26,21 +26,40 @@ AI-Provenance:
 referenced — classes, functions, methods, fields, constants, enum values — and
 can remove them for you.
 
-🌐 **[Landing page][site]** — a tour of what ciach finds, skips, and removes.
+<div align="center">
+  <a href="https://ciach.leancode.co/"><img src="https://raw.githubusercontent.com/leancodepl/ciach/refs/heads/main/doc/imgs/landing-page-button.svg" alt="Explore ciach.leancode.co" /></a>
+</div>
 
 *"Ciach!"* — pronounced **/t͡ɕax/** — is Polish for the sound of a clean chop,
 the noise a knife makes right before something falls off.
 
-## Installation
+## Contents
 
-Install it globally, as a native `ciach` binary you can run from anywhere:
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Reading the report](#reading-the-report)
+- [What it skips by default](#what-it-skips-by-default)
+- [Removing dead code](#removing-dead-code)
+- [Options](#options)
+- [Configuration file](#configuration-file)
+- [CI](#ci)
+- [Limitations](#limitations)
+- [Library usage](#library-usage)
+- [Development](#development)
+- [License](#license)
+
+The [docs][docs] describe everything in full; each section below links to
+its page.
+
+## Installation
 
 ```bash
 dart install ciach
 ```
 
-A compiled `ciach` runs the analysis server with the `dart` on your `PATH` (an
-fvm or Flutter `dart` works too); `--dart <path>` picks a different one.
+That builds a native `ciach` you can run from anywhere. It runs the analysis
+server with the `dart` on your `PATH` (an fvm or Flutter `dart` works too);
+`--dart <path>` picks another one.
 
 Or add it as a dev dependency, which pins the version for the team and CI:
 
@@ -49,402 +68,192 @@ dart pub add --dev ciach
 dart run ciach
 ```
 
-Examples below show bare `ciach …`; prefix them with `dart run` for the second.
+The examples below use a bare `ciach`; with the dev dependency, prefix them with
+`dart run`.
 
-ciach runs on Dart 3.10 and up, but analyzes with the SDK it is invoked with, so
-scanning code needs an SDK new enough to parse it.
+ciach needs Dart 3.10 or newer. It analyzes with the SDK it runs on, so that
+SDK has to be new enough for the code it scans.
 
-## Usage
+## Quick start
 
 ```bash
-ciach                                  # current package
-ciach path/to/package                  # another package
-ciach --no-public -f json              # private-only, as JSON
-ciach --no-exported                    # skip the package's public API
-ciach -f github --set-exit-if-changed  # CI: annotations, non-zero on finds
-ciach --remove                         # delete findings, asks first
-ciach --remove --force                 # …without asking
-ciach --verbose                        # explain each step
+ciach                                     # the current package
+ciach path/to/package                     # another package
+ciach --no-public -f json                 # private declarations only, as JSON
+ciach --also overrides,operators          # also what is skipped by default
+ciach --remove                            # delete the findings, asking first
+ciach --remove --force                    # …without asking
+ciach -v                                  # explain each step
 ```
 
-### Options
+Run `dart pub get` first in every package ciach scans. The report goes to
+stdout and everything else to stderr. Exit code `1` means something was found
+with `--set-exit-if-changed`, `2` a usage or analysis error. `--no-public` is
+by far the cheapest mode. See [Running ciach][docs-running].
 
-| Option | Default | Description |
-| --- | --- | --- |
-| `[path]` | `.` | Package root to analyze. |
-| `-h, --help` | — | Print usage information. |
-| `--version` | — | Print the ciach version and exit. The `--help` header carries it too. |
-| `--config <path>` | auto | Read settings from this YAML file instead of the auto-discovered one. See [Configuration file](#configuration-file). |
-| `--no-config` | off | Ignore the config file, even if one is found. |
-| `--analysis-root <path>` | the scanned path | Count references from this whole directory, not just the scanned package — for a monorepo wired by `path:` dependencies. See [Monorepos](#monorepos). |
-| `--[no-]public` | on | Report unused public declarations too. Disable to report only private (`_`-prefixed) ones. |
-| `--[no-]generated` | off | Scan generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, …). |
-| `--[no-]project-config` | on | Read [entry points](#entry-points) and [generated files](#generated-files-from-the-project-config) from `pubspec.yaml`, `build.yaml` and `l10n.yaml`. |
-| `--[no-]unused-translations` | off | Scan the gen-l10n template file and report its unused messages. They are only reported, never removed: remove them from the template ARB file instead. |
-| `--[no-]overrides` | off | Report `@override` members too. Off by default — see limitations. |
-| `--[no-]operators` | off | Report operator overloads (`operator +`, `operator ==`, …) too. Off by default — see limitations. |
-| `--[no-]unused-union-members` | off | Also flag a (sealed) supertype member matched only by type patterns, never constructed. Report-only — never touched by `--remove`. |
-| `--[no-]report-tojson` | off | Report an otherwise-unused `toJson()` serialization hook too. Off by default — `jsonEncode` dispatches to it dynamically. |
-| `--[no-]transitive` | off | Also report declarations referenced only from other findings, and dead cycles. See [Transitively dead code](#transitively-dead-code). |
-| `--set-exit-if-changed` | off | Exit with status `1` when anything is found (for CI). Named after `dart format`. |
-| `--[no-]exported` | on | Report declarations other packages can import. See [Library packages](#library-packages). |
-| `--[no-]fail-public` | on | Count unused public declarations toward the exit code (with `--set-exit-if-changed`). `--no-fail-public` reports them but fails only on private findings. |
-| `--remove` | off | Remove unused declarations, and delete empty files, after reporting them. Prompts for confirmation first. |
-| `--force` | off | Skip the confirmation prompt for `--remove`. Requires `--remove`. |
-| `-e, --exclude <glob>` | — | Skip files matching the glob (repeatable). They are not opened, so a declaration used only from them is reported; see `--generated-glob`. |
-| `-i, --include <glob>` | — | Only scan files matching the glob (repeatable). |
-| `--generated-suffix <suffix>` | — | Extra filename suffix (with leading dot) to treat as generated and skip, on top of the built-in set; repeatable. Ignored when `--generated` is set. |
-| `--generated-glob <glob>` | — | Treat files matching the glob as generated: their references count, but nothing in them is reported or removed. For output without a suffix or banner, or code kept as is, like a vendored copy. Repeatable; ignored when `--generated` is set. |
-| `-k, --kinds <list>` | all | Restrict to kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
-| `-f, --format <fmt>` | `text` | `text`, `json`, or `github` (GitHub Actions `::warning` annotations). |
-| `-j, --concurrency <n>` | `16` | Reference queries kept in flight against the analysis server. |
-| `--[no-]color` | auto | Colorize the output. Auto-detected per stream; honors `NO_COLOR`. |
-| `--[no-]progress` | auto | Show scan progress on stderr. |
-| `-v, --verbose` | off | Explain what's happening on stderr. See [Verbose mode](#verbose-mode). |
-| `--dart <path>` | auto | Path to the `dart` executable to launch the server with. Defaults to the SDK running ciach, or to `dart` from `PATH` for a compiled binary. |
-
-Exit codes: `0` success, `1` unused code or an empty file found with
-`--set-exit-if-changed`, `2` usage or analysis error.
-
-The result goes to stdout; progress, `-v` output, warnings, errors and the
-`--remove` prompt go to stderr.
-
-If the analysis server fails on a declaration or file, the run continues: that
-code is kept and listed under "Not analyzed" (`problems` in JSON).
-
-### Configuration file
-
-Every option above can live in a `ciach.yaml` in the package root, keyed by its
-long name minus the `--`, plus `path` for the positional argument:
-
-```yaml
-public: false                     # --no-public
-analysis-root: ..                 # --analysis-root; see Monorepos
-exclude: ['test/**', 'tool/**']   # repeatable options take a list, or a bare string
-kinds: [class, function, method]
-format: github
-set-exit-if-changed: true
-entry-points:                     # file-only; see Entry points below
-  - name: bootstrap
-    glob: 'lib/src/isolate.dart'
-```
-
-Command line beats config file beats default, even when the flag matches the
-default (`ciach --public` overrides `public: false`), and a repeatable option on
-the command line replaces the config's list rather than adding to it. Unknown
-keys and wrong-typed values are usage errors naming the file and the key.
-
-Discovery looks for that one file name in the analyzed package root, never in a
-parent, so each package in a monorepo owns its config. `--config <path>` reads
-one from elsewhere; `--no-config` ignores a discovered one; the two can't be
-combined.
-
-### Verbose mode
-
-`-v` prints the whole log on stderr: config, settings, each phase, and what
-`--remove` touches.
-
-```console
-$ ciach -v
-[  0.0s] [cli]     Read config from ciach.yaml.
-[  0.0s] [cli]       It sets 2 options:
-[  0.0s] [cli]         public: false
-[  0.0s] [cli]         exclude: test/**
-[  0.0s] [cli]     Settings for this run:
-[  0.0s] [cli]       path: /home/me/pkg (command line)
-[  0.0s] [cli]       public: false (config file)
-[  0.0s] [cli]       concurrency: 16 (default)
-…
-[  0.1s] [finder]  Starting Dart analysis server…
-[  0.1s] [lsp]     Started `/sdk/bin/dart language-server` (pid 4242).
-[  0.3s] [finder]  Collecting declarations from 13 file(s)…
-[  0.5s] [cli]     Scanned 13 file(s) and checked 44 declaration(s) in 478ms: 4 unused, 1 referenced only from doc comments.
-```
-
-It all goes to stderr, so `ciach -v -f json | jq` still works. Reach for it when
-a config file seems not to apply, or to find the phase eating the time. It
-supersedes `--progress`, whose self-overwriting line would fight with it.
-
-### Doc-only findings
-
-A dartdoc `[Xxx]` link resolves to a real declaration, so the analysis server
-counts it as a reference — but a comment mentioning something isn't the same as
-code calling it. Declarations with no *code* references are reported separately,
-in every format:
+## Reading the report
 
 ```
-lib/greeting.dart
-  15:6  function  danglingFunction  (public)
+lib/user.dart
+  12:13  constructor  UsedClass.named  (public)
+  27:14  property     UsedClass.shout  (public)
+  36:8   method       UsedClass.unusedMethod  (public)
+  39:13  field        UsedClass._unusedField  (private)
 
-Referenced only from doc comments — not counted as unused, never removed:
-lib/greeting.dart
-  40:6  function  docOnlyMentioned  (public)
+Found 4 unused declarations in 1 file (scanned 1 file, 12 declarations, 1.2s)
 ```
 
-These never count toward `--set-exit-if-changed`, are never touched by
-`--remove`, and get a `::notice` rather than a `::warning` in `-f github`. Drop
-the doc link to have one reported as properly unused.
+An unused class, mixin, extension, extension type or enum is reported once,
+without its members. A declaration that only a dartdoc `[Xxx]` link mentions
+is listed separately as doc-only: it never counts toward
+`--set-exit-if-changed`, and `--remove` never touches it. A declaration used
+only by other dead code is reported in the same run, naming what uses it.
 
-### Transitively dead code
-
-A reference from a finding still counts as a use, so a helper called only by
-dead code shows up only once that code is removed and ciach runs again.
-`--transitive` reports it in the same run:
-
-```
-lib/report.dart
-  12:6  function  _buildReport   (private)
-  20:6  function  _formatRow     (private)  (only referenced from dead _buildReport (lib/report.dart:12))
-  31:6  function  _pad           (private)  (only referenced from dead _formatRow (lib/report.dart:20))
-```
-
-A [report-only](#removing-declarations) finding stays in the code, so what it
-references stays used. A class found dead this way is reported without its
-members.
-
-It's off by default because one false positive also flags everything only it
-referenced. `-f json` lists every finding a declaration depends on in
-`onlyReferencedFrom`; the other formats show the first and a count.
-
-### Dead cycles
-
-`--transitive` also reports declarations that only reference each other:
-
-```
-lib/report.dart
-  40:6  function  _ping  (private)  (only referenced from dead _pong (lib/report.dart:42))
-  42:6  function  _pong  (private)  (only referenced from dead _ping (lib/report.dart:40))
-```
-
-### Empty files
-
-A file with nothing but comments and `library`, `import` or `part of`
-directives is reported in a section of its own:
-
-```
-Empty files (2) · nothing but comments and library, import or part-of directives
-lib/legacy/helpers.dart
-lib/web.dart  (a conditional-import variant: remove its `if` clause and the file by hand)
-```
-
-These count toward `--set-exit-if-changed`. `--remove` deletes them with the
-`import`s of them, except a conditional-import variant, which is left to you.
-
-### GitHub Actions
-
-```yaml
-- run: dart pub get
-- run: dart run ciach -f github --set-exit-if-changed
-```
-
-Each finding becomes a `::warning` annotation inline on the PR diff. Run it from
-the repository root so paths resolve; when scanning a sub-package (`ciach -f
-github app`), the scan path is prepended automatically.
-
-For a library or workspace package whose public API is legitimately "unused"
-from its own perspective, add `--no-exported`, or `--no-fail-public` to still
-surface those findings while gating the job on unused *private* declarations
-only:
-
-```yaml
-- run: dart run ciach -f github --set-exit-if-changed --no-fail-public
-```
-
-### Library packages
-
-`--no-exported` skips what another package can reach: libraries under `lib/`
-outside `lib/src/`, what they export (`show`/`hide` respected), and
-the members of any type named outside a function body in an exported
-signature, field or supertype, even through other types, or in the body of
-one whose signature is `dynamic`.
-
-### Removing declarations
-
-`--remove` deletes every reported declaration — doc comment and annotations
-included — after showing what it is about to remove and asking:
-
-```
-Found 4 unused declarations in 2 files (scanned 6 files, 44 declarations, 0.5s).
-Remove 4 unused declarations? [y/N] y
-Removed 4 unused declarations from 2 files.
-```
-
-`--force` skips the prompt (and is a usage error on its own); with no terminal to
-confirm on and no `--force`, nothing is removed. Run `dart format` afterward:
-removal is conservative about *what* it deletes — an ambiguous `int a = 1, b = 2;`
-is left alone unless every declarator is unused — but not about spacing.
-
-Removal acts on whatever the finder reports, so it inherits the same
-false-positive risk, which `--overrides` and `--operators` widen considerably.
-[Doc-only findings](#doc-only-findings) are never included. Review the diff, as
-you would after any automated refactor.
-
-A file left with only `library`/`import`/`part of` directives is deleted too, as
-is an [empty file](#empty-files) found before removal, and so are the `import`s
-of them elsewhere, so nothing points at a file that is gone. One that still
-`export`s or owns a `part` stays.
-
-A dead member's overrides are dead too — a call through any subclass would have
-referenced the member — so `--remove` deletes them with it, wherever they live.
-They are not reported separately: the finder [skips](#what-it-skips-by-default)
-`@override` declarations.
-
-Findings whose removal wouldn't compile are **report-only**: marked `unsafe to
-auto-remove — remove manually` and skipped, along with anything coupled to them.
-
-| Report-only finding | Why |
-| --- | --- |
-| A sealed member matched only by type patterns (`--unused-union-members`) | its `case` arms would need rewriting |
-| Every value of a still-referenced enum | `enum E {}` doesn't compile |
-| The sole constructor of a live class with `final` fields, or whose superclass needs constructor arguments | the implicit default constructor can't replace it |
-| A primary constructor or its declaring parameters | only part of the class header |
-| A member whose override is a declaring parameter, or is in a file the run didn't scan | that override can't be deleted, and would be left overriding nothing |
-| A gen-l10n message (`--unused-translations`) | the message is defined in the ARB file, and gen-l10n would generate it again |
+Empty files, the declarations that the analysis server could not analyze and
+the JSON keys are described in [Reading the report][docs-report].
 
 ## What it skips by default
 
-Each of these is a known source of false positives; the flag opts back in at
-that cost.
+Each of these is a known source of false positives. Where there is a flag, it
+opts back in at that cost.
 
 | Skipped | Why | Flag |
 | --- | --- | --- |
 | `main` | the entry point is never unused | — |
-| `testExecutable` in a `flutter_test_config.dart` | called by the `flutter test` bootstrap | — |
-| Entry points from the [project config](#entry-points) | they are called by a framework or a tool | `--no-project-config` |
-| `@override` members — never reported, but removed with a dead member | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses, so none of them are findings. One that overrides a dead member is dead too, so `--remove` [takes both](#removing-declarations) | `--overrides` |
-| Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--operators` |
-| `call` methods | implicit-call syntax (`obj(…)`) is unresolvable the same way | — |
+| `testExecutable` in a `flutter_test_config.dart` | `flutter test` calls it | — |
+| Entry points from the [project config][docs-skips] | a framework or a tool calls them | `--no-project-config` |
+| `@override` members | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses. One that overrides a dead member is dead too, and `--remove` [takes both](#removing-dead-code) | `--also overrides` |
+| Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--also operators` |
+| Declarations and files marked [`// ciach:ignore`][docs-skips] | they are kept on purpose | — |
 | `@pragma('vm:entry-point')` | reachable from native code or reflection | — |
-| `@JSExport`, and the public members of a `@JSExport` class | they can be called from JavaScript | — |
-| `test_…` methods of a `@reflectiveTest` class | they are run through `dart:mirrors` | — |
-| Generated files | by filename convention, a generated-code banner, the [project config](#generated-files-from-the-project-config), and `--generated-suffix` / `--generated-glob`. Still opened during analysis, so a declaration used only from a `.g.dart` isn't misreported | `--generated` |
-| `toJson()` | `jsonEncode(obj)` calls it by dynamic dispatch, leaving no source-level reference | `--report-tojson` |
-| Type parameters | always "used" within their scope | — |
-| dartdoc `[Xxx]` links | not a code reference; reported as [doc-only](#doc-only-findings) instead of hidden | — |
+| `@JSExport`, and the public members of a `@JSExport` class | JavaScript can call them | — |
+| `test_…` methods of a `@reflectiveTest` class | they run through `dart:mirrors` | — |
+| Generated files | by filename, by a generated-code banner, by the [project config][docs-skips] and by `--generated-glob`. Still read, so a declaration used only from a `.g.dart` is not misreported | `--generated` |
+| `toJson()` | `jsonEncode(obj)` calls it by dynamic dispatch, leaving no reference | `--also tojson` |
+| Type parameters | always used within their scope | — |
+| dartdoc `[Xxx]` links | not a code reference; reported as [doc-only][docs-report] instead | — |
 
-The variants of a conditional import, like `io.dart` and `web.dart` in
-`import 'io.dart' if (dart.library.js_interop) 'web.dart';`, are checked
-together. The analysis server resolves every use to the default file, so a
-public declaration shares the references of its namesakes in the other
-variants, and is reported and removed only with them. A variant includes the
-files it exports or owns as parts. One whose other variant isn't scanned is
-not checked.
+`// ciach:ignore` above a declaration keeps it, `// ciach:ignore-file` keeps a
+whole file, and `entry-points:` in `ciach.yaml` names what a tool calls.
+Private constructors are not skipped: an unused `ClassName._` is dead code
+like any other. [What it skips by default][docs-skips] covers the markers,
+entry points and generated files in full.
 
-Private constructors are **not** skipped: an unused `ClassName._` is dead code
-like any other. A sole zero-parameter `ClassName._()` — the classic
-prevent-instantiation marker — is reported with a hint suggesting `abstract final
-class` instead. See [example/](example) for a runnable demonstration of each case.
+## Removing dead code
 
-### Entry points
+`--remove` deletes every reported declaration, doc comment and annotations
+included, after showing what it is about to remove and asking:
 
-Some declarations are only ever called from code a tool generates: `flutter
-test` runs `testExecutable` from the nearest `flutter_test_config.dart`,
-flutter_tools calls `MyPlugin.registerWith()` on the plugin class named in
-`pubspec.yaml`. Nothing in the package references them, so they would read as
-dead. ciach knows about `main` and `testExecutable`. It also reads these entry
-points from the project's own config files:
+```
+Found 4 unused declarations in 2 files (scanned 6 files, 44 declarations, 0.5s)
+Remove 4 unused declarations? [y/N] y
+Removed 4 unused declarations from 2 files.
+```
 
-| Source | Entry point |
-| --- | --- |
-| `build.yaml` builders | the functions listed under `builder_factories` or `builder_factory` |
-| `pubspec.yaml` plugin | `registerWith` on each platform's `dartPluginClass` and on the web `pluginClass` |
-| `dart_frog` | `onRequest`, `middleware`, `init`, `run` |
-| `serverpod` | the classes that directly extend `Endpoint`, and their public methods |
-| `analysis_server_plugin` | `plugin` in `lib/main.dart` |
-| `custom_lint_builder` | `createPlugin` in `lib/<package>.dart` |
+`--force` skips the prompt. With no terminal to confirm on and no `--force`,
+nothing is removed. Run `dart format` afterward, and review the diff, as you
+would after any automated refactor: removal inherits the finder's
+false-positive risk, which `--also overrides,operators` widens considerably.
 
-List any other entry points under `entry-points:` in `ciach.yaml`:
+What goes with a removed declaration, which comments stay, and the findings
+that are report-only because removing them would not compile:
+[Removing dead code][docs-removing].
+
+## Options
+
+`ciach --help` describes every option. In short:
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `[path]` | `.` | The package to analyze. |
+| `--config <path>` | auto | Read this config file instead of the discovered one. See [Configuration file](#configuration-file). |
+| `--no-config` | off | Ignore the config file. |
+| `--analysis-root <path>` | the scanned path | Count references from this whole directory, not just the scanned package. See [Monorepos][docs-packages]. |
+| `--[no-]public` | on | Report public declarations too. Off reports only private ones: `_`-prefixed, or an unnamed extension and its members. |
+| `--[no-]generated` | off | Scan generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, …) too. |
+| `--exported-packages <glob>` | none | Packages that code outside the analysis imports, such as one published to pub.dev: their public API is not reported. Repeatable. See [Library packages][docs-packages]. |
+| `--[no-]project-config` | on | Read [entry points][docs-skips] and [generated files][docs-skips] from `pubspec.yaml`, `build.yaml`, `l10n.yaml`, `analysis_options.yaml` and `firebase.json`. |
+| `--[no-]unused-translations` | on | Report the unused messages in the gen-l10n template file an `l10n.yaml` configures. Report-only: remove them from the ARB file yourself. |
+| `--also <list>` | — | Also report what is [skipped by default](#what-it-skips-by-default): `overrides`, `operators`, `tojson`, `union-members`. |
+| `--[no-]transitive` | on | Also report declarations used only by other dead code, naming what uses them. See [Transitively dead code][docs-report]. |
+| `--[no-]set-exit-if-changed` | off; on in CI | Exit with `1` when anything is found. |
+| `--[no-]ci` | auto | Use the CI defaults, or not. See [CI](#ci). |
+| `--remove` | off | Remove the findings and delete empty files, after asking. See [Removing dead code](#removing-dead-code). |
+| `--force` | off | Skip the `--remove` prompt. |
+| `-e, --exclude <glob>` | — | Skip these files: nothing in them is reported, but their references still count. Repeatable. |
+| `-i, --include <glob>` | — | Scan only these files. The references in other files still count. Repeatable. |
+| `--generated-glob <glob>` | — | Treat these files as generated: their references count, but nothing in them is reported or removed. For output without a suffix or banner, or code kept as is, like a vendored copy. Repeatable. |
+| `-k, --kinds <list>` | all | Report only these kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
+| `-f, --format <fmt>` | `text`; the service's on CI | `text`, `json`, `github`, `azure`, `teamcity`, `sarif`, `checkstyle` or `gitlab`. See [CI](#ci). |
+| `-j, --concurrency <n>` | `16` | Reference queries to run at once. |
+| `--[no-]color` | auto | Colorize the output. Honors `NO_COLOR`. |
+| `--[no-]progress` | auto | Show progress on stderr. On for a terminal, off in CI. |
+| `-v, --verbose` | off; on in CI | Explain the run on stderr: the config file and what it set, the settings, each phase, what was skipped and why, and what `--remove` touches. |
+| `--dart <path>` | auto | The `dart` to run the analysis server with. |
+| `--version` | — | Print the ciach version and exit. |
+| `-h, --help` | — | Print the usage information. |
+
+## Configuration file
+
+Every option except `--help`, `--version`, `--config` and `--no-config` can
+live in a `ciach.yaml` in the package root, keyed by its long name without the
+`--`, plus `path` for the positional argument:
 
 ```yaml
-entry-points:
-  - name: MyHost.callback         # a member: `Type.member`, no type parameters
-    glob: 'lib/my_host.dart'      # one glob or a list; omit for any file
-  - name: bootstrap               # a top-level declaration
+public: false                     # --no-public
+analysis-root: ..                 # --analysis-root
+exported-packages: [packages/api] # see Library packages
+exclude: ['test/**', 'tool/**']   # a repeatable option takes a list, or one string
+kinds: [class, function, method]
+format: github
+set-exit-if-changed: true
+entry-points:                     # config file only; see Entry points
+  - name: bootstrap
     glob: 'lib/src/isolate.dart'
 ```
 
-A matching declaration is neither reported nor removed, whatever its signature.
-A member rule also keeps its type, while the type's other members are still
-checked. `-v` names each skipped entry point. `entry-points:` can't be
-set on the command line.
+The command line wins over the file, and the file over the default. Options
+from earlier versions are errors that say what to use instead; see
+[MIGRATION.md](MIGRATION.md). The keys, including `exported-packages` for a
+library package and `entry-points`, are in [Configuration file][docs-config].
 
-### Generated files from the project config
+## CI
 
-ciach also treats these files as generated:
+ciach detects CI from the environment and changes its defaults there:
+`--set-exit-if-changed` and `--verbose` on, `--progress` off, and the
+service's format on GitHub Actions, Azure Pipelines and TeamCity. An explicit
+option still wins.
 
-- The files build_runner writes into the source tree. ciach works out which
-  builders build_runner applies to the package, and reads the outputs they
-  declare.
-- The files `flutter gen-l10n` writes, as `l10n.yaml` configures them. With
-  `--unused-translations`, the template file is scanned instead, and its
-  unused messages are reported.
-
-Every package under the scanned path is read from its own files, so scanning
-the root of a pub workspace or monorepo covers all of its members. `build.yaml`
-is read together with every `build.<name>.yaml`, because
-`build_runner --config` can use any of them.
-
-### Monorepos
-
-In a monorepo where sibling packages depend on this one by `path:`, their calls
-are invisible, so a declaration used only across that boundary reads as dead.
-`--analysis-root` widens where references are counted, and nothing else:
-
-```bash
-ciach pkgs/core --analysis-root .    # scan pkgs/core, count uses from the whole repo
+```yaml
+- run: dart pub get
+- run: dart run ciach
 ```
 
-- Candidates, reported paths, `--include`/`--exclude`, `ciach.yaml` discovery and
-  `--remove` stay on the scanned package.
-- The path must contain that package; narrowing is a usage error.
-- The whole repo gets analyzed, so the run is slower. `--no-public` is
-  unaffected: private declarations stay library-scoped.
-
-A pub workspace needs no setting — the analyzer roots its context there already.
-A published package's consumers stay invisible either way; treat public findings
-there as advisory.
+On GitHub Actions each finding becomes a `::warning` annotation on the PR
+diff, and the job fails when anything is found. Azure Pipelines, TeamCity, and
+the SARIF, Checkstyle and GitLab report formats: [CI][docs-ci].
 
 ## Limitations
 
-This is a static, reference-based heuristic, so review its output rather than
+ciach is a static, reference-based heuristic, so review its output rather than
 deleting blindly:
 
-- **A library package's public API** is legitimately unused from inside the
-  package. Prefer [`--no-exported`](#library-packages) there.
-  In a monorepo, [`--analysis-root`](#monorepos) recovers uses that live in a
-  sibling package; a published package's consumers stay invisible.
-- **Reflection, dynamic invocation, and names referenced only from generated
-  code you excluded** are invisible to a reference search.
+- **A published package's consumers** are invisible, which is why its API is
+  [left out][docs-packages]. In a monorepo, [`--analysis-root`][docs-packages]
+  recovers uses from a sibling package.
+- **Reflection, dynamic invocation, and names used only from generated code you
+  excluded** are invisible to a reference search.
 - **Other entry points**, such as isolate entry points and native callbacks,
-  have to be listed under [`entry-points`](#entry-points) or marked with
+  have to be listed under [`entry-points`][docs-skips] or marked with
   `@pragma('vm:entry-point')`.
-- **A primary constructor shares its class's references**, since a query at the
-  header resolves to the class: a never-invoked one only surfaces once the class
-  itself is dead.
-- **Code referenced only from dead code**, or in a
-  [dead cycle](#dead-cycles), is reported only with
-  [`--transitive`](#transitively-dead-code).
-- A package that doesn't analyze cleanly (missing `pub get`, errors) yields
-  incomplete references.
+- **A primary constructor shares its class's references**: a never-invoked one
+  only surfaces once the class itself is dead.
+- **A package that doesn't analyze cleanly**, from a stale `pub get` or errors,
+  yields incomplete references.
 - **Bugs in the analysis server's reference search** can report used code as
-  unused, or make a query fail, which leaves that declaration or file under
-  "Not analyzed". [doc/upstream_bugs.md][upstream-bugs] lists the ones ciach
-  has found and the SDK commits that fixed them.
-
-## Performance
-
-Runtime is the analysis server's, not the tool's. It analyzes the whole package
-once per run — tens of seconds for a large Flutter app, and unskippable, since
-incomplete analysis means wrong reference counts — then answers one
-`textDocument/references` per declaration through a pool of `-j` (default 16),
-with scanned files kept open so its resolved-unit cache stays warm.
-
-The lever is how much you ask for. `--no-public` is by far the cheapest mode:
-private declarations are library-scoped, so each query searches one library
-instead of the whole workspace, and it surfaces the highest-confidence dead code
-anyway. `--include`/`--exclude` narrow the scan while still counting references
-from everywhere. A `dart install`ed ciach is a native binary, so there's no JIT
-warmup per run.
+  unused, or make a query fail and land a declaration under "Not analyzed".
+  [doc/upstream_bugs.md][upstream-bugs] lists the ones ciach has found and the
+  SDK commits that fixed them.
 
 ## Library usage
 
@@ -469,11 +278,16 @@ logger; listen on `Logger.root.onRecord` to see the records.
 
 ```bash
 dart pub get
-dart analyze
+dart analyze --fatal-infos
 dart test          # spins up a real analysis server against the example/ package
 ```
 
 The implementation lives under `lib/src/`; the CLI entry point is `bin/`.
+`lib/src/finder.dart` runs a scan as a pipeline, and its doc comment maps the
+directories under `lib/src/` to the stages. Tests mirror that layout under
+`test/`; `test/finder/` runs the whole finder against the `example/` package.
+`test/readme_toc_test.dart` checks that [Contents](#contents) lists every
+section of this file.
 
 ## License
 
@@ -485,7 +299,7 @@ Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE).
 
 <div align="center">
 
-  [<img src="https://leancodepublic.blob.core.windows.net/public/wide.png" alt="LeanCode Logo" height="100" />][leancode-landing]
+  [<img src="https://leancodepublic.blob.core.windows.net/public/wide.png" alt="LeanCode Logo" width="262" />][leancode-landing]
 
 </div>
 
@@ -510,6 +324,14 @@ We are **top-tier experts** focused on Flutter Enterprise solutions.
 </div>
 
 [site]: https://ciach.leancode.co/
+[docs]: https://ciach.leancode.co/docs
+[docs-running]: https://ciach.leancode.co/docs#running-ciach
+[docs-report]: https://ciach.leancode.co/docs#reading-the-report
+[docs-skips]: https://ciach.leancode.co/docs#what-it-skips-by-default
+[docs-removing]: https://ciach.leancode.co/docs#removing-dead-code
+[docs-config]: https://ciach.leancode.co/docs#configuration-file
+[docs-packages]: https://ciach.leancode.co/docs#packages-and-monorepos
+[docs-ci]: https://ciach.leancode.co/docs#ci
 [upstream-bugs]: https://github.com/leancodepl/ciach/blob/main/doc/upstream_bugs.md
 
 [pub-badge]: https://img.shields.io/pub/v/ciach?style=for-the-badge&logo=dart

@@ -44,9 +44,7 @@ Removed 4 unused declarations from 1 file.''';
 /// The `--remove` walkthrough: the file with its dead code struck out as the
 /// block scrolls into view, next to the command that did it.
 @scopedCss
-class CiachDemo extends StatelessComponent {
-  const CiachDemo({super.key});
-
+class const CiachDemo({super.key}) extends StatelessComponent {
   static const _class = _$CiachDemoScope;
 
   static final _grid = _class('grid');
@@ -62,7 +60,7 @@ class CiachDemo extends StatelessComponent {
       css('&').styles(display: .grid, alignItems: .start, gap: .all(1.25.rem)),
       shrinkableChildren(),
       css.media(.all(minWidth: 760.px), [
-        css('&').styles(raw: {'grid-template-columns': '1fr 1fr'}),
+        css('&').styles(gridTemplate: fractionColumns([1, 1])),
       ]),
     ]),
     // Dead lines: struck and faded. Without JavaScript that is the resting
@@ -150,7 +148,7 @@ class CiachDemo extends StatelessComponent {
         ]),
         const DemoTrigger(targetId: 'remove-demo'),
         p(classes: Prose.more.name, const [
-          a(href: '/docs#removing', [
+          a(href: '/docs#removing-dead-code', [
             .text('What --remove refuses to touch →'),
           ]),
         ]),
