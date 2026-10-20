@@ -11,12 +11,13 @@ import 'package:jaspr/jaspr.dart';
 /// typed SVG components so it hydrates cleanly inside client components too.
 /// The icons every site uses are the constants here; a site declares its own
 /// mark the same way.
-class Icon {
-  const Icon(this.paths);
-
+class const Icon(
+  /// The `d` attributes of the icon's paths.
+  final List<String> paths,
+) {
   /// How Jaspr passes an icon to a client component: as its paths.
   @decoder
-  const Icon.fromJson(List<String> paths) : this(paths);
+  const new fromJson(List<String> paths) : this(paths);
 
   static const copy = Icon(['M9 9h10v10H9z', 'M5 15V5h10']);
   static const check = Icon(['m5 12 5 5L20 7']);
@@ -70,9 +71,6 @@ class Icon {
     'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z',
     'm20 20-4-4',
   ]);
-
-  /// The `d` attributes of the icon's paths.
-  final List<String> paths;
 
   @encoder
   List<String> toJson() => paths;

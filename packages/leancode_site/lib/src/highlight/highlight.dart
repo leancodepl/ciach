@@ -19,9 +19,17 @@ part 'highlight.scopes.dart';
 /// A language that [highlight] colors. [dart], [yaml], [shell] and [json]
 /// come with the package; a site declares its own, such as the output of its
 /// program, with a TextMate [grammar] and passes it to [initHighlighting].
-class Language {
-  const Language(this.name, {this.grammar, this.isConsole = false});
+class const Language(
+  /// Also the `language-<name>` class of the rendered `code` element.
+  final String name, {
 
+  /// The TextMate grammar as JSON, or null for a grammar the engine ships.
+  final String? grammar,
+
+  /// Whether the text is a terminal transcript, which `CodeBlock` wraps like
+  /// a terminal instead of scrolling.
+  final bool isConsole = false,
+}) {
   /// The Dart grammar ships with the engine.
   static const dart = Language('dart');
   static const yaml = Language('yaml', grammar: kYamlGrammar);
@@ -29,16 +37,6 @@ class Language {
   static const json = Language('json', grammar: kJsonGrammar);
 
   static const builtIn = [dart, yaml, shell, json];
-
-  /// Also the `language-<name>` class of the rendered `code` element.
-  final String name;
-
-  /// The TextMate grammar as JSON, or null for a grammar the engine ships.
-  final String? grammar;
-
-  /// Whether the text is a terminal transcript, which `CodeBlock` wraps like
-  /// a terminal instead of scrolling.
-  final bool isConsole;
 
   /// The registered language called [name].
   static Language named(String name) =>
@@ -68,7 +66,7 @@ Future<void> initHighlighting([List<Language> languages = const []]) async {
 /// The classes highlighted code is rendered with: one per line, and one per
 /// token kind. `CodeBlock` gives them their look.
 @scopedCss
-abstract final class Highlight {
+abstract final class Highlight() {
   static const _class = _$HighlightScope;
 
   /// Every line of highlighted code.

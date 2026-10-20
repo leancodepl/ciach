@@ -40,6 +40,8 @@ own, so a site needs no registration step. The `.scopes.dart` part files are
 generated and committed; after adding, renaming or moving a component, run
 `dart run build_runner build` here.
 
-Sites that pin the published jaspr 0.23 build parse with analyzer 12, which
-has no primary constructors, so the package keeps classic constructors until
-jaspr publishes a builder for analyzer 13.
+The package uses Jaspr from the commit on the `next` branch that
+`dependency_overrides` in `pubspec.yaml` names, whose builder parses the
+primary constructors the package is written with. A site overrides jaspr to
+the same commit, as `website/pubspec.yaml` does, and activates the Jaspr CLI
+from it.

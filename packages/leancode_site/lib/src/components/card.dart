@@ -8,13 +8,12 @@ part 'card.scopes.dart';
 /// A bordered surface with padding. [classes] adds the caller's own hooks;
 /// [listItem] renders an `li` for cards that sit in a list.
 @scopedCss
-class Card extends StatelessComponent {
-  const Card(this.children, {this.classes, this.listItem = false, super.key});
-
-  final List<Component> children;
-  final ClassName? classes;
-  final bool listItem;
-
+class const Card(
+  final List<Component> children, {
+  final ClassName? classes,
+  final bool listItem = false,
+  super.key,
+}) extends StatelessComponent {
   static const _class = _$CardScope;
 
   static final _root = _class.root;

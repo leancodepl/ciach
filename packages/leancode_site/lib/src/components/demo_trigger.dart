@@ -14,11 +14,8 @@ part 'demo_trigger.scopes.dart';
 /// [play] is added once the target is on screen.
 @client
 @scopedCss
-class DemoTrigger extends StatefulComponent {
-  const DemoTrigger({required this.targetId, super.key});
-
-  final String targetId;
-
+class const DemoTrigger({required final String targetId, super.key})
+    extends StatefulComponent {
   static const _class = _$DemoTriggerScope;
 
   /// Set on the target once the script runs, so its styles can hide the end
@@ -32,7 +29,7 @@ class DemoTrigger extends StatefulComponent {
   State<DemoTrigger> createState() => _DemoTriggerState();
 }
 
-class _DemoTriggerState extends State<DemoTrigger> {
+class _DemoTriggerState() extends State<DemoTrigger> {
   web.IntersectionObserver? _observer;
 
   @override

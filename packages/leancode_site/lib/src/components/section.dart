@@ -13,26 +13,17 @@ part 'section.scopes.dart';
 /// pointing at its heading, so the outline reads well for crawlers and screen
 /// readers alike.
 @scopedCss
-class Section extends StatelessComponent {
-  const Section({
-    required this.id,
-    required this.eyebrow,
-    required this.heading,
-    required this.children,
-    this.lead,
-    this.classes,
-    super.key,
-  });
-
-  final String id;
-  final String eyebrow;
-  final String heading;
-  final List<Component> children;
+class const Section({
+  required final String id,
+  required final String eyebrow,
+  required final String heading,
+  required final List<Component> children,
 
   /// May quote identifiers in backticks, which [rich] turns into code chips.
-  final String? lead;
-  final ClassName? classes;
-
+  final String? lead,
+  final ClassName? classes,
+  super.key,
+}) extends StatelessComponent {
   static const _class = _$SectionScope;
 
   static final _root = _class.root;
@@ -48,9 +39,8 @@ class Section extends StatelessComponent {
         ),
         border: .only(top: hairlineSide(borderColor)),
       ),
-      css(
-        '& h2',
-      ).styles(fontSize: const .expression('clamp(1.9rem, 3.6vw, 2.75rem)')),
+      css('& h2')
+          .styles(fontSize: const .expression('clamp(1.9rem, 3.6vw, 2.75rem)')),
     ]),
     css(_head.selector).styles(
       maxWidth: 44.rem,
@@ -83,20 +73,13 @@ class Section extends StatelessComponent {
 /// heading's copy button copies a link to it on [pagePath], or on the site's
 /// docs path.
 @scopedCss
-class DocSection extends StatelessComponent {
-  const DocSection({
-    required this.id,
-    required this.heading,
-    required this.children,
-    this.pagePath,
-    super.key,
-  });
-
-  final String id;
-  final String heading;
-  final List<Component> children;
-  final String? pagePath;
-
+class const DocSection({
+  required final String id,
+  required final String heading,
+  required final List<Component> children,
+  final String? pagePath,
+  super.key,
+}) extends StatelessComponent {
   static const _class = _$DocSectionScope;
 
   static final _root = _class.root;
@@ -112,13 +95,11 @@ class DocSection extends StatelessComponent {
         gap: .all(1.75.rem),
       ),
       shrinkableChildren(),
-      css(
-        '& h2',
-      ).styles(fontSize: const .expression('clamp(1.6rem, 2.6vw, 2rem)')),
+      css('& h2')
+          .styles(fontSize: const .expression('clamp(1.6rem, 2.6vw, 2rem)')),
       css('& h3').styles(fontSize: 1.15.rem),
-      css(
-        '& p',
-      ).styles(color: text2Color, lineHeight: const .expression('1.7')),
+      css('& p')
+          .styles(color: text2Color, lineHeight: const .expression('1.7')),
       css('& p a, & li a').styles(
         color: accentColor,
         textDecoration: underlined,
@@ -152,22 +133,14 @@ class DocSection extends StatelessComponent {
 /// `h2`, or an `h3` for a [subsection], with [id] or else [fragment] as its
 /// `id`.
 @scopedCss
-class DocHeading extends StatelessComponent {
-  const DocHeading({
-    required this.fragment,
-    required this.text,
-    this.id,
-    this.pagePath,
-    this.subsection = false,
-    super.key,
-  });
-
-  final String fragment;
-  final String text;
-  final String? id;
-  final String? pagePath;
-  final bool subsection;
-
+class const DocHeading({
+  required final String fragment,
+  required final String text,
+  final String? id,
+  final String? pagePath,
+  final bool subsection = false,
+  super.key,
+}) extends StatelessComponent {
   static const _class = _$DocHeadingScope;
 
   static final _root = _class.root;
@@ -211,7 +184,7 @@ class DocHeading extends StatelessComponent {
 /// Classes for running text, shared by the landing page's sections and the
 /// docs.
 @scopedCss
-abstract final class Prose {
+abstract final class Prose() {
   static const _class = _$ProseScope;
 
   /// The small accented label above a heading.

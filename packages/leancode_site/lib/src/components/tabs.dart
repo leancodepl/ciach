@@ -12,13 +12,11 @@ import 'package:leancode_site/src/styles.dart';
 part 'tabs.scopes.dart';
 
 /// One tab of [Tabs]: its [label] and the [children] of its panel.
-class TabItem {
-  const TabItem(this.id, this.label, this.children);
-
-  final String id;
-  final Component label;
-  final List<Component> children;
-}
+class const TabItem(
+  final String id,
+  final Component label,
+  final List<Component> children,
+);
 
 /// A tab switcher built from radio inputs and CSS alone, so every panel is in
 /// the HTML for crawlers and the page needs no script for it.
@@ -27,23 +25,17 @@ class TabItem {
 /// [maxTabs] tabs, and several groups can share a page as long as their
 /// [name]s differ.
 @scopedCss
-class Tabs extends StatelessComponent {
-  const Tabs({
-    required this.name,
-    required this.groupLabel,
-    required this.tabs,
-    super.key,
-  });
-
+class const Tabs({
   /// The radio group's name; unique per page.
-  final String name;
+  required final String name,
 
   /// What the group switches between, for assistive technology.
-  final String groupLabel;
+  required final String groupLabel,
 
   /// At most [maxTabs].
-  final List<TabItem> tabs;
-
+  required final List<TabItem> tabs,
+  super.key,
+}) extends StatelessComponent {
   static const maxTabs = 8;
 
   static const _class = _$TabsScope;

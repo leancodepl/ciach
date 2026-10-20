@@ -15,31 +15,22 @@ part 'hero.scopes.dart';
 /// install command and the calls to action on the left, the site's own
 /// [aside] such as a terminal or a demo on the right.
 @scopedCss
-class Hero extends StatelessComponent {
-  const Hero({
-    required this.heading,
-    required this.lead,
-    required this.aside,
-    this.badges = const [],
-    this.afterLead = const [],
-    this.actions,
-    super.key,
-  });
-
+class const Hero({
   /// The children of the `h1`.
-  final List<Component> heading;
-  final String lead;
-  final Component aside;
+  required final List<Component> heading,
+  required final String lead,
+  required final Component aside,
 
   /// The pills after the version pill.
-  final List<Pill> badges;
+  final List<Pill> badges = const [],
 
   /// Anything between the lead and the install command.
-  final List<Component> afterLead;
+  final List<Component> afterLead = const [],
 
   /// The buttons under the install command; [siteActions] when null.
-  final List<Component>? actions;
-
+  final List<Component>? actions,
+  super.key,
+}) extends StatelessComponent {
   static const _class = _$HeroScope;
 
   static final _root = _class.root;
@@ -203,12 +194,11 @@ class Hero extends StatelessComponent {
 /// The pills above the hero heading. [primary] is the accented one linking to
 /// pub.dev: the version on the page, a label on the social card so the card
 /// does not change with every release.
-class HeroBadges extends StatelessComponent {
-  const HeroBadges({required this.primary, this.others = const [], super.key});
-
-  final String primary;
-  final List<Pill> others;
-
+class const HeroBadges({
+  required final String primary,
+  final List<Pill> others = const [],
+  super.key,
+}) extends StatelessComponent {
   @override
   Component build(BuildContext context) => p(classes: Hero.badgesRow.name, [
     Pill(primary, href: Site.of(context).pubUrl, accent: true),
@@ -218,11 +208,8 @@ class HeroBadges extends StatelessComponent {
 
 /// The site's install command in a prompt-style box. The copy button is a
 /// client island, so the social card leaves it out.
-class InstallCommand extends StatelessComponent {
-  const InstallCommand({this.copyButton = true, super.key});
-
-  final bool copyButton;
-
+class const InstallCommand({final bool copyButton = true, super.key})
+    extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     final command = Site.of(context).installCommand;

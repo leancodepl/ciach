@@ -8,7 +8,7 @@ import 'package:jaspr/dom.dart';
 
 /// A solid color as a packed `0xRRGGBB`, usable as a CSS [color], at an
 /// [alpha], or written verbatim into SVG and JSON as [hex].
-enum Palette {
+enum Palette(final int rgb) {
   /// Primary surface. LeanCode is black-first; yellow is the exception.
   black(0x000000),
 
@@ -39,10 +39,6 @@ enum Palette {
 
   /// [ctaYellow] lifted for the primary button's hover.
   ctaYellowLight(0xf5ff4d);
-
-  const Palette(this.rgb);
-
-  final int rgb;
 
   /// The 1px hairline between surfaces, and a stronger one for controls.
   static final line = white.alpha(0.12);

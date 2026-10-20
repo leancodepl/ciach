@@ -7,7 +7,7 @@ repository: https://github.com/leancodepl/ciach/tree/main/packages/leancode_site
 publish_to: none
 
 environment:
-  sdk: ^3.10.0
+  sdk: ^3.13.0
 
 dependencies:
   collection: ^1.19.1
@@ -26,9 +26,11 @@ dev_dependencies:
   jaspr_class_scope_builder: ^0.1.0
   leancode_lint: ^28.0.0
 
-# The head of jaspr's `next` branch, the same commit as in website/pubspec.yaml,
-# so that the package's own `build_runner` writes the same scope files as the
-# site's build.
+# The head of jaspr's `next` branch, whose builder supports analyzer 13 and
+# newer, which the primary constructors here need. A site that uses the
+# package overrides jaspr to the same commit; keep it the same as in
+# website/pubspec.yaml, and go back to the version constraints above once it
+# is published.
 dependency_overrides:
   jaspr:
     git:

@@ -49,9 +49,7 @@ String _ogImage(SiteConfig site) => '${site.canonicalUrl}images/og.png';
 
 /// `<head>` children shared by every page: icons, fonts, the social card
 /// image and the structured data describing the package itself.
-class SiteHead extends StatelessComponent {
-  const SiteHead({super.key});
-
+class const SiteHead({super.key}) extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     final site = Site.of(context);
@@ -93,20 +91,13 @@ class SiteHead extends StatelessComponent {
 /// Per-page metadata: title, description, canonical URL and social card text,
 /// plus any page-specific [structuredData]. [path] is relative to the site
 /// root: `''` for the landing page, `docs` for the docs.
-class PageHead extends StatelessComponent {
-  const PageHead({
-    required this.title,
-    required this.description,
-    required this.path,
-    this.structuredData = const [],
-    super.key,
-  });
-
-  final String title;
-  final String description;
-  final String path;
-  final List<Map<String, Object?>> structuredData;
-
+class const PageHead({
+  required final String title,
+  required final String description,
+  required final String path,
+  final List<Map<String, Object?>> structuredData = const [],
+  super.key,
+}) extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     final url = '${Site.of(context).canonicalUrl}$path';

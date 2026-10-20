@@ -110,10 +110,8 @@ List<StyleRule> get _tokens => [
       '--tk-comment': '#767eaa',
       '--tk-annotation': '#ffcb6b',
       '--tk-function': '#89ddff',
-      '--font-sans':
-          "'Space Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
-      '--font-mono':
-          "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+      '--font-sans': "'Space Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      '--font-mono': "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
       '--radius': '14px',
       '--radius-sm': '8px',
       '--container': '1160px',
@@ -170,9 +168,8 @@ List<StyleRule> get _reset => [
       offset: 3.px,
     ),
   ),
-  css(
-    'code, pre, kbd',
-  ).styles(fontFamily: fontMono, raw: {'font-feature-settings': "'liga' 0"}),
+  css('code, pre, kbd')
+      .styles(fontFamily: fontMono, raw: {'font-feature-settings': "'liga' 0"}),
   // Inline code chips. A flag or identifier never breaks at one of its
   // hyphens. Code blocks inside a list item keep their own look.
   css(':where(p, li, td, th) code:not(pre code)').styles(
@@ -193,7 +190,7 @@ List<StyleRule> get _reset => [
 
 /// Site-wide utility classes. Every component may use them, so they render as
 /// written instead of being scoped to one.
-abstract final class Utility {
+abstract final class Utility() {
   /// Centers the content in a column of at most `--container`.
   static const container = ClassName.shared('container');
 

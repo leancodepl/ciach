@@ -14,18 +14,12 @@ part 'shell.scopes.dart';
 /// against the document's `<base href>`, and the navigation marks the docs
 /// link as current when the path starts with the site's docs path.
 @scopedCss
-class PageShell extends StatelessComponent {
-  const PageShell({
-    required this.path,
-    required this.footer,
-    required this.children,
-    super.key,
-  });
-
-  final String path;
-  final SiteFooter footer;
-  final List<Component> children;
-
+class const PageShell({
+  required final String path,
+  required final SiteFooter footer,
+  required final List<Component> children,
+  super.key,
+}) extends StatelessComponent {
   static const _class = _$PageShellScope;
 
   static final _skipLink = _class('skip-link');

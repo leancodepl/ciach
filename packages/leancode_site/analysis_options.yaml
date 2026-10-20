@@ -1,14 +1,5 @@
 include: ../../analysis_options.yaml
 
-linter:
-  rules:
-    # Sites that pin the published jaspr 0.23 build with analyzer 12 cannot
-    # parse primary constructors, so the package keeps classic constructors
-    # until jaspr publishes a builder for analyzer 13.
-    use_primary_constructors: false
-    unnecessary_primary_constructor_body: false
-    unnecessary_type_name_in_constructor: false
-
 plugins:
   jaspr_lints:
     git:

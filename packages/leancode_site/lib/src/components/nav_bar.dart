@@ -15,11 +15,8 @@ part 'nav_bar.scopes.dart';
 /// page's own path; the docs link is active on every docs page and current on
 /// the first.
 @scopedCss
-class NavBar extends StatelessComponent {
-  const NavBar({required this.path, super.key});
-
-  final String path;
-
+class const NavBar({required final String path, super.key})
+    extends StatelessComponent {
   static const _class = _$NavBarScope;
 
   static final _root = _class.root;
@@ -49,9 +46,8 @@ class NavBar extends StatelessComponent {
       ),
       css.media(.all(maxWidth: 540.px), [css('&').styles(gap: .all(0.5.rem))]),
     ]),
-    css(
-      _brand.selector,
-    ).styles(display: .inlineFlex, alignItems: .center, color: textColor),
+    css(_brand.selector)
+        .styles(display: .inlineFlex, alignItems: .center, color: textColor),
     css(_links.selector, [
       css('&').styles(display: .flex, alignItems: .center, gap: .all(0.25.rem)),
       css('& a', [
@@ -66,9 +62,8 @@ class NavBar extends StatelessComponent {
           fontWeight: .w500,
         ),
         css('& svg').styles(color: mutedColor),
-        css(
-          '&:hover, &${_active.selector}',
-        ).styles(color: textColor, backgroundColor: surfaceColor),
+        css('&:hover, &${_active.selector}')
+            .styles(color: textColor, backgroundColor: surfaceColor),
         css('&${_active.selector} svg').styles(color: accentColor),
         css.media(.all(maxWidth: 540.px), [
           css('&').styles(

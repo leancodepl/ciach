@@ -9,38 +9,27 @@ part 'code_block.scopes.dart';
 
 /// A highlighted, copyable code sample in a window-like frame.
 @scopedCss
-class CodeBlock extends StatelessComponent {
-  const CodeBlock({
-    required this.source,
-    required this.language,
-    this.title,
-    this.copyText,
-    this.deadLines = const {},
-    this.wrap = true,
-    this.lineNumbers = false,
-    this.classes,
-    super.key,
-  });
-
-  final String source;
-  final Language language;
+class const CodeBlock({
+  required final String source,
+  required final Language language,
 
   /// Shown in the frame's title bar, e.g. a file name.
-  final String? title;
+  final String? title,
 
   /// What the copy button copies. Defaults to [source]; pass `''` to hide the
   /// button.
-  final String? copyText;
+  final String? copyText,
 
   /// 1-based lines to render struck through as dead code.
-  final Set<int> deadLines;
+  final Set<int> deadLines = const {},
 
   /// Whether console output wraps like a terminal. Pass false for a report
   /// with aligned columns, which scrolls instead.
-  final bool wrap;
-  final bool lineNumbers;
-  final ClassName? classes;
-
+  final bool wrap = true,
+  final bool lineNumbers = false,
+  final ClassName? classes,
+  super.key,
+}) extends StatelessComponent {
   static const _class = _$CodeBlockScope;
 
   // The frame, shared with [Terminal].
@@ -120,51 +109,39 @@ class CodeBlock extends StatelessComponent {
       textOverflow: .ellipsis,
       whiteSpace: .noWrap,
     ),
-    css(
-      Highlight.line.selector,
-    ).styles(display: .inlineBlock, minWidth: 100.percent),
+    css(Highlight.line.selector)
+        .styles(display: .inlineBlock, minWidth: 100.percent),
     // Token colors, shared by the TextMate scopes and a site's console output.
-    css(
-      Highlight.keyword.selector,
-    ).styles(color: const .variable('--tk-keyword')),
+    css(Highlight.keyword.selector)
+        .styles(color: const .variable('--tk-keyword')),
     css(Highlight.type.selector).styles(color: const .variable('--tk-type')),
-    css(
-      Highlight.string.selector,
-    ).styles(color: const .variable('--tk-string')),
-    css(
-      Highlight.number.selector,
-    ).styles(color: const .variable('--tk-number')),
-    css(
-      Highlight.comment.selector,
-    ).styles(color: const .variable('--tk-comment')),
-    css(
-      Highlight.annotation.selector,
-    ).styles(color: const .variable('--tk-annotation')),
-    css(
-      Highlight.function.selector,
-    ).styles(color: const .variable('--tk-function')),
+    css(Highlight.string.selector)
+        .styles(color: const .variable('--tk-string')),
+    css(Highlight.number.selector)
+        .styles(color: const .variable('--tk-number')),
+    css(Highlight.comment.selector)
+        .styles(color: const .variable('--tk-comment')),
+    css(Highlight.annotation.selector)
+        .styles(color: const .variable('--tk-annotation')),
+    css(Highlight.function.selector)
+        .styles(color: const .variable('--tk-function')),
     css(Highlight.key.selector).styles(color: const .variable('--tk-type')),
     css(Highlight.kind.selector).styles(color: const .variable('--tk-keyword')),
     css(Highlight.hint.selector).styles(color: const .variable('--tk-number')),
-    css(
-      Highlight.ask.selector,
-    ).styles(color: const .variable('--tk-annotation')),
-    css(
-      Highlight.doc.selector,
-    ).styles(color: const .variable('--tk-comment'), fontStyle: .italic),
+    css(Highlight.ask.selector)
+        .styles(color: const .variable('--tk-annotation')),
+    css(Highlight.doc.selector)
+        .styles(color: const .variable('--tk-comment'), fontStyle: .italic),
     css(Highlight.flag.selector).styles(color: accentColor),
-    css(
-      Highlight.prompt.selector,
-    ).styles(userSelect: .none, color: accentColor, fontWeight: .w600),
+    css(Highlight.prompt.selector)
+        .styles(userSelect: .none, color: accentColor, fontWeight: .w600),
     css(Highlight.command.selector).styles(color: textColor, fontWeight: .w600),
-    css(
-      Highlight.path.selector,
-    ).styles(color: const .variable('--tk-annotation'), fontWeight: .w600),
+    css(Highlight.path.selector)
+        .styles(color: const .variable('--tk-annotation'), fontWeight: .w600),
     css(Highlight.name.selector).styles(color: textColor),
     css(Highlight.summary.selector).styles(color: okColor, fontWeight: .w600),
-    css(
-      '${Highlight.punct.selector}, ${Highlight.operator.selector}',
-    ).styles(color: const .variable('--tk-function')),
+    css('${Highlight.punct.selector}, ${Highlight.operator.selector}')
+        .styles(color: const .variable('--tk-function')),
     // Transcripts wrap like a real terminal. Code and reports keep scrolling,
     // because their columns carry meaning.
     css(_terminal.selector, [
@@ -243,25 +220,17 @@ class CodeBlock extends StatelessComponent {
 
 /// A terminal transcript in the site's console [language], whose lines can
 /// appear one after another.
-class Terminal extends StatelessComponent {
-  const Terminal({
-    required this.transcript,
-    required this.language,
-    this.title = 'zsh',
-    this.animated = false,
-    this.copyText = '',
-    super.key,
-  });
-
-  final String transcript;
-  final Language language;
-  final String title;
+class const Terminal({
+  required final String transcript,
+  required final Language language,
+  final String title = 'zsh',
 
   /// Reveal lines sequentially with a CSS animation (respects
   /// `prefers-reduced-motion`).
-  final bool animated;
-  final String copyText;
-
+  final bool animated = false,
+  final String copyText = '',
+  super.key,
+}) extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     return figure(

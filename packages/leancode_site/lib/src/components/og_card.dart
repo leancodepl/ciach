@@ -20,19 +20,13 @@ part 'og_card.scopes.dart';
 /// not part of any page, so it carries its own sizing rules instead of adding
 /// them to the site's stylesheet.
 @scopedCss
-class OgCard extends StatelessComponent {
-  const OgCard({
-    required this.heading,
-    required this.lead,
-    this.badges = const [],
-    super.key,
-  });
-
+class const OgCard({
   /// The children of the `h1`.
-  final List<Component> heading;
-  final String lead;
-  final List<Pill> badges;
-
+  required final List<Component> heading,
+  required final String lead,
+  final List<Pill> badges = const [],
+  super.key,
+}) extends StatelessComponent {
   static const width = 1200;
   static const height = 630;
 
@@ -57,9 +51,8 @@ class OgCard extends StatelessComponent {
         backgroundColor: bgColor,
         raw: {'isolation': 'isolate'},
       ),
-      css(
-        '& ${Hero.bg.selector}',
-      ).styles(raw: {'mask-image': 'none', '-webkit-mask-image': 'none'}),
+      css('& ${Hero.bg.selector}')
+          .styles(raw: {'mask-image': 'none', '-webkit-mask-image': 'none'}),
       css('& ${Hero.badgesRow.selector}').styles(
         margin: .only(top: 34.px, bottom: .zero),
         gap: .all(0.6.rem),

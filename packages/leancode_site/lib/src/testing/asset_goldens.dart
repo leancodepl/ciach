@@ -137,9 +137,8 @@ void assetGoldenTests({
       if (share > maxDifferingShare) {
         final keep = Directory.systemTemp.createTempSync('site-assets-diff-');
         File(p.join(keep.path, p.basename(asset))).writeAsBytesSync(actual);
-        File(
-          p.join(keep.path, '${p.basenameWithoutExtension(asset)}.diff.png'),
-        ).writeAsBytesSync(img.encodePng(result.diff));
+        File(p.join(keep.path, '${p.basenameWithoutExtension(asset)}.diff.png'))
+            .writeAsBytesSync(img.encodePng(result.diff));
         fail(
           '${file.path}: ${result.differing} pixels differ '
           '(${(share * 100).toStringAsFixed(3)}%). The render and a diff are '

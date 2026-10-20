@@ -16,34 +16,24 @@ part 'feature_grid.scopes.dart';
 
 /// One card of a [FeatureGrid]. [body] may quote identifiers in backticks;
 /// [tools] are listed under it as chips, [href] links the card on.
-class Feature {
-  const Feature(
-    this.icon,
-    this.title,
-    this.body, {
-    this.tools = const [],
-    this.href,
-    this.linkLabel,
-  });
-
-  final Icon icon;
-  final String title;
-  final String body;
-  final List<String> tools;
-  final String? href;
-  final String? linkLabel;
-}
+class const Feature(
+  final Icon icon,
+  final String title,
+  final String body, {
+  final List<String> tools = const [],
+  final String? href,
+  final String? linkLabel,
+});
 
 /// A responsive grid of icon cards.
 @scopedCss
-class FeatureGrid extends StatelessComponent {
-  const FeatureGrid(this.features, {this.minWidth = 260, super.key});
-
-  final List<Feature> features;
+class const FeatureGrid(
+  final List<Feature> features, {
 
   /// The narrowest a card gets before the grid drops a column, in pixels.
-  final int minWidth;
-
+  final int minWidth = 260,
+  super.key,
+}) extends StatelessComponent {
   static const _class = _$FeatureGridScope;
 
   static final _grid = _class('grid');
@@ -59,9 +49,8 @@ class FeatureGrid extends StatelessComponent {
       shrinkableChildren(),
     ]),
     css(_feature.selector, [
-      css(
-        '&',
-      ).styles(display: .flex, flexDirection: .column, gap: .all(0.6.rem)),
+      css('&')
+          .styles(display: .flex, flexDirection: .column, gap: .all(0.6.rem)),
       css('&:hover').styles(
         border: hairline(border2Color),
         transform: .translate(y: (-2).px),

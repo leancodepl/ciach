@@ -16,7 +16,7 @@ part 'docs_table.scopes.dart';
 
 /// Classes for the tables of the docs page.
 @scopedCss
-abstract final class DocsTable {
+abstract final class DocsTable() {
   static const _class = _$DocsTableScope;
 
   /// The frame around a table, which scrolls sideways when the table is wider.
@@ -61,9 +61,8 @@ abstract final class DocsTable {
         backgroundColor: surface2Color,
       ),
       css('& tbody', [
-        css(
-          '& tr:last-child th, & tr:last-child td',
-        ).styles(border: const .only(bottom: .none())),
+        css('& tr:last-child th, & tr:last-child td')
+            .styles(border: const .only(bottom: .none())),
         css('& th', [
           css('&').styles(fontWeight: .w500),
           css('& code').styles(whiteSpace: .noWrap),
@@ -78,9 +77,8 @@ abstract final class DocsTable {
           padding: .symmetric(vertical: 0.9.rem, horizontal: 1.1.rem),
           border: .only(bottom: hairlineSide(borderColor)),
         ),
-        css(
-          '& tbody tr:last-child',
-        ).styles(border: const .only(bottom: .none())),
+        css('& tbody tr:last-child')
+            .styles(border: const .only(bottom: .none())),
         css('& th, & td').styles(padding: .zero, border: .none),
         css('& tbody th').styles(
           margin: .only(bottom: 0.5.rem),

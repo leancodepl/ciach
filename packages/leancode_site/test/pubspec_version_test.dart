@@ -18,19 +18,16 @@ void main() {
 
   tearDown(() => dir.deleteSync(recursive: true));
 
-  test(
-    'reads the version of the named package from the first pubspec that declares it',
-    () {
-      final other = File('${dir.path}/other.yaml')
-        ..writeAsStringSync('name: other\nversion: 9.9.9\n');
-      final own = File('${dir.path}/own.yaml')
-        ..writeAsStringSync('name: sample\nversion: 1.2.3+4\n');
-      expect(
-        versionFromPubspec('sample', pubspecs: [other.path, own.path]),
-        '1.2.3+4',
-      );
-    },
-  );
+  test('reads the version of the named package from the first pubspec that declares it', () {
+    final other = File('${dir.path}/other.yaml')
+      ..writeAsStringSync('name: other\nversion: 9.9.9\n');
+    final own = File('${dir.path}/own.yaml')
+      ..writeAsStringSync('name: sample\nversion: 1.2.3+4\n');
+    expect(
+      versionFromPubspec('sample', pubspecs: [other.path, own.path]),
+      '1.2.3+4',
+    );
+  });
 
   test('skips pubspecs that do not exist', () {
     final own = File('${dir.path}/own.yaml')

@@ -10,71 +10,50 @@ import 'package:jaspr/jaspr.dart';
 /// [Site.of]: the navigation and footer link to [repoUrl] and [pubUrl], the
 /// hero shows [installCommand] and [version], the social card and the
 /// structured data describe the package.
-class SiteConfig {
-  const SiteConfig({
-    required this.name,
-    required this.tagline,
-    required this.description,
-    required this.siteUrl,
-    required this.version,
-    required this.repoUrl,
-    required this.pubUrl,
-    required this.installCommand,
-    required this.logo,
-    required this.keywords,
-    this.alternateName,
-    this.runtimePlatform = 'Dart',
-    this.docsPath = '/docs',
-    this.licenseName = 'Apache-2.0',
-    this.licenseUrl = 'https://www.apache.org/licenses/LICENSE-2.0',
-    String? utmSource,
-  }) : _utmSource = utmSource;
-
+class const SiteConfig({
   /// The package name, also the site's name: `ciach`.
-  final String name;
+  required final String name,
 
   /// The one-line pitch under the name.
-  final String tagline;
+  required final String tagline,
 
   /// What the package does, for crawlers and link unfurlers, under 160
   /// characters.
-  final String description;
+  required final String description,
 
   /// Public URL of the deployed site, with or without a trailing slash.
-  final String siteUrl;
+  required final String siteUrl,
 
   /// The package version shown across the site.
-  final String version;
-
-  final String repoUrl;
-  final String pubUrl;
+  required final String version,
+  required final String repoUrl,
+  required final String pubUrl,
 
   /// The first command a reader runs: `dart install ciach`.
-  final String installCommand;
+  required final String installCommand,
 
   /// The word mark, drawn in the navigation, the footer and the social card,
   /// which asks for the large one.
-  final Component Function({bool large}) logo;
+  required final Component Function({bool large}) logo,
 
   /// What the package is about, for the structured data.
-  final List<String> keywords;
+  required final List<String> keywords,
 
   /// A longer name for the structured data: `ciach dead code detector`.
-  final String? alternateName;
+  final String? alternateName,
 
   /// What the package runs on, for the structured data: `Dart SDK 3.10+`.
-  final String runtimePlatform;
+  final String runtimePlatform = 'Dart',
 
   /// Where the docs start, relative to the site root.
-  final String docsPath;
+  final String docsPath = '/docs',
 
   /// The license as the footer names it, and the URL the structured data
   /// points at.
-  final String licenseName;
-  final String licenseUrl;
-
-  final String? _utmSource;
-
+  final String licenseName = 'Apache-2.0',
+  final String licenseUrl = 'https://www.apache.org/licenses/LICENSE-2.0',
+  final String? _utmSource,
+}) {
   /// [siteUrl] with a guaranteed trailing slash, for canonical and Open Graph
   /// URLs.
   String get canonicalUrl => siteUrl.endsWith('/') ? siteUrl : '$siteUrl/';
@@ -111,11 +90,11 @@ class SiteConfig {
 
 /// Makes a [SiteConfig] available to every component below it; a site wraps
 /// its `Document` in one.
-class Site extends InheritedComponent {
-  const Site({required this.config, required super.child, super.key});
-
-  final SiteConfig config;
-
+class const Site({
+  required final SiteConfig config,
+  required super.child,
+  super.key,
+}) extends InheritedComponent {
   /// The site's configuration.
   static SiteConfig of(BuildContext context) =>
       context.dependOnInheritedComponentOfExactType<Site>()?.config ??

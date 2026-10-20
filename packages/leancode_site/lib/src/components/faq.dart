@@ -8,22 +8,14 @@ part 'faq.scopes.dart';
 
 /// One question of a [Faq]. Backticks mark inline code in both texts; the
 /// structured data drops them.
-class FaqEntry {
-  const FaqEntry(this.question, this.answer);
-
-  final String question;
-  final String answer;
-}
+class const FaqEntry(final String question, final String answer);
 
 /// FAQ as `<details>` disclosures: no script, every answer in the HTML. Pass
 /// the same [entries] to [faqStructuredData], so the structured data and the
 /// visible answers can never drift apart.
 @scopedCss
-class Faq extends StatelessComponent {
-  const Faq(this.entries, {super.key});
-
-  final List<FaqEntry> entries;
-
+class const Faq(final List<FaqEntry> entries, {super.key})
+    extends StatelessComponent {
   static const _class = _$FaqScope;
 
   static final _root = _class.root;
@@ -50,13 +42,11 @@ class Faq extends StatelessComponent {
         overflow: .clip,
         raw: {
           'block-size': '0',
-          'transition':
-              'block-size 0.3s ease, opacity 0.25s ease, content-visibility 0.3s allow-discrete',
+          'transition': 'block-size 0.3s ease, opacity 0.25s ease, content-visibility 0.3s allow-discrete',
         },
       ),
-      css(
-        '&[open]::details-content',
-      ).styles(opacity: 1, raw: {'block-size': 'auto'}),
+      css('&[open]::details-content')
+          .styles(opacity: 1, raw: {'block-size': 'auto'}),
       css('& summary', [
         css('&').styles(
           display: .flex,

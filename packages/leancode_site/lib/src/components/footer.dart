@@ -9,50 +9,36 @@ import 'package:leancode_site/src/styles.dart';
 part 'footer.scopes.dart';
 
 /// One link of a [FooterColumn]. A link within the site is not [external].
-class FooterLink {
-  const FooterLink(this.label, this.href, {this.external = true});
-
-  final String label;
-  final String href;
-  final bool external;
-}
+class const FooterLink(
+  final String label,
+  final String href, {
+  final bool external = true,
+});
 
 /// A titled list of links in the footer.
-class FooterColumn {
-  const FooterColumn(this.title, this.links);
-
-  FooterColumn._leancode(SiteConfig site)
+class const FooterColumn(final String title, final List<FooterLink> links) {
+  new _leancode(SiteConfig site)
     : this('LeanCode', [
         FooterLink('leancode.co', site.leancodeUrl),
         FooterLink('Patrol', site.patrolUrl),
         const FooterLink('More packages', SiteConfig.leancodePackagesUrl),
         FooterLink('Hire our team', site.leancodeEstimateUrl),
       ]);
-
-  final String title;
-  final List<FooterLink> links;
 }
 
 /// The footer: a closing call to action, the brand with its tagline and
 /// version, the [columns] of links followed by LeanCode's own, and the
 /// license line.
 @scopedCss
-class SiteFooter extends StatelessComponent {
-  const SiteFooter({
-    required this.ctaHeading,
-    required this.columns,
-    this.ctaActions,
-    super.key,
-  });
-
+class const SiteFooter({
   /// The heading of the closing call to action.
-  final String ctaHeading;
+  required final String ctaHeading,
+  required final List<FooterColumn> columns,
 
   /// The buttons under it; [siteActions] without GitHub when null.
-  final List<Component>? ctaActions;
-
-  final List<FooterColumn> columns;
-
+  final List<Component>? ctaActions,
+  super.key,
+}) extends StatelessComponent {
   static const _class = _$SiteFooterScope;
 
   static final _root = _class.root;
@@ -81,9 +67,8 @@ class SiteFooter extends StatelessComponent {
               'radial-gradient(50% 60% at 50% 100%, ${accentAlpha(0.12).value}, transparent 70%)',
         },
       ),
-      css(
-        '& h2',
-      ).styles(fontSize: const .expression('clamp(1.9rem, 3.6vw, 2.75rem)')),
+      css('& h2')
+          .styles(fontSize: const .expression('clamp(1.9rem, 3.6vw, 2.75rem)')),
       css('& p').styles(
         margin: .only(top: 1.rem),
         color: text2Color,
