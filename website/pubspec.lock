@@ -433,10 +433,10 @@ packages:
     dependency: "direct dev"
     description:
       name: leancode_lint
-      sha256: "23148aecd1a7b9cbf1c435dc3423a86875f15f76ff020e13fa901138d428b444"
+      sha256: "5563f15c2e298bfce5c7cfd8dea5050261fc1f4bd74349a9aa85c6e2a616cd55"
       url: "https://pub.dev"
     source: hosted
-    version: "27.0.0"
+    version: "28.0.0"
   liquify:
     dependency: transitive
     description:

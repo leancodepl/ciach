@@ -21,8 +21,7 @@ Set<String> _headingIds() {
     for (final match in _include.allMatches(source))
       File('content/_partials/${match.namedGroup('name')}').readAsStringSync(),
   ].join('\n');
-  final nodes = md.Document(extensionSet: md.ExtensionSet.gitHubWeb)
-      .parse(body);
+  final nodes = md.Document(extensionSet: .gitHubWeb).parse(body);
   return {
     for (final node in nodes)
       if (node case md.Element(tag: 'h2' || 'h3', :final generatedId?))

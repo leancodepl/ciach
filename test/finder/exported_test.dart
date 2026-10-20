@@ -4,7 +4,6 @@ library;
 import 'dart:io';
 
 import 'package:ciach/src/finder.dart';
-import 'package:ciach/src/model/finder_options.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -201,7 +200,7 @@ void main() => Helper().used();
 
   Future<Set<String>> dead({required bool leaveOutApi}) async {
     final result = await Ciach(
-      FinderOptions(
+      .new(
         rootPath: root.path,
         exportedPackages: leaveOutApi ? const ['**'] : const [],
         // Lists each dead member. With transitive reporting, a type whose

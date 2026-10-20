@@ -143,10 +143,10 @@ final class DeadSpans {
       (_start(a) == _start(b) && _end(b).isBefore(_end(a)));
 
   static Position _start(DeclarationRange range) =>
-      Position(line: range.startLine, character: range.startColumn);
+      .new(line: range.startLine, character: range.startColumn);
 
   static Position _end(DeclarationRange range) =>
-      Position(line: range.endLine, character: range.endColumn);
+      .new(line: range.endLine, character: range.endColumn);
 }
 
 /// `isClauseEntry` is true for the span of a type's entry in a `with` or

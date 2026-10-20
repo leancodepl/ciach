@@ -74,7 +74,7 @@ final class ClauseOnlyTypes {
         for (final loc in refs)
           if (scannedPaths.contains(SourceIndex.pathOf(loc.uri)))
             ?client
-                .cachedOutline(Uri.parse(loc.uri))
+                .cachedOutline(.parse(loc.uri))
                 ?.let(
                   (unit) =>
                       _sources.clauseEntryAt(loc, candidate.symbol.name, unit),

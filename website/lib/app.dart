@@ -7,7 +7,6 @@ import 'package:ciach_website/site.dart';
 import 'package:collection/collection.dart';
 import 'package:jaspr/server.dart';
 import 'package:jaspr_content/jaspr_content.dart' hide DocsLayout;
-import 'package:jaspr_content/theme.dart';
 import 'package:jaspr_router/jaspr_router.dart';
 
 /// The site: a lean landing page, and the pages under `content/`, which
@@ -31,7 +30,7 @@ class const App({
       components: const [DocsComponents()],
       layouts: [DocsLayout(version: version)],
       // The site brings its own styles.
-      theme: const ContentTheme.none(),
+      theme: const .none(),
     ),
     routerBuilder: (routes) => Document(
       lang: 'en',

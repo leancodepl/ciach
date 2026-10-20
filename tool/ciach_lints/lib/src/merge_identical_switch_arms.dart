@@ -135,7 +135,7 @@ final class _Arm({
   static List<_Arm> allIn(AstNode node) => switch (node) {
     SwitchExpression(:final cases) => [
       for (final arm in cases)
-        _Arm(
+        .new(
           node: arm,
           pattern: arm.guardedPattern.pattern,
           canMerge: arm.guardedPattern.whenClause == null,
@@ -147,7 +147,7 @@ final class _Arm({
     ],
     SwitchStatement(:final members) => [
       for (final member in members)
-        _Arm(
+        .new(
           node: member,
           pattern: switch (member) {
             SwitchPatternCase(:final guardedPattern) => guardedPattern.pattern,

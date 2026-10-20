@@ -561,7 +561,7 @@ class LspClient {
       ),
     );
     return switch (result) {
-      final Map<String, Object?> json => lsp.Location.fromJson(json),
+      final Map<String, Object?> json => .fromJson(json),
       _ => null,
     };
   }

@@ -62,7 +62,7 @@ StyleRule shrinkableChildren() => css('& > *').styles(minWidth: .zero);
 
 /// Lets a flex item take an equal share of the free space, as CSS `flex: 1`
 /// does.
-const growToFill = Flex(grow: 1, basis: Unit.percent(0));
+const growToFill = Flex(grow: 1, basis: .percent(0));
 
 /// Grid columns that split the width in the ratio of [fractions]: `[1, 1]`
 /// gives two equal columns.

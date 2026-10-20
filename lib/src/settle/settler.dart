@@ -300,7 +300,7 @@ final class Settler {
         for (final index in reported)
           if (_verdict.canBeOverridden(candidates[index])) index,
       ],
-      kept: DeadSpans.of([
+      kept: .of([
         for (final type in docOnlyTypes) _verdict.finding(type, rootPath),
       ], rootPath),
       concurrency: options.concurrency,

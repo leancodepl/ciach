@@ -16,6 +16,6 @@ dependencies:
 
 dev_dependencies:
   analyzer_testing: ^0.4.2
-  leancode_lint: ^27.0.0
+  leancode_lint: ^28.0.0
   test: ^1.31.2
   test_reflective_loader: ^0.4.0
