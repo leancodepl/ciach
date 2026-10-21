@@ -183,7 +183,7 @@ that are report-only because removing them would not compile:
 | `-e, --exclude <glob>` | — | Skip these files: nothing in them is reported, but their references still count. Repeatable. |
 | `-i, --include <glob>` | — | Scan only these files. The references in other files still count. Repeatable. |
 | `--generated-glob <glob>` | — | Treat these files as generated: their references count, but nothing in them is reported or removed. For output without a suffix or banner, or code kept as is, like a vendored copy. Repeatable. |
-| `-k, --kinds <list>` | all | Report only these kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
+| `-k, --kinds <list>` | all | Report only these kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value, typedef`. |
 | `-f, --format <fmt>` | `text`; the service's on CI | `text`, `json`, `github`, `azure`, `teamcity`, `sarif`, `checkstyle` or `gitlab`. See [CI](#ci). |
 | `-j, --concurrency <n>` | `16` | Reference queries to run at once. |
 | `--[no-]color` | auto | Colorize the output. Honors `NO_COLOR`. |

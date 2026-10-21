@@ -27,6 +27,8 @@ import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 import 'package:test/test.dart';
 
+import '../support/copy_tree.dart';
+
 void main() {
   // The example package doubles as the test fixture: a real `sample_pkg`
   // package with a known mix of used and unused declarations.
@@ -2187,18 +2189,4 @@ void main() {
       },
     );
   });
-}
-
-/// Copies [from] into [to], `.dart_tool` included.
-void copyTree(Directory from, Directory to) {
-  for (final entity in from.listSync(recursive: true, followLinks: false)) {
-    final relative = p.relative(entity.path, from: from.path);
-    final target = p.join(to.path, relative);
-    if (entity is Directory) {
-      Directory(target).createSync(recursive: true);
-    } else if (entity is File) {
-      File(target).parent.createSync(recursive: true);
-      entity.copySync(target);
-    }
-  }
 }
