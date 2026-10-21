@@ -141,8 +141,7 @@ enum Level {
   bool operator <(Level other) => index < other.index;
 }
 
-/// Only its `<` is used. Its `>` is renamed in the same round as the
-/// comparisons of [Version], and the uses of those don't count for it.
+/// Only its `<` is used.
 class Ordered {
   const Ordered(this.rank);
 

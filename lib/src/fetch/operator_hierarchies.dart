@@ -107,13 +107,6 @@ final class _OperatorKind {
 
   final String name;
   final bool isUnary;
-
-  @override
-  bool operator ==(Object other) =>
-      other is _OperatorKind && other.name == name && other.isUnary == isUnary;
-
-  @override
-  int get hashCode => Object.hash(name, isUnary);
 }
 
 /// The requests that find the members of a hierarchy, with the answers that
@@ -133,25 +126,16 @@ final class _HierarchyLookup {
         (member) => _client.implementations(member.uri, member.range.start),
       );
 
-  /// The type hierarchy item of each type.
-  late final _types = CachedMap<DeclarationName, Future<TypeHierarchyItem?>>(
-    (type) => _client.declaringType(type.uri, type.range.start),
-  );
-
   /// The direct supertypes of each type.
   late final _supertypes =
       CachedMap<DeclarationName, Future<List<TypeHierarchyItem>>>(
         (type) async =>
-            await (await _types[type])?.let(_client.supertypes) ?? const [],
+            await (await _client.declaringType(
+              type.uri,
+              type.range.start,
+            ))?.let(_client.supertypes) ??
+            const [],
       );
-
-  /// The operators of a kind in the supertypes of a type. The operators of
-  /// one type share these lookups.
-  late final _overridden =
-      CachedMap<
-        ({DeclarationName type, _OperatorKind operator}),
-        Future<List<Location>>
-      >((lookup) => _overriddenIn(lookup.type, lookup.operator));
 
   /// [operator] and every member of its hierarchy, or `null` when one of them
   /// is outside the analysis root, such as `Object.==`.
@@ -165,28 +149,20 @@ final class _HierarchyLookup {
       operator.symbol.selectionRange,
     );
     final members = {start};
-    // The server lists the overrides of an override among those of the member
-    // that it overrides, so only a member reached through a supertype needs
-    // its own lookup.
-    final pending = [(member: start, listsOverrides: true)];
+    final pending = [start];
     while (pending.isNotEmpty) {
-      final (:member, :listsOverrides) = pending.removeLast();
-      // Both lookups start before either is awaited.
-      final overridesLookup = listsOverrides
-          ? _implementations[member]
-          : Future.value(const <Location>[]);
-      final overriddenLookup = _overriddenOf(member, kind);
-      final overrides = await overridesLookup;
-      for (final location in [...overrides, ...await overriddenLookup]) {
+      final member = pending.removeLast();
+      final related = await Future.wait([
+        _implementations[member],
+        _overriddenOf(member, kind),
+      ]);
+      for (final location in related.flattened) {
         final found = DeclarationName.of(location);
         if (!_isInside(found)) {
           return null;
         }
         if (members.add(found)) {
-          pending.add((
-            member: found,
-            listsOverrides: !overrides.contains(location),
-          ));
+          pending.add(found);
         }
       }
     }
@@ -201,11 +177,7 @@ final class _HierarchyLookup {
     _OperatorKind kind,
   ) async =>
       await symbolCovering(await _symbols[member.uri], member.range.start)?.let(
-        (type) =>
-            _overridden[(
-              type: .new(member.uri, type.selectionRange),
-              operator: kind,
-            )],
+        (type) => _overriddenIn(.new(member.uri, type.selectionRange), kind),
       ) ??
       const [];
 
@@ -225,7 +197,6 @@ final class _HierarchyLookup {
         if (!seen.add(supertype)) {
           continue;
         }
-        _types[supertype] = .value(item);
         pending.add(supertype);
         if (await _operatorIn(supertype, operator) case final declared?) {
           overridden.add(declared);

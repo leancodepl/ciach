@@ -17,9 +17,30 @@ import 'package:ciach/src/source/source_index.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Diagnostic, Range;
 
+/// Returns what [lookup] returns for the changes that it shows, and restores
+/// every changed file afterward.
+Future<T> withUnsavedChanges<T>(
+  LspClient client,
+  SourceIndex sources,
+  Future<T> Function(UnsavedChanges changes) lookup,
+) async {
+  final changes = UnsavedChanges._(client, sources);
+  try {
+    final result = await lookup(changes);
+    changes.show(const {});
+    // Later stages read the outlines and diagnostics of the restored files.
+    await client.waitForChangesAnalyzed();
+    return result;
+  } finally {
+    // After an exception, the content on disk is sent without waiting for its
+    // analysis.
+    changes.show(const {});
+  }
+}
+
 /// The files whose content on the server differs from the files on disk.
 final class UnsavedChanges {
-  UnsavedChanges(this._client, this._sources)
+  UnsavedChanges._(this._client, this._sources)
     : _errorsBefore = _errors(_client);
 
   final LspClient _client;
@@ -74,13 +95,6 @@ final class UnsavedChanges {
           _outsideNames(path, errors),
       ]),
     );
-  }
-
-  /// Restores every changed file, and waits until the server has analyzed
-  /// them, because later stages read their outlines and diagnostics.
-  Future<void> restore() async {
-    show(const {});
-    await _client.waitForChangesAnalyzed();
   }
 
   /// The ranges of [errors] in [path] that are not at a declaration's name.

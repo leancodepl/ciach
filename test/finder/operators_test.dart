@@ -169,30 +169,6 @@ void main() {
   }
 
   test(
-    'reports an unused `<` that shares a round with a used `[]` that returns `bool`',
-    () async {
-      expect(
-        await findUnusedIn(
-          library: '''
-class Flags {
-  const Flags();
-
-  bool operator [](int index) => index > 0;
-  bool operator <(Flags other) => false;
-}
-''',
-          main: '''
-import 'package:ops/ops.dart';
-
-void main() => print(const Flags()[1]);
-''',
-        ),
-        {'Flags.<'},
-      );
-    },
-  );
-
-  test(
     'checks an operator whose name follows the `operator` keyword on the next line or after a comment',
     () async {
       // `dart format` would join the lines, so the fixture is written here.

@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/fetch/implicit_calls.dart';
 import 'package:ciach/src/fetch/operator_uses.dart';
-import 'package:ciach/src/fetch/unsaved_changes.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
@@ -22,9 +21,6 @@ import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 final _log = Logger('ciach.finder');
 
 const _uncheckedDeclaration = 'Could not find references; kept.';
-
-const _implicitUsesUnchecked =
-    'Could not restore the files after looking up the uses of `call` methods and operators; kept them all.';
 
 const _noSemanticTokens =
     'Could not read comments and annotations; findings may be missed.';
@@ -97,7 +93,21 @@ final class ReferenceFetch {
     List<List<Location>> refs, {
     required String analysisRoot,
   }) async {
-    final usesOf = await _implicitUses(client, candidates, analysisRoot);
+    final usesOf = {
+      ...?await findImplicitCalls(
+        client: client,
+        sources: _sources,
+        calls: candidates.where((c) => c.symbol.isCallMethod).toList(),
+        concurrency: options.concurrency,
+      ),
+      ...?await findOperatorUses(
+        client: client,
+        sources: _sources,
+        operators: candidates.where((c) => c.symbol.isOperator).toList(),
+        analysisRoot: analysisRoot,
+        concurrency: options.concurrency,
+      ),
+    };
     // Each lookup has a key for every candidate that it checked.
     final checked = [
       for (final (i, candidate) in candidates.indexed)
@@ -111,54 +121,6 @@ final class ReferenceFetch {
       checked: [for (final (candidate, _) in checked) candidate],
       refs: [for (final (_, candidateRefs) in checked) candidateRefs],
     );
-  }
-
-  /// The uses of the `call` methods and operators among [candidates] that
-  /// the reference query misses, by candidate. A candidate that wasn't checked
-  /// has no key.
-  Future<Map<Candidate, List<Location>>> _implicitUses(
-    LspClient client,
-    List<Candidate> candidates,
-    String analysisRoot,
-  ) async {
-    final calls = candidates.where((c) => c.symbol.isCallMethod).toList();
-    final operators = candidates.where((c) => c.symbol.isOperator).toList();
-    if (calls.isEmpty && operators.isEmpty) {
-      return const {};
-    }
-    // The operator lookup asks about positions in the files on disk, so it
-    // plans its rounds before the call lookup changes them.
-    final operatorLookup = await OperatorLookup.plan(
-      client: client,
-      sources: _sources,
-      operators: operators,
-      analysisRoot: analysisRoot,
-      concurrency: options.concurrency,
-    );
-    final changes = UnsavedChanges(client, _sources);
-    try {
-      final callUses = await findImplicitCalls(
-        client: client,
-        sources: _sources,
-        changes: changes,
-        calls: calls,
-        concurrency: options.concurrency,
-      );
-      final operatorUses = await operatorLookup?.usesIn(changes);
-      await changes.restore();
-      return {...?callUses, ...?operatorUses};
-    } on LspRequestException catch (e) {
-      recordProblem(
-        _implicitUsesUnchecked,
-        e,
-        path: [...calls, ...operators].first.path,
-      );
-      return const {};
-    } finally {
-      // After an exception, the content on disk is sent without waiting for
-      // its analysis.
-      changes.show(const {});
-    }
   }
 
   Future<List<Location>?> _referencesOf(

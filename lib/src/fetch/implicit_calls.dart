@@ -43,12 +43,10 @@ const _lookupFailed =
 
 /// The uses of each of [calls] that the server reports no reference for, by
 /// candidate, or `null` when a request to the server failed, so that the uses
-/// are unknown. The files stay changed in [changes] until the caller restores
-/// them.
+/// are unknown.
 Future<Map<Candidate, List<Location>>?> findImplicitCalls({
   required LspClient client,
   required SourceIndex sources,
-  required UnsavedChanges changes,
   required List<Candidate> calls,
   required int concurrency,
 }) async {
@@ -59,46 +57,49 @@ Future<Map<Candidate, List<Location>>?> findImplicitCalls({
     'Looking up the implicit uses of ${plural(calls.length, '`call` method', '`call` methods')}…',
   );
   try {
-    changes.show({
-      for (final MapEntry(key: path, value: inFile)
-          in calls.groupListsBy((call) => call.path).entries)
-        path: _withCallsRenamed(sources, path, inFile),
-    });
-    final usesByPath = await changes.newErrors();
+    return await withUnsavedChanges(client, sources, (changes) async {
+      changes.show({
+        for (final MapEntry(key: path, value: inFile)
+            in calls.groupListsBy((call) => call.path).entries)
+          path: _withCallsRenamed(sources, path, inFile),
+      });
+      final usesByPath = await changes.newErrors();
 
-    // Each use becomes `(expression).call`, and the renamed methods get their
-    // names back.
-    final rewritten = {
-      for (final MapEntry(key: path, value: uses) in usesByPath.entries)
-        if (uses.isNotEmpty) path: _RewrittenFile.of(sources, path, uses),
-    };
-    changes.show({
-      for (final MapEntry(key: path, value: file) in rewritten.entries)
-        path: file.text,
+      // Each use becomes `(expression).call`, and the renamed methods get their
+      // names back.
+      final rewritten = {
+        for (final MapEntry(key: path, value: uses) in usesByPath.entries)
+          if (uses.isNotEmpty) path: _RewrittenFile.of(sources, path, uses),
+      };
+      changes.show({
+        for (final MapEntry(key: path, value: file) in rewritten.entries)
+          path: file.text,
+      });
+      final wrappedUses = [
+        for (final file in rewritten.values) ...file.wrappedUses,
+      ];
+      // Unlike `definitionsOrEmpty`, a failed lookup fails the whole step:
+      // reading it as no use would report a `call` method that is used.
+      final methodsOf = Map.fromIterables(
+        wrappedUses,
+        await mapPooled(wrappedUses, concurrency, (wrapped) async {
+          final methods = await client.definition(wrapped.uri, wrapped.call);
+          return [
+            for (final method in methods)
+              _inOriginal(method, rewritten, sources),
+          ];
+        }),
+      );
+      return {
+        for (final call in calls)
+          call: [
+            for (final MapEntry(key: wrapped, value: methods)
+                in methodsOf.entries)
+              if (methods.any(call.isNamedAt))
+                .new(uri: wrapped.uri.toString(), range: wrapped.use),
+          ],
+      };
     });
-    final wrappedUses = [
-      for (final file in rewritten.values) ...file.wrappedUses,
-    ];
-    // Unlike `definitionsOrEmpty`, a failed lookup fails the whole step:
-    // reading it as no use would report a `call` method that is used.
-    final methodsOf = Map.fromIterables(
-      wrappedUses,
-      await mapPooled(wrappedUses, concurrency, (wrapped) async {
-        final methods = await client.definition(wrapped.uri, wrapped.call);
-        return [
-          for (final method in methods) _inOriginal(method, rewritten, sources),
-        ];
-      }),
-    );
-    return {
-      for (final call in calls)
-        call: [
-          for (final MapEntry(key: wrapped, value: methods)
-              in methodsOf.entries)
-            if (methods.any(call.isNamedAt))
-              .new(uri: wrapped.uri.toString(), range: wrapped.use),
-        ],
-    };
   } on LspRequestException catch (e) {
     recordProblem(_lookupFailed, e, path: calls.first.path);
     return null;

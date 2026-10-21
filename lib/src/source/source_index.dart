@@ -14,7 +14,6 @@ import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/line_starts.dart';
 import 'package:ciach/src/util/cached_map.dart';
-import 'package:ciach/src/util/extensions.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position, Range, SelectionRange;
 
 /// Per-file view of the source under analysis: its lines, content and line
@@ -123,13 +122,6 @@ class SourceIndex {
         (final start?, final end?) => (start: start, end: end),
         _ => null,
       };
-
-  /// The text of [range] in [path]'s content, or `null` if it is out of
-  /// range.
-  String? textOf(String path, Range range) => offsetsOf(
-    path,
-    range,
-  )?.let((offsets) => content(path).substring(offsets.start, offsets.end));
 
   /// [path]'s content with the text at each offset of [replacements] replaced
   /// by text of the same length, so that every position stays the same.

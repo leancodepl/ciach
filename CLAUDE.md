@@ -334,8 +334,11 @@ explicit null check.
   (copying only the lists that change instead of all of them), a stored copy
   of a value that you can compute, a field that only carries state from one
   method to another, a value built twice, a one-field JSON object, an unused
-  style or variant, or a factory left over from a refactor. Before wrapping a
-  library call or its exception, check what the exception already carries.
+  style or variant, or a factory left over from a refactor. A measured speedup
+  still has to pay for its code: rounds that several operators shared saved
+  3 s of 30 on `xml`, which didn't justify 50 lines and a second way to tell
+  which operator an error belongs to. Before wrapping a library call or its
+  exception, check what the exception already carries.
 - Don't put one caller's special case into a general function's result, such
   as a `null` placeholder in a list; handle it in that caller.
 - When a later step adds to data that an earlier step combined, such as the
