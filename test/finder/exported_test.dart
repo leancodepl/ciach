@@ -53,8 +53,9 @@ void cliHelper() {}''');
 import 'types.dart';
 
 // Each hands out the type it names: as a return type, a callback parameter,
-// a type argument, a supertype, an inferred type, and a wrapper. Config and
-// Retry are reached through Client's getters, Carried through Carrier's.
+// a type argument, a supertype, an inferred type, a wrapper, a type alias and
+// a function type alias. Config and Retry are reached through Client's
+// getters, Carried through Carrier's.
 Client createClient() => Client();
 void listen(void Function(Callback) f) {}
 Future<List<Generic>> generics() async => [];
@@ -62,6 +63,8 @@ class Exported extends Base {}
 final inferred = Inferred();
 Carrier makeCarrier() => Carrier();
 Wrapper makeWrapper() => Wrapper(1);
+typedef Aliased = AliasTarget;
+typedef AliasCallback = void Function(AliasArg arg);
 
 // Untyped signatures hand out whatever the body builds.
 dynamic makeDynamic() => DynamicOnly();
@@ -152,6 +155,14 @@ extension type Wrapper(int value) {
   void wrapperDead() {}
 }
 
+class AliasTarget {
+  void aliasTargetDead() {}
+}
+
+class AliasArg {
+  void aliasArgDead() {}
+}
+
 class DocOnly {
   void docOnlyDead() {}
 }
@@ -239,6 +250,8 @@ void main() => Helper().used();
       'inferred',
       'makeCarrier',
       'makeWrapper',
+      'Aliased',
+      'AliasCallback',
       'makeDynamic',
       'untypedReturn',
       'makeFunction',
@@ -262,6 +275,8 @@ void main() => Helper().used();
       'Carrier.carried',
       'Carried.carriedDead',
       'Wrapper.wrapperDead',
+      'AliasTarget.aliasTargetDead',
+      'AliasArg.aliasArgDead',
     });
   });
 

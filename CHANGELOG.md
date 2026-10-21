@@ -1,3 +1,10 @@
+## Unreleased
+
+- Report unused typedefs under a new `typedef` kind, which `--kinds` accepts.
+  Before, an unused `typedef A = B;` was never reported and kept `B` from
+  being reported, and an unused function typedef was reported as a `class`.
+  ([#167](https://github.com/leancodepl/ciach/pull/167))
+
 ## 0.7.1
 
 - Restructure the README.

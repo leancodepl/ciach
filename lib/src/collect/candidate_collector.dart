@@ -269,6 +269,7 @@ final class CandidateCollector {
         parentIsEnum: candidate.isEnumValue,
         isExtensionType: candidate.isExtensionType,
         isMixin: candidate.isMixin,
+        isTypeAlias: candidate.isTypeAlias,
       ),
     )) {
       return false;

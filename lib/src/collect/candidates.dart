@@ -83,6 +83,13 @@ final class Candidate {
 
   bool get isMixin => outline.element.kind == .mixin;
 
+  /// `typedef Name = Type;` or a function type alias. A mixin application
+  /// class (`class C = B with M;`) is a class, not a type alias.
+  bool get isTypeAlias => const <OutlineKind>{
+    .typeAlias,
+    .functionTypeAlias,
+  }.contains(outline.element.kind);
+
   bool get isExtensionMember => containerSymbol?.kind == .namespace;
 
   bool get isInUnnamedExtension =>
