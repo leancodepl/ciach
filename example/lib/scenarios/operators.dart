@@ -234,12 +234,13 @@ class Both extends Left implements Right {
   Left operator +(Left other) => this;
 }
 
-/// Only `GoldRing` in operators_ring.dart overrides `~`, and code uses `~`
-/// only through `GoldRing`. No test scans that file.
-abstract class Ring {
-  const Ring();
+/// Only `UnscannedOverride` in operators_unscanned_override.dart overrides
+/// `~`, and code uses `~` only through `UnscannedOverride`. No test scans that
+/// file.
+abstract class OverriddenElsewhere {
+  const OverriddenElsewhere();
 
-  Ring operator ~();
+  OverriddenElsewhere operator ~();
 }
 
 /// Its `==` is never reported, even with `--also overrides`: the SDK calls it

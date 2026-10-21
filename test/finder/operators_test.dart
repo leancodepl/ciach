@@ -276,6 +276,39 @@ void main() => print([const B() + const A(), const C()]);
     },
   );
 
+  test(
+    "with `--also overrides`, never reports an operator that overrides one from the SDK through a class that doesn't declare it",
+    () async {
+      expect(
+        await findUnusedIn(
+          library: '''
+import 'dart:collection';
+
+abstract class Middle extends ListBase<int> {}
+
+class Leaf extends Middle {
+  @override
+  int length = 0;
+
+  @override
+  int operator [](int index) => index;
+
+  @override
+  void operator []=(int index, int value) {}
+}
+''',
+          main: '''
+import 'package:ops/ops.dart';
+
+void main() => print(Leaf().length);
+''',
+          skipOverrides: false,
+        ),
+        isEmpty,
+      );
+    },
+  );
+
   /// `Public` is in the package's API, `_Private` is private, and `Hidden` is
   /// in a file that the package doesn't export. Each has an unused `+` and an
   /// unused method.

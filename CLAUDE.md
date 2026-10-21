@@ -395,7 +395,10 @@ explicit null check.
 - One test pins each default; other tests and group names don't restate it.
 - Put each case under the test that names it. Keep a mechanism's fixtures
   together under `example/lib/scenarios/`, named after the mechanism, so that
-  `example/` covers every kind that ciach reports. When a change forces an edit
+  `example/` covers every kind that ciach reports. Name each fixture file and
+  its classes after the case that they cover, such as
+  `operators_unscanned_override.dart`, not after a made-up example such as
+  `operators_ring.dart` with a class `Ring`. When a change forces an edit
   to an unrelated fixture, add a comment there that says why.
 - Test your own code, not the behavior of a library that it calls.
 - Test a function by calling it and checking its result, in the test file

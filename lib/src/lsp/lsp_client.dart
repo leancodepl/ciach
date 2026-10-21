@@ -608,12 +608,13 @@ class LspClient {
   /// mixins and the `on` types of a mixin.
   Future<List<lsp.TypeHierarchyItem>> supertypes(
     lsp.TypeHierarchyItem type,
-  ) async =>
-      await _guard<List<lsp.TypeHierarchyItem>?>(
-        lsp.RequestMethod.supertypes.value,
-        () => _client.server.typeHierarchy.supertypes(.new(item: type)),
-      ) ??
-      const [];
+  ) async {
+    final result = await _guard(
+      lsp.RequestMethod.supertypes.value,
+      () => _client.server.typeHierarchy.supertypes(.new(item: type)),
+    );
+    return result ?? const [];
+  }
 
   /// The syntax nodes enclosing each of [positions] in [uri], innermost first.
   /// `null` where the server has no answer.
