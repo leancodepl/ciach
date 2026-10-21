@@ -426,6 +426,19 @@ class LspClient {
     );
   }
 
+  /// Closes every open document, and returns their URIs. The server still
+  /// analyzes them and publishes their diagnostics.
+  List<Uri> closeAll() {
+    final uris = [for (final key in _versions.keys) Uri.parse(key)];
+    for (final uri in uris) {
+      _client.server.textDocument.didClose(
+        .new(textDocument: .new(uri: uri.toString())),
+      );
+    }
+    _versions.clear();
+    return uris;
+  }
+
   /// Opens [uri] with [text], unless it is open already.
   void ensureOpen(Uri uri, String text) {
     if (!_versions.containsKey(uri.toString())) {

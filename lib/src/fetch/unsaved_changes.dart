@@ -24,18 +24,23 @@ Future<T> withUnsavedChanges<T>(
   SourceIndex sources,
   Future<T> Function(UnsavedChanges changes) lookup,
 ) async {
+  // The server analyzes a change about three times faster while the files
+  // are closed.
+  final closed = client.closeAll();
   final changes = UnsavedChanges._(client, sources);
+  final T result;
   try {
-    final result = await lookup(changes);
-    changes.show(const {});
-    // Later stages read the outlines and diagnostics of the restored files.
-    await client.waitForChangesAnalyzed();
-    return result;
+    result = await lookup(changes);
   } finally {
-    // After an exception, the content on disk is sent without waiting for its
-    // analysis.
     changes.show(const {});
+    for (final uri in closed) {
+      client.ensureOpen(uri, sources.content(uri.toFilePath()));
+    }
   }
+  // Later stages read the outlines and diagnostics of the restored files.
+  // After an exception, they are restored without this wait.
+  await client.waitForChangesAnalyzed();
+  return result;
 }
 
 /// The files whose content on the server differs from the files on disk.
