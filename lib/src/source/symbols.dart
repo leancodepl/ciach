@@ -202,7 +202,7 @@ T? lastCovering<T>(
   position,
   (item) => rangeOf(item).start,
 )) {
-  final item? when rangeOf(item).contains(position) => item,
+  final item? when position.atOrBefore(rangeOf(item).end) => item,
   _ => null,
 };
 
