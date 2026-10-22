@@ -1,9 +1,9 @@
 /// Site-wide constants: where the site lives, where it links to, and how it
-/// describes itself to `leancode_site`.
+/// describes itself to `leancode_jaspr_ds`.
 library;
 
 import 'package:ciach_website/components/icons.dart';
-import 'package:leancode_site/leancode_site.dart';
+import 'package:leancode_jaspr_ds/leancode_jaspr_ds.dart';
 
 /// Public URL of the deployed site. Preview deployments override it with
 /// `--dart-define=SITE_URL=https://…` at build time.
@@ -27,7 +27,7 @@ const readmeUrl = '$repoUrl#readme';
 
 const installCommand = 'dart install ciach';
 
-/// The site as `leancode_site` sees it, at [version].
+/// The site as `leancode_jaspr_ds` sees it, at [version].
 SiteConfig siteConfig(String version) => .new(
   name: siteName,
   tagline: tagline,

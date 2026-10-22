@@ -12,10 +12,10 @@ dependencies:
   jaspr_content: ^0.5.4
   jaspr_router: ^0.9.0
   # The design system package, pinned to a commit of its repository.
-  leancode_site:
+  leancode_jaspr_ds:
     git:
       url: https://github.com/leancodepl/leancode-jaspr-ds
-      ref: 23c1b2ff5f8ee9ea24343505d2cdb2db2a24db56
+      ref: 8dddca37f8f637241fd896995a9dbd97ecd7c075
 
 dev_dependencies:
   build_runner: ^2.10.0

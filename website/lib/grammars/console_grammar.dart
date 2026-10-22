@@ -3,7 +3,7 @@
 /// GitHub Actions workflow commands and `-v` timestamps.
 library;
 
-import 'package:leancode_site/leancode_site.dart';
+import 'package:leancode_jaspr_ds/leancode_jaspr_ds.dart';
 
 /// ciach's own terminal output, with shell prompts.
 const console = Language('console', grammar: kConsoleGrammar, isConsole: true);

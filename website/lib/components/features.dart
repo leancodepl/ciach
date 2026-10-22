@@ -1,5 +1,5 @@
 import 'package:jaspr/jaspr.dart';
-import 'package:leancode_site/leancode_site.dart';
+import 'package:leancode_jaspr_ds/leancode_jaspr_ds.dart';
 
 const _features = [
   Feature(

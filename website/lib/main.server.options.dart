@@ -10,25 +10,28 @@ import 'package:ciach_website/components/hero.dart' as _hero;
 import 'package:ciach_website/components/icons.dart' as _icons;
 import 'package:ciach_website/components/upstream_bugs.dart' as _upstream_bugs;
 import 'package:ciach_website/content/docs_layout.dart' as _docs_layout;
-import 'package:leancode_site/src/components/button.dart' as _button;
-import 'package:leancode_site/src/components/card.dart' as _card;
-import 'package:leancode_site/src/components/code_block.dart' as _code_block;
-import 'package:leancode_site/src/components/copy_button.dart' as _copy_button;
-import 'package:leancode_site/src/components/demo_trigger.dart'
+import 'package:leancode_jaspr_ds/src/components/button.dart' as _button;
+import 'package:leancode_jaspr_ds/src/components/card.dart' as _card;
+import 'package:leancode_jaspr_ds/src/components/code_block.dart'
+    as _code_block;
+import 'package:leancode_jaspr_ds/src/components/copy_button.dart'
+    as _copy_button;
+import 'package:leancode_jaspr_ds/src/components/demo_trigger.dart'
     as _demo_trigger;
-import 'package:leancode_site/src/components/docs_table.dart' as _docs_table;
-import 'package:leancode_site/src/components/docs_toc.dart' as _docs_toc;
-import 'package:leancode_site/src/components/faq.dart' as _faq;
-import 'package:leancode_site/src/components/feature_grid.dart'
+import 'package:leancode_jaspr_ds/src/components/docs_table.dart'
+    as _docs_table;
+import 'package:leancode_jaspr_ds/src/components/docs_toc.dart' as _docs_toc;
+import 'package:leancode_jaspr_ds/src/components/faq.dart' as _faq;
+import 'package:leancode_jaspr_ds/src/components/feature_grid.dart'
     as _feature_grid;
-import 'package:leancode_site/src/components/footer.dart' as _footer;
-import 'package:leancode_site/src/components/hero.dart' as _components_hero;
-import 'package:leancode_site/src/components/nav_bar.dart' as _nav_bar;
-import 'package:leancode_site/src/components/pill.dart' as _pill;
-import 'package:leancode_site/src/components/section.dart' as _section;
-import 'package:leancode_site/src/components/shell.dart' as _shell;
-import 'package:leancode_site/src/components/tabs.dart' as _tabs;
-import 'package:leancode_site/src/styles.dart' as _styles;
+import 'package:leancode_jaspr_ds/src/components/footer.dart' as _footer;
+import 'package:leancode_jaspr_ds/src/components/hero.dart' as _components_hero;
+import 'package:leancode_jaspr_ds/src/components/nav_bar.dart' as _nav_bar;
+import 'package:leancode_jaspr_ds/src/components/pill.dart' as _pill;
+import 'package:leancode_jaspr_ds/src/components/section.dart' as _section;
+import 'package:leancode_jaspr_ds/src/components/shell.dart' as _shell;
+import 'package:leancode_jaspr_ds/src/components/tabs.dart' as _tabs;
+import 'package:leancode_jaspr_ds/src/styles.dart' as _styles;
 
 /// Default [ServerOptions] for use with your Jaspr project.
 ///
@@ -50,15 +53,15 @@ ServerOptions get defaultServerOptions => ServerOptions(
   clientId: 'main.client.dart.js',
   clients: {
     _copy_button.CopyButton: ClientTarget<_copy_button.CopyButton>(
-      'leancode_site:copy_button',
+      'leancode_jaspr_ds:copy_button',
       params: __copy_buttonCopyButton,
     ),
     _demo_trigger.DemoTrigger: ClientTarget<_demo_trigger.DemoTrigger>(
-      'leancode_site:demo_trigger',
+      'leancode_jaspr_ds:demo_trigger',
       params: __demo_triggerDemoTrigger,
     ),
     _docs_toc.DocsToc: ClientTarget<_docs_toc.DocsToc>(
-      'leancode_site:docs_toc',
+      'leancode_jaspr_ds:docs_toc',
       params: __docs_tocDocsToc,
     ),
   },

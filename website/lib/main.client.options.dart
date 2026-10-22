@@ -6,13 +6,13 @@
 
 import 'package:jaspr/client.dart';
 
-import 'package:leancode_site/src/components/copy_button.dart'
+import 'package:leancode_jaspr_ds/src/components/copy_button.dart'
     deferred as _copy_button;
-import 'package:leancode_site/src/components/demo_trigger.dart'
+import 'package:leancode_jaspr_ds/src/components/demo_trigger.dart'
     deferred as _demo_trigger;
-import 'package:leancode_site/src/components/docs_toc.dart'
+import 'package:leancode_jaspr_ds/src/components/docs_toc.dart'
     deferred as _docs_toc;
-import 'package:leancode_site/src/icons.dart' as _icons;
+import 'package:leancode_jaspr_ds/src/icons.dart' as _icons;
 
 /// Default [ClientOptions] for use with your Jaspr project.
 ///
@@ -32,7 +32,7 @@ import 'package:leancode_site/src/icons.dart' as _icons;
 /// ```
 ClientOptions get defaultClientOptions => ClientOptions(
   clients: {
-    'leancode_site:copy_button': ClientLoader(
+    'leancode_jaspr_ds:copy_button': ClientLoader(
       (p) => _copy_button.CopyButton(
         text: p.get<String>('text'),
         label: p.get<String?>('label'),
@@ -41,11 +41,11 @@ ClientOptions get defaultClientOptions => ClientOptions(
       ),
       loader: _copy_button.loadLibrary,
     ),
-    'leancode_site:demo_trigger': ClientLoader(
+    'leancode_jaspr_ds:demo_trigger': ClientLoader(
       (p) => _demo_trigger.DemoTrigger(targetId: p.get<String>('targetId')),
       loader: _demo_trigger.loadLibrary,
     ),
-    'leancode_site:docs_toc': ClientLoader(
+    'leancode_jaspr_ds:docs_toc': ClientLoader(
       (p) => _docs_toc.DocsToc(
         path: p.get<String>('path'),
         ids: p.get<List<Object?>>('ids').cast<String>(),

@@ -7,7 +7,7 @@ import 'package:collection/collection.dart';
 import 'package:jaspr/server.dart';
 import 'package:jaspr_content/jaspr_content.dart' hide DocsLayout;
 import 'package:jaspr_router/jaspr_router.dart';
-import 'package:leancode_site/leancode_site.dart';
+import 'package:leancode_jaspr_ds/leancode_jaspr_ds.dart';
 
 /// The site: a lean landing page, and the pages under `content/`, which
 /// `jaspr_content` renders from Markdown in [DocsLayout], one section per

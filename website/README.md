@@ -2,7 +2,7 @@
 
 The [ciach](https://pub.dev/packages/ciach) landing page, a static
 [Jaspr](https://jaspr.site) site built on
-[leancode_site](https://github.com/leancodepl/leancode-jaspr-ds), the design
+[leancode_jaspr_ds](https://github.com/leancodepl/leancode-jaspr-ds), the design
 system package that holds the palette, the base styles, the fonts and the
 shared components, pinned to a commit in `pubspec.yaml`. It uses Jaspr from
 the commit on the `next` branch that `dependency_overrides` there names, the
