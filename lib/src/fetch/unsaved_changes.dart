@@ -75,10 +75,8 @@ final class UnsavedChanges {
     }
   }
 
-  /// Returns the ranges of the new errors, by file, once the server has
-  /// analyzed the changes. An error at a declaration's name, such as a class
-  /// that no longer implements its interface, isn't a use, so it is left
-  /// out.
+  /// Returns the ranges of the new errors that mark uses, by file, once the
+  /// server has analyzed the changes.
   Future<Map<String, Set<Range>>> newErrors() async {
     await _client.waitForChangesAnalyzed();
     final newErrorsByPath = {
@@ -97,14 +95,15 @@ final class UnsavedChanges {
       await Future.wait([
         for (final MapEntry(key: path, value: errors)
             in newErrorsByPath.entries)
-          _outsideNames(path, errors),
+          _rangesOfUses(path, errors),
       ]),
     );
   }
 
-  /// Returns the ranges of [errors] in [path] that aren't at a declaration's
-  /// name.
-  Future<Set<Range>> _outsideNames(String path, Set<Diagnostic> errors) async {
+  /// Returns the ranges of [errors] in [path] that mark uses. An error at a
+  /// declaration's name isn't a use: it comes from the declaration itself,
+  /// such as a class that no longer implements its interface.
+  Future<Set<Range>> _rangesOfUses(String path, Set<Diagnostic> errors) async {
     final names = {
       for (final outline in (await _client.outline(File(path).uri)).descendants)
         ?outline.element.range,
