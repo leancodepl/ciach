@@ -56,7 +56,9 @@ final class UnsavedChanges {
   /// starts a new analysis of everything that imports it.
   final _changed = <String>{};
 
-  /// Sends [texts], by path, and restores every other changed file.
+  /// Sends [texts], the new content of files by path, to the server. A file
+  /// that an earlier call changed and [texts] leaves out gets its content on
+  /// disk back.
   void show(Map<String, String> texts) {
     for (final path in _changed.difference(texts.keys.toSet())) {
       _change(path, _sources.content(path));
