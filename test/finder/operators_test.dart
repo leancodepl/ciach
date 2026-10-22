@@ -22,8 +22,8 @@ void main() {
     p.join(fixturePath, 'lib/scenarios/operators.dart'),
   ).readAsLinesSync();
 
-  /// The finding for the declaration on the only line of the fixture that
-  /// contains [code], within the declaration of [container] when it is given.
+  /// Returns the finding for the only fixture line that contains [code],
+  /// searched within [container] when it is given.
   ({String name, int line}) declaredAt(
     String name,
     String code, {
@@ -141,9 +141,8 @@ void main() {
     },
   );
 
-  /// The names of the declarations that a scan of a package reports, with
-  /// [library] as `lib/ops.dart`, [main] as `bin/main.dart` and the other
-  /// [files] by their paths.
+  /// Returns the names that a scan reports in a package made of [library]
+  /// in `lib/ops.dart`, [main] in `bin/main.dart` and [files] by path.
   Future<Set<String>> findUnusedIn({
     required String library,
     required String main,

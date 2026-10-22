@@ -4,16 +4,11 @@
  *   harness: Claude Code
  */
 
-/// Finds the uses of operators: `a + b`, `-a`, `a[i]`, `a[i] = v`, `a += b`
-/// and the relational patterns `case < 0` and `case >= 10`.
+/// Finds the uses of operators, such as `a + b`, `a[i]` and `case < 0`.
 ///
-/// The reference search misses them. It finds a use of an operator only in
-/// the library that declares it, it finds no relational pattern at all, and
-/// for an override such as `==`, it lists the uses of every member that the
-/// operator overrides, also those in the SDK. But the server reports a compile
-/// error at each use once the operator is gone. So the operator and every
-/// member of its override hierarchy are renamed in unsaved copies of their
-/// files, and every new error is a use.
+/// The reference search misses most of them. So each operator is renamed in
+/// unsaved copies of the files, together with the operators that it overrides
+/// and that override it. Every compile error that this causes is a use.
 library;
 
 import 'dart:io';
@@ -34,23 +29,16 @@ final _log = Logger('ciach.operator_uses');
 
 const _lookupFailed = 'Could not look up the uses of operators; kept them all.';
 
-/// The name that replaces the `operator` keyword. It has the length of the
-/// keyword, and spaces replace the operator's name, so that every position
-/// stays the same. Every member of a hierarchy gets this name, so each still
-/// overrides the others.
+/// Replaces the `operator` keyword. It has the same length, so no position
+/// moves. All members of a hierarchy get this name, so they still override
+/// each other.
 const _newName = r'o$$$$$$$';
 
-/// The uses of each of [operators] that ciach can check, by candidate, or
-/// `null` when a request to the server failed, so that the uses are unknown.
-/// A use of any member of an operator's override hierarchy counts for each
-/// member, as the reference search counts a call of a method through a
-/// subclass.
+/// Returns the uses of each of [operators], or `null` when a request fails.
 ///
-/// An operator is left out when its hierarchy has a member outside
-/// [analysisRoot], such as `Object.==`, because the uses of that member can't
-/// be found and the SDK calls `==` without any code that names it. It is left
-/// out too when the server sends no `operator` keyword before the name of a
-/// member.
+/// A use counts for every operator in the same hierarchy. An operator is left
+/// out when its hierarchy reaches outside [analysisRoot], as `Object.==` does,
+/// because the uses there can't be found.
 Future<Map<Candidate, List<Location>>?> findOperatorUses({
   required LspClient client,
   required SourceIndex sources,
@@ -75,9 +63,8 @@ Future<Map<Candidate, List<Location>>?> findOperatorUses({
       for (final hierarchy in hierarchies)
         hierarchy: ?await _renamed(client, sources, hierarchy.members),
     };
-    // Each hierarchy is renamed in a round of its own: after `a + b` fails,
-    // the server doesn't know the type of the expression, so it reports no
-    // error at the `*` of `(a + b) * c`.
+    // Each hierarchy gets its own round: once `a + b` is an error, the server
+    // reports no error at the `*` of `(a + b) * c`.
     return await withUnsavedChanges(client, sources, (changes) async {
       final usesOf = <Candidate, List<Location>>{};
       for (final (i, MapEntry(key: hierarchy, value: renamed))
@@ -102,10 +89,9 @@ Future<Map<Candidate, List<Location>>?> findOperatorUses({
   }
 }
 
-/// The content of each file that declares one of [members], with the
-/// `operator` keyword of each member replaced by [_newName] and its name by
-/// spaces, or `null` when the token before a member's name, apart from
-/// comments, is not the `operator` keyword.
+/// Returns the content of the files that declare [members], with each
+/// `operator` keyword replaced by [_newName] and each name by spaces. Returns
+/// `null` when a name doesn't follow an `operator` keyword.
 Future<Map<String, String>?> _renamed(
   LspClient client,
   SourceIndex sources,

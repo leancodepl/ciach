@@ -131,7 +131,10 @@ easy-to-follow sentences, not how it works inside.
 
 A function's doc comment starts with what the function does or returns
 ("Returns …"), says what a parameter holds when that isn't obvious, and gives
-an example when a term is abstract. Keep it about as short as the doc comments
+an example when a term is abstract. Write a comment that a reader new to the
+code understands on the first reading: one idea per sentence, and no chain of
+clauses such as "or `null` when the token before a member's name, apart from
+comments, is not the `operator` keyword". Keep it about as short as the doc comments
 of its neighbors. Leave the evidence for a claim, such as the SDK
 code that you read or how many runs you checked, to the pull request and the
 review reply. Don't add doc comments that the member's siblings lack or

@@ -4,9 +4,8 @@
  *   harness: Claude Code
  */
 
-/// Collects the override hierarchy of each operator: the operator, every
-/// operator that overrides it and every operator that it overrides, also
-/// through a second supertype, as in `class C implements A, B`.
+/// Collects the override hierarchy of each operator: the operator, the
+/// operators that it overrides and the operators that override it.
 library;
 
 import 'dart:io';
@@ -22,8 +21,8 @@ import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart'
     show DocumentSymbol, Location, Range, TypeHierarchyItem;
 
-/// A declaration, by its file and the range of its name: `+` in
-/// `operator +`, or `Vector` in `class Vector`.
+/// A declaration, by its file and the range of its name, such as `+` in
+/// `operator +`.
 final class DeclarationName {
   const DeclarationName(this.uri, this.range);
 
@@ -38,7 +37,7 @@ final class DeclarationName {
 
   final Range range;
 
-  /// The absolute path of the file, which has a `file:` URI.
+  /// The absolute path of a file that has a `file:` URI.
   String get path => uri.toFilePath();
 
   @override
@@ -49,21 +48,21 @@ final class DeclarationName {
   int get hashCode => Object.hash(uri, range);
 }
 
-/// The operators of an override hierarchy, and the candidates among them.
+/// The operators of one override hierarchy, and the candidates among them.
 final class OperatorHierarchy {
   OperatorHierarchy(this.members, this.operators);
 
   final Set<DeclarationName> members;
   final List<Candidate> operators;
 
-  /// The name of every member: `+`, `[]=` or `>=`.
+  /// The name that every member has, such as `+` or `[]=`.
   String get name => operators.first.symbol.name;
 }
 
-/// The override hierarchies of [operators] whose members are all inside
-/// [analysisRoot]. Two operators in one hierarchy share it.
+/// Returns the override hierarchies of [operators] that lie inside
+/// [analysisRoot]. Operators of one hierarchy share it.
 ///
-/// `==` is always left out: every `==` overrides `Object.==`.
+/// `==` is always left out, because every `==` overrides `Object.==`.
 Future<List<OperatorHierarchy>> operatorHierarchies(
   LspClient client,
   List<Candidate> operators, {
@@ -71,8 +70,7 @@ Future<List<OperatorHierarchy>> operatorHierarchies(
   required int concurrency,
 }) async {
   final lookup = _HierarchyLookup(client, analysisRoot);
-  // The lookup of an `==` would reach `Object.==` and leave it out too, after
-  // requests for its overrides and supertypes.
+  // Skipping `==` here saves the requests that would only reach `Object.==`.
   final lookedUp = operators.where((o) => o.symbol.name != '==').toList();
   final membersOf = await mapPooled(lookedUp, concurrency, lookup.membersOf);
   var hierarchies = <OperatorHierarchy>[];
@@ -80,9 +78,8 @@ Future<List<OperatorHierarchy>> operatorHierarchies(
     if (members == null) {
       continue;
     }
-    // Two lookups in one hierarchy can stop at different members, such as
-    // when the server lists an override for one member and not for another,
-    // so the hierarchies that share a member are merged.
+    // The lookups of two operators in one hierarchy can return different
+    // members, so hierarchies that share a member are merged.
     final overlapping = hierarchies
         .where((hierarchy) => hierarchy.members.any(members.contains))
         .toList();
@@ -100,8 +97,8 @@ Future<List<OperatorHierarchy>> operatorHierarchies(
   return hierarchies;
 }
 
-/// An operator's name and whether it is unary: a class can declare both
-/// `-()` and `-(other)`.
+/// An operator's name and whether it is unary, because a class can declare
+/// both `-()` and `-(other)`.
 final class _OperatorKind {
   const _OperatorKind(this.name, {required this.isUnary});
 
@@ -109,8 +106,8 @@ final class _OperatorKind {
   final bool isUnary;
 }
 
-/// The requests that find the members of a hierarchy, with the answers that
-/// the hierarchies of several operators share.
+/// Finds the members of hierarchies, and caches the server's answers, which
+/// several hierarchies need.
 final class _HierarchyLookup {
   _HierarchyLookup(this._client, this._analysisRoot);
 
@@ -137,8 +134,8 @@ final class _HierarchyLookup {
             const [],
       );
 
-  /// [operator] and every member of its hierarchy, or `null` when one of them
-  /// is outside the analysis root, such as `Object.==`.
+  /// Returns [operator] and the other members of its hierarchy, or `null`
+  /// when one of them is outside the analysis root, such as `Object.==`.
   Future<Set<DeclarationName>?> membersOf(Candidate operator) async {
     final kind = _OperatorKind(
       operator.symbol.name,
@@ -169,9 +166,8 @@ final class _HierarchyLookup {
     return members;
   }
 
-  /// The operators of [kind] in the supertypes of the type that declares
-  /// [member]. An extension has no type hierarchy, so a member of one has
-  /// none.
+  /// Returns the operators of [kind] in the supertypes of the type that
+  /// declares [member]. An extension member has none.
   Future<List<Location>> _overriddenOf(
     DeclarationName member,
     _OperatorKind kind,
@@ -181,9 +177,9 @@ final class _HierarchyLookup {
       ) ??
       const [];
 
-  /// The operators of [operator]'s kind in the supertypes of [type],
-  /// transitively. The server's `super` request names only one of them when
-  /// the type has two supertypes that declare the operator.
+  /// Returns the operators of [operator]'s kind in all supertypes of [type].
+  /// It visits every supertype, because a type can inherit an operator from
+  /// two of them.
   Future<List<Location>> _overriddenIn(
     DeclarationName type,
     _OperatorKind operator,
@@ -206,7 +202,7 @@ final class _HierarchyLookup {
     return overridden;
   }
 
-  /// The operator of [operator]'s kind that [type] declares.
+  /// Returns the operator of [operator]'s kind that [type] declares.
   Future<Location?> _operatorIn(
     DeclarationName type,
     _OperatorKind operator,

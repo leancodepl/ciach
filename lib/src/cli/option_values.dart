@@ -42,16 +42,15 @@ String get kindNames => kindAliases.keys.sorted().join(', ');
 /// source of false positives.
 const alsoNames = ['overrides', 'tojson', 'union-members'];
 
-/// The values in [raw], whose entries each hold comma-separated `also`
-/// values.
+/// Returns the `also` values in [raw], where each entry can hold several
+/// values separated by commas.
 Set<String> splitAlso(Iterable<String> raw) => {
   for (final entry in raw)
     for (final name in entry.split(','))
       if (name.trim() case final trimmed when trimmed.isNotEmpty) trimmed,
 };
 
-/// Why the removed `operators` options, `operators` under `also` included,
-/// are not needed.
+/// Says why the removed `operators` options are no longer needed.
 const operatorsReported = 'operators are reported by default now';
 
 /// Parses the `--also` values (comma-separated, repeatable).

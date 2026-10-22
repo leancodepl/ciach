@@ -396,12 +396,9 @@ class LspClient {
   Map<String, List<lsp.Diagnostic>> get diagnostics =>
       UnmodifiableMapView(_diagnostics);
 
-  /// Completes once the server has analyzed the content that every
-  /// [didChange] so far sent. The server handles messages in order, and to
-  /// answer the `hover` request sent here, it resolves the changed file. It
-  /// reports `isAnalyzing: true` before it starts that work, so when the
-  /// answer arrives, either the analysis of every changed file and of the
-  /// files that import them is running or it has finished.
+  /// Completes once the server has analyzed every change sent with
+  /// [didChange]. The server answers the `hover` request only after it starts
+  /// that analysis, so after the answer, waiting until it is idle is enough.
   Future<void> waitForChangesAnalyzed() async {
     if (_lastChanged case final changed?) {
       await hover(changed, const .new(line: 0, character: 0));
@@ -601,9 +598,8 @@ class LspClient {
     return definition?.asLocationList ?? [?definition?.asLocation];
   }
 
-  /// The class, mixin, enum or extension type that declares the member at
-  /// [position] in [uri], or `null` when there is none, as for a member of an
-  /// extension.
+  /// Returns the class, mixin, enum or extension type that declares the
+  /// member at [position] in [uri], or `null` for an extension member.
   Future<lsp.TypeHierarchyItem?> declaringType(
     Uri uri,
     lsp.Position position,
@@ -617,8 +613,8 @@ class LspClient {
     ),
   ))?.firstOrNull;
 
-  /// The direct supertypes of [type]: its superclass, its interfaces, its
-  /// mixins and the `on` types of a mixin.
+  /// Returns the direct supertypes of [type]: its superclass, interfaces and
+  /// mixins, and the `on` types of a mixin.
   Future<List<lsp.TypeHierarchyItem>> supertypes(
     lsp.TypeHierarchyItem type,
   ) async {

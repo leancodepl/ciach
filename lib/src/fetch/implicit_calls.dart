@@ -41,9 +41,8 @@ const _renamed = r'ca$l';
 const _lookupFailed =
     'Could not look up the implicit uses of `call` methods; kept them all.';
 
-/// The uses of each of [calls] that the server reports no reference for, by
-/// candidate, or `null` when a request to the server failed, so that the uses
-/// are unknown.
+/// Returns the uses of each of [calls] that the reference search misses, or
+/// `null` when a request fails.
 Future<Map<Candidate, List<Location>>?> findImplicitCalls({
   required LspClient client,
   required SourceIndex sources,
@@ -78,8 +77,8 @@ Future<Map<Candidate, List<Location>>?> findImplicitCalls({
       final wrappedUses = [
         for (final file in rewritten.values) ...file.wrappedUses,
       ];
-      // Unlike `definitionsOrEmpty`, a failed lookup fails the whole step:
-      // reading it as no use would report a `call` method that is used.
+      // Unlike in `definitionsOrEmpty`, a failed lookup fails the whole step,
+      // because treating it as no use would report a used `call` method.
       final methodsOf = Map.fromIterables(
         wrappedUses,
         await mapPooled(wrappedUses, concurrency, (wrapped) async {

@@ -1,7 +1,5 @@
-// Fixtures for operators, whose uses (`a + b`, `-a`, `a[i] = v`, `case < 0`)
-// the reference search misses in other libraries. Every use is in
-// operators_uses.dart. Scanned only by the dedicated test (excluded from the
-// default-run assertions); see test/finder/operators_test.dart.
+// Operators and their uses, which are in operators_uses.dart. Only
+// test/finder/operators_test.dart scans these files.
 // Expected findings: every operator of NoneUsed, the binary `-` of
 // UnaryMinusOnly, Ordered.>, Shape.+, Square.+, onlyFromDeadCode and
 // OnlyUsedFromDeadCode.*.
@@ -108,9 +106,7 @@ class SameLibrary {
 
 final sameLibrarySum = const SameLibrary() + const SameLibrary();
 
-/// The `*` is used only on the result of a `+`. Once `+` is renamed, the
-/// server doesn't know the type of `a + b`, so `(a + b) * 2` has no error at
-/// `*` while `+` is renamed.
+/// Its `*` is used only on the result of its `+`, as in `(a + b) * 2`.
 class Chained {
   const Chained();
 
@@ -233,9 +229,8 @@ class Both extends Left implements Right {
   Left operator +(Left other) => this;
 }
 
-/// Only `UnscannedOverride` in operators_unscanned_override.dart overrides
-/// `~`, and code uses `~` only through `UnscannedOverride`. No test scans that
-/// file.
+/// Only `UnscannedOverride`, in a file that no test scans, overrides `~`, and
+/// code uses `~` only through it.
 abstract class OverriddenElsewhere {
   const OverriddenElsewhere();
 

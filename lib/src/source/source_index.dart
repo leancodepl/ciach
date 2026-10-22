@@ -123,8 +123,8 @@ class SourceIndex {
         _ => null,
       };
 
-  /// [path]'s content with the text at each offset of [replacements] replaced
-  /// by text of the same length, so that every position stays the same.
+  /// Returns [path]'s content with each of [replacements] written over the
+  /// text at its offset, so that no position moves.
   String contentWith(
     String path,
     Iterable<({int offset, String text})> replacements,

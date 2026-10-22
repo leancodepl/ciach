@@ -190,9 +190,9 @@ T? lastStartingAtOrBefore<T>(
   return lo == 0 ? null : items[lo - 1];
 }
 
-/// The last of [items] whose range, by [rangeOf], covers [position]. [items]
-/// must be in source order and must not overlap, as the declarations at one
-/// level of a file do.
+/// Returns the last of [items] whose range covers [position]. [items] must be
+/// in source order and must not overlap, like the declarations at one level of
+/// a file.
 T? lastCovering<T>(
   List<T> items,
   Position position,
@@ -206,8 +206,7 @@ T? lastCovering<T>(
   _ => null,
 };
 
-/// The symbol among [symbols], which are in source order, whose range covers
-/// [position].
+/// Returns the symbol among [symbols] whose range covers [position].
 DocumentSymbol? symbolCovering(
   List<DocumentSymbol> symbols,
   Position position,

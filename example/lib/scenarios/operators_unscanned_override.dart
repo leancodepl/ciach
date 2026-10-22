@@ -1,6 +1,5 @@
-// An override of `OverriddenElsewhere.~` in scenarios/operators.dart, and its
-// only use. No test scans this file, so ciach opens it only to rename the
-// override.
+// An override of `OverriddenElsewhere.~`, and its only use. No test scans
+// this file.
 
 import 'package:sample_pkg/scenarios/operators.dart';
 

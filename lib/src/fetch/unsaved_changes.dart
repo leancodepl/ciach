@@ -4,10 +4,8 @@
  *   harness: Claude Code
  */
 
-/// Sends changed copies of files to the analysis server, and reads the errors
-/// that the changes cause. The implicit `call` and operator lookups rename a
-/// declaration this way, so that each use that the reference search misses
-/// becomes an error. The files on disk never change.
+/// Shows changed copies of files to the analysis server, and reads the errors
+/// that the changes cause. The files on disk never change.
 library;
 
 import 'dart:io';
@@ -17,15 +15,15 @@ import 'package:ciach/src/source/source_index.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Diagnostic, Range;
 
-/// Returns what [lookup] returns for the changes that it shows, and restores
-/// every changed file afterward.
+/// Runs [lookup], restores every file that it changed, and returns what
+/// [lookup] returns.
 Future<T> withUnsavedChanges<T>(
   LspClient client,
   SourceIndex sources,
   Future<T> Function(UnsavedChanges changes) lookup,
 ) async {
-  // The server analyzes a change about three times faster while the files
-  // are closed.
+  // The server analyzes a change about three times faster with the files
+  // closed.
   final closed = client.closeAll();
   final changes = UnsavedChanges._(client, sources);
   final T result;
@@ -37,8 +35,8 @@ Future<T> withUnsavedChanges<T>(
       client.ensureOpen(uri, sources.content(uri.toFilePath()));
     }
   }
-  // Later stages read the outlines and diagnostics of the restored files.
-  // After an exception, they are restored without this wait.
+  // Later stages read the outlines and errors of the restored files. After
+  // an exception, this wait is skipped.
   await client.waitForChangesAnalyzed();
   return result;
 }
@@ -54,12 +52,11 @@ final class UnsavedChanges {
   /// The errors in the files on disk, by file.
   final Map<String, Set<Diagnostic>> _errorsBefore;
 
-  /// The changed files. Sending the content of the file on disk again would
-  /// start another analysis of everything that imports it.
+  /// The changed files. Only these are restored, because sending a file
+  /// starts a new analysis of everything that imports it.
   final _changed = <String>{};
 
-  /// Sends [texts] as the content of their files, by path, and the content
-  /// on disk of every other changed file.
+  /// Sends [texts], by path, and restores every other changed file.
   void show(Map<String, String> texts) {
     for (final path in _changed.difference(texts.keys.toSet())) {
       _change(path, _sources.content(path));
@@ -76,9 +73,10 @@ final class UnsavedChanges {
     }
   }
 
-  /// The ranges of the errors that the changes add, by file, once the server
-  /// has analyzed them. An error at a declaration's name, such as a class that
-  /// no longer implements its interface, is not a use, so it is left out.
+  /// Returns the ranges of the new errors, by file, once the server has
+  /// analyzed the changes. An error at a declaration's name, such as a class
+  /// that no longer implements its interface, isn't a use, so it is left
+  /// out.
   Future<Map<String, Set<Range>>> newErrors() async {
     await _client.waitForChangesAnalyzed();
     final newErrorsByPath = {
@@ -87,8 +85,8 @@ final class UnsavedChanges {
             when added.isNotEmpty)
           path: added,
     };
-    // An error can be in a file that ciach doesn't scan, such as one that
-    // `--exclude` skips. It has to be open to get an outline.
+    // An error can be in a file that isn't scanned, such as one that
+    // `--exclude` skips. The file must be open to get an outline.
     for (final path in newErrorsByPath.keys) {
       _client.ensureOpen(File(path).uri, _sources.content(path));
     }
@@ -102,7 +100,8 @@ final class UnsavedChanges {
     );
   }
 
-  /// The ranges of [errors] in [path] that are not at a declaration's name.
+  /// Returns the ranges of [errors] in [path] that aren't at a declaration's
+  /// name.
   Future<Set<Range>> _outsideNames(String path, Set<Diagnostic> errors) async {
     final names = {
       for (final outline in (await _client.outline(File(path).uri)).descendants)
@@ -113,8 +112,8 @@ final class UnsavedChanges {
   }
 }
 
-/// The errors that the server publishes, by file. A use of a renamed
-/// declaration is always an error.
+/// Returns the errors that the server has published, by file. Only errors
+/// count, because a use of a renamed declaration is always an error.
 Map<String, Set<Diagnostic>> _errors(LspClient client) => {
   for (final MapEntry(key: uri, value: diagnostics)
       in client.diagnostics.entries)
