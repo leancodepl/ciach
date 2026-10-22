@@ -8,10 +8,9 @@
 /// operators that it overrides and the operators that override it.
 library;
 
-import 'dart:io';
-
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/cached_map.dart';
 import 'package:ciach/src/util/concurrency.dart';
@@ -19,40 +18,14 @@ import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart'
-    show DocumentSymbol, Location, Range, TypeHierarchyItem;
-
-/// A declaration, by its file and the range of its name, such as `+` in
-/// `operator +`.
-final class DeclarationName {
-  const DeclarationName(this.uri, this.range);
-
-  DeclarationName.of(Location location)
-    : this(.parse(location.uri), location.range);
-
-  DeclarationName.ofType(TypeHierarchyItem type)
-    : this(.parse(type.uri), type.selectionRange);
-
-  /// The file. The SDK's files can have `dart:` URIs.
-  final Uri uri;
-
-  final Range range;
-
-  /// The absolute path of a file that has a `file:` URI.
-  String get path => uri.toFilePath();
-
-  @override
-  bool operator ==(Object other) =>
-      other is DeclarationName && other.uri == uri && other.range == range;
-
-  @override
-  int get hashCode => Object.hash(uri, range);
-}
+    show DocumentSymbol, Location, TypeHierarchyItem;
 
 /// The operators of one override hierarchy, and the candidates among them.
 final class OperatorHierarchy {
   OperatorHierarchy(this.members, this.operators);
 
-  final Set<DeclarationName> members;
+  /// The names of the members, as in `operator +`.
+  final Set<Location> members;
   final List<Candidate> operators;
 
   /// The name that every member has, such as `+` or `[]=`.
@@ -114,36 +87,34 @@ final class _HierarchyLookup {
   final LspClient _client;
   final String _analysisRoot;
 
-  late final _symbols = CachedMap<Uri, Future<List<DocumentSymbol>>>(
-    _client.documentSymbol,
+  late final _symbols = CachedMap<String, Future<List<DocumentSymbol>>>(
+    (uri) => _client.documentSymbol(.parse(uri)),
   );
 
-  late final _implementations =
-      CachedMap<DeclarationName, Future<List<Location>>>(
-        (member) => _client.implementations(member.uri, member.range.start),
-      );
+  late final _implementations = CachedMap<Location, Future<List<Location>>>(
+    (member) => _client.implementations(.parse(member.uri), member.range.start),
+  );
 
   /// The direct supertypes of each type.
-  late final _supertypes =
-      CachedMap<DeclarationName, Future<List<TypeHierarchyItem>>>(
-        (type) async =>
-            await (await _client.declaringType(
-              type.uri,
-              type.range.start,
-            ))?.let(_client.supertypes) ??
-            const [],
-      );
+  late final _supertypes = CachedMap<Location, Future<List<TypeHierarchyItem>>>(
+    (type) async =>
+        await (await _client.declaringType(
+          .parse(type.uri),
+          type.range.start,
+        ))?.let(_client.supertypes) ??
+        const [],
+  );
 
   /// Returns [operator] and the other members of its hierarchy, or `null`
   /// when one of them is outside the analysis root, such as `Object.==`.
-  Future<Set<DeclarationName>?> membersOf(Candidate operator) async {
+  Future<Set<Location>?> membersOf(Candidate operator) async {
     final kind = _OperatorKind(
       operator.symbol.name,
       isUnary: operator.symbol.hasNoParameters,
     );
-    final start = DeclarationName(
-      File(operator.path).uri,
-      operator.symbol.selectionRange,
+    final start = Location(
+      uri: operator.uri.toString(),
+      range: operator.symbol.selectionRange,
     );
     final members = {start};
     final pending = [start];
@@ -154,12 +125,11 @@ final class _HierarchyLookup {
         _overriddenOf(member, kind),
       ]);
       for (final location in related.flattened) {
-        final found = DeclarationName.of(location);
-        if (!_isInside(found)) {
+        if (!_isInside(location)) {
           return null;
         }
-        if (members.add(found)) {
-          pending.add(found);
+        if (members.add(location)) {
+          pending.add(location);
         }
       }
     }
@@ -169,11 +139,14 @@ final class _HierarchyLookup {
   /// Returns the operators of [kind] in the supertypes of the type that
   /// declares [member]. An extension member has none.
   Future<List<Location>> _overriddenOf(
-    DeclarationName member,
+    Location member,
     _OperatorKind kind,
   ) async =>
       await symbolCovering(await _symbols[member.uri], member.range.start)?.let(
-        (type) => _overriddenIn(.new(member.uri, type.selectionRange), kind),
+        (type) => _overriddenIn(
+          .new(uri: member.uri, range: type.selectionRange),
+          kind,
+        ),
       ) ??
       const [];
 
@@ -181,15 +154,15 @@ final class _HierarchyLookup {
   /// It visits every supertype, because a type can inherit an operator from
   /// two of them.
   Future<List<Location>> _overriddenIn(
-    DeclarationName type,
+    Location type,
     _OperatorKind operator,
   ) async {
     final overridden = <Location>[];
-    final seen = <DeclarationName>{};
+    final seen = <Location>{};
     final pending = [type];
     while (pending.isNotEmpty) {
       for (final item in await _supertypes[pending.removeLast()]) {
-        final supertype = DeclarationName.ofType(item);
+        final supertype = Location(uri: item.uri, range: item.selectionRange);
         if (!seen.add(supertype)) {
           continue;
         }
@@ -203,22 +176,19 @@ final class _HierarchyLookup {
   }
 
   /// Returns the operator of [operator]'s kind that [type] declares.
-  Future<Location?> _operatorIn(
-    DeclarationName type,
-    _OperatorKind operator,
-  ) async => symbolNamedAt(await _symbols[type.uri], type.range.start)?.children
-      ?.firstWhereOrNull(
-        (member) =>
-            member.isOperator &&
-            member.name == operator.name &&
-            member.hasNoParameters == operator.isUnary,
-      )
-      ?.let<Location>(
-        (member) =>
-            .new(uri: type.uri.toString(), range: member.selectionRange),
-      );
+  Future<Location?> _operatorIn(Location type, _OperatorKind operator) async =>
+      symbolNamedAt(await _symbols[type.uri], type.range.start)?.children
+          ?.firstWhereOrNull(
+            (member) =>
+                member.isOperator &&
+                member.name == operator.name &&
+                member.hasNoParameters == operator.isUnary,
+          )
+          ?.let<Location>(
+            (member) => .new(uri: type.uri, range: member.selectionRange),
+          );
 
-  bool _isInside(DeclarationName declaration) =>
-      declaration.uri.isScheme('file') &&
-      analysisRootContains(_analysisRoot, declaration.path);
+  bool _isInside(Location declaration) =>
+      Uri.parse(declaration.uri).isScheme('file') &&
+      analysisRootContains(_analysisRoot, SourceIndex.pathOf(declaration.uri));
 }

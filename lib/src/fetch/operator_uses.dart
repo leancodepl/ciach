@@ -95,14 +95,14 @@ Future<Map<Candidate, List<Location>>?> findOperatorUses({
 Future<Map<String, String>?> _renamed(
   LspClient client,
   SourceIndex sources,
-  Set<DeclarationName> members,
+  Set<Location> members,
 ) async {
   final replacements = <String, List<({int offset, String text})>>{};
   for (final member in members) {
-    final path = member.path;
+    final path = SourceIndex.pathOf(member.uri);
     final tokens =
         sources.semanticTokens(path) ??
-        await client.semanticTokens(member.uri, sources.lines(path));
+        await client.semanticTokens(.parse(member.uri), sources.lines(path));
     if ((
           tokens.lastCodeBefore(member.range.start),
           sources.offsetsOf(path, member.range),
