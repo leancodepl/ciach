@@ -31,3 +31,7 @@ both places.
 [64422]: https://github.com/dart-lang/sdk/issues/64422
 [cl-558400]: https://dart-review.googlesource.com/c/sdk/+/558400
 [767a1e2]: https://github.com/dart-lang/sdk/commit/767a1e28c4c15f2dfe860e1e63493e82b0b80dfe
+
+[64629]: https://github.com/dart-lang/sdk/issues/64629
+[cl-565940]: https://dart-review.googlesource.com/c/sdk/+/565940
+[e7e1ecc]: https://github.com/dart-lang/sdk/commit/e7e1eccd91209ec66656f2a18c60d345fc04af35
