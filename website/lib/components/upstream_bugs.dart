@@ -40,6 +40,12 @@ const _bugs = [
     title: 'References to an `Object` member override threw',
     commit: '767a1e28c4c15f2dfe860e1e63493e82b0b80dfe',
   ),
+  _Bug(
+    issue: 64629,
+    title: 'Missed references to operators from other files',
+    commit: 'e7e1eccd91209ec66656f2a18c60d345fc04af35',
+    fixedByUs: true,
+  ),
 ];
 
 /// The analysis server bugs ciach turned up, linked to their dart-lang/sdk
