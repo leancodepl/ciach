@@ -440,9 +440,11 @@ packages:
   leancode_site:
     dependency: "direct main"
     description:
-      path: "../packages/leancode_site"
-      relative: true
-    source: path
+      path: "."
+      ref: "23c1b2ff5f8ee9ea24343505d2cdb2db2a24db56"
+      resolved-ref: "23c1b2ff5f8ee9ea24343505d2cdb2db2a24db56"
+      url: "https://github.com/leancodepl/leancode-jaspr-ds"
+    source: git
     version: "0.1.0"
   liquify:
     dependency: transitive

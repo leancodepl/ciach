@@ -2,10 +2,11 @@
 
 The [ciach](https://pub.dev/packages/ciach) landing page, a static
 [Jaspr](https://jaspr.site) site built on
-[leancode_site](../packages/leancode_site), the design system package that
-holds the palette, the base styles, the fonts and the shared components. It
-uses Jaspr from the commit on the `next` branch that `dependency_overrides` in
-`pubspec.yaml` names. Activate the Jaspr
+[leancode_site](https://github.com/leancodepl/leancode-jaspr-ds), the design
+system package that holds the palette, the base styles, the fonts and the
+shared components, pinned to a commit in `pubspec.yaml`. It uses Jaspr from
+the commit on the `next` branch that `dependency_overrides` there names, the
+same one as the package. Activate the Jaspr
 CLI from the same commit with the `dart pub global activate` command in the
 `installCommand` of `vercel.json`, then run:
 

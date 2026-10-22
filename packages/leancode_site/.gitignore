@@ -1,4 +1,0 @@
-.dart_tool/
-build/
-# A package resolves its dependencies at the site that uses it.
-pubspec.lock
