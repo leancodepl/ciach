@@ -57,12 +57,12 @@ Future<Map<Candidate, List<Location>>?> findImplicitCalls({
   );
   try {
     return await withUnsavedChanges(client, sources, (changes) async {
-      changes.show({
+      changes.send({
         for (final MapEntry(key: path, value: inFile)
             in calls.groupListsBy((call) => call.path).entries)
           path: _withCallsRenamed(sources, path, inFile),
       });
-      final usesByPath = await changes.newErrors();
+      final usesByPath = await changes.usesByPath();
 
       // Each use becomes `(expression).call`, and the renamed methods get their
       // names back.
@@ -70,7 +70,7 @@ Future<Map<Candidate, List<Location>>?> findImplicitCalls({
         for (final MapEntry(key: path, value: uses) in usesByPath.entries)
           if (uses.isNotEmpty) path: _RewrittenFile.of(sources, path, uses),
       };
-      changes.show({
+      changes.send({
         for (final MapEntry(key: path, value: file) in rewritten.entries)
           path: file.text,
       });

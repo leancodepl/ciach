@@ -29,10 +29,10 @@ final _log = Logger('ciach.operator_uses');
 
 const _lookupFailed = 'Could not look up the uses of operators; kept them all.';
 
-/// Replaces the `operator` keyword. It has the same length, so no position
-/// moves. All members of a hierarchy get this name, so they still override
-/// each other.
-const _newName = r'o$$$$$$$';
+/// The text that replaces the `operator` keyword. It has the same length, so
+/// no position moves. Every member of a hierarchy gets the same text, so they
+/// still override each other.
+const _renamedKeyword = r'o$$$$$$$';
 
 /// Returns the uses of each of [operators], or `null` when a request fails.
 ///
@@ -59,25 +59,25 @@ Future<Map<Candidate, List<Location>>?> findOperatorUses({
       analysisRoot: analysisRoot,
       concurrency: concurrency,
     );
-    final renamedOf = {
+    final renamedContentOf = {
       for (final hierarchy in hierarchies)
-        hierarchy: ?await _renamed(client, sources, hierarchy.members),
+        hierarchy: ?await _renamedContent(client, sources, hierarchy.members),
     };
     // Each hierarchy gets its own round: once `a + b` is an error, the server
     // reports no error at the `*` of `(a + b) * c`.
     return await withUnsavedChanges(client, sources, (changes) async {
       final usesOf = <Candidate, List<Location>>{};
       for (final (i, MapEntry(key: hierarchy, value: renamed))
-          in renamedOf.entries.indexed) {
-        _log.fine('[${i + 1}/${renamedOf.length}] `${hierarchy.name}`');
-        changes.show(renamed);
+          in renamedContentOf.entries.indexed) {
+        _log.fine('[${i + 1}/${renamedContentOf.length}] `${hierarchy.name}`');
+        changes.send(renamed);
         final uses = [
           for (final MapEntry(key: path, value: ranges)
-              in (await changes.newErrors()).entries)
+              in (await changes.usesByPath()).entries)
             for (final range in ranges)
               Location(uri: File(path).uri.toString(), range: range),
         ];
-        for (final operator in hierarchy.operators) {
+        for (final operator in hierarchy.candidates) {
           usesOf[operator] = uses;
         }
       }
@@ -90,9 +90,9 @@ Future<Map<Candidate, List<Location>>?> findOperatorUses({
 }
 
 /// Returns the content of the files that declare [members], with each
-/// `operator` keyword replaced by [_newName] and each name by spaces. Returns
-/// `null` when a name doesn't follow an `operator` keyword.
-Future<Map<String, String>?> _renamed(
+/// `operator` keyword replaced by [_renamedKeyword] and each name by spaces.
+/// Returns `null` when a name doesn't follow an `operator` keyword.
+Future<Map<String, String>?> _renamedContent(
   LspClient client,
   SourceIndex sources,
   Set<Location> members,
@@ -104,7 +104,7 @@ Future<Map<String, String>?> _renamed(
         sources.semanticTokens(path) ??
         await client.semanticTokens(.parse(member.uri), sources.lines(path));
     if ((
-          tokens.lastCodeBefore(member.range.start),
+          tokens.lastNonCommentBefore(member.range.start),
           sources.offsetsOf(path, member.range),
         )
         case (
@@ -112,7 +112,7 @@ Future<Map<String, String>?> _renamed(
           final name?,
         )) {
       (replacements[path] ??= []).addAll([
-        (offset: sources.offsetOf(path, start)!, text: _newName),
+        (offset: sources.offsetOf(path, start)!, text: _renamedKeyword),
         (offset: name.start, text: ' ' * (name.end - name.start)),
       ]);
     } else {

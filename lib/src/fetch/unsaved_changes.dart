@@ -4,7 +4,7 @@
  *   harness: Claude Code
  */
 
-/// Shows changed copies of files to the analysis server, and reads the errors
+/// Sends changed copies of files to the analysis server, and reads the errors
 /// that the changes cause. The files on disk never change.
 library;
 
@@ -30,7 +30,7 @@ Future<T> withUnsavedChanges<T>(
   try {
     result = await lookup(changes);
   } finally {
-    changes.show(const {});
+    changes.send(const {});
     for (final uri in closed) {
       client.ensureOpen(uri, sources.content(uri.toFilePath()));
     }
@@ -44,43 +44,46 @@ Future<T> withUnsavedChanges<T>(
 /// The files whose content on the server differs from the files on disk.
 final class UnsavedChanges {
   UnsavedChanges._(this._client, this._sources)
-    : _errorsBefore = _errors(_client);
+    : _errorsBefore = _publishedErrors(_client);
 
   final LspClient _client;
   final SourceIndex _sources;
 
-  /// The errors in the files on disk, by file.
+  /// The errors in the files on disk, by path.
   final Map<String, Set<Diagnostic>> _errorsBefore;
 
-  /// The changed files. Only these are restored, because sending a file
-  /// starts a new analysis of everything that imports it.
-  final _changed = <String>{};
+  /// The paths of the files whose content on the server differs from the
+  /// disk. Only these are restored, because sending a file starts a new
+  /// analysis of everything that imports it.
+  final _changedPaths = <String>{};
 
   /// Sends [texts], the new content of files by path, to the server. A file
   /// that an earlier call changed and [texts] leaves out gets its content on
   /// disk back.
-  void show(Map<String, String> texts) {
-    for (final path in _changed.difference(texts.keys.toSet())) {
-      _change(path, _sources.content(path));
+  void send(Map<String, String> texts) {
+    for (final path in _changedPaths.difference(texts.keys.toSet())) {
+      _send(path, _sources.content(path));
     }
-    texts.forEach(_change);
+    texts.forEach(_send);
   }
 
-  void _change(String path, String text) {
+  void _send(String path, String text) {
     _client.didChange(File(path).uri, text);
     if (text == _sources.content(path)) {
-      _changed.remove(path);
+      _changedPaths.remove(path);
     } else {
-      _changed.add(path);
+      _changedPaths.add(path);
     }
   }
 
-  /// Returns the ranges of the new errors that mark uses, by file, once the
+  /// Returns the ranges of the new errors that mark uses, by path, once the
   /// server has analyzed the changes.
-  Future<Map<String, Set<Range>>> newErrors() async {
+  Future<Map<String, Set<Range>>> usesByPath() async {
     await _client.waitForChangesAnalyzed();
     final newErrorsByPath = {
-      for (final MapEntry(key: path, value: errors) in _errors(_client).entries)
+      for (final MapEntry(key: path, value: errors) in _publishedErrors(
+        _client,
+      ).entries)
         if (errors.difference(_errorsBefore[path] ?? const {}) case final added
             when added.isNotEmpty)
           path: added,
@@ -113,9 +116,10 @@ final class UnsavedChanges {
   }
 }
 
-/// Returns the errors that the server has published, by file. Only errors
-/// count, because a use of a renamed declaration is always an error.
-Map<String, Set<Diagnostic>> _errors(LspClient client) => {
+/// Returns the errors that the server has published, by path. Warnings and
+/// hints are left out, because a use of a renamed declaration is always an
+/// error.
+Map<String, Set<Diagnostic>> _publishedErrors(LspClient client) => {
   for (final MapEntry(key: uri, value: diagnostics)
       in client.diagnostics.entries)
     SourceIndex.pathOf(uri): {

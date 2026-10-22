@@ -145,7 +145,7 @@ extension SemanticTokenLookup on List<SemanticToken> {
   }
 
   /// The last token before [position] that isn't a comment.
-  SemanticToken? lastCodeBefore(Position position) =>
+  SemanticToken? lastNonCommentBefore(Position position) =>
       take(firstIndexAtOrAfter(position)).lastWhereOrNull((t) => !t.isComment);
 
   /// The last token starting within [range].
