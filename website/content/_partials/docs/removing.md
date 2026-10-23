@@ -20,7 +20,7 @@ Removed 4 unused declarations from 2 files.
 
 `--force` skips the prompt. With no terminal to confirm on and no `--force`, nothing is removed. Run `dart format` afterward.
 
-Removal acts on whatever the finder reports, so it inherits the same false-positive risk, which `--also overrides,operators` widens considerably. Review the diff, as you would after any automated refactor.
+Removal acts on whatever the finder reports, so it inherits the same false-positive risk, which `--also overrides` widens considerably. Review the diff, as you would after any automated refactor.
 
 ### What goes with a removed declaration
 

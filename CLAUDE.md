@@ -49,9 +49,10 @@ entry, run `dart run tool/check_changelog.dart --pr N`; CI runs the same check.
 Write an entry for the people who use ciach. In one to three short, plain
 sentences, say what was added, fixed or changed, as they will see it, and keep
 it about as long as the entries around it, also after a later commit adds an
-effect to it. For a fix, say what went wrong before. Leave out how it was
-implemented: no class or method names, internal terms or reasoning about the
-code.
+effect to it. For a fix, say what went wrong before. For a new or changed
+behavior, say only what it is now, not how ciach behaved before. Leave out how
+it was implemented: no class or method names, internal terms or reasoning
+about the code.
 
 Every pull request that changes what users see adds its entry under
 `## Unreleased`, without being asked. Write one entry per change and name every
@@ -87,7 +88,9 @@ easy-to-follow sentences, not how it works inside.
   `test/readme_toc_test.dart` checks it against the file, so run `dart test`
   after changing a heading.
 - README.md covers the current version. Removed options and upgrade steps go in
-  MIGRATION.md. Notes for library users go in the doc comment of the API that
+  MIGRATION.md, under a heading such as "From 0.7 to the next release" until
+  the release names the version. Don't guess the number of an unreleased
+  version. Notes for library users go in the doc comment of the API that
   they concern, and notes on which tool versions a parser supports go next to
   that parser. Leave out warnings about conventions that a lint already
   enforces.
@@ -128,7 +131,10 @@ easy-to-follow sentences, not how it works inside.
 
 A function's doc comment starts with what the function does or returns
 ("Returns …"), says what a parameter holds when that isn't obvious, and gives
-an example when a term is abstract. Keep it about as short as the doc comments
+an example when a term is abstract. Write a comment that a reader new to the
+code understands on the first reading: one idea per sentence, and no chain of
+clauses such as "or `null` when the token before a member's name, apart from
+comments, is not the `operator` keyword". Keep it about as short as the doc comments
 of its neighbors. Leave the evidence for a claim, such as the SDK
 code that you read or how many runs you checked, to the pull request and the
 review reply. Don't add doc comments that the member's siblings lack or
@@ -331,8 +337,11 @@ explicit null check.
   (copying only the lists that change instead of all of them), a stored copy
   of a value that you can compute, a field that only carries state from one
   method to another, a value built twice, a one-field JSON object, an unused
-  style or variant, or a factory left over from a refactor. Before wrapping a
-  library call or its exception, check what the exception already carries.
+  style or variant, or a factory left over from a refactor. A measured speedup
+  still has to pay for its code: rounds that several operators shared saved
+  3 s of 30 on `xml`, which didn't justify 50 lines and a second way to tell
+  which operator an error belongs to. Before wrapping a library call or its
+  exception, check what the exception already carries.
 - Don't put one caller's special case into a general function's result, such
   as a `null` placeholder in a list; handle it in that caller.
 - When a later step adds to data that an earlier step combined, such as the
@@ -392,7 +401,10 @@ explicit null check.
 - One test pins each default; other tests and group names don't restate it.
 - Put each case under the test that names it. Keep a mechanism's fixtures
   together under `example/lib/scenarios/`, named after the mechanism, so that
-  `example/` covers every kind that ciach reports. When a change forces an edit
+  `example/` covers every kind that ciach reports. Name each fixture file and
+  its classes after the case that they cover, such as
+  `operators_unscanned_override.dart`, not after a made-up example such as
+  `operators_ring.dart` with a class `Ring`. When a change forces an edit
   to an unrelated fixture, add a comment there that says why.
 - Test your own code, not the behavior of a library that it calls.
 - Test a function by calling it and checking its result, in the test file

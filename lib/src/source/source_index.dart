@@ -14,7 +14,7 @@ import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/line_starts.dart';
 import 'package:ciach/src/util/cached_map.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Position, SelectionRange;
+import 'package:pro_lsp/pro_lsp.dart' show Position, Range, SelectionRange;
 
 /// Per-file view of the source under analysis: its lines, content and line
 /// starts, plus the server's semantic tokens and selection ranges, each cached
@@ -114,4 +114,26 @@ class SourceIndex {
     }
     return offset;
   }
+
+  /// The offsets of [range] in [path]'s content, or `null` if it is out of
+  /// range.
+  ({int start, int end})? offsetsOf(String path, Range range) =>
+      switch ((offsetOf(path, range.start), offsetOf(path, range.end))) {
+        (final start?, final end?) => (start: start, end: end),
+        _ => null,
+      };
+
+  /// Returns [path]'s content with each of [replacements] written over the
+  /// text at its offset, so that no position moves.
+  String contentWith(
+    String path,
+    Iterable<({int offset, String text})> replacements,
+  ) => replacements.fold(
+    content(path),
+    (text, replacement) => text.replaceRange(
+      replacement.offset,
+      replacement.offset + replacement.text.length,
+      replacement.text,
+    ),
+  );
 }

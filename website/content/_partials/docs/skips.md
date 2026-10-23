@@ -18,7 +18,7 @@ Each of these is a known source of false positives. Where there is a flag, it op
 | `testExecutable` in a `flutter_test_config.dart` | `flutter test` calls it | — |
 | Entry points from the project config | a framework or a tool calls them | `--no-project-config` |
 | `@override` members | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses. One that overrides a dead member is dead too, and `--remove` takes both | `--also overrides` |
-| Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--also operators` |
+| Operators that override one from the SDK or another package, such as `==` | the SDK calls `==` with no code that names it, and the uses through the other package's type can't be found | — |
 | Declarations and files marked `// ciach:ignore` | they are kept on purpose | — |
 | `@pragma('vm:entry-point')` | reachable from native code or reflection | — |
 | `@JSExport`, and the public members of a `@JSExport` class | JavaScript can call them | — |

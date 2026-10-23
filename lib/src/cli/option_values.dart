@@ -40,18 +40,30 @@ String get kindNames => kindAliases.keys.sorted().join(', ');
 
 /// The accepted `--also` values: what is skipped by default, each a known
 /// source of false positives.
-const alsoNames = ['overrides', 'operators', 'tojson', 'union-members'];
+const alsoNames = ['overrides', 'tojson', 'union-members'];
+
+/// Returns the `also` values in [raw], where each entry can hold several
+/// values separated by commas.
+Set<String> splitAlso(Iterable<String> raw) => {
+  for (final entry in raw)
+    for (final name in entry.split(','))
+      if (name.trim() case final trimmed when trimmed.isNotEmpty) trimmed,
+};
+
+/// Says why the removed `operators` options are no longer needed.
+const operatorsReported = 'operators are reported by default now';
 
 /// Parses the `--also` values (comma-separated, repeatable).
 ///
 /// Throws a [FormatException] naming the offending value on an unknown one,
 /// which the command line would catch by itself, but a config file would not.
 Set<String> parseAlso(List<String> raw) {
-  final names = {
-    for (final entry in raw)
-      for (final name in entry.split(','))
-        if (name.trim() case final trimmed when trimmed.isNotEmpty) trimmed,
-  };
+  final names = splitAlso(raw);
+  if (names.contains('operators')) {
+    throw const FormatException(
+      '`operators` under `also` was removed: $operatorsReported, so drop it.',
+    );
+  }
   if (names.whereNot(alsoNames.contains).firstOrNull case final unknown?) {
     throw FormatException(
       "Unknown value '$unknown' for `also`. Valid values: ${alsoNames.join(', ')}.",

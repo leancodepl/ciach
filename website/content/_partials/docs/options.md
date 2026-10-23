@@ -21,7 +21,7 @@
 | `-i, --include <glob>`, `-e, --exclude <glob>` | Include or exclude file globs. References are still counted from everywhere. |
 | `--analysis-root <path>` | Count references from a whole monorepo, not just the scanned package. What is scanned and removed is unchanged. |
 | `--no-transitive` | Report only declarations that nothing uses. By default, a declaration used only by other dead code is reported too, naming what uses it. |
-| `--also overrides,operators,tojson,union-members` | Opt back into a category skipped by default. |
+| `--also overrides,tojson,union-members` | Opt back into a category skipped by default. |
 | `--generated` | Scan generated files too. |
 | `-v, --verbose` | Narrate the run on stderr with timings. |
 

@@ -80,7 +80,7 @@ SDK has to be new enough for the code it scans.
 ciach                                     # the current package
 ciach path/to/package                     # another package
 ciach --no-public -f json                 # private declarations only, as JSON
-ciach --also overrides,operators          # also what is skipped by default
+ciach --also overrides                    # also what is skipped by default
 ciach --remove                            # delete the findings, asking first
 ciach --remove --force                    # …without asking
 ciach -v                                  # explain each step
@@ -123,7 +123,7 @@ opts back in at that cost.
 | `testExecutable` in a `flutter_test_config.dart` | `flutter test` calls it | — |
 | Entry points from the [project config][docs-skips] | a framework or a tool calls them | `--no-project-config` |
 | `@override` members | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses. One that overrides a dead member is dead too, and `--remove` [takes both](#removing-dead-code) | `--also overrides` |
-| Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--also operators` |
+| Operators that override one from the SDK or another package, such as `==` | the SDK calls `==` with no code that names it, and the uses through the other package's type can't be found | — |
 | Declarations and files marked [`// ciach:ignore`][docs-skips] | they are kept on purpose | — |
 | `@pragma('vm:entry-point')` | reachable from native code or reflection | — |
 | `@JSExport`, and the public members of a `@JSExport` class | JavaScript can call them | — |
@@ -153,7 +153,7 @@ Removed 4 unused declarations from 2 files.
 `--force` skips the prompt. With no terminal to confirm on and no `--force`,
 nothing is removed. Run `dart format` afterward, and review the diff, as you
 would after any automated refactor: removal inherits the finder's
-false-positive risk, which `--also overrides,operators` widens considerably.
+false-positive risk, which `--also overrides` widens considerably.
 
 What goes with a removed declaration, which comments stay, and the findings
 that are report-only because removing them would not compile:
@@ -174,7 +174,7 @@ that are report-only because removing them would not compile:
 | `--exported-packages <glob>` | none | Packages that code outside the analysis imports, such as one published to pub.dev: their public API is not reported. Repeatable. See [Library packages][docs-packages]. |
 | `--[no-]project-config` | on | Read [entry points][docs-skips] and [generated files][docs-skips] from `pubspec.yaml`, `build.yaml`, `l10n.yaml`, `analysis_options.yaml` and `firebase.json`. |
 | `--[no-]unused-translations` | on | Report the unused messages in the gen-l10n template file an `l10n.yaml` configures. Report-only: remove them from the ARB file yourself. |
-| `--also <list>` | — | Also report what is [skipped by default](#what-it-skips-by-default): `overrides`, `operators`, `tojson`, `union-members`. |
+| `--also <list>` | — | Also report what is [skipped by default](#what-it-skips-by-default): `overrides`, `tojson`, `union-members`. |
 | `--[no-]transitive` | on | Also report declarations used only by other dead code, naming what uses them. See [Transitively dead code][docs-report]. |
 | `--[no-]set-exit-if-changed` | off; on in CI | Exit with `1` when anything is found. |
 | `--[no-]ci` | auto | Use the CI defaults, or not. See [CI](#ci). |

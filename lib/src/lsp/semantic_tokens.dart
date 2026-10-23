@@ -1,4 +1,5 @@
 import 'package:ciach/src/source/symbols.dart';
+import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position, Range;
 
 /// The token type and modifier names a `semanticTokens` response indexes into.
@@ -142,6 +143,10 @@ extension SemanticTokenLookup on List<SemanticToken> {
     final i = firstIndexAtOrAfter(position);
     return i < length && this[i].start == position ? this[i] : null;
   }
+
+  /// The last token before [position] that isn't a comment.
+  SemanticToken? lastNonCommentBefore(Position position) =>
+      take(firstIndexAtOrAfter(position)).lastWhereOrNull((t) => !t.isComment);
 
   /// The last token starting within [range].
   SemanticToken? lastIn(Range range) {

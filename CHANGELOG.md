@@ -1,3 +1,11 @@
+## Unreleased
+
+- **Breaking:** Unused operators are reported by default, and
+  `--also operators` is removed. `==`, and any operator that overrides one
+  from the SDK or another package, is never reported. See
+  [MIGRATION.md](MIGRATION.md).
+  ([#157](https://github.com/leancodepl/ciach/pull/157))
+
 ## 0.7.1
 
 - Restructure the README.

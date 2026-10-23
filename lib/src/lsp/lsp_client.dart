@@ -396,17 +396,12 @@ class LspClient {
   Map<String, List<lsp.Diagnostic>> get diagnostics =>
       UnmodifiableMapView(_diagnostics);
 
-  /// Completes once the server has analyzed the content that every
-  /// [didChange] so far sent. The server handles messages in order, so it
-  /// answers the `foldingRange` request sent here after those changes.
+  /// Completes once the server has analyzed every change sent with
+  /// [didChange]. The server answers the `hover` request only after it starts
+  /// that analysis, so after the answer, waiting until it is idle is enough.
   Future<void> waitForChangesAnalyzed() async {
     if (_lastChanged case final changed?) {
-      await _guard(
-        lsp.RequestMethod.foldingRange.value,
-        () => _client.server.textDocument.foldingRange(
-          .new(textDocument: .new(uri: changed.toString())),
-        ),
-      );
+      await hover(changed, const .new(line: 0, character: 0));
     }
     if (_analyzing) {
       await waitForAnalysisComplete();
@@ -428,6 +423,19 @@ class LspClient {
     );
   }
 
+  /// Closes every open document, and returns their URIs. The server still
+  /// analyzes them and publishes their diagnostics.
+  List<Uri> closeAll() {
+    final uris = [for (final key in _versions.keys) Uri.parse(key)];
+    for (final uri in uris) {
+      _client.server.textDocument.didClose(
+        .new(textDocument: .new(uri: uri.toString())),
+      );
+    }
+    _versions.clear();
+    return uris;
+  }
+
   /// Opens [uri] with [text], unless it is open already.
   void ensureOpen(Uri uri, String text) {
     if (!_versions.containsKey(uri.toString())) {
@@ -435,11 +443,16 @@ class LspClient {
     }
   }
 
-  /// Replaces the content of the open document [uri] with [text], for this
-  /// session only; the file on disk doesn't change.
+  /// Replaces the content of the document [uri] with [text], for this session
+  /// only; the file on disk doesn't change. A document that isn't open, such
+  /// as a file that the scan skips, is opened with [text].
   void didChange(Uri uri, String text) {
     final key = uri.toString();
     _lastChanged = uri;
+    if (!_versions.containsKey(key)) {
+      didOpen(uri, text);
+      return;
+    }
     // The server publishes the outline of the new content.
     _outlines.remove(key);
     _client.server.textDocument.didChange(
@@ -583,6 +596,33 @@ class LspClient {
     );
     final definition = result.asDefinition;
     return definition?.asLocationList ?? [?definition?.asLocation];
+  }
+
+  /// Returns the class, mixin, enum or extension type that declares the
+  /// member at [position] in [uri], or `null` for an extension member.
+  Future<lsp.TypeHierarchyItem?> declaringType(
+    Uri uri,
+    lsp.Position position,
+  ) async => (await _guard(
+    lsp.RequestMethod.prepareTypeHierarchy.value,
+    () => _client.server.textDocument.prepareTypeHierarchy(
+      .new(
+        textDocument: .new(uri: uri.toString()),
+        position: position,
+      ),
+    ),
+  ))?.firstOrNull;
+
+  /// Returns the direct supertypes of [type]: its superclass, interfaces and
+  /// mixins, and the `on` types of a mixin.
+  Future<List<lsp.TypeHierarchyItem>> supertypes(
+    lsp.TypeHierarchyItem type,
+  ) async {
+    final result = await _guard(
+      lsp.RequestMethod.supertypes.value,
+      () => _client.server.typeHierarchy.supertypes(.new(item: type)),
+    );
+    return result ?? const [];
   }
 
   /// The syntax nodes enclosing each of [positions] in [uri], innermost first.
