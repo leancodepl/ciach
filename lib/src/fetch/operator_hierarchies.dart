@@ -93,8 +93,9 @@ final class _HierarchyLookup {
     (uri) => _client.documentSymbol(.parse(uri)),
   );
 
-  late final _implementations = CachedMap<Location, Future<List<Location>>>(
-    (member) => _client.implementations(.parse(member.uri), member.range.start),
+  /// The subtypes of each type, the direct and the indirect ones.
+  late final _subtypes = CachedMap<Location, Future<List<Location>>>(
+    (type) => _client.implementations(.parse(type.uri), type.range.start),
   );
 
   /// The direct supertypes of each type.
@@ -122,11 +123,7 @@ final class _HierarchyLookup {
     final pending = [start];
     while (pending.isNotEmpty) {
       final member = pending.removeLast();
-      final related = await Future.wait([
-        _implementations[member],
-        _overriddenBy(member, kind),
-      ]);
-      for (final location in related.flattened) {
+      for (final location in await _relatedTo(member, kind)) {
         if (!_isInsideAnalysisRoot(location)) {
           return null;
         }
@@ -138,19 +135,27 @@ final class _HierarchyLookup {
     return members;
   }
 
-  /// Returns the operators that [member] overrides. A member of an extension
-  /// overrides nothing.
-  Future<List<Location>> _overriddenBy(
-    Location member,
-    _OperatorKind kind,
-  ) async =>
-      await symbolCovering(await _symbols[member.uri], member.range.start)?.let(
-        (type) => _operatorsInSupertypes(
-          .new(uri: member.uri, range: type.selectionRange),
-          kind,
-        ),
-      ) ??
-      const [];
+  /// Returns the operators that [member] overrides and that override it,
+  /// and those that a subtype of its type inherits along with it, as `Both`
+  /// inherits both `+` in `abstract class Both implements Left, Right {}`.
+  /// A member of an extension has none.
+  Future<List<Location>> _relatedTo(Location member, _OperatorKind kind) async {
+    final declaring = symbolCovering(
+      await _symbols[member.uri],
+      member.range.start,
+    );
+    if (declaring == null) {
+      return const [];
+    }
+    final type = Location(uri: member.uri, range: declaring.selectionRange);
+    return [
+      ...await _operatorsInSupertypes(type, kind),
+      for (final subtype in await _subtypes[type]) ...[
+        ?await _declaredOperator(subtype, kind),
+        ...await _operatorsInSupertypes(subtype, kind),
+      ],
+    ];
+  }
 
   /// Returns the operators of [kind] that the supertypes of [type] declare,
   /// the direct and the indirect ones.

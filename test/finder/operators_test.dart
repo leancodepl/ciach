@@ -196,6 +196,38 @@ void main() => print((const Split() + const Split()) / const Split());
     },
   );
 
+  test(
+    'counts a use through a class that inherits `+` from two interfaces for both of them',
+    () async {
+      expect(
+        await findUnusedIn(
+          library: '''
+abstract class Left {
+  Left operator +(Left other);
+  Left operator -(Left other);
+}
+
+abstract class Right {
+  Left operator +(Left other);
+}
+
+abstract class Both implements Left, Right {}
+''',
+          main: '''
+import 'package:ops/ops.dart';
+
+void add(Both a, Both b) => print(a + b);
+
+void types(Left left, Right right) => print([left, right]);
+
+void main() => print([add, types]);
+''',
+        ),
+        {'Left.-'},
+      );
+    },
+  );
+
   /// `C` overrides the operators of `B`, which overrides those of `A`, and
   /// code uses `+` only through `B`.
   const chain = '''
