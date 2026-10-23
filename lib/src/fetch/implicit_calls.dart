@@ -62,7 +62,7 @@ Future<Map<Candidate, List<Location>>?> findImplicitCalls({
             in calls.groupListsBy((call) => call.path).entries)
           path: _withCallsRenamed(sources, path, inFile),
       });
-      final usesByPath = await changes.usesByPath();
+      final usesByPath = await changes.newErrorRanges();
 
       // Each use becomes `(expression).call`, and the renamed methods get their
       // names back.

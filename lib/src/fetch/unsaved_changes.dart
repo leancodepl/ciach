@@ -76,9 +76,9 @@ final class UnsavedChanges {
     }
   }
 
-  /// Returns the ranges of the new errors that mark uses, by path, once the
-  /// server has analyzed the changes.
-  Future<Map<String, Set<Range>>> usesByPath() async {
+  /// Returns the ranges of the errors that the changes added, by path, once
+  /// the server has analyzed them. Errors at declaration names are left out.
+  Future<Map<String, Set<Range>>> newErrorRanges() async {
     await _client.waitForChangesAnalyzed();
     final newErrorsByPath = {
       for (final MapEntry(key: path, value: errors) in _publishedErrors(
@@ -98,15 +98,18 @@ final class UnsavedChanges {
       await Future.wait([
         for (final MapEntry(key: path, value: errors)
             in newErrorsByPath.entries)
-          _rangesOfUses(path, errors),
+          _rangesNotAtDeclarationNames(path, errors),
       ]),
     );
   }
 
-  /// Returns the ranges of [errors] in [path] that mark uses. An error at a
-  /// declaration's name isn't a use: it comes from the declaration itself,
-  /// such as a class that no longer implements its interface.
-  Future<Set<Range>> _rangesOfUses(String path, Set<Diagnostic> errors) async {
+  /// Returns the ranges of [errors] in [path] that aren't at a declaration's
+  /// name. Such an error comes from the declaration itself, such as a class
+  /// that no longer implements its interface, so it isn't a use.
+  Future<Set<Range>> _rangesNotAtDeclarationNames(
+    String path,
+    Set<Diagnostic> errors,
+  ) async {
     final names = {
       for (final outline in (await _client.outline(File(path).uri)).descendants)
         ?outline.element.range,

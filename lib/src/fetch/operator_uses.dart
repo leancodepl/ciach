@@ -73,7 +73,7 @@ Future<Map<Candidate, List<Location>>?> findOperatorUses({
         changes.send(renamed);
         final uses = [
           for (final MapEntry(key: path, value: ranges)
-              in (await changes.usesByPath()).entries)
+              in (await changes.newErrorRanges()).entries)
             for (final range in ranges)
               Location(uri: File(path).uri.toString(), range: range),
         ];
