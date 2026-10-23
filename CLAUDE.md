@@ -587,10 +587,14 @@ request that you didn't open, suggest the rule instead of pushing it.
 
 # GitHub workflows
 
-Pin each action to a commit SHA of its current major version, with the version
-in a comment: `actions/checkout@<sha> # v7.0.0`. A workflow holds only the
-steps that every run needs; one-time setup, such as assigning a domain, is done
-by hand. Indent a multi-line `run: |` script consistently.
+Reference each action by the full release tag of its current major version,
+such as `actions/checkout@v7.0.0` rather than `@v7`, and run `gh actions-lock`
+after you change a `uses:` line. The command pins every action, including the
+actions that a composite action uses, to a commit in
+`.github/workflows/actions.lock`, and the `lockfile` workflow fails when that
+file is out of date. A workflow holds only the steps that every run needs;
+one-time setup, such as assigning a domain, is done by hand. Indent a
+multi-line `run: |` script consistently.
 
 # Before pushing
 
