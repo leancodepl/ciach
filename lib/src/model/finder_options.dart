@@ -153,7 +153,8 @@ class FinderOptions {
   /// primitive value kinds the server never emits for Dart declarations.
   ///
   /// The server reports an `extension` as [SymbolKind.namespace]; an
-  /// `extension type` shares it and is remapped to [SymbolKind.struct].
+  /// `extension type` shares it and is remapped to [SymbolKind.struct]. A
+  /// type alias, function type aliases included, is [SymbolKind.object].
   ///
   /// Operator overloads are *not* a separate kind here: the analysis server
   /// reports them as plain [SymbolKind.method] declarations named `+`, `==`,
@@ -172,5 +173,6 @@ class FinderOptions {
     .variable,
     .constant,
     .enumMember,
+    .object,
   };
 }
