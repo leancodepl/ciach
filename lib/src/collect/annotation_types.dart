@@ -70,29 +70,38 @@ final class AnnotationTypes {
     List<SemanticToken> tokens,
   ) sync* {
     for (final (i, token) in tokens.indexed) {
-      if (token.isAnnotationClassName) {
+      // `Holder` in `@Holder.held` names the class of a static constant, and
+      // the annotation calls no constructor.
+      final readsConstant = switch (tokens.skip(i + 1).take(2).toList()) {
+        [SemanticToken(text: '.'), SemanticToken(type: 'property')] => true,
+        _ => false,
+      };
+      if (!readsConstant &&
+          (token.isAnnotationClassName ||
+              (token.type == 'type' && _followsAt(tokens, i)))) {
         yield token;
-      } else if (token.type == 'type') {
-        // The server marks a typedef name with no `annotation` modifier, so
-        // only its place after the `@` and an optional import prefix tells
-        // that it names the annotation and not one of its type arguments.
-        final before = tokens.sublist(max(0, i - 3), i).reversed.toList();
-        if (switch (before) {
-          [SemanticToken(text: '@'), ...] => true,
-          [
-            SemanticToken(text: '.'),
-            SemanticToken(:final modifiers),
-            SemanticToken(text: '@'),
-          ]
-              when modifiers.contains('importPrefix') =>
-            true,
-          _ => false,
-        }) {
-          yield token;
-        }
       }
     }
   }
+
+  /// Whether the token at [index] of [tokens] comes right after an `@`, or
+  /// after an `@` and an import prefix.
+  ///
+  /// The server marks a typedef name with no `annotation` modifier, so only
+  /// its place tells that it names the annotation and not one of its type
+  /// arguments.
+  static bool _followsAt(List<SemanticToken> tokens, int index) =>
+      switch (tokens.sublist(max(0, index - 3), index).reversed.toList()) {
+        [SemanticToken(text: '@'), ...] => true,
+        [
+          SemanticToken(text: '.'),
+          SemanticToken(:final modifiers),
+          SemanticToken(text: '@'),
+        ]
+            when modifiers.contains('importPrefix') =>
+          true,
+        _ => false,
+      };
 
   /// Returns the classes of the annotations among [leadingMetadata], the doc
   /// comment and annotation tokens of a declaration in [path], and all their

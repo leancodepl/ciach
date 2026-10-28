@@ -55,6 +55,10 @@ typedef AliasPreview = DarkPreview;
 typedef AliasOfAlias = AliasPreview;
 
 typedef AliasTyped<T extends Object> = Typed<T>;
+
+class Holder {
+  static const held = DarkPreview();
+}
 ''');
     client = await LspClient.start();
     await client.initialize(tempDir.uri);
@@ -104,6 +108,7 @@ void h() {}
 @previews.AliasOfAlias() void k() {}
 @AliasTyped<int>() void l() {}
 @Typed<AliasPreview>() void m() {}
+@Holder.held void n() {}
 ''');
 
       const object = AnnotationClass('Object', null);
@@ -136,7 +141,9 @@ void h() {}
         14: {app('Typed'), app('Preview'), object},
         // A typedef in the type arguments is not the annotation's class.
         15: {app('Typed'), app('Preview'), object},
+        // A static constant, not a constructor of `Holder`.
         16: isEmpty,
+        17: isEmpty,
       });
     },
   );
