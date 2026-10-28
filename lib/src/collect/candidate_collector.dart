@@ -319,13 +319,13 @@ final class CandidateCollector {
   }
 }
 
-/// The field statement that the symbols being collected belong to, for the
-/// declarators after the first.
+/// The variable statement that the symbols being collected belong to, for the
+/// declarators after the first. It declares fields or top-level variables.
 ///
-/// A field statement's doc comment, annotations and modifiers sit on its first
-/// declarator, so a later one (`b` in `@override final int a, b;`) reads that
-/// statement's instead of its own, which are empty. Likewise, a marker above
-/// the statement keeps every declarator.
+/// A variable statement's doc comment, annotations and modifiers sit on its
+/// first declarator, so a later one (`b` in `@override final int a, b;`) reads
+/// that statement's instead of its own, which are empty. Likewise, a marker
+/// above the statement keeps every declarator.
 final class _Statement {
   var _metadata = const <SemanticToken>[];
   var _start = 0;
@@ -336,11 +336,14 @@ final class _Statement {
     Outline outline,
     Iterable<SemanticToken> ownMetadata,
   ) {
-    final isField = outline.element.kind == .field;
-    if (isField && outline.range.start == outline.codeRange.start) {
+    final isVariable = const <OutlineKind>{
+      .field,
+      .topLevelVariable,
+    }.contains(outline.element.kind);
+    if (isVariable && outline.range.start == outline.codeRange.start) {
       return (leadingMetadata: _metadata, start: _start);
     }
-    _metadata = isField ? ownMetadata.toList() : const [];
+    _metadata = isVariable ? ownMetadata.toList() : const [];
     _start = outline.range.start.line;
     return (leadingMetadata: ownMetadata, start: _start);
   }
