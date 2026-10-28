@@ -1,5 +1,9 @@
 ## Unreleased
 
+- Fix reporting the later variables of a top-level statement such as
+  `@pragma('vm:entry-point') int a = 0, b = 0;`. Before, only `a` was kept by
+  the annotation, or by a `// ciach:ignore` above the statement, and `b` was
+  reported as unused. ([#174](https://github.com/leancodepl/ciach/pull/174))
 - Report unused typedefs under a new `typedef` kind, which `--kinds` accepts.
   Before, an unused `typedef A = B;` was never reported and kept `B` from
   being reported, and an unused function typedef was reported as a `class`.
