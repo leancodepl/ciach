@@ -10,9 +10,12 @@ library;
 import 'dart:io';
 
 import 'package:ciach/src/collect/annotation_types.dart';
+import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+
+import '../support/package_config.dart';
 
 void main() {
   late Directory tempDir;
@@ -20,7 +23,12 @@ void main() {
 
   setUpAll(() async {
     tempDir = .systemTemp.createTempSync('ciach_annotation_types_');
-    File(p.join(tempDir.path, 'previews.dart')).writeAsStringSync('''
+    File(p.join(tempDir.path, '.dart_tool', 'package_config.json'))
+      ..createSync(recursive: true)
+      ..writeAsStringSync(packageConfig({'app': '.'}));
+    File(p.join(tempDir.path, 'lib', 'previews.dart'))
+      ..createSync(recursive: true)
+      ..writeAsStringSync('''
 class Preview {
   const Preview();
   const Preview.named();
@@ -48,10 +56,10 @@ const preview = Preview();
     tempDir.deleteSync(recursive: true);
   });
 
-  /// Returns the class names that [AnnotationTypes.of] gives for the
-  /// annotation on each line of [source], by line.
-  Future<Map<int, Set<String>>> typesByLine(String source) async {
-    final path = p.join(tempDir.path, 'uses.dart');
+  /// Returns the classes that [AnnotationTypes.of] gives for the annotation
+  /// on each line of [source], by line.
+  Future<Map<int, Set<AnnotationClass>>> typesByLine(String source) async {
+    final path = p.join(tempDir.path, 'lib', 'uses.dart');
     File(path).writeAsStringSync(source);
     client.didOpen(File(path).uri, source);
     final tokens = await client.semanticTokens(
@@ -83,15 +91,24 @@ import 'previews.dart' as previews;
 void h() {}
 ''');
 
+      const object = AnnotationClass('Object', null);
+      AnnotationClass app(String name) =>
+          .new(name, .parse('package:app/previews.dart'));
       expect(types, {
         0: isEmpty,
         1: isEmpty,
         2: isEmpty,
-        3: {'Preview', 'Object'},
-        4: {'DarkPreview', 'Preview', 'Object'},
-        5: {'ThemedPreview', 'Themed', 'DarkPreview', 'Preview', 'Object'},
-        6: {'DarkPreview', 'Preview', 'Object'},
-        7: {'Preview', 'Object'},
+        3: {app('Preview'), object},
+        4: {app('DarkPreview'), app('Preview'), object},
+        5: {
+          app('ThemedPreview'),
+          app('Themed'),
+          app('DarkPreview'),
+          app('Preview'),
+          object,
+        },
+        6: {app('DarkPreview'), app('Preview'), object},
+        7: {app('Preview'), object},
         // An annotation that reads a constant calls no constructor.
         8: isEmpty,
         9: isEmpty,

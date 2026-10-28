@@ -121,7 +121,7 @@ opts back in at that cost.
 | --- | --- | --- |
 | `main` | the entry point is never unused | — |
 | `testExecutable` in a `flutter_test_config.dart` | `flutter test` calls it | — |
-| Declarations annotated with `@Preview` or `@MultiPreview`, or with a subclass of either | `flutter widget-preview` shows them | — |
+| Declarations annotated with Flutter's `@Preview` or `@MultiPreview`, or with a subclass of either | `flutter widget-preview` shows them | — |
 | Entry points from the [project config][docs-skips] | a framework or a tool calls them | `--no-project-config` |
 | `@override` members | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses. One that overrides a dead member is dead too, and `--remove` [takes both](#removing-dead-code) | `--also overrides` |
 | Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--also operators` |

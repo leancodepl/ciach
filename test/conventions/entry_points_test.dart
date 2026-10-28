@@ -152,7 +152,11 @@ void main() {
           'lib/a.dart',
           symbol('card'),
           null,
-          annotationTypes: {'DarkStory', 'Story', 'Object'},
+          annotationTypes: {
+            const .new('DarkStory', null),
+            const .new('Story', null),
+            const .new('Object', null),
+          },
         ),
         isTrue,
       );
@@ -161,7 +165,10 @@ void main() {
           'lib/a.dart',
           symbol('card', kind: .method),
           'Gallery',
-          annotationTypes: {'Story', 'Object'},
+          annotationTypes: {
+            const .new('Story', null),
+            const .new('Object', null),
+          },
         ),
         isTrue,
       );
@@ -170,7 +177,10 @@ void main() {
           'lib/a.dart',
           symbol('card'),
           null,
-          annotationTypes: {'Deprecated', 'Object'},
+          annotationTypes: {
+            const .new('Deprecated', null),
+            const .new('Object', null),
+          },
         ),
         isFalse,
       );
@@ -189,7 +199,7 @@ void main() {
           'lib/stories/card.dart',
           symbol('card'),
           null,
-          annotationTypes: {'Story'},
+          annotationTypes: {const .new('Story', null)},
         ),
         isTrue,
       );
@@ -198,17 +208,35 @@ void main() {
           'lib/card.dart',
           symbol('card'),
           null,
-          annotationTypes: {'Story'},
+          annotationTypes: {const .new('Story', null)},
         ),
         isFalse,
       );
     });
 
-    test('limited to a package, it keeps the annotation', () {
-      final rule = EntryPoint.annotationFromConfig('Story').within('app');
+    test('limited to a package, it keeps the annotation and its library', () {
+      final library = Uri.parse('package:stories/story.dart');
+      final rule = EntryPoint.annotatedWith(
+        'Story',
+        annotationLibrary: library,
+        reason: 'shown in the catalog',
+      ).within('app');
 
       expect(rule.annotation, 'Story');
+      expect(rule.annotationLibrary, library);
       expect(rule.files, ['app/**']);
+    });
+
+    test('matches a class of that name from any library', () {
+      expect(
+        EntryPoint.annotationFromConfig('Story').matches(
+          'lib/a.dart',
+          symbol('card'),
+          null,
+          annotationTypes: {.new('Story', .parse('package:a/story.dart'))},
+        ),
+        isTrue,
+      );
     });
 
     test('prints as the annotation and its files', () {
@@ -248,38 +276,52 @@ void main() {
       );
     });
 
-    test(
-      'a declaration annotated with a `Preview` or a `MultiPreview` or a subclass of either is shown by `flutter widget-preview`',
-      () {
-        for (final types in [
-          {'Preview', 'Object'},
-          {'DarkPreview', 'Preview', 'Object'},
-          {'ThemePreviews', 'MultiPreview', 'Object'},
-        ]) {
-          expect(
-            rules
-                .match(
-                  'lib/button.dart',
-                  symbol('buttonPreview'),
-                  null,
-                  annotationTypes: types,
-                )
-                ?.reason,
-            contains('flutter widget-preview'),
-            reason: 'for $types',
-          );
-        }
-        expect(
-          rules.match(
+    group('widget previews', () {
+      final flutter = Uri.parse(
+        'package:flutter/src/widget_previews/widget_previews.dart',
+      );
+      final app = Uri.parse('package:app/previews.dart');
+
+      /// Returns the reason of the rule that matches a function whose
+      /// annotation has the classes [types].
+      String? reasonFor(Set<AnnotationClass> types) => rules
+          .match(
             'lib/button.dart',
             symbol('buttonPreview'),
             null,
-            annotationTypes: {'Deprecated', 'Object'},
-          ),
-          isNull,
-        );
-      },
-    );
+            annotationTypes: types,
+          )
+          ?.reason;
+
+      test(
+        "a declaration annotated with Flutter's `Preview` or `MultiPreview`, or a subclass of either, is shown by `flutter widget-preview`",
+        () {
+          for (final types in [
+            {AnnotationClass('Preview', flutter)},
+            {
+              AnnotationClass('DarkPreview', app),
+              AnnotationClass('Preview', flutter),
+            },
+            {
+              AnnotationClass('ThemePreviews', app),
+              AnnotationClass('MultiPreview', flutter),
+            },
+          ]) {
+            expect(
+              reasonFor(types),
+              contains('flutter widget-preview'),
+              reason: 'for $types',
+            );
+          }
+        },
+      );
+
+      test('a `Preview` from another library is not a widget preview', () {
+        expect(reasonFor({.new('Preview', app)}), isNull);
+        expect(reasonFor({const .new('Preview', null)}), isNull);
+        expect(reasonFor({const .new('Deprecated', null)}), isNull);
+      });
+    });
 
     group('testExecutable', () {
       test('in a flutter_test_config.dart at any depth', () {

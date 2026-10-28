@@ -23,6 +23,7 @@ final class EntryPoint {
   EntryPoint({required this.name, required this.reason, this.files = const []})
     : superclass = null,
       annotation = null,
+      annotationLibrary = null,
       _globs = [for (final file in files) .new(file, context: _posix)];
 
   /// Creates a rule that matches the public methods of every class that
@@ -33,14 +34,18 @@ final class EntryPoint {
     this.files = const [],
   }) : name = '*',
        annotation = null,
+       annotationLibrary = null,
        _globs = [for (final file in files) .new(file, context: _posix)];
 
   /// Creates a rule that matches every declaration whose annotation calls a
   /// constructor of the class [annotation], or of a class that has
-  /// [annotation] among its supertypes. A class of that name from any library
-  /// counts.
+  /// [annotation] among its supertypes. [annotationLibrary], such as
+  /// `package:flutter/src/widget_previews/widget_previews.dart`, is the
+  /// library that declares the class; without it, a class of that name from
+  /// any library counts.
   EntryPoint.annotatedWith(
     String this.annotation, {
+    this.annotationLibrary,
     required this.reason,
     this.files = const [],
   }) : name = '*',
@@ -96,7 +101,7 @@ final class EntryPoint {
     }
     if (!_identifier.hasMatch(annotation)) {
       throw FormatException(
-        "'$annotation' is not a class name; expected an identifier such as 'Preview'.",
+        "'$annotation' is not a class name; expected an identifier such as 'Story'.",
       );
     }
     return .annotatedWith(annotation, files: files, reason: reason);
@@ -121,6 +126,10 @@ final class EntryPoint {
   /// is `null` for every other rule.
   final String? annotation;
 
+  /// The library that declares the [annotation] class, or `null` for any
+  /// library.
+  final Uri? annotationLibrary;
+
   /// The file globs as written; empty matches any file.
   final List<String> files;
 
@@ -140,18 +149,24 @@ final class EntryPoint {
       reason: 'called by the `flutter test` bootstrap',
     ),
     // `flutter widget-preview start` shows every function and constructor
-    // whose annotation is a `Preview` or a `MultiPreview`, the classes of
-    // `package:flutter/widget_previews.dart`, or a subclass of either.
+    // whose annotation is a `Preview` or a `MultiPreview`, or a subclass of
+    // either.
     for (final annotation in ['Preview', 'MultiPreview'])
-      .annotatedWith(annotation, reason: 'shown by `flutter widget-preview`'),
+      .annotatedWith(
+        annotation,
+        annotationLibrary: .parse(
+          'package:flutter/src/widget_previews/widget_previews.dart',
+        ),
+        reason: 'shown by `flutter widget-preview`',
+      ),
   ];
 
   /// Whether [symbol], in the file at [relativePath] (POSIX, from the package
   /// root) inside [container] (`null` at the top level), meets this rule.
   /// Returns whether this rule matches [symbol]. [containerSuperclass] is
   /// called only for a [superclass] rule, because it has to parse the source.
-  /// [annotationTypes] holds the names of the classes whose constructors the
-  /// annotations of [symbol] call, and of all of their supertypes.
+  /// [annotationTypes] holds the classes whose constructors the annotations of
+  /// [symbol] call, and all of their supertypes.
   ///
   /// A rule that names a class or an extension type also matches the type's
   /// unnamed constructor, because code that uses the type calls `Type()`.
@@ -162,7 +177,7 @@ final class EntryPoint {
     DocumentSymbol symbol,
     String? container, {
     String? Function()? containerSuperclass,
-    Set<String> annotationTypes = const {},
+    Set<AnnotationClass> annotationTypes = const {},
     bool inEnum = false,
   }) {
     final named = switch ((superclass, annotation)) {
@@ -171,7 +186,11 @@ final class EntryPoint {
             symbol.kind == .method &&
             !symbol.name.startsWith('_') &&
             containerSuperclass?.call() == superclass,
-      (_, final annotation?) => annotationTypes.contains(annotation),
+      (_, final annotation?) => annotationTypes.any(
+        (type) =>
+            type.name == annotation &&
+            (annotationLibrary == null || type.library == annotationLibrary),
+      ),
       _ => _namesDeclaration(symbol, container, inEnum: inEnum),
     };
     return named &&
@@ -215,6 +234,7 @@ final class EntryPoint {
       ),
       (_, final annotation?) => .annotatedWith(
         annotation,
+        annotationLibrary: annotationLibrary,
         reason: reason,
         files: scoped,
       ),
@@ -251,7 +271,7 @@ final class EntryPoints {
     DocumentSymbol symbol,
     String? container, {
     String? Function()? containerSuperclass,
-    Set<String> annotationTypes = const {},
+    Set<AnnotationClass> annotationTypes = const {},
     bool inEnum = false,
   }) => _rules.firstWhereOrNull(
     (rule) => rule.matches(
@@ -263,4 +283,25 @@ final class EntryPoints {
       inEnum: inEnum,
     ),
   );
+}
+
+/// The class whose constructor an annotation calls, or one of its supertypes.
+final class AnnotationClass {
+  const AnnotationClass(this.name, this.library);
+
+  final String name;
+
+  /// The library that declares the class, such as
+  /// `package:flutter/src/widget_previews/widget_previews.dart`, or `null`
+  /// for a class outside every package, such as `Object`.
+  final Uri? library;
+
+  @override
+  bool operator ==(Object other) =>
+      other is AnnotationClass &&
+      other.name == name &&
+      other.library == library;
+
+  @override
+  int get hashCode => Object.hash(name, library);
 }
