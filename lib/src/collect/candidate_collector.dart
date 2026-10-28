@@ -59,7 +59,7 @@ final class CandidateCollector {
     _annotationTypes,
   );
 
-  final _annotationTypes = AnnotationTypes();
+  late final _annotationTypes = AnnotationTypes(_sources);
 
   /// The pairing names in each conditional-import variant that was read,
   /// candidates or not; see [ConditionalImports.share].

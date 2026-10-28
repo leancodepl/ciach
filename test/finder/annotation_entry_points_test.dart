@@ -47,6 +47,8 @@ void main() {
         'darkStoryCard',
         'darkerStoryCard',
         'likeStoryCard',
+        'StoryAlias',
+        'aliasStoryCard',
         'constantStory',
         'deprecatedStory',
         'notAStory',

@@ -28,6 +28,8 @@ class StoryLike implements Story<String> {
   const StoryLike();
 }
 
+typedef StoryAlias = DarkStory;
+
 /// Not a constructor call, so it marks nothing.
 const story = Story<int>();
 
@@ -45,6 +47,9 @@ String darkerStoryCard() => 'OK';
 
 @StoryLike()
 String likeStoryCard() => 'OK';
+
+@StoryAlias()
+String aliasStoryCard() => 'OK';
 
 @story
 String constantStory() => 'OK';

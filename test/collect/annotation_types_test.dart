@@ -49,6 +49,12 @@ const preview = Preview();
 class Typed<T> extends Preview {
   const Typed();
 }
+
+typedef AliasPreview = DarkPreview;
+
+typedef AliasOfAlias = AliasPreview;
+
+typedef AliasTyped<T extends Object> = Typed<T>;
 ''');
     client = await LspClient.start();
     await client.initialize(tempDir.uri);
@@ -70,7 +76,7 @@ class Typed<T> extends Preview {
       File(path).uri,
       source.split('\n'),
     );
-    final types = AnnotationTypes();
+    final types = AnnotationTypes(.new());
     await types.resolve(client, path, tokens);
     return {
       for (final (line, _) in source.split('\n').indexed)
@@ -94,6 +100,10 @@ import 'previews.dart' as previews;
 @override void g() {}
 void h() {}
 @Typed<int>() void i() {}
+@AliasPreview() void j() {}
+@previews.AliasOfAlias() void k() {}
+@AliasTyped<int>() void l() {}
+@Typed<AliasPreview>() void m() {}
 ''');
 
       const object = AnnotationClass('Object', null);
@@ -120,7 +130,13 @@ void h() {}
         10: isEmpty,
         // The name of a generic class has no type parameters.
         11: {app('Typed'), app('Preview'), object},
-        12: isEmpty,
+        // A typedef stands for the class that it names.
+        12: {app('DarkPreview'), app('Preview'), object},
+        13: {app('DarkPreview'), app('Preview'), object},
+        14: {app('Typed'), app('Preview'), object},
+        // A typedef in the type arguments is not the annotation's class.
+        15: {app('Typed'), app('Preview'), object},
+        16: isEmpty,
       });
     },
   );

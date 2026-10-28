@@ -59,7 +59,7 @@ entry-points:
 
 A matching declaration is neither reported nor removed. A member rule also keeps its type, while the type's other members are still checked. A rule that names a class or extension type also keeps its unnamed constructor, but not its named ones. Name a constructor the way the report does: `MyWidget.new` or `MyWidget.named`.
 
-An `annotation` rule names a class. It keeps every declaration whose annotation calls a constructor of that class, or of a class that extends, implements or mixes it in, such as `@DarkStory()` for `class DarkStory extends Story`. An annotation that reads a constant, such as `@story`, doesn't count, and a class of that name from any library counts. Widget previews are kept the same way, but only for the `Preview` and `MultiPreview` classes of Flutter. `-v` names each skipped entry point.
+An `annotation` rule names a class. It keeps every declaration whose annotation calls a constructor of that class, or of a class that extends, implements or mixes it in, such as `@DarkStory()` for `class DarkStory extends Story`, also through a typedef. An annotation that reads a constant, such as `@story`, doesn't count, and a class of that name from any library counts. Widget previews are kept the same way, but only for the `Preview` and `MultiPreview` classes of Flutter. `-v` names each skipped entry point.
 
 ### Ignore markers
 
