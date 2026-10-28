@@ -143,6 +143,99 @@ void main() {
     });
   });
 
+  group('EntryPoint.annotationFromConfig', () {
+    test('matches a declaration annotated with the class or a subclass', () {
+      final rule = EntryPoint.annotationFromConfig('Story');
+
+      expect(
+        rule.matches(
+          'lib/a.dart',
+          symbol('card'),
+          null,
+          annotationTypes: {'DarkStory', 'Story', 'Object'},
+        ),
+        isTrue,
+      );
+      expect(
+        rule.matches(
+          'lib/a.dart',
+          symbol('card', kind: .method),
+          'Gallery',
+          annotationTypes: {'Story', 'Object'},
+        ),
+        isTrue,
+      );
+      expect(
+        rule.matches(
+          'lib/a.dart',
+          symbol('card'),
+          null,
+          annotationTypes: {'Deprecated', 'Object'},
+        ),
+        isFalse,
+      );
+      // A declaration named like the class is not annotated with it.
+      expect(rule.matches('lib/a.dart', symbol('Story'), null), isFalse);
+    });
+
+    test('globs narrow the file', () {
+      final rule = EntryPoint.annotationFromConfig(
+        'Story',
+        files: ['lib/stories/**'],
+      );
+
+      expect(
+        rule.matches(
+          'lib/stories/card.dart',
+          symbol('card'),
+          null,
+          annotationTypes: {'Story'},
+        ),
+        isTrue,
+      );
+      expect(
+        rule.matches(
+          'lib/card.dart',
+          symbol('card'),
+          null,
+          annotationTypes: {'Story'},
+        ),
+        isFalse,
+      );
+    });
+
+    test('limited to a package, it keeps the annotation', () {
+      final rule = EntryPoint.annotationFromConfig('Story').within('app');
+
+      expect(rule.annotation, 'Story');
+      expect(rule.files, ['app/**']);
+    });
+
+    test('prints as the annotation and its files', () {
+      expect(
+        '${EntryPoint.annotationFromConfig('Story', files: ['lib/**'])}',
+        'declarations annotated with `@Story` or a subclass of it in lib/**',
+      );
+    });
+
+    test('rejects an `@` before the class name, with a hint', () {
+      expect(
+        () => EntryPoint.annotationFromConfig('@Story'),
+        throwsA(isFormatException(contains('without `@`, such as `Story`'))),
+      );
+    });
+
+    test('rejects an annotation that is not a class name', () {
+      for (final annotation in ['', 'a-b', 'Story.dark', 'Story()']) {
+        expect(
+          () => EntryPoint.annotationFromConfig(annotation),
+          throwsA(isFormatException(contains('not a class name'))),
+          reason: "for '$annotation'",
+        );
+      }
+    });
+  });
+
   group('built-in conventions', () {
     final rules = EntryPoints(const []);
 
@@ -154,6 +247,39 @@ void main() {
         isNull,
       );
     });
+
+    test(
+      'a declaration annotated with a `Preview` or a `MultiPreview` or a subclass of either is shown by `flutter widget-preview`',
+      () {
+        for (final types in [
+          {'Preview', 'Object'},
+          {'DarkPreview', 'Preview', 'Object'},
+          {'ThemePreviews', 'MultiPreview', 'Object'},
+        ]) {
+          expect(
+            rules
+                .match(
+                  'lib/button.dart',
+                  symbol('buttonPreview'),
+                  null,
+                  annotationTypes: types,
+                )
+                ?.reason,
+            contains('flutter widget-preview'),
+            reason: 'for $types',
+          );
+        }
+        expect(
+          rules.match(
+            'lib/button.dart',
+            symbol('buttonPreview'),
+            null,
+            annotationTypes: {'Deprecated', 'Object'},
+          ),
+          isNull,
+        );
+      },
+    );
 
     group('testExecutable', () {
       test('in a flutter_test_config.dart at any depth', () {

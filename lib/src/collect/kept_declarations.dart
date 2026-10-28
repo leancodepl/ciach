@@ -4,6 +4,7 @@
  *   harness: Claude Code
  */
 
+import 'package:ciach/src/collect/annotation_types.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/js_interop.dart';
@@ -23,12 +24,17 @@ final _log = Logger('ciach.finder');
 /// and what a `// ciach:` marker keeps. Each is recorded with its reason, for
 /// `--verbose`, together with the type that has to stay with it.
 final class KeptDeclarations {
-  KeptDeclarations(List<EntryPoint> rules, SourceIndex sources)
-    : _entryPoints = EntryPoints(rules),
-      _sources = sources;
+  KeptDeclarations(
+    List<EntryPoint> rules,
+    SourceIndex sources,
+    AnnotationTypes annotationTypes,
+  ) : _entryPoints = EntryPoints(rules),
+      _sources = sources,
+      _annotationTypes = annotationTypes;
 
   final EntryPoints _entryPoints;
   final SourceIndex _sources;
+  final AnnotationTypes _annotationTypes;
 
   /// Skipped as entry points this run, for `--verbose`.
   final _skippedEntryPoints = <_SkippedEntryPoint>[];
@@ -101,15 +107,20 @@ final class KeptDeclarations {
       containerSuperclass: () => candidate.containerSymbol?.let(
         (containerSymbol) => _superclassOf(candidate.path, containerSymbol),
       ),
+      annotationTypes: _annotationTypes.of(candidate.path, leadingMetadata),
       inEnum: candidate.containerSymbol?.kind == .enum$,
     );
     if (rule != null && container != null) {
-      _entryPointContainers[DeclKey(relativePath, container)] ??=
-          rule.superclass?.let(
-            (superclass) =>
-                'extends `$superclass`, so its public methods are entry points',
-          ) ??
-          'declares the entry point ${rule.name}';
+      _entryPointContainers[DeclKey(relativePath, container)] ??= switch ((
+        rule.superclass,
+        rule.annotation,
+      )) {
+        (final superclass?, _) =>
+          'extends `$superclass`, so its public methods are entry points',
+        (_, _?) =>
+          'declares the entry point $container.${symbol.declarationName(container)}',
+        _ => 'declares the entry point ${rule.name}',
+      };
     }
     final reason =
         rule?.let(

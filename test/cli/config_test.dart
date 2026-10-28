@@ -63,6 +63,8 @@ entry-points:
   - name: bootstrap
   - name: Harness.start
     glob: [test/a.dart, test/b.dart]
+  - annotation: Story
+    glob: 'lib/stories/**'
 kinds: [class, function]
 format: github
 color: true
@@ -92,6 +94,7 @@ dart: /sdk/bin/dart
         'registerWith in lib/**_plugin.dart',
         'bootstrap',
         'Harness.start in test/a.dart or test/b.dart',
+        'declarations annotated with `@Story` or a subclass of it in lib/stories/**',
       ]);
       expect(resolved.additionalGeneratedGlobs, ['lib/l10n/**']);
       expect(resolved.kinds, <SymbolKind>{.class$, .function});
@@ -331,7 +334,8 @@ concurrency: 4
 
     test('rejects a malformed entry point, naming the key', () {
       final cases = {
-        'entry-points: {name: a}': 'a list of `{name, glob}` rules',
+        'entry-points: {name: a}':
+            'a list of `{name, glob}` or `{annotation, glob}` rules',
         'entry-points: [a]': "'entry-points[0]' must be `{name:",
         'entry-points: [{glob: lib/**}]': "'entry-points[0]' must be `{name:",
         'entry-points: [{name: 1}]': "'entry-points[0]' must be `{name:",
@@ -341,6 +345,15 @@ concurrency: 4
         'entry-points: [{name: a, glob: [1]}]':
             "'entry-points[0].glob' must be",
         "entry-points: [{name: a, glob: 'lib/['}]": "glob 'lib/[': expected",
+        'entry-points: [{annotation: 1}]': "'entry-points[0]' must be `{name:",
+        'entry-points: [{annotation: A.b}]': 'not a class name',
+        "entry-points: [{annotation: '@Story'}]":
+            'without `@`, such as `Story`',
+        'entry-points: [{annotation: A, glob: 1}]':
+            "'entry-points[0].glob' must be",
+        // A rule has a name or an annotation, not both.
+        'entry-points: [{name: a, annotation: A}]':
+            "'entry-points[0]' must be `{name:",
         // An unknown field shows the whole rule back.
         'entry-points: [{name: a}, {name: b, file: x}]':
             "'entry-points[1]' must be `{name:",

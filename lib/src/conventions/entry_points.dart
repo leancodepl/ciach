@@ -6,12 +6,13 @@ import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
 /// A declaration a framework or tool calls by convention, with no source
-/// reference for the search to find: a top-level name in a file.
+/// reference for the search to find: a name in a file, the public methods of
+/// a class's subclasses, or what an annotation marks.
 ///
 /// That is the whole contract the callers apply themselves — flutter_tools
 /// finds `flutter_test_config.dart` by name and generates a call to
-/// `testExecutable` — so a rule is a name plus the files it lives in, nothing
-/// about the declaration's shape. The compiler enforces the shape at the
+/// `testExecutable` — so a rule says which declarations it matches and the
+/// files they live in, nothing about the declaration's shape. The compiler enforces the shape at the
 /// generated call site.
 final class EntryPoint {
   /// [name] is `name` or `Container.member`; [files] are POSIX globs relative
@@ -21,6 +22,7 @@ final class EntryPoint {
   /// whose `source` is the glob.
   EntryPoint({required this.name, required this.reason, this.files = const []})
     : superclass = null,
+      annotation = null,
       _globs = [for (final file in files) .new(file, context: _posix)];
 
   /// Creates a rule that matches the public methods of every class that
@@ -30,6 +32,19 @@ final class EntryPoint {
     required this.reason,
     this.files = const [],
   }) : name = '*',
+       annotation = null,
+       _globs = [for (final file in files) .new(file, context: _posix)];
+
+  /// Creates a rule that matches every declaration whose annotation calls a
+  /// constructor of the class [annotation], or of a class that has
+  /// [annotation] among its supertypes. A class of that name from any library
+  /// counts.
+  EntryPoint.annotatedWith(
+    String this.annotation, {
+    required this.reason,
+    this.files = const [],
+  }) : name = '*',
+       superclass = null,
        _globs = [for (final file in files) .new(file, context: _posix)];
 
   /// Creates a rule that comes from the `entry-points` setting or from the
@@ -64,10 +79,34 @@ final class EntryPoint {
     return .new(name: name, files: files, reason: reason);
   }
 
+  /// Creates an [EntryPoint.annotatedWith] rule that comes from the
+  /// `entry-points` setting.
+  ///
+  /// Throws a [FormatException] if [annotation] is not a class name. The
+  /// constructor throws for a glob that does not parse.
+  factory EntryPoint.annotationFromConfig(
+    String annotation, {
+    List<String> files = const [],
+    String reason = 'listed under `entry-points` in the config file',
+  }) {
+    if (annotation.startsWith('@')) {
+      throw FormatException(
+        "'$annotation': write the class name without `@`, such as `${annotation.substring(1)}`.",
+      );
+    }
+    if (!_identifier.hasMatch(annotation)) {
+      throw FormatException(
+        "'$annotation' is not a class name; expected an identifier such as 'Preview'.",
+      );
+    }
+    return .annotatedWith(annotation, files: files, reason: reason);
+  }
+
   static final _posix = p.Context(style: .posix);
   static final _qualifiedName = RegExp(
     r'^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)?$',
   );
+  static final _identifier = RegExp(r'^[A-Za-z_$][A-Za-z0-9_$]*$');
 
   /// The name of the declaration. A top-level declaration is `name` and a
   /// member is `Container.member`. The unnamed constructor is `Class.new`.
@@ -77,6 +116,10 @@ final class EntryPoint {
   /// The superclass that a [EntryPoint.publicMethodsOfSubclasses] rule
   /// matches. It is `null` for every other rule.
   final String? superclass;
+
+  /// The annotation class that an [EntryPoint.annotatedWith] rule matches. It
+  /// is `null` for every other rule.
+  final String? annotation;
 
   /// The file globs as written; empty matches any file.
   final List<String> files;
@@ -96,12 +139,19 @@ final class EntryPoint {
       files: const ['**/flutter_test_config.dart'],
       reason: 'called by the `flutter test` bootstrap',
     ),
+    // `flutter widget-preview start` shows every function and constructor
+    // whose annotation is a `Preview` or a `MultiPreview`, the classes of
+    // `package:flutter/widget_previews.dart`, or a subclass of either.
+    for (final annotation in ['Preview', 'MultiPreview'])
+      .annotatedWith(annotation, reason: 'shown by `flutter widget-preview`'),
   ];
 
   /// Whether [symbol], in the file at [relativePath] (POSIX, from the package
   /// root) inside [container] (`null` at the top level), meets this rule.
   /// Returns whether this rule matches [symbol]. [containerSuperclass] is
   /// called only for a [superclass] rule, because it has to parse the source.
+  /// [annotationTypes] holds the names of the classes whose constructors the
+  /// annotations of [symbol] call, and of all of their supertypes.
   ///
   /// A rule that names a class or an extension type also matches the type's
   /// unnamed constructor, because code that uses the type calls `Type()`.
@@ -112,30 +162,39 @@ final class EntryPoint {
     DocumentSymbol symbol,
     String? container, {
     String? Function()? containerSuperclass,
+    Set<String> annotationTypes = const {},
     bool inEnum = false,
   }) {
-    final bool named;
-    if (superclass case final superclass?) {
-      named =
-          container != null &&
-          symbol.kind == .method &&
-          !symbol.name.startsWith('_') &&
-          containerSuperclass?.call() == superclass;
-    } else {
-      final qualified =
-          container?.let(
-            (container) => '$container.${symbol.declarationName(container)}',
-          ) ??
-          symbol.name;
-      named =
-          qualified == name ||
-          (container == name &&
-              !inEnum &&
-              symbol.kind == .constructor &&
-              symbol.declarationName(container) == 'new');
-    }
+    final named = switch ((superclass, annotation)) {
+      (final superclass?, _) =>
+        container != null &&
+            symbol.kind == .method &&
+            !symbol.name.startsWith('_') &&
+            containerSuperclass?.call() == superclass,
+      (_, final annotation?) => annotationTypes.contains(annotation),
+      _ => _namesDeclaration(symbol, container, inEnum: inEnum),
+    };
     return named &&
         (_globs.isEmpty || _globs.any((glob) => glob.matches(relativePath)));
+  }
+
+  /// Whether [name] is the name of [symbol] inside [container], or names the
+  /// type whose unnamed constructor [symbol] is.
+  bool _namesDeclaration(
+    DocumentSymbol symbol,
+    String? container, {
+    required bool inEnum,
+  }) {
+    final qualified =
+        container?.let(
+          (container) => '$container.${symbol.declarationName(container)}',
+        ) ??
+        symbol.name;
+    return qualified == name ||
+        (container == name &&
+            !inEnum &&
+            symbol.kind == .constructor &&
+            symbol.declarationName(container) == 'new');
   }
 
   /// Returns this rule, limited to the package in the directory [prefix].
@@ -148,23 +207,30 @@ final class EntryPoint {
     final scoped = files.isEmpty
         ? ['$prefix/**']
         : [for (final file in files) '$prefix/$file'];
-    return superclass?.let(
-          (superclass) => .publicMethodsOfSubclasses(
-            superclass,
-            reason: reason,
-            files: scoped,
-          ),
-        ) ??
-        .new(name: name, reason: reason, files: scoped);
+    return switch ((superclass, annotation)) {
+      (final superclass?, _) => .publicMethodsOfSubclasses(
+        superclass,
+        reason: reason,
+        files: scoped,
+      ),
+      (_, final annotation?) => .annotatedWith(
+        annotation,
+        reason: reason,
+        files: scoped,
+      ),
+      _ => .new(name: name, reason: reason, files: scoped),
+    };
   }
 
   /// The text that shows the rule to the user. It is the [name] of the rule,
-  /// or, for a [superclass] rule, a description of what the rule matches.
-  String get label =>
-      superclass?.let(
-        (superclass) => 'public methods of `$superclass` subclasses',
-      ) ??
-      name;
+  /// or, for a [superclass] or an [annotation] rule, a description of what
+  /// the rule matches.
+  String get label => switch ((superclass, annotation)) {
+    (final superclass?, _) => 'public methods of `$superclass` subclasses',
+    (_, final annotation?) =>
+      'declarations annotated with `@$annotation` or a subclass of it',
+    _ => name,
+  };
 
   @override
   String toString() =>
@@ -185,6 +251,7 @@ final class EntryPoints {
     DocumentSymbol symbol,
     String? container, {
     String? Function()? containerSuperclass,
+    Set<String> annotationTypes = const {},
     bool inEnum = false,
   }) => _rules.firstWhereOrNull(
     (rule) => rule.matches(
@@ -192,6 +259,7 @@ final class EntryPoints {
       symbol,
       container,
       containerSuperclass: containerSuperclass,
+      annotationTypes: annotationTypes,
       inEnum: inEnum,
     ),
   );

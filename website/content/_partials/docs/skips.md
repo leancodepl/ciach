@@ -16,6 +16,7 @@ Each of these is a known source of false positives. Where there is a flag, it op
 | --- | --- | --- |
 | `main` | the entry point is never unused | — |
 | `testExecutable` in a `flutter_test_config.dart` | `flutter test` calls it | — |
+| Declarations annotated with `@Preview` or `@MultiPreview`, or with a subclass of either | `flutter widget-preview` shows them | — |
 | Entry points from the project config | a framework or a tool calls them | `--no-project-config` |
 | `@override` members | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses. One that overrides a dead member is dead too, and `--remove` takes both | `--also overrides` |
 | Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--also operators` |
@@ -34,7 +35,7 @@ Private constructors are not skipped: an unused `ClassName._` is dead code like 
 
 ### Entry points
 
-Some declarations are only called from code a tool generates, so nothing in the package references them: `flutter test` runs `testExecutable`, flutter_tools calls `MyPlugin.registerWith()`. ciach knows about `main` and `testExecutable`, and reads these from the project's own config files:
+Some declarations are only called from code a tool generates, so nothing in the package references them: `flutter test` runs `testExecutable`, flutter_tools calls `MyPlugin.registerWith()`. ciach knows about `main`, `testExecutable` and Flutter widget previews, and reads these from the project's own config files:
 
 | Source | Entry point |
 | --- | --- |
@@ -53,9 +54,12 @@ entry-points:
     glob: 'lib/my_host.dart'      # one glob or a list; omit for any file
   - name: bootstrap               # a top-level declaration
     glob: 'lib/src/isolate.dart'
+  - annotation: Story             # what `@Story()` annotates
 ```
 
-A matching declaration is neither reported nor removed. A member rule also keeps its type, while the type's other members are still checked. A rule that names a class or extension type also keeps its unnamed constructor, but not its named ones. Name a constructor the way the report does: `MyWidget.new` or `MyWidget.named`. `-v` names each skipped entry point.
+A matching declaration is neither reported nor removed. A member rule also keeps its type, while the type's other members are still checked. A rule that names a class or extension type also keeps its unnamed constructor, but not its named ones. Name a constructor the way the report does: `MyWidget.new` or `MyWidget.named`.
+
+An `annotation` rule names a class. It keeps every declaration whose annotation calls a constructor of that class, or of a class that extends, implements or mixes it in, such as `@DarkStory()` for `class DarkStory extends Story`. An annotation that reads a constant, such as `@story`, doesn't count. The built-in rules for `Preview` and `MultiPreview` work the same way, and match a class of that name from any library. `-v` names each skipped entry point.
 
 ### Ignore markers
 

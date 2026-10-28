@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:ciach/src/collect/annotation_types.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/collect/kept_declarations.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
@@ -52,7 +53,13 @@ final class CandidateCollector {
   final ConditionalImports _conditionalImports;
 
   /// What this run leaves unchecked on purpose, and why.
-  late final _kept = KeptDeclarations(options.entryPoints, _sources);
+  late final _kept = KeptDeclarations(
+    options.entryPoints,
+    _sources,
+    _annotationTypes,
+  );
+
+  final _annotationTypes = AnnotationTypes();
 
   /// The pairing names in each conditional-import variant that was read,
   /// candidates or not; see [ConditionalImports.share].
@@ -87,7 +94,9 @@ final class CandidateCollector {
       recordProblem(_uncollectedFile, e, path: path);
       return const [];
     }
-    _sources.cacheSemanticTokens(path, await pendingTokens);
+    final tokens = await pendingTokens;
+    _sources.cacheSemanticTokens(path, tokens);
+    await _annotationTypes.resolve(client, path, tokens);
     if (_conditionalImports.contains(path)) {
       declaredInVariants[path] = ConditionalImports.pairingNames(symbols);
     }
