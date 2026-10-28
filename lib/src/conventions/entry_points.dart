@@ -20,22 +20,19 @@ final class EntryPoint {
   ///
   /// A glob that does not parse throws the glob package's [FormatException],
   /// whose `source` is the glob.
-  EntryPoint({required this.name, required this.reason, this.files = const []})
-    : superclass = null,
-      annotation = null,
-      annotationLibrary = null,
-      _globs = [for (final file in files) .new(file, context: _posix)];
+  EntryPoint({
+    required String name,
+    required String reason,
+    List<String> files = const [],
+  }) : this._(name: name, reason: reason, files: files);
 
   /// Creates a rule that matches the public methods of every class that
   /// directly extends [superclass].
   EntryPoint.publicMethodsOfSubclasses(
-    String this.superclass, {
-    required this.reason,
-    this.files = const [],
-  }) : name = '*',
-       annotation = null,
-       annotationLibrary = null,
-       _globs = [for (final file in files) .new(file, context: _posix)];
+    String superclass, {
+    required String reason,
+    List<String> files = const [],
+  }) : this._(name: '*', superclass: superclass, reason: reason, files: files);
 
   /// Creates a rule that matches every declaration whose annotation calls a
   /// constructor of the class [annotation], or of a class that has
@@ -44,13 +41,26 @@ final class EntryPoint {
   /// library that declares the class; without it, a class of that name from
   /// any library counts.
   EntryPoint.annotatedWith(
-    String this.annotation, {
+    String annotation, {
+    Uri? annotationLibrary,
+    required String reason,
+    List<String> files = const [],
+  }) : this._(
+         name: '*',
+         annotation: annotation,
+         annotationLibrary: annotationLibrary,
+         reason: reason,
+         files: files,
+       );
+
+  EntryPoint._({
+    required this.name,
+    this.superclass,
+    this.annotation,
     this.annotationLibrary,
     required this.reason,
-    this.files = const [],
-  }) : name = '*',
-       superclass = null,
-       _globs = [for (final file in files) .new(file, context: _posix)];
+    required this.files,
+  }) : _globs = [for (final file in files) .new(file, context: _posix)];
 
   /// Creates a rule that comes from the `entry-points` setting or from the
   /// project config.
@@ -99,7 +109,7 @@ final class EntryPoint {
         "'$annotation': write the class name without `@`, such as `${annotation.substring(1)}`.",
       );
     }
-    if (!_identifier.hasMatch(annotation)) {
+    if (annotation.contains('.') || !_qualifiedName.hasMatch(annotation)) {
       throw FormatException(
         "'$annotation' is not a class name; expected an identifier such as 'Story'.",
       );
@@ -111,7 +121,6 @@ final class EntryPoint {
   static final _qualifiedName = RegExp(
     r'^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)?$',
   );
-  static final _identifier = RegExp(r'^[A-Za-z_$][A-Za-z0-9_$]*$');
 
   /// The name of the declaration. A top-level declaration is `name` and a
   /// member is `Container.member`. The unnamed constructor is `Class.new`.
@@ -148,17 +157,6 @@ final class EntryPoint {
       files: const ['**/flutter_test_config.dart'],
       reason: 'called by the `flutter test` bootstrap',
     ),
-    // `flutter widget-preview start` shows every function and constructor
-    // whose annotation is a `Preview` or a `MultiPreview`, or a subclass of
-    // either.
-    for (final annotation in ['Preview', 'MultiPreview'])
-      .annotatedWith(
-        annotation,
-        annotationLibrary: .parse(
-          'package:flutter/src/widget_previews/widget_previews.dart',
-        ),
-        reason: 'shown by `flutter widget-preview`',
-      ),
   ];
 
   /// Whether [symbol], in the file at [relativePath] (POSIX, from the package
@@ -226,20 +224,14 @@ final class EntryPoint {
     final scoped = files.isEmpty
         ? ['$prefix/**']
         : [for (final file in files) '$prefix/$file'];
-    return switch ((superclass, annotation)) {
-      (final superclass?, _) => .publicMethodsOfSubclasses(
-        superclass,
-        reason: reason,
-        files: scoped,
-      ),
-      (_, final annotation?) => .annotatedWith(
-        annotation,
-        annotationLibrary: annotationLibrary,
-        reason: reason,
-        files: scoped,
-      ),
-      _ => .new(name: name, reason: reason, files: scoped),
-    };
+    return ._(
+      name: name,
+      superclass: superclass,
+      annotation: annotation,
+      annotationLibrary: annotationLibrary,
+      reason: reason,
+      files: scoped,
+    );
   }
 
   /// The text that shows the rule to the user. It is the [name] of the rule,
@@ -247,8 +239,11 @@ final class EntryPoint {
   /// the rule matches.
   String get label => switch ((superclass, annotation)) {
     (final superclass?, _) => 'public methods of `$superclass` subclasses',
-    (_, final annotation?) =>
-      'declarations annotated with `@$annotation` or a subclass of it',
+    (_, final annotation?) => [
+      'declarations annotated with `@$annotation`',
+      if (annotationLibrary case final library?) 'from `$library`',
+      'or a subclass of it',
+    ].join(' '),
     _ => name,
   };
 

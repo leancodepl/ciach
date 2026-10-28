@@ -246,6 +246,25 @@ void main() {
       );
     });
 
+    test('a rule with a library matches only the class of that library', () {
+      final library = Uri.parse('package:stories/story.dart');
+      final rule = EntryPoint.annotatedWith(
+        'Story',
+        annotationLibrary: library,
+        reason: 'shown in the catalog',
+      );
+
+      bool matches(AnnotationClass type) => rule.matches(
+        'lib/a.dart',
+        symbol('card'),
+        null,
+        annotationTypes: {type},
+      );
+      expect(matches(.new('Story', library)), isTrue);
+      expect(matches(.new('Story', .parse('package:app/story.dart'))), isFalse);
+      expect(matches(const .new('Story', null)), isFalse);
+    });
+
     test('rejects an `@` before the class name, with a hint', () {
       expect(
         () => EntryPoint.annotationFromConfig('@Story'),
@@ -274,53 +293,6 @@ void main() {
         rules.match('lib/a.dart', symbol('main', kind: .method), 'Runner'),
         isNull,
       );
-    });
-
-    group('widget previews', () {
-      final flutter = Uri.parse(
-        'package:flutter/src/widget_previews/widget_previews.dart',
-      );
-      final app = Uri.parse('package:app/previews.dart');
-
-      /// Returns the reason of the rule that matches a function whose
-      /// annotation has the classes [types].
-      String? reasonFor(Set<AnnotationClass> types) => rules
-          .match(
-            'lib/button.dart',
-            symbol('buttonPreview'),
-            null,
-            annotationTypes: types,
-          )
-          ?.reason;
-
-      test(
-        "a declaration annotated with Flutter's `Preview` or `MultiPreview`, or a subclass of either, is shown by `flutter widget-preview`",
-        () {
-          for (final types in [
-            {AnnotationClass('Preview', flutter)},
-            {
-              AnnotationClass('DarkPreview', app),
-              AnnotationClass('Preview', flutter),
-            },
-            {
-              AnnotationClass('ThemePreviews', app),
-              AnnotationClass('MultiPreview', flutter),
-            },
-          ]) {
-            expect(
-              reasonFor(types),
-              contains('flutter widget-preview'),
-              reason: 'for $types',
-            );
-          }
-        },
-      );
-
-      test('a `Preview` from another library is not a widget preview', () {
-        expect(reasonFor({.new('Preview', app)}), isNull);
-        expect(reasonFor({const .new('Preview', null)}), isNull);
-        expect(reasonFor({const .new('Deprecated', null)}), isNull);
-      });
     });
 
     group('testExecutable', () {

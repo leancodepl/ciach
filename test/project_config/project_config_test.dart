@@ -63,7 +63,7 @@ flutter:
   test('frameworks and plugins, by dependency', () {
     write('pubspec.yaml', '''
 name: my_lints
-dependencies: {dart_frog: any, analysis_server_plugin: any}
+dependencies: {dart_frog: any, analysis_server_plugin: any, flutter: {sdk: flutter}}
 dev_dependencies: {serverpod: any, custom_lint_builder: any}
 ''');
 
@@ -75,6 +75,8 @@ dev_dependencies: {serverpod: any, custom_lint_builder: any}
       'public methods of `Endpoint` subclasses',
       'plugin in lib/main.dart',
       'createPlugin in lib/my_lints.dart',
+      'declarations annotated with `@Preview` from `package:flutter/src/widget_previews/widget_previews.dart` or a subclass of it',
+      'declarations annotated with `@MultiPreview` from `package:flutter/src/widget_previews/widget_previews.dart` or a subclass of it',
     });
   });
 

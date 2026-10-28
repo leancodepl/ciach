@@ -11,6 +11,7 @@ import 'dart:io';
 
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/finder.dart';
+import 'package:ciach/src/project_config/project_config.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -50,9 +51,6 @@ void main() {
         'deprecatedStory',
         'notAStory',
         'Gallery',
-        // A `Preview` from a library other than Flutter's.
-        'Preview',
-        'previewWithoutFlutter',
       });
     },
   );
@@ -68,8 +66,6 @@ void main() {
         'notAStory',
         'Gallery.new',
         'Gallery.helper',
-        'Preview',
-        'previewWithoutFlutter',
       });
     },
   );
@@ -102,8 +98,16 @@ export 'src/widget_previews/widget_previews.dart';
       write('app/pubspec.yaml', '''
 name: app
 environment: {sdk: ^3.13.0}
+dependencies:
+  flutter: {sdk: flutter}
+''');
+      write('app/lib/other.dart', '''
+class Preview {
+  const Preview();
+}
 ''');
       write('app/lib/previews.dart', '''
+import 'package:app/other.dart' as other;
 import 'package:flutter/widget_previews.dart';
 
 final class DarkPreview extends Preview {
@@ -123,14 +127,27 @@ String darkButtonPreview() => 'OK';
 @ThemePreviews()
 String themedButtonPreview() => 'OK';
 
+// Not Flutter's `Preview`.
+@other.Preview()
+String otherPreview() => 'OK';
+
 String notAPreview() => 'OK';
 ''');
 
+      final appPath = p.join(root.path, 'app');
       final result = await Ciach(
-        .new(rootPath: p.join(root.path, 'app')),
+        .new(
+          rootPath: appPath,
+          entryPoints: ProjectConfig.read(appPath).entryPoints,
+        ),
       ).run();
 
-      expect(result.unused.map((d) => d.qualifiedName), ['notAPreview']);
+      expect(result.unused.map((d) => d.qualifiedName), {
+        // The `Preview` of other.dart, which only `otherPreview` uses.
+        'Preview',
+        'otherPreview',
+        'notAPreview',
+      });
     },
   );
 }

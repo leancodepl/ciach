@@ -1,7 +1,7 @@
 // Entry points that an annotation marks. Expected findings: everything, by
 // default. With an `{annotation: Story}` rule, only `notAStory`,
-// `constantStory`, `deprecatedStory`, `Gallery.new`, `Gallery.helper`,
-// `previewWithoutFlutter` and `story`, which only `constantStory` uses.
+// `constantStory`, `deprecatedStory`, `Gallery.new`, `Gallery.helper` and
+// `story`, which only `constantStory` uses.
 //
 // Scanned only by the dedicated tests; see
 // test/finder/annotation_entry_points_test.dart.
@@ -65,12 +65,3 @@ class Gallery {
 
   static String helper() => 'OK';
 }
-
-/// Not Flutter's `Preview`, so the built-in rule for widget previews doesn't
-/// keep what it marks.
-class Preview {
-  const Preview();
-}
-
-@Preview()
-String previewWithoutFlutter() => 'OK';

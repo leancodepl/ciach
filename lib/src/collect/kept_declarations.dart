@@ -100,6 +100,8 @@ final class KeptDeclarations {
   ) {
     final symbol = candidate.symbol;
     final container = candidate.container;
+    final name = symbol.declarationName(container);
+    final qualified = container?.let((container) => '$container.$name') ?? name;
     final rule = _entryPoints.match(
       relativePath,
       symbol,
@@ -117,8 +119,7 @@ final class KeptDeclarations {
       )) {
         (final superclass?, _) =>
           'extends `$superclass`, so its public methods are entry points',
-        (_, _?) =>
-          'declares the entry point $container.${symbol.declarationName(container)}',
+        (_, _?) => 'declares the entry point $qualified',
         _ => 'declares the entry point ${rule.name}',
       };
     }
@@ -132,11 +133,10 @@ final class KeptDeclarations {
     if (reason == null) {
       return false;
     }
-    final name = symbol.declarationName(container);
     _skippedEntryPoints.add((
       path: relativePath,
       line: symbol.selectionRange.start.line + 1,
-      name: container?.let((container) => '$container.$name') ?? name,
+      name: qualified,
       reason: reason,
     ));
     return true;

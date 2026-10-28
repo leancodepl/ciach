@@ -66,6 +66,12 @@ final class SemanticToken {
   /// Whether this is the name of an `@[name]` annotation.
   bool isAnnotationNamed(String name) =>
       modifiers.contains('annotation') && text == name;
+
+  /// Whether this is the class name in an annotation that calls a
+  /// constructor, such as `Preview` in `@Preview()`. An annotation that reads
+  /// a constant, such as `@override`, has a `property` token instead.
+  bool get isAnnotationClassName =>
+      type == 'class' && modifiers.contains('annotation');
 }
 
 /// Decodes the relative-encoded [data] of a `semanticTokens/full` response.

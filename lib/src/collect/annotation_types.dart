@@ -17,8 +17,10 @@ import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/workspace/packages.dart';
+import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show Position, TypeHierarchyItem;
+import 'package:pro_lsp/pro_lsp.dart'
+    show Location, Position, TypeHierarchyItem;
 
 const _unresolvedAnnotation =
     'Could not resolve the class of this annotation; the declaration that it annotates may be reported.';
@@ -29,7 +31,11 @@ final class AnnotationTypes {
 
   /// Each annotation's class and all its supertypes, by the file and the
   /// position of the class name in the annotation.
-  final _byPath = <String, Map<Position, Set<AnnotationClass>>>{};
+  final _byAnnotation = <(String, Position), Set<AnnotationClass>>{};
+
+  /// The classes that a definition location declares, with all their
+  /// supertypes. The same annotation in many places has the same definition.
+  final _byDefinition = <(String, Position), Future<Set<AnnotationClass>>>{};
 
   /// A class and all its supertypes, by the file and the position of the
   /// class's name in its declaration.
@@ -42,20 +48,11 @@ final class AnnotationTypes {
     String path,
     List<SemanticToken> tokens,
   ) async {
-    // The analysis server marks the class name of an annotation that calls a
-    // constructor as a `class` token. An annotation that reads a constant,
-    // such as `@override`, has a `property` token instead.
-    final classNames = tokens.where(
-      (token) =>
-          token.type == 'class' && token.modifiers.contains('annotation'),
-    );
-    final resolved = await Future.wait([
-      for (final token in classNames) _classesOf(client, path, token),
+    final config = _packages.configOf(p.dirname(path));
+    await Future.wait([
+      for (final token in tokens.where((token) => token.isAnnotationClassName))
+        _resolveToken(client, config, path, token),
     ]);
-    _byPath[path] = {
-      for (final (:token, :classes) in resolved)
-        if (classes.isNotEmpty) token.start: classes,
-    };
   }
 
   /// Returns the classes of the annotations among [leadingMetadata], the doc
@@ -64,30 +61,25 @@ final class AnnotationTypes {
   Set<AnnotationClass> of(
     String path,
     Iterable<SemanticToken> leadingMetadata,
-  ) => {for (final token in leadingMetadata) ...?_byPath[path]?[token.start]};
+  ) => {
+    for (final token in leadingMetadata) ...?_byAnnotation[(path, token.start)],
+  };
 
-  /// Returns [token] with its class and all the supertypes of that class, or
-  /// with no classes when the class can't be resolved.
-  Future<({SemanticToken token, Set<AnnotationClass> classes})> _classesOf(
+  /// Records the class of the annotation [token] and all the supertypes of
+  /// that class. Records nothing when the class can't be resolved.
+  Future<void> _resolveToken(
     LspClient client,
+    PackageConfig? config,
     String path,
     SemanticToken token,
   ) async {
     try {
-      final classes = <AnnotationClass>{};
-      for (final definition in await client.definition(
-        File(path).uri,
-        token.start,
-      )) {
-        final items = await client.typeHierarchyItems(
-          .parse(definition.uri),
-          definition.range.start,
-        );
-        for (final item in items) {
-          classes.addAll(await _withSupertypes(client, path, item));
-        }
-      }
-      return (token: token, classes: classes);
+      final definitions = await client.definition(File(path).uri, token.start);
+      final classes = await Future.wait([
+        for (final definition in definitions)
+          _declaredAt(client, config, definition),
+      ]);
+      _byAnnotation[(path, token.start)] = {for (final set in classes) ...set};
     } on LspRequestException catch (e) {
       recordProblem(
         _unresolvedAnnotation,
@@ -95,27 +87,39 @@ final class AnnotationTypes {
         path: path,
         position: token.start,
       );
-      return (token: token, classes: const <AnnotationClass>{});
     }
   }
 
+  /// Returns the classes declared at [definition] and all their supertypes.
+  Future<Set<AnnotationClass>> _declaredAt(
+    LspClient client,
+    PackageConfig? config,
+    Location definition,
+  ) => _byDefinition[(definition.uri, definition.range.start)] ??= () async {
+    final items = await client.typeHierarchyItems(
+      .parse(definition.uri),
+      definition.range.start,
+    );
+    final classes = await Future.wait([
+      for (final item in items) _withSupertypes(client, config, item),
+    ]);
+    return {for (final set in classes) ...set};
+  }();
+
   /// Returns the class of [item] and all its supertypes. Their libraries are
-  /// the `package:` URIs that the package config of [path] gives them.
+  /// the `package:` URIs that [config] gives them.
   Future<Set<AnnotationClass>> _withSupertypes(
     LspClient client,
-    String path,
+    PackageConfig? config,
     TypeHierarchyItem item,
   ) => _byClass[(item.uri, item.selectionRange.start)] ??= () async {
     final supertypes = await client.supertypes(item);
     final classes = await Future.wait([
       for (final supertype in supertypes)
-        _withSupertypes(client, path, supertype),
+        _withSupertypes(client, config, supertype),
     ]);
-    final library = _packages
-        .configOf(p.dirname(path))
-        ?.toPackageUri(.parse(item.uri));
     return {
-      AnnotationClass(item.name, library),
+      AnnotationClass(item.name, config?.toPackageUri(.parse(item.uri))),
       for (final set in classes) ...set,
     };
   }();

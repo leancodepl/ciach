@@ -96,7 +96,11 @@ final class CandidateCollector {
     }
     final tokens = await pendingTokens;
     _sources.cacheSemanticTokens(path, tokens);
-    await _annotationTypes.resolve(client, path, tokens);
+    // Only an annotation rule reads the classes of the annotations, and no
+    // built-in rule is one.
+    if (options.entryPoints.any((rule) => rule.annotation != null)) {
+      await _annotationTypes.resolve(client, path, tokens);
+    }
     if (_conditionalImports.contains(path)) {
       declaredInVariants[path] = ConditionalImports.pairingNames(symbols);
     }
