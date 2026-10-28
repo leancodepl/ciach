@@ -12,8 +12,8 @@ import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 /// That is the whole contract the callers apply themselves — flutter_tools
 /// finds `flutter_test_config.dart` by name and generates a call to
 /// `testExecutable` — so a rule says which declarations it matches and the
-/// files they live in, nothing about the declaration's shape. The compiler enforces the shape at the
-/// generated call site.
+/// files they live in, nothing about the declaration's shape. The compiler
+/// enforces the shape at the generated call site.
 final class EntryPoint {
   /// [name] is `name` or `Container.member`; [files] are POSIX globs relative
   /// to the package root, any of which may match (none means any file).
@@ -242,7 +242,7 @@ final class EntryPoint {
     (_, final annotation?) => [
       'declarations annotated with `@$annotation`',
       if (annotationLibrary case final library?) 'from `$library`',
-      'or a subclass of it',
+      'or a subtype of it',
     ].join(' '),
     _ => name,
   };

@@ -6,7 +6,7 @@
 
 /// Resolves the class of each annotation that calls a constructor, such as
 /// `@DarkPreview()`, so that an `EntryPoint.annotatedWith` rule can match a
-/// subclass of the class that it names.
+/// subtype of the class that it names.
 library;
 
 import 'dart:io';
@@ -16,6 +16,7 @@ import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
+import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/workspace/packages.dart';
 import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
@@ -42,7 +43,7 @@ final class AnnotationTypes {
   final _byClass = <(String, Position), Future<Set<AnnotationClass>>>{};
 
   /// Resolves the annotations among [tokens], the semantic tokens of the open
-  /// file [path], for [of].
+  /// file [path], so that [of] can return their classes.
   Future<void> resolve(
     LspClient client,
     String path,
@@ -119,7 +120,11 @@ final class AnnotationTypes {
         _withSupertypes(client, config, supertype),
     ]);
     return {
-      AnnotationClass(item.name, config?.toPackageUri(.parse(item.uri))),
+      // The server names a generic class `Story<T>`.
+      AnnotationClass(
+        item.name.withoutTypeArguments,
+        config?.toPackageUri(.parse(item.uri)),
+      ),
       for (final set in classes) ...set,
     };
   }();

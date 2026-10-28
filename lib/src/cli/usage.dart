@@ -37,7 +37,7 @@ Config file:
 
   `entry-points` lives only there: declarations a tool calls from generated
   code, each a `name`, or an `annotation` class that also matches its
-  subclasses, with an optional `glob` for the files it may live in.
+  subtypes, with an optional `glob` for the files it may live in.
 
     # $configFileName
     public: false

@@ -6,14 +6,15 @@
 // Scanned only by the dedicated tests; see
 // test/finder/annotation_entry_points_test.dart.
 
-/// The annotation class that the `{annotation: Story}` rule names.
-class Story {
+/// The annotation class that the `{annotation: Story}` rule names. The rule
+/// leaves out the type parameter.
+class Story<T> {
   const Story();
 
   const Story.named();
 }
 
-class DarkStory extends Story {
+class DarkStory extends Story<int> {
   const DarkStory();
 }
 
@@ -23,17 +24,17 @@ class DarkerStory extends DarkStory {
 }
 
 /// A class that implements `Story` instead of extending it.
-class StoryLike implements Story {
+class StoryLike implements Story<String> {
   const StoryLike();
 }
 
 /// Not a constructor call, so it marks nothing.
-const story = Story();
+const story = Story<int>();
 
-@Story()
+@Story<int>()
 String storyCard() => 'OK';
 
-@Story.named()
+@Story<int>.named()
 String namedStoryCard() => 'OK';
 
 @DarkStory()
@@ -57,10 +58,10 @@ String notAStory() => 'OK';
 class Gallery {
   const Gallery();
 
-  @Story()
+  @Story<int>()
   const Gallery.card();
 
-  @Story()
+  @Story<int>()
   static String buttonCard() => 'OK';
 
   static String helper() => 'OK';

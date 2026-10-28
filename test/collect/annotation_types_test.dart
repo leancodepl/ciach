@@ -45,6 +45,10 @@ class ThemedPreview with Themed implements DarkPreview {
 }
 
 const preview = Preview();
+
+class Typed<T> extends Preview {
+  const Typed();
+}
 ''');
     client = await LspClient.start();
     await client.initialize(tempDir.uri);
@@ -89,6 +93,7 @@ import 'previews.dart' as previews;
 @preview void f() {}
 @override void g() {}
 void h() {}
+@Typed<int>() void i() {}
 ''');
 
       const object = AnnotationClass('Object', null);
@@ -113,7 +118,9 @@ void h() {}
         8: isEmpty,
         9: isEmpty,
         10: isEmpty,
-        11: isEmpty,
+        // The name of a generic class has no type parameters.
+        11: {app('Typed'), app('Preview'), object},
+        12: isEmpty,
       });
     },
   );

@@ -39,7 +39,7 @@ void main() {
           ?.reason;
 
   test(
-    "keeps a declaration annotated with Flutter's `Preview` or `MultiPreview`, or a subclass of either",
+    "keeps a declaration annotated with Flutter's `Preview` or `MultiPreview`, or a subtype of either",
     () {
       for (final types in [
         {AnnotationClass('Preview', flutter)},

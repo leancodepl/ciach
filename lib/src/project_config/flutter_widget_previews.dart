@@ -9,7 +9,7 @@ import 'package:ciach/src/project_config/project_files.dart';
 
 /// Returns the rules for the widget previews that `flutter widget-preview`
 /// shows: the declarations whose annotation calls a constructor of Flutter's
-/// `Preview` or `MultiPreview`, or of a subclass of either.
+/// `Preview` or `MultiPreview`, or of a subtype of either.
 Iterable<EntryPoint> flutterWidgetPreviewEntryPoints(Pubspec pubspec) => [
   if (pubspec.dependencies.contains('flutter'))
     for (final annotation in const ['Preview', 'MultiPreview'])

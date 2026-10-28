@@ -144,7 +144,7 @@ void main() {
   });
 
   group('EntryPoint.annotationFromConfig', () {
-    test('matches a declaration annotated with the class or a subclass', () {
+    test('matches a declaration annotated with the class or a subtype', () {
       final rule = EntryPoint.annotationFromConfig('Story');
 
       expect(
@@ -242,7 +242,7 @@ void main() {
     test('prints as the annotation and its files', () {
       expect(
         '${EntryPoint.annotationFromConfig('Story', files: ['lib/**'])}',
-        'declarations annotated with `@Story` or a subclass of it in lib/**',
+        'declarations annotated with `@Story` or a subtype of it in lib/**',
       );
     });
 

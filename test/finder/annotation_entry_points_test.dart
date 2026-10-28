@@ -71,7 +71,7 @@ void main() {
   );
 
   test(
-    'keeps the declarations whose annotation is a `Preview` or a `MultiPreview` from Flutter, or a subclass of either',
+    'keeps the declarations whose annotation is a `Preview` or a `MultiPreview` from Flutter, or a subtype of either',
     () async {
       final root = Directory.systemTemp.createTempSync('ciach_previews_');
       addTearDown(() => root.deleteSync(recursive: true));
