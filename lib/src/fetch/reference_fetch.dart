@@ -5,7 +5,6 @@ import 'package:ciach/src/fetch/implicit_calls.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
-import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
@@ -20,9 +19,6 @@ import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 final _log = Logger('ciach.finder');
 
 const _uncheckedDeclaration = 'Could not find references; kept.';
-
-const _noSemanticTokens =
-    'Could not read comments and annotations; findings may be missed.';
 
 const _noSelectionRanges =
     'Could not read the syntax here; review findings before removing.';
@@ -153,12 +149,11 @@ final class ReferenceFetch {
     _log.info(
       'Fetching tokens for ${plural(paths.length, 'referenced file', 'referenced files')}…',
     );
-    await mapPooled(paths.toList(), options.concurrency, (path) async {
-      _sources.cacheSemanticTokens(
-        path,
-        await semanticTokensOrEmpty(client, _sources, path),
-      );
-    });
+    await mapPooled(
+      paths.toList(),
+      options.concurrency,
+      (path) => _sources.semanticTokensOf(client, path),
+    );
   }
 
   /// Fetches the selection ranges the structural checks need, one request per
@@ -259,20 +254,5 @@ final class ReferenceFetch {
         position: positions.first,
       );
     }
-  }
-}
-
-/// The semantic tokens of [path], or an empty list if the server has none.
-/// A file without tokens reads as all code, which only keeps declarations.
-Future<List<SemanticToken>> semanticTokensOrEmpty(
-  LspClient client,
-  SourceIndex sources,
-  String path,
-) async {
-  try {
-    return await client.semanticTokens(File(path).uri, sources.lines(path));
-  } on LspRequestException catch (e) {
-    recordProblem(_noSemanticTokens, e, path: path);
-    return const [];
   }
 }

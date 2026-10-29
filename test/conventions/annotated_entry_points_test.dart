@@ -6,38 +6,14 @@
 
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/resolved_declaration.dart';
-import 'package:pro_lsp/pro_lsp.dart';
 import 'package:test/test.dart';
 
+import '../support/declarations.dart';
 import '../support/format_exception.dart';
 
 /// The rules that select a declaration by the class of an annotation or by a
 /// supertype, and the members that they keep.
 void main() {
-  /// A symbol as the server reports it; the shape is irrelevant to the rules.
-  DocumentSymbol symbol(String name, {SymbolKind kind = .function}) {
-    const range = Range(
-      start: .new(line: 0, character: 0),
-      end: .new(line: 0, character: 0),
-    );
-    return .new(name: name, kind: kind, range: range, selectionRange: range);
-  }
-
-  /// [symbol] in the file at [path], inside [container].
-  ResolvedDeclaration at(
-    String path,
-    DocumentSymbol symbol,
-    String? container, {
-    bool inEnum = false,
-    List<ResolvedAnnotation> annotations = const [],
-  }) => .new(
-    relativePath: path,
-    symbol: symbol,
-    container: container,
-    inEnum: inEnum,
-    annotations: annotations,
-  );
-
   group('EntryPoint.annotationFromConfig', () {
     /// An annotation that creates an object of [type], from [package], whose
     /// [supertypes] come from the same package.
@@ -53,7 +29,12 @@ void main() {
     /// Whether [rule] matches a function annotated with [annotations].
     bool matchesCard(EntryPoint rule, List<ResolvedAnnotation> annotations) =>
         rule.matches(
-          at('lib/a.dart', symbol('card'), null, annotations: annotations),
+          declarationAt(
+            'lib/a.dart',
+            symbol('card'),
+            null,
+            annotations: annotations,
+          ),
         );
 
     test('matches a declaration annotated with the class or a subtype', () {
@@ -68,7 +49,7 @@ void main() {
       );
       expect(
         rule.matches(
-          at(
+          declarationAt(
             'lib/a.dart',
             symbol('card', kind: .method),
             'Gallery',
@@ -79,7 +60,10 @@ void main() {
       );
       expect(matchesCard(rule, [annotation('Deprecated')]), isFalse);
       // A declaration named like the class is not annotated with it.
-      expect(rule.matches(at('lib/a.dart', symbol('Story'), null)), isFalse);
+      expect(
+        rule.matches(declarationAt('lib/a.dart', symbol('Story'), null)),
+        isFalse,
+      );
     });
 
     test('by default counts a constant and a class from any package', () {
@@ -143,13 +127,23 @@ void main() {
 
       expect(
         rule.matches(
-          at('lib/stories/card.dart', symbol('card'), null, annotations: story),
+          declarationAt(
+            'lib/stories/card.dart',
+            symbol('card'),
+            null,
+            annotations: story,
+          ),
         ),
         isTrue,
       );
       expect(
         rule.matches(
-          at('lib/card.dart', symbol('card'), null, annotations: story),
+          declarationAt(
+            'lib/card.dart',
+            symbol('card'),
+            null,
+            annotations: story,
+          ),
         ),
         isFalse,
       );
@@ -242,10 +236,17 @@ void main() {
     });
 
     test('keeps the public methods of such a class', () {
-      expect(rules.keepingMembersOf(endpoint), [rule]);
-      expect(rule.members?.includes(symbol('hello', kind: .method)), isTrue);
-      expect(rule.members?.includes(symbol('_helper', kind: .method)), isFalse);
-      expect(rule.members?.includes(symbol('name', kind: .field)), isFalse);
+      final members = rules.keptMembersOf(endpoint).single;
+      expect(members, same(rule.members));
+      expect(
+        members.selection.includes(symbol('hello', kind: .method)),
+        isTrue,
+      );
+      expect(
+        members.selection.includes(symbol('_helper', kind: .method)),
+        isFalse,
+      );
+      expect(members.selection.includes(symbol('name', kind: .field)), isFalse);
     });
   });
 

@@ -7,20 +7,11 @@
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/project_config/flutter_widget_previews.dart';
-import 'package:pro_lsp/pro_lsp.dart';
 import 'package:test/test.dart';
 
+import '../support/declarations.dart';
+
 void main() {
-  const range = Range(
-    start: .new(line: 0, character: 0),
-    end: .new(line: 0, character: 0),
-  );
-  const buttonPreview = DocumentSymbol(
-    name: 'buttonPreview',
-    kind: .function,
-    range: range,
-    selectionRange: range,
-  );
   final rules = EntryPoints(
     flutterWidgetPreviewEntryPoints((
       name: 'app',
@@ -33,9 +24,10 @@ void main() {
   /// [annotation], in a package that depends on Flutter.
   String? reasonFor(ResolvedAnnotation annotation) => rules
       .match(
-        .new(
-          relativePath: 'lib/button.dart',
-          symbol: buttonPreview,
+        declarationAt(
+          'lib/button.dart',
+          symbol('buttonPreview'),
+          null,
           annotations: [annotation],
         ),
       )

@@ -10,6 +10,7 @@
 library;
 
 import 'package:ciach/src/lsp/semantic_tokens.dart';
+import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
@@ -98,6 +99,10 @@ final class ResolvedDeclaration {
 
   /// The name of the type that declares [symbol], or `null` at the top level.
   final String? container;
+
+  /// The name of the declaration as the report prints it, such as
+  /// `Container.member`.
+  String get qualifiedName => symbol.qualifiedName(container);
 
   /// Whether [container] is an enum.
   final bool inEnum;

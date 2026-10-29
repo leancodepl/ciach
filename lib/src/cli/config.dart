@@ -151,23 +151,23 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     .entryPoints => _entryPoints(key),
     .concurrency => _positiveInt(key),
     final option => switch (option.option) {
-      FlagOption() => _boolean(key),
+      FlagOption() => _boolean(key, settings[key]),
       IntOption() => _positiveInt(key),
       MultiOption() => _strings(key),
-      _ => _string(key),
+      _ => _string(key, settings[key]),
     },
   };
 
   CiachOption<dynamic> _optionFor(String key) =>
       .values.firstWhere((option) => option.configKey == key);
 
-  bool? _boolean(String key) => switch (settings[key]) {
+  bool? _boolean(String key, Object? value) => switch (value) {
     null => null,
     final bool value => value,
     final other => _wrong(key, 'true or false', other),
   };
 
-  String? _string(String key) => switch (settings[key]) {
+  String? _string(String key, Object? value) => switch (value) {
     null => null,
     final String value => value,
     final other => _wrong(key, 'a string', other),
@@ -186,7 +186,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
 
   /// The string under [key], which has to be one of [allowed].
   String? _oneOf(String key, List<String> allowed) {
-    final value = _string(key);
+    final value = _string(key, settings[key]);
     if (value != null && !allowed.contains(value)) {
       throw FormatException(
         "$path: '$key' must be one of ${allowed.join(', ')}, got '$value'.",
@@ -239,13 +239,9 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
         rule['glob'],
         (files) => .annotationFromConfig(
           annotation,
-          package: switch (rule['package']) {
-            null => null,
-            final String package => package,
-            final other => _wrong('$at.package', 'a package name', other),
-          },
-          subtypes: _ruleFlag(at, rule, 'subtypes'),
-          constants: _ruleFlag(at, rule, 'constants'),
+          package: _string('$at.package', rule['package']),
+          subtypes: _boolean('$at.subtypes', rule['subtypes']),
+          constants: _boolean('$at.constants', rule['constants']),
           files: files,
         ),
       ),
@@ -253,14 +249,6 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
       "$path: '$at' must be `{name: <declaration>, glob: <glob, list of globs, or none>}` or `{annotation: <class>, package: <package>, subtypes: <true or false>, constants: <true or false>, glob: <glob, list of globs, or none>}`, got $rule.",
     ),
   };
-
-  /// The boolean [key] of the rule [rule] at [at]; `true` when it is absent.
-  bool _ruleFlag(String at, Map<Object?, Object?> rule, String key) =>
-      switch (rule[key]) {
-        null => true,
-        final bool value => value,
-        final other => _wrong('$at.$key', 'true or false', other),
-      };
 
   /// Returns the rule that [create] makes from the files that [glob] lists.
   EntryPoint _rule(

@@ -99,8 +99,8 @@ class Holder {
       source.split('\n'),
     );
     final symbols = await client.documentSymbol(File(path).uri);
-    final classes = ResolvedClasses(.new(), rules);
-    await classes.resolve(client, path, tokens, symbols);
+    final classes = ResolvedClasses(.new(), .new(rules));
+    await classes.resolve(client, path, 'lib/uses.dart', tokens, symbols);
     return (path: path, symbols: symbols, tokens: tokens, classes: classes);
   }
 

@@ -1,51 +1,37 @@
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
-import 'package:pro_lsp/pro_lsp.dart';
 import 'package:test/test.dart';
 
+import '../support/declarations.dart';
 import '../support/format_exception.dart';
 
 void main() {
-  /// A symbol as the server reports it; the shape is irrelevant to the rules.
-  DocumentSymbol symbol(String name, {SymbolKind kind = .function}) {
-    const range = Range(
-      start: .new(line: 0, character: 0),
-      end: .new(line: 0, character: 0),
-    );
-    return .new(name: name, kind: kind, range: range, selectionRange: range);
-  }
-
-  /// [symbol] in the file at [path], inside [container].
-  ResolvedDeclaration at(
-    String path,
-    DocumentSymbol symbol,
-    String? container, {
-    bool inEnum = false,
-    List<ResolvedAnnotation> annotations = const [],
-  }) => .new(
-    relativePath: path,
-    symbol: symbol,
-    container: container,
-    inEnum: inEnum,
-    annotations: annotations,
-  );
-
   group('EntryPoint.fromConfig', () {
     test('a bare name matches in any file, whatever the kind', () {
       final rule = EntryPoint.fromConfig('bootstrap');
 
       expect(rule.files, isEmpty);
-      expect(rule.matches(at('lib/a.dart', symbol('bootstrap'), null)), isTrue);
-      expect(rule.matches(at('bin/b.dart', symbol('bootstrap'), null)), isTrue);
+      expect(
+        rule.matches(declarationAt('lib/a.dart', symbol('bootstrap'), null)),
+        isTrue,
+      );
+      expect(
+        rule.matches(declarationAt('bin/b.dart', symbol('bootstrap'), null)),
+        isTrue,
+      );
       expect(
         rule.matches(
-          at('lib/a.dart', symbol('bootstrap', kind: .variable), null),
+          declarationAt(
+            'lib/a.dart',
+            symbol('bootstrap', kind: .variable),
+            null,
+          ),
         ),
         isTrue,
       );
       expect(
-        rule.matches(at('lib/a.dart', symbol('bootstrapped'), null)),
+        rule.matches(declarationAt('lib/a.dart', symbol('bootstrapped'), null)),
         isFalse,
       );
     });
@@ -58,17 +44,19 @@ void main() {
 
       expect(
         rule.matches(
-          at('lib/src/my_plugin.dart', symbol('registerWith'), null),
+          declarationAt('lib/src/my_plugin.dart', symbol('registerWith'), null),
         ),
         isTrue,
       );
       expect(
-        rule.matches(at('bin/tool.dart', symbol('registerWith'), null)),
+        rule.matches(
+          declarationAt('bin/tool.dart', symbol('registerWith'), null),
+        ),
         isTrue,
       );
       expect(
         rule.matches(
-          at('lib/src/my_helper.dart', symbol('registerWith'), null),
+          declarationAt('lib/src/my_helper.dart', symbol('registerWith'), null),
         ),
         isFalse,
       );
@@ -78,10 +66,16 @@ void main() {
       final rule = EntryPoint.fromConfig('MyPlugin.registerWith');
       final member = symbol('registerWith', kind: .method);
 
-      expect(rule.matches(at('lib/a.dart', member, 'MyPlugin')), isTrue);
-      expect(rule.matches(at('lib/a.dart', member, 'Other')), isFalse);
       expect(
-        rule.matches(at('lib/a.dart', symbol('registerWith'), null)),
+        rule.matches(declarationAt('lib/a.dart', member, 'MyPlugin')),
+        isTrue,
+      );
+      expect(
+        rule.matches(declarationAt('lib/a.dart', member, 'Other')),
+        isFalse,
+      );
+      expect(
+        rule.matches(declarationAt('lib/a.dart', symbol('registerWith'), null)),
         isFalse,
       );
     });
@@ -93,19 +87,19 @@ void main() {
       expect(
         EntryPoint.fromConfig(
           'Parked.new',
-        ).matches(at('a.dart', unnamed, 'Parked')),
+        ).matches(declarationAt('a.dart', unnamed, 'Parked')),
         isTrue,
       );
       expect(
         EntryPoint.fromConfig(
           'Parked.make',
-        ).matches(at('a.dart', named, 'Parked')),
+        ).matches(declarationAt('a.dart', named, 'Parked')),
         isTrue,
       );
       expect(
         EntryPoint.fromConfig(
           'Parked.new',
-        ).matches(at('a.dart', named, 'Parked')),
+        ).matches(declarationAt('a.dart', named, 'Parked')),
         isFalse,
       );
     });
@@ -115,14 +109,21 @@ void main() {
       final unnamed = symbol('Card', kind: .constructor);
       final named = symbol('Card.blank', kind: .constructor);
 
-      expect(rule.matches(at('lib/a.dart', unnamed, 'Card')), isTrue);
       expect(
-        rule.matches(at('lib/a.dart', unnamed, 'Card', inEnum: true)),
+        rule.matches(declarationAt('lib/a.dart', unnamed, 'Card')),
+        isTrue,
+      );
+      expect(
+        rule.matches(
+          declarationAt('lib/a.dart', unnamed, 'Card', inEnum: true),
+        ),
         isFalse,
       );
-      expect(rule.matches(at('lib/a.dart', named, 'Card')), isFalse);
+      expect(rule.matches(declarationAt('lib/a.dart', named, 'Card')), isFalse);
       expect(
-        rule.matches(at('lib/a.dart', symbol('Card', kind: .method), 'Card')),
+        rule.matches(
+          declarationAt('lib/a.dart', symbol('Card', kind: .method), 'Card'),
+        ),
         isFalse,
       );
     });
@@ -139,7 +140,11 @@ void main() {
 
       expect(
         rule.matches(
-          at('lib/a.dart', symbol('registerWith', kind: .method), 'P'),
+          declarationAt(
+            'lib/a.dart',
+            symbol('registerWith', kind: .method),
+            'P',
+          ),
         ),
         isFalse,
       );
@@ -203,7 +208,7 @@ void main() {
       final counter = annotatedClass('JSExport');
 
       expect(rules.match(counter)?.reason, contains('`@JSExport`'));
-      expect(rules.keepingMembersOf(counter).map((rule) => rule.members), [
+      expect(rules.keptMembersOf(counter).map((members) => members.selection), [
         MemberSelection.publicMembers,
       ]);
     });
@@ -212,22 +217,24 @@ void main() {
       final test = annotatedClass('reflectiveTest');
 
       expect(rules.match(test), isNull);
-      expect(rules.keepingMembersOf(test).map((rule) => rule.members), [
+      expect(rules.keptMembersOf(test).map((members) => members.selection), [
         MemberSelection.reflectiveTestMethods,
       ]);
     });
 
     test('main is an entry point in every file, but not as a member', () {
       expect(
-        rules.match(at('bin/app.dart', symbol('main'), null))?.label,
+        rules.match(declarationAt('bin/app.dart', symbol('main'), null))?.label,
         'main',
       );
       expect(
-        rules.match(at('test/a_test.dart', symbol('main'), null)),
+        rules.match(declarationAt('test/a_test.dart', symbol('main'), null)),
         isNotNull,
       );
       expect(
-        rules.match(at('lib/a.dart', symbol('main', kind: .method), 'Runner')),
+        rules.match(
+          declarationAt('lib/a.dart', symbol('main', kind: .method), 'Runner'),
+        ),
         isNull,
       );
     });
@@ -239,7 +246,9 @@ void main() {
           'flutter_test_config.dart',
           'integration_test/nested/flutter_test_config.dart',
         ]) {
-          final rule = rules.match(at(path, symbol('testExecutable'), null));
+          final rule = rules.match(
+            declarationAt(path, symbol('testExecutable'), null),
+          );
           expect(rule?.label, 'testExecutable', reason: 'for $path');
           expect(rule?.reason, contains('flutter test'));
         }
@@ -248,7 +257,7 @@ void main() {
       test('whatever its shape — the bootstrap calls it regardless', () {
         expect(
           rules.match(
-            at(
+            declarationAt(
               'test/flutter_test_config.dart',
               symbol('testExecutable', kind: .variable),
               null,
@@ -264,7 +273,7 @@ void main() {
           'test/my_flutter_test_config.dart',
         ]) {
           expect(
-            rules.match(at(path, symbol('testExecutable'), null)),
+            rules.match(declarationAt(path, symbol('testExecutable'), null)),
             isNull,
             reason: 'for $path',
           );
@@ -274,7 +283,7 @@ void main() {
       test('is not exempt as a member', () {
         expect(
           rules.match(
-            at(
+            declarationAt(
               'test/flutter_test_config.dart',
               symbol('testExecutable', kind: .method),
               'Config',
@@ -292,14 +301,17 @@ void main() {
     ]);
 
     expect(
-      rules.match(at('tool/gen.dart', symbol('main'), null))?.reason,
+      rules.match(declarationAt('tool/gen.dart', symbol('main'), null))?.reason,
       'the program entry point',
     );
-    expect(rules.match(at('lib/a.dart', symbol('serve'), null)), isNull);
+    expect(
+      rules.match(declarationAt('lib/a.dart', symbol('serve'), null)),
+      isNull,
+    );
     expect(
       EntryPoints([
         .fromConfig('serve'),
-      ]).match(at('lib/a.dart', symbol('serve'), null))?.reason,
+      ]).match(declarationAt('lib/a.dart', symbol('serve'), null))?.reason,
       contains('entry-points'),
     );
   });

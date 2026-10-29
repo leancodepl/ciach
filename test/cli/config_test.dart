@@ -10,6 +10,8 @@ import 'package:config/config.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import '../support/format_exception.dart';
+
 void main() {
   final parser = buildParser();
 
@@ -176,9 +178,8 @@ concurrency: 4
     });
 
     test('names what replaced a removed option', () {
-      Matcher removed(String message) => throwsA(
-        isA<FormatException>().having((e) => e.message, 'message', message),
-      );
+      Matcher removed(String message) =>
+          throwsA(formatExceptionWith(equals(message)));
 
       expect(
         () => ConfigFile.parse('overrides: true', origin: 'ciach.yaml'),
@@ -204,9 +205,7 @@ concurrency: 4
       expect(
         () => ConfigFile.parse('fail-public: false', origin: 'ciach.yaml'),
         throwsA(
-          isA<FormatException>().having(
-            (e) => e.message,
-            'message',
+          formatExceptionWith(
             startsWith('ciach.yaml: `fail-public` was removed: '),
           ),
         ),
@@ -217,10 +216,10 @@ concurrency: 4
       expect(
         () => ConfigFile.parse('operators: false', origin: 'ciach.yaml'),
         throwsA(
-          isA<FormatException>().having(
-            (e) => e.message,
-            'message',
-            'ciach.yaml: `operators` was removed: that is the default now, so drop it.',
+          formatExceptionWith(
+            equals(
+              'ciach.yaml: `operators` was removed: that is the default now, so drop it.',
+            ),
           ),
         ),
       );
@@ -357,7 +356,7 @@ concurrency: 4
         'entry-points: [{annotation: A, glob: 1}]':
             "'entry-points[0].glob' must be",
         'entry-points: [{annotation: A, package: 1}]':
-            "'entry-points[0].package' must be a package name",
+            "'entry-points[0].package' must be a string",
         'entry-points: [{annotation: A, package: "package:a"}]':
             'not a package name',
         'entry-points: [{annotation: A, subtypes: yes}]':
@@ -523,13 +522,7 @@ concurrency: 4
           projectDir: tempDir.path,
           explicitPath: p.join(tempDir.path, 'nope.yaml'),
         ),
-        throwsA(
-          isA<FormatException>().having(
-            (e) => e.message,
-            'message',
-            contains('Config file does not exist'),
-          ),
-        ),
+        throwsA(formatExceptionWith(contains('Config file does not exist'))),
       );
     });
 
@@ -974,6 +967,4 @@ Matcher isUsageException(Matcher message) =>
 
 /// A [FormatException] whose message names [origin] and matches [message].
 Matcher isFormatException(String origin, Matcher message) =>
-    isA<FormatException>()
-        .having((e) => e.message, 'message', startsWith('$origin:'))
-        .having((e) => e.message, 'message', message);
+    formatExceptionWith(allOf(startsWith('$origin:'), message));

@@ -1,7 +1,6 @@
 import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/conventions/test_reflective_loader.dart';
 import 'package:ciach/src/source/symbols.dart';
-import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
@@ -30,13 +29,8 @@ sealed class EntryPoint {
     List<String> files,
   }) = NamedEntryPoint;
 
-  EntryPoint._({
-    required this.reason,
-    required this.files,
-    this.keepsSelected = true,
-    this.members,
-    this.memberReason,
-  }) : _globs = [for (final file in files) .new(file, context: _posix)];
+  EntryPoint._({required this.files})
+    : _globs = [for (final file in files) .new(file, context: _posix)];
 
   /// Creates a rule that selects every class that has [superclass], from
   /// [package] or from any package when it is `null`, among its supertypes,
@@ -53,15 +47,15 @@ sealed class EntryPoint {
   /// an object of the class [annotation], from [package] or from any package
   /// when it is `null`.
   ///
-  /// With [subtypes], an object of a subtype of the class counts too. With
-  /// [constants], an annotation that reads a constant, such as `@story` for
-  /// `const story = Story();`, counts too; without it, only a constructor
-  /// call counts.
+  /// Unless [subtypes] is `false`, an object of a subtype of the class
+  /// counts too. Unless [constants] is `false`, an annotation that reads a
+  /// constant, such as `@story` for `const story = Story();`, counts too;
+  /// with it, only a constructor call counts.
   factory EntryPoint.annotatedWith(
     String annotation, {
     String? package,
-    bool subtypes,
-    bool constants,
+    bool? subtypes,
+    bool? constants,
     required String reason,
     List<String> files,
   }) = AnnotatedEntryPoint;
@@ -107,8 +101,8 @@ sealed class EntryPoint {
   factory EntryPoint.annotationFromConfig(
     String annotation, {
     String? package,
-    bool subtypes = true,
-    bool constants = true,
+    bool? subtypes,
+    bool? constants,
     List<String> files = const [],
     String reason = _configReason,
   }) {
@@ -147,19 +141,18 @@ sealed class EntryPoint {
   /// The file globs as written; empty matches any file.
   final List<String> files;
 
-  /// Who calls what the rule selects, for `--verbose`.
-  final String reason;
-
-  /// Whether the rule keeps what it selects. A rule that keeps only the
-  /// [members] of a type, such as the one for `@reflectiveTest`, doesn't.
-  final bool keepsSelected;
+  /// Who calls what the rule selects, for `--verbose`, or `null` when the
+  /// rule keeps only the [members] of a type that it selects, as the rule for
+  /// `@reflectiveTest` does.
+  String? get reason;
 
   /// The members that the rule keeps in a type that it selects, or `null`
   /// for none.
-  final MemberSelection? members;
+  KeptMembers? get members => null;
 
-  /// Who calls the [members], for `--verbose`.
-  final String? memberReason;
+  /// What the analysis server has to resolve for the rule to select a
+  /// declaration.
+  Set<ResolvedFact> get resolves => const {};
 
   final List<Glob> _globs;
 
@@ -178,15 +171,17 @@ sealed class EntryPoint {
     AnnotationNameEntryPoint(
       'JSExport',
       reason: 'exported to JavaScript by `@JSExport`',
-      members: .publicMembers,
-      memberReason: 'exported to JavaScript by `@JSExport` on its class',
+      members: const .new(
+        .publicMembers,
+        'exported to JavaScript by `@JSExport` on its class',
+      ),
     ),
     AnnotationNameEntryPoint(
       'reflectiveTest',
-      reason: 'a class whose test methods `defineReflectiveTests` runs',
-      keepsSelected: false,
-      members: .reflectiveTestMethods,
-      memberReason: 'run by `defineReflectiveTests`',
+      members: const .new(
+        .reflectiveTestMethods,
+        'run by `defineReflectiveTests`',
+      ),
     ),
   ];
 
@@ -199,14 +194,18 @@ sealed class EntryPoint {
   /// The text that shows what the rule selects to the user.
   String get label;
 
+  /// Whether this rule applies to the file at [relativePath], POSIX and
+  /// relative to the package root.
+  bool appliesTo(String relativePath) =>
+      _globs.isEmpty || _globs.any((glob) => glob.matches(relativePath));
+
   /// Whether this rule selects [declaration] in a file that it applies to.
   bool matches(ResolvedDeclaration declaration) =>
-      _selects(declaration) &&
-      (_globs.isEmpty ||
-          _globs.any((glob) => glob.matches(declaration.relativePath)));
+      _selects(declaration) && appliesTo(declaration.relativePath);
 
-  /// Why [declaration], which this rule matches, is kept, for `--verbose`.
-  String reasonFor(ResolvedDeclaration declaration) => reason;
+  /// Why [declaration], which this rule matches, is kept, for `--verbose`,
+  /// or `null` when the rule doesn't keep it.
+  String? reasonFor(ResolvedDeclaration declaration) => reason;
 
   /// Why the type that declares [qualified], which this rule matches, is
   /// kept, for `--verbose`.
@@ -233,9 +232,12 @@ sealed class EntryPoint {
 final class NamedEntryPoint extends EntryPoint {
   NamedEntryPoint({
     required this.name,
-    required super.reason,
+    required this.reason,
     super.files = const [],
   }) : super._();
+
+  @override
+  final String reason;
 
   /// The name of the declaration. A top-level declaration is `name` and a
   /// member is `Container.member`. The unnamed constructor is `Class.new`.
@@ -249,12 +251,7 @@ final class NamedEntryPoint extends EntryPoint {
   @override
   bool _selects(ResolvedDeclaration declaration) {
     final ResolvedDeclaration(:symbol, :container) = declaration;
-    final qualified =
-        container?.let(
-          (container) => '$container.${symbol.declarationName(container)}',
-        ) ??
-        symbol.name;
-    return qualified == name ||
+    return declaration.qualifiedName == name ||
         (container == name &&
             !declaration.inEnum &&
             symbol.kind == .constructor &&
@@ -283,11 +280,16 @@ final class AnnotatedEntryPoint extends EntryPoint {
   AnnotatedEntryPoint(
     this.annotation, {
     this.package,
-    this.subtypes = true,
-    this.constants = true,
-    required super.reason,
+    bool? subtypes,
+    bool? constants,
+    required this.reason,
     super.files = const [],
-  }) : super._();
+  }) : subtypes = subtypes ?? true,
+       constants = constants ?? true,
+       super._();
+
+  @override
+  final String reason;
 
   /// The class of the annotation.
   final String annotation;
@@ -300,6 +302,12 @@ final class AnnotatedEntryPoint extends EntryPoint {
 
   /// Whether an annotation that reads a constant counts.
   final bool constants;
+
+  @override
+  Set<ResolvedFact> get resolves => {
+    .annotationClasses,
+    if (constants) .constantClasses,
+  };
 
   @override
   bool _selects(ResolvedDeclaration declaration) => declaration.annotations.any(
@@ -338,10 +346,8 @@ final class AnnotatedEntryPoint extends EntryPoint {
 final class AnnotationNameEntryPoint extends EntryPoint {
   AnnotationNameEntryPoint(
     this.annotation, {
-    required super.reason,
-    super.keepsSelected,
-    super.members,
-    super.memberReason,
+    this.reason,
+    this.members,
     super.files = const [],
   }) : super._();
 
@@ -349,18 +355,18 @@ final class AnnotationNameEntryPoint extends EntryPoint {
   final String annotation;
 
   @override
+  final String? reason;
+
+  @override
+  final KeptMembers? members;
+
+  @override
   bool _selects(ResolvedDeclaration declaration) => declaration.leadingMetadata
       .any((token) => token.isAnnotationNamed(annotation));
 
   @override
-  AnnotationNameEntryPoint _withFiles(List<String> files) => .new(
-    annotation,
-    reason: reason,
-    keepsSelected: keepsSelected,
-    members: members,
-    memberReason: memberReason,
-    files: files,
-  );
+  AnnotationNameEntryPoint _withFiles(List<String> files) =>
+      .new(annotation, reason: reason, members: members, files: files);
 
   @override
   String get label => 'declarations annotated with `@$annotation`';
@@ -369,17 +375,14 @@ final class AnnotationNameEntryPoint extends EntryPoint {
 /// A rule that selects a class by one of its supertypes, and keeps the class
 /// and its public methods.
 final class SubtypeEntryPoint extends EntryPoint {
+  /// [reason] says who calls the public methods.
   SubtypeEntryPoint(
     this.supertype, {
     this.package,
     required String reason,
     super.files = const [],
-  }) : super._(
-         reason:
-             'has `$supertype` among its supertypes, so its public methods are entry points',
-         members: .publicMethods,
-         memberReason: reason,
-       );
+  }) : members = .new(.publicMethods, reason),
+       super._();
 
   /// The supertype.
   final String supertype;
@@ -388,19 +391,40 @@ final class SubtypeEntryPoint extends EntryPoint {
   final String? package;
 
   @override
+  final KeptMembers members;
+
+  @override
+  String get reason =>
+      'has `$supertype` among its supertypes, so its public methods are entry points';
+
+  @override
+  Set<ResolvedFact> get resolves => const {.supertypes};
+
+  @override
   bool _selects(ResolvedDeclaration declaration) => declaration.supertypes.any(
     (type) => type.isNamed(supertype, package: package),
   );
 
   @override
   SubtypeEntryPoint _withFiles(List<String> files) =>
-      .new(supertype, package: package, reason: memberReason!, files: files);
+      .new(supertype, package: package, reason: members.reason, files: files);
 
   @override
   String get label => 'public methods of `$supertype` subclasses';
 }
 
-/// The members of a type that a rule keeps when it selects the type.
+/// The members of a type that a rule keeps when it selects the type, and
+/// who calls them.
+final class KeptMembers {
+  const KeptMembers(this.selection, this.reason);
+
+  final MemberSelection selection;
+
+  /// Who calls the members, for `--verbose`.
+  final String reason;
+}
+
+/// Which members of a type a rule keeps.
 enum MemberSelection {
   /// The public methods, which Serverpod's dispatcher calls.
   publicMethods,
@@ -424,6 +448,20 @@ enum MemberSelection {
       };
 }
 
+/// What the analysis server resolves for a rule to select a declaration.
+enum ResolvedFact {
+  /// The class that an annotation's constructor call creates, and its
+  /// supertypes.
+  annotationClasses,
+
+  /// The class of the object that the constant an annotation reads holds,
+  /// and its supertypes.
+  constantClasses,
+
+  /// The supertypes of a class.
+  supertypes,
+}
+
 /// [EntryPoint.builtIn] followed by a project's own rules; the first match
 /// wins.
 final class EntryPoints {
@@ -435,12 +473,19 @@ final class EntryPoints {
   /// The first rule that keeps [declaration], or `null` for an ordinary
   /// declaration.
   EntryPoint? match(ResolvedDeclaration declaration) => _rules.firstWhereOrNull(
-    (rule) => rule.keepsSelected && rule.matches(declaration),
+    (rule) => rule.reason != null && rule.matches(declaration),
   );
 
-  /// The rules that keep some members of [type].
-  List<EntryPoint> keepingMembersOf(ResolvedDeclaration type) => [
+  /// The members that the rules keep in [type].
+  List<KeptMembers> keptMembersOf(ResolvedDeclaration type) => [
     for (final rule in _rules)
-      if (rule.members != null && rule.matches(type)) rule,
+      if (rule.members case final members? when rule.matches(type)) members,
   ];
+
+  /// What the analysis server has to resolve in the file at [relativePath]
+  /// for the rules that apply to it.
+  Set<ResolvedFact> resolvedIn(String relativePath) => {
+    for (final rule in _rules)
+      if (rule.appliesTo(relativePath)) ...rule.resolves,
+  };
 }

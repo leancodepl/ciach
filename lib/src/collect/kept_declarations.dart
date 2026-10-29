@@ -11,7 +11,6 @@ import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/symbols.dart';
-import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:collection/collection.dart';
 
@@ -22,9 +21,7 @@ final _log = Logger('ciach.finder');
 /// and what a `// ciach:` marker keeps. Each is recorded with its reason, for
 /// `--verbose`, together with the type that has to stay with it.
 final class KeptDeclarations {
-  KeptDeclarations(List<EntryPoint> rules, ResolvedClasses resolvedClasses)
-    : _entryPoints = EntryPoints(rules),
-      _resolvedClasses = resolvedClasses;
+  KeptDeclarations(this._entryPoints, this._resolvedClasses);
 
   final EntryPoints _entryPoints;
   final ResolvedClasses _resolvedClasses;
@@ -82,61 +79,9 @@ final class KeptDeclarations {
     }
   }
 
-  /// Returns whether [candidate] is called by a framework or a tool. Such a
-  /// declaration has no reference in the source code. [containerRules] are
-  /// the rules that keep some members of the type that declares [candidate].
-  /// Every entry point that is found here is recorded, so that `--verbose`
-  /// can list it.
-  bool isEntryPoint(
-    String relativePath,
-    Candidate candidate,
-    Iterable<SemanticToken> leadingMetadata,
-    List<EntryPoint> containerRules,
-  ) {
-    final symbol = candidate.symbol;
-    final container = candidate.container;
-    final name = symbol.declarationName(container);
-    final qualified = container?.let((container) => '$container.$name') ?? name;
-    final declaration = _declarationOf(
-      relativePath,
-      candidate,
-      leadingMetadata,
-    );
-    final rule = _entryPoints.match(declaration);
-    if (rule != null && container != null) {
-      _entryPointContainers[DeclKey(relativePath, container)] ??= rule
-          .containerReason(qualified);
-    }
-    final reason =
-        rule?.reasonFor(declaration) ??
-        containerRules
-            .firstWhereOrNull((rule) => rule.members!.includes(symbol))
-            ?.memberReason;
-    if (reason == null) {
-      return false;
-    }
-    _skippedEntryPoints.add((
-      path: relativePath,
-      line: symbol.selectionRange.start.line + 1,
-      name: qualified,
-      reason: reason,
-    ));
-    return true;
-  }
-
-  /// Returns the rules that keep some members of [candidate], a type, or
-  /// `null` when [candidate] is not a type.
-  List<EntryPoint>? rulesForMembersOf(
-    String relativePath,
-    Candidate candidate,
-    Iterable<SemanticToken> leadingMetadata,
-  ) => typeLikeKinds.contains(candidate.symbol.kind)
-      ? _entryPoints.keepingMembersOf(
-          _declarationOf(relativePath, candidate, leadingMetadata),
-        )
-      : null;
-
-  ResolvedDeclaration _declarationOf(
+  /// Returns [candidate], whose doc comment and annotations are
+  /// [leadingMetadata], as the entry-point rules read it.
+  ResolvedDeclaration declarationOf(
     String relativePath,
     Candidate candidate,
     Iterable<SemanticToken> leadingMetadata,
@@ -153,12 +98,51 @@ final class KeptDeclarations {
     supertypes: _resolvedClasses.supertypesOf(candidate.path, candidate.symbol),
   );
 
+  /// Returns whether [declaration] is called by a framework or a tool. Such a
+  /// declaration has no reference in the source code. [containerMembers] are
+  /// the members that the rules keep in the type that declares it. Every
+  /// entry point that is found here is recorded, so that `--verbose` can
+  /// list it.
+  bool isEntryPoint(
+    ResolvedDeclaration declaration,
+    List<KeptMembers> containerMembers,
+  ) {
+    final ResolvedDeclaration(:relativePath, :symbol, :container) = declaration;
+    final qualified = declaration.qualifiedName;
+    final rule = _entryPoints.match(declaration);
+    if (rule != null && container != null) {
+      _entryPointContainers[DeclKey(relativePath, container)] ??= rule
+          .containerReason(qualified);
+    }
+    final reason =
+        rule?.reasonFor(declaration) ??
+        containerMembers
+            .firstWhereOrNull((members) => members.selection.includes(symbol))
+            ?.reason;
+    if (reason == null) {
+      return false;
+    }
+    _skippedEntryPoints.add((
+      path: relativePath,
+      line: symbol.selectionRange.start.line + 1,
+      name: qualified,
+      reason: reason,
+    ));
+    return true;
+  }
+
+  /// Returns the members that the rules keep in [declaration], a type, or
+  /// `null` when [declaration] is not a type.
+  List<KeptMembers>? keptMembersOf(ResolvedDeclaration declaration) =>
+      typeLikeKinds.contains(declaration.symbol.kind)
+      ? _entryPoints.keptMembersOf(declaration)
+      : null;
+
   /// Records [candidate] as kept by the marker [kept], and its type too.
   void byMarker(String relativePath, Candidate candidate, MarkerAt kept) {
     final symbol = candidate.symbol;
     final container = candidate.container;
-    final name = symbol.declarationName(container);
-    final qualified = container?.let((container) => '$container.$name') ?? name;
+    final qualified = symbol.qualifiedName(container);
     if (container != null) {
       _entryPointContainers[DeclKey(relativePath, container)] ??=
           'declares $qualified, kept by `// ${kept.marker}`';

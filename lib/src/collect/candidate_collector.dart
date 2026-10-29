@@ -7,7 +7,7 @@ import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/conventions/gen_l10n.dart';
-import 'package:ciach/src/fetch/reference_fetch.dart';
+import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
@@ -54,9 +54,11 @@ final class CandidateCollector {
   final ConditionalImports _conditionalImports;
 
   /// What this run leaves unchecked on purpose, and why.
-  late final _kept = KeptDeclarations(options.entryPoints, _resolvedClasses);
+  late final _entryPoints = EntryPoints(options.entryPoints);
 
-  late final _resolvedClasses = ResolvedClasses(_sources, options.entryPoints);
+  late final _kept = KeptDeclarations(_entryPoints, _resolvedClasses);
+
+  late final _resolvedClasses = ResolvedClasses(_sources, _entryPoints);
 
   /// The pairing names in each conditional-import variant that was read,
   /// candidates or not; see [ConditionalImports.share].
@@ -75,7 +77,7 @@ final class CandidateCollector {
     final uri = File(path).uri;
     final pendingSymbols = client.documentSymbol(uri);
     final pendingOutline = client.outline(uri);
-    final pendingTokens = semanticTokensOrEmpty(client, _sources, path);
+    final pendingTokens = _sources.semanticTokensOf(client, path);
     final List<DocumentSymbol> symbols;
     final Outline outline;
     try {
@@ -92,12 +94,11 @@ final class CandidateCollector {
       return const [];
     }
     final tokens = await pendingTokens;
-    _sources.cacheSemanticTokens(path, tokens);
-    await _resolvedClasses.resolve(client, path, tokens, symbols);
+    final relativePath = relativePosix(path, rootPath);
+    await _resolvedClasses.resolve(client, path, relativePath, tokens, symbols);
     if (_conditionalImports.contains(path)) {
       declaredInVariants[path] = ConditionalImports.pairingNames(symbols);
     }
-    final relativePath = relativePosix(path, rootPath);
     final markers = _Markers(.parse(_sources.content(path)));
     // The whole walk has to run before the filter: it records the entry-point
     // containers the filter drops, and a container comes before its members.
@@ -129,7 +130,7 @@ final class CandidateCollector {
     List<DocumentSymbol> symbols,
     String? container,
     Candidate? containerCandidate,
-    List<EntryPoint> containerRules,
+    List<KeptMembers> containerMembers,
     bool parentIsEnum,
     _OutlineIndex outlines,
     _Markers markers,
@@ -158,14 +159,15 @@ final class CandidateCollector {
           symbols,
         ),
       );
-      final memberRules =
-          _kept.rulesForMembersOf(relativePath, candidate, leadingMetadata) ??
-          containerRules;
-      if (_isCandidate(
+      final declaration = _kept.declarationOf(
         relativePath,
         candidate,
         leadingMetadata,
-        containerRules: containerRules,
+      );
+      if (_isCandidate(
+        candidate,
+        declaration,
+        containerMembers: containerMembers,
         markers: markers,
         start: start,
       )) {
@@ -184,7 +186,7 @@ final class CandidateCollector {
         symbol.children ?? const [],
         childContainer,
         childContainerCandidate,
-        memberRules,
+        _kept.keptMembersOf(declaration) ?? containerMembers,
         symbol.kind == .enum$,
         outlines,
         markers,
@@ -238,13 +240,13 @@ final class CandidateCollector {
             false);
   }
 
-  /// Returns whether [candidate], whose doc comment and annotations start on
-  /// line [start], is checked: neither kept by one of [markers] nor left out.
+  /// Returns whether [candidate], which the rules read as [declaration] and
+  /// whose doc comment and annotations start on line [start], is checked:
+  /// neither kept by one of [markers] nor left out.
   bool _isCandidate(
-    String relativePath,
     Candidate candidate,
-    Iterable<SemanticToken> leadingMetadata, {
-    required List<EntryPoint> containerRules,
+    ResolvedDeclaration declaration, {
+    required List<KeptMembers> containerMembers,
     required _Markers markers,
     required int start,
   }) {
@@ -253,25 +255,24 @@ final class CandidateCollector {
           nameLine: candidate.symbol.selectionRange.start.line,
         )
         case final kept?) {
-      _kept.byMarker(relativePath, candidate, kept);
+      _kept.byMarker(declaration.relativePath, candidate, kept);
       return false;
     }
     return _shouldConsider(
-      relativePath,
       candidate,
-      leadingMetadata,
-      containerRules: containerRules,
+      declaration,
+      containerMembers: containerMembers,
     );
   }
 
   /// Returns whether the references to [candidate] should be checked.
   bool _shouldConsider(
-    String relativePath,
     Candidate candidate,
-    Iterable<SemanticToken> leadingMetadata, {
-    required List<EntryPoint> containerRules,
+    ResolvedDeclaration declaration, {
+    required List<KeptMembers> containerMembers,
   }) {
     final symbol = candidate.symbol;
+    final leadingMetadata = declaration.leadingMetadata;
     if (!options.kinds.contains(
       symbol.reportedKind(
         parentIsEnum: candidate.isEnumValue,
@@ -289,12 +290,7 @@ final class CandidateCollector {
         !isTranslationMessage(candidate)) {
       return false;
     }
-    if (_kept.isEntryPoint(
-      relativePath,
-      candidate,
-      leadingMetadata,
-      containerRules,
-    )) {
+    if (_kept.isEntryPoint(declaration, containerMembers)) {
       return false;
     }
     if (symbol.kind == .namespace &&
