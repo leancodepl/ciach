@@ -157,7 +157,10 @@ sealed class EntryPoint {
   final List<Glob> _globs;
 
   /// The conventions applied on every run.
-  static final builtIn = <EntryPoint>[
+  // The declared type lets Dart 3.10 resolve `.publicMembers` in
+  // `const .new(.publicMembers, …)` below; with only `<EntryPoint>[`, it
+  // can't.
+  static final List<EntryPoint> builtIn = [
     .new(name: 'main', reason: 'the program entry point'),
     // `flutter test` generates an in-memory bootstrap that imports the nearest
     // `flutter_test_config.dart` and calls `testExecutable(testMain)`.
