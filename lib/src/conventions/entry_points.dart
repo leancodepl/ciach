@@ -179,6 +179,14 @@ sealed class EntryPoint {
         'exported to JavaScript by `@JSExport` on its class',
       ),
     ),
+    // `pragma` is a final class of `dart:core`, so the name is enough. Its
+    // other values, such as `vm:prefer-inline`, keep nothing.
+    AnnotationNameEntryPoint(
+      'pragma',
+      argument: 'vm:entry-point',
+      reason:
+          "marked `@pragma('vm:entry-point')` for native code or reflection",
+    ),
     AnnotationNameEntryPoint(
       'reflectiveTest',
       members: const .new(
@@ -344,11 +352,13 @@ final class AnnotatedEntryPoint extends EntryPoint {
 
 /// A rule that selects a declaration by the name written in an annotation on
 /// it, such as `JSExport` in `@JSExport()` and `reflectiveTest` in
-/// `@reflectiveTest`, whatever it resolves to. It needs no requests to the
-/// analysis server.
+/// `@reflectiveTest`, whatever it resolves to, and optionally by the string
+/// literal that the annotation's first argument is. It needs no requests to
+/// the analysis server.
 final class AnnotationNameEntryPoint extends EntryPoint {
   AnnotationNameEntryPoint(
     this.annotation, {
+    this.argument,
     this.reason,
     this.members,
     super.files = const [],
@@ -357,6 +367,11 @@ final class AnnotationNameEntryPoint extends EntryPoint {
   /// The name written after the `@`.
   final String annotation;
 
+  /// The value of the string literal that the annotation's first argument
+  /// has to be, such as `vm:entry-point` in `@pragma('vm:entry-point')`, or
+  /// `null` for any arguments.
+  final String? argument;
+
   @override
   final String? reason;
 
@@ -364,15 +379,34 @@ final class AnnotationNameEntryPoint extends EntryPoint {
   final KeptMembers? members;
 
   @override
-  bool _selects(ResolvedDeclaration declaration) => declaration.leadingMetadata
-      .any((token) => token.isAnnotationNamed(annotation));
+  bool _selects(ResolvedDeclaration declaration) {
+    final tokens = declaration.leadingMetadata.toList();
+    // The server gives the `(` of an annotation a token, so the first
+    // argument is the second token after the name.
+    return tokens.indexed.any(
+      (named) =>
+          named.$2.isAnnotationNamed(annotation) &&
+          (argument == null ||
+              (tokens.elementAtOrNull(named.$1 + 1)?.text == '(' &&
+                  tokens.elementAtOrNull(named.$1 + 2)?.stringValue ==
+                      argument)),
+    );
+  }
 
   @override
-  AnnotationNameEntryPoint _withFiles(List<String> files) =>
-      .new(annotation, reason: reason, members: members, files: files);
+  AnnotationNameEntryPoint _withFiles(List<String> files) => .new(
+    annotation,
+    argument: argument,
+    reason: reason,
+    members: members,
+    files: files,
+  );
 
   @override
-  String get label => 'declarations annotated with `@$annotation`';
+  String get label => [
+    'declarations annotated with `@$annotation`',
+    if (argument case final argument?) "with `'$argument'`",
+  ].join(' ');
 }
 
 /// A rule that selects a class by one of its supertypes, and keeps the class

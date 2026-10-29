@@ -313,12 +313,6 @@ final class CandidateCollector {
         leadingMetadata.any((t) => t.isAnnotationNamed('override'))) {
       return false;
     }
-    // Symbols reachable from native code / reflection are not really unused.
-    if (leadingMetadata.any(
-      (t) => t.type == 'string' && t.text.contains('vm:entry-point'),
-    )) {
-      return false;
-    }
     return true;
   }
 }

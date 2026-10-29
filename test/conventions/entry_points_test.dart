@@ -222,6 +222,80 @@ void main() {
       ]);
     });
 
+    /// A token of [type] with [text], such as `(` or `'vm:entry-point'`.
+    SemanticToken token(
+      String type,
+      String text, {
+      Set<String> modifiers = const {},
+    }) => .new(
+      line: 0,
+      character: 0,
+      length: text.length,
+      type: type,
+      modifiers: modifiers,
+      text: text,
+    );
+
+    /// The tokens of `@[name]([arguments])`, with [prefix] before [name].
+    List<SemanticToken> annotation(
+      String name,
+      List<String> arguments, {
+      String? prefix,
+    }) => [
+      token('annotation', '@'),
+      if (prefix != null) ...[
+        token('variable', prefix, modifiers: const {'importPrefix'}),
+        token('annotation', '.'),
+      ],
+      token('class', name, modifiers: const {'annotation'}),
+      token('annotation', '('),
+      for (final argument in arguments) token('string', argument),
+      token('annotation', ')'),
+    ];
+
+    /// A function whose annotation has the tokens [leadingMetadata].
+    ResolvedDeclaration annotatedFunction(
+      List<SemanticToken> leadingMetadata,
+    ) => .new(
+      relativePath: 'lib/a.dart',
+      symbol: symbol('callback'),
+      leadingMetadata: leadingMetadata,
+    );
+
+    test(
+      "`@pragma('vm:entry-point')` keeps the declaration, with an import prefix, any quotes or a second argument",
+      () {
+        for (final leadingMetadata in [
+          annotation('pragma', ["'vm:entry-point'"]),
+          annotation('pragma', ['"vm:entry-point"'], prefix: 'core'),
+          annotation('pragma', ["r'vm:entry-point'", "'call'"]),
+        ]) {
+          expect(
+            rules.match(annotatedFunction(leadingMetadata))?.reason,
+            "marked `@pragma('vm:entry-point')` for native code or reflection",
+            reason: 'for ${leadingMetadata.map((t) => t.text).join()}',
+          );
+        }
+      },
+    );
+
+    test(
+      "another `@pragma` value, `vm:entry-point` as a second argument and `@Deprecated('vm:entry-point')` keep nothing",
+      () {
+        for (final leadingMetadata in [
+          annotation('pragma', ["'vm:prefer-inline'"]),
+          annotation('pragma', ["'dart2js:noInline'", "'vm:entry-point'"]),
+          annotation('Deprecated', ["'vm:entry-point'"]),
+        ]) {
+          expect(
+            rules.match(annotatedFunction(leadingMetadata)),
+            isNull,
+            reason: 'for ${leadingMetadata.map((t) => t.text).join()}',
+          );
+        }
+      },
+    );
+
     test('main is an entry point in every file, but not as a member', () {
       expect(
         rules.match(declarationAt('bin/app.dart', symbol('main'), null))?.label,

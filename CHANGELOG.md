@@ -7,6 +7,10 @@
   annotates. Serverpod endpoints that extend `Endpoint` through another class
   are no longer reported, and a class named `Endpoint` from another package
   no longer keeps anything. ([#173](https://github.com/leancodepl/ciach/pull/173))
+- Stop reporting a class whose member has `@pragma('vm:entry-point')`. Before,
+  `--remove` deleted the class with the member. `vm:entry-point` in another
+  annotation, such as `@Deprecated('vm:entry-point')`, no longer keeps a
+  declaration. ([#173](https://github.com/leancodepl/ciach/pull/173))
 - Report unused typedefs under a new `typedef` kind, which `--kinds` accepts.
   Before, an unused `typedef A = B;` was never reported and kept `B` from
   being reported, and an unused function typedef was reported as a `class`.

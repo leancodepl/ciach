@@ -68,7 +68,21 @@ final class SemanticToken {
   /// Whether this is the name of an `@[name]` annotation.
   bool isAnnotationNamed(String name) =>
       modifiers.contains('annotation') && text == name;
+
+  /// The value of this string literal without its quotes, such as
+  /// `vm:entry-point` for `'vm:entry-point'`, or `null` when this is not a
+  /// string literal or has an escape or an interpolation.
+  String? get stringValue => type == 'string'
+      ? _plainString.firstMatch(text)?.namedGroup('value')
+      : null;
 }
+
+/// A string literal with no escape and no interpolation, in any quotes:
+/// `'a'`, `"a"`, `r'a'` or `'''a'''`. The semantic token of a string
+/// literal holds its source text, quotes included.
+final _plainString = RegExp(
+  r'''^r?(?<quote>'{3}|"{3}|'|")(?<value>[^\\$'"]*)\k<quote>$''',
+);
 
 /// The name that follows the `@` of an annotation, as
 /// [SemanticTokenLookup.annotationNames] returns it.

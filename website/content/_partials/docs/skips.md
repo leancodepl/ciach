@@ -20,7 +20,7 @@ Each of these is a known source of false positives. Where there is a flag, it op
 | `@override` members | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses. One that overrides a dead member is dead too, and `--remove` takes both | `--also overrides` |
 | Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--also operators` |
 | Declarations and files marked `// ciach:ignore` | they are kept on purpose | — |
-| `@pragma('vm:entry-point')` | reachable from native code or reflection | — |
+| `@pragma('vm:entry-point')`, and the class of a member that has it | reachable from native code or reflection | — |
 | `@JSExport`, and the public members of a `@JSExport` class | JavaScript can call them | — |
 | `test_…` methods of a `@reflectiveTest` class | they run through `dart:mirrors` | — |
 | Generated files | by filename, by a generated-code banner, by the project config and by `--generated-glob`. Still read, so a declaration used only from a `.g.dart` is not misreported | `--generated` |
