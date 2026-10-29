@@ -151,26 +151,30 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     .entryPoints => _entryPoints(key),
     .concurrency => _positiveInt(key),
     final option => switch (option.option) {
-      FlagOption() => _boolean(key, settings[key]),
+      FlagOption() => _boolean(key),
       IntOption() => _positiveInt(key),
       MultiOption() => _strings(key),
-      _ => _string(key, settings[key]),
+      _ => _string(key),
     },
   };
 
   CiachOption<dynamic> _optionFor(String key) =>
       .values.firstWhere((option) => option.configKey == key);
 
-  bool? _boolean(String key, Object? value) => switch (value) {
+  bool? _boolean(String key) => _booleanAt(key, settings[key]);
+
+  String? _string(String key) => _stringAt(key, settings[key]);
+
+  bool? _booleanAt(String at, Object? value) => switch (value) {
     null => null,
     final bool value => value,
-    final other => _wrong(key, 'true or false', other),
+    final other => _wrong(at, 'true or false', other),
   };
 
-  String? _string(String key, Object? value) => switch (value) {
+  String? _stringAt(String at, Object? value) => switch (value) {
     null => null,
     final String value => value,
-    final other => _wrong(key, 'a string', other),
+    final other => _wrong(at, 'a string', other),
   };
 
   /// The strings under [key], accepting a bare string as a one-element list.
@@ -186,7 +190,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
 
   /// The string under [key], which has to be one of [allowed].
   String? _oneOf(String key, List<String> allowed) {
-    final value = _string(key, settings[key]);
+    final value = _string(key);
     if (value != null && !allowed.contains(value)) {
       throw FormatException(
         "$path: '$key' must be one of ${allowed.join(', ')}, got '$value'.",
@@ -239,9 +243,9 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
         rule['glob'],
         (files) => .annotationFromConfig(
           annotation,
-          package: _string('$at.package', rule['package']),
-          subtypes: _boolean('$at.subtypes', rule['subtypes']),
-          constants: _boolean('$at.constants', rule['constants']),
+          package: _stringAt('$at.package', rule['package']),
+          subtypes: _booleanAt('$at.subtypes', rule['subtypes']),
+          constants: _booleanAt('$at.constants', rule['constants']),
           files: files,
         ),
       ),
