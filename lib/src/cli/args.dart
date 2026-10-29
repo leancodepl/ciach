@@ -222,7 +222,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
     EntryPointsOption(
       configKey: '/entry-points',
       helpText:
-          'Declarations a tool calls from generated code, so never reported: rules with a `name` (`bootstrap`, `MyHost.callback`) or an `annotation` class (`Story`, which also matches its subtypes), and an optional `glob` (one, or a list) for the files. Built in: `main`, and `testExecutable` in a flutter_test_config.dart.',
+          'Declarations a tool calls from generated code, so never reported: rules with a `name` (`bootstrap`, `MyHost.callback`) or an `annotation` class (`Story`, which also matches its subtypes and its constants unless `subtypes` or `constants` is false, from any package unless `package` names one), and an optional `glob` (one, or a list) for the files. Built in: `main`, and `testExecutable` in a flutter_test_config.dart.',
     ),
   ),
   kinds(

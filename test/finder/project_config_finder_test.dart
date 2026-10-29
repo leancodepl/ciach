@@ -20,10 +20,12 @@ import '../support/package_config.dart';
 ///   `@reflectiveTest` (`test/reflective_test.dart`).
 ///
 /// Beside them, declarations nothing calls stay reported.
-/// The dependencies are not fetched. Local `Endpoint`, `JSExport` and
-/// `reflectiveTest` stand in for the real ones, because ciach matches them by
-/// name.
+/// The dependencies are not fetched. A `serverpod` package with only an
+/// `Endpoint` stands in for the real one, which ciach matches by class and
+/// package. Local `JSExport` and `reflectiveTest` stand in for the real ones,
+/// because ciach matches them by name.
 void main() {
+  late Directory root;
   late Directory package;
 
   void write(String path, String contents) => File(p.join(package.path, path))
@@ -31,13 +33,20 @@ void main() {
     ..writeAsStringSync(contents);
 
   setUp(() {
-    package = .systemTemp.createTempSync('ciach_project_config_');
+    root = .systemTemp.createTempSync('ciach_project_config_');
+    package = Directory(p.join(root.path, 'server'))..createSync();
     write('pubspec.yaml', '''
 name: server
 environment: {sdk: ^3.10.0}
 dependencies: {dart_frog: any, serverpod: any}
 ''');
-    write('.dart_tool/package_config.json', packageConfig({'server': '.'}));
+    write(
+      '.dart_tool/package_config.json',
+      packageConfig({'server': '.', 'serverpod': '../serverpod'}),
+    );
+    File(p.join(root.path, 'serverpod', 'lib', 'serverpod.dart'))
+      ..createSync(recursive: true)
+      ..writeAsStringSync('abstract class Endpoint {}');
     write('build.yaml', '''
 builders:
   stamp:
@@ -49,7 +58,7 @@ builders:
 ''');
     write('l10n.yaml', 'output-localization-file: strings.dart');
     write('lib/endpoint.dart', '''
-class Endpoint {}
+import 'package:serverpod/serverpod.dart';
 
 class GreetingEndpoint extends Endpoint {
   String hello(String name) => name;
@@ -57,9 +66,24 @@ class GreetingEndpoint extends Endpoint {
   void _unusedHelper() {}
 }
 
+/// Extends `Endpoint` through `GreetingEndpoint`.
+class LoudGreetingEndpoint extends GreetingEndpoint {
+  String shout(String name) => name;
+}
+
 class NotAnEndpoint {
   void hello() {}
 }
+''');
+    write('lib/local_endpoint.dart', '''
+/// Not Serverpod's `Endpoint`.
+class Endpoint {}
+
+class LocalEndpoint extends Endpoint {
+  void hello() {}
+}
+
+void main() => LocalEndpoint();
 ''');
     write('lib/builder.dart', '''
 Object stampBuilder(Object options) => options;
@@ -141,7 +165,7 @@ void unusedRouteHelper() {}
 ''');
   });
 
-  tearDown(() => package.deleteSync(recursive: true));
+  tearDown(() => root.deleteSync(recursive: true));
 
   FinderOptions detected() {
     final config = ProjectConfig.read(package.path);
@@ -155,45 +179,44 @@ void unusedRouteHelper() {}
     );
   }
 
-  test(
-    'declarations the project config names are not reported, and why',
-    () async {
-      final lines = <String>[];
-      final level = Logger.root.level;
-      Logger.root.level = .FINE;
-      final logging = Logger.root.onRecord
-          .where((r) => r.loggerName == 'ciach.finder')
-          .listen((r) => lines.add(r.message));
-      addTearDown(() {
-        Logger.root.level = level;
-        return logging.cancel();
-      });
+  test('declarations the project config names are not reported, and why', () async {
+    final lines = <String>[];
+    final level = Logger.root.level;
+    Logger.root.level = .FINE;
+    final logging = Logger.root.onRecord
+        .where((r) => r.loggerName == 'ciach.finder')
+        .listen((r) => lines.add(r.message));
+    addTearDown(() {
+      Logger.root.level = level;
+      return logging.cancel();
+    });
 
-      final result = await Ciach(detected()).run();
+    final result = await Ciach(detected()).run();
 
-      expect(
-        {for (final d in result.unused) '${d.filePath}:${d.qualifiedName}'},
-        {
-          'lib/endpoint.dart:GreetingEndpoint._unusedHelper',
-          // Reported without its member.
-          'lib/endpoint.dart:NotAnEndpoint',
-          'lib/builder.dart:unusedBuilderHelper',
-          'lib/js.dart:Counter._neverCalled',
-          'lib/js.dart:Partial.notExported',
-          'lib/js.dart:usePartial',
-          'test/reflective_test.dart:ParserTest.helper',
-          'routes/index.dart:unusedRouteHelper',
-        },
-      );
-      expect(
-        lines,
-        containsAll(const [
-          'Skipped lib/endpoint.dart:4 GreetingEndpoint.hello: called by the Serverpod dispatcher.',
-          'Skipped routes/index.dart:1 onRequest: called by dart_frog.',
-        ]),
-      );
-    },
-  );
+    expect(
+      {for (final d in result.unused) '${d.filePath}:${d.qualifiedName}'},
+      {
+        'lib/endpoint.dart:GreetingEndpoint._unusedHelper',
+        // Reported without its member.
+        'lib/endpoint.dart:NotAnEndpoint',
+        'lib/local_endpoint.dart:LocalEndpoint.hello',
+        'lib/builder.dart:unusedBuilderHelper',
+        'lib/js.dart:Counter._neverCalled',
+        'lib/js.dart:Partial.notExported',
+        'lib/js.dart:usePartial',
+        'test/reflective_test.dart:ParserTest.helper',
+        'routes/index.dart:unusedRouteHelper',
+      },
+    );
+    expect(
+      lines,
+      containsAll(const [
+        'Skipped lib/endpoint.dart:4 GreetingEndpoint.hello: called by the Serverpod dispatcher.',
+        'Skipped lib/endpoint.dart:11 LoudGreetingEndpoint.shout: called by the Serverpod dispatcher.',
+        'Skipped routes/index.dart:1 onRequest: called by dart_frog.',
+      ]),
+    );
+  });
 
   test('without them, it is all reported', () async {
     final result = await Ciach(.new(rootPath: package.path)).run();

@@ -2,9 +2,11 @@
 
 - Stop reporting Flutter widget previews: the declarations annotated with
   `@Preview` or `@MultiPreview`, or with a subtype of either, in a package
-  that depends on `flutter`. An `entry-points` rule can also name an
-  annotation class with `annotation:`, which keeps what it and its subtypes
-  annotate. ([#173](https://github.com/leancodepl/ciach/pull/173))
+  that depends on `flutter`. An `entry-points` rule can name an annotation
+  class with `annotation:`, and keeps what an object of it or of a subtype
+  annotates. Serverpod endpoints that extend `Endpoint` through another class
+  are no longer reported, and a class named `Endpoint` from another package
+  no longer keeps anything. ([#173](https://github.com/leancodepl/ciach/pull/173))
 - Report unused typedefs under a new `typedef` kind, which `--kinds` accepts.
   Before, an unused `typedef A = B;` was never reported and kept `B` from
   being reported, and an unused function typedef was reported as a `class`.

@@ -1,9 +1,10 @@
 import 'dart:io';
 
-import 'package:ciach/src/collect/annotation_types.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/collect/kept_declarations.dart';
+import 'package:ciach/src/collect/resolved_classes.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
+import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/conventions/gen_l10n.dart';
 import 'package:ciach/src/fetch/reference_fetch.dart';
@@ -53,13 +54,9 @@ final class CandidateCollector {
   final ConditionalImports _conditionalImports;
 
   /// What this run leaves unchecked on purpose, and why.
-  late final _kept = KeptDeclarations(
-    options.entryPoints,
-    _sources,
-    _annotationTypes,
-  );
+  late final _kept = KeptDeclarations(options.entryPoints, _resolvedClasses);
 
-  late final _annotationTypes = AnnotationTypes(_sources);
+  late final _resolvedClasses = ResolvedClasses(_sources, options.entryPoints);
 
   /// The pairing names in each conditional-import variant that was read,
   /// candidates or not; see [ConditionalImports.share].
@@ -96,11 +93,7 @@ final class CandidateCollector {
     }
     final tokens = await pendingTokens;
     _sources.cacheSemanticTokens(path, tokens);
-    // Only an annotation rule reads the classes of the annotations, and no
-    // built-in rule is one.
-    if (options.entryPoints.any((rule) => rule.annotation != null)) {
-      await _annotationTypes.resolve(client, path, tokens);
-    }
+    await _resolvedClasses.resolve(client, path, tokens, symbols);
     if (_conditionalImports.contains(path)) {
       declaredInVariants[path] = ConditionalImports.pairingNames(symbols);
     }
@@ -115,7 +108,7 @@ final class CandidateCollector {
       symbols,
       null,
       null,
-      null,
+      const [],
       false,
       .new(outline),
       markers,
@@ -136,7 +129,7 @@ final class CandidateCollector {
     List<DocumentSymbol> symbols,
     String? container,
     Candidate? containerCandidate,
-    ExportedMembers? containerExports,
+    List<EntryPoint> containerRules,
     bool parentIsEnum,
     _OutlineIndex outlines,
     _Markers markers,
@@ -165,12 +158,14 @@ final class CandidateCollector {
           symbols,
         ),
       );
-      final exports = exportsOf(symbol, leadingMetadata) ?? containerExports;
+      final memberRules =
+          _kept.rulesForMembersOf(relativePath, candidate, leadingMetadata) ??
+          containerRules;
       if (_isCandidate(
         relativePath,
         candidate,
         leadingMetadata,
-        containerExports: containerExports,
+        containerRules: containerRules,
         markers: markers,
         start: start,
       )) {
@@ -189,7 +184,7 @@ final class CandidateCollector {
         symbol.children ?? const [],
         childContainer,
         childContainerCandidate,
-        exports,
+        memberRules,
         symbol.kind == .enum$,
         outlines,
         markers,
@@ -249,7 +244,7 @@ final class CandidateCollector {
     String relativePath,
     Candidate candidate,
     Iterable<SemanticToken> leadingMetadata, {
-    required ExportedMembers? containerExports,
+    required List<EntryPoint> containerRules,
     required _Markers markers,
     required int start,
   }) {
@@ -265,7 +260,7 @@ final class CandidateCollector {
       relativePath,
       candidate,
       leadingMetadata,
-      containerExports: containerExports,
+      containerRules: containerRules,
     );
   }
 
@@ -274,7 +269,7 @@ final class CandidateCollector {
     String relativePath,
     Candidate candidate,
     Iterable<SemanticToken> leadingMetadata, {
-    required ExportedMembers? containerExports,
+    required List<EntryPoint> containerRules,
   }) {
     final symbol = candidate.symbol;
     if (!options.kinds.contains(
@@ -298,7 +293,7 @@ final class CandidateCollector {
       relativePath,
       candidate,
       leadingMetadata,
-      containerExports,
+      containerRules,
     )) {
       return false;
     }

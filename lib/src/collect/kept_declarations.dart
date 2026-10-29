@@ -4,18 +4,16 @@
  *   harness: Claude Code
  */
 
-import 'package:ciach/src/collect/annotation_types.dart';
 import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/collect/resolved_classes.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
-import 'package:ciach/src/conventions/js_interop.dart';
-import 'package:ciach/src/conventions/test_reflective_loader.dart';
+import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
-import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
+import 'package:collection/collection.dart';
 
 final _log = Logger('ciach.finder');
 
@@ -24,17 +22,12 @@ final _log = Logger('ciach.finder');
 /// and what a `// ciach:` marker keeps. Each is recorded with its reason, for
 /// `--verbose`, together with the type that has to stay with it.
 final class KeptDeclarations {
-  KeptDeclarations(
-    List<EntryPoint> rules,
-    SourceIndex sources,
-    AnnotationTypes annotationTypes,
-  ) : _entryPoints = EntryPoints(rules),
-      _sources = sources,
-      _annotationTypes = annotationTypes;
+  KeptDeclarations(List<EntryPoint> rules, ResolvedClasses resolvedClasses)
+    : _entryPoints = EntryPoints(rules),
+      _resolvedClasses = resolvedClasses;
 
   final EntryPoints _entryPoints;
-  final SourceIndex _sources;
-  final AnnotationTypes _annotationTypes;
+  final ResolvedClasses _resolvedClasses;
 
   /// Skipped as entry points this run, for `--verbose`.
   final _skippedEntryPoints = <_SkippedEntryPoint>[];
@@ -90,46 +83,35 @@ final class KeptDeclarations {
   }
 
   /// Returns whether [candidate] is called by a framework or a tool. Such a
-  /// declaration has no reference in the source code. Every entry point that
-  /// is found here is recorded, so that `--verbose` can list it.
+  /// declaration has no reference in the source code. [containerRules] are
+  /// the rules that keep some members of the type that declares [candidate].
+  /// Every entry point that is found here is recorded, so that `--verbose`
+  /// can list it.
   bool isEntryPoint(
     String relativePath,
     Candidate candidate,
     Iterable<SemanticToken> leadingMetadata,
-    ExportedMembers? containerExports,
+    List<EntryPoint> containerRules,
   ) {
     final symbol = candidate.symbol;
     final container = candidate.container;
     final name = symbol.declarationName(container);
     final qualified = container?.let((container) => '$container.$name') ?? name;
-    final rule = _entryPoints.match(
+    final declaration = _declarationOf(
       relativePath,
-      symbol,
-      container,
-      containerSuperclass: () => candidate.containerSymbol?.let(
-        (containerSymbol) => _superclassOf(candidate.path, containerSymbol),
-      ),
-      annotationTypes: _annotationTypes.of(candidate.path, leadingMetadata),
-      inEnum: candidate.containerSymbol?.kind == .enum$,
+      candidate,
+      leadingMetadata,
     );
+    final rule = _entryPoints.match(declaration);
     if (rule != null && container != null) {
-      _entryPointContainers[DeclKey(relativePath, container)] ??= switch ((
-        rule.superclass,
-        rule.annotation,
-      )) {
-        (final superclass?, _) =>
-          'extends `$superclass`, so its public methods are entry points',
-        (_, _?) => 'declares the entry point $qualified',
-        _ => 'declares the entry point ${rule.name}',
-      };
+      _entryPointContainers[DeclKey(relativePath, container)] ??= rule
+          .containerReason(qualified);
     }
     final reason =
-        rule?.let(
-          (rule) => rule.name == container
-              ? 'the unnamed constructor of the entry point ${rule.name}'
-              : rule.reason,
-        ) ??
-        _calledFromOutside(candidate, leadingMetadata, containerExports);
+        rule?.reasonFor(declaration) ??
+        containerRules
+            .firstWhereOrNull((rule) => rule.members!.includes(symbol))
+            ?.memberReason;
     if (reason == null) {
       return false;
     }
@@ -141,6 +123,35 @@ final class KeptDeclarations {
     ));
     return true;
   }
+
+  /// Returns the rules that keep some members of [candidate], a type, or
+  /// `null` when [candidate] is not a type.
+  List<EntryPoint>? rulesForMembersOf(
+    String relativePath,
+    Candidate candidate,
+    Iterable<SemanticToken> leadingMetadata,
+  ) => typeLikeKinds.contains(candidate.symbol.kind)
+      ? _entryPoints.keepingMembersOf(
+          _declarationOf(relativePath, candidate, leadingMetadata),
+        )
+      : null;
+
+  ResolvedDeclaration _declarationOf(
+    String relativePath,
+    Candidate candidate,
+    Iterable<SemanticToken> leadingMetadata,
+  ) => .new(
+    relativePath: relativePath,
+    symbol: candidate.symbol,
+    container: candidate.container,
+    inEnum: candidate.containerSymbol?.kind == .enum$,
+    leadingMetadata: leadingMetadata,
+    annotations: _resolvedClasses.annotationsOf(
+      candidate.path,
+      leadingMetadata,
+    ),
+    supertypes: _resolvedClasses.supertypesOf(candidate.path, candidate.symbol),
+  );
 
   /// Records [candidate] as kept by the marker [kept], and its type too.
   void byMarker(String relativePath, Candidate candidate, MarkerAt kept) {
@@ -159,57 +170,7 @@ final class KeptDeclarations {
       reason: 'kept by `// ${kept.marker}` on line ${kept.line + 1}',
     ));
   }
-
-  String? _calledFromOutside(
-    Candidate candidate,
-    Iterable<SemanticToken> leadingMetadata,
-    ExportedMembers? containerExports,
-  ) {
-    final symbol = candidate.symbol;
-    if (isJsExported(leadingMetadata)) {
-      return 'exported to JavaScript by `@JSExport`';
-    }
-    if (isPrivateName(symbol.name) || symbol.kind == .constructor) {
-      return null;
-    }
-    return switch (containerExports) {
-      .jsExport => 'exported to JavaScript by `@JSExport` on its class',
-      .reflectiveTest
-          when symbol.kind == .method && isReflectiveTestMethod(symbol.name) =>
-        'run by `defineReflectiveTests`',
-      _ => null,
-    };
-  }
-
-  /// Returns the name of the class that [symbol] extends. [symbol] is a class
-  /// that is declared in the file at [path]. Returns `null` when [symbol] is
-  /// not a class, or when the class has no `extends` clause.
-  String? _superclassOf(String path, DocumentSymbol symbol) {
-    if (symbol.kind != .class$) {
-      return null;
-    }
-    final start = _sources.offsetOf(path, symbol.selectionRange.end);
-    final end = _sources.offsetOf(path, symbol.range.end);
-    if (start == null || end == null) {
-      return null;
-    }
-    final rest = _sources.content(path).substring(start, end);
-    final brace = rest.indexOf('{');
-    return _extendsClause
-        .firstMatch(brace < 0 ? rest : rest.substring(0, brace))
-        ?.namedGroup('superclass');
-  }
-
-  /// Matches the `extends` clause that follows a class name. The type
-  /// parameters before the clause must not be nested, so a class with
-  /// `<T extends List<int>>` is not matched.
-  static final _extendsClause = RegExp(
-    r'^\s*(?:<[^<>]*>)?\s*extends\s+(?<superclass>[A-Za-z_$][\w$]*)',
-  );
 }
-
-/// The members of a type that are called from outside the Dart source.
-enum ExportedMembers { jsExport, reflectiveTest }
 
 /// A skipped entry point: root-relative POSIX path, one-based line, the name
 /// as the rule spells it, and why.
@@ -219,22 +180,3 @@ typedef _SkippedEntryPoint = ({
   String name,
   String reason,
 });
-
-/// Returns which members of the type [symbol] are called from outside the
-/// Dart source. The annotation on the type decides this. Returns `null`
-/// when [symbol] is not a type, or when the type has no such annotation.
-ExportedMembers? exportsOf(
-  DocumentSymbol symbol,
-  Iterable<SemanticToken> leadingMetadata,
-) {
-  if (!typeLikeKinds.contains(symbol.kind)) {
-    return null;
-  }
-  if (isJsExported(leadingMetadata)) {
-    return .jsExport;
-  }
-  if (isReflectiveTest(leadingMetadata)) {
-    return .reflectiveTest;
-  }
-  return null;
-}

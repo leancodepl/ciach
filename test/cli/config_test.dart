@@ -65,6 +65,10 @@ entry-points:
     glob: [test/a.dart, test/b.dart]
   - annotation: Story
     glob: 'lib/stories/**'
+  - annotation: Story
+    package: stories
+    subtypes: false
+    constants: false
 kinds: [class, function]
 format: github
 color: true
@@ -95,6 +99,7 @@ dart: /sdk/bin/dart
         'bootstrap',
         'Harness.start in test/a.dart or test/b.dart',
         'declarations annotated with `@Story` or a subtype of it in lib/stories/**',
+        'declarations annotated with `@Story` from `package:stories` by a constructor call',
       ]);
       expect(resolved.additionalGeneratedGlobs, ['lib/l10n/**']);
       expect(resolved.kinds, <SymbolKind>{.class$, .function});
@@ -351,6 +356,17 @@ concurrency: 4
             'without `@`, such as `Story`',
         'entry-points: [{annotation: A, glob: 1}]':
             "'entry-points[0].glob' must be",
+        'entry-points: [{annotation: A, package: 1}]':
+            "'entry-points[0].package' must be a package name",
+        'entry-points: [{annotation: A, package: "package:a"}]':
+            'not a package name',
+        'entry-points: [{annotation: A, subtypes: yes}]':
+            "'entry-points[0].subtypes' must be true or false",
+        'entry-points: [{annotation: A, constants: 1}]':
+            "'entry-points[0].constants' must be true or false",
+        // `subtypes` and `constants` belong to an annotation rule.
+        'entry-points: [{name: a, subtypes: false}]':
+            "'entry-points[0]' must be `{name:",
         // A rule has a name or an annotation, not both.
         'entry-points: [{name: a, annotation: A}]':
             "'entry-points[0]' must be `{name:",
@@ -930,7 +946,7 @@ dependencies:
       ).finderOptions();
 
       expect(
-        options.entryPoints.map((e) => e.name),
+        options.entryPoints.map((e) => e.label),
         containsAllInOrder(['bootstrap', 'onRequest']),
       );
       // The template is scanned for unused messages, so it isn't generated.

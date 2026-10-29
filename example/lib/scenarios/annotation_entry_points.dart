@@ -1,7 +1,9 @@
 // Entry points that an annotation marks. Expected findings: everything, by
 // default. With an `{annotation: Story}` rule, only `notAStory`,
-// `constantStory`, `deprecatedStory`, `Gallery.new`, `Gallery.helper` and
-// `story`, which only `constantStory` uses.
+// `deprecatedStory`, `Gallery.new` and `Gallery.helper`. With
+// `subtypes: false`, the subtypes of `Story` and the declarations that they
+// annotate too. With `constants: false`, also `constantStory` and `story`,
+// which only `constantStory` uses.
 //
 // Scanned only by the dedicated tests; see
 // test/finder/annotation_entry_points_test.dart.
@@ -30,7 +32,7 @@ class StoryLike implements Story<String> {
 
 typedef StoryAlias = DarkStory;
 
-/// Not a constructor call, so it marks nothing.
+/// Read by `@story`, which calls no constructor.
 const story = Story<int>();
 
 @Story<int>()

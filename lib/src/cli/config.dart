@@ -227,16 +227,40 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
         when const {'name', 'glob'}.containsAll(rule.keys) =>
       _rule(at, rule['glob'], (files) => .fromConfig(name, files: files)),
     {'annotation': final String annotation}
-        when const {'annotation', 'glob'}.containsAll(rule.keys) =>
+        when const {
+          'annotation',
+          'package',
+          'subtypes',
+          'constants',
+          'glob',
+        }.containsAll(rule.keys) =>
       _rule(
         at,
         rule['glob'],
-        (files) => .annotationFromConfig(annotation, files: files),
+        (files) => .annotationFromConfig(
+          annotation,
+          package: switch (rule['package']) {
+            null => null,
+            final String package => package,
+            final other => _wrong('$at.package', 'a package name', other),
+          },
+          subtypes: _ruleFlag(at, rule, 'subtypes'),
+          constants: _ruleFlag(at, rule, 'constants'),
+          files: files,
+        ),
       ),
     _ => throw FormatException(
-      "$path: '$at' must be `{name: <declaration>, glob: <glob, list of globs, or none>}` or `{annotation: <class>, glob: <glob, list of globs, or none>}`, got $rule.",
+      "$path: '$at' must be `{name: <declaration>, glob: <glob, list of globs, or none>}` or `{annotation: <class>, package: <package>, subtypes: <true or false>, constants: <true or false>, glob: <glob, list of globs, or none>}`, got $rule.",
     ),
   };
+
+  /// The boolean [key] of the rule [rule] at [at]; `true` when it is absent.
+  bool _ruleFlag(String at, Map<Object?, Object?> rule, String key) =>
+      switch (rule[key]) {
+        null => true,
+        final bool value => value,
+        final other => _wrong('$at.$key', 'true or false', other),
+      };
 
   /// Returns the rule that [create] makes from the files that [glob] lists.
   EntryPoint _rule(
