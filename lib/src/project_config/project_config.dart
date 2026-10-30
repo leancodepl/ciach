@@ -7,6 +7,7 @@ import 'package:ciach/src/project_config/custom_lint.dart';
 import 'package:ciach/src/project_config/dart_frog.dart';
 import 'package:ciach/src/project_config/flutter_gen_l10n.dart';
 import 'package:ciach/src/project_config/flutter_plugin.dart';
+import 'package:ciach/src/project_config/flutter_widget_previews.dart';
 import 'package:ciach/src/project_config/flutterfire.dart';
 import 'package:ciach/src/project_config/project_files.dart';
 import 'package:ciach/src/project_config/serverpod.dart';
@@ -73,6 +74,7 @@ final class ProjectConfig {
       entryPoints: {
         for (final rule in [
           ...flutterPluginEntryPoints(pubspec),
+          ...flutterWidgetPreviewEntryPoints(pubspec),
           for (final buildYaml in buildYamls)
             ...buildRunnerEntryPoints(pubspec, buildYaml),
           ...dartFrogEntryPoints(pubspec),

@@ -40,6 +40,7 @@ Some declarations are only called from code a tool generates, so nothing in the 
 | --- | --- |
 | `build.yaml` builders | the functions under `builder_factories` or `builder_factory` |
 | `pubspec.yaml` plugin | `registerWith` on each platform's `dartPluginClass` and on the web `pluginClass` |
+| `flutter` | the declarations annotated with Flutter's `@Preview` or `@MultiPreview`, or with a subtype of either, which `flutter widget-preview` shows |
 | `dart_frog` | `onRequest`, `middleware`, `init`, `run` |
 | `serverpod` | the classes that have Serverpod's `Endpoint` among their supertypes, and their public methods |
 | `analysis_server_plugin`, or a package an `analysis_options.yaml` under the root loads as a plugin by `path:` | `plugin` in `lib/main.dart` |
@@ -68,7 +69,7 @@ An `annotation` rule names a class. It keeps every declaration whose annotation 
 - `subtypes: false` counts only the class itself.
 - `constants: false` counts only a constructor call.
 
-`-v` names each skipped entry point.
+Widget previews are kept the same way, but only for the `Preview` and `MultiPreview` classes of Flutter, and only through a constructor call. `-v` names each skipped entry point.
 
 ### Ignore markers
 
