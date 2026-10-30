@@ -32,11 +32,13 @@ sealed class EntryPoint {
   EntryPoint._({required this.files})
     : _globs = [for (final file in files) .new(file, context: _posix)];
 
-  /// Creates a rule that selects every class that extends [superclass], and
-  /// keeps the public methods of the class too. [reason] says who calls the
-  /// methods.
+  /// Creates a rule that selects every class that has [superclass], from
+  /// [package] or from any package when it is `null`, among its supertypes,
+  /// and keeps the public methods of the class too. [reason] says who calls
+  /// the methods.
   factory EntryPoint.publicMethodsOfSubclasses(
     String superclass, {
+    String? package,
     required String reason,
     List<String> files,
   }) = SubtypeEntryPoint;
@@ -90,6 +92,10 @@ sealed class EntryPoint {
   /// The members that the rule keeps in a type that it selects, or `null`
   /// for none.
   KeptMembers? get members => null;
+
+  /// What the analysis server has to resolve for the rule to select a
+  /// declaration.
+  Set<ResolvedFact> get resolves => const {};
 
   final List<Glob> _globs;
 
@@ -282,34 +288,42 @@ final class AnnotationNameEntryPoint extends EntryPoint {
   ].join(' ');
 }
 
-/// A rule that selects a class by the class that it extends, and keeps the
-/// class and its public methods.
+/// A rule that selects a class by one of its supertypes, and keeps the class
+/// and its public methods.
 final class SubtypeEntryPoint extends EntryPoint {
   /// [reason] says who calls the public methods.
   SubtypeEntryPoint(
     this.supertype, {
+    this.package,
     required String reason,
     super.files = const [],
   }) : members = .new(.publicMethods, reason),
        super._();
 
-  /// The class that a selected class extends.
+  /// The supertype.
   final String supertype;
+
+  /// The package that declares [supertype], or `null` for any package.
+  final String? package;
 
   @override
   final KeptMembers members;
 
   @override
   String get reason =>
-      'extends `$supertype`, so its public methods are entry points';
+      'has `$supertype` among its supertypes, so its public methods are entry points';
 
   @override
-  bool _selects(ResolvedDeclaration declaration) =>
-      declaration.superclass == supertype;
+  Set<ResolvedFact> get resolves => const {.supertypes};
+
+  @override
+  bool _selects(ResolvedDeclaration declaration) => declaration.supertypes.any(
+    (type) => type.isNamed(supertype, package: package),
+  );
 
   @override
   SubtypeEntryPoint _withFiles(List<String> files) =>
-      .new(supertype, reason: members.reason, files: files);
+      .new(supertype, package: package, reason: members.reason, files: files);
 
   @override
   String get label => 'public methods of `$supertype` subclasses';
@@ -350,6 +364,12 @@ enum MemberSelection {
       };
 }
 
+/// What the analysis server resolves for a rule to select a declaration.
+enum ResolvedFact {
+  /// The supertypes of a class.
+  supertypes,
+}
+
 /// [EntryPoint.builtIn] followed by a project's own rules; the first match
 /// wins.
 final class EntryPoints {
@@ -369,4 +389,11 @@ final class EntryPoints {
     for (final rule in _rules)
       if (rule.members case final members? when rule.matches(type)) members,
   ];
+
+  /// What the analysis server has to resolve in the file at [relativePath]
+  /// for the rules that apply to it.
+  Set<ResolvedFact> resolvedIn(String relativePath) => {
+    for (final rule in _rules)
+      if (rule.appliesTo(relativePath)) ...rule.resolves,
+  };
 }

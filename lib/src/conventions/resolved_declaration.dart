@@ -5,12 +5,41 @@
  */
 
 /// What the entry-point rules read about a declaration: its name and place,
-/// its annotations, and the class that it extends.
+/// its annotations, and its supertypes as the analysis server resolves them.
 library;
 
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/symbols.dart';
+import 'package:ciach/src/util/extensions.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
+
+/// A class as the analysis server resolves it.
+final class ResolvedClass {
+  const ResolvedClass(this.name, this.package);
+
+  /// The name of the class, without type parameters.
+  final String name;
+
+  /// The package that declares the class, such as `flutter`, or `null` for a
+  /// class outside every package, such as `Object`.
+  final String? package;
+
+  /// Whether this is the class [name] from [package], or from any package
+  /// when [package] is `null`.
+  bool isNamed(String name, {String? package}) =>
+      this.name == name && (package == null || this.package == package);
+
+  @override
+  bool operator ==(Object other) =>
+      other is ResolvedClass && other.name == name && other.package == package;
+
+  @override
+  int get hashCode => Object.hash(name, package);
+
+  @override
+  String toString() =>
+      package?.let((package) => 'package:$package $name') ?? name;
+}
 
 /// A declaration that the entry-point rules are checked against.
 final class ResolvedDeclaration {
@@ -20,7 +49,7 @@ final class ResolvedDeclaration {
     this.container,
     this.inEnum = false,
     this.leadingMetadata = const [],
-    this.superclass,
+    this.supertypes = const {},
   });
 
   /// The file of the declaration, POSIX and relative to the package root.
@@ -41,7 +70,7 @@ final class ResolvedDeclaration {
   /// The tokens of the declaration's doc comment and annotations.
   final Iterable<SemanticToken> leadingMetadata;
 
-  /// The class that the declaration extends, when it is a class with an
-  /// `extends` clause.
-  final String? superclass;
+  /// All the supertypes of the declaration when it is a class, and none
+  /// otherwise.
+  final Set<ResolvedClass> supertypes;
 }

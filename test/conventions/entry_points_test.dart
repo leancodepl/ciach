@@ -393,23 +393,27 @@ void main() {
   group('EntryPoint.publicMethodsOfSubclasses', () {
     final rule = EntryPoint.publicMethodsOfSubclasses(
       'Endpoint',
+      package: 'serverpod',
       reason: 'called by the Serverpod dispatcher',
     );
     final rules = EntryPoints([rule]);
     final endpoint = ResolvedDeclaration(
       relativePath: 'lib/greeting.dart',
       symbol: symbol('GreetingEndpoint', kind: .class$),
-      superclass: 'Endpoint',
+      supertypes: {
+        const .new('Endpoint', 'serverpod'),
+        const .new('Object', null),
+      },
     );
 
-    test('keeps a class that extends the superclass', () {
+    test('keeps a class with the supertype from that package', () {
       expect(rules.match(endpoint), rule);
       expect(
         rules.match(
           .new(
             relativePath: 'lib/greeting.dart',
             symbol: symbol('LocalEndpoint', kind: .class$),
-            superclass: 'BaseEndpoint',
+            supertypes: {const .new('Endpoint', 'app')},
           ),
         ),
         isNull,
