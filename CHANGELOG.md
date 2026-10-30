@@ -2,15 +2,18 @@
 
 - Stop reporting Flutter widget previews: the declarations annotated with
   `@Preview` or `@MultiPreview`, or with a subtype of either, in a package
-  that depends on `flutter`. An `entry-points` rule can name an annotation
-  class with `annotation:`, and keeps what an object of it or of a subtype
-  annotates. Serverpod endpoints that extend `Endpoint` through another class
-  are no longer reported, and a class named `Endpoint` from another package
-  no longer keeps anything. ([#173](https://github.com/leancodepl/ciach/pull/173))
+  that depends on `flutter`. ([#173](https://github.com/leancodepl/ciach/pull/173))
+- An `entry-points` rule can name an annotation class with `annotation:`. It
+  keeps the declarations whose annotation creates an object of the class or of
+  a subtype, and the keys `package`, `subtypes` and `constants` narrow it.
+  ([#177](https://github.com/leancodepl/ciach/pull/177))
+- Serverpod endpoints that extend `Endpoint` through another class are no
+  longer reported, and a class named `Endpoint` from another package no longer
+  keeps anything. ([#176](https://github.com/leancodepl/ciach/pull/176))
 - Stop reporting a class whose member has `@pragma('vm:entry-point')`. Before,
   `--remove` deleted the class with the member. `vm:entry-point` in another
   annotation, such as `@Deprecated('vm:entry-point')`, no longer keeps a
-  declaration. ([#173](https://github.com/leancodepl/ciach/pull/173))
+  declaration. ([#175](https://github.com/leancodepl/ciach/pull/175))
 - Report unused typedefs under a new `typedef` kind, which `--kinds` accepts.
   Before, an unused `typedef A = B;` was never reported and kept `B` from
   being reported, and an unused function typedef was reported as a `class`.

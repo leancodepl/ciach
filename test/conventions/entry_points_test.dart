@@ -389,4 +389,77 @@ void main() {
       contains('entry-points'),
     );
   });
+
+  group('EntryPoint.publicMethodsOfSubclasses', () {
+    final rule = EntryPoint.publicMethodsOfSubclasses(
+      'Endpoint',
+      package: 'serverpod',
+      reason: 'called by the Serverpod dispatcher',
+    );
+    final rules = EntryPoints([rule]);
+    final endpoint = ResolvedDeclaration(
+      relativePath: 'lib/greeting.dart',
+      symbol: symbol('GreetingEndpoint', kind: .class$),
+      supertypes: {
+        const .new('Endpoint', 'serverpod'),
+        const .new('Object', null),
+      },
+    );
+
+    test('keeps a class with the supertype from that package', () {
+      expect(rules.match(endpoint), rule);
+      expect(
+        rules.match(
+          .new(
+            relativePath: 'lib/greeting.dart',
+            symbol: symbol('LocalEndpoint', kind: .class$),
+            supertypes: {const .new('Endpoint', 'app')},
+          ),
+        ),
+        isNull,
+      );
+    });
+
+    test('keeps the public methods of such a class', () {
+      final members = rules.keptMembersOf(endpoint).single;
+      expect(members, same(rule.members));
+      expect(
+        members.selection.includes(symbol('hello', kind: .method)),
+        isTrue,
+      );
+      expect(
+        members.selection.includes(symbol('_helper', kind: .method)),
+        isFalse,
+      );
+      expect(members.selection.includes(symbol('name', kind: .field)), isFalse);
+    });
+  });
+
+  group('MemberSelection', () {
+    test('`publicMembers` takes every public member but constructors', () {
+      expect(
+        [
+          symbol('value', kind: .field),
+          symbol('increment', kind: .method),
+          symbol('_hidden', kind: .method),
+          symbol('Counter', kind: .constructor),
+        ].where(MemberSelection.publicMembers.includes).map((s) => s.name),
+        ['value', 'increment'],
+      );
+    });
+
+    test('`reflectiveTestMethods` takes the methods that run as tests', () {
+      expect(
+        [
+              symbol('test_parses', kind: .method),
+              symbol('setUp', kind: .method),
+              symbol('helper', kind: .method),
+              symbol('test_field', kind: .field),
+            ]
+            .where(MemberSelection.reflectiveTestMethods.includes)
+            .map((s) => s.name),
+        ['test_parses', 'setUp'],
+      );
+    });
+  });
 }
