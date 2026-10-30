@@ -1,3 +1,9 @@
+/*
+ * AI-Provenance:
+ *   model: claude-opus-5-5
+ *   harness: Claude Code
+ */
+
 // Declarations that `@pragma('vm:entry-point')` marks for native code or
 // reflection. Expected findings: `Host.helper`, `inlined` and
 // `deprecatedMention`.
