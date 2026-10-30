@@ -6,14 +6,13 @@
 
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
-import 'package:ciach/src/conventions/js_interop.dart';
-import 'package:ciach/src/conventions/test_reflective_loader.dart';
+import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
-import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
+import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
 final _log = Logger('ciach.finder');
@@ -23,9 +22,7 @@ final _log = Logger('ciach.finder');
 /// and what a `// ciach:` marker keeps. Each is recorded with its reason, for
 /// `--verbose`, together with the type that has to stay with it.
 final class KeptDeclarations {
-  KeptDeclarations(List<EntryPoint> rules, SourceIndex sources)
-    : _entryPoints = EntryPoints(rules),
-      _sources = sources;
+  KeptDeclarations(this._entryPoints, this._sources);
 
   final EntryPoints _entryPoints;
   final SourceIndex _sources;
@@ -83,60 +80,66 @@ final class KeptDeclarations {
     }
   }
 
-  /// Returns whether [candidate] is called by a framework or a tool. Such a
-  /// declaration has no reference in the source code. Every entry point that
-  /// is found here is recorded, so that `--verbose` can list it.
-  bool isEntryPoint(
+  /// Returns [candidate], whose doc comment and annotations are
+  /// [leadingMetadata], as the entry-point rules read it.
+  ResolvedDeclaration declarationOf(
     String relativePath,
     Candidate candidate,
     Iterable<SemanticToken> leadingMetadata,
-    ExportedMembers? containerExports,
+  ) => .new(
+    relativePath: relativePath,
+    symbol: candidate.symbol,
+    container: candidate.container,
+    inEnum: candidate.containerSymbol?.kind == .enum$,
+    leadingMetadata: leadingMetadata,
+    superclass: _superclassOf(candidate.path, candidate.symbol),
+  );
+
+  /// Returns whether [declaration] is called by a framework or a tool. Such a
+  /// declaration has no reference in the source code. [containerMembers] are
+  /// the members that the rules keep in the type that declares it. Every
+  /// entry point that is found here is recorded, so that `--verbose` can
+  /// list it.
+  bool isEntryPoint(
+    ResolvedDeclaration declaration,
+    List<KeptMembers> containerMembers,
   ) {
-    final symbol = candidate.symbol;
-    final container = candidate.container;
-    final rule = _entryPoints.match(
-      relativePath,
-      symbol,
-      container,
-      containerSuperclass: () => candidate.containerSymbol?.let(
-        (containerSymbol) => _superclassOf(candidate.path, containerSymbol),
-      ),
-      inEnum: candidate.containerSymbol?.kind == .enum$,
-    );
+    final ResolvedDeclaration(:relativePath, :symbol, :container) = declaration;
+    final qualified = declaration.qualifiedName;
+    final rule = _entryPoints.match(declaration);
     if (rule != null && container != null) {
-      _entryPointContainers[DeclKey(relativePath, container)] ??=
-          rule.superclass?.let(
-            (superclass) =>
-                'extends `$superclass`, so its public methods are entry points',
-          ) ??
-          'declares the entry point ${rule.name}';
+      _entryPointContainers[DeclKey(relativePath, container)] ??= rule
+          .containerReason(qualified);
     }
     final reason =
-        rule?.let(
-          (rule) => rule.name == container
-              ? 'the unnamed constructor of the entry point ${rule.name}'
-              : rule.reason,
-        ) ??
-        _calledFromOutside(candidate, leadingMetadata, containerExports);
+        rule?.reasonFor(declaration) ??
+        containerMembers
+            .firstWhereOrNull((members) => members.selection.includes(symbol))
+            ?.reason;
     if (reason == null) {
       return false;
     }
-    final name = symbol.declarationName(container);
     _skippedEntryPoints.add((
       path: relativePath,
       line: symbol.selectionRange.start.line + 1,
-      name: container?.let((container) => '$container.$name') ?? name,
+      name: qualified,
       reason: reason,
     ));
     return true;
   }
 
+  /// Returns the members that the rules keep in [declaration], a type, or
+  /// `null` when [declaration] is not a type.
+  List<KeptMembers>? keptMembersOf(ResolvedDeclaration declaration) =>
+      typeLikeKinds.contains(declaration.symbol.kind)
+      ? _entryPoints.keptMembersOf(declaration)
+      : null;
+
   /// Records [candidate] as kept by the marker [kept], and its type too.
   void byMarker(String relativePath, Candidate candidate, MarkerAt kept) {
     final symbol = candidate.symbol;
     final container = candidate.container;
-    final name = symbol.declarationName(container);
-    final qualified = container?.let((container) => '$container.$name') ?? name;
+    final qualified = symbol.qualifiedName(container);
     if (container != null) {
       _entryPointContainers[DeclKey(relativePath, container)] ??=
           'declares $qualified, kept by `// ${kept.marker}`';
@@ -147,27 +150,6 @@ final class KeptDeclarations {
       name: qualified,
       reason: 'kept by `// ${kept.marker}` on line ${kept.line + 1}',
     ));
-  }
-
-  String? _calledFromOutside(
-    Candidate candidate,
-    Iterable<SemanticToken> leadingMetadata,
-    ExportedMembers? containerExports,
-  ) {
-    final symbol = candidate.symbol;
-    if (isJsExported(leadingMetadata)) {
-      return 'exported to JavaScript by `@JSExport`';
-    }
-    if (isPrivateName(symbol.name) || symbol.kind == .constructor) {
-      return null;
-    }
-    return switch (containerExports) {
-      .jsExport => 'exported to JavaScript by `@JSExport` on its class',
-      .reflectiveTest
-          when symbol.kind == .method && isReflectiveTestMethod(symbol.name) =>
-        'run by `defineReflectiveTests`',
-      _ => null,
-    };
   }
 
   /// Returns the name of the class that [symbol] extends. [symbol] is a class
@@ -197,9 +179,6 @@ final class KeptDeclarations {
   );
 }
 
-/// The members of a type that are called from outside the Dart source.
-enum ExportedMembers { jsExport, reflectiveTest }
-
 /// A skipped entry point: root-relative POSIX path, one-based line, the name
 /// as the rule spells it, and why.
 typedef _SkippedEntryPoint = ({
@@ -208,22 +187,3 @@ typedef _SkippedEntryPoint = ({
   String name,
   String reason,
 });
-
-/// Returns which members of the type [symbol] are called from outside the
-/// Dart source. The annotation on the type decides this. Returns `null`
-/// when [symbol] is not a type, or when the type has no such annotation.
-ExportedMembers? exportsOf(
-  DocumentSymbol symbol,
-  Iterable<SemanticToken> leadingMetadata,
-) {
-  if (!typeLikeKinds.contains(symbol.kind)) {
-    return null;
-  }
-  if (isJsExported(leadingMetadata)) {
-    return .jsExport;
-  }
-  if (isReflectiveTest(leadingMetadata)) {
-    return .reflectiveTest;
-  }
-  return null;
-}
