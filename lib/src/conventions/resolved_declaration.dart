@@ -5,12 +5,14 @@
  */
 
 /// What the entry-point rules read about a declaration: its name and place,
-/// its annotations, and its supertypes as the analysis server resolves them.
+/// and the classes of its annotations and supertypes as the analysis server
+/// resolves them.
 library;
 
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
+import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
 /// A class as the analysis server resolves it.
@@ -41,6 +43,43 @@ final class ResolvedClass {
       package?.let((package) => 'package:$package $name') ?? name;
 }
 
+/// An annotation that creates an object, such as `@Preview()` or `@preview`
+/// for `const preview = Preview();`.
+final class ResolvedAnnotation {
+  const ResolvedAnnotation(
+    this.type,
+    this.supertypes, {
+    required this.readsConstant,
+  });
+
+  /// The class of the object.
+  final ResolvedClass type;
+
+  /// All the supertypes of [type].
+  final Set<ResolvedClass> supertypes;
+
+  /// Whether the annotation reads a constant, as `@preview` does, rather than
+  /// calling a constructor.
+  final bool readsConstant;
+
+  static const _supertypesEquality = SetEquality<ResolvedClass>();
+
+  @override
+  bool operator ==(Object other) =>
+      other is ResolvedAnnotation &&
+      other.type == type &&
+      other.readsConstant == readsConstant &&
+      _supertypesEquality.equals(other.supertypes, supertypes);
+
+  @override
+  int get hashCode =>
+      Object.hash(type, readsConstant, _supertypesEquality.hash(supertypes));
+
+  @override
+  String toString() =>
+      '${readsConstant ? 'constant ' : ''}$type, supertypes $supertypes';
+}
+
 /// A declaration that the entry-point rules are checked against.
 final class ResolvedDeclaration {
   const ResolvedDeclaration({
@@ -49,6 +88,7 @@ final class ResolvedDeclaration {
     this.container,
     this.inEnum = false,
     this.leadingMetadata = const [],
+    this.annotations = const [],
     this.supertypes = const {},
   });
 
@@ -69,6 +109,9 @@ final class ResolvedDeclaration {
 
   /// The tokens of the declaration's doc comment and annotations.
   final Iterable<SemanticToken> leadingMetadata;
+
+  /// The annotations of the declaration that create an object.
+  final List<ResolvedAnnotation> annotations;
 
   /// All the supertypes of the declaration when it is a class, and none
   /// otherwise.

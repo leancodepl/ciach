@@ -347,6 +347,9 @@ explicit null check.
   fix that goes the other way. Ask first. Reject a wrong input with an error
   that names the right form. Extend an existing helper, such as `runCli` in the
   tests, instead of adding a second way to do the same thing.
+  When a new caller needs the helper on another input, add a variant that
+  takes the input and have the helper call it, so that the existing calls
+  stay as they are: `_boolean(key)` calls `_booleanAt(at, value)`.
 - Prefer a general rule to one package's or framework's special case, and say
   in the pull request why a special case stays. Report an idiom that has a
   cleaner replacement, with a hint, instead of skipping it, and report what
