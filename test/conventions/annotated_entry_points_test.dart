@@ -117,7 +117,7 @@ void main() {
       expect(matchesCard(rule, [annotation('Story')]), isFalse);
     });
 
-    test('globs narrow the file', () {
+    test('a glob limits the rule to the files that it matches', () {
       final rule = EntryPoint.annotationFromConfig(
         'Story',
         files: ['lib/stories/**'],

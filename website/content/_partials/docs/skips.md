@@ -55,8 +55,8 @@ entry-points:
   - name: bootstrap               # a top-level declaration
     glob: 'lib/src/isolate.dart'
   - annotation: Story             # what `@Story()` or `@story` annotates
-  - annotation: Preview
-    package: storybook            # only the class from this package
+  - annotation: Scene
+    package: stories              # only the class from this package
     subtypes: false               # not its subtypes
     constants: false              # only a constructor call
 ```
