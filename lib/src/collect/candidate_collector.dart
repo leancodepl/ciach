@@ -58,7 +58,7 @@ final class CandidateCollector {
 
   late final _kept = KeptDeclarations(_entryPoints, _resolvedClasses);
 
-  late final _resolvedClasses = ResolvedClasses(_entryPoints);
+  late final _resolvedClasses = ResolvedClasses(_sources, _entryPoints);
 
   /// The pairing names in each conditional-import variant that was read,
   /// candidates or not; see [ConditionalImports.share].
@@ -93,10 +93,9 @@ final class CandidateCollector {
       recordProblem(_uncollectedFile, e, path: path);
       return const [];
     }
-    // `SourceIndex` keeps the tokens, which the leading metadata is read from.
-    await pendingTokens;
+    final tokens = await pendingTokens;
     final relativePath = relativePosix(path, rootPath);
-    await _resolvedClasses.resolve(client, path, relativePath, symbols);
+    await _resolvedClasses.resolve(client, path, relativePath, tokens, symbols);
     if (_conditionalImports.contains(path)) {
       declaredInVariants[path] = ConditionalImports.pairingNames(symbols);
     }

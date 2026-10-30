@@ -91,6 +91,10 @@ final class KeptDeclarations {
     container: candidate.container,
     inEnum: candidate.containerSymbol?.kind == .enum$,
     leadingMetadata: leadingMetadata,
+    annotations: _resolvedClasses.annotationsOf(
+      candidate.path,
+      leadingMetadata,
+    ),
     supertypes: _resolvedClasses.supertypesOf(candidate.path, candidate.symbol),
   );
 

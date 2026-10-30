@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:ciach/src/source/symbols.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position, Range;
 
@@ -81,6 +83,21 @@ final class SemanticToken {
 final _plainString = RegExp(
   r'''^r?(?<quote>'{3}|"{3}|'|")(?<value>[^\\$'"]*)\k<quote>$''',
 );
+
+/// The name that follows the `@` of an annotation, as
+/// [SemanticTokenLookup.annotationNames] returns it.
+typedef AnnotationName = ({
+  /// The token of the name: the class or typedef whose constructor the
+  /// annotation calls, or the constant that it reads.
+  SemanticToken token,
+
+  /// The name as written, with its import prefix: `previews.Preview`.
+  String written,
+
+  /// Whether the annotation reads a constant, as `@preview` and
+  /// `@Holder.held` do, rather than calling a constructor.
+  bool readsConstant,
+});
 
 /// Decodes the relative-encoded [data] of a `semanticTokens/full` response.
 /// Tokens outside the legend or the file are dropped.
@@ -166,4 +183,62 @@ extension SemanticTokenLookup on List<SemanticToken> {
   /// The tokens starting at or after [from] and before [to].
   Iterable<SemanticToken> between(Position from, Position to) =>
       skip(firstIndexAtOrAfter(from)).takeWhile((t) => t.start.isBefore(to));
+
+  /// Returns the name of each annotation among these tokens: `Preview` in
+  /// `@Preview()`, `@Preview.named()` and `@prefix.Preview()`, a typedef such
+  /// as `AliasPreview` in `@AliasPreview()`, and the constants `preview` in
+  /// `@preview` and `held` in `@Holder.held`.
+  Iterable<AnnotationName> annotationNames() sync* {
+    for (final (i, token) in indexed) {
+      // The server marks the name of a constant with `annotation`, and the
+      // name of a class but not of a typedef. Only a typedef name's place
+      // after the `@` tells that it names the annotation and not one of its
+      // type arguments.
+      final readsConstant =
+          token.type == 'property' && token.modifiers.contains('annotation');
+      if (readsConstant ||
+          ((token.type == 'class' || token.type == 'type') &&
+              _followsAt(i) &&
+              !_namesStaticConstant(i))) {
+        final prefix = switch (sublist(max(0, i - 2), i)) {
+          [
+            SemanticToken(:final text, :final modifiers),
+            SemanticToken(text: '.'),
+          ]
+              when modifiers.contains('importPrefix') =>
+            '$text.',
+          _ => '',
+        };
+        yield (
+          token: token,
+          written: '$prefix${token.text}',
+          readsConstant: readsConstant,
+        );
+      }
+    }
+  }
+
+  /// Whether the token at [index] comes right after an `@`, or after an `@`
+  /// and an import prefix.
+  bool _followsAt(int index) =>
+      switch (sublist(max(0, index - 3), index).reversed.toList()) {
+        [SemanticToken(text: '@'), ...] => true,
+        [
+          SemanticToken(text: '.'),
+          SemanticToken(:final modifiers),
+          SemanticToken(text: '@'),
+        ]
+            when modifiers.contains('importPrefix') =>
+          true,
+        _ => false,
+      };
+
+  /// Whether the class name at [index] is followed by a `.` and a static
+  /// constant, as `Holder` in `@Holder.held` is, so that the annotation
+  /// calls no constructor.
+  bool _namesStaticConstant(int index) =>
+      switch (skip(index + 1).take(2).toList()) {
+        [SemanticToken(text: '.'), SemanticToken(type: 'property')] => true,
+        _ => false,
+      };
 }

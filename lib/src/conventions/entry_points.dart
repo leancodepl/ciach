@@ -43,6 +43,23 @@ sealed class EntryPoint {
     List<String> files,
   }) = SubtypeEntryPoint;
 
+  /// Creates a rule that selects every declaration whose annotation creates
+  /// an object of the class [annotation], from [package] or from any package
+  /// when it is `null`.
+  ///
+  /// Unless [subtypes] is `false`, an object of a subtype of the class
+  /// counts too. Unless [constants] is `false`, an annotation that reads a
+  /// constant, such as `@story` for `const story = Story();`, counts too;
+  /// with it, only a constructor call counts.
+  factory EntryPoint.annotatedWith(
+    String annotation, {
+    String? package,
+    bool? subtypes,
+    bool? constants,
+    required String reason,
+    List<String> files,
+  }) = AnnotatedEntryPoint;
+
   /// Creates a rule that comes from the `entry-points` setting or from the
   /// project config.
   ///
@@ -75,11 +92,51 @@ sealed class EntryPoint {
     return .new(name: name, files: files, reason: reason);
   }
 
+  /// Creates an [EntryPoint.annotatedWith] rule that comes from the
+  /// `entry-points` setting.
+  ///
+  /// Throws a [FormatException] if [annotation] is not a class name or
+  /// [package] is not a package name. The constructor throws for a glob that
+  /// does not parse.
+  factory EntryPoint.annotationFromConfig(
+    String annotation, {
+    String? package,
+    bool? subtypes,
+    bool? constants,
+    List<String> files = const [],
+    String reason = _configReason,
+  }) {
+    if (annotation.startsWith('@')) {
+      throw FormatException(
+        "'$annotation': write the class name without `@`, such as `${annotation.substring(1)}`.",
+      );
+    }
+    if (annotation.contains('.') || !_qualifiedName.hasMatch(annotation)) {
+      throw FormatException(
+        "'$annotation' is not a class name; expected an identifier such as 'Story'.",
+      );
+    }
+    if (package != null && !_packageName.hasMatch(package)) {
+      throw FormatException(
+        "'$package' is not a package name; expected a name such as 'storybook', without `package:`.",
+      );
+    }
+    return .annotatedWith(
+      annotation,
+      package: package,
+      subtypes: subtypes,
+      constants: constants,
+      files: files,
+      reason: reason,
+    );
+  }
+
   static const _configReason = 'listed under `entry-points` in the config file';
   static final _posix = p.Context(style: .posix);
   static final _qualifiedName = RegExp(
     r'^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)?$',
   );
+  static final _packageName = RegExp(r'^[a-z_][a-z0-9_]*$');
 
   /// The file globs as written; empty matches any file.
   final List<String> files;
@@ -229,6 +286,70 @@ final class NamedEntryPoint extends EntryPoint {
   String get label => name;
 }
 
+/// A rule that selects a declaration by the class of an annotation on it.
+final class AnnotatedEntryPoint extends EntryPoint {
+  AnnotatedEntryPoint(
+    this.annotation, {
+    this.package,
+    bool? subtypes,
+    bool? constants,
+    required this.reason,
+    super.files = const [],
+  }) : subtypes = subtypes ?? true,
+       constants = constants ?? true,
+       super._();
+
+  @override
+  final String reason;
+
+  /// The class of the annotation.
+  final String annotation;
+
+  /// The package that declares [annotation], or `null` for any package.
+  final String? package;
+
+  /// Whether an annotation whose class is a subtype of [annotation] counts.
+  final bool subtypes;
+
+  /// Whether an annotation that reads a constant counts.
+  final bool constants;
+
+  @override
+  Set<ResolvedFact> get resolves => {
+    .annotationClasses,
+    if (constants) .constantClasses,
+  };
+
+  @override
+  bool _selects(ResolvedDeclaration declaration) => declaration.annotations.any(
+    (it) =>
+        (constants || !it.readsConstant) &&
+        (it.type.isNamed(annotation, package: package) ||
+            (subtypes &&
+                it.supertypes.any(
+                  (type) => type.isNamed(annotation, package: package),
+                ))),
+  );
+
+  @override
+  AnnotatedEntryPoint _withFiles(List<String> files) => .new(
+    annotation,
+    package: package,
+    subtypes: subtypes,
+    constants: constants,
+    reason: reason,
+    files: files,
+  );
+
+  @override
+  String get label => [
+    'declarations annotated with `@$annotation`',
+    if (package case final package?) 'from `package:$package`',
+    if (subtypes) 'or a subtype of it',
+    if (!constants) 'by a constructor call',
+  ].join(' ');
+}
+
 /// A rule that selects a declaration by the name written in an annotation on
 /// it, such as `JSExport` in `@JSExport()` and `reflectiveTest` in
 /// `@reflectiveTest`, whatever it resolves to, and optionally by the string
@@ -366,6 +487,14 @@ enum MemberSelection {
 
 /// What the analysis server resolves for a rule to select a declaration.
 enum ResolvedFact {
+  /// The class that an annotation's constructor call creates, and its
+  /// supertypes.
+  annotationClasses,
+
+  /// The class of the object that the constant an annotation reads holds,
+  /// and its supertypes.
+  constantClasses,
+
   /// The supertypes of a class.
   supertypes,
 }
