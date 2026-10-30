@@ -917,7 +917,7 @@ dependencies:
       ).finderOptions();
 
       expect(
-        options.entryPoints.map((e) => e.name),
+        options.entryPoints.map((e) => e.label),
         containsAllInOrder(['bootstrap', 'onRequest']),
       );
       // The template is scanned for unused messages, so it isn't generated.
