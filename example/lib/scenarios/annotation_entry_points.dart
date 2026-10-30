@@ -1,3 +1,9 @@
+/*
+ * AI-Provenance:
+ *   model: claude-opus-5-5
+ *   harness: Claude Code
+ */
+
 // Entry points that an annotation marks. Expected findings: everything, by
 // default. With an `{annotation: Story}` rule, only `notAStory`,
 // `deprecatedStory`, `Gallery.new` and `Gallery.helper`. With

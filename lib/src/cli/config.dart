@@ -212,8 +212,9 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     return values;
   }
 
-  /// The rules under [key]: `{name: …, glob: …}` or `{annotation: …, glob:
-  /// …}` maps, `glob` one glob, a list of them, or absent for any file.
+  /// The rules under [key]: `{name: …, glob: …}` or
+  /// `{annotation: …, glob: …}` maps, `glob` one glob, a list of them, or
+  /// absent for any file.
   List<EntryPoint>? _entryPoints(String key) => switch (settings[key]) {
     null => null,
     final Iterable<Object?> rules => [
