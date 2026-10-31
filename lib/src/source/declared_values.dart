@@ -34,10 +34,7 @@ SemanticToken? valueNameAfter(
   }
   final value = tokens
       .skip(tokens.firstIndexAtOrAfter(sources.positionOf(path, equals)))
-      .firstWhereOrNull(
-        (token) =>
-            !token.isKeyword && !token.modifiers.contains('importPrefix'),
-      );
+      .firstWhereOrNull((token) => !token.isKeyword && !token.isImportPrefix);
   if (value == null ||
       !_beforeValue.hasMatch(
         content.substring(equals + 1, sources.offsetOf(path, value.start)),
