@@ -60,10 +60,6 @@ final class ResolvedClasses {
   /// same annotation in many places has the same definition.
   final _byDefinition = <(String, Position), Future<List<_Hierarchy>>>{};
 
-  /// The classes of the types that a typedef names, by the position of its
-  /// definition.
-  final _byTypedef = <(String, Position), Future<List<_Hierarchy>>>{};
-
   /// A class and all its supertypes, by the file and the position of the
   /// class's name in its declaration.
   final _byClass = <(String, Position), Future<Set<ResolvedClass>>>{};
@@ -193,7 +189,16 @@ final class ResolvedClasses {
     LspClient client,
     PackageConfig? config,
     Location definition,
-  ) => _byDefinition[(definition.uri, definition.range.start)] ??= () async {
+  ) => _byDefinition[(definition.uri, definition.range.start)] ??=
+      _requestDeclaredAt(client, config, definition);
+
+  /// Requests the classes declared at [definition] with their supertypes
+  /// from [client].
+  Future<List<_Hierarchy>> _requestDeclaredAt(
+    LspClient client,
+    PackageConfig? config,
+    Location definition,
+  ) async {
     final items = await client.typeHierarchyItems(
       .parse(definition.uri),
       definition.range.start,
@@ -203,7 +208,7 @@ final class ResolvedClasses {
         : await Future.wait([
             for (final item in items) _hierarchyOf(client, config, item),
           ]);
-  }();
+  }
 
   /// Returns the classes of the type that the typedef declared at
   /// [definition] names, with their supertypes: `DarkPreview` for
@@ -213,7 +218,7 @@ final class ResolvedClasses {
     LspClient client,
     PackageConfig? config,
     Location definition,
-  ) => _byTypedef[(definition.uri, definition.range.start)] ??= () async {
+  ) async {
     final path = SourceIndex.pathOf(definition.uri);
     final type = typeNamedBy(
       _sources,
@@ -233,7 +238,7 @@ final class ResolvedClasses {
         _declaredAt(client, config, definition),
     ]);
     return classes.flattened.toList();
-  }();
+  }
 
   /// Returns the class of [item] with all its supertypes. Their packages are
   /// those that [config] gives the files that declare them.
