@@ -90,17 +90,16 @@ final class ResolvedClasses {
     await Future.wait([
       if (lookups.contains(ServerLookup.annotationClasses))
         for (final name in tokens.annotationNames())
-          if (!name.readsConstant)
-            _resolveAnnotation(
-              client,
-              config,
-              path,
-              name.token,
-              constructorDefinitions[name.written] ??= client.definition(
-                File(path).uri,
-                name.token.start,
-              ),
+          _resolveAnnotation(
+            client,
+            config,
+            path,
+            name.token,
+            constructorDefinitions[name.written] ??= client.definition(
+              File(path).uri,
+              name.token.start,
             ),
+          ),
       if (lookups.contains(ServerLookup.supertypes))
         for (final symbol in symbols.where(
           (s) => s.kind == .class$ && _hasSupertypeClause(tokens, s),

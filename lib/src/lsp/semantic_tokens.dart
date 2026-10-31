@@ -84,19 +84,15 @@ final _plainString = RegExp(
   r'''^r?(?<quote>'{3}|"{3}|'|")(?<value>[^\\$'"]*)\k<quote>$''',
 );
 
-/// The name that follows the `@` of an annotation, as
-/// [SemanticTokenLookup.annotationNames] returns it.
+/// The name that follows the `@` of an annotation that calls a constructor,
+/// as [SemanticTokenLookup.annotationNames] returns it.
 typedef AnnotationName = ({
   /// The token of the name: the class or typedef whose constructor the
-  /// annotation calls, or the constant that it reads.
+  /// annotation calls.
   SemanticToken token,
 
   /// The name as written, with its import prefix: `previews.Preview`.
   String written,
-
-  /// Whether the annotation reads a constant, as `@preview` and
-  /// `@Holder.held` do, rather than calling a constructor.
-  bool readsConstant,
 });
 
 /// Decodes the relative-encoded [data] of a `semanticTokens/full` response.
@@ -184,22 +180,19 @@ extension SemanticTokenLookup on List<SemanticToken> {
   Iterable<SemanticToken> between(Position from, Position to) =>
       skip(firstIndexAtOrAfter(from)).takeWhile((t) => t.start.isBefore(to));
 
-  /// Returns the name of each annotation among these tokens: `Preview` in
-  /// `@Preview()`, `@Preview.named()` and `@prefix.Preview()`, a typedef such
-  /// as `AliasPreview` in `@AliasPreview()`, and the constants `preview` in
-  /// `@preview` and `held` in `@Holder.held`.
+  /// Returns the name of each annotation among these tokens that calls a
+  /// constructor: `Preview` in `@Preview()`, `@Preview.named()` and
+  /// `@prefix.Preview()`, and a typedef such as `AliasPreview` in
+  /// `@AliasPreview()`. An annotation that reads a constant, such as
+  /// `@preview` or `@Holder.held`, has none.
   Iterable<AnnotationName> annotationNames() sync* {
     for (final (i, token) in indexed) {
-      // The server marks the name of a constant with `annotation`, and the
-      // name of a class but not of a typedef. Only a typedef name's place
-      // after the `@` tells that it names the annotation and not one of its
-      // type arguments.
-      final readsConstant =
-          token.type == 'property' && token.modifiers.contains('annotation');
-      if (readsConstant ||
-          ((token.type == 'class' || token.type == 'type') &&
-              _followsAt(i) &&
-              !_namesStaticConstant(i))) {
+      // The server marks the name of a class with `annotation`, but not the
+      // name of a typedef. Only a typedef name's place after the `@` tells
+      // that it names the annotation and not one of its type arguments.
+      if ((token.type == 'class' || token.type == 'type') &&
+          _followsAt(i) &&
+          !_namesStaticConstant(i)) {
         final prefix = switch (sublist(max(0, i - 2), i)) {
           [
             SemanticToken(:final text, :final modifiers),
@@ -209,11 +202,7 @@ extension SemanticTokenLookup on List<SemanticToken> {
             '$text.',
           _ => '',
         };
-        yield (
-          token: token,
-          written: '$prefix${token.text}',
-          readsConstant: readsConstant,
-        );
+        yield (token: token, written: '$prefix${token.text}');
       }
     }
   }
