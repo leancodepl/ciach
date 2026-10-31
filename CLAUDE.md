@@ -20,7 +20,8 @@ changelog, pull request descriptions and review replies.
   parameters you mean: `[rootPath]`.
 - Use the Dart spec's terms ("mixin application class"), not analysis server
   enum names (`CLASS_TYPE_ALIAS`). Don't use a term that you coined, such as
-  "walk" for a recursive pass. In user docs, say what happens to the user's
+  "walk" for a recursive pass or "fact" for a kind of server request, also
+  not in an identifier. In user docs, say what happens to the user's
   code: "the `import`s of it are removed", not "the directives that named it
   are dropped".
 - State what always happens as a fact. Write "may" only for what really

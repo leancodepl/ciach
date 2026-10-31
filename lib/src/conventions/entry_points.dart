@@ -97,9 +97,9 @@ sealed class EntryPoint {
   /// for none.
   KeptMembers? get members => null;
 
-  /// What the analysis server has to resolve for the rule to select a
-  /// declaration.
-  Set<ResolvedFact> get resolves => const {};
+  /// The requests that the analysis server has to answer before the rule can
+  /// select a declaration.
+  Set<ServerLookup> get lookups => const {};
 
   final List<Glob> _globs;
 
@@ -218,8 +218,9 @@ enum MemberSelection {
       };
 }
 
-/// What the analysis server resolves for a rule to select a declaration.
-enum ResolvedFact {
+/// A kind of request that a rule needs the analysis server to answer before
+/// it can select a declaration.
+enum ServerLookup {
   /// The supertypes of a class.
   supertypes,
 }
@@ -244,10 +245,10 @@ final class EntryPoints {
       if (rule.members case final members? when rule.matches(type)) members,
   ];
 
-  /// What the analysis server has to resolve in the file at [relativePath]
-  /// for the rules that apply to it.
-  Set<ResolvedFact> resolvedIn(String relativePath) => {
+  /// Returns the requests that the analysis server has to answer in the file
+  /// at [relativePath] for the rules that apply to it.
+  Set<ServerLookup> lookupsIn(String relativePath) => {
     for (final rule in _rules)
-      if (rule.appliesTo(relativePath)) ...rule.resolves,
+      if (rule.appliesTo(relativePath)) ...rule.lookups,
   };
 }

@@ -52,13 +52,13 @@ final class ResolvedClasses {
     String relativePath,
     List<DocumentSymbol> symbols,
   ) async {
-    final facts = _entryPoints.resolvedIn(relativePath);
-    if (facts.isEmpty) {
+    final lookups = _entryPoints.lookupsIn(relativePath);
+    if (lookups.isEmpty) {
       return;
     }
     final config = _packages.configOf(p.dirname(path));
     await Future.wait([
-      if (facts.contains(ResolvedFact.supertypes))
+      if (lookups.contains(ServerLookup.supertypes))
         for (final symbol in symbols.where((s) => s.kind == .class$))
           _resolveClass(client, config, path, symbol),
     ]);
