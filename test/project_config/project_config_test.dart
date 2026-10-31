@@ -75,8 +75,8 @@ dev_dependencies: {serverpod: any, custom_lint_builder: any}
       'public methods of `Endpoint` subclasses',
       'plugin in lib/main.dart',
       'createPlugin in lib/my_lints.dart',
-      'declarations annotated with `@Preview` from `package:flutter` or a subtype of it by a constructor call',
-      'declarations annotated with `@MultiPreview` from `package:flutter` or a subtype of it by a constructor call',
+      'declarations annotated with `@Preview` from `package:flutter` or a subtype of it',
+      'declarations annotated with `@MultiPreview` from `package:flutter` or a subtype of it',
     });
   });
 

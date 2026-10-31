@@ -13,9 +13,8 @@ import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/option_values.dart';
 import 'package:config/config.dart';
 
-/// The `entry-points` list of `{name, glob}` and `{annotation, glob}` rules.
-/// It has no command-line form; `ConfigFile` hands it over already parsed and
-/// validated.
+/// The `entry-points` list of `{name, glob}` rules. It has no command-line
+/// form; `ConfigFile` hands it over already parsed and validated.
 final class EntryPointsOption extends ConfigOptionBase<List<EntryPoint>> {
   const EntryPointsOption({required super.configKey, super.helpText})
     : super(valueParser: const _EntryPointsParser(), defaultsTo: const []);
@@ -28,7 +27,7 @@ final class _EntryPointsParser extends ValueParser<List<EntryPoint>> {
 
   @override
   List<EntryPoint> parse(String value) => throw const FormatException(
-    'entry-points is a list of {name, glob} and {annotation, glob} rules.',
+    'entry-points is a list of {name, glob} rules.',
   );
 }
 
@@ -222,7 +221,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
     EntryPointsOption(
       configKey: '/entry-points',
       helpText:
-          'Declarations a tool calls from generated code, so never reported: rules with a `name` (`bootstrap`, `MyHost.callback`) or an `annotation` class (`Story`), and an optional `glob` (one, or a list) for the files. Built in: `main`, and `testExecutable` in a flutter_test_config.dart.',
+          'Declarations a tool calls from generated code, so never reported: rules with a `name` (`bootstrap`, `MyHost.callback`) and an optional `glob` (one, or a list) for the files. Built in: `main`, and `testExecutable` in a flutter_test_config.dart.',
     ),
   ),
   kinds(

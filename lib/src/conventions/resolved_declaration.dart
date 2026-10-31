@@ -43,24 +43,15 @@ final class ResolvedClass {
       package?.let((package) => 'package:$package $name') ?? name;
 }
 
-/// An annotation that creates an object, such as `@Preview()` or `@preview`
-/// for `const preview = Preview();`.
+/// An annotation that calls a constructor, such as `@Preview()`.
 final class ResolvedAnnotation {
-  const ResolvedAnnotation(
-    this.type,
-    this.supertypes, {
-    required this.readsConstant,
-  });
+  const ResolvedAnnotation(this.type, this.supertypes);
 
-  /// The class of the object.
+  /// The class that the constructor creates.
   final ResolvedClass type;
 
   /// All the supertypes of [type].
   final Set<ResolvedClass> supertypes;
-
-  /// Whether the annotation reads a constant, as `@preview` does, rather than
-  /// calling a constructor.
-  final bool readsConstant;
 
   static const _supertypesEquality = SetEquality<ResolvedClass>();
 
@@ -68,16 +59,13 @@ final class ResolvedAnnotation {
   bool operator ==(Object other) =>
       other is ResolvedAnnotation &&
       other.type == type &&
-      other.readsConstant == readsConstant &&
       _supertypesEquality.equals(other.supertypes, supertypes);
 
   @override
-  int get hashCode =>
-      Object.hash(type, readsConstant, _supertypesEquality.hash(supertypes));
+  int get hashCode => Object.hash(type, _supertypesEquality.hash(supertypes));
 
   @override
-  String toString() =>
-      '${readsConstant ? 'constant ' : ''}$type, supertypes $supertypes';
+  String toString() => '$type, supertypes $supertypes';
 }
 
 /// A declaration that the entry-point rules are checked against.
@@ -110,7 +98,7 @@ final class ResolvedDeclaration {
   /// The tokens of the declaration's doc comment and annotations.
   final Iterable<SemanticToken> leadingMetadata;
 
-  /// The annotations of the declaration that create an object.
+  /// The annotations of the declaration that call a constructor.
   final List<ResolvedAnnotation> annotations;
 
   /// All the supertypes of the declaration when it is a class, and none

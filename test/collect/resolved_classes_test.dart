@@ -109,19 +109,15 @@ class Holder {
 
   /// An annotation that creates a [type] from the package `app`, whose
   /// supertypes are [supertypes] and `Object`.
-  ResolvedAnnotation annotation(
-    String type,
-    List<String> supertypes, {
-    bool readsConstant = false,
-  }) => .new(app(type), {
-    for (final supertype in supertypes) app(supertype),
-    object,
-  }, readsConstant: readsConstant);
+  ResolvedAnnotation annotation(String type, List<String> supertypes) => .new(
+    app(type),
+    {for (final supertype in supertypes) app(supertype), object},
+  );
 
   final rule = EntryPoint.annotatedWith('Preview', reason: 'shown');
 
   test(
-    'resolves the class of each annotation with all its supertypes',
+    'resolves the class of each annotation that calls a constructor, with all its supertypes, and of no annotation that reads a constant',
     () async {
       const source = '''
 import 'previews.dart';
@@ -173,13 +169,8 @@ void h() {}
             annotation('DarkPreview', ['Preview']),
           ],
           7: [annotation('Preview', [])],
-          8: [annotation('Preview', [], readsConstant: true)],
-          // `override` is an object of the private class `_Override`.
-          9: [
-            ResolvedAnnotation(const .new('_Override', null), {
-              object,
-            }, readsConstant: true),
-          ],
+          8: isEmpty,
+          9: isEmpty,
           10: isEmpty,
           // The name of a generic class has no type parameters.
           11: [
@@ -200,45 +191,13 @@ void h() {}
             annotation('Typed', ['Preview']),
           ],
           // A static constant, not a constructor of `Holder`.
-          16: [
-            annotation('DarkPreview', ['Preview'], readsConstant: true),
-          ],
-          17: [annotation('Preview', [], readsConstant: true)],
-          // A constant that holds another one.
-          18: [annotation('Preview', [], readsConstant: true)],
-          19: [
-            annotation('DarkPreview', ['Preview'], readsConstant: true),
-          ],
-          // A list is not created by a constructor call.
+          16: isEmpty,
+          17: isEmpty,
+          18: isEmpty,
+          19: isEmpty,
           20: isEmpty,
           21: isEmpty,
         },
-      );
-    },
-  );
-
-  test(
-    'resolves no constants for rules that count only constructor calls',
-    () async {
-      final (:path, :tokens, :classes, symbols: _) = await resolve(
-        '''
-import 'previews.dart';
-
-@preview void a() {}
-@Preview() void b() {}
-''',
-        [.annotatedWith('Preview', constants: false, reason: 'shown')],
-      );
-
-      expect(
-        [
-          for (final line in [2, 3])
-            classes.annotationsOf(path, tokens.where((t) => t.line == line)),
-        ],
-        [
-          isEmpty,
-          [annotation('Preview', [])],
-        ],
       );
     },
   );

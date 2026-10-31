@@ -10,13 +10,10 @@ import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position;
 
-/// Returns the token that names the value after the `=` of the typedef or
-/// constant named at [name] in [path]: `Plain` in
-/// `typedef AliasPlain = Plain;`, `Story` in `const story = Story();` and
-/// `held` in `const story = Holder.held;`. Returns `null` when anything but
-/// `const`, `new` and an import prefix comes between the `=` and the name,
-/// as `[` does in `const stories = [Story()];`. [tokens] are the semantic
-/// tokens of [path].
+/// Returns the token that names the type after the `=` of the typedef named
+/// at [name] in [path]: `Plain` in `typedef AliasPlain = Plain;`. Returns
+/// `null` when anything but an import prefix comes between the `=` and the
+/// name. [tokens] are the semantic tokens of [path].
 SemanticToken? valueNameAfter(
   SourceIndex sources,
   String path,
@@ -44,29 +41,10 @@ SemanticToken? valueNameAfter(
       )) {
     return null;
   }
-  // In `Holder.held`, the value is the constant `held`.
-  final next = tokens.elementAtOrNull(
-    tokens.firstIndexAtOrAfter(value.start) + 1,
-  );
-  return switch (next) {
-    SemanticToken(type: 'property')
-        when _dot.hasMatch(
-          content.substring(
-            sources.offsetOf(path, value.start)! + value.length,
-            sources.offsetOf(path, next.start),
-          ),
-        ) =>
-      next,
-    _ => value,
-  };
+  return value;
 }
 
-/// Matches what may come between the `=` and the name of the value: `const`,
-/// `new` and an import prefix. Regexes read the text around the value because
-/// the server gives none of `=`, `.`, `[` and `(` a token there.
-final _beforeValue = RegExp(
-  r'^\s*(?:(?:const|new)\s+)?(?:[A-Za-z_$][\w$]*\s*\.\s*)?$',
-);
-
-/// Matches the `.` between a class name and a static constant.
-final _dot = RegExp(r'^\s*\.\s*$');
+/// Matches what may come between the `=` and the name of the type: an import
+/// prefix. A regex reads the text there because the server gives neither `=`
+/// nor `.` a token.
+final _beforeValue = RegExp(r'^\s*(?:[A-Za-z_$][\w$]*\s*\.\s*)?$');

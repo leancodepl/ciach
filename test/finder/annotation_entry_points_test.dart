@@ -58,48 +58,11 @@ void main() {
   );
 
   test(
-    'an `annotation` rule keeps the declarations whose annotation creates an object of the class or of a subtype of it',
-    () async {
-      expect(await findUnused(entryPoints: [.annotationFromConfig('Story')]), {
-        'deprecatedStory',
-        'notAStory',
-        'Gallery.new',
-        'Gallery.helper',
-      });
-    },
-  );
-
-  test(
-    'with `subtypes: false`, an `annotation` rule keeps only the declarations annotated with the class itself',
+    'a rule for an annotation class keeps the declarations whose annotation calls a constructor of the class or of a subtype of it',
     () async {
       expect(
         await findUnused(
-          entryPoints: [.annotationFromConfig('Story', subtypes: false)],
-        ),
-        {
-          'DarkStory',
-          'DarkerStory',
-          'StoryLike',
-          'darkStoryCard',
-          'darkerStoryCard',
-          'likeStoryCard',
-          'StoryAlias',
-          'aliasStoryCard',
-          'deprecatedStory',
-          'notAStory',
-          'Gallery.new',
-          'Gallery.helper',
-        },
-      );
-    },
-  );
-
-  test(
-    'with `constants: false`, an `annotation` rule keeps only the declarations whose annotation calls a constructor',
-    () async {
-      expect(
-        await findUnused(
-          entryPoints: [.annotationFromConfig('Story', constants: false)],
+          entryPoints: [.annotatedWith('Story', reason: 'shown')],
         ),
         {
           // Used only by `constantStory`.
