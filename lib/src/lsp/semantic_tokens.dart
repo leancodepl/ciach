@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:ciach/src/source/symbols.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position, Range;
 
@@ -191,53 +189,48 @@ extension SemanticTokenLookup on List<SemanticToken> {
   /// as `AliasPreview` in `@AliasPreview()`, and the constants `preview` in
   /// `@preview` and `held` in `@Holder.held`.
   Iterable<AnnotationName> annotationNames() sync* {
-    for (final (i, token) in indexed) {
-      // The server marks the name of a constant with `annotation`, and the
-      // name of a class but not of a typedef. Only a typedef name's place
-      // after the `@` tells that it names the annotation and not one of its
-      // type arguments.
-      final readsConstant =
-          token.type == 'property' && token.modifiers.contains('annotation');
-      if (readsConstant ||
-          ((token.type == 'class' || token.type == 'type') &&
-              _followsAt(i) &&
-              !_namesStaticConstant(i))) {
-        final prefix = switch (sublist(max(0, i - 2), i)) {
-          [
-            SemanticToken(isImportPrefix: true, :final text),
-            SemanticToken(text: '.'),
-          ] =>
-            '$text.',
-          _ => '',
-        };
-        yield (
-          token: token,
-          written: '$prefix${token.text}',
-          readsConstant: readsConstant,
-        );
+    for (final (i, _) in indexed.where((it) => it.$2.text == '@')) {
+      if (_annotationNameAfter(i) case final name?) {
+        yield name;
       }
     }
   }
 
-  /// Whether the token at [index] comes right after an `@`, or after an `@`
-  /// and an import prefix.
-  bool _followsAt(int index) =>
-      switch (sublist(max(0, index - 3), index).reversed.toList()) {
-        [SemanticToken(text: '@'), ...] ||
+  /// Returns the name of the annotation that starts with the `@` at [index].
+  AnnotationName? _annotationNameAfter(int index) =>
+      switch (skip(index + 1).take(5).toList()) {
         [
+          SemanticToken(isImportPrefix: true, :final text),
           SemanticToken(text: '.'),
-          SemanticToken(isImportPrefix: true),
-          SemanticToken(text: '@'),
-        ] => true,
-        _ => false,
+          ...final rest,
+        ] =>
+          _annotationNameIn(rest, '$text.'),
+        final rest => _annotationNameIn(rest, ''),
       };
 
-  /// Whether the class name at [index] is followed by a `.` and a static
-  /// constant, as `Holder` in `@Holder.held` is, so that the annotation
-  /// calls no constructor.
-  bool _namesStaticConstant(int index) =>
-      switch (skip(index + 1).take(2).toList()) {
-        [SemanticToken(text: '.'), SemanticToken(type: 'property')] => true,
-        _ => false,
-      };
+  /// Returns the name that [tokens], which follow the `@` and the import
+  /// [prefix] of an annotation, start with.
+  static AnnotationName? _annotationNameIn(
+    List<SemanticToken> tokens,
+    String prefix,
+  ) => switch (tokens) {
+    // `held` in `@Holder.held` is a static constant of the class `Holder`.
+    [
+      SemanticToken(type: 'class' || 'type'),
+      SemanticToken(text: '.'),
+      final constant && SemanticToken(type: 'property'),
+      ...,
+    ] ||
+    [final constant && SemanticToken(type: 'property'), ...] => (
+      token: constant,
+      written: '$prefix${constant.text}',
+      readsConstant: true,
+    ),
+    [final name && SemanticToken(type: 'class' || 'type'), ...] => (
+      token: name,
+      written: '$prefix${name.text}',
+      readsConstant: false,
+    ),
+    _ => null,
+  };
 }
