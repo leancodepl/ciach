@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:ciach/src/source/symbols.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position, Range;
 
@@ -188,45 +186,46 @@ extension SemanticTokenLookup on List<SemanticToken> {
   /// `@AliasPreview()`. An annotation that reads a constant, such as
   /// `@preview` or `@Holder.held`, has none.
   Iterable<AnnotationName> annotationNames() sync* {
-    for (final (i, token) in indexed) {
-      // The server marks the name of a class with `annotation`, but not the
-      // name of a typedef. Only a typedef name's place after the `@` tells
-      // that it names the annotation and not one of its type arguments.
-      if ((token.type == 'class' || token.type == 'type') &&
-          _followsAt(i) &&
-          !_namesStaticConstant(i)) {
-        final prefix = switch (sublist(max(0, i - 2), i)) {
-          [
-            SemanticToken(isImportPrefix: true, :final text),
-            SemanticToken(text: '.'),
-          ] =>
-            '$text.',
-          _ => '',
-        };
-        yield (token: token, written: '$prefix${token.text}');
+    for (final (i, _) in indexed.where((it) => it.$2.text == '@')) {
+      if (_constructorCalledAfter(i) case final name?) {
+        yield name;
       }
     }
   }
 
-  /// Whether the token at [index] comes right after an `@`, or after an `@`
-  /// and an import prefix.
-  bool _followsAt(int index) =>
-      switch (sublist(max(0, index - 3), index).reversed.toList()) {
-        [SemanticToken(text: '@'), ...] ||
+  /// Returns the name of the class or typedef whose constructor the
+  /// annotation that starts with the `@` at [index] calls, or `null` when
+  /// the annotation reads a constant.
+  AnnotationName? _constructorCalledAfter(int index) =>
+      switch (skip(index + 1).take(5).toList()) {
         [
+          SemanticToken(isImportPrefix: true, :final text),
           SemanticToken(text: '.'),
-          SemanticToken(isImportPrefix: true),
-          SemanticToken(text: '@'),
-        ] => true,
-        _ => false,
+          ...final rest,
+        ] =>
+          _constructorNamedBy(rest, '$text.'),
+        final rest => _constructorNamedBy(rest, ''),
       };
 
-  /// Whether the class name at [index] is followed by a `.` and a static
-  /// constant, as `Holder` in `@Holder.held` is, so that the annotation
-  /// calls no constructor.
-  bool _namesStaticConstant(int index) =>
-      switch (skip(index + 1).take(2).toList()) {
-        [SemanticToken(text: '.'), SemanticToken(type: 'property')] => true,
-        _ => false,
-      };
+  /// Returns the name of the class or typedef that [tokens], which follow the
+  /// `@` and the import [prefix] of an annotation, start with, or `null` when
+  /// they name a constant.
+  static AnnotationName? _constructorNamedBy(
+    List<SemanticToken> tokens,
+    String prefix,
+  ) => switch (tokens) {
+    // `Holder` in `@Holder.held` is the class of a static constant.
+    [
+      SemanticToken(type: 'class' || 'type'),
+      SemanticToken(text: '.'),
+      SemanticToken(type: 'property'),
+      ...,
+    ] =>
+      null,
+    [final name && SemanticToken(type: 'class' || 'type'), ...] => (
+      token: name,
+      written: '$prefix${name.text}',
+    ),
+    _ => null,
+  };
 }
