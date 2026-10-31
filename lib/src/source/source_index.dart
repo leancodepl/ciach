@@ -73,19 +73,30 @@ class SourceIndex {
   Future<List<SemanticToken>> semanticTokensOf(
     LspClient client,
     String path,
-  ) async =>
-      _semanticTokens[path] ??
-      await (_pendingSemanticTokens[path] ??= () async {
-        try {
-          return _semanticTokens[path] = await client.semanticTokens(
-            File(path).uri,
-            lines(path),
-          );
-        } on LspRequestException catch (e) {
-          recordProblem(_noSemanticTokens, e, path: path);
-          return _semanticTokens[path] = const [];
-        }
-      }());
+  ) async {
+    if (_semanticTokens[path] case final tokens?) {
+      return tokens;
+    }
+    final pending = _pendingSemanticTokens[path] ??= _requestSemanticTokens(
+      client,
+      path,
+    );
+    return await pending;
+  }
+
+  /// Requests the semantic tokens of [path] from [client] and caches them.
+  Future<List<SemanticToken>> _requestSemanticTokens(
+    LspClient client,
+    String path,
+  ) async {
+    try {
+      final tokens = await client.semanticTokens(File(path).uri, lines(path));
+      return _semanticTokens[path] = tokens;
+    } on LspRequestException catch (e) {
+      recordProblem(_noSemanticTokens, e, path: path);
+      return _semanticTokens[path] = const [];
+    }
+  }
 
   bool hasSemanticTokens(String path) => _semanticTokens.containsKey(path);
 
