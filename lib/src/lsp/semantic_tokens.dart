@@ -63,6 +63,8 @@ final class SemanticToken {
 
   bool get isKeyword => type == 'keyword';
 
+  bool get isImportPrefix => modifiers.contains('importPrefix');
+
   bool get isDeclaration => modifiers.contains('declaration');
 
   /// Whether this is the name of an `@[name]` annotation.
@@ -195,10 +197,9 @@ extension SemanticTokenLookup on List<SemanticToken> {
           !_namesStaticConstant(i)) {
         final prefix = switch (sublist(max(0, i - 2), i)) {
           [
-            SemanticToken(:final text, :final modifiers),
+            SemanticToken(isImportPrefix: true, :final text),
             SemanticToken(text: '.'),
-          ]
-              when modifiers.contains('importPrefix') =>
+          ] =>
             '$text.',
           _ => '',
         };
@@ -211,14 +212,12 @@ extension SemanticTokenLookup on List<SemanticToken> {
   /// and an import prefix.
   bool _followsAt(int index) =>
       switch (sublist(max(0, index - 3), index).reversed.toList()) {
-        [SemanticToken(text: '@'), ...] => true,
+        [SemanticToken(text: '@'), ...] ||
         [
           SemanticToken(text: '.'),
-          SemanticToken(:final modifiers),
+          SemanticToken(isImportPrefix: true),
           SemanticToken(text: '@'),
-        ]
-            when modifiers.contains('importPrefix') =>
-          true,
+        ] => true,
         _ => false,
       };
 
