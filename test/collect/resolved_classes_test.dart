@@ -145,6 +145,8 @@ void h() {}
 @sameAsPreview void p() {}
 @heldPreview void q() {}
 @previewList void r() {}
+@previews.Preview.named() void s() {}
+@previews.Holder.held void t() {}
 ''';
       final (:path, :tokens, :classes, symbols: _) = await resolve(source, [
         rule,
@@ -211,7 +213,13 @@ void h() {}
           ],
           // A list is not created by a constructor call.
           20: isEmpty,
-          21: isEmpty,
+          // A named constructor of a prefixed class.
+          21: [annotation('Preview', [])],
+          // A static constant of a prefixed class.
+          22: [
+            annotation('DarkPreview', ['Preview'], readsConstant: true),
+          ],
+          23: isEmpty,
         },
       );
     },
