@@ -213,18 +213,18 @@ final class ResolvedClasses {
     Location definition,
   ) => _byTypedef[(definition.uri, definition.range.start)] ??= () async {
     final path = SourceIndex.pathOf(definition.uri);
-    final value = valueNameAfter(
+    final type = typeNamedBy(
       _sources,
       path,
       await _sources.semanticTokensOf(client, path),
       definition.range.start,
     );
-    if (value == null) {
+    if (type == null) {
       return const <_Hierarchy>[];
     }
     final definitions = await client.definition(
       .parse(definition.uri),
-      value.start,
+      type.start,
     );
     final classes = await Future.wait([
       for (final definition in definitions)
