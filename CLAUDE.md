@@ -142,7 +142,8 @@ absolute, how the duplicates that a dedupe removes arise, or which known
 algorithm a loop implements. Define a domain term, such as "variant", where it
 first appears, and give a loop whose result isn't obvious a one-line example.
 Give concrete values: "the server names it `extension on String`", not "the
-server's placeholder name". A comment doesn't explain Dart, argue against an
+server's placeholder name". A comment doesn't explain Dart, such as why a
+field has a declared type, repeat a rule from this file, argue against an
 alternative that nobody proposed, or retell how the code came to be. Put a
 comment at the code that it explains: a reason why a step is skipped goes
 where the step runs, not next to the code before it.
