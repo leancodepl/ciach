@@ -454,8 +454,11 @@ Keep a file under about 500 lines. Split by responsibility, not by line count:
 pull out a concern with its own state and name (the cross-library recovery,
 the transitive sweep), move a helper onto the type that owns its data
 (`DeadSpans.referrersAmong`), or give each variant its own file (the report
-formats). The subclasses of a sealed class each go to a `part` file of its
-library, as the entry-point rules in `conventions/` do. When a split moves
+formats). When the subclasses of a sealed class are about 40 lines or longer
+each, give each one a `part` file of the sealed class's library, as the
+entry-point rules in `conventions/` do. Keep shorter subclasses next to the
+sealed class, as `_Char` in `prefer_single_string_literal.dart` and the two
+fixes in `version_matches_pubspec.dart` are. When a split moves
 code, keep the upstream names and wording, and leave a file that only moves
 with its existing content and header as it is.
 
