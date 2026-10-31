@@ -6,6 +6,10 @@ import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
+part 'annotation_name_entry_point.dart';
+part 'named_entry_point.dart';
+part 'subtype_entry_point.dart';
+
 /// A declaration a framework or tool calls by convention, with no source
 /// reference for the search to find.
 ///
@@ -171,145 +175,6 @@ sealed class EntryPoint {
   @override
   String toString() =>
       files.isEmpty ? label : '$label in ${files.join(' or ')}';
-}
-
-/// A rule that selects a declaration by its name.
-final class NamedEntryPoint extends EntryPoint {
-  NamedEntryPoint({
-    required this.name,
-    required this.reason,
-    super.files = const [],
-  }) : super._();
-
-  @override
-  final String reason;
-
-  /// The name of the declaration. A top-level declaration is `name` and a
-  /// member is `Container.member`. The unnamed constructor is `Class.new`.
-  /// Type parameters are not part of the name.
-  final String name;
-
-  /// A rule that names a class or an extension type also selects the type's
-  /// unnamed constructor, because code that uses the type calls `Type()`.
-  /// Only an enum's own values call its constructor, so the rule does not
-  /// select it in an enum.
-  @override
-  bool _selects(ResolvedDeclaration declaration) {
-    final ResolvedDeclaration(:symbol, :container) = declaration;
-    return declaration.qualifiedName == name ||
-        (container == name &&
-            !declaration.inEnum &&
-            symbol.kind == .constructor &&
-            symbol.declarationName(container) == 'new');
-  }
-
-  @override
-  String reasonFor(ResolvedDeclaration declaration) =>
-      declaration.container == name
-      ? 'the unnamed constructor of the entry point $name'
-      : reason;
-
-  @override
-  String containerReason(String qualified) => 'declares the entry point $name';
-
-  @override
-  NamedEntryPoint _withFiles(List<String> files) =>
-      .new(name: name, reason: reason, files: files);
-
-  @override
-  String get label => name;
-}
-
-/// A rule that selects a declaration by the name written in an annotation on
-/// it, such as `JSExport` in `@JSExport()` and `reflectiveTest` in
-/// `@reflectiveTest`, whatever it resolves to, and optionally by the string
-/// literal that the annotation's first argument is. It needs no requests to
-/// the analysis server.
-final class AnnotationNameEntryPoint extends EntryPoint {
-  AnnotationNameEntryPoint(
-    this.annotation, {
-    this.argument,
-    this.reason,
-    this.members,
-    super.files = const [],
-  }) : super._();
-
-  /// The name written after the `@`.
-  final String annotation;
-
-  /// The value of the string literal that the annotation's first argument
-  /// has to be, such as `vm:entry-point` in `@pragma('vm:entry-point')`, or
-  /// `null` for any arguments.
-  final String? argument;
-
-  @override
-  final String? reason;
-
-  @override
-  final KeptMembers? members;
-
-  @override
-  bool _selects(ResolvedDeclaration declaration) {
-    final tokens = declaration.leadingMetadata.toList();
-    // The server gives the `(` of an annotation a token, so the first
-    // argument is the second token after the name.
-    return tokens.indexed.any(
-      (named) =>
-          named.$2.isAnnotationNamed(annotation) &&
-          (argument == null ||
-              (tokens.elementAtOrNull(named.$1 + 1)?.text == '(' &&
-                  tokens.elementAtOrNull(named.$1 + 2)?.stringValue ==
-                      argument)),
-    );
-  }
-
-  @override
-  AnnotationNameEntryPoint _withFiles(List<String> files) => .new(
-    annotation,
-    argument: argument,
-    reason: reason,
-    members: members,
-    files: files,
-  );
-
-  @override
-  String get label => [
-    'declarations annotated with `@$annotation`',
-    if (argument case final argument?) "with `'$argument'`",
-  ].join(' ');
-}
-
-/// A rule that selects a class by the class that it extends, and keeps the
-/// class and its public methods.
-final class SubtypeEntryPoint extends EntryPoint {
-  /// [reason] says who calls the public methods.
-  SubtypeEntryPoint(
-    this.supertype, {
-    required String reason,
-    super.files = const [],
-  }) : members = .new(.publicMethods, reason),
-       super._();
-
-  /// The class that a selected class extends.
-  final String supertype;
-
-  @override
-  final KeptMembers members;
-
-  @override
-  String get reason =>
-      'extends `$supertype`, so its public methods are entry points';
-
-  @override
-  bool _selects(ResolvedDeclaration declaration) =>
-      declaration.superclass == supertype;
-
-  @override
-  SubtypeEntryPoint _withFiles(List<String> files) =>
-      .new(supertype, reason: members.reason, files: files);
-
-  @override
-  String get label => 'public methods of `$supertype` subclasses';
 }
 
 /// The members of a type that a rule keeps when it selects the type, and
