@@ -243,29 +243,47 @@ import 'previews.dart';
     },
   );
 
-  test('resolves the supertypes of each class for a supertype rule', () async {
-    final (:path, :symbols, classes: resolved, tokens: _) = await resolve(
-      '''
+  test(
+    'resolves the supertypes of each class with an `extends`, `with` or `implements` clause or a bound, and none of a class without one',
+    () async {
+      final (:path, :symbols, classes: resolved, tokens: _) = await resolve(
+        '''
 import 'previews.dart';
 
 class Shown extends DarkPreview {
   const Shown();
 }
 
+class Implementing implements Preview {}
+
+mixin Themed {}
+
+class Mixing with Themed {}
+
+class Bounded<T extends num> {}
+
+class Plain {}
+
 void notAClass() {}
 ''',
-      [.publicMethodsOfSubclasses('Preview', reason: 'called')],
-    );
+        [.publicMethodsOfSubclasses('Preview', reason: 'called')],
+      );
 
-    expect(
-      {
-        for (final symbol in symbols)
-          symbol.name: resolved.supertypesOf(path, symbol),
-      },
-      {
-        'Shown': {app('DarkPreview'), app('Preview'), object},
-        'notAClass': isEmpty,
-      },
-    );
-  });
+      expect(
+        {
+          for (final symbol in symbols)
+            symbol.name: resolved.supertypesOf(path, symbol),
+        },
+        {
+          'Shown': {app('DarkPreview'), app('Preview'), object},
+          'Implementing': {app('Preview'), object},
+          'Themed': isEmpty,
+          'Mixing': {app('Themed'), object},
+          'Bounded': {object},
+          'Plain': isEmpty,
+          'notAClass': isEmpty,
+        },
+      );
+    },
+  );
 }

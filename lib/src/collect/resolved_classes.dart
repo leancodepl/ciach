@@ -71,7 +71,8 @@ final class ResolvedClasses {
   /// Resolves the annotations among [tokens] and the classes among [symbols],
   /// the semantic tokens and the document symbols of the open file [path] at
   /// [relativePath], so that [annotationsOf] and [supertypesOf] can return
-  /// them.
+  /// them. A class with no `extends`, `with` or `implements` clause, whose
+  /// only supertype is `Object`, gets no supertypes.
   Future<void> resolve(
     LspClient client,
     String path,
@@ -105,7 +106,9 @@ final class ResolvedClasses {
                   ),
           ),
       if (lookups.contains(ServerLookup.supertypes))
-        for (final symbol in symbols.where((s) => s.kind == .class$))
+        for (final symbol in symbols.where(
+          (s) => s.kind == .class$ && _hasSupertypeClause(tokens, s),
+        ))
           _resolveClass(client, config, path, symbol),
     ]);
   }
@@ -118,6 +121,20 @@ final class ResolvedClasses {
   ) => [
     for (final token in leadingMetadata) ...?_byAnnotation[(path, token.start)],
   ];
+
+  /// Whether the class [symbol] has an `extends`, `with` or `implements`
+  /// clause. A type parameter bound, as in `class Box<T extends num>`, also
+  /// counts, which costs only a request.
+  static bool _hasSupertypeClause(
+    List<SemanticToken> tokens,
+    DocumentSymbol symbol,
+  ) => tokens
+      .between(symbol.range.start, symbol.range.end)
+      .any(
+        (token) =>
+            token.isKeyword &&
+            const {'extends', 'with', 'implements'}.contains(token.text),
+      );
 
   /// Returns all the supertypes of the class [symbol] in [path].
   Set<ResolvedClass> supertypesOf(String path, DocumentSymbol symbol) =>
