@@ -448,7 +448,8 @@ Keep a file under about 500 lines. Split by responsibility, not by line count:
 pull out a concern with its own state and name (the cross-library recovery,
 the transitive sweep), move a helper onto the type that owns its data
 (`DeadSpans.referrersAmong`), or give each variant its own file (the report
-formats). When a split moves code, keep the upstream names and wording, and
+formats). The subclasses of a sealed class each go to a `part` file of its
+library, as the entry-point rules in `conventions/` do. When a split moves code, keep the upstream names and wording, and
 leave a file that only moves with its existing content and header as it is.
 
 Test files have the same limit, with shared helpers in `test/support/`. Split
