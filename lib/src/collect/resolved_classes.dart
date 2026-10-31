@@ -201,7 +201,16 @@ final class ResolvedClasses {
     LspClient client,
     PackageConfig? config,
     Location definition,
-  ) => _byDefinition[(definition.uri, definition.range.start)] ??= () async {
+  ) => _byDefinition[(definition.uri, definition.range.start)] ??=
+      _requestDeclaredAt(client, config, definition);
+
+  /// Requests the classes declared at [definition] with their supertypes
+  /// from [client].
+  Future<List<_Hierarchy>> _requestDeclaredAt(
+    LspClient client,
+    PackageConfig? config,
+    Location definition,
+  ) async {
     final items = await client.typeHierarchyItems(
       .parse(definition.uri),
       definition.range.start,
@@ -211,7 +220,7 @@ final class ResolvedClasses {
         : await Future.wait([
             for (final item in items) _hierarchyOf(client, config, item),
           ]);
-  }();
+  }
 
   /// Returns the classes of the objects that the constant declared at
   /// [definition] holds, with their supertypes: `Preview` for
@@ -222,7 +231,19 @@ final class ResolvedClasses {
     LspClient client,
     PackageConfig? config,
     Location definition,
-  ) => _byConstant[(definition.uri, definition.range.start)] ??= () async {
+  ) => _byConstant[(definition.uri, definition.range.start)] ??= _requestHeldBy(
+    client,
+    config,
+    definition,
+  );
+
+  /// Requests the classes of the objects that the constant declared at
+  /// [definition] holds, with their supertypes, from [client].
+  Future<List<_Hierarchy>> _requestHeldBy(
+    LspClient client,
+    PackageConfig? config,
+    Location definition,
+  ) async {
     final path = SourceIndex.pathOf(definition.uri);
     final value = valueNameAfter(
       _sources,
@@ -247,7 +268,7 @@ final class ResolvedClasses {
         resolveValue(client, config, definition),
     ]);
     return classes.flattened.toList();
-  }();
+  }
 
   /// Returns the class of [item] with all its supertypes. Their packages are
   /// those that [config] gives the files that declare them.
@@ -266,14 +287,22 @@ final class ResolvedClasses {
     LspClient client,
     PackageConfig? config,
     TypeHierarchyItem item,
-  ) => _byClass[(item.uri, item.selectionRange.start)] ??= () async {
+  ) => _byClass[(item.uri, item.selectionRange.start)] ??=
+      _requestWithSupertypes(client, config, item);
+
+  /// Requests the class of [item] and all its supertypes from [client].
+  Future<Set<ResolvedClass>> _requestWithSupertypes(
+    LspClient client,
+    PackageConfig? config,
+    TypeHierarchyItem item,
+  ) async {
     final supertypes = await client.supertypes(item);
     final classes = await Future.wait([
       for (final supertype in supertypes)
         _withSupertypes(client, config, supertype),
     ]);
     return {_classOf(config, item), for (final set in classes) ...set};
-  }();
+  }
 
   /// Returns the class that [item] names. The server names a generic class
   /// `Story<T>`.
