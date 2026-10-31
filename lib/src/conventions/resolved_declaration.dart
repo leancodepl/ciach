@@ -43,9 +43,10 @@ final class ResolvedClass {
       package?.let((package) => 'package:$package $name') ?? name;
 }
 
-/// An annotation that calls a constructor, such as `@Preview()`.
-final class ResolvedAnnotation {
-  const ResolvedAnnotation(this.type, this.supertypes);
+/// The class that an annotation's constructor call creates, with its
+/// supertypes: `Preview` for `@Preview()`.
+final class AnnotationClass {
+  const AnnotationClass(this.type, this.supertypes);
 
   /// The class that the constructor creates.
   final ResolvedClass type;
@@ -57,7 +58,7 @@ final class ResolvedAnnotation {
 
   @override
   bool operator ==(Object other) =>
-      other is ResolvedAnnotation &&
+      other is AnnotationClass &&
       other.type == type &&
       _supertypesEquality.equals(other.supertypes, supertypes);
 
@@ -76,7 +77,7 @@ final class ResolvedDeclaration {
     this.container,
     this.inEnum = false,
     this.leadingMetadata = const [],
-    this.annotations = const [],
+    this.annotationClasses = const [],
     this.supertypes = const {},
   });
 
@@ -98,8 +99,9 @@ final class ResolvedDeclaration {
   /// The tokens of the declaration's doc comment and annotations.
   final Iterable<SemanticToken> leadingMetadata;
 
-  /// The annotations of the declaration that call a constructor.
-  final List<ResolvedAnnotation> annotations;
+  /// The classes that the constructor calls in the declaration's
+  /// annotations create.
+  final List<AnnotationClass> annotationClasses;
 
   /// All the supertypes of the declaration when it is a class, and none
   /// otherwise.

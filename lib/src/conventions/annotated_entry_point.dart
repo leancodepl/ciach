@@ -29,11 +29,14 @@ final class AnnotatedEntryPoint extends EntryPoint {
   Set<ServerLookup> get lookups => const {.annotationClasses};
 
   @override
-  bool _selects(ResolvedDeclaration declaration) => declaration.annotations.any(
-    (it) =>
-        it.type.isNamed(annotation, package: package) ||
-        it.supertypes.any((type) => type.isNamed(annotation, package: package)),
-  );
+  bool _selects(ResolvedDeclaration declaration) =>
+      declaration.annotationClasses.any(
+        (it) =>
+            it.type.isNamed(annotation, package: package) ||
+            it.supertypes.any(
+              (type) => type.isNamed(annotation, package: package),
+            ),
+      );
 
   @override
   AnnotatedEntryPoint _withFiles(List<String> files) =>

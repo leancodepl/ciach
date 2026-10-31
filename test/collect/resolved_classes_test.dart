@@ -107,9 +107,9 @@ class Holder {
   const object = ResolvedClass('Object', null);
   ResolvedClass app(String name) => .new(name, 'app');
 
-  /// An annotation that creates a [type] from the package `app`, whose
-  /// supertypes are [supertypes] and `Object`.
-  ResolvedAnnotation annotation(String type, List<String> supertypes) => .new(
+  /// The class [type] from the package `app` that an annotation creates,
+  /// whose supertypes are [supertypes] and `Object`.
+  AnnotationClass annotationClass(String type, List<String> supertypes) => .new(
     app(type),
     {for (final supertype in supertypes) app(supertype), object},
   );
@@ -151,7 +151,7 @@ void h() {}
       expect(
         {
           for (final (line, _) in source.split('\n').indexed)
-            line: classes.annotationsOf(
+            line: classes.annotationClassesOf(
               path,
               tokens.where((token) => token.line == line),
             ),
@@ -160,37 +160,41 @@ void h() {}
           0: isEmpty,
           1: isEmpty,
           2: isEmpty,
-          3: [annotation('Preview', [])],
+          3: [annotationClass('Preview', [])],
           4: [
-            annotation('DarkPreview', ['Preview']),
+            annotationClass('DarkPreview', ['Preview']),
           ],
           5: [
-            annotation('ThemedPreview', ['Themed', 'DarkPreview', 'Preview']),
+            annotationClass('ThemedPreview', [
+              'Themed',
+              'DarkPreview',
+              'Preview',
+            ]),
           ],
           6: [
-            annotation('DarkPreview', ['Preview']),
+            annotationClass('DarkPreview', ['Preview']),
           ],
-          7: [annotation('Preview', [])],
+          7: [annotationClass('Preview', [])],
           8: isEmpty,
           9: isEmpty,
           10: isEmpty,
           // The name of a generic class has no type parameters.
           11: [
-            annotation('Typed', ['Preview']),
+            annotationClass('Typed', ['Preview']),
           ],
           // A typedef stands for the class that it names.
           12: [
-            annotation('DarkPreview', ['Preview']),
+            annotationClass('DarkPreview', ['Preview']),
           ],
           13: [
-            annotation('DarkPreview', ['Preview']),
+            annotationClass('DarkPreview', ['Preview']),
           ],
           14: [
-            annotation('Typed', ['Preview']),
+            annotationClass('Typed', ['Preview']),
           ],
           // A typedef in the type arguments is not the annotation's class.
           15: [
-            annotation('Typed', ['Preview']),
+            annotationClass('Typed', ['Preview']),
           ],
           // A static constant, not a constructor of `Holder`.
           16: isEmpty,
@@ -199,7 +203,7 @@ void h() {}
           19: isEmpty,
           20: isEmpty,
           // A named constructor of a prefixed class.
-          21: [annotation('Preview', [])],
+          21: [annotationClass('Preview', [])],
           // A static constant of a prefixed class.
           22: isEmpty,
           23: isEmpty,
