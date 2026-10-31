@@ -47,10 +47,10 @@ final class ResolvedClasses {
   final EntryPoints _entryPoints;
   final _packages = PackageResolver();
 
-  /// The annotations, by the file and the position of the name that the
-  /// annotation's `@` is followed by: `Preview` in `@Preview()`, `preview`
-  /// in `@preview`.
-  final _byAnnotation = <(String, Position), List<ResolvedAnnotation>>{};
+  /// The classes that the annotations create, by the file and the position
+  /// of the name that the annotation's `@` is followed by: `Preview` in
+  /// `@Preview()`, `preview` in `@preview`.
+  final _annotationClasses = <(String, Position), List<AnnotationClass>>{};
 
   /// The supertypes of each class, by the file and the position of the
   /// class's name.
@@ -70,9 +70,9 @@ final class ResolvedClasses {
 
   /// Resolves the annotations among [tokens] and the classes among [symbols],
   /// the semantic tokens and the document symbols of the open file [path] at
-  /// [relativePath], so that [annotationsOf] and [supertypesOf] can return
-  /// them. A class with no `extends`, `with` or `implements` clause, whose
-  /// only supertype is `Object`, gets no supertypes.
+  /// [relativePath], so that [annotationClassesOf] and [supertypesOf] can
+  /// return them. A class with no `extends`, `with` or `implements` clause,
+  /// whose only supertype is `Object`, gets no supertypes.
   Future<void> resolve(
     LspClient client,
     String path,
@@ -113,13 +113,14 @@ final class ResolvedClasses {
     ]);
   }
 
-  /// Returns the annotations among [leadingMetadata], the doc comment and
-  /// annotation tokens of a declaration in [path].
-  List<ResolvedAnnotation> annotationsOf(
+  /// Returns the classes that the annotations among [leadingMetadata], the
+  /// doc comment and annotation tokens of a declaration in [path], create.
+  List<AnnotationClass> annotationClassesOf(
     String path,
     Iterable<SemanticToken> leadingMetadata,
   ) => [
-    for (final token in leadingMetadata) ...?_byAnnotation[(path, token.start)],
+    for (final token in leadingMetadata)
+      ...?_annotationClasses[(path, token.start)],
   ];
 
   /// Whether the class [symbol] has an `extends`, `with` or `implements`
@@ -151,15 +152,15 @@ final class ResolvedClasses {
   ) async {
     final (:token, :readsConstant, written: _) = name;
     try {
-      final classes = await Future.wait([
+      final hierarchies = await Future.wait([
         for (final definition in await definitions)
           if (readsConstant)
             _heldBy(client, config, definition)
           else
             _declaredAt(client, config, definition),
       ]);
-      _byAnnotation[(path, token.start)] = [
-        for (final (:type, :supertypes) in classes.flattened)
+      _annotationClasses[(path, token.start)] = [
+        for (final (:type, :supertypes) in hierarchies.flattened)
           .new(type, supertypes, readsConstant: readsConstant),
       ];
     } on LspRequestException catch (e) {

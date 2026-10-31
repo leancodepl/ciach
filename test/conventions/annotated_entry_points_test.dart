@@ -14,9 +14,9 @@ import '../support/format_exception.dart';
 /// The rules that select a declaration by the class of an annotation on it.
 void main() {
   group('EntryPoint.annotationFromConfig', () {
-    /// An annotation that creates an object of [type], from [package], whose
+    /// The class [type] that an annotation creates, from [package], whose
     /// [supertypes] come from the same package.
-    ResolvedAnnotation annotation(
+    AnnotationClass annotationClass(
       String type, {
       List<String> supertypes = const [],
       String? package,
@@ -25,24 +25,26 @@ void main() {
       for (final supertype in supertypes) .new(supertype, package),
     }, readsConstant: readsConstant);
 
-    /// Whether [rule] matches a function annotated with [annotations].
-    bool matchesCard(EntryPoint rule, List<ResolvedAnnotation> annotations) =>
-        rule.matches(
-          declarationAt(
-            'lib/a.dart',
-            symbol('card'),
-            null,
-            annotations: annotations,
-          ),
-        );
+    /// Whether [rule] matches a function annotated with [annotationClasses].
+    bool matchesCard(
+      EntryPoint rule,
+      List<AnnotationClass> annotationClasses,
+    ) => rule.matches(
+      declarationAt(
+        'lib/a.dart',
+        symbol('card'),
+        null,
+        annotationClasses: annotationClasses,
+      ),
+    );
 
     test('matches a declaration annotated with the class or a subtype', () {
       final rule = EntryPoint.annotationFromConfig('Story');
 
-      expect(matchesCard(rule, [annotation('Story')]), isTrue);
+      expect(matchesCard(rule, [annotationClass('Story')]), isTrue);
       expect(
         matchesCard(rule, [
-          annotation('DarkStory', supertypes: ['Story']),
+          annotationClass('DarkStory', supertypes: ['Story']),
         ]),
         isTrue,
       );
@@ -52,12 +54,12 @@ void main() {
             'lib/a.dart',
             symbol('card', kind: .method),
             'Gallery',
-            annotations: [annotation('Story')],
+            annotationClasses: [annotationClass('Story')],
           ),
         ),
         isTrue,
       );
-      expect(matchesCard(rule, [annotation('Deprecated')]), isFalse);
+      expect(matchesCard(rule, [annotationClass('Deprecated')]), isFalse);
       // A declaration named like the class is not annotated with it.
       expect(
         rule.matches(declarationAt('lib/a.dart', symbol('Story'), null)),
@@ -69,11 +71,11 @@ void main() {
       final rule = EntryPoint.annotationFromConfig('Story');
 
       expect(
-        matchesCard(rule, [annotation('Story', readsConstant: true)]),
+        matchesCard(rule, [annotationClass('Story', readsConstant: true)]),
         isTrue,
       );
       expect(
-        matchesCard(rule, [annotation('Story', package: 'stories')]),
+        matchesCard(rule, [annotationClass('Story', package: 'stories')]),
         isTrue,
       );
     });
@@ -81,10 +83,10 @@ void main() {
     test('`subtypes: false` counts only the class itself', () {
       final rule = EntryPoint.annotationFromConfig('Story', subtypes: false);
 
-      expect(matchesCard(rule, [annotation('Story')]), isTrue);
+      expect(matchesCard(rule, [annotationClass('Story')]), isTrue);
       expect(
         matchesCard(rule, [
-          annotation('DarkStory', supertypes: ['Story']),
+          annotationClass('DarkStory', supertypes: ['Story']),
         ]),
         isFalse,
       );
@@ -93,9 +95,9 @@ void main() {
     test('`constants: false` counts only a constructor call', () {
       final rule = EntryPoint.annotationFromConfig('Story', constants: false);
 
-      expect(matchesCard(rule, [annotation('Story')]), isTrue);
+      expect(matchesCard(rule, [annotationClass('Story')]), isTrue);
       expect(
-        matchesCard(rule, [annotation('Story', readsConstant: true)]),
+        matchesCard(rule, [annotationClass('Story', readsConstant: true)]),
         isFalse,
       );
     });
@@ -104,17 +106,24 @@ void main() {
       final rule = EntryPoint.annotationFromConfig('Story', package: 'stories');
 
       expect(
-        matchesCard(rule, [annotation('Story', package: 'stories')]),
+        matchesCard(rule, [annotationClass('Story', package: 'stories')]),
         isTrue,
       );
       expect(
         matchesCard(rule, [
-          annotation('DarkStory', supertypes: ['Story'], package: 'stories'),
+          annotationClass(
+            'DarkStory',
+            supertypes: ['Story'],
+            package: 'stories',
+          ),
         ]),
         isTrue,
       );
-      expect(matchesCard(rule, [annotation('Story', package: 'app')]), isFalse);
-      expect(matchesCard(rule, [annotation('Story')]), isFalse);
+      expect(
+        matchesCard(rule, [annotationClass('Story', package: 'app')]),
+        isFalse,
+      );
+      expect(matchesCard(rule, [annotationClass('Story')]), isFalse);
     });
 
     test('a glob limits the rule to the files that it matches', () {
@@ -122,7 +131,7 @@ void main() {
         'Story',
         files: ['lib/stories/**'],
       );
-      final story = [annotation('Story')];
+      final story = [annotationClass('Story')];
 
       expect(
         rule.matches(
@@ -130,7 +139,7 @@ void main() {
             'lib/stories/card.dart',
             symbol('card'),
             null,
-            annotations: story,
+            annotationClasses: story,
           ),
         ),
         isTrue,
@@ -141,7 +150,7 @@ void main() {
             'lib/card.dart',
             symbol('card'),
             null,
-            annotations: story,
+            annotationClasses: story,
           ),
         ),
         isFalse,

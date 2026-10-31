@@ -21,14 +21,14 @@ void main() {
   );
 
   /// Returns the reason of the rule that matches a function annotated with
-  /// [annotation], in a package that depends on Flutter.
-  String? reasonFor(ResolvedAnnotation annotation) => rules
+  /// [annotationClass], in a package that depends on Flutter.
+  String? reasonFor(AnnotationClass annotationClass) => rules
       .match(
         declarationAt(
           'lib/button.dart',
           symbol('buttonPreview'),
           null,
-          annotations: [annotation],
+          annotationClasses: [annotationClass],
         ),
       )
       ?.reason;
@@ -38,23 +38,23 @@ void main() {
   test(
     "keeps a declaration annotated with Flutter's `Preview` or `MultiPreview`, or a subtype of either",
     () {
-      for (final annotation in [
-        ResolvedAnnotation(const .new('Preview', 'flutter'), {
+      for (final annotationClass in [
+        AnnotationClass(const .new('Preview', 'flutter'), {
           object,
         }, readsConstant: false),
-        ResolvedAnnotation(const .new('DarkPreview', 'app'), {
+        AnnotationClass(const .new('DarkPreview', 'app'), {
           const .new('Preview', 'flutter'),
           object,
         }, readsConstant: false),
-        ResolvedAnnotation(const .new('ThemePreviews', 'app'), {
+        AnnotationClass(const .new('ThemePreviews', 'app'), {
           const .new('MultiPreview', 'flutter'),
           object,
         }, readsConstant: false),
       ]) {
         expect(
-          reasonFor(annotation),
+          reasonFor(annotationClass),
           'shown by `flutter widget-preview`',
-          reason: 'for $annotation',
+          reason: 'for $annotationClass',
         );
       }
     },

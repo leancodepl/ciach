@@ -22,11 +22,11 @@ ResolvedDeclaration declarationAt(
   DocumentSymbol symbol,
   String? container, {
   bool inEnum = false,
-  List<ResolvedAnnotation> annotations = const [],
+  List<AnnotationClass> annotationClasses = const [],
 }) => .new(
   relativePath: path,
   symbol: symbol,
   container: container,
   inEnum: inEnum,
-  annotations: annotations,
+  annotationClasses: annotationClasses,
 );

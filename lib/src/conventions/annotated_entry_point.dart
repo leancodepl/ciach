@@ -41,15 +41,16 @@ final class AnnotatedEntryPoint extends EntryPoint {
   };
 
   @override
-  bool _selects(ResolvedDeclaration declaration) => declaration.annotations.any(
-    (it) =>
-        (constants || !it.readsConstant) &&
-        (it.type.isNamed(annotation, package: package) ||
-            (subtypes &&
-                it.supertypes.any(
-                  (type) => type.isNamed(annotation, package: package),
-                ))),
-  );
+  bool _selects(ResolvedDeclaration declaration) =>
+      declaration.annotationClasses.any(
+        (it) =>
+            (constants || !it.readsConstant) &&
+            (it.type.isNamed(annotation, package: package) ||
+                (subtypes &&
+                    it.supertypes.any(
+                      (type) => type.isNamed(annotation, package: package),
+                    ))),
+      );
 
   @override
   AnnotatedEntryPoint _withFiles(List<String> files) => .new(

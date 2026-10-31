@@ -43,10 +43,11 @@ final class ResolvedClass {
       package?.let((package) => 'package:$package $name') ?? name;
 }
 
-/// An annotation that creates an object, such as `@Preview()` or `@preview`
-/// for `const preview = Preview();`.
-final class ResolvedAnnotation {
-  const ResolvedAnnotation(
+/// The class of the object that an annotation creates, with its supertypes:
+/// `Preview` for `@Preview()`, or for `@preview` with
+/// `const preview = Preview();`.
+final class AnnotationClass {
+  const AnnotationClass(
     this.type,
     this.supertypes, {
     required this.readsConstant,
@@ -66,7 +67,7 @@ final class ResolvedAnnotation {
 
   @override
   bool operator ==(Object other) =>
-      other is ResolvedAnnotation &&
+      other is AnnotationClass &&
       other.type == type &&
       other.readsConstant == readsConstant &&
       _supertypesEquality.equals(other.supertypes, supertypes);
@@ -88,7 +89,7 @@ final class ResolvedDeclaration {
     this.container,
     this.inEnum = false,
     this.leadingMetadata = const [],
-    this.annotations = const [],
+    this.annotationClasses = const [],
     this.supertypes = const {},
   });
 
@@ -110,8 +111,8 @@ final class ResolvedDeclaration {
   /// The tokens of the declaration's doc comment and annotations.
   final Iterable<SemanticToken> leadingMetadata;
 
-  /// The annotations of the declaration that create an object.
-  final List<ResolvedAnnotation> annotations;
+  /// The classes of the objects that the declaration's annotations create.
+  final List<AnnotationClass> annotationClasses;
 
   /// All the supertypes of the declaration when it is a class, and none
   /// otherwise.

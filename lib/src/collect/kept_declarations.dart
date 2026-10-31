@@ -91,7 +91,7 @@ final class KeptDeclarations {
     container: candidate.container,
     inEnum: candidate.containerSymbol?.kind == .enum$,
     leadingMetadata: leadingMetadata,
-    annotations: _resolvedClasses.annotationsOf(
+    annotationClasses: _resolvedClasses.annotationClassesOf(
       candidate.path,
       leadingMetadata,
     ),

@@ -107,9 +107,9 @@ class Holder {
   const object = ResolvedClass('Object', null);
   ResolvedClass app(String name) => .new(name, 'app');
 
-  /// An annotation that creates a [type] from the package `app`, whose
-  /// supertypes are [supertypes] and `Object`.
-  ResolvedAnnotation annotation(
+  /// The class [type] from the package `app` that an annotation creates,
+  /// whose supertypes are [supertypes] and `Object`.
+  AnnotationClass annotationClass(
     String type,
     List<String> supertypes, {
     bool readsConstant = false,
@@ -155,7 +155,7 @@ void h() {}
       expect(
         {
           for (final (line, _) in source.split('\n').indexed)
-            line: classes.annotationsOf(
+            line: classes.annotationClassesOf(
               path,
               tokens.where((token) => token.line == line),
             ),
@@ -164,60 +164,64 @@ void h() {}
           0: isEmpty,
           1: isEmpty,
           2: isEmpty,
-          3: [annotation('Preview', [])],
+          3: [annotationClass('Preview', [])],
           4: [
-            annotation('DarkPreview', ['Preview']),
+            annotationClass('DarkPreview', ['Preview']),
           ],
           5: [
-            annotation('ThemedPreview', ['Themed', 'DarkPreview', 'Preview']),
+            annotationClass('ThemedPreview', [
+              'Themed',
+              'DarkPreview',
+              'Preview',
+            ]),
           ],
           6: [
-            annotation('DarkPreview', ['Preview']),
+            annotationClass('DarkPreview', ['Preview']),
           ],
-          7: [annotation('Preview', [])],
-          8: [annotation('Preview', [], readsConstant: true)],
+          7: [annotationClass('Preview', [])],
+          8: [annotationClass('Preview', [], readsConstant: true)],
           // `override` is an object of the private class `_Override`.
           9: [
-            ResolvedAnnotation(const .new('_Override', null), {
+            AnnotationClass(const .new('_Override', null), {
               object,
             }, readsConstant: true),
           ],
           10: isEmpty,
           // The name of a generic class has no type parameters.
           11: [
-            annotation('Typed', ['Preview']),
+            annotationClass('Typed', ['Preview']),
           ],
           // A typedef stands for the class that it names.
           12: [
-            annotation('DarkPreview', ['Preview']),
+            annotationClass('DarkPreview', ['Preview']),
           ],
           13: [
-            annotation('DarkPreview', ['Preview']),
+            annotationClass('DarkPreview', ['Preview']),
           ],
           14: [
-            annotation('Typed', ['Preview']),
+            annotationClass('Typed', ['Preview']),
           ],
           // A typedef in the type arguments is not the annotation's class.
           15: [
-            annotation('Typed', ['Preview']),
+            annotationClass('Typed', ['Preview']),
           ],
           // A static constant, not a constructor of `Holder`.
           16: [
-            annotation('DarkPreview', ['Preview'], readsConstant: true),
+            annotationClass('DarkPreview', ['Preview'], readsConstant: true),
           ],
-          17: [annotation('Preview', [], readsConstant: true)],
+          17: [annotationClass('Preview', [], readsConstant: true)],
           // A constant that holds another one.
-          18: [annotation('Preview', [], readsConstant: true)],
+          18: [annotationClass('Preview', [], readsConstant: true)],
           19: [
-            annotation('DarkPreview', ['Preview'], readsConstant: true),
+            annotationClass('DarkPreview', ['Preview'], readsConstant: true),
           ],
           // A list is not created by a constructor call.
           20: isEmpty,
           // A named constructor of a prefixed class.
-          21: [annotation('Preview', [])],
+          21: [annotationClass('Preview', [])],
           // A static constant of a prefixed class.
           22: [
-            annotation('DarkPreview', ['Preview'], readsConstant: true),
+            annotationClass('DarkPreview', ['Preview'], readsConstant: true),
           ],
           23: isEmpty,
         },
@@ -241,11 +245,14 @@ import 'previews.dart';
       expect(
         [
           for (final line in [2, 3])
-            classes.annotationsOf(path, tokens.where((t) => t.line == line)),
+            classes.annotationClassesOf(
+              path,
+              tokens.where((t) => t.line == line),
+            ),
         ],
         [
           isEmpty,
-          [annotation('Preview', [])],
+          [annotationClass('Preview', [])],
         ],
       );
     },
