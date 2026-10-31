@@ -296,6 +296,9 @@ explicit null check.
 - Inline a local or a helper that is used once when its name adds nothing; keep
   one whose name says what a step does. Give a regex named groups, and return
   names and offsets rather than a `RegExpMatch`.
+- Give an asynchronous step a named method instead of a closure that is called
+  where it is written: `_pending[path] ??= _requestTokens(client, path)`, not
+  `_pending[path] ??= () async { … }()`.
 - In `website/`, keep a component's styles next to it as Jaspr `@css`, make
   repeated pieces (buttons, cards, pills) components, and write `.only()`,
   `.symmetric()` or `.all()` rather than `fromLTRB()`.
