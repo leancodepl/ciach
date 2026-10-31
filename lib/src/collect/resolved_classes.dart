@@ -126,14 +126,22 @@ final class ResolvedClasses {
     LspClient client,
     PackageConfig? config,
     TypeHierarchyItem item,
-  ) => _byClass[(item.uri, item.selectionRange.start)] ??= () async {
+  ) => _byClass[(item.uri, item.selectionRange.start)] ??=
+      _requestWithSupertypes(client, config, item);
+
+  /// Requests the class of [item] and all its supertypes from [client].
+  Future<Set<ResolvedClass>> _requestWithSupertypes(
+    LspClient client,
+    PackageConfig? config,
+    TypeHierarchyItem item,
+  ) async {
     final supertypes = await client.supertypes(item);
     final classes = await Future.wait([
       for (final supertype in supertypes)
         _withSupertypes(client, config, supertype),
     ]);
     return {_classOf(config, item), for (final set in classes) ...set};
-  }();
+  }
 
   /// Returns the class that [item] names. The server names a generic class
   /// `Story<T>`.
