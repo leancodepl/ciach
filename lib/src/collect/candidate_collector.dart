@@ -93,10 +93,9 @@ final class CandidateCollector {
       recordProblem(_uncollectedFile, e, path: path);
       return const [];
     }
-    // `SourceIndex` keeps the tokens, which the leading metadata is read from.
-    await pendingTokens;
+    final tokens = await pendingTokens;
     final relativePath = relativePosix(path, rootPath);
-    await _resolvedClasses.resolve(client, path, relativePath, symbols);
+    await _resolvedClasses.resolve(client, path, relativePath, tokens, symbols);
     if (_conditionalImports.contains(path)) {
       declaredInVariants[path] = ConditionalImports.pairingNames(symbols);
     }

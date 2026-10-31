@@ -15,6 +15,7 @@ import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
+import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/workspace/packages.dart';
 import 'package:package_config/package_config.dart';
@@ -45,11 +46,14 @@ final class ResolvedClasses {
   final _byClass = <(String, Position), Future<Set<ResolvedClass>>>{};
 
   /// Resolves the classes among [symbols], the document symbols of the open
-  /// file [path] at [relativePath], so that [supertypesOf] can return them.
+  /// file [path] at [relativePath], whose semantic tokens are [tokens], so
+  /// that [supertypesOf] can return them. A class with no `extends`, `with`
+  /// or `implements` clause, whose only supertype is `Object`, gets none.
   Future<void> resolve(
     LspClient client,
     String path,
     String relativePath,
+    List<SemanticToken> tokens,
     List<DocumentSymbol> symbols,
   ) async {
     final lookups = _entryPoints.lookupsIn(relativePath);
@@ -59,10 +63,26 @@ final class ResolvedClasses {
     final config = _packages.configOf(p.dirname(path));
     await Future.wait([
       if (lookups.contains(ServerLookup.supertypes))
-        for (final symbol in symbols.where((s) => s.kind == .class$))
+        for (final symbol in symbols.where(
+          (s) => s.kind == .class$ && _hasSupertypeClause(tokens, s),
+        ))
           _resolveClass(client, config, path, symbol),
     ]);
   }
+
+  /// Whether the class [symbol] has an `extends`, `with` or `implements`
+  /// clause. A type parameter bound, as in `class Box<T extends num>`, also
+  /// counts, which costs only a request.
+  static bool _hasSupertypeClause(
+    List<SemanticToken> tokens,
+    DocumentSymbol symbol,
+  ) => tokens
+      .between(symbol.range.start, symbol.range.end)
+      .any(
+        (token) =>
+            token.isKeyword &&
+            const {'extends', 'with', 'implements'}.contains(token.text),
+      );
 
   /// Returns all the supertypes of the class [symbol] in [path].
   Set<ResolvedClass> supertypesOf(String path, DocumentSymbol symbol) =>
