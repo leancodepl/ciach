@@ -79,8 +79,8 @@ final class ResolvedClasses {
     List<SemanticToken> tokens,
     List<DocumentSymbol> symbols,
   ) async {
-    final facts = _entryPoints.resolvedIn(relativePath);
-    if (facts.isEmpty) {
+    final lookups = _entryPoints.lookupsIn(relativePath);
+    if (lookups.isEmpty) {
       return;
     }
     final config = _packages.configOf(p.dirname(path));
@@ -90,8 +90,8 @@ final class ResolvedClasses {
     await Future.wait([
       for (final name in tokens.annotationNames())
         if (name.readsConstant
-            ? facts.contains(ResolvedFact.constantClasses)
-            : facts.contains(ResolvedFact.annotationClasses))
+            ? lookups.contains(ServerLookup.constantClasses)
+            : lookups.contains(ServerLookup.annotationClasses))
           _resolveAnnotation(
             client,
             config,
@@ -104,7 +104,7 @@ final class ResolvedClasses {
                     name.token.start,
                   ),
           ),
-      if (facts.contains(ResolvedFact.supertypes))
+      if (lookups.contains(ServerLookup.supertypes))
         for (final symbol in symbols.where((s) => s.kind == .class$))
           _resolveClass(client, config, path, symbol),
     ]);

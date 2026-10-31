@@ -35,7 +35,7 @@ final class AnnotatedEntryPoint extends EntryPoint {
   final bool constants;
 
   @override
-  Set<ResolvedFact> get resolves => {
+  Set<ServerLookup> get lookups => {
     .annotationClasses,
     if (constants) .constantClasses,
   };
