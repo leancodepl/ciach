@@ -1,29 +1,39 @@
 import 'package:ciach/src/conventions/entry_points.dart';
-import 'package:pro_lsp/pro_lsp.dart';
+import 'package:ciach/src/conventions/resolved_declaration.dart';
+import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:test/test.dart';
 
-void main() {
-  /// A symbol as the server reports it; the shape is irrelevant to the rules.
-  DocumentSymbol symbol(String name, {SymbolKind kind = .function}) {
-    const range = Range(
-      start: .new(line: 0, character: 0),
-      end: .new(line: 0, character: 0),
-    );
-    return .new(name: name, kind: kind, range: range, selectionRange: range);
-  }
+import '../support/declarations.dart';
+import '../support/format_exception.dart';
 
+void main() {
   group('EntryPoint.fromConfig', () {
     test('a bare name matches in any file, whatever the kind', () {
       final rule = EntryPoint.fromConfig('bootstrap');
 
       expect(rule.files, isEmpty);
-      expect(rule.matches('lib/a.dart', symbol('bootstrap'), null), isTrue);
-      expect(rule.matches('bin/b.dart', symbol('bootstrap'), null), isTrue);
       expect(
-        rule.matches('lib/a.dart', symbol('bootstrap', kind: .variable), null),
+        rule.matches(declarationAt('lib/a.dart', symbol('bootstrap'), null)),
         isTrue,
       );
-      expect(rule.matches('lib/a.dart', symbol('bootstrapped'), null), isFalse);
+      expect(
+        rule.matches(declarationAt('bin/b.dart', symbol('bootstrap'), null)),
+        isTrue,
+      );
+      expect(
+        rule.matches(
+          declarationAt(
+            'lib/a.dart',
+            symbol('bootstrap', kind: .variable),
+            null,
+          ),
+        ),
+        isTrue,
+      );
+      expect(
+        rule.matches(declarationAt('lib/a.dart', symbol('bootstrapped'), null)),
+        isFalse,
+      );
     });
 
     test('globs narrow the file, any of them matching', () {
@@ -33,15 +43,21 @@ void main() {
       );
 
       expect(
-        rule.matches('lib/src/my_plugin.dart', symbol('registerWith'), null),
+        rule.matches(
+          declarationAt('lib/src/my_plugin.dart', symbol('registerWith'), null),
+        ),
         isTrue,
       );
       expect(
-        rule.matches('bin/tool.dart', symbol('registerWith'), null),
+        rule.matches(
+          declarationAt('bin/tool.dart', symbol('registerWith'), null),
+        ),
         isTrue,
       );
       expect(
-        rule.matches('lib/src/my_helper.dart', symbol('registerWith'), null),
+        rule.matches(
+          declarationAt('lib/src/my_helper.dart', symbol('registerWith'), null),
+        ),
         isFalse,
       );
     });
@@ -50,9 +66,18 @@ void main() {
       final rule = EntryPoint.fromConfig('MyPlugin.registerWith');
       final member = symbol('registerWith', kind: .method);
 
-      expect(rule.matches('lib/a.dart', member, 'MyPlugin'), isTrue);
-      expect(rule.matches('lib/a.dart', member, 'Other'), isFalse);
-      expect(rule.matches('lib/a.dart', symbol('registerWith'), null), isFalse);
+      expect(
+        rule.matches(declarationAt('lib/a.dart', member, 'MyPlugin')),
+        isTrue,
+      );
+      expect(
+        rule.matches(declarationAt('lib/a.dart', member, 'Other')),
+        isFalse,
+      );
+      expect(
+        rule.matches(declarationAt('lib/a.dart', symbol('registerWith'), null)),
+        isFalse,
+      );
     });
 
     test('a constructor rule uses the name the report prints', () {
@@ -62,15 +87,19 @@ void main() {
       expect(
         EntryPoint.fromConfig(
           'Parked.new',
-        ).matches('a.dart', unnamed, 'Parked'),
+        ).matches(declarationAt('a.dart', unnamed, 'Parked')),
         isTrue,
       );
       expect(
-        EntryPoint.fromConfig('Parked.make').matches('a.dart', named, 'Parked'),
+        EntryPoint.fromConfig(
+          'Parked.make',
+        ).matches(declarationAt('a.dart', named, 'Parked')),
         isTrue,
       );
       expect(
-        EntryPoint.fromConfig('Parked.new').matches('a.dart', named, 'Parked'),
+        EntryPoint.fromConfig(
+          'Parked.new',
+        ).matches(declarationAt('a.dart', named, 'Parked')),
         isFalse,
       );
     });
@@ -80,14 +109,21 @@ void main() {
       final unnamed = symbol('Card', kind: .constructor);
       final named = symbol('Card.blank', kind: .constructor);
 
-      expect(rule.matches('lib/a.dart', unnamed, 'Card'), isTrue);
       expect(
-        rule.matches('lib/a.dart', unnamed, 'Card', inEnum: true),
+        rule.matches(declarationAt('lib/a.dart', unnamed, 'Card')),
+        isTrue,
+      );
+      expect(
+        rule.matches(
+          declarationAt('lib/a.dart', unnamed, 'Card', inEnum: true),
+        ),
         isFalse,
       );
-      expect(rule.matches('lib/a.dart', named, 'Card'), isFalse);
+      expect(rule.matches(declarationAt('lib/a.dart', named, 'Card')), isFalse);
       expect(
-        rule.matches('lib/a.dart', symbol('Card', kind: .method), 'Card'),
+        rule.matches(
+          declarationAt('lib/a.dart', symbol('Card', kind: .method), 'Card'),
+        ),
         isFalse,
       );
     });
@@ -95,7 +131,7 @@ void main() {
     test('Class.Class is rejected with a hint to write Class.new', () {
       expect(
         () => EntryPoint.fromConfig('Parked.Parked'),
-        throwsA(isFormatException(contains('`Parked.new`'))),
+        throwsA(formatExceptionWith(contains('`Parked.new`'))),
       );
     });
 
@@ -103,7 +139,13 @@ void main() {
       final rule = EntryPoint.fromConfig('registerWith');
 
       expect(
-        rule.matches('lib/a.dart', symbol('registerWith', kind: .method), 'P'),
+        rule.matches(
+          declarationAt(
+            'lib/a.dart',
+            symbol('registerWith', kind: .method),
+            'P',
+          ),
+        ),
         isFalse,
       );
     });
@@ -119,7 +161,7 @@ void main() {
     test('rejects type parameters in a name, with a hint', () {
       expect(
         () => EntryPoint.fromConfig('Box<T>.convert'),
-        throwsA(isFormatException(contains('type parameters are not part'))),
+        throwsA(formatExceptionWith(contains('type parameters are not part'))),
       );
     });
 
@@ -127,7 +169,7 @@ void main() {
       for (final name in ['', 'a-b', '1abc', 'a.b.c', 'a b', 'A.']) {
         expect(
           () => EntryPoint.fromConfig(name),
-          throwsA(isFormatException(contains('not a declaration name'))),
+          throwsA(formatExceptionWith(contains('not a declaration name'))),
           reason: "for '$name'",
         );
       }
@@ -146,11 +188,201 @@ void main() {
   group('built-in conventions', () {
     final rules = EntryPoints(const []);
 
-    test('main is an entry point in every file, but not as a member', () {
-      expect(rules.match('bin/app.dart', symbol('main'), null)?.name, 'main');
-      expect(rules.match('test/a_test.dart', symbol('main'), null), isNotNull);
+    /// A class annotated with `@[annotation]`, which [package] declares.
+    ResolvedDeclaration annotatedClass(
+      String annotation, {
+      required String package,
+    }) => .new(
+      relativePath: 'lib/a.dart',
+      symbol: symbol('Counter', kind: .class$),
+      annotationPackages: {const .new(line: 0, character: 1): package},
+      leadingMetadata: [
+        SemanticToken(
+          line: 0,
+          character: 1,
+          length: annotation.length,
+          type: 'class',
+          modifiers: const {'annotation'},
+          text: annotation,
+        ),
+      ],
+    );
+
+    test('`@JSExport` keeps the class and its public members', () {
+      final counter = annotatedClass('JSExport', package: 'dart:js_interop');
+
+      expect(rules.match(counter)?.reason, contains('`@JSExport`'));
+      expect(rules.keptMembersOf(counter).map((members) => members.selection), [
+        MemberSelection.publicMembers,
+      ]);
+    });
+
+    test(
+      '`@JSExport` from `dart:_js_annotations` or `package:js` keeps the class',
+      () {
+        for (final package in ['dart:_js_annotations', 'js']) {
+          expect(
+            rules.match(annotatedClass('JSExport', package: package)),
+            isNotNull,
+            reason: 'for $package',
+          );
+        }
+      },
+    );
+
+    test('a `JSExport` from another package keeps nothing', () {
+      final counter = annotatedClass('JSExport', package: 'app');
+
+      expect(rules.match(counter), isNull);
+      expect(rules.keptMembersOf(counter), isEmpty);
+    });
+
+    test('`@reflectiveTest` keeps the test methods but not the class', () {
+      final test = annotatedClass(
+        'reflectiveTest',
+        package: 'test_reflective_loader',
+      );
+
+      expect(rules.match(test), isNull);
+      expect(rules.keptMembersOf(test).map((members) => members.selection), [
+        MemberSelection.reflectiveTestMethods,
+      ]);
+    });
+
+    test('a `reflectiveTest` from another package keeps no methods', () {
       expect(
-        rules.match('lib/a.dart', symbol('main', kind: .method), 'Runner'),
+        rules.keptMembersOf(annotatedClass('reflectiveTest', package: 'app')),
+        isEmpty,
+      );
+    });
+
+    test('an annotation whose package is unknown keeps nothing', () {
+      final counter = ResolvedDeclaration(
+        relativePath: 'lib/a.dart',
+        symbol: symbol('Counter', kind: .class$),
+        leadingMetadata: annotatedClass(
+          'JSExport',
+          package: 'dart:js_interop',
+        ).leadingMetadata,
+      );
+
+      expect(rules.match(counter), isNull);
+      expect(rules.keptMembersOf(counter), isEmpty);
+    });
+
+    test(
+      'the built-in rules name `JSExport`, `pragma` and `reflectiveTest`',
+      () {
+        expect(rules.annotationNamesIn('lib/a.dart'), {
+          'JSExport',
+          'pragma',
+          'reflectiveTest',
+        });
+      },
+    );
+
+    /// A token of [type] with [text], such as `(` or `'vm:entry-point'`.
+    SemanticToken token(
+      String type,
+      String text, {
+      Set<String> modifiers = const {},
+    }) => .new(
+      line: 0,
+      character: 0,
+      length: text.length,
+      type: type,
+      modifiers: modifiers,
+      text: text,
+    );
+
+    /// The tokens of `@[name]([arguments])`, with [prefix] before [name].
+    List<SemanticToken> annotation(
+      String name,
+      List<String> arguments, {
+      String? prefix,
+    }) => [
+      token('annotation', '@'),
+      if (prefix != null) ...[
+        token('variable', prefix, modifiers: const {'importPrefix'}),
+        token('annotation', '.'),
+      ],
+      token('class', name, modifiers: const {'annotation'}),
+      token('annotation', '('),
+      for (final argument in arguments) token('string', argument),
+      token('annotation', ')'),
+    ];
+
+    /// A function whose annotation has the tokens [leadingMetadata] and is
+    /// declared in [package].
+    ResolvedDeclaration annotatedFunction(
+      List<SemanticToken> leadingMetadata, {
+      String package = 'dart:core',
+    }) => .new(
+      relativePath: 'lib/a.dart',
+      symbol: symbol('callback'),
+      leadingMetadata: leadingMetadata,
+      annotationPackages: {const .new(line: 0, character: 0): package},
+    );
+
+    test(
+      "`@pragma('vm:entry-point')` keeps the declaration, with an import prefix, any quotes or a second argument",
+      () {
+        for (final leadingMetadata in [
+          annotation('pragma', ["'vm:entry-point'"]),
+          annotation('pragma', ['"vm:entry-point"'], prefix: 'core'),
+          annotation('pragma', ["r'vm:entry-point'", "'call'"]),
+        ]) {
+          expect(
+            rules.match(annotatedFunction(leadingMetadata))?.reason,
+            "marked `@pragma('vm:entry-point')` for native code or reflection",
+            reason: 'for ${leadingMetadata.map((t) => t.text).join()}',
+          );
+        }
+      },
+    );
+
+    test(
+      "another `@pragma` value, `vm:entry-point` as a second argument and `@Deprecated('vm:entry-point')` keep nothing",
+      () {
+        for (final leadingMetadata in [
+          annotation('pragma', ["'vm:prefer-inline'"]),
+          annotation('pragma', ["'dart2js:noInline'", "'vm:entry-point'"]),
+          annotation('Deprecated', ["'vm:entry-point'"]),
+        ]) {
+          expect(
+            rules.match(annotatedFunction(leadingMetadata)),
+            isNull,
+            reason: 'for ${leadingMetadata.map((t) => t.text).join()}',
+          );
+        }
+      },
+    );
+
+    test('a `pragma` from another package keeps nothing', () {
+      expect(
+        rules.match(
+          annotatedFunction(
+            annotation('pragma', ["'vm:entry-point'"]),
+            package: 'app',
+          ),
+        ),
+        isNull,
+      );
+    });
+
+    test('main is an entry point in every file, but not as a member', () {
+      expect(
+        rules.match(declarationAt('bin/app.dart', symbol('main'), null))?.label,
+        'main',
+      );
+      expect(
+        rules.match(declarationAt('test/a_test.dart', symbol('main'), null)),
+        isNotNull,
+      );
+      expect(
+        rules.match(
+          declarationAt('lib/a.dart', symbol('main', kind: .method), 'Runner'),
+        ),
         isNull,
       );
     });
@@ -162,8 +394,10 @@ void main() {
           'flutter_test_config.dart',
           'integration_test/nested/flutter_test_config.dart',
         ]) {
-          final rule = rules.match(path, symbol('testExecutable'), null);
-          expect(rule?.name, 'testExecutable', reason: 'for $path');
+          final rule = rules.match(
+            declarationAt(path, symbol('testExecutable'), null),
+          );
+          expect(rule?.label, 'testExecutable', reason: 'for $path');
           expect(rule?.reason, contains('flutter test'));
         }
       });
@@ -171,9 +405,11 @@ void main() {
       test('whatever its shape — the bootstrap calls it regardless', () {
         expect(
           rules.match(
-            'test/flutter_test_config.dart',
-            symbol('testExecutable', kind: .variable),
-            null,
+            declarationAt(
+              'test/flutter_test_config.dart',
+              symbol('testExecutable', kind: .variable),
+              null,
+            ),
           ),
           isNotNull,
         );
@@ -185,7 +421,7 @@ void main() {
           'test/my_flutter_test_config.dart',
         ]) {
           expect(
-            rules.match(path, symbol('testExecutable'), null),
+            rules.match(declarationAt(path, symbol('testExecutable'), null)),
             isNull,
             reason: 'for $path',
           );
@@ -195,9 +431,11 @@ void main() {
       test('is not exempt as a member', () {
         expect(
           rules.match(
-            'test/flutter_test_config.dart',
-            symbol('testExecutable', kind: .method),
-            'Config',
+            declarationAt(
+              'test/flutter_test_config.dart',
+              symbol('testExecutable', kind: .method),
+              'Config',
+            ),
           ),
           isNull,
         );
@@ -211,19 +449,87 @@ void main() {
     ]);
 
     expect(
-      rules.match('tool/gen.dart', symbol('main'), null)?.reason,
+      rules.match(declarationAt('tool/gen.dart', symbol('main'), null))?.reason,
       'the program entry point',
     );
-    expect(rules.match('lib/a.dart', symbol('serve'), null), isNull);
+    expect(
+      rules.match(declarationAt('lib/a.dart', symbol('serve'), null)),
+      isNull,
+    );
     expect(
       EntryPoints([
         .fromConfig('serve'),
-      ]).match('lib/a.dart', symbol('serve'), null)?.reason,
+      ]).match(declarationAt('lib/a.dart', symbol('serve'), null))?.reason,
       contains('entry-points'),
     );
   });
-}
 
-/// A [FormatException] whose message matches [message].
-Matcher isFormatException(Matcher message) =>
-    isA<FormatException>().having((e) => e.message, 'message', message);
+  group('EntryPoint.publicMethodsOfSubclasses', () {
+    final rule = EntryPoint.publicMethodsOfSubclasses(
+      'Endpoint',
+      reason: 'called by the Serverpod dispatcher',
+    );
+    final rules = EntryPoints([rule]);
+    final endpoint = ResolvedDeclaration(
+      relativePath: 'lib/greeting.dart',
+      symbol: symbol('GreetingEndpoint', kind: .class$),
+      superclass: 'Endpoint',
+    );
+
+    test('keeps a class that extends the superclass', () {
+      expect(rules.match(endpoint), rule);
+      expect(
+        rules.match(
+          .new(
+            relativePath: 'lib/greeting.dart',
+            symbol: symbol('LocalEndpoint', kind: .class$),
+            superclass: 'BaseEndpoint',
+          ),
+        ),
+        isNull,
+      );
+    });
+
+    test('keeps the public methods of such a class', () {
+      final members = rules.keptMembersOf(endpoint).single;
+      expect(members, same(rule.members));
+      expect(
+        members.selection.includes(symbol('hello', kind: .method)),
+        isTrue,
+      );
+      expect(
+        members.selection.includes(symbol('_helper', kind: .method)),
+        isFalse,
+      );
+      expect(members.selection.includes(symbol('name', kind: .field)), isFalse);
+    });
+  });
+
+  group('MemberSelection', () {
+    test('`publicMembers` takes every public member but constructors', () {
+      expect(
+        [
+          symbol('value', kind: .field),
+          symbol('increment', kind: .method),
+          symbol('_hidden', kind: .method),
+          symbol('Counter', kind: .constructor),
+        ].where(MemberSelection.publicMembers.includes).map((s) => s.name),
+        ['value', 'increment'],
+      );
+    });
+
+    test('`reflectiveTestMethods` takes the methods that run as tests', () {
+      expect(
+        [
+              symbol('test_parses', kind: .method),
+              symbol('setUp', kind: .method),
+              symbol('helper', kind: .method),
+              symbol('test_field', kind: .field),
+            ]
+            .where(MemberSelection.reflectiveTestMethods.includes)
+            .map((s) => s.name),
+        ['test_parses', 'setUp'],
+      );
+    });
+  });
+}

@@ -20,13 +20,15 @@ Each of these is a known source of false positives. Where there is a flag, it op
 | `@override` members | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses. One that overrides a dead member is dead too, and `--remove` takes both | `--also overrides` |
 | Operator overloads | the server doesn't resolve `a + b` back to the declaration, so a used operator is flagged every time | `--also operators` |
 | Declarations and files marked `// ciach:ignore` | they are kept on purpose | — |
-| `@pragma('vm:entry-point')` | reachable from native code or reflection | — |
+| `@pragma('vm:entry-point')`, and the class of a member that has it | reachable from native code or reflection | — |
 | `@JSExport`, and the public members of a `@JSExport` class | JavaScript can call them | — |
 | `test_…` methods of a `@reflectiveTest` class | they run through `dart:mirrors` | — |
 | Generated files | by filename, by a generated-code banner, by the project config and by `--generated-glob`. Still read, so a declaration used only from a `.g.dart` is not misreported | `--generated` |
 | `toJson()` | `jsonEncode(obj)` calls it by dynamic dispatch, leaving no reference | `--also tojson` |
 | Type parameters | always used within their scope | — |
 | dartdoc `[Xxx]` links | not a code reference; reported as doc-only instead | — |
+
+The three annotations count only when they come from their own libraries: `pragma` from `dart:core`, `JSExport` from `dart:js_interop` or `package:js`, and `reflectiveTest` from `package:test_reflective_loader`. A class or constant of the same name from another package keeps nothing.
 
 The variants of a conditional import, like `io.dart` and `web.dart` in `import 'io.dart' if (dart.library.js_interop) 'web.dart';`, are checked together: a public declaration shares the references of its namesakes in the other variants, and is reported and removed only with them. A variant whose other variant is not scanned is not checked.
 
