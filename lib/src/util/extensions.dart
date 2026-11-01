@@ -14,6 +14,12 @@ extension StringExtensions on String {
         -1 => null,
         final index => index,
       };
+
+  /// This type name without its type arguments: `Map` for
+  /// `Map<String, int>`.
+  String get withoutTypeArguments =>
+      indexOfOrNull('<')?.let((index) => substring(0, index).trimRight()) ??
+      this;
 }
 
 extension Let<T extends Object> on T {

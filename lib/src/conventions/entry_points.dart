@@ -36,11 +36,13 @@ sealed class EntryPoint {
   EntryPoint._({required this.files})
     : _globs = [for (final file in files) .new(file, context: _posix)];
 
-  /// Creates a rule that selects every class that extends [superclass], and
-  /// keeps the public methods of the class too. [reason] says who calls the
-  /// methods.
+  /// Creates a rule that selects every class that has [superclass], from
+  /// [package] or from any package when it is `null`, among its supertypes,
+  /// and keeps the public methods of the class too. [reason] says who calls
+  /// the methods.
   factory EntryPoint.publicMethodsOfSubclasses(
     String superclass, {
+    String? package,
     required String reason,
     List<String> files,
   }) = SubtypeEntryPoint;
@@ -94,6 +96,10 @@ sealed class EntryPoint {
   /// The members that the rule keeps in a type that it selects, or `null`
   /// for none.
   KeptMembers? get members => null;
+
+  /// The requests that the analysis server has to answer before the rule can
+  /// select a declaration.
+  Set<ServerLookup> get lookups => const {};
 
   /// The names after the `@` whose declaring package the analysis server has
   /// to give before the rule can select a declaration.
@@ -218,6 +224,13 @@ enum MemberSelection {
       };
 }
 
+/// A kind of request that a rule needs the analysis server to answer before
+/// it can select a declaration.
+enum ServerLookup {
+  /// The supertypes of a class.
+  supertypes,
+}
+
 /// [EntryPoint.builtIn] followed by a project's own rules; the first match
 /// wins.
 final class EntryPoints {
@@ -237,6 +250,13 @@ final class EntryPoints {
     for (final rule in _rules)
       if (rule.members case final members? when rule.matches(type)) members,
   ];
+
+  /// Returns the requests that the analysis server has to answer in the file
+  /// at [relativePath] for the rules that apply to it.
+  Set<ServerLookup> lookupsIn(String relativePath) => {
+    for (final rule in _rules)
+      if (rule.appliesTo(relativePath)) ...rule.lookups,
+  };
 
   /// Returns the names after the `@` whose declaring package the analysis
   /// server has to give in the file at [relativePath] for the rules that

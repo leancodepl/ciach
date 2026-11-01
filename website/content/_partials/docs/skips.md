@@ -43,7 +43,7 @@ Some declarations are only called from code a tool generates, so nothing in the 
 | `build.yaml` builders | the functions under `builder_factories` or `builder_factory` |
 | `pubspec.yaml` plugin | `registerWith` on each platform's `dartPluginClass` and on the web `pluginClass` |
 | `dart_frog` | `onRequest`, `middleware`, `init`, `run` |
-| `serverpod` | the classes that extend `Endpoint`, and their public methods |
+| `serverpod` | the classes that have Serverpod's `Endpoint` among their supertypes, and their public methods |
 | `analysis_server_plugin`, or a package an `analysis_options.yaml` under the root loads as a plugin by `path:` | `plugin` in `lib/main.dart` |
 | `custom_lint_builder` | `createPlugin` in `lib/<package>.dart` |
 

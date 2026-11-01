@@ -6,15 +6,14 @@
 
 import 'package:ciach/src/collect/annotation_packages.dart';
 import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/collect/resolved_classes.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
-import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
 final _log = Logger('ciach.finder');
 
@@ -23,10 +22,14 @@ final _log = Logger('ciach.finder');
 /// and what a `// ciach:` marker keeps. Each is recorded with its reason, for
 /// `--verbose`, together with the type that has to stay with it.
 final class KeptDeclarations {
-  KeptDeclarations(this._entryPoints, this._sources, this._annotationPackages);
+  KeptDeclarations(
+    this._entryPoints,
+    this._resolvedClasses,
+    this._annotationPackages,
+  );
 
   final EntryPoints _entryPoints;
-  final SourceIndex _sources;
+  final ResolvedClasses _resolvedClasses;
   final AnnotationPackages _annotationPackages;
 
   /// Skipped as entry points this run, for `--verbose`.
@@ -98,7 +101,7 @@ final class KeptDeclarations {
       candidate.path,
       leadingMetadata,
     ),
-    superclass: _superclassOf(candidate.path, candidate.symbol),
+    supertypes: _resolvedClasses.supertypesOf(candidate.path, candidate.symbol),
   );
 
   /// Returns whether [declaration] is called by a framework or a tool. Such a
@@ -157,32 +160,6 @@ final class KeptDeclarations {
       reason: 'kept by `// ${kept.marker}` on line ${kept.line + 1}',
     ));
   }
-
-  /// Returns the name of the class that [symbol] extends. [symbol] is a class
-  /// that is declared in the file at [path]. Returns `null` when [symbol] is
-  /// not a class, or when the class has no `extends` clause.
-  String? _superclassOf(String path, DocumentSymbol symbol) {
-    if (symbol.kind != .class$) {
-      return null;
-    }
-    final start = _sources.offsetOf(path, symbol.selectionRange.end);
-    final end = _sources.offsetOf(path, symbol.range.end);
-    if (start == null || end == null) {
-      return null;
-    }
-    final rest = _sources.content(path).substring(start, end);
-    final brace = rest.indexOf('{');
-    return _extendsClause
-        .firstMatch(brace < 0 ? rest : rest.substring(0, brace))
-        ?.namedGroup('superclass');
-  }
-
-  /// Matches the `extends` clause that follows a class name. The type
-  /// parameters before the clause must not be nested, so a class with
-  /// `<T extends List<int>>` is not matched.
-  static final _extendsClause = RegExp(
-    r'^\s*(?:<[^<>]*>)?\s*extends\s+(?<superclass>[A-Za-z_$][\w$]*)',
-  );
 }
 
 /// A skipped entry point: root-relative POSIX path, one-based line, the name
