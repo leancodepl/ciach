@@ -36,7 +36,8 @@ Config file:
   file was read and what it set.
 
   `entry-points` lives only there: declarations a tool calls from generated
-  code, each a `name` with an optional `glob` for the files it may live in.
+  code, each a `name` or an `annotation` class, with an optional `glob` for
+  the files it may live in.
 
     # $configFileName
     public: false
@@ -48,6 +49,7 @@ Config file:
         glob: 'lib/src/isolate.dart'
       - name: MyHost.callback         # a member, called from native code
         glob: 'lib/my_host.dart'
+      - annotation: Story             # what `@Story()` annotates
     kinds: [class, function]
     format: json
 
