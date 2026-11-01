@@ -188,10 +188,14 @@ void main() {
   group('built-in conventions', () {
     final rules = EntryPoints(const []);
 
-    /// A class annotated with `@[annotation]`.
-    ResolvedDeclaration annotatedClass(String annotation) => .new(
+    /// A class annotated with `@[annotation]`, which [package] declares.
+    ResolvedDeclaration annotatedClass(
+      String annotation, {
+      required String package,
+    }) => .new(
       relativePath: 'lib/a.dart',
       symbol: symbol('Counter', kind: .class$),
+      annotationPackages: {const .new(line: 0, character: 1): package},
       leadingMetadata: [
         SemanticToken(
           line: 0,
@@ -205,7 +209,7 @@ void main() {
     );
 
     test('`@JSExport` keeps the class and its public members', () {
-      final counter = annotatedClass('JSExport');
+      final counter = annotatedClass('JSExport', package: 'dart:js_interop');
 
       expect(rules.match(counter)?.reason, contains('`@JSExport`'));
       expect(rules.keptMembersOf(counter).map((members) => members.selection), [
@@ -213,14 +217,69 @@ void main() {
       ]);
     });
 
+    test(
+      '`@JSExport` from `dart:_js_annotations` or `package:js` keeps the class',
+      () {
+        for (final package in ['dart:_js_annotations', 'js']) {
+          expect(
+            rules.match(annotatedClass('JSExport', package: package)),
+            isNotNull,
+            reason: 'for $package',
+          );
+        }
+      },
+    );
+
+    test('a `JSExport` from another package keeps nothing', () {
+      final counter = annotatedClass('JSExport', package: 'app');
+
+      expect(rules.match(counter), isNull);
+      expect(rules.keptMembersOf(counter), isEmpty);
+    });
+
     test('`@reflectiveTest` keeps the test methods but not the class', () {
-      final test = annotatedClass('reflectiveTest');
+      final test = annotatedClass(
+        'reflectiveTest',
+        package: 'test_reflective_loader',
+      );
 
       expect(rules.match(test), isNull);
       expect(rules.keptMembersOf(test).map((members) => members.selection), [
         MemberSelection.reflectiveTestMethods,
       ]);
     });
+
+    test('a `reflectiveTest` from another package keeps no methods', () {
+      expect(
+        rules.keptMembersOf(annotatedClass('reflectiveTest', package: 'app')),
+        isEmpty,
+      );
+    });
+
+    test('an annotation whose package is unknown keeps nothing', () {
+      final counter = ResolvedDeclaration(
+        relativePath: 'lib/a.dart',
+        symbol: symbol('Counter', kind: .class$),
+        leadingMetadata: annotatedClass(
+          'JSExport',
+          package: 'dart:js_interop',
+        ).leadingMetadata,
+      );
+
+      expect(rules.match(counter), isNull);
+      expect(rules.keptMembersOf(counter), isEmpty);
+    });
+
+    test(
+      'the built-in rules name `JSExport`, `pragma` and `reflectiveTest`',
+      () {
+        expect(rules.annotationNamesIn('lib/a.dart'), {
+          'JSExport',
+          'pragma',
+          'reflectiveTest',
+        });
+      },
+    );
 
     /// A token of [type] with [text], such as `(` or `'vm:entry-point'`.
     SemanticToken token(
@@ -253,13 +312,16 @@ void main() {
       token('annotation', ')'),
     ];
 
-    /// A function whose annotation has the tokens [leadingMetadata].
+    /// A function whose annotation has the tokens [leadingMetadata] and is
+    /// declared in [package].
     ResolvedDeclaration annotatedFunction(
-      List<SemanticToken> leadingMetadata,
-    ) => .new(
+      List<SemanticToken> leadingMetadata, {
+      String package = 'dart:core',
+    }) => .new(
       relativePath: 'lib/a.dart',
       symbol: symbol('callback'),
       leadingMetadata: leadingMetadata,
+      annotationPackages: {const .new(line: 0, character: 0): package},
     );
 
     test(
@@ -295,6 +357,18 @@ void main() {
         }
       },
     );
+
+    test('a `pragma` from another package keeps nothing', () {
+      expect(
+        rules.match(
+          annotatedFunction(
+            annotation('pragma', ["'vm:entry-point'"]),
+            package: 'app',
+          ),
+        ),
+        isNull,
+      );
+    });
 
     test('main is an entry point in every file, but not as a member', () {
       expect(

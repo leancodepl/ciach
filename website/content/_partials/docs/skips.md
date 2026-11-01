@@ -28,6 +28,8 @@ Each of these is a known source of false positives. Where there is a flag, it op
 | Type parameters | always used within their scope | — |
 | dartdoc `[Xxx]` links | not a code reference; reported as doc-only instead | — |
 
+The three annotations count only when they come from their own libraries: `pragma` from `dart:core`, `JSExport` from `dart:js_interop` or `package:js`, and `reflectiveTest` from `package:test_reflective_loader`. A class or constant of the same name from another package keeps nothing.
+
 The variants of a conditional import, like `io.dart` and `web.dart` in `import 'io.dart' if (dart.library.js_interop) 'web.dart';`, are checked together: a public declaration shares the references of its namesakes in the other variants, and is reported and removed only with them. A variant whose other variant is not scanned is not checked.
 
 Private constructors are not skipped: an unused `ClassName._` is dead code like any other. A sole `ClassName._()` with no parameters, the classic prevent-instantiation marker, comes with a hint suggesting `abstract final class` instead.

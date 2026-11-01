@@ -5,12 +5,13 @@
  */
 
 /// What the entry-point rules read about a declaration: its name and place,
-/// its annotations, and the class that it extends.
+/// its annotations with the packages that declare them, and the class that it
+/// extends.
 library;
 
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/symbols.dart';
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
+import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Position;
 
 /// A declaration that the entry-point rules are checked against.
 final class ResolvedDeclaration {
@@ -20,6 +21,7 @@ final class ResolvedDeclaration {
     this.container,
     this.inEnum = false,
     this.leadingMetadata = const [],
+    this.annotationPackages = const {},
     this.superclass,
   });
 
@@ -40,6 +42,11 @@ final class ResolvedDeclaration {
 
   /// The tokens of the declaration's doc comment and annotations.
   final Iterable<SemanticToken> leadingMetadata;
+
+  /// The package that declares each annotation in [leadingMetadata] that a
+  /// rule names, by the position of the name after the `@`: `dart:core` for
+  /// `pragma` in `@pragma('vm:entry-point')`.
+  final Map<Position, String> annotationPackages;
 
   /// The class that the declaration extends, when it is a class with an
   /// `extends` clause.

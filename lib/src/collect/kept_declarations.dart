@@ -4,6 +4,7 @@
  *   harness: Claude Code
  */
 
+import 'package:ciach/src/collect/annotation_packages.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/resolved_declaration.dart';
@@ -22,10 +23,11 @@ final _log = Logger('ciach.finder');
 /// and what a `// ciach:` marker keeps. Each is recorded with its reason, for
 /// `--verbose`, together with the type that has to stay with it.
 final class KeptDeclarations {
-  KeptDeclarations(this._entryPoints, this._sources);
+  KeptDeclarations(this._entryPoints, this._sources, this._annotationPackages);
 
   final EntryPoints _entryPoints;
   final SourceIndex _sources;
+  final AnnotationPackages _annotationPackages;
 
   /// Skipped as entry points this run, for `--verbose`.
   final _skippedEntryPoints = <_SkippedEntryPoint>[];
@@ -92,6 +94,10 @@ final class KeptDeclarations {
     container: candidate.container,
     inEnum: candidate.containerSymbol?.kind == .enum$,
     leadingMetadata: leadingMetadata,
+    annotationPackages: _annotationPackages.packagesOf(
+      candidate.path,
+      leadingMetadata,
+    ),
     superclass: _superclassOf(candidate.path, candidate.symbol),
   );
 

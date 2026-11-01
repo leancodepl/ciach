@@ -15,12 +15,12 @@ import 'package:test/test.dart';
 
 void main() {
   test(
-    "`@pragma('vm:entry-point')` keeps the declaration and the class that declares it, and no other annotation does",
+    "`@pragma('vm:entry-point')` keeps the declaration and the class that declares it, and no other annotation or `pragma` class does",
     () async {
       final result = await Ciach(
         .new(
           rootPath: p.join(Directory.current.path, 'example'),
-          includeGlobs: const ['lib/scenarios/vm_entry_points.dart'],
+          includeGlobs: const ['lib/scenarios/vm_entry_points*.dart'],
         ),
       ).run();
 
@@ -28,6 +28,9 @@ void main() {
         'Host.helper',
         'inlined',
         'deprecatedMention',
+        'localPragma',
+        // Its only user is `localPragma`.
+        'pragma',
       });
     },
   );

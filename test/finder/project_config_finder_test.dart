@@ -20,10 +20,13 @@ import '../support/package_config.dart';
 ///   `@reflectiveTest` (`test/reflective_test.dart`).
 ///
 /// Beside them, declarations nothing calls stay reported.
-/// The dependencies are not fetched. Local `Endpoint`, `JSExport` and
-/// `reflectiveTest` stand in for the real ones, because ciach matches them by
-/// name.
+/// The dependencies are not fetched. A local `Endpoint` stands in for the real
+/// one, because ciach matches it by name. A `js` package with only a
+/// `JSExport` and a `test_reflective_loader` package with only a
+/// `reflectiveTest` stand in for the real ones, which ciach matches by name and
+/// package.
 void main() {
+  late Directory root;
   late Directory package;
 
   void write(String path, String contents) => File(p.join(package.path, path))
@@ -31,13 +34,42 @@ void main() {
     ..writeAsStringSync(contents);
 
   setUp(() {
-    package = .systemTemp.createTempSync('ciach_project_config_');
+    root = .systemTemp.createTempSync('ciach_project_config_');
+    package = Directory(p.join(root.path, 'server'))..createSync();
     write('pubspec.yaml', '''
 name: server
 environment: {sdk: ^3.10.0}
 dependencies: {dart_frog: any, serverpod: any}
 ''');
-    write('.dart_tool/package_config.json', packageConfig({'server': '.'}));
+    write(
+      '.dart_tool/package_config.json',
+      packageConfig({
+        'server': '.',
+        'js': '../js',
+        'test_reflective_loader': '../test_reflective_loader',
+      }),
+    );
+    File(p.join(root.path, 'js', 'lib', 'js.dart'))
+      ..createSync(recursive: true)
+      ..writeAsStringSync('''
+class JSExport {
+  const JSExport();
+}
+''');
+    File(
+        p.join(
+          root.path,
+          'test_reflective_loader',
+          'lib',
+          'test_reflective_loader.dart',
+        ),
+      )
+      ..createSync(recursive: true)
+      ..writeAsStringSync('''
+const reflectiveTest = Object();
+
+void defineReflectiveTests<T>() {}
+''');
     write('build.yaml', '''
 builders:
   stamp:
@@ -96,9 +128,7 @@ Strings lookupStrings(String locale) => throw UnsupportedError(locale);
 ''');
     write('lib/l10n/strings_pl.dart', 'class StringsPl {}');
     write('lib/js.dart', '''
-class JSExport {
-  const JSExport();
-}
+import 'package:js/js.dart';
 
 @JSExport()
 class Counter {
@@ -118,10 +148,17 @@ class Partial {
 
 void usePartial() => Partial();
 ''');
-    write('test/reflective_test.dart', '''
-const reflectiveTest = Object();
+    write('lib/local_js.dart', '''
+class JSExport {
+  const JSExport();
+}
 
-void defineReflectiveTests<T>() {}
+/// Annotated with a `JSExport` that the `js` package doesn't declare.
+@JSExport()
+class LocalCounter {}
+''');
+    write('test/reflective_test.dart', '''
+import 'package:test_reflective_loader/test_reflective_loader.dart';
 
 void main() => defineReflectiveTests<ParserTest>();
 
@@ -141,7 +178,7 @@ void unusedRouteHelper() {}
 ''');
   });
 
-  tearDown(() => package.deleteSync(recursive: true));
+  tearDown(() => root.deleteSync(recursive: true));
 
   FinderOptions detected() {
     final config = ProjectConfig.read(package.path);
@@ -181,6 +218,7 @@ void unusedRouteHelper() {}
           'lib/js.dart:Counter._neverCalled',
           'lib/js.dart:Partial.notExported',
           'lib/js.dart:usePartial',
+          'lib/local_js.dart:LocalCounter',
           'test/reflective_test.dart:ParserTest.helper',
           'routes/index.dart:unusedRouteHelper',
         },
