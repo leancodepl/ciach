@@ -6,6 +6,7 @@ import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
+part 'annotated_entry_point.dart';
 part 'annotation_name_entry_point.dart';
 part 'named_entry_point.dart';
 part 'subtype_entry_point.dart';
@@ -46,6 +47,17 @@ sealed class EntryPoint {
     required String reason,
     List<String> files,
   }) = SubtypeEntryPoint;
+
+  /// Creates a rule that selects every declaration whose annotation calls a
+  /// constructor of the class [annotation], from [package] or from any
+  /// package when it is `null`, or of a subtype of it, also through a
+  /// typedef.
+  factory EntryPoint.annotatedWith(
+    String annotation, {
+    String? package,
+    required String reason,
+    List<String> files,
+  }) = AnnotatedEntryPoint;
 
   /// Creates a rule that comes from the `entry-points` setting or from the
   /// project config.
@@ -227,6 +239,10 @@ enum MemberSelection {
 /// A kind of request that a rule needs the analysis server to answer before
 /// it can select a declaration.
 enum ServerLookup {
+  /// The class that an annotation's constructor call creates, and its
+  /// supertypes.
+  annotationClasses,
+
   /// The supertypes of a class.
   supertypes,
 }

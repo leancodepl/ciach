@@ -159,7 +159,9 @@ at a workaround for a bug that a later pull request will fix.
 
 Name a thing after what it holds or returns, or a constructor after where its
 input comes from, in plain words: `libraryFiles`, `paths`,
-`EntryPoint.fromConfig`. Avoid metaphors (`span` for the files a directive can
+`EntryPoint.fromConfig`. A type that holds the class an annotation creates is
+`AnnotationClass`, not `ResolvedAnnotation`, which names what it came from.
+Avoid metaphors (`span` for the files a directive can
 choose between, `Spelling`), data-structure words that don't apply (`tree` for
 a cache), vague words (`checked`, `site`, `hit`, `target`) and compiler jargon
 (`Trivia`). Read the name as a word on its own (`uncut` became `lacksCut`),

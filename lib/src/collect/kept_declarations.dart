@@ -101,6 +101,10 @@ final class KeptDeclarations {
       candidate.path,
       leadingMetadata,
     ),
+    annotationClasses: _resolvedClasses.annotationClassesOf(
+      candidate.path,
+      leadingMetadata,
+    ),
     supertypes: _resolvedClasses.supertypesOf(candidate.path, candidate.symbol),
   );
 

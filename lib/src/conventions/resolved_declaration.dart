@@ -5,13 +5,14 @@
  */
 
 /// What the entry-point rules read about a declaration: its name and place,
-/// its annotations with the packages that declare them, and its supertypes
-/// as the analysis server resolves them.
+/// the packages that declare its annotations, and the classes of its
+/// annotations and supertypes as the analysis server resolves them.
 library;
 
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
+import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Position;
 
 /// A class as the analysis server resolves it.
@@ -42,6 +43,32 @@ final class ResolvedClass {
       package?.let((package) => 'package:$package $name') ?? name;
 }
 
+/// The class that an annotation's constructor call creates, with its
+/// supertypes: `Preview` for `@Preview()`.
+final class AnnotationClass {
+  const AnnotationClass(this.type, this.supertypes);
+
+  /// The class that the constructor creates.
+  final ResolvedClass type;
+
+  /// All the supertypes of [type].
+  final Set<ResolvedClass> supertypes;
+
+  static const _supertypesEquality = SetEquality<ResolvedClass>();
+
+  @override
+  bool operator ==(Object other) =>
+      other is AnnotationClass &&
+      other.type == type &&
+      _supertypesEquality.equals(other.supertypes, supertypes);
+
+  @override
+  int get hashCode => Object.hash(type, _supertypesEquality.hash(supertypes));
+
+  @override
+  String toString() => '$type, supertypes $supertypes';
+}
+
 /// A declaration that the entry-point rules are checked against.
 final class ResolvedDeclaration {
   const ResolvedDeclaration({
@@ -51,6 +78,7 @@ final class ResolvedDeclaration {
     this.inEnum = false,
     this.leadingMetadata = const [],
     this.annotationPackages = const {},
+    this.annotationClasses = const [],
     this.supertypes = const {},
   });
 
@@ -76,6 +104,10 @@ final class ResolvedDeclaration {
   /// rule names, by the position of the name after the `@`: `dart:core` for
   /// `pragma` in `@pragma('vm:entry-point')`.
   final Map<Position, String> annotationPackages;
+
+  /// The classes that the constructor calls in the declaration's
+  /// annotations create.
+  final List<AnnotationClass> annotationClasses;
 
   /// All the supertypes of the declaration when it is a class, and none
   /// otherwise.

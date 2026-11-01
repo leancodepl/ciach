@@ -57,7 +57,7 @@ final class CandidateCollector {
   /// What this run leaves unchecked on purpose, and why.
   late final _entryPoints = EntryPoints(options.entryPoints);
 
-  late final _resolvedClasses = ResolvedClasses(_entryPoints);
+  late final _resolvedClasses = ResolvedClasses(_sources, _entryPoints);
 
   late final _annotationPackages = AnnotationPackages(_entryPoints);
 
