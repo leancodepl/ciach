@@ -113,6 +113,10 @@ sealed class EntryPoint {
   /// select a declaration.
   Set<ServerLookup> get lookups => const {};
 
+  /// The names after the `@` whose declaring package the analysis server has
+  /// to give before the rule can select a declaration.
+  Set<String> get annotationNames => const {};
+
   final List<Glob> _globs;
 
   /// The conventions applied on every run.
@@ -125,26 +129,28 @@ sealed class EntryPoint {
       files: const ['**/flutter_test_config.dart'],
       reason: 'called by the `flutter test` bootstrap',
     ),
-    // `JSExport` from `dart:js_interop` is a final class, and the older one
-    // from `package:js` has no subclasses either, so the name is enough.
+    // Dart 3.10 declares `JSExport` in `dart:_js_annotations`, which
+    // `dart:js_interop` exports. `package:js` 0.6 declares its own.
     AnnotationNameEntryPoint(
       'JSExport',
+      packages: const {'dart:js_interop', 'dart:_js_annotations', 'js'},
       reason: 'exported to JavaScript by `@JSExport`',
       members: const .new(
         .publicMembers,
         'exported to JavaScript by `@JSExport` on its class',
       ),
     ),
-    // `pragma` is a final class of `dart:core`, so the name is enough. Its
-    // other values, such as `vm:prefer-inline`, keep nothing.
+    // The other values of `pragma`, such as `vm:prefer-inline`, keep nothing.
     AnnotationNameEntryPoint(
       'pragma',
+      packages: const {'dart:core'},
       argument: 'vm:entry-point',
       reason:
           "marked `@pragma('vm:entry-point')` for native code or reflection",
     ),
     AnnotationNameEntryPoint(
       'reflectiveTest',
+      packages: const {'test_reflective_loader'},
       members: const .new(
         .reflectiveTestMethods,
         'run by `defineReflectiveTests`',
@@ -266,5 +272,13 @@ final class EntryPoints {
   Set<ServerLookup> lookupsIn(String relativePath) => {
     for (final rule in _rules)
       if (rule.appliesTo(relativePath)) ...rule.lookups,
+  };
+
+  /// Returns the names after the `@` whose declaring package the analysis
+  /// server has to give in the file at [relativePath] for the rules that
+  /// apply to it.
+  Set<String> annotationNamesIn(String relativePath) => {
+    for (final rule in _rules)
+      if (rule.appliesTo(relativePath)) ...rule.annotationNames,
   };
 }
