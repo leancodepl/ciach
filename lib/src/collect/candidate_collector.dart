@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:ciach/src/collect/annotation_packages.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/collect/kept_declarations.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
@@ -55,7 +56,13 @@ final class CandidateCollector {
   /// What this run leaves unchecked on purpose, and why.
   late final _entryPoints = EntryPoints(options.entryPoints);
 
-  late final _kept = KeptDeclarations(_entryPoints, _sources);
+  late final _annotationPackages = AnnotationPackages(_entryPoints);
+
+  late final _kept = KeptDeclarations(
+    _entryPoints,
+    _sources,
+    _annotationPackages,
+  );
 
   /// The pairing names in each conditional-import variant that was read,
   /// candidates or not; see [ConditionalImports.share].
@@ -91,11 +98,12 @@ final class CandidateCollector {
       return const [];
     }
     // `SourceIndex` keeps the tokens, which the leading metadata is read from.
-    await pendingTokens;
+    final tokens = await pendingTokens;
     if (_conditionalImports.contains(path)) {
       declaredInVariants[path] = ConditionalImports.pairingNames(symbols);
     }
     final relativePath = relativePosix(path, rootPath);
+    await _annotationPackages.resolve(client, path, relativePath, tokens);
     final markers = _Markers(.parse(_sources.content(path)));
     // The whole walk has to run before the filter: it records the entry-point
     // containers the filter drops, and a container comes before its members.
