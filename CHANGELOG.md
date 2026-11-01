@@ -13,7 +13,9 @@
 - Stop reporting a class whose member has `@pragma('vm:entry-point')`. Before,
   `--remove` deleted the class with the member. `vm:entry-point` in another
   annotation, such as `@Deprecated('vm:entry-point')`, no longer keeps a
-  declaration, and a class that extends Serverpod's `Endpoint` is kept also
+  declaration, and neither does a `pragma`, `JSExport` or `reflectiveTest`
+  that the SDK, `package:js` or `package:test_reflective_loader` doesn't
+  declare. A class that extends Serverpod's `Endpoint` is kept also
   when it has no public methods.
   ([#175](https://github.com/leancodepl/ciach/pull/175))
 - Report unused typedefs under a new `typedef` kind, which `--kinds` accepts.

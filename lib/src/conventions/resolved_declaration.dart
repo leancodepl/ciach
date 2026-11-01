@@ -5,15 +5,15 @@
  */
 
 /// What the entry-point rules read about a declaration: its name and place,
-/// and the classes of its annotations and supertypes as the analysis server
-/// resolves them.
+/// the packages that declare its annotations, and the classes of its
+/// annotations and supertypes as the analysis server resolves them.
 library;
 
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
+import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Position;
 
 /// A class as the analysis server resolves it.
 final class ResolvedClass {
@@ -89,6 +89,7 @@ final class ResolvedDeclaration {
     this.container,
     this.inEnum = false,
     this.leadingMetadata = const [],
+    this.annotationPackages = const {},
     this.annotationClasses = const [],
     this.supertypes = const {},
   });
@@ -110,6 +111,11 @@ final class ResolvedDeclaration {
 
   /// The tokens of the declaration's doc comment and annotations.
   final Iterable<SemanticToken> leadingMetadata;
+
+  /// The package that declares each annotation in [leadingMetadata] that a
+  /// rule names, by the position of the name after the `@`: `dart:core` for
+  /// `pragma` in `@pragma('vm:entry-point')`.
+  final Map<Position, String> annotationPackages;
 
   /// The classes of the objects that the declaration's annotations create.
   final List<AnnotationClass> annotationClasses;
