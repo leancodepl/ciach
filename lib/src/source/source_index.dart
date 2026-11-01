@@ -73,16 +73,12 @@ class SourceIndex {
   Future<List<SemanticToken>> semanticTokensOf(
     LspClient client,
     String path,
-  ) async {
-    if (_semanticTokens[path] case final tokens?) {
-      return tokens;
-    }
-    final pending = _pendingSemanticTokens[path] ??= _requestSemanticTokens(
-      client,
-      path,
-    );
-    return await pending;
-  }
+  ) async =>
+      _semanticTokens[path] ??
+      await (_pendingSemanticTokens[path] ??= _requestSemanticTokens(
+        client,
+        path,
+      ));
 
   /// Requests the semantic tokens of [path] from [client] and caches them.
   Future<List<SemanticToken>> _requestSemanticTokens(
