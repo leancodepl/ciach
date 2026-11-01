@@ -298,7 +298,8 @@ explicit null check.
   names and offsets rather than a `RegExpMatch`.
 - Give an asynchronous step a named method instead of a closure that is called
   where it is written: `_pending[path] ??= _requestTokens(client, path)`, not
-  `_pending[path] ??= () async { … }()`.
+  `_pending[path] ??= () async { … }()`. The caller then keeps an expression
+  body.
 - In `website/`, keep a component's styles next to it as Jaspr `@css`, make
   repeated pieces (buttons, cards, pills) components, and write `.only()`,
   `.symmetric()` or `.all()` rather than `fromLTRB()`.
