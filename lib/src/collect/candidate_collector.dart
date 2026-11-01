@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:ciach/src/collect/annotation_packages.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/collect/kept_declarations.dart';
 import 'package:ciach/src/collect/resolved_classes.dart';
@@ -56,9 +57,15 @@ final class CandidateCollector {
   /// What this run leaves unchecked on purpose, and why.
   late final _entryPoints = EntryPoints(options.entryPoints);
 
-  late final _kept = KeptDeclarations(_entryPoints, _resolvedClasses);
-
   late final _resolvedClasses = ResolvedClasses(_entryPoints);
+
+  late final _annotationPackages = AnnotationPackages(_entryPoints);
+
+  late final _kept = KeptDeclarations(
+    _entryPoints,
+    _resolvedClasses,
+    _annotationPackages,
+  );
 
   /// The pairing names in each conditional-import variant that was read,
   /// candidates or not; see [ConditionalImports.share].
@@ -95,7 +102,10 @@ final class CandidateCollector {
     }
     final tokens = await pendingTokens;
     final relativePath = relativePosix(path, rootPath);
-    await _resolvedClasses.resolve(client, path, relativePath, tokens, symbols);
+    await Future.wait([
+      _resolvedClasses.resolve(client, path, relativePath, tokens, symbols),
+      _annotationPackages.resolve(client, path, relativePath, tokens),
+    ]);
     if (_conditionalImports.contains(path)) {
       declaredInVariants[path] = ConditionalImports.pairingNames(symbols);
     }
