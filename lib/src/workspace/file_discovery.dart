@@ -25,7 +25,6 @@ const _skippedDirs = {
   'build',
   '.fvm',
   'node_modules',
-  // The app that `flutter widget-preview start` generates to show previews.
   '.widget_preview',
 };
 
