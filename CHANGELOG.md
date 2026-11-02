@@ -4,6 +4,10 @@
   Before, an unused `typedef A = B;` was never reported and kept `B` from
   being reported, and an unused function typedef was reported as a `class`.
   ([#167](https://github.com/leancodepl/ciach/pull/167))
+- Skip the `.widget_preview` directory, in which `flutter widget-preview start`
+  writes the app that shows the previews. Before, ciach scanned that app like
+  the project's own code.
+  ([#182](https://github.com/leancodepl/ciach/pull/182))
 
 ## 0.7.1
 
