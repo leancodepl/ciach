@@ -33,7 +33,7 @@ sealed class EntryPoint {
     List<String> files,
   }) = NamedEntryPoint;
 
-  EntryPoint._({required this.files})
+  EntryPoint._({required List<String> files})
     : _globs = [for (final file in files) .new(file, context: _posix)];
 
   /// Creates a rule that selects every class that has [supertype], from
@@ -46,6 +46,19 @@ sealed class EntryPoint {
     required String reason,
     List<String> files,
   }) = SubtypeEntryPoint;
+
+  /// Creates a rule that selects every declaration with an annotation called
+  /// [annotation] that one of [packages] declares, and whose first argument
+  /// is the string [argument] unless that is `null`. It keeps the declaration
+  /// for [reason] and, in a type, the [members].
+  factory EntryPoint.annotationNamed(
+    String annotation, {
+    required Set<String> packages,
+    String? argument,
+    String? reason,
+    KeptMembers? members,
+    List<String> files,
+  }) = AnnotationNameEntryPoint;
 
   /// Creates a rule that comes from the `entry-points` setting or from the
   /// project config.
@@ -86,7 +99,7 @@ sealed class EntryPoint {
   );
 
   /// The file globs as written; empty matches any file.
-  final List<String> files;
+  List<String> get files => [for (final glob in _globs) glob.pattern];
 
   /// Who calls what the rule selects, for `--verbose`, or `null` when the
   /// rule keeps only the [members] of a type that it selects, as the rule for
@@ -119,7 +132,7 @@ sealed class EntryPoint {
     ),
     // Dart 3.10 declares `JSExport` in `dart:_js_annotations`, which
     // `dart:js_interop` exports. `package:js` 0.6 declares its own.
-    AnnotationNameEntryPoint(
+    .annotationNamed(
       'JSExport',
       packages: const {'dart:js_interop', 'dart:_js_annotations', 'js'},
       reason: 'exported to JavaScript by `@JSExport`',
@@ -129,14 +142,14 @@ sealed class EntryPoint {
       ),
     ),
     // The other values of `pragma`, such as `vm:prefer-inline`, keep nothing.
-    AnnotationNameEntryPoint(
+    .annotationNamed(
       'pragma',
       packages: const {'dart:core'},
       argument: 'vm:entry-point',
       reason:
           "marked `@pragma('vm:entry-point')` for native code or reflection",
     ),
-    AnnotationNameEntryPoint(
+    .annotationNamed(
       'reflectiveTest',
       packages: const {'test_reflective_loader'},
       members: const .new(
