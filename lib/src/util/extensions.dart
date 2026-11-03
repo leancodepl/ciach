@@ -15,7 +15,7 @@ extension StringExtensions on String {
         final index => index,
       };
 
-  /// This type name without its type arguments: `Map` for
+  /// This non-nullable type name without its type arguments: `Map` for
   /// `Map<String, int>`.
   String get withoutTypeArguments =>
       indexOfOrNull('<')?.let((index) => substring(0, index).trimRight()) ??
