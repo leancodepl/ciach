@@ -206,12 +206,12 @@ rather than `DeclKey(path, c)`, `.plain` rather than `Style.plain`, including
 inside lambdas whose return type the context already fixes. Never replace a
 shorthand with the full type name. Annotation arguments are the exception:
 `@Timeout(Duration(minutes: 5))` stays, since `package:test` parses it with
-an evaluator of its own that knows no shorthands. Dart 3.10, the SDK floor,
-can't resolve a shorthand inside the arguments of another shorthand while it
-infers a field's type. In a field initializer, name the class of the middle
-call, as in `<EntryPoint>[.annotationNamed(…, members: const KeptMembers(.publicMembers, …))]`,
-with an `// ignore: leancode_lint/prefer_dot_shorthand` that says why, and keep the type
-argument on the literal rather than declaring the field's type. leancode_lint's
+an evaluator of its own that knows no shorthands. Give a top-level or static
+field a declared type when its initializer has a shorthand inside the
+arguments of another one, such as `const .new(.publicMembers, …)`: Dart 3.10,
+the SDK floor, can't resolve the inner shorthand while it infers the field's
+type, also with a type argument on a list literal (`<EntryPoint>[…]`). Don't
+name the inner class and ignore the lint instead. leancode_lint's
 `prefer_dot_shorthand` rule, enabled in `analysis_options.yaml`, enforces all
 of this.
 

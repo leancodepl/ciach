@@ -121,7 +121,7 @@ sealed class EntryPoint {
   final List<Glob> _globs;
 
   /// The conventions applied on every run.
-  static final builtIn = <EntryPoint>[
+  static final List<EntryPoint> builtIn = [
     .new(name: 'main', reason: 'the program entry point'),
     // `flutter test` generates an in-memory bootstrap that imports the nearest
     // `flutter_test_config.dart` and calls `testExecutable(testMain)`.
@@ -136,9 +136,7 @@ sealed class EntryPoint {
       'JSExport',
       packages: const {'dart:js_interop', 'dart:_js_annotations', 'js'},
       reason: 'exported to JavaScript by `@JSExport`',
-      // Dart 3.10 can't resolve `.publicMembers` in `const .new(…)` here.
-      // ignore: leancode_lint/prefer_dot_shorthand
-      members: const KeptMembers(
+      members: const .new(
         .publicMembers,
         'exported to JavaScript by `@JSExport` on its class',
       ),
@@ -154,9 +152,7 @@ sealed class EntryPoint {
     .annotationNamed(
       'reflectiveTest',
       packages: const {'test_reflective_loader'},
-      // As for `JSExport` above.
-      // ignore: leancode_lint/prefer_dot_shorthand
-      members: const KeptMembers(
+      members: const .new(
         .reflectiveTestMethods,
         'run by `defineReflectiveTests`',
       ),
