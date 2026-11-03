@@ -11,8 +11,8 @@ part of 'entry_points.dart';
 /// `@reflectiveTest`, and by the package that declares what the name refers
 /// to. It optionally also checks the string literal that the annotation's
 /// first argument is.
-final class AnnotationNameEntryPoint extends EntryPoint {
-  AnnotationNameEntryPoint(
+final class AnnotationNamedEntryPoint extends EntryPoint {
+  AnnotationNamedEntryPoint(
     this.annotation, {
     required this.packages,
     this.argument,
@@ -59,7 +59,7 @@ final class AnnotationNameEntryPoint extends EntryPoint {
   }
 
   @override
-  AnnotationNameEntryPoint _withFiles(List<String> files) => .new(
+  AnnotationNamedEntryPoint _withFiles(List<String> files) => .new(
     annotation,
     packages: packages,
     argument: argument,
