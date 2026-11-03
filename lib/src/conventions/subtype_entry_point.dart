@@ -36,5 +36,5 @@ final class SubtypeEntryPoint extends EntryPoint {
       .new(supertype, reason: members.reason, files: files);
 
   @override
-  String get label => 'public methods of `$supertype` subclasses';
+  String get label => 'public methods of `$supertype` subtypes';
 }

@@ -72,7 +72,7 @@ dev_dependencies: {serverpod: any, custom_lint_builder: any}
       'middleware in routes/**_middleware.dart',
       'init in main.dart',
       'run in main.dart',
-      'public methods of `Endpoint` subclasses',
+      'public methods of `Endpoint` subtypes',
       'plugin in lib/main.dart',
       'createPlugin in lib/my_lints.dart',
     });
@@ -264,7 +264,7 @@ flutter: {plugin: {platforms: {linux: {dartPluginClass: LinuxPlugin}}}}
 
     final config = read();
     expect(rules(config), {
-      'public methods of `Endpoint` subclasses in pkgs/app/**',
+      'public methods of `Endpoint` subtypes in pkgs/app/**',
       'LinuxPlugin.registerWith in pkgs/plugin/lib/**',
     });
     expect(config.generatedGlobs, [

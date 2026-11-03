@@ -464,8 +464,8 @@ void main() {
     );
   });
 
-  group('EntryPoint.publicMethodsOfSubclasses', () {
-    final rule = EntryPoint.publicMethodsOfSubclasses(
+  group('EntryPoint.publicMethodsOfSubtypes', () {
+    final rule = EntryPoint.publicMethodsOfSubtypes(
       'Endpoint',
       reason: 'called by the Serverpod dispatcher',
     );

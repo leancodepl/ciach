@@ -1,11 +1,11 @@
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/project_config/project_files.dart';
 
-/// Returns a rule for the public methods of `Endpoint` subclasses, which the
+/// Returns a rule for the public methods of `Endpoint` subtypes, which the
 /// dispatcher that Serverpod generates calls.
 Iterable<EntryPoint> serverpodEntryPoints(Pubspec pubspec) sync* {
   if (pubspec.dependencies.contains('serverpod')) {
-    yield .publicMethodsOfSubclasses(
+    yield .publicMethodsOfSubtypes(
       'Endpoint',
       reason: 'called by the Serverpod dispatcher',
     );
