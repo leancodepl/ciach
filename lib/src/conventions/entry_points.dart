@@ -37,12 +37,12 @@ sealed class EntryPoint {
   EntryPoint._({required this.files})
     : _globs = [for (final file in files) .new(file, context: _posix)];
 
-  /// Creates a rule that selects every class that has [superclass], from
+  /// Creates a rule that selects every class that has [supertype], from
   /// [package] or from any package when it is `null`, among its supertypes,
   /// and keeps the public methods of the class too. [reason] says who calls
   /// the methods.
-  factory EntryPoint.publicMethodsOfSubclasses(
-    String superclass, {
+  factory EntryPoint.publicMethodsOfSubtypes(
+    String supertype, {
     String? package,
     required String reason,
     List<String> files,

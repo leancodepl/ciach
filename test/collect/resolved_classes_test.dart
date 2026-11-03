@@ -281,7 +281,7 @@ class Plain {}
 
 void notAClass() {}
 ''',
-        [.publicMethodsOfSubclasses('Preview', reason: 'called')],
+        [.publicMethodsOfSubtypes('Preview', reason: 'called')],
       );
 
       expect(
