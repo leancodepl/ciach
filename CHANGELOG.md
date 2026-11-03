@@ -3,9 +3,9 @@
 - Fix what ciach keeps as entry points:
   - A class whose member has `@pragma('vm:entry-point')` is no longer
     reported, so `--remove` no longer deletes it.
-  - `@pragma`, `@JSExport` and `@reflectiveTest` count only when their own
-    libraries declare them, and `vm:entry-point` only as the argument of
-    `@pragma`.
+  - `@pragma`, `@JSExport` and `@reflectiveTest` count only when the SDK,
+    `package:js` or `package:test_reflective_loader` declares them, and
+    `vm:entry-point` only as the argument of `@pragma`.
   - A class that extends Serverpod's `Endpoint` is kept also without public
     methods.
   ([#175](https://github.com/leancodepl/ciach/pull/175))
