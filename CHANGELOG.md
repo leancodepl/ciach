@@ -1,12 +1,13 @@
 ## Unreleased
 
-- Stop reporting a class whose member has `@pragma('vm:entry-point')`. Before,
-  `--remove` deleted the class with the member. `vm:entry-point` in another
-  annotation, such as `@Deprecated('vm:entry-point')`, no longer keeps a
-  declaration, and neither does a `pragma`, `JSExport` or `reflectiveTest`
-  that the SDK, `package:js` or `package:test_reflective_loader` doesn't
-  declare. A class that extends Serverpod's `Endpoint` is kept also
-  when it has no public methods.
+- Fix what ciach keeps as entry points:
+  - A class whose member has `@pragma('vm:entry-point')` is no longer
+    reported, so `--remove` no longer deletes it.
+  - `@pragma`, `@JSExport` and `@reflectiveTest` count only when their own
+    libraries declare them, and `vm:entry-point` only as the argument of
+    `@pragma`.
+  - A class that extends Serverpod's `Endpoint` is kept also without public
+    methods.
   ([#175](https://github.com/leancodepl/ciach/pull/175))
 - Report unused typedefs under a new `typedef` kind, which `--kinds` accepts.
   Before, an unused `typedef A = B;` was never reported and kept `B` from
