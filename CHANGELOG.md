@@ -1,8 +1,9 @@
 ## Unreleased
 
-- Serverpod endpoints that extend `Endpoint` through another class are no
-  longer reported, and a class named `Endpoint` from another package no longer
-  keeps anything. ([#176](https://github.com/leancodepl/ciach/pull/176))
+- Keep a Serverpod endpoint when `package:serverpod`'s `Endpoint` is among the
+  supertypes of its class, also through another class. Before, ciach kept only
+  a class whose `extends` clause named `Endpoint`, whichever package declared
+  it. ([#176](https://github.com/leancodepl/ciach/pull/176))
 - Fix what ciach keeps as entry points:
   - A class whose member has `@pragma('vm:entry-point')` is no longer
     reported, so `--remove` no longer deletes it.
