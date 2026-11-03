@@ -6,7 +6,7 @@ import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
-part 'annotation_name_entry_point.dart';
+part 'annotation_named_entry_point.dart';
 part 'named_entry_point.dart';
 part 'subtype_entry_point.dart';
 
@@ -56,7 +56,7 @@ sealed class EntryPoint {
     String? reason,
     KeptMembers? members,
     List<String> files,
-  }) = AnnotationNameEntryPoint;
+  }) = AnnotationNamedEntryPoint;
 
   /// Creates a rule that comes from the `entry-points` setting or from the
   /// project config.
@@ -115,7 +115,7 @@ sealed class EntryPoint {
   final List<Glob> _globs;
 
   /// The conventions applied on every run.
-  static final List<EntryPoint> builtIn = [
+  static final builtIn = <EntryPoint>[
     .new(name: 'main', reason: 'the program entry point'),
     // `flutter test` generates an in-memory bootstrap that imports the nearest
     // `flutter_test_config.dart` and calls `testExecutable(testMain)`.
@@ -130,7 +130,9 @@ sealed class EntryPoint {
       'JSExport',
       packages: const {'dart:js_interop', 'dart:_js_annotations', 'js'},
       reason: 'exported to JavaScript by `@JSExport`',
-      members: const .new(
+      // Dart 3.10 can't resolve `.publicMembers` in `const .new(…)` here.
+      // ignore: leancode_lint/prefer_dot_shorthand
+      members: const KeptMembers(
         .publicMembers,
         'exported to JavaScript by `@JSExport` on its class',
       ),
@@ -146,7 +148,9 @@ sealed class EntryPoint {
     .annotationNamed(
       'reflectiveTest',
       packages: const {'test_reflective_loader'},
-      members: const .new(
+      // As for `JSExport` above.
+      // ignore: leancode_lint/prefer_dot_shorthand
+      members: const KeptMembers(
         .reflectiveTestMethods,
         'run by `defineReflectiveTests`',
       ),
