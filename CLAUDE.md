@@ -165,7 +165,9 @@ a cache), vague words (`checked`, `site`, `hit`, `target`) and compiler jargon
 (`Trivia`). Read the name as a word on its own (`uncut` became `lacksCut`),
 make sure it can't be read as its opposite (`dead` for containers not yet
 proven live), and avoid stutter (`button-button`). When two fields hold nearly
-the same data, make the difference show in their names.
+the same data, make the difference show in their names. Call one concept by one
+word in every identifier and label that names it: `SubtypeEntryPoint` and
+`publicMethodsOfSubtypes`, not `publicMethodsOfSubclasses` beside them.
 
 A name claims no more than the code does, and it doesn't list cases either.
 `_directiveEnd` claimed every directive for a function that skips only some,
