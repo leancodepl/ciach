@@ -549,6 +549,8 @@ answer a question, and build nothing until the reviewer says yes.
 - First answer the question that the reviewer asked, in a sentence or two,
   without an essay. When asked whether a tool or package exists, search
   properly and recommend one, rather than handing back a list of options.
+  When a reply weighs several options, number them, give each one a line on
+  what it does and what it costs, and end with the one that you recommend.
 - If a fix meets only part of the concern, say which part.
 - A reply that says "Done in `abc1234`" names a commit on the pull request's
   branch. When a claim turns out wrong, correct it everywhere you posted it,
