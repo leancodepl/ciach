@@ -6,7 +6,7 @@ import 'package:ciach/src/project_config/project_files.dart';
 /// Serverpod generates calls.
 Iterable<EntryPoint> serverpodEntryPoints(Pubspec pubspec) sync* {
   if (pubspec.dependencies.contains('serverpod')) {
-    yield .publicMethodsOfSubclasses(
+    yield .publicMethodsOfSubtypes(
       'Endpoint',
       package: 'serverpod',
       reason: 'called by the Serverpod dispatcher',
