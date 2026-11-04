@@ -71,6 +71,8 @@ An `annotation` rule names a class. It keeps every declaration whose annotation 
 - `subtypes: false` counts only the class itself.
 - `constants: false` counts only a constructor call.
 
+With both set to `false`, the class has to be named after the `@`, so a typedef of it doesn't count.
+
 Widget previews are kept the same way, but only for the `Preview` and `MultiPreview` classes of Flutter, and only through a constructor call. `-v` names each skipped entry point.
 
 ### Ignore markers

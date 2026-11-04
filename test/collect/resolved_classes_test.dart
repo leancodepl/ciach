@@ -118,7 +118,12 @@ class Holder {
     object,
   }, readsConstant: readsConstant);
 
-  final rule = EntryPoint.annotatedWith('Preview', reason: 'shown');
+  final rule = EntryPoint.annotationNamed(
+    'Preview',
+    subtypes: true,
+    constants: true,
+    reason: 'shown',
+  );
 
   test(
     'resolves the class of each annotation with all its supertypes',
@@ -239,7 +244,7 @@ import 'previews.dart';
 @preview void a() {}
 @Preview() void b() {}
 ''',
-        [.annotatedWith('Preview', constants: false, reason: 'shown')],
+        [.annotationNamed('Preview', subtypes: true, reason: 'shown')],
       );
 
       expect(

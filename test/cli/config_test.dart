@@ -101,7 +101,7 @@ dart: /sdk/bin/dart
         'bootstrap',
         'Harness.start in test/a.dart or test/b.dart',
         'declarations annotated with `@Story` or a subtype of it in lib/stories/**',
-        'declarations annotated with `@Story` from `package:stories` by a constructor call',
+        'declarations annotated with `@Story` from `package:stories`',
       ]);
       expect(resolved.additionalGeneratedGlobs, ['lib/l10n/**']);
       expect(resolved.kinds, <SymbolKind>{.class$, .function});

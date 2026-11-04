@@ -1,12 +1,12 @@
 import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/conventions/test_reflective_loader.dart';
 import 'package:ciach/src/source/symbols.dart';
+import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
-part 'annotated_entry_point.dart';
 part 'annotation_named_entry_point.dart';
 part 'named_entry_point.dart';
 part 'subtype_entry_point.dart';
@@ -49,34 +49,24 @@ sealed class EntryPoint {
   }) = SubtypeEntryPoint;
 
   /// Creates a rule that selects every declaration with an annotation called
-  /// [annotation] that one of [packages] declares, and whose first argument
-  /// is the string [argument] unless that is `null`. It keeps the declaration
-  /// for [reason] and, in a type, the [members].
+  /// [annotation] that one of [packages] declares, or any package when it is
+  /// `null`, and whose first argument is the string [argument] unless that is
+  /// `null`. With [subtypes] or [constants], it selects a declaration whose
+  /// annotation creates an object of the class [annotation] instead, also
+  /// through a typedef: [subtypes] counts an object of a subtype of the class
+  /// too, and [constants] counts an annotation that reads a constant, such as
+  /// `@story` for `const story = Story();`. It keeps the declaration for
+  /// [reason] and, in a type, the [members].
   factory EntryPoint.annotationNamed(
     String annotation, {
-    required Set<String> packages,
+    Set<String>? packages,
+    bool subtypes,
+    bool constants,
     String? argument,
     String? reason,
     KeptMembers? members,
     List<String> files,
   }) = AnnotationNamedEntryPoint;
-
-  /// Creates a rule that selects every declaration whose annotation creates
-  /// an object of the class [annotation], from [package] or from any package
-  /// when it is `null`.
-  ///
-  /// Unless [subtypes] is `false`, an object of a subtype of the class
-  /// counts too. Unless [constants] is `false`, an annotation that reads a
-  /// constant, such as `@story` for `const story = Story();`, counts too;
-  /// with it, only a constructor call counts.
-  factory EntryPoint.annotatedWith(
-    String annotation, {
-    String? package,
-    bool? subtypes,
-    bool? constants,
-    required String reason,
-    List<String> files,
-  }) = AnnotatedEntryPoint;
 
   /// Creates a rule that comes from the `entry-points` setting or from the
   /// project config.
@@ -110,8 +100,9 @@ sealed class EntryPoint {
     return .new(name: name, files: files, reason: reason);
   }
 
-  /// Creates an [EntryPoint.annotatedWith] rule that comes from the
-  /// `entry-points` setting.
+  /// Creates an [EntryPoint.annotationNamed] rule that comes from the
+  /// `entry-points` setting. Unless [subtypes] or [constants] is `false`, a
+  /// subtype of the class and a constant count too.
   ///
   /// Throws a [FormatException] if [annotation] is not a class name or
   /// [package] is not a package name. The constructor throws for a glob that
@@ -139,11 +130,11 @@ sealed class EntryPoint {
         "'$package' is not a package name; expected a name such as 'storybook', without `package:`.",
       );
     }
-    return .annotatedWith(
+    return .annotationNamed(
       annotation,
-      package: package,
-      subtypes: subtypes,
-      constants: constants,
+      packages: package?.let((package) => {package}),
+      subtypes: subtypes ?? true,
+      constants: constants ?? true,
       files: files,
       reason: reason,
     );

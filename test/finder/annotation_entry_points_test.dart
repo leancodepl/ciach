@@ -115,6 +115,36 @@ void main() {
   );
 
   test(
+    'with `subtypes: false` and `constants: false`, an `annotation` rule keeps only the declarations annotated with the class by its own name',
+    () async {
+      expect(
+        await findUnused(
+          entryPoints: [
+            .annotationFromConfig('Story', subtypes: false, constants: false),
+          ],
+        ),
+        {
+          'DarkStory',
+          'DarkerStory',
+          'StoryLike',
+          'darkStoryCard',
+          'darkerStoryCard',
+          'likeStoryCard',
+          'StoryAlias',
+          'aliasStoryCard',
+          // Used only by `constantStory`.
+          'story',
+          'constantStory',
+          'deprecatedStory',
+          'notAStory',
+          'Gallery.new',
+          'Gallery.helper',
+        },
+      );
+    },
+  );
+
+  test(
     'keeps the declarations whose annotation is a `Preview` or a `MultiPreview` from Flutter, or a subtype of either',
     () async {
       final root = Directory.systemTemp.createTempSync('ciach_previews_');
