@@ -62,7 +62,9 @@ void main() {
     () async {
       expect(
         await findUnused(
-          entryPoints: [.annotatedWith('Story', reason: 'shown')],
+          entryPoints: [
+            .annotationNamed('Story', subtypes: true, reason: 'shown'),
+          ],
         ),
         {
           // Used only by `constantStory`.

@@ -15,9 +15,10 @@ Iterable<EntryPoint> flutterWidgetPreviewEntryPoints(Pubspec pubspec) sync* {
     return;
   }
   for (final annotation in const ['Preview', 'MultiPreview']) {
-    yield .annotatedWith(
+    yield .annotationNamed(
       annotation,
-      package: 'flutter',
+      packages: const {'flutter'},
+      subtypes: true,
       reason: 'shown by `flutter widget-preview`',
     );
   }

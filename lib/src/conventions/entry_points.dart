@@ -6,7 +6,6 @@ import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
-part 'annotated_entry_point.dart';
 part 'annotation_named_entry_point.dart';
 part 'named_entry_point.dart';
 part 'subtype_entry_point.dart';
@@ -49,28 +48,21 @@ sealed class EntryPoint {
   }) = SubtypeEntryPoint;
 
   /// Creates a rule that selects every declaration with an annotation called
-  /// [annotation] that one of [packages] declares, and whose first argument
-  /// is the string [argument] unless that is `null`. It keeps the declaration
-  /// for [reason] and, in a type, the [members].
+  /// [annotation] that one of [packages] declares, or any package when it is
+  /// `null`, and whose first argument is the string [argument] unless that is
+  /// `null`. With [subtypes], it selects a declaration whose annotation calls
+  /// a constructor of the class [annotation] or of a subtype of it instead,
+  /// also through a typedef. It keeps the declaration for [reason] and, in a
+  /// type, the [members].
   factory EntryPoint.annotationNamed(
     String annotation, {
-    required Set<String> packages,
+    Set<String>? packages,
+    bool subtypes,
     String? argument,
     String? reason,
     KeptMembers? members,
     List<String> files,
   }) = AnnotationNamedEntryPoint;
-
-  /// Creates a rule that selects every declaration whose annotation calls a
-  /// constructor of the class [annotation], from [package] or from any
-  /// package when it is `null`, or of a subtype of it, also through a
-  /// typedef.
-  factory EntryPoint.annotatedWith(
-    String annotation, {
-    String? package,
-    required String reason,
-    List<String> files,
-  }) = AnnotatedEntryPoint;
 
   /// Creates a rule that comes from the `entry-points` setting or from the
   /// project config.

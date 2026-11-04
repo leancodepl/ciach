@@ -114,7 +114,11 @@ class Holder {
     {for (final supertype in supertypes) app(supertype), object},
   );
 
-  final rule = EntryPoint.annotatedWith('Preview', reason: 'shown');
+  final rule = EntryPoint.annotationNamed(
+    'Preview',
+    subtypes: true,
+    reason: 'shown',
+  );
 
   test(
     'resolves the class of each annotation that calls a constructor, with all its supertypes, and of no annotation that reads a constant',

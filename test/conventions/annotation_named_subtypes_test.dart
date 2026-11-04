@@ -10,9 +10,10 @@ import 'package:test/test.dart';
 
 import '../support/declarations.dart';
 
-/// The rules that select a declaration by the class of an annotation on it.
+/// The rules that select a declaration by the class that an annotation on it
+/// creates, or a subtype of that class.
 void main() {
-  group('EntryPoint.annotatedWith', () {
+  group('EntryPoint.annotationNamed with `subtypes`', () {
     /// The class [type] that an annotation creates, from [package], whose
     /// [supertypes] come from the same package.
     AnnotationClass annotationClass(
@@ -37,7 +38,11 @@ void main() {
     );
 
     test('matches a declaration annotated with the class or a subtype', () {
-      final rule = EntryPoint.annotatedWith('Story', reason: 'shown');
+      final rule = EntryPoint.annotationNamed(
+        'Story',
+        subtypes: true,
+        reason: 'shown',
+      );
 
       expect(matchesCard(rule, [annotationClass('Story')]), isTrue);
       expect(
@@ -66,7 +71,11 @@ void main() {
     });
 
     test('with no package, counts a class from any package', () {
-      final rule = EntryPoint.annotatedWith('Story', reason: 'shown');
+      final rule = EntryPoint.annotationNamed(
+        'Story',
+        subtypes: true,
+        reason: 'shown',
+      );
 
       expect(
         matchesCard(rule, [annotationClass('Story', package: 'stories')]),
@@ -75,9 +84,10 @@ void main() {
     });
 
     test('a package counts only the class from that package', () {
-      final rule = EntryPoint.annotatedWith(
+      final rule = EntryPoint.annotationNamed(
         'Story',
-        package: 'stories',
+        packages: const {'stories'},
+        subtypes: true,
         reason: 'shown',
       );
 
@@ -103,8 +113,9 @@ void main() {
     });
 
     test('a glob limits the rule to the files that it matches', () {
-      final rule = EntryPoint.annotatedWith(
+      final rule = EntryPoint.annotationNamed(
         'Story',
+        subtypes: true,
         reason: 'shown',
         files: ['lib/stories/**'],
       );
@@ -135,28 +146,58 @@ void main() {
     });
 
     test('limited to a package, it keeps what it selects', () {
-      final rule = EntryPoint.annotatedWith(
+      final rule = EntryPoint.annotationNamed(
         'Story',
-        package: 'stories',
+        packages: const {'stories'},
+        subtypes: true,
         reason: 'shown',
       ).within('app');
 
-      expect(rule, isA<AnnotatedEntryPoint>());
-      rule as AnnotatedEntryPoint;
+      expect(rule, isA<AnnotationNamedEntryPoint>());
+      rule as AnnotationNamedEntryPoint;
       expect(
-        (rule.annotation, rule.package, rule.reason),
-        ('Story', 'stories', 'shown'),
+        (rule.annotation, rule.subtypes, rule.reason),
+        ('Story', true, 'shown'),
       );
+      expect(rule.packages, {'stories'});
       expect(rule.files, ['app/**']);
+    });
+
+    test('asks the server for the classes, and for no package by hover', () {
+      final rule = EntryPoint.annotationNamed(
+        'Story',
+        packages: const {'stories'},
+        subtypes: true,
+        reason: 'shown',
+      );
+
+      expect(rule.lookups, {ServerLookup.annotationClasses});
+      // Only the built-in rules ask for a hover.
+      expect(EntryPoints([rule]).annotationNamesIn('lib/a.dart'), {
+        'JSExport',
+        'pragma',
+        'reflectiveTest',
+      });
+    });
+
+    test('without `subtypes`, a subclass of the annotation keeps nothing', () {
+      final rule = EntryPoint.annotationNamed('Story', reason: 'shown');
+
+      expect(
+        matchesCard(rule, [
+          annotationClass('DarkStory', supertypes: ['Story']),
+        ]),
+        isFalse,
+      );
     });
 
     test('prints as the annotation, its package and its files', () {
       expect(
-        '${EntryPoint.annotatedWith('Story', reason: 'shown', files: ['lib/**'])}',
+        '${EntryPoint.annotationNamed('Story', subtypes: true, reason: 'shown', files: ['lib/**'])}',
         'declarations annotated with `@Story` or a subtype of it in lib/**',
       );
       expect(
-        '${EntryPoint.annotatedWith('Story', package: 'stories', reason: 'shown')}',
+        '${EntryPoint.annotationNamed('Story', packages: {'stories'}, subtypes: true, reason: 'shown')}',
         'declarations annotated with `@Story` from `package:stories` or a subtype of it',
       );
     });
