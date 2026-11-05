@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/fetch/definitions.dart';
 import 'package:ciach/src/fetch/reachable_types.dart';
-import 'package:ciach/src/fetch/reference_fetch.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/source/reference_kinds.dart';
 import 'package:ciach/src/source/source_index.dart';
@@ -64,10 +63,7 @@ Future<void> _cacheSemanticTokens(
 ) => mapPooled(
   files.whereNot(sources.hasSemanticTokens).toList(),
   concurrency,
-  (path) async => sources.cacheSemanticTokens(
-    path,
-    await semanticTokensOrEmpty(client, sources, path),
-  ),
+  (path) => sources.semanticTokensOf(client, path),
 );
 
 /// Where each name is written in code, per file, from the server's tokens.
