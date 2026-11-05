@@ -56,8 +56,7 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
   Set<String> get annotationNames => subtypes ? const {} : {annotation};
 
   @override
-  Set<ServerLookup> get lookups =>
-      subtypes ? const {.annotationClasses} : const {};
+  Set<ServerLookup> get lookups => {if (subtypes) .annotationClasses};
 
   @override
   bool _selects(ResolvedDeclaration declaration) => subtypes

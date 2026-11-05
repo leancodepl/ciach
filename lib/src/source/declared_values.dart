@@ -19,15 +19,13 @@ SemanticToken? typeNamedBy(
   String path,
   List<SemanticToken> tokens,
   Position name,
-) {
-  // The server gives `=` no token, so it is found in the text. It comes after
-  // the type parameters, whose bounds can't hold one.
-  final equals = sources
-      .offsetOf(path, name)
-      ?.let((offset) => sources.content(path).indexOfOrNull('=', offset));
-  return equals?.let(
-    (equals) => tokens
-        .skip(tokens.firstIndexAtOrAfter(sources.positionOf(path, equals)))
-        .firstWhereOrNull((token) => !token.isImportPrefix),
-  );
-}
+) => sources
+    .offsetOf(path, name)
+    // The server gives `=` no token, so it is found in the text. It comes
+    // after the type parameters, whose bounds can't hold one.
+    ?.let((offset) => sources.content(path).indexOfOrNull('=', offset))
+    ?.let(
+      (equals) => tokens
+          .skip(tokens.firstIndexAtOrAfter(sources.positionOf(path, equals)))
+          .firstWhereOrNull((token) => !token.isImportPrefix),
+    );
