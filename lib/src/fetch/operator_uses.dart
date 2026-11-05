@@ -100,9 +100,7 @@ Future<Map<String, String>?> _renamedContent(
   final replacements = <String, List<({int offset, String text})>>{};
   for (final member in members) {
     final path = SourceIndex.pathOf(member.uri);
-    final tokens =
-        sources.semanticTokens(path) ??
-        await client.semanticTokens(.parse(member.uri), sources.lines(path));
+    final tokens = await sources.semanticTokensOf(client, path);
     if ((
           tokens.lastNonCommentBefore(member.range.start),
           sources.offsetsOf(path, member.range),
