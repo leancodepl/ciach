@@ -48,15 +48,14 @@ sealed class EntryPoint {
   }) = SubtypeEntryPoint;
 
   /// Creates a rule that selects every declaration with an annotation called
-  /// [annotation] that one of [packages] declares, or any package when it is
-  /// `null`, and whose first argument is the string [argument] unless that is
-  /// `null`. With [subtypes], it selects a declaration whose annotation calls
+  /// [annotation] that one of [packages] declares, and whose first argument
+  /// is the string [argument] unless that is `null`. With [subtypes], it selects a declaration whose annotation calls
   /// a constructor of the class [annotation] or of a subtype of it instead,
   /// also through a typedef. It keeps the declaration for [reason] and, in a
   /// type, the [members].
   factory EntryPoint.annotationNamed(
     String annotation, {
-    Set<String>? packages,
+    required Set<String> packages,
     bool subtypes,
     String? argument,
     String? reason,

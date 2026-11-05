@@ -63,7 +63,12 @@ void main() {
       expect(
         await findUnused(
           entryPoints: [
-            .annotationNamed('Story', subtypes: true, reason: 'shown'),
+            .annotationNamed(
+              'Story',
+              packages: const {'sample_pkg'},
+              subtypes: true,
+              reason: 'shown',
+            ),
           ],
         ),
         {

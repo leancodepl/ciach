@@ -116,6 +116,7 @@ class Holder {
 
   final rule = EntryPoint.annotationNamed(
     'Preview',
+    packages: const {'app'},
     subtypes: true,
     reason: 'shown',
   );

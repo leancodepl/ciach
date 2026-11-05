@@ -15,7 +15,7 @@ part of 'entry_points.dart';
 final class AnnotationNamedEntryPoint extends EntryPoint {
   AnnotationNamedEntryPoint(
     this.annotation, {
-    this.packages,
+    required this.packages,
     this.subtypes = false,
     this.argument,
     this.reason,
@@ -32,9 +32,8 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
   final String annotation;
 
   /// The packages that may declare [annotation]: a package name, such as
-  /// `test_reflective_loader`, or an SDK library, such as `dart:core`; `null`
-  /// for any package.
-  final Set<String>? packages;
+  /// `test_reflective_loader`, or an SDK library, such as `dart:core`.
+  final Set<String> packages;
 
   /// Whether the rule selects a declaration by the class that the
   /// annotation's constructor call creates, which [annotation] or a subtype
@@ -54,8 +53,7 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
   final KeptMembers? members;
 
   @override
-  Set<String> get annotationNames =>
-      subtypes || packages == null ? const {} : {annotation};
+  Set<String> get annotationNames => subtypes ? const {} : {annotation};
 
   @override
   Set<ServerLookup> get lookups =>
@@ -69,9 +67,7 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
       : _annotatesByName(declaration);
 
   bool _isAnnotation(ResolvedClass type) =>
-      type.name == annotation && _isFromPackages(type.package);
-
-  bool _isFromPackages(String? package) => packages?.contains(package) ?? true;
+      type.name == annotation && packages.contains(type.package);
 
   bool _annotatesByName(ResolvedDeclaration declaration) {
     final tokens = declaration.leadingMetadata.toList();
@@ -80,7 +76,7 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
     return tokens.indexed.any(
       (named) =>
           named.$2.isAnnotationNamed(annotation) &&
-          _isFromPackages(declaration.annotationPackages[named.$2.start]) &&
+          packages.contains(declaration.annotationPackages[named.$2.start]) &&
           (argument == null ||
               (tokens.elementAtOrNull(named.$1 + 1)?.text == '(' &&
                   tokens.elementAtOrNull(named.$1 + 2)?.stringValue ==
@@ -106,8 +102,7 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
   @override
   String get label => [
     'declarations annotated with `@$annotation`',
-    if (packages case final packages?)
-      'from ${packages.map(_libraryOf).join(' or ')}',
+    'from ${packages.map(_libraryOf).join(' or ')}',
     if (subtypes) 'or a subtype of it',
     if (argument case final argument?) "with `'$argument'`",
   ].join(' ');

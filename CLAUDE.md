@@ -360,7 +360,8 @@ explicit null check.
   tests, instead of adding a second way to do the same thing.
 - Match a declaration that a library provides, such as `@pragma`, by its name
   and by the package that declares it, not by the name alone: a project can
-  declare a `pragma` of its own.
+  declare a `pragma` of its own. Make the package required, also in config
+  rules, rather than letting a missing one match any package.
 - Prefer a general rule to one package's or framework's special case, and say
   in the pull request why a special case stays. Report an idiom that has a
   cleaner replacement, with a hint, instead of skipping it, and report what
