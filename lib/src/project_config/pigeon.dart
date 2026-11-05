@@ -11,10 +11,11 @@ import 'package:ciach/src/workspace/packages.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
-/// Returns a rule that keeps every declaration in the Pigeon input files of
-/// the package in [packagePath]. `dart run pigeon --input <file>` reads such
-/// a file and generates code from it, so nothing imports it. An input file is
-/// a Dart file that imports `package:pigeon/`.
+/// Returns a rule that keeps what Pigeon reads from the input files of the
+/// package in [packagePath]. `dart run pigeon --input <file>` reads such a
+/// file and generates code from it, so nothing imports it. An input file is
+/// a Dart file that imports `package:pigeon/pigeon.dart`, the only import
+/// that Pigeon allows in it.
 Iterable<EntryPoint> pigeonEntryPoints(
   String packagePath,
   Pubspec pubspec,
@@ -37,26 +38,23 @@ Iterable<EntryPoint> pigeonEntryPoints(
         ),
   ]..sort();
   if (inputs.isNotEmpty) {
-    yield .everyDeclaration(
-      reason: 'in a Pigeon input file, which Pigeon generates code from',
-      files: inputs,
-    );
+    yield PigeonInputEntryPoint(files: inputs);
   }
 }
 
-/// Whether the Dart file at [path] imports a library of `package:pigeon`.
+/// Whether the Dart file at [path] imports `package:pigeon/pigeon.dart`.
 bool _importsPigeon(String path) {
   final content = readSource(path);
-  // Only a file that names the package is parsed: stripping comments is slow.
+  // Only a file that names the library is parsed: stripping comments is slow.
   return content != null &&
-      content.contains(_pigeonUri) &&
+      content.contains(_pigeonLibrary) &&
       Directive.allIn(content).any(
         (directive) =>
             directive.keyword == 'import' &&
             directive.uris.any(
-              (uri) => uri.namedGroup('uri')!.startsWith(_pigeonUri),
+              (uri) => uri.namedGroup('uri') == _pigeonLibrary,
             ),
       );
 }
 
-const _pigeonUri = 'package:pigeon/';
+const _pigeonLibrary = 'package:pigeon/pigeon.dart';

@@ -40,26 +40,30 @@ void main() {
       '$rule',
   ];
 
-  test('keeps every declaration in the files that import `package:pigeon`', () {
-    write('pubspec.yaml', 'name: app');
-    write('pigeons/messages.dart', '''
+  test(
+    'finds the input files: the Dart files that import `package:pigeon/pigeon.dart`',
+    () {
+      write('pubspec.yaml', 'name: app');
+      write('pigeons/messages.dart', '''
 import 'package:pigeon/pigeon.dart';
 
 @HostApi()
 abstract class MessageApi {}
 ''');
-    write('pigeons/events.dart', '''
+      write('pigeons/events.dart', '''
 import "package:pigeon/pigeon.dart" as pigeon;
 ''');
-    write('lib/app.dart', '''
+      write('lib/app.dart', '''
 // import 'package:pigeon/pigeon.dart';
 const uri = 'package:pigeon/pigeon.dart';
 ''');
+      write('lib/other.dart', "import 'package:pigeon/other.dart';");
 
-    expect(rules(), [
-      'every declaration in pigeons/events.dart or pigeons/messages.dart',
-    ]);
-  });
+      expect(rules(), [
+        'declarations that Pigeon reads in pigeons/events.dart or pigeons/messages.dart',
+      ]);
+    },
+  );
 
   test('leaves the input files of a nested package to that package', () {
     write('pubspec.yaml', 'name: app');
@@ -70,9 +74,11 @@ const uri = 'package:pigeon/pigeon.dart';
       "import 'package:pigeon/pigeon.dart';",
     );
 
-    expect(rules(), ['every declaration in pigeons/messages.dart']);
+    expect(rules(), [
+      'declarations that Pigeon reads in pigeons/messages.dart',
+    ]);
     expect(rules(path: 'plugin'), [
-      'every declaration in pigeons/messages.dart',
+      'declarations that Pigeon reads in pigeons/messages.dart',
     ]);
   });
 

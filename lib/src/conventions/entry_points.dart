@@ -8,6 +8,7 @@ import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
 part 'annotation_named_entry_point.dart';
 part 'named_entry_point.dart';
+part 'pigeon_input_entry_point.dart';
 part 'subtype_entry_point.dart';
 
 /// A declaration a framework or tool calls by convention, with no source
@@ -62,16 +63,6 @@ sealed class EntryPoint {
     KeptMembers? members,
     List<String> files,
   }) = AnnotationNamedEntryPoint;
-
-  /// Creates a rule that selects every declaration in the files that [files]
-  /// match, for [reason].
-  ///
-  /// Throws an [ArgumentError] when [files] is empty, which would select
-  /// every declaration in the package.
-  factory EntryPoint.everyDeclaration({
-    required String reason,
-    required List<String> files,
-  }) = EveryDeclarationEntryPoint;
 
   /// Creates a rule that comes from the `entry-points` setting or from the
   /// project config.
@@ -215,33 +206,6 @@ sealed class EntryPoint {
       files.isEmpty ? label : '$label in ${files.join(' or ')}';
 }
 
-/// A rule that selects every declaration in its files.
-final class EveryDeclarationEntryPoint extends EntryPoint {
-  EveryDeclarationEntryPoint({required this.reason, required super.files})
-    : super._() {
-    if (files.isEmpty) {
-      throw ArgumentError.value(
-        files,
-        'files',
-        'must hold a glob; without one, the rule selects every declaration',
-      );
-    }
-  }
-
-  @override
-  final String reason;
-
-  @override
-  bool _selects(ResolvedDeclaration declaration) => true;
-
-  @override
-  EveryDeclarationEntryPoint _withFiles(List<String> files) =>
-      .new(reason: reason, files: files);
-
-  @override
-  String get label => 'every declaration';
-}
-
 /// The members of a type that a rule keeps when it selects the type, and
 /// who calls them.
 final class KeptMembers {
@@ -255,6 +219,10 @@ final class KeptMembers {
 
 /// Which members of a type a rule keeps.
 enum MemberSelection {
+  /// Every member, private ones too, which Pigeon reads from a class or an
+  /// enum in an input file.
+  allMembers,
+
   /// The public methods, which Serverpod's dispatcher calls.
   publicMethods,
 
@@ -267,14 +235,14 @@ enum MemberSelection {
   reflectiveTestMethods;
 
   /// Whether [member] is one of the selected members.
-  bool includes(DocumentSymbol member) =>
-      !isPrivateName(member.name) &&
-      switch (this) {
-        publicMethods => member.kind == .method,
-        publicMembers => member.kind != .constructor,
-        reflectiveTestMethods =>
-          member.kind == .method && isReflectiveTestMethod(member.name),
-      };
+  bool includes(DocumentSymbol member) => switch (this) {
+    allMembers => true,
+    _ when isPrivateName(member.name) => false,
+    publicMethods => member.kind == .method,
+    publicMembers => member.kind != .constructor,
+    reflectiveTestMethods =>
+      member.kind == .method && isReflectiveTestMethod(member.name),
+  };
 }
 
 /// A kind of request that a rule needs the analysis server to answer before

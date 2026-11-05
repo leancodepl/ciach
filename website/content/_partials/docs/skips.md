@@ -47,7 +47,7 @@ Some declarations are only called from code a tool generates, so nothing in the 
 | `serverpod` | the classes that have Serverpod's `Endpoint` among their supertypes, and their public methods |
 | `analysis_server_plugin`, or a package an `analysis_options.yaml` under the root loads as a plugin by `path:` | `plugin` in `lib/main.dart` |
 | `custom_lint_builder` | `createPlugin` in `lib/<package>.dart` |
-| `pigeon` | every declaration in a Pigeon input file: a Dart file that imports `package:pigeon`, which `dart run pigeon --input` reads |
+| `pigeon` | what `dart run pigeon --input` reads from an input file, which is a Dart file that imports `package:pigeon/pigeon.dart`: the classes, except an abstract class without an API annotation such as `@HostApi`, the enums, the `const` top-level variables and the declaration that `@ConfigurePigeon` annotates, all with their members |
 
 List any other entry points under `entry-points:` in `ciach.yaml`:
 

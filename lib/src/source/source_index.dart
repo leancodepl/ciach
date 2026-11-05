@@ -17,6 +17,7 @@ import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/line_starts.dart';
 import 'package:ciach/src/util/cached_map.dart';
+import 'package:ciach/src/util/extensions.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position, SelectionRange;
 
 const _noSemanticTokens =
@@ -110,6 +111,15 @@ class SourceIndex {
   /// The syntax nodes enclosing [position] in [path], innermost first.
   SelectionRange? selectionRangeAt(String path, Position position) =>
       _selectionRanges[path]?[(position.line, position.character)];
+
+  /// The tokens from the start of [outline]'s code to its name, such as
+  /// `abstract` and `class` in `abstract class Api`.
+  Iterable<SemanticToken> tokensBeforeName(String path, Outline outline) =>
+      outline.element.range?.let(
+        (name) =>
+            semanticTokens(path)?.between(outline.codeRange.start, name.start),
+      ) ??
+      const [];
 
   /// The tokens of [outline]'s doc comment and annotations.
   Iterable<SemanticToken> leadingMetadata(String path, Outline outline) =>

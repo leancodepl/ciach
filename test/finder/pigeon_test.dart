@@ -18,7 +18,7 @@ import '../support/package_config.dart';
 
 void main() {
   test(
-    'keeps every declaration in a Pigeon input file, and reports the unused code of other files',
+    'keeps what Pigeon reads from an input file, and reports what it skips',
     () async {
       final root = Directory.systemTemp.createTempSync('ciach_pigeon_');
       addTearDown(() => root.deleteSync(recursive: true));
@@ -58,13 +58,21 @@ dev_dependencies:
       write('app/pigeons/messages.dart', '''
 import 'package:pigeon/pigeon.dart';
 
+// What Pigeon reads.
+
 @ConfigurePigeon(PigeonOptions(dartOut: 'lib/src/messages.g.dart'))
 class Message {
   String? text;
   Priority? priority;
 }
 
+class Unreferenced {
+  int? count;
+}
+
 enum Priority { low, high }
+
+const int version = 1;
 
 @HostApi()
 abstract class MessageApi {
@@ -74,6 +82,24 @@ abstract class MessageApi {
 @FlutterApi()
 abstract class MessageListener {
   void onMessage(Message message);
+}
+
+// What Pigeon skips.
+
+abstract class NotAnApi {
+  void call();
+}
+
+final int notAConstant = 2;
+
+void helper() {}
+
+mixin Helpers {}
+
+typedef Alias = Message;
+
+extension MessageText on Message {
+  bool get isEmpty => text?.isEmpty ?? true;
 }
 ''');
       write('app/lib/app.dart', '''
@@ -88,7 +114,15 @@ class Unused {}
         ),
       ).run();
 
-      expect(result.unused.map((d) => d.qualifiedName), {'Unused'});
+      expect(result.unused.map((d) => d.qualifiedName).toSet(), {
+        'NotAnApi',
+        'notAConstant',
+        'helper',
+        'Helpers',
+        'Alias',
+        'MessageText',
+        'Unused',
+      });
     },
   );
 }
