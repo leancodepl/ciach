@@ -101,10 +101,10 @@ final class _HierarchyLookup {
   /// The direct supertypes of each type.
   late final _supertypes = CachedMap<Location, Future<List<TypeHierarchyItem>>>(
     (type) async =>
-        await (await _client.declaringType(
+        await (await _client.typeHierarchyItems(
           .parse(type.uri),
           type.range.start,
-        ))?.let(_client.supertypes) ??
+        )).firstOrNull?.let(_client.supertypes) ??
         const [],
   );
 

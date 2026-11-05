@@ -629,33 +629,6 @@ class LspClient {
     return definition?.asLocationList ?? [?definition?.asLocation];
   }
 
-  /// Returns the class, mixin, enum or extension type that declares the
-  /// member at [position] in [uri], or `null` for an extension member.
-  Future<lsp.TypeHierarchyItem?> declaringType(
-    Uri uri,
-    lsp.Position position,
-  ) async => (await _guard(
-    lsp.RequestMethod.prepareTypeHierarchy.value,
-    () => _client.server.textDocument.prepareTypeHierarchy(
-      .new(
-        textDocument: .new(uri: uri.toString()),
-        position: position,
-      ),
-    ),
-  ))?.firstOrNull;
-
-  /// Returns the direct supertypes of [type]: its superclass, interfaces and
-  /// mixins, and the `on` types of a mixin.
-  Future<List<lsp.TypeHierarchyItem>> supertypes(
-    lsp.TypeHierarchyItem type,
-  ) async {
-    final result = await _guard(
-      lsp.RequestMethod.supertypes.value,
-      () => _client.server.typeHierarchy.supertypes(.new(item: type)),
-    );
-    return result ?? const [];
-  }
-
   /// The syntax nodes enclosing each of [positions] in [uri], innermost first.
   /// `null` where the server has no answer.
   Future<List<lsp.SelectionRange?>> selectionRanges(
