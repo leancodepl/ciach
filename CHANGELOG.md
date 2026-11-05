@@ -3,9 +3,10 @@
 - Stop reporting Flutter widget previews: the declarations annotated with
   `@Preview` or `@MultiPreview`, or with a subtype of either, in a package
   that depends on `flutter`. ([#179](https://github.com/leancodepl/ciach/pull/179))
-- An `entry-points` rule can name an annotation class with `annotation:`. It
-  keeps the declarations whose annotation creates an object of the class or of
-  a subtype, and the keys `package`, `subtypes` and `constants` narrow it.
+- An `entry-points` rule can name an annotation class with `annotation:` and
+  its package with `package:`. It keeps the declarations whose annotation
+  creates an object of the class or of a subtype, and the keys `subtypes` and
+  `constants` narrow it.
   ([#180](https://github.com/leancodepl/ciach/pull/180))
 - Keep a Serverpod endpoint when `package:serverpod`'s `Endpoint` is among the
   supertypes of its class, also through another class. Before, ciach kept only

@@ -244,7 +244,11 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
         rule['glob'],
         (files) => .annotationFromConfig(
           annotation,
-          package: _stringAt('$at.package', rule['package']),
+          package:
+              _stringAt('$at.package', rule['package']) ??
+              (throw FormatException(
+                "$path: '$at' needs `package:`, the package that declares `$annotation`, such as `package: stories`.",
+              )),
           subtypes: _booleanAt('$at.subtypes', rule['subtypes']),
           constants: _booleanAt('$at.constants', rule['constants']),
           files: files,

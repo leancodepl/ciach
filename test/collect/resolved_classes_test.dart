@@ -120,6 +120,7 @@ class Holder {
 
   final rule = EntryPoint.annotationNamed(
     'Preview',
+    packages: const {'app'},
     subtypes: true,
     constants: true,
     reason: 'shown',
@@ -244,7 +245,14 @@ import 'previews.dart';
 @preview void a() {}
 @Preview() void b() {}
 ''',
-        [.annotationNamed('Preview', subtypes: true, reason: 'shown')],
+        [
+          .annotationNamed(
+            'Preview',
+            packages: const {'app'},
+            subtypes: true,
+            reason: 'shown',
+          ),
+        ],
       );
 
       expect(

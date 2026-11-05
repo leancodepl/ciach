@@ -50,6 +50,7 @@ Config file:
       - name: MyHost.callback         # a member, called from native code
         glob: 'lib/my_host.dart'
       - annotation: Story             # what `@Story()` annotates
+        package: stories              # the package that declares `Story`
     kinds: [class, function]
     format: json
 

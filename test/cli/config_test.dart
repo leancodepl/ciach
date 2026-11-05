@@ -66,6 +66,7 @@ entry-points:
   - name: Harness.start
     glob: [test/a.dart, test/b.dart]
   - annotation: Story
+    package: stories
     glob: 'lib/stories/**'
   - annotation: Story
     package: stories
@@ -100,7 +101,7 @@ dart: /sdk/bin/dart
         'registerWith in lib/**_plugin.dart',
         'bootstrap',
         'Harness.start in test/a.dart or test/b.dart',
-        'declarations annotated with `@Story` or a subtype of it in lib/stories/**',
+        'declarations annotated with `@Story` from `package:stories` or a subtype of it in lib/stories/**',
         'declarations annotated with `@Story` from `package:stories`',
       ]);
       expect(resolved.additionalGeneratedGlobs, ['lib/l10n/**']);
@@ -350,18 +351,20 @@ concurrency: 4
             "'entry-points[0].glob' must be",
         "entry-points: [{name: a, glob: 'lib/['}]": "glob 'lib/[': expected",
         'entry-points: [{annotation: 1}]': "'entry-points[0]' must be `{name:",
-        'entry-points: [{annotation: A.b}]': 'not a class name',
-        "entry-points: [{annotation: '@Story'}]":
+        'entry-points: [{annotation: A}]':
+            "'entry-points[0]' needs `package:`, the package that declares `A`",
+        'entry-points: [{annotation: A.b, package: a}]': 'not a class name',
+        "entry-points: [{annotation: '@Story', package: a}]":
             'without `@`, such as `Story`',
-        'entry-points: [{annotation: A, glob: 1}]':
+        'entry-points: [{annotation: A, package: a, glob: 1}]':
             "'entry-points[0].glob' must be",
         'entry-points: [{annotation: A, package: 1}]':
             "'entry-points[0].package' must be a string",
         'entry-points: [{annotation: A, package: "package:a"}]':
             'not a package name',
-        'entry-points: [{annotation: A, subtypes: yes}]':
+        'entry-points: [{annotation: A, package: a, subtypes: yes}]':
             "'entry-points[0].subtypes' must be true or false",
-        'entry-points: [{annotation: A, constants: 1}]':
+        'entry-points: [{annotation: A, package: a, constants: 1}]':
             "'entry-points[0].constants' must be true or false",
         // `subtypes` and `constants` belong to an annotation rule.
         'entry-points: [{name: a, subtypes: false}]':

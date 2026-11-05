@@ -1,7 +1,6 @@
 import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/conventions/test_reflective_loader.dart';
 import 'package:ciach/src/source/symbols.dart';
-import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
@@ -49,17 +48,17 @@ sealed class EntryPoint {
   }) = SubtypeEntryPoint;
 
   /// Creates a rule that selects every declaration with an annotation called
-  /// [annotation] that one of [packages] declares, or any package when it is
-  /// `null`, and whose first argument is the string [argument] unless that is
-  /// `null`. With [subtypes] or [constants], it selects a declaration whose
-  /// annotation creates an object of the class [annotation] instead, also
-  /// through a typedef: [subtypes] counts an object of a subtype of the class
-  /// too, and [constants] counts an annotation that reads a constant, such as
-  /// `@story` for `const story = Story();`. It keeps the declaration for
-  /// [reason] and, in a type, the [members].
+  /// [annotation] that one of [packages] declares, and whose first argument
+  /// is the string [argument] unless that is `null`. With [subtypes] or
+  /// [constants], it selects a declaration whose annotation creates an object
+  /// of the class [annotation] instead, also through a typedef: [subtypes]
+  /// counts an object of a subtype of the class too, and [constants] counts
+  /// an annotation that reads a constant, such as `@story` for
+  /// `const story = Story();`. It keeps the declaration for [reason] and, in
+  /// a type, the [members].
   factory EntryPoint.annotationNamed(
     String annotation, {
-    Set<String>? packages,
+    required Set<String> packages,
     bool subtypes,
     bool constants,
     String? argument,
@@ -109,7 +108,7 @@ sealed class EntryPoint {
   /// does not parse.
   factory EntryPoint.annotationFromConfig(
     String annotation, {
-    String? package,
+    required String package,
     bool? subtypes,
     bool? constants,
     List<String> files = const [],
@@ -125,14 +124,14 @@ sealed class EntryPoint {
         "'$annotation' is not a class name; expected an identifier such as 'Story'.",
       );
     }
-    if (package != null && !_packageName.hasMatch(package)) {
+    if (!_packageName.hasMatch(package)) {
       throw FormatException(
         "'$package' is not a package name; expected a name such as 'storybook', without `package:`.",
       );
     }
     return .annotationNamed(
       annotation,
-      packages: package?.let((package) => {package}),
+      packages: {package},
       subtypes: subtypes ?? true,
       constants: constants ?? true,
       files: files,

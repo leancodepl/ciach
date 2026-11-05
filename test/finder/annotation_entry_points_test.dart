@@ -60,12 +60,12 @@ void main() {
   test(
     'an `annotation` rule keeps the declarations whose annotation creates an object of the class or of a subtype of it',
     () async {
-      expect(await findUnused(entryPoints: [.annotationFromConfig('Story')]), {
-        'deprecatedStory',
-        'notAStory',
-        'Gallery.new',
-        'Gallery.helper',
-      });
+      expect(
+        await findUnused(
+          entryPoints: [.annotationFromConfig('Story', package: 'sample_pkg')],
+        ),
+        {'deprecatedStory', 'notAStory', 'Gallery.new', 'Gallery.helper'},
+      );
     },
   );
 
@@ -74,7 +74,13 @@ void main() {
     () async {
       expect(
         await findUnused(
-          entryPoints: [.annotationFromConfig('Story', subtypes: false)],
+          entryPoints: [
+            .annotationFromConfig(
+              'Story',
+              package: 'sample_pkg',
+              subtypes: false,
+            ),
+          ],
         ),
         {
           'DarkStory',
@@ -99,7 +105,13 @@ void main() {
     () async {
       expect(
         await findUnused(
-          entryPoints: [.annotationFromConfig('Story', constants: false)],
+          entryPoints: [
+            .annotationFromConfig(
+              'Story',
+              package: 'sample_pkg',
+              constants: false,
+            ),
+          ],
         ),
         {
           // Used only by `constantStory`.
@@ -120,7 +132,12 @@ void main() {
       expect(
         await findUnused(
           entryPoints: [
-            .annotationFromConfig('Story', subtypes: false, constants: false),
+            .annotationFromConfig(
+              'Story',
+              package: 'sample_pkg',
+              subtypes: false,
+              constants: false,
+            ),
           ],
         ),
         {
