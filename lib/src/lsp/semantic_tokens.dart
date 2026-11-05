@@ -186,8 +186,8 @@ extension SemanticTokenLookup on List<SemanticToken> {
   /// `@AliasPreview()`. An annotation that reads a constant, such as
   /// `@preview` or `@Holder.held`, has none.
   Iterable<AnnotationName> annotationNames() sync* {
-    for (final (i, _) in indexed.where((it) => it.$2.text == '@')) {
-      if (_constructorCalledAfter(i) case final name?) {
+    for (final (i, t) in indexed) {
+      if (_constructorCalledAfter(i) case final name? when t.text == '@') {
         yield name;
       }
     }
