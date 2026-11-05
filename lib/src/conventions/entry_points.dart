@@ -63,6 +63,16 @@ sealed class EntryPoint {
     List<String> files,
   }) = AnnotationNamedEntryPoint;
 
+  /// Creates a rule that selects every declaration in the files that [files]
+  /// match, for [reason].
+  ///
+  /// Throws an [ArgumentError] when [files] is empty, which would select
+  /// every declaration in the package.
+  factory EntryPoint.everyDeclaration({
+    required String reason,
+    required List<String> files,
+  }) = EveryDeclarationEntryPoint;
+
   /// Creates a rule that comes from the `entry-points` setting or from the
   /// project config.
   ///
@@ -203,6 +213,33 @@ sealed class EntryPoint {
   @override
   String toString() =>
       files.isEmpty ? label : '$label in ${files.join(' or ')}';
+}
+
+/// A rule that selects every declaration in its files.
+final class EveryDeclarationEntryPoint extends EntryPoint {
+  EveryDeclarationEntryPoint({required this.reason, required super.files})
+    : super._() {
+    if (files.isEmpty) {
+      throw ArgumentError.value(
+        files,
+        'files',
+        'must hold a glob; without one, the rule selects every declaration',
+      );
+    }
+  }
+
+  @override
+  final String reason;
+
+  @override
+  bool _selects(ResolvedDeclaration declaration) => true;
+
+  @override
+  EveryDeclarationEntryPoint _withFiles(List<String> files) =>
+      .new(reason: reason, files: files);
+
+  @override
+  String get label => 'every declaration';
 }
 
 /// The members of a type that a rule keeps when it selects the type, and

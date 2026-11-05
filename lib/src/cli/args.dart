@@ -213,7 +213,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/project-config',
       defaultsTo: true,
       helpText:
-          'Read entry points and generated files from pubspec.yaml, build.yaml and l10n.yaml.',
+          'Read entry points and generated files from pubspec.yaml, build.yaml, l10n.yaml, analysis_options.yaml, firebase.json and Pigeon input files.',
     ),
   ),
   // Config file only: a map has no command-line spelling.

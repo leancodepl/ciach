@@ -9,14 +9,16 @@ import 'package:ciach/src/project_config/flutter_gen_l10n.dart';
 import 'package:ciach/src/project_config/flutter_plugin.dart';
 import 'package:ciach/src/project_config/flutter_widget_previews.dart';
 import 'package:ciach/src/project_config/flutterfire.dart';
+import 'package:ciach/src/project_config/pigeon.dart';
 import 'package:ciach/src/project_config/project_files.dart';
 import 'package:ciach/src/project_config/serverpod.dart';
 import 'package:path/path.dart' as p;
 
 /// The entry points and generated files that are declared in a project's
-/// pubspec.yaml, build.yaml and l10n.yaml. Files that cannot be parsed are
-/// ignored. `Ciach` does not read the project config by itself, so pass
-/// [entryPoints] and [generatedGlobs] to `FinderOptions`.
+/// pubspec.yaml, build.yaml, l10n.yaml, analysis_options.yaml, firebase.json
+/// and Pigeon input files. Files that cannot be parsed are ignored. `Ciach`
+/// does not read the project config by itself, so pass [entryPoints] and
+/// [generatedGlobs] to `FinderOptions`.
 final class ProjectConfig {
   const ProjectConfig({
     this.entryPoints = const [],
@@ -84,6 +86,7 @@ final class ProjectConfig {
             loadedAsPlugin: loadedAsPlugin,
           ),
           ...customLintEntryPoints(pubspec),
+          ...pigeonEntryPoints(packagePath, pubspec),
         ])
           '$rule': rule,
       }.values.toList(),
