@@ -14,13 +14,14 @@ part 'subtype_entry_point.dart';
 /// A declaration a framework or tool calls by convention, with no source
 /// reference for the search to find.
 ///
-/// A rule selects declarations by their name, by an annotation or by a
-/// supertype, in the files it lives in. It keeps what it selects, and for a
-/// type, it may keep some of the type's members too. That is the whole
-/// contract the callers apply themselves — flutter_tools finds
-/// `flutter_test_config.dart` by name and generates a call to
-/// `testExecutable` — so a rule says nothing about the declaration's shape.
-/// The compiler enforces the shape at the generated call site.
+/// A rule selects declarations by their name, by an annotation, by a
+/// supertype, or, in a Pigeon input file, by their kind and keywords, in the
+/// files it lives in. It keeps what it selects, and for a type, it may keep
+/// some of the type's members too. That is the whole contract the callers
+/// apply themselves — flutter_tools finds `flutter_test_config.dart` by name
+/// and generates a call to `testExecutable` — so a rule that selects by name
+/// says nothing about the declaration's shape. The compiler enforces the
+/// shape at the generated call site.
 sealed class EntryPoint {
   /// Creates a rule that selects the declaration called [name], which is
   /// `name` or `Container.member`. [files] are POSIX globs relative to the

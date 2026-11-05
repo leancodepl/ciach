@@ -21,78 +21,71 @@ void main() {
     package.deleteSync(recursive: true);
   });
 
-  void write(String relativePath, String content) {
-    File(p.join(package.path, p.joinAll(p.posix.split(relativePath))))
-      ..createSync(recursive: true)
-      ..writeAsStringSync(content);
+  /// Writes [content] to [relativePath] and returns the absolute path.
+  String write(String relativePath, String content) {
+    final file =
+        File(p.join(package.path, p.joinAll(p.posix.split(relativePath))))
+          ..createSync(recursive: true)
+          ..writeAsStringSync(content);
+    return file.path;
   }
 
-  /// The rules for the package, which depends on [dependencies], as text.
-  List<String> rules({
-    String path = '',
+  /// The rules for the package with [dartFiles], which depends on
+  /// [dependencies], as text.
+  List<String> rules(
+    List<String> dartFiles, {
     Set<String> dependencies = const {'pigeon'},
   }) => [
-    for (final rule in pigeonEntryPoints(p.join(package.path, path), (
+    for (final rule in pigeonEntryPoints(package.path, (
       name: 'app',
       dependencies: dependencies,
       yaml: null,
-    )))
+    ), dartFiles))
       '$rule',
   ];
 
   test(
     'finds the input files: the Dart files that import `package:pigeon/pigeon.dart`',
     () {
-      write('pubspec.yaml', 'name: app');
-      write('pigeons/messages.dart', '''
+      final files = [
+        write('pigeons/messages.dart', '''
 import 'package:pigeon/pigeon.dart';
 
 @HostApi()
 abstract class MessageApi {}
-''');
-      write('pigeons/events.dart', '''
+'''),
+        write('pigeons/events.dart', '''
 import "package:pigeon/pigeon.dart" as pigeon;
-''');
-      write('lib/app.dart', '''
+'''),
+        write('lib/app.dart', '''
 // import 'package:pigeon/pigeon.dart';
 const uri = 'package:pigeon/pigeon.dart';
-''');
-      write('lib/other.dart', "import 'package:pigeon/other.dart';");
+'''),
+        write('lib/other.dart', "import 'package:pigeon/other.dart';"),
+      ];
 
-      expect(rules(), [
+      expect(rules(files), [
         'declarations that Pigeon reads in pigeons/events.dart or pigeons/messages.dart',
       ]);
     },
   );
 
-  test('leaves the input files of a nested package to that package', () {
-    write('pubspec.yaml', 'name: app');
-    write('pigeons/messages.dart', "import 'package:pigeon/pigeon.dart';");
-    write('plugin/pubspec.yaml', 'name: plugin');
-    write(
-      'plugin/pigeons/messages.dart',
-      "import 'package:pigeon/pigeon.dart';",
-    );
-
-    expect(rules(), [
-      'declarations that Pigeon reads in pigeons/messages.dart',
-    ]);
-    expect(rules(path: 'plugin'), [
-      'declarations that Pigeon reads in pigeons/messages.dart',
-    ]);
-  });
-
   test('a package without a Pigeon input file has no rule', () {
-    write('pubspec.yaml', 'name: app');
-    write('lib/app.dart', 'class App {}');
-
-    expect(rules(), isEmpty);
+    expect(rules([write('lib/app.dart', 'class App {}')]), isEmpty);
   });
 
   test('a package that does not depend on `pigeon` has no rule', () {
-    write('pubspec.yaml', 'name: app');
-    write('pigeons/messages.dart', "import 'package:pigeon/pigeon.dart';");
-
-    expect(rules(dependencies: {'meta'}), isEmpty);
+    expect(
+      rules(
+        [
+          write(
+            'pigeons/messages.dart',
+            "import 'package:pigeon/pigeon.dart';",
+          ),
+        ],
+        dependencies: {'meta'},
+      ),
+      isEmpty,
+    );
   });
 }

@@ -74,6 +74,8 @@ enum Priority { low, high }
 
 const int version = 1;
 
+const int major = 1, minor = 2;
+
 @HostApi()
 abstract class MessageApi {
   void send(Message message);
@@ -91,6 +93,10 @@ abstract class NotAnApi {
 }
 
 final int notAConstant = 2;
+
+// The `const` belongs to the annotation.
+@Deprecated(const String.fromEnvironment('reason'))
+final int notAConstantEither = 3;
 
 void helper() {}
 
@@ -117,6 +123,7 @@ class Unused {}
       expect(result.unused.map((d) => d.qualifiedName).toSet(), {
         'NotAnApi',
         'notAConstant',
+        'notAConstantEither',
         'helper',
         'Helpers',
         'Alias',

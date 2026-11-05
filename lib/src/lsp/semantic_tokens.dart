@@ -61,6 +61,9 @@ final class SemanticToken {
 
   bool get isKeyword => type == 'keyword';
 
+  /// Whether this is the `@`, `(` or `)` of an annotation.
+  bool get isAnnotationPunctuation => type == 'annotation';
+
   bool get isImportPrefix => modifiers.contains('importPrefix');
 
   bool get isDeclaration => modifiers.contains('declaration');

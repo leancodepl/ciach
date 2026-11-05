@@ -99,8 +99,13 @@ final class KeptDeclarations {
     container: candidate.container,
     inEnum: candidate.containerSymbol?.kind == .enum$,
     outlineKind: candidate.outline.element.kind,
+    // A keyword before the last annotation, such as the `const` in
+    // `@Meta(const []) final int x;`, belongs to an annotation.
     keywords: {
-      for (final token in [...leadingMetadata, ...tokensBeforeName])
+      for (final token in [
+        ...leadingMetadata,
+        ...tokensBeforeName,
+      ].reversed.takeWhile((token) => !token.isAnnotationPunctuation))
         if (token.isKeyword) token.text,
     },
     leadingMetadata: leadingMetadata,
