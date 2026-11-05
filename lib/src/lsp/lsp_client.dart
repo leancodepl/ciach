@@ -566,6 +566,37 @@ class LspClient {
     };
   }
 
+  /// The type at [position] in [uri], via `textDocument/prepareTypeHierarchy`.
+  /// At a constructor call this is the class that the constructor creates.
+  /// Empty when there is no type at [position].
+  Future<List<lsp.TypeHierarchyItem>> typeHierarchyItems(
+    Uri uri,
+    lsp.Position position,
+  ) async {
+    final result = await _guard(
+      lsp.RequestMethod.prepareTypeHierarchy.value,
+      () => _client.server.textDocument.prepareTypeHierarchy(
+        .new(
+          textDocument: .new(uri: uri.toString()),
+          position: position,
+        ),
+      ),
+    );
+    return result ?? const [];
+  }
+
+  /// The direct supertypes of [item]: its superclass, mixins, interfaces and
+  /// `on` types, via `typeHierarchy/supertypes`.
+  Future<List<lsp.TypeHierarchyItem>> supertypes(
+    lsp.TypeHierarchyItem item,
+  ) async {
+    final result = await _guard(
+      lsp.RequestMethod.supertypes.value,
+      () => _client.server.typeHierarchy.supertypes(.new(item: item)),
+    );
+    return result ?? const [];
+  }
+
   /// The members that override the member at [position] in [uri], via
   /// `textDocument/implementation`. Empty when nothing overrides it.
   Future<List<lsp.Location>> implementations(

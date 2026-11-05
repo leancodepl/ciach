@@ -205,4 +205,43 @@ void f() {}
       ]);
     });
   });
+
+  group('SemanticToken.stringValue', () {
+    SemanticToken token(String type, String text) => .new(
+      line: 0,
+      character: 0,
+      length: text.length,
+      type: type,
+      modifiers: const {},
+      text: text,
+    );
+
+    test('is the text between the quotes of a plain string literal', () {
+      expect(
+        [
+          "'vm:entry-point'",
+          '"vm:entry-point"',
+          "r'vm:entry-point'",
+          "'''vm:entry-point'''",
+          '"""vm:entry-point"""',
+        ].map((text) => token('string', text).stringValue),
+        everyElement('vm:entry-point'),
+      );
+    });
+
+    test(
+      'is `null` for a string with an escape or an interpolation, and for another token',
+      () {
+        expect(
+          [
+            token('string', r"'vm:entry\-point'"),
+            token('string', r"'vm:$point'"),
+            token('string', '\'vm:entry-point"'),
+            token('variable', 'entryPoint'),
+          ].map((token) => token.stringValue),
+          everyElement(isNull),
+        );
+      },
+    );
+  });
 }

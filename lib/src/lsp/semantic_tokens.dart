@@ -61,12 +61,39 @@ final class SemanticToken {
 
   bool get isKeyword => type == 'keyword';
 
+  bool get isImportPrefix => modifiers.contains('importPrefix');
+
   bool get isDeclaration => modifiers.contains('declaration');
 
   /// Whether this is the name of an `@[name]` annotation.
   bool isAnnotationNamed(String name) =>
       modifiers.contains('annotation') && text == name;
+
+  /// The value of this string literal without its quotes, such as
+  /// `vm:entry-point` for `'vm:entry-point'`, or `null` when this is not a
+  /// string literal or has an escape or an interpolation.
+  String? get stringValue => type == 'string'
+      ? _plainString.firstMatch(text)?.namedGroup('value')
+      : null;
 }
+
+/// A string literal with no escape and no interpolation, in any quotes:
+/// `'a'`, `"a"`, `r'a'` or `'''a'''`. The semantic token of a string
+/// literal holds its source text, quotes included.
+final _plainString = RegExp(
+  r'''^r?(?<quote>'{3}|"{3}|'|")(?<value>[^\\$'"]*)\k<quote>$''',
+);
+
+/// The name that follows the `@` of an annotation that calls a constructor,
+/// as [SemanticTokenLookup.annotationNames] returns it.
+typedef AnnotationName = ({
+  /// The token of the name: the class or typedef whose constructor the
+  /// annotation calls.
+  SemanticToken token,
+
+  /// The name as written, with its import prefix: `previews.Preview`.
+  String written,
+});
 
 /// Decodes the relative-encoded [data] of a `semanticTokens/full` response.
 /// Tokens outside the legend or the file are dropped.
@@ -152,4 +179,53 @@ extension SemanticTokenLookup on List<SemanticToken> {
   /// The tokens starting at or after [from] and before [to].
   Iterable<SemanticToken> between(Position from, Position to) =>
       skip(firstIndexAtOrAfter(from)).takeWhile((t) => t.start.isBefore(to));
+
+  /// Returns the name of each annotation among these tokens that calls a
+  /// constructor: `Preview` in `@Preview()`, `@Preview.named()` and
+  /// `@prefix.Preview()`, and a typedef such as `AliasPreview` in
+  /// `@AliasPreview()`. An annotation that reads a constant, such as
+  /// `@preview` or `@Holder.held`, has none.
+  Iterable<AnnotationName> annotationNames() sync* {
+    for (final (i, t) in indexed) {
+      if (_constructorCalledAfter(i) case final name? when t.text == '@') {
+        yield name;
+      }
+    }
+  }
+
+  /// Returns the name of the class or typedef whose constructor the
+  /// annotation that starts with the `@` at [index] calls, or `null` when
+  /// the annotation reads a constant.
+  AnnotationName? _constructorCalledAfter(int index) =>
+      switch (skip(index + 1).take(5).toList()) {
+        [
+          SemanticToken(isImportPrefix: true, :final text),
+          SemanticToken(text: '.'),
+          ...final rest,
+        ] =>
+          _constructorNamedBy(rest, '$text.'),
+        final rest => _constructorNamedBy(rest, ''),
+      };
+
+  /// Returns the name of the class or typedef that [tokens], which follow the
+  /// `@` and the import [prefix] of an annotation, start with, or `null` when
+  /// they name a constant.
+  static AnnotationName? _constructorNamedBy(
+    List<SemanticToken> tokens,
+    String prefix,
+  ) => switch (tokens) {
+    // `Holder` in `@Holder.held` is the class of a static constant.
+    [
+      SemanticToken(type: 'class' || 'type'),
+      SemanticToken(text: '.'),
+      SemanticToken(type: 'property'),
+      ...,
+    ] =>
+      null,
+    [final name && SemanticToken(type: 'class' || 'type'), ...] => (
+      token: name,
+      written: '$prefix${name.text}',
+    ),
+    _ => null,
+  };
 }

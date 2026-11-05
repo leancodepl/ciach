@@ -244,7 +244,7 @@ entry-points: [{name: registerWith, glob: lib/**}]''', origin: 'c.yaml'),
       expect(
         lines,
         contains(
-          '  entry-points: (none) (default); public methods of `Endpoint` subclasses (project config)',
+          '  entry-points: (none) (default); public methods of `Endpoint` subtypes (project config)',
         ),
       );
     });

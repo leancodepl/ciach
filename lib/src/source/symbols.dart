@@ -10,6 +10,7 @@
 
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
+import 'package:ciach/src/util/extensions.dart';
 import 'package:pro_lsp/pro_lsp.dart'
     show DocumentSymbol, Position, Range, SymbolKind;
 
@@ -132,6 +133,14 @@ extension SymbolChecks on DocumentSymbol {
     }
     return name.isEmpty || name == container ? 'new' : name;
   }
+
+  /// The name of this symbol as the report prints it: `name` at the top
+  /// level, and `Container.member` inside [container].
+  String qualifiedName(String? container) =>
+      container?.let(
+        (container) => '$container.${declarationName(container)}',
+      ) ??
+      name;
 
   /// The symbol's code, body included.
   DeclarationRange get declarationRange => range.toDeclarationRange;
