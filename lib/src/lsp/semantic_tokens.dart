@@ -189,8 +189,8 @@ extension SemanticTokenLookup on List<SemanticToken> {
   /// as `AliasPreview` in `@AliasPreview()`, and the constants `preview` in
   /// `@preview` and `held` in `@Holder.held`.
   Iterable<AnnotationName> annotationNames() sync* {
-    for (final (i, _) in indexed.where((it) => it.$2.text == '@')) {
-      if (_annotationNameAfter(i) case final name?) {
+    for (final (i, t) in indexed) {
+      if (_annotationNameAfter(i) case final name? when t.text == '@') {
         yield name;
       }
     }
