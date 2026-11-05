@@ -125,7 +125,7 @@ opts back in at that cost.
 | `@override` members | often reached polymorphically or by a framework (`build`, `initState`, `==`, …), which a name-based search misses. One that overrides a dead member is dead too, and `--remove` [takes both](#removing-dead-code) | `--also overrides` |
 | Operators that override one from the SDK or another package, such as `==` | the SDK calls `==` with no code that names it, and the uses through the other package's type can't be found | — |
 | Declarations and files marked [`// ciach:ignore`][docs-skips] | they are kept on purpose | — |
-| `@pragma('vm:entry-point')` | reachable from native code or reflection | — |
+| `@pragma('vm:entry-point')`, and the class of a member that has it | reachable from native code or reflection | — |
 | `@JSExport`, and the public members of a `@JSExport` class | JavaScript can call them | — |
 | `test_…` methods of a `@reflectiveTest` class | they run through `dart:mirrors` | — |
 | Generated files | by filename, by a generated-code banner, by the [project config][docs-skips] and by `--generated-glob`. Still read, so a declaration used only from a `.g.dart` is not misreported | `--generated` |
@@ -183,7 +183,7 @@ that are report-only because removing them would not compile:
 | `-e, --exclude <glob>` | — | Skip these files: nothing in them is reported, but their references still count. Repeatable. |
 | `-i, --include <glob>` | — | Scan only these files. The references in other files still count. Repeatable. |
 | `--generated-glob <glob>` | — | Treat these files as generated: their references count, but nothing in them is reported or removed. For output without a suffix or banner, or code kept as is, like a vendored copy. Repeatable. |
-| `-k, --kinds <list>` | all | Report only these kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value`. |
+| `-k, --kinds <list>` | all | Report only these kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value, typedef`. |
 | `-f, --format <fmt>` | `text`; the service's on CI | `text`, `json`, `github`, `azure`, `teamcity`, `sarif`, `checkstyle` or `gitlab`. See [CI](#ci). |
 | `-j, --concurrency <n>` | `16` | Reference queries to run at once. |
 | `--[no-]color` | auto | Colorize the output. Honors `NO_COLOR`. |

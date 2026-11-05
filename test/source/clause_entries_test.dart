@@ -39,10 +39,7 @@ void main() {
     File(path).writeAsStringSync(source);
     client.didOpen(File(path).uri, source);
     final sources = SourceIndex()..cacheLines(path, source.split('\n'));
-    sources.cacheSemanticTokens(
-      path,
-      await semanticTokensOrEmpty(client, sources, path),
-    );
+    await sources.semanticTokensOf(client, path);
     return (
       path,
       sources,

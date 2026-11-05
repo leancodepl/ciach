@@ -100,12 +100,17 @@ extension SymbolChecks on DocumentSymbol {
   /// values with [SymbolKind.enum$] (same as the enum type), so remap them to
   /// [SymbolKind.enumMember] under an enum to match the `enum-value` CLI kind.
   /// It tags mixins with [SymbolKind.class$], so remap them to
-  /// [SymbolKind.interface$], the `mixin` CLI kind.
+  /// [SymbolKind.interface$], the `mixin` CLI kind. It tags a type alias
+  /// with [SymbolKind.object] and a function type alias with
+  /// [SymbolKind.class$], so remap both to [SymbolKind.object], the `typedef`
+  /// CLI kind.
   SymbolKind reportedKind({
     required bool parentIsEnum,
     bool isExtensionType = false,
     bool isMixin = false,
+    bool isTypeAlias = false,
   }) => switch (kind) {
+    _ when isTypeAlias => .object,
     .enum$ when parentIsEnum => .enumMember,
     .class$ when isMixin => .interface$,
     .namespace when isExtensionType => .struct,
@@ -128,6 +133,14 @@ extension SymbolChecks on DocumentSymbol {
     }
     return name.isEmpty || name == container ? 'new' : name;
   }
+
+  /// The name of this symbol as the report prints it: `name` at the top
+  /// level, and `Container.member` inside [container].
+  String qualifiedName(String? container) =>
+      container?.let(
+        (container) => '$container.${declarationName(container)}',
+      ) ??
+      name;
 
   /// The symbol's code, body included.
   DeclarationRange get declarationRange => range.toDeclarationRange;

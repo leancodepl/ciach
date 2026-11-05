@@ -5,6 +5,30 @@
   from the SDK or another package, is never reported. See
   [MIGRATION.md](MIGRATION.md).
   ([#157](https://github.com/leancodepl/ciach/pull/157))
+- Stop reporting Flutter widget previews: the declarations annotated with
+  `@Preview` or `@MultiPreview`, or with a subtype of either, in a package
+  that depends on `flutter`. ([#179](https://github.com/leancodepl/ciach/pull/179))
+- Keep a Serverpod endpoint when `package:serverpod`'s `Endpoint` is among the
+  supertypes of its class, also through another class. Before, ciach kept only
+  a class whose `extends` clause named `Endpoint`, whichever package declared
+  it. ([#176](https://github.com/leancodepl/ciach/pull/176))
+- Fix what ciach keeps as entry points:
+  - A class whose member has `@pragma('vm:entry-point')` is no longer
+    reported, so `--remove` no longer deletes it.
+  - `@pragma`, `@JSExport` and `@reflectiveTest` count only when the SDK,
+    `package:js` or `package:test_reflective_loader` declares them, and
+    `vm:entry-point` only as the argument of `@pragma`.
+  - A class that extends Serverpod's `Endpoint` is kept also without public
+    methods.
+  ([#175](https://github.com/leancodepl/ciach/pull/175))
+- Report unused typedefs under a new `typedef` kind, which `--kinds` accepts.
+  Before, an unused `typedef A = B;` was never reported and kept `B` from
+  being reported, and an unused function typedef was reported as a `class`.
+  ([#167](https://github.com/leancodepl/ciach/pull/167))
+- Skip the `.widget_preview` directory, in which `flutter widget-preview start`
+  writes the app that shows the previews. Before, ciach scanned that app like
+  the project's own code.
+  ([#182](https://github.com/leancodepl/ciach/pull/182))
 
 ## 0.7.1
 
