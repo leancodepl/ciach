@@ -8,18 +8,20 @@ import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
 part 'annotation_named_entry_point.dart';
 part 'named_entry_point.dart';
+part 'pigeon_input_entry_point.dart';
 part 'subtype_entry_point.dart';
 
 /// A declaration a framework or tool calls by convention, with no source
 /// reference for the search to find.
 ///
-/// A rule selects declarations by their name, by an annotation or by a
-/// supertype, in the files it lives in. It keeps what it selects, and for a
-/// type, it may keep some of the type's members too. That is the whole
-/// contract the callers apply themselves — flutter_tools finds
-/// `flutter_test_config.dart` by name and generates a call to
-/// `testExecutable` — so a rule says nothing about the declaration's shape.
-/// The compiler enforces the shape at the generated call site.
+/// A rule selects declarations by their name, by an annotation, by a
+/// supertype, or, in a Pigeon input file, by their kind and keywords, in the
+/// files it lives in. It keeps what it selects, and for a type, it may keep
+/// some of the type's members too. That is the whole contract the callers
+/// apply themselves — flutter_tools finds `flutter_test_config.dart` by name
+/// and generates a call to `testExecutable` — so a rule that selects by name
+/// says nothing about the declaration's shape. The compiler enforces the
+/// shape at the generated call site.
 sealed class EntryPoint {
   /// Creates a rule that selects the declaration called [name], which is
   /// `name` or `Container.member`. [files] are POSIX globs relative to the
@@ -218,6 +220,10 @@ final class KeptMembers {
 
 /// Which members of a type a rule keeps.
 enum MemberSelection {
+  /// Every member, private ones too, which Pigeon reads from a class or an
+  /// enum in an input file.
+  allMembers,
+
   /// The public methods, which Serverpod's dispatcher calls.
   publicMethods,
 
@@ -230,14 +236,14 @@ enum MemberSelection {
   reflectiveTestMethods;
 
   /// Whether [member] is one of the selected members.
-  bool includes(DocumentSymbol member) =>
-      !isPrivateName(member.name) &&
-      switch (this) {
-        publicMethods => member.kind == .method,
-        publicMembers => member.kind != .constructor,
-        reflectiveTestMethods =>
-          member.kind == .method && isReflectiveTestMethod(member.name),
-      };
+  bool includes(DocumentSymbol member) => switch (this) {
+    allMembers => true,
+    _ when isPrivateName(member.name) => false,
+    publicMethods => member.kind == .method,
+    publicMembers => member.kind != .constructor,
+    reflectiveTestMethods =>
+      member.kind == .method && isReflectiveTestMethod(member.name),
+  };
 }
 
 /// A kind of request that a rule needs the analysis server to answer before

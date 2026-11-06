@@ -86,16 +86,28 @@ final class KeptDeclarations {
   }
 
   /// Returns [candidate], whose doc comment and annotations are
-  /// [leadingMetadata], as the entry-point rules read it.
+  /// [leadingMetadata] and whose other tokens before its name are
+  /// [tokensBeforeName], as the entry-point rules read it.
   ResolvedDeclaration declarationOf(
     String relativePath,
     Candidate candidate,
     Iterable<SemanticToken> leadingMetadata,
+    Iterable<SemanticToken> tokensBeforeName,
   ) => .new(
     relativePath: relativePath,
     symbol: candidate.symbol,
     container: candidate.container,
     inEnum: candidate.containerSymbol?.kind == .enum$,
+    outlineKind: candidate.outline.element.kind,
+    // A keyword before the last annotation, such as the `const` in
+    // `@Meta(const []) final int x;`, belongs to an annotation.
+    keywords: {
+      for (final token in [
+        ...leadingMetadata,
+        ...tokensBeforeName,
+      ].reversed.takeWhile((token) => !token.isAnnotationPunctuation))
+        if (token.isKeyword) token.text,
+    },
     leadingMetadata: leadingMetadata,
     annotationPackages: _annotationPackages.packagesOf(
       candidate.path,

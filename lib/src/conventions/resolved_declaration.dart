@@ -9,6 +9,7 @@
 /// annotations and supertypes as the analysis server resolves them.
 library;
 
+import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
@@ -76,6 +77,8 @@ final class ResolvedDeclaration {
     required this.symbol,
     this.container,
     this.inEnum = false,
+    this.outlineKind = .other,
+    this.keywords = const {},
     this.leadingMetadata = const [],
     this.annotationPackages = const {},
     this.annotationClasses = const [],
@@ -96,6 +99,14 @@ final class ResolvedDeclaration {
 
   /// Whether [container] is an enum.
   final bool inEnum;
+
+  /// The kind of the declaration in the analysis server's outline, which,
+  /// unlike [symbol], tells a mixin from a class.
+  final OutlineKind outlineKind;
+
+  /// The keywords before the name of the declaration, such as `abstract` and
+  /// `class` in `abstract class Api`, or `const` in `const int version = 1;`.
+  final Set<String> keywords;
 
   /// The tokens of the declaration's doc comment and annotations.
   final Iterable<SemanticToken> leadingMetadata;

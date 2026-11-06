@@ -1,5 +1,10 @@
 ## Unreleased
 
+- Stop reporting what Pigeon reads from its input files, the Dart files that
+  import `package:pigeon/pigeon.dart`: their data classes, API classes, enums
+  and `const` top-level variables, with their members. Functions, mixins and
+  the other declarations that Pigeon skips are still reported.
+  ([#183](https://github.com/leancodepl/ciach/pull/183))
 - Stop reporting Flutter widget previews: the declarations annotated with
   `@Preview` or `@MultiPreview`, or with a subtype of either, in a package
   that depends on `flutter`. ([#179](https://github.com/leancodepl/ciach/pull/179))

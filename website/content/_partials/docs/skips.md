@@ -36,7 +36,7 @@ Private constructors are not skipped: an unused `ClassName._` is dead code like 
 
 ### Entry points
 
-Some declarations are only called from code a tool generates, so nothing in the package references them: `flutter test` runs `testExecutable`, flutter_tools calls `MyPlugin.registerWith()`. ciach knows about `main` and `testExecutable`, and reads these from the project's own config files:
+Some declarations are only called from code a tool generates, so nothing in the package references them: `flutter test` runs `testExecutable`, flutter_tools calls `MyPlugin.registerWith()`. ciach knows about `main` and `testExecutable`, and reads these from the project's own files:
 
 | Source | Entry point |
 | --- | --- |
@@ -47,6 +47,7 @@ Some declarations are only called from code a tool generates, so nothing in the 
 | `serverpod` | the classes that have Serverpod's `Endpoint` among their supertypes, and their public methods |
 | `analysis_server_plugin`, or a package an `analysis_options.yaml` under the root loads as a plugin by `path:` | `plugin` in `lib/main.dart` |
 | `custom_lint_builder` | `createPlugin` in `lib/<package>.dart` |
+| `pigeon` | what `dart run pigeon --input` reads from an input file, which is a Dart file that imports `package:pigeon/pigeon.dart`: the classes, except an abstract class without an API annotation such as `@HostApi`, the enums, the `const` top-level variables and the declaration that `@ConfigurePigeon` annotates, all with their members |
 
 List any other entry points under `entry-points:` in `ciach.yaml`:
 
