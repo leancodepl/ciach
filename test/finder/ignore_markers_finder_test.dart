@@ -83,8 +83,10 @@ void helper() {}
 
   tearDown(() => package.deleteSync(recursive: true));
 
-  test('a marker keeps every declarator of a field statement', () async {
-    write('lib/fields.dart', '''
+  test(
+    'a marker keeps every declarator of a field or top-level variable statement',
+    () async {
+      write('lib/fields.dart', '''
 abstract interface class Shape {
   int get a;
   int get b;
@@ -101,16 +103,21 @@ class Square implements Shape {
 
 int area(Shape shape) => shape.a + shape.b + shape.c;
 
+// ciach:ignore
+int width = 1,
+    height = 2;
+
 void main() => print(area(Square()));
 ''');
 
-    final result = await Ciach(.new(rootPath: package.path)).run();
+      final result = await Ciach(.new(rootPath: package.path)).run();
 
-    expect([
-      for (final d in result.unused)
-        if (d.filePath == 'lib/fields.dart') d.qualifiedName,
-    ], isEmpty);
-  });
+      expect([
+        for (final d in result.unused)
+          if (d.filePath == 'lib/fields.dart') d.qualifiedName,
+      ], isEmpty);
+    },
+  );
 
   test('--remove keeps a marked override, and its dead member', () async {
     write('lib/hooks.dart', '''
