@@ -6,7 +6,6 @@ import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/cached_map.dart';
-import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location, Position;
 
@@ -65,7 +64,7 @@ final class SuperclassChecks {
       );
       return true;
     }
-    final declaration = _symbolNamedAt(symbols, start);
+    final declaration = symbolNamedAt(symbols, start);
     if (declaration == null) {
       return true;
     }
@@ -114,28 +113,6 @@ final class SuperclassChecks {
     return tokens
         .between(ctor.range.start, ctor.range.end)
         .any((t) => t.isKeyword && t.text == 'required');
-  }
-
-  /// The symbol whose name starts at [position]: the enclosing symbol at each
-  /// level is the last one starting at or before it.
-  static DocumentSymbol? _symbolNamedAt(
-    List<DocumentSymbol> symbols,
-    Position position,
-  ) {
-    final symbol = lastStartingAtOrBefore(
-      symbols,
-      position,
-      (symbol) => symbol.range.start,
-    );
-    if (symbol == null || !position.within(symbol)) {
-      return null;
-    }
-    if (symbol.selectionRange.start == position) {
-      return symbol;
-    }
-    return symbol.children?.let(
-      (children) => _symbolNamedAt(children, position),
-    );
   }
 }
 

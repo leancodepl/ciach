@@ -125,7 +125,6 @@ String _setting(
   .unusedTranslations => '${resolved.unusedTranslations}',
   .also => _value([
     if (resolved.overrides) 'overrides',
-    if (resolved.operators) 'operators',
     if (resolved.reportToJson) 'tojson',
     if (resolved.unusedUnionMembers) 'union-members',
   ]),

@@ -20,10 +20,7 @@ class Vector2 {
   final double x;
   final double y;
 
-  /// Invoked via `+` in bin/app.dart, but the analysis server's reference
-  /// search does not resolve infix operator syntax back to the declaration
-  /// -> reported as UNUSED anyway (operator). See the README's Limitations
-  /// section.
+  /// Invoked via `+` in bin/app.dart -> USED.
   Vector2 operator +(Vector2 other) => Vector2(x + other.x, y + other.y);
 
   /// Never referenced -> UNUSED (operator).

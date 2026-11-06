@@ -286,14 +286,15 @@ class Ciach {
         totalFiles: files.length,
         rootPath: rootPath,
       );
-      final withCalls = await _fetch.withImplicitCalls(
+      final withImplicitUses = await _fetch.withImplicitUses(
         client,
         fetched.candidates,
         fetched.refsByCandidate,
+        analysisRoot: analysisRoot,
       );
       final (:candidates, :refsByCandidate) = _conditionalImports.share(
-        withCalls.checked,
-        withCalls.refs,
+        withImplicitUses.checked,
+        withImplicitUses.refs,
         _collector.declaredInVariants,
         _classifier,
         onDropped: _logDropped,

@@ -288,4 +288,40 @@ void main(List<String> args) {
       );
     },
   );
+
+  test(
+    '`closeAll` closes every open document and returns its URI, and `ensureOpen` opens a closed one again',
+    () async {
+      final log = File(p.join(tmp.path, 'received.jsonl'));
+      final client = await LspClient.start(
+        dartExecutable: recordingServer(log),
+      );
+      await client.initialize(tmp.uri);
+      final a = tmp.uri.resolve('a.dart');
+      final b = tmp.uri.resolve('b.dart');
+      client
+        ..didOpen(a, 'a')
+        ..didOpen(b, 'b');
+      final closed = client.closeAll();
+      client.ensureOpen(a, 'a');
+      await client.dispose();
+
+      expect(closed, [a, b]);
+      final documentMessages = [
+        for (final line in log.readAsLinesSync())
+          if (jsonDecode(line) case {
+            'method': final String method,
+            'params': {'textDocument': {'uri': final String uri}},
+          } when method.startsWith('textDocument/'))
+            (method, uri),
+      ];
+      expect(documentMessages, [
+        ('textDocument/didOpen', a.toString()),
+        ('textDocument/didOpen', b.toString()),
+        ('textDocument/didClose', a.toString()),
+        ('textDocument/didClose', b.toString()),
+        ('textDocument/didOpen', a.toString()),
+      ]);
+    },
+  );
 }

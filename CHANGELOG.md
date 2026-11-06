@@ -1,5 +1,10 @@
 ## Unreleased
 
+- **Breaking:** Unused operators are reported by default, and
+  `--also operators` is removed. `==`, and any operator that overrides one
+  from the SDK or another package, is never reported. See
+  [MIGRATION.md](MIGRATION.md).
+  ([#157](https://github.com/leancodepl/ciach/pull/157))
 - Stop reporting Flutter widget previews: the declarations annotated with
   `@Preview` or `@MultiPreview`, or with a subtype of either, in a package
   that depends on `flutter`. ([#179](https://github.com/leancodepl/ciach/pull/179))

@@ -26,7 +26,8 @@ dart run ciach example --exclude 'lib/scenarios/**'
 
 ```
 lib/extensions.dart
-  13:7  method  IntExtras.tripled  (public)
+  13:7   method  IntExtras.tripled  (public)
+  27:20  method  Vector2.-  (public)
 
 lib/greeting.dart
   15:6  function  danglingFunction  (public)
@@ -58,7 +59,7 @@ lib/user.dart
   36:8   method       UsedClass.unusedMethod  (public)
   39:13  field        UsedClass._unusedField  (private)
 
-Found 21 unused declarations in 6 files (scanned 9 files, 61 declarations, 1.6s)
+Found 22 unused declarations in 6 files (scanned 9 files, 63 declarations, 2.3s)
 ```
 
 What the report shows:
@@ -79,9 +80,8 @@ What the report shows:
 - `Loud` is reported as the whole mixin: `whisper` is never called, and
   `emphasize` only from `Dog.sound`. Only a `with` clause names the mixin, so
   `--remove` deletes it from that clause as well.
-- `Vector2.+` and `Vector2.-` are skipped by default. `--also operators`
-  reports both, although `+` is used in `bin/app.dart`: the analysis server's
-  reference search doesn't resolve operator syntax back to the declaration.
+- `Vector2.-` is reported, and `Vector2.+` is not, because `bin/app.dart`
+  adds two vectors with `+`.
 - `testExecutable` in `test/flutter_test_config.dart` is not reported, because
   `flutter test` calls it, and `Multiplier.call` is not reported, because an
   instance is invoked as `multiplier(21)`.
@@ -112,8 +112,8 @@ dart run ciach example --exclude 'lib/scenarios/**' --remove --force
 ```
 
 ```
-Found 21 unused declarations in 6 files (scanned 9 files, 61 declarations, 1.9s)
-Removed 21 unused declarations from 6 files. Run `dart format` to tidy up spacing.
+Found 22 unused declarations in 6 files (scanned 9 files, 63 declarations, 2.6s)
+Removed 22 unused declarations from 6 files. Run `dart format` to tidy up spacing.
 Left 2 declarations empty because other code still uses them:
   ReferencedAsTypeOnly (lib/orphans.dart)
   Animal (lib/shapes.dart)

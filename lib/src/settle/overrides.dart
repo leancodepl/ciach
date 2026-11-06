@@ -203,7 +203,7 @@ final class OverrideRemovals {
     final outline = await _client.outline(uri);
     // The answer points at the override's name: an outline node's element range.
     final start = location.range.start;
-    final found = _nodeNamedAt(outline, start);
+    final found = outline.namedAt(start);
     final kind = _removableKinds[found?.node.element.kind];
     if (found == null || kind == null) {
       return null;
@@ -255,24 +255,5 @@ final class OverrideRemovals {
     }
     _sources.cacheSelectionRange(path, name, innermost);
     return _sources.isNameInTypeHeader(path, name, type);
-  }
-
-  /// The outline node whose name starts at [position], with the node it is
-  /// declared in. A name is inside every range around it, so this descends.
-  static ({Outline node, Outline? parent})? _nodeNamedAt(
-    Outline root,
-    Position position,
-  ) {
-    var parent = root;
-    while (true) {
-      final child = parent.childAt(position);
-      if (child == null) {
-        return null;
-      }
-      if (child.element.range?.start == position) {
-        return (node: child, parent: parent);
-      }
-      parent = child;
-    }
   }
 }

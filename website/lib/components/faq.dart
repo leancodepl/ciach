@@ -23,8 +23,7 @@ const faqEntries = [
     'It shows the list and asks first, leaves ambiguous multi-declarator '
         'statements alone and marks findings whose removal would not compile '
         'as report-only. Still review the diff, as after any automated '
-        'refactor. `--also overrides,operators` widens the false-positive '
-        'risk.',
+        'refactor. `--also overrides` widens the false-positive risk.',
   ),
   FaqEntry(
     'My library’s public API is reported as unused.',

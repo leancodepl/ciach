@@ -29,7 +29,7 @@ const _features = [
   _Feature(
     .shield,
     'Safe defaults',
-    '`@override` members, operators, entry points, generated files and `toJson()` are skipped unless you opt in.',
+    '`@override` members, entry points, generated files and `toJson()` are skipped unless you opt in.',
   ),
   _Feature(
     .braces,
