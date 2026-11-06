@@ -56,9 +56,24 @@ entry-points:
     glob: 'lib/my_host.dart'      # one glob or a list; omit for any file
   - name: bootstrap               # a top-level declaration
     glob: 'lib/src/isolate.dart'
+  - annotation: Story             # what `@Story()` or `@story` annotates
+    package: stories              # the package that declares `Story`
+  - annotation: Scene
+    package: stories
+    subtypes: false               # not its subtypes
+    constants: false              # only a constructor call
 ```
 
-A matching declaration is neither reported nor removed. A member rule also keeps its type, while the type's other members are still checked. A rule that names a class or extension type also keeps its unnamed constructor, but not its named ones. Name a constructor the way the report does: `MyWidget.new` or `MyWidget.named`. `-v` names each skipped entry point.
+A matching declaration is neither reported nor removed. A member rule also keeps its type, while the type's other members are still checked. A rule that names a class or extension type also keeps its unnamed constructor, but not its named ones. Name a constructor the way the report does: `MyWidget.new` or `MyWidget.named`.
+
+An `annotation` rule names a class, and `package` names the package that declares it. The rule keeps every declaration whose annotation creates an object of that class: a constructor call such as `@Story()`, also through a typedef, or a constant such as `@story` for `const story = Story();`. By default, a class that extends, implements or mixes in the class counts too, such as `@DarkStory()` for `class DarkStory extends Story`. These keys narrow a rule:
+
+- `subtypes: false` counts only the class itself.
+- `constants: false` counts only a constructor call.
+
+With both set to `false`, the class has to be named after the `@`, so a typedef of it doesn't count.
+
+Widget previews are kept the same way, but only for the `Preview` and `MultiPreview` classes of Flutter, and only through a constructor call. `-v` names each skipped entry point.
 
 ### Ignore markers
 

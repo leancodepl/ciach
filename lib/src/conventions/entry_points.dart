@@ -49,14 +49,18 @@ sealed class EntryPoint {
 
   /// Creates a rule that selects every declaration with an annotation called
   /// [annotation] that one of [packages] declares, and whose first argument
-  /// is the string [argument] unless that is `null`. With [subtypes], it selects a declaration whose annotation calls
-  /// a constructor of the class [annotation] or of a subtype of it instead,
-  /// also through a typedef. It keeps the declaration for [reason] and, in a
-  /// type, the [members].
+  /// is the string [argument] unless that is `null`. With [subtypes] or
+  /// [constants], it selects a declaration whose annotation creates an object
+  /// of the class [annotation] instead, also through a typedef: [subtypes]
+  /// counts an object of a subtype of the class too, and [constants] counts
+  /// an annotation that reads a constant, such as `@story` for
+  /// `const story = Story();`. It keeps the declaration for [reason] and, in
+  /// a type, the [members].
   factory EntryPoint.annotationNamed(
     String annotation, {
     required Set<String> packages,
     bool subtypes,
+    bool constants,
     String? argument,
     String? reason,
     KeptMembers? members,
@@ -95,11 +99,52 @@ sealed class EntryPoint {
     return .new(name: name, files: files, reason: reason);
   }
 
+  /// Creates an [EntryPoint.annotationNamed] rule that comes from the
+  /// `entry-points` setting. Unless [subtypes] or [constants] is `false`, a
+  /// subtype of the class and a constant count too.
+  ///
+  /// Throws a [FormatException] if [annotation] is not a class name or
+  /// [package] is not a package name. The constructor throws for a glob that
+  /// does not parse.
+  factory EntryPoint.annotationFromConfig(
+    String annotation, {
+    required String package,
+    bool? subtypes,
+    bool? constants,
+    List<String> files = const [],
+    String reason = _configReason,
+  }) {
+    if (annotation.startsWith('@')) {
+      throw FormatException(
+        "'$annotation': write the class name without `@`, such as `${annotation.substring(1)}`.",
+      );
+    }
+    if (annotation.contains('.') || !_qualifiedName.hasMatch(annotation)) {
+      throw FormatException(
+        "'$annotation' is not a class name; expected an identifier such as 'Story'.",
+      );
+    }
+    if (!_packageName.hasMatch(package)) {
+      throw FormatException(
+        "'$package' is not a package name; expected a name such as 'storybook', without `package:`.",
+      );
+    }
+    return .annotationNamed(
+      annotation,
+      packages: {package},
+      subtypes: subtypes ?? true,
+      constants: constants ?? true,
+      files: files,
+      reason: reason,
+    );
+  }
+
   static const _configReason = 'listed under `entry-points` in the config file';
   static final _posix = p.Context(style: .posix);
   static final _qualifiedName = RegExp(
     r'^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)?$',
   );
+  static final _packageName = RegExp(r'^[a-z_][a-z0-9_]*$');
 
   /// The file globs as written; empty matches any file.
   List<String> get files => [for (final glob in _globs) glob.pattern];
@@ -246,6 +291,10 @@ enum ServerLookup {
   /// The class that an annotation's constructor call creates, and its
   /// supertypes.
   annotationClasses,
+
+  /// The class of the object that the constant an annotation reads holds,
+  /// and its supertypes.
+  constantClasses,
 
   /// The supertypes of a class.
   supertypes,
