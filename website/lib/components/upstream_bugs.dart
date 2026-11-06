@@ -46,6 +46,12 @@ const _bugs = [
     commit: 'e7e1eccd91209ec66656f2a18c60d345fc04af35',
     fixedByUs: true,
   ),
+  _Bug(
+    issue: 64630,
+    title: 'Operators in relational patterns not linked to their declarations',
+    commit: '820e2b391934edfa55ec17a501e92c7dc2e17f58',
+    fixedByUs: true,
+  ),
 ];
 
 /// The analysis server bugs ciach turned up, linked to their dart-lang/sdk
