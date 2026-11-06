@@ -1,5 +1,9 @@
 ## Unreleased
 
+- Fix reporting the later variables of a top-level statement such as
+  `@pragma('vm:entry-point') int a = 0, b = 0;`. Before, only `a` was kept by
+  the annotation, or by a `// ciach:ignore` above the statement, and `b` was
+  reported as unused. ([#174](https://github.com/leancodepl/ciach/pull/174))
 - Stop reporting Flutter widget previews: the declarations annotated with
   `@Preview` or `@MultiPreview`, or with a subtype of either, in a package
   that depends on `flutter`. ([#179](https://github.com/leancodepl/ciach/pull/179))
