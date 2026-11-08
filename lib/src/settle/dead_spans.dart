@@ -1,10 +1,10 @@
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/source/clause_entries.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
 /// The source `--remove` would delete: each removable finding's
 /// [UnusedDeclaration.fullRange] and its coupled removals. A reference inside

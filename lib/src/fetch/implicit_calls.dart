@@ -20,17 +20,18 @@ library;
 import 'dart:io';
 
 import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/lsp/conversions.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/source/line_starts.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/util/concurrency.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/plural.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart'
-    show Diagnostic, Location, Position, Range;
+import 'package:pro_lsp/pro_lsp.dart' show Diagnostic;
 
 final _log = Logger('ciach.implicit_calls');
 
@@ -184,7 +185,10 @@ Future<Set<Range>> _usesAmong(
       ?outline.element.range,
   };
   // Two errors can have the same range, and one wrap is enough.
-  return errors.map((error) => error.range).whereNot(names.contains).toSet();
+  return errors
+      .map((error) => rangeFromLsp(error.range))
+      .whereNot(names.contains)
+      .toSet();
 }
 
 /// [location] in the unchanged content of its file, when the file is one of

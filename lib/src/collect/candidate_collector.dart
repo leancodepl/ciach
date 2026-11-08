@@ -15,14 +15,15 @@ import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/model/finder_options.dart';
+import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:ciach/src/workspace/public_api.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Range;
 
 final _log = Logger('ciach.finder');
 

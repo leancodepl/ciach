@@ -2,7 +2,7 @@
 /// `int a = 1, b = 2` or the types of `implements A, B`.
 library;
 
-import 'package:pro_lsp/pro_lsp.dart' show Range;
+import 'package:ciach/src/source/locations.dart';
 
 /// Returns each group of adjacent [items] that [isRemoved] accepts: its index
 /// range `[i, j)` and the range that deletes it.

@@ -4,9 +4,12 @@ import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/model/finder_options.dart';
+import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/settle/dead_spans.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
+import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/selection_range.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/source/syntax_rules.dart';
@@ -16,8 +19,6 @@ import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:ciach/src/util/plural.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart'
-    show Location, Position, SelectionRange, SymbolKind;
 
 final _log = Logger('ciach.finder');
 

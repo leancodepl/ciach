@@ -12,8 +12,8 @@ import 'package:ciach/src/lsp/hover_text.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/util/extensions.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Position;
 
 const _unresolvedAnnotation =
     'Could not find the package that declares this annotation; the declaration that it annotates may be reported.';

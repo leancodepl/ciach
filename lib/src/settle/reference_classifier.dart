@@ -11,11 +11,11 @@
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/conventions/flutter_widgets.dart';
 import 'package:ciach/src/fetch/cross_library_refs.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/reference_kinds.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/source/syntax_rules.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location;
 
 /// Decides whether a declaration is used, unused, or referenced only from doc
 /// comments, from the references the analysis server reported for it.

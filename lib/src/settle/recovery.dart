@@ -9,12 +9,12 @@ import 'package:ciach/src/fetch/cross_library_refs.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/model/finder_result.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location;
 
 final _log = Logger('ciach.finder');
 

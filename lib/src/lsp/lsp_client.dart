@@ -13,10 +13,14 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:ciach/src/lsp/conversions.dart';
 import 'package:ciach/src/lsp/dart_executable.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
+import 'package:ciach/src/source/document_symbol.dart';
+import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/selection_range.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/version.dart';
@@ -459,7 +463,7 @@ class LspClient {
   ///
   /// Hierarchical support is advertised in [initialize], so this is always the
   /// `DocumentSymbol[]` variant (never flat `SymbolInformation`).
-  Future<List<lsp.DocumentSymbol>> documentSymbol(Uri uri) async {
+  Future<List<DocumentSymbol>> documentSymbol(Uri uri) async {
     final result = await _guard(
       lsp.RequestMethod.documentSymbol.value,
       () => _client.server.textDocument.documentSymbol(
@@ -469,16 +473,16 @@ class LspClient {
     if (result.isNull) {
       return const [];
     }
-    return result.asDocumentSymbolList ?? const [];
+    return result.asDocumentSymbolList?.map(symbolFromLsp).toList() ?? const [];
   }
 
   /// Returns all references to the symbol at [position] within [uri].
   ///
   /// When [includeDeclaration] is false (the default), the declaration site
   /// itself is excluded, so an empty result means "never referenced".
-  Future<List<lsp.Location>> references(
+  Future<List<Location>> references(
     Uri uri,
-    lsp.Position position, {
+    Position position, {
     bool includeDeclaration = false,
   }) async {
     final result = await _guard(
@@ -486,39 +490,38 @@ class LspClient {
       () => _client.server.textDocument.references(
         .new(
           textDocument: .new(uri: uri.toString()),
-          position: position,
+          position: positionToLsp(position),
           context: .new(includeDeclaration: includeDeclaration),
         ),
       ),
     );
-    return result ?? const [];
+    return result?.map(locationFromLsp).toList() ?? const [];
   }
 
   /// Resolves the declaration(s) the symbol at [position] in [uri] points to,
   /// via `textDocument/definition` (forward resolution).
-  Future<List<lsp.Location>> definition(Uri uri, lsp.Position position) async {
+  Future<List<Location>> definition(Uri uri, Position position) async {
     final result = await _guard(
       lsp.RequestMethod.definition.value,
       () => _client.server.textDocument.definition(
         .new(
           textDocument: .new(uri: uri.toString()),
-          position: position,
+          position: positionToLsp(position),
         ),
       ),
     );
-    final definition = result.asDefinition;
-    return definition?.asLocationList ?? [?definition?.asLocation];
+    return _locationsOf(result.asDefinition);
   }
 
   /// The hover text at [position] in [uri]: the element's signature as the
   /// analyzer resolved it, then its docs. `null` when there is none.
-  Future<String?> hover(Uri uri, lsp.Position position) async {
+  Future<String?> hover(Uri uri, Position position) async {
     final result = await _guard(
       lsp.RequestMethod.hover.value,
       () => _client.server.textDocument.hover(
         .new(
           textDocument: .new(uri: uri.toString()),
-          position: position,
+          position: positionToLsp(position),
         ),
       ),
     );
@@ -549,19 +552,19 @@ class LspClient {
 
   /// The superclass, super constructor or overridden member of the element at
   /// [position] in [uri]. `null` when there is none.
-  Future<lsp.Location?> superOf(Uri uri, lsp.Position position) async {
+  Future<Location?> superOf(Uri uri, Position position) async {
     final result = await _guard(
       _superMethod,
       () => _client.connection.sendCustomRequest(
         _superMethod,
         lsp.TextDocumentPositionParams(
           textDocument: .new(uri: uri.toString()),
-          position: position,
+          position: positionToLsp(position),
         ).toJson(),
       ),
     );
     return switch (result) {
-      final Map<String, Object?> json => .fromJson(json),
+      final Map<String, Object?> json => locationFromLsp(.fromJson(json)),
       _ => null,
     };
   }
@@ -571,14 +574,14 @@ class LspClient {
   /// Empty when there is no type at [position].
   Future<List<lsp.TypeHierarchyItem>> typeHierarchyItems(
     Uri uri,
-    lsp.Position position,
+    Position position,
   ) async {
     final result = await _guard(
       lsp.RequestMethod.prepareTypeHierarchy.value,
       () => _client.server.textDocument.prepareTypeHierarchy(
         .new(
           textDocument: .new(uri: uri.toString()),
-          position: position,
+          position: positionToLsp(position),
         ),
       ),
     );
@@ -599,28 +602,30 @@ class LspClient {
 
   /// The members that override the member at [position] in [uri], via
   /// `textDocument/implementation`. Empty when nothing overrides it.
-  Future<List<lsp.Location>> implementations(
-    Uri uri,
-    lsp.Position position,
-  ) async {
+  Future<List<Location>> implementations(Uri uri, Position position) async {
     final result = await _guard(
       lsp.RequestMethod.implementation.value,
       () => _client.server.textDocument.implementation(
         .new(
           textDocument: .new(uri: uri.toString()),
-          position: position,
+          position: positionToLsp(position),
         ),
       ),
     );
-    final definition = result.asDefinition;
-    return definition?.asLocationList ?? [?definition?.asLocation];
+    return _locationsOf(result.asDefinition);
   }
+
+  /// The locations that [definition] holds: a list of them, or one.
+  static List<Location> _locationsOf(lsp.Definition? definition) =>
+      (definition?.asLocationList ?? [?definition?.asLocation])
+          .map(locationFromLsp)
+          .toList();
 
   /// The syntax nodes enclosing each of [positions] in [uri], innermost first.
   /// `null` where the server has no answer.
-  Future<List<lsp.SelectionRange?>> selectionRanges(
+  Future<List<SelectionRange?>> selectionRanges(
     Uri uri,
-    List<lsp.Position> positions,
+    List<Position> positions,
   ) async {
     if (positions.isEmpty) {
       return const [];
@@ -630,14 +635,14 @@ class LspClient {
       () => _client.server.textDocument.selectionRange(
         .new(
           textDocument: .new(uri: uri.toString()),
-          positions: positions,
+          positions: positions.map(positionToLsp).toList(),
         ),
       ),
     );
     if (result == null || result.length != positions.length) {
       return .filled(positions.length, null);
     }
-    return result;
+    return result.map(selectionRangeFromLsp).toList();
   }
 
   /// Gracefully shuts the server down and terminates the process.

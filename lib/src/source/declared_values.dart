@@ -5,10 +5,10 @@
  */
 
 import 'package:ciach/src/lsp/semantic_tokens.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Position;
 
 /// Returns the token that names the type after the `=` of the typedef named
 /// at [name] in [path]: `Plain` in `typedef AliasPlain = Plain;` or

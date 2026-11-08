@@ -1,7 +1,7 @@
 import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
 /// Return types of a `toJson` hook.
 const _jsonValueTypes = {

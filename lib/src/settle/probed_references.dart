@@ -11,8 +11,8 @@ import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/settle/dead_spans.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
 import 'package:ciach/src/settle/transitive.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location;
 
 /// The candidates whose references came from `probeMembers`: the uses it
 /// found in the files that name their type, which need not be all of them.

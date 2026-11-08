@@ -10,10 +10,11 @@ library;
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/source/list_cuts.dart';
+import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/selection_range.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Position, Range, SelectionRange;
 
 /// A field or top-level variable, identified by its file and the position of
 /// its name.

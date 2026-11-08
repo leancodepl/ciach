@@ -1,5 +1,21 @@
 # Migrating
 
+## From 0.7 to 0.8
+
+### `SymbolKind` in the Dart API
+
+This concerns only code that uses `package:ciach` as a library. The
+`SymbolKind` that it exports is now ciach's own enum, with the same values,
+instead of the one from `package:pro_lsp`:
+
+- The `SymbolKindLabel` extension is gone. `kind.label` works as before,
+  because `label` is now a member of the enum.
+- `SymbolKind.value` and `SymbolKind.decode`, the protocol's numbers for the
+  kinds, are gone too.
+- Code that imports `package:pro_lsp` as well gets two different
+  `SymbolKind`s, so hide one of them: `import 'package:pro_lsp/pro_lsp.dart'
+  hide SymbolKind;`.
+
 ## From 0.6 to 0.7
 
 ### Removed options

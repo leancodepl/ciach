@@ -9,9 +9,9 @@
  */
 
 import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/syntax_rules.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location;
 
 /// Whether a class's superclass needs constructor arguments.
 typedef SuperclassNeedsArguments = Future<bool> Function(Candidate cls);

@@ -5,7 +5,9 @@
  */
 
 import 'package:ciach/src/conventions/resolved_declaration.dart';
-import 'package:pro_lsp/pro_lsp.dart';
+import 'package:ciach/src/model/symbol_kind.dart';
+import 'package:ciach/src/source/document_symbol.dart';
+import 'package:ciach/src/source/locations.dart';
 
 /// A symbol as the server reports it; the shape is irrelevant to the rules.
 DocumentSymbol symbol(String name, {SymbolKind kind = .function}) {

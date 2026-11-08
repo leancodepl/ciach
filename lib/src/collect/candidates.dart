@@ -9,10 +9,11 @@
  */
 
 import 'package:ciach/src/lsp/outline.dart';
+import 'package:ciach/src/source/document_symbol.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location;
 
 /// A file path paired with a declaration name, used as a map key to look up
 /// per-declaration facts gathered by the remove-safety pre-pass.

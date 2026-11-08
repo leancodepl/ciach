@@ -14,19 +14,21 @@ import 'dart:io';
 
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/resolved_declaration.dart';
+import 'package:ciach/src/lsp/conversions.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/declared_values.dart';
+import 'package:ciach/src/source/document_symbol.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/workspace/packages.dart';
 import 'package:collection/collection.dart';
 import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart'
-    show DocumentSymbol, Location, Position, TypeHierarchyItem;
+import 'package:pro_lsp/pro_lsp.dart' show TypeHierarchyItem;
 
 const _unresolvedAnnotation =
     'Could not resolve the class of this annotation; the declaration that it annotates may be reported.';
@@ -257,7 +259,7 @@ final class ResolvedClasses {
     LspClient client,
     PackageConfig? config,
     TypeHierarchyItem item,
-  ) => _byClass[(item.uri, item.selectionRange.start)] ??=
+  ) => _byClass[(item.uri, positionFromLsp(item.selectionRange.start))] ??=
       _requestWithSupertypes(client, config, item);
 
   /// Requests the class of [item] and all its supertypes from [client].

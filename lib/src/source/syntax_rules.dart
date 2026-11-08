@@ -11,9 +11,10 @@
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
+import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/selection_range.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location, Position, SelectionRange;
 
 /// Structural checks over a declaration or a reference, read from the
 /// server's semantic tokens and selection ranges cached in [SourceIndex]. When

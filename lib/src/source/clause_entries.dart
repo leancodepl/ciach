@@ -4,16 +4,16 @@ library;
 
 import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
+import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/source/comment_stripping.dart';
 import 'package:ciach/src/source/list_cuts.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart'
-    show Location, Position, Range, SymbolKind;
 
 /// The `kind` of a [CoupledRemoval] that removes a type from a `with` or
 /// `implements` clause, like `M` from `class A with M {}`. It borrows the kind

@@ -6,13 +6,14 @@
 
 import 'package:ciach/src/fetch/reference_fetch.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/settle/verdict.dart';
 import 'package:ciach/src/source/declarator_cuts.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Position, SymbolKind;
 
 /// The text `--remove` deletes for a round's removable fields and top-level
 /// variables, worked out from the analysis server's selection ranges.

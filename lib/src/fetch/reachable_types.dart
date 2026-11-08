@@ -5,6 +5,7 @@ import 'package:ciach/src/fetch/reference_fetch.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/reference_kinds.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
@@ -12,7 +13,6 @@ import 'package:ciach/src/util/cached_map.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/reachability.dart';
 import 'package:ciach/src/workspace/public_api.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
 /// Unexported types another package may still hold an instance of.
 ///

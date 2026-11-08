@@ -1,6 +1,6 @@
 import 'package:ciach/src/conventions/serialization.dart';
 import 'package:ciach/src/lsp/outline.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Position;
+import 'package:ciach/src/source/locations.dart';
 import 'package:test/test.dart';
 
 Map<String, Object?> range(int l1, int c1, int l2, int c2) => {

@@ -3,11 +3,10 @@ import 'package:ciach/src/cli/ci.dart';
 import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/options.dart';
 import 'package:ciach/src/model/finder_options.dart';
-import 'package:ciach/src/model/unused_declaration.dart';
+import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/util/plural.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
-import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
 /// The `--verbose` account of the config file: read (and what it set), skipped,
 /// or missing from [projectDir], which is named so a file that sits elsewhere

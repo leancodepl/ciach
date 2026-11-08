@@ -9,8 +9,8 @@
  */
 
 import 'package:ciach/src/model/finder_options.dart';
+import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/util/extensions.dart';
-import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
 /// A `[start, end)` span within a file, using 0-based line/column positions
 /// (columns are UTF-16 code units), matching the Language Server Protocol.
@@ -42,26 +42,6 @@ typedef CoupledRemoval = ({
   DeclarationRange fullRange,
   DeclarationRange? cut,
 });
-
-/// Human-friendly labels for [SymbolKind], used in reports.
-extension SymbolKindLabel on SymbolKind {
-  /// A short, lower-case label (e.g. `class`, `enum value`).
-  String get label => switch (this) {
-    .class$ => 'class',
-    .enum$ => 'enum',
-    // The server has no kind for a mixin and tags it as a class; ciach
-    // reports it as an interface, which no Dart declaration is otherwise.
-    .interface$ => 'mixin',
-    .namespace => 'extension',
-    .struct => 'extension type',
-    .operator$ => 'operator',
-    .null$ => 'null',
-    .enumMember => 'enum value',
-    .typeParameter => 'type parameter',
-    .object => 'typedef',
-    _ => name,
-  };
-}
 
 /// A single declaration that the finder decided to report as unused.
 class UnusedDeclaration {

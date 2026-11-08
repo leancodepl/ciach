@@ -22,11 +22,11 @@ import 'package:ciach/src/settle/transitive.dart';
 import 'package:ciach/src/settle/variable_cuts.dart';
 import 'package:ciach/src/settle/verdict.dart';
 import 'package:ciach/src/settle/whole_types.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/plural.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location;
 
 final _log = Logger('ciach.finder');
 

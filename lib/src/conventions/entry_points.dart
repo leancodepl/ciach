@@ -1,10 +1,10 @@
 import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/conventions/test_reflective_loader.dart';
+import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:collection/collection.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
 part 'annotation_named_entry_point.dart';
 part 'named_entry_point.dart';

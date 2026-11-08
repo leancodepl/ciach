@@ -10,8 +10,8 @@
 
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/gen_l10n.dart';
+import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/util/paths.dart';
-import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 
 /// Configuration for a single run of the finder.
 class FinderOptions {

@@ -9,10 +9,11 @@
  */
 
 import 'package:ciach/src/lsp/outline.dart';
+import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
+import 'package:ciach/src/source/document_symbol.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/util/extensions.dart';
-import 'package:pro_lsp/pro_lsp.dart'
-    show DocumentSymbol, Position, Range, SymbolKind;
 
 /// Symbol kinds that introduce a lexical scope; their name becomes the
 /// container for nested members. [SymbolKind.namespace] is an extension.

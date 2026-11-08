@@ -16,8 +16,9 @@ import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/line_starts.dart';
+import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/selection_range.dart';
 import 'package:ciach/src/util/cached_map.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Position, SelectionRange;
 
 const _noSemanticTokens =
     'Could not read comments and annotations; findings may be missed.';
@@ -133,7 +134,7 @@ class SourceIndex {
 
   List<int> lineStarts(String path) => _lineStarts[path];
 
-  /// The LSP position of [offset] in [path]'s content.
+  /// The position of [offset] in [path]'s content.
   Position positionOf(String path, int offset) =>
       positionIn(lineStarts(path), offset);
 

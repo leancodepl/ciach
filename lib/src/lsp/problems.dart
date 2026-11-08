@@ -3,10 +3,10 @@ import 'dart:io';
 
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/model/finder_result.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Position;
 
 final _log = Logger('ciach.finder');
 

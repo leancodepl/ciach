@@ -14,10 +14,10 @@ import 'package:ciach/src/settle/reference_classifier.dart';
 import 'package:ciach/src/settle/removable.dart';
 import 'package:ciach/src/settle/verdict.dart';
 import 'package:ciach/src/source/clause_entries.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location, Position;
 
 /// Reports the used classes and mixins whose members are all removable
 /// findings and that only `with` and `implements` clauses in scanned files

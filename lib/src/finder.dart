@@ -48,6 +48,7 @@ import 'package:ciach/src/settle/settler.dart';
 import 'package:ciach/src/settle/verdict.dart';
 import 'package:ciach/src/source/directives.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/util/concurrency.dart';
 import 'package:ciach/src/util/log.dart';
@@ -60,7 +61,6 @@ import 'package:ciach/src/workspace/path_dependents.dart';
 import 'package:ciach/src/workspace/public_api.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show Location;
 
 final _log = Logger('ciach.finder');
 

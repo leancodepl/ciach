@@ -25,8 +25,6 @@
 /// ```
 library;
 
-export 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
-
 export 'src/conventions/entry_points.dart' show EntryPoint;
 export 'src/finder.dart' show Ciach;
 export 'src/lsp/dart_executable.dart'
@@ -38,13 +36,9 @@ export 'src/model/finder_result.dart'
     show AnalysisProblem, EmptiedContainer, FinderResult, RecoveredReference;
 export 'src/model/removal_result.dart'
     show DeletedFile, LeftComment, RemovalResult;
+export 'src/model/symbol_kind.dart' show SymbolKind;
 export 'src/model/unused_declaration.dart'
-    show
-        CoupledRemoval,
-        DeadReferrer,
-        DeclarationRange,
-        SymbolKindLabel,
-        UnusedDeclaration;
+    show CoupledRemoval, DeadReferrer, DeclarationRange, UnusedDeclaration;
 export 'src/project_config/project_config.dart' show ProjectConfig;
 export 'src/remove/remover.dart' show RemovalException, removeDeclarations;
 export 'src/workspace/packages.dart' show UnresolvedPackagesException;

@@ -4,12 +4,12 @@ import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/fetch/definitions.dart';
 import 'package:ciach/src/fetch/reachable_types.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/reference_kinds.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/concurrency.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location, Range;
 
 /// Splits [members] into those a definition lookup finds used, with that
 /// use, and the rest.

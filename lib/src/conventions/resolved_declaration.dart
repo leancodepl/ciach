@@ -10,10 +10,11 @@
 library;
 
 import 'package:ciach/src/lsp/semantic_tokens.dart';
+import 'package:ciach/src/source/document_symbol.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Position;
 
 /// A class as the analysis server resolves it.
 final class ResolvedClass {

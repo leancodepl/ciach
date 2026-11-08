@@ -1,4 +1,5 @@
-import 'package:pro_lsp/pro_lsp.dart' show Range;
+import 'package:ciach/src/lsp/conversions.dart';
+import 'package:ciach/src/source/locations.dart';
 
 /// A declaration in the outline the server publishes for a file
 /// (`dart/textDocument/publishOutline`).
@@ -16,11 +17,11 @@ final class Outline {
 
   factory Outline.fromJson(Map<String, Object?> json) => .new(
     element: .fromJson(json['element']! as Map<String, Object?>),
-    range: .fromJson(json['range']! as Map<String, Object?>),
+    range: _rangeFromJson(json['range']! as Map<String, Object?>),
     // Older servers do not send `codeRange`.
     codeRange: switch (json['codeRange']) {
-      final Map<String, Object?> codeRange => .fromJson(codeRange),
-      _ => .fromJson(json['range']! as Map<String, Object?>),
+      final Map<String, Object?> codeRange => _rangeFromJson(codeRange),
+      _ => _rangeFromJson(json['range']! as Map<String, Object?>),
     },
     children: [
       if (json['children'] case final List<Object?> children)
@@ -70,7 +71,7 @@ final class OutlineElement {
     kind: .fromWire(json['kind'] as String? ?? ''),
     name: json['name'] as String? ?? '',
     range: switch (json['range']) {
-      final Map<String, Object?> range => .fromJson(range),
+      final Map<String, Object?> range => _rangeFromJson(range),
       _ => null,
     },
     parameters: json['parameters'] as String?,
@@ -139,3 +140,6 @@ enum OutlineKind {
   static OutlineKind fromWire(String wire) =>
       values.firstWhere((k) => k.wire == wire, orElse: () => other);
 }
+
+Range _rangeFromJson(Map<String, Object?> json) =>
+    rangeFromLsp(.fromJson(json));

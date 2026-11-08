@@ -5,12 +5,12 @@ import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
 import 'package:ciach/src/settle/remove_safety.dart';
+import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/source/syntax_rules.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/paths.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location;
 
 /// What becomes of one unused candidate: silently suppressed, reported but
 /// report-only, or a finding — and how that finding is spelled.
@@ -190,7 +190,7 @@ final class Verdict {
         isTypeAlias: candidate.isTypeAlias,
       ),
       filePath: relativePosix(candidate.path, rootPath),
-      // LSP positions are zero-based; report them one-based for humans.
+      // Positions are zero-based; report them one-based for humans.
       line: start.line + 1,
       column: start.character + 1,
       // A member of a private type is as private as the type, and no other
