@@ -5,7 +5,6 @@
  */
 
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/fetch/cross_library_refs.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/settle/dead_spans.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
@@ -43,13 +42,7 @@ final class TransitiveSweep {
       for (final (i, candidate) in candidates.indexed)
         _verdict.finding(candidate, rootPath): i,
     };
-    final unreached = sweep(
-      candidates,
-      refsByCandidate,
-      .empty,
-      allDead,
-      rootPath,
-    );
+    final unreached = sweep(candidates, refsByCandidate, allDead, rootPath);
     _log.info(
       'Round 1: checking the ${plural(unreached.length, 'declaration', 'declarations')} no live code reaches…',
     );
@@ -57,12 +50,10 @@ final class TransitiveSweep {
   }
 
   /// The removable findings no live reference reaches. [candidateOf] maps
-  /// each finding to its candidate's index. [crossLib] sites count as
-  /// references.
+  /// each finding to its candidate's index.
   DeadSpans sweep(
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
-    CrossLibraryReferences crossLib,
     Map<UnusedDeclaration, int> candidateOf,
     String rootPath,
   ) {
@@ -74,9 +65,9 @@ final class TransitiveSweep {
       for (final owner in spans.ownersOf(path, position)) candidateOf[owner]!,
     ];
     final uses = [
-      for (final i in removable) ...[
+      for (final i in removable)
         for (final loc in refsByCandidate[i])
-          if (_classifier.classify(candidates[i], [loc], .empty) == .used)
+          if (_classifier.classify(candidates[i], [loc]) == .used)
             (
               target: i,
               containers: containers(
@@ -84,15 +75,6 @@ final class TransitiveSweep {
                 loc.range.start,
               ),
             ),
-        for (final usage in crossLib.recoveredUsages(candidates[i]))
-          (
-            target: i,
-            containers: containers(
-              usage.path,
-              .new(line: usage.line, character: usage.character),
-            ),
-          ),
-      ],
     ];
     final dead = unreached(removable, uses);
     return .of([

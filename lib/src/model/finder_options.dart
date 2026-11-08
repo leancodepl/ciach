@@ -30,7 +30,6 @@ class FinderOptions {
     this.includeGenerated = false,
     this.additionalGeneratedGlobs = const [],
     this.skipOverrides = true,
-    this.skipOperators = true,
     this.unusedUnionMembers = false,
     this.reportToJson = false,
     this.transitive = true,
@@ -89,13 +88,6 @@ class FinderOptions {
   /// reached polymorphically, which a plain reference search can miss).
   final bool skipOverrides;
 
-  /// Whether to skip operator overloads (`operator +`, `operator ==`, …).
-  /// The analysis server's reference search does not resolve infix operator
-  /// syntax (`a + b`) back to the operator's declaration, so a used operator
-  /// overload is reported as unused every time — on by default to avoid that
-  /// false positive.
-  final bool skipOperators;
-
   /// Whether to also flag a class as dead when its only non-self references
   /// are *type patterns* over its (sealed) supertype — `case` patterns in
   /// `switch` statements / `if`-`case` / `while`-`case` headers, or
@@ -138,7 +130,7 @@ class FinderOptions {
   /// findings in these files are report-only.
   final List<Translations> translations;
 
-  /// How many `textDocument/references` requests to keep in flight at once.
+  /// How many requests to the analysis server to keep in flight at once.
   /// Higher values keep the analysis server busier; there are diminishing
   /// returns past its internal parallelism.
   final int concurrency;
@@ -151,15 +143,12 @@ class FinderOptions {
 
   /// The declaration kinds reported by default. Deliberately excludes
   /// [SymbolKind.typeParameter] (always "used" within its scope) and the
-  /// primitive value kinds the server never emits for Dart declarations.
+  /// primitive value kinds that no Dart declaration has.
   ///
-  /// The server reports an `extension` as [SymbolKind.namespace]; an
-  /// `extension type` shares it and is remapped to [SymbolKind.struct]. A
-  /// type alias, function type aliases included, is [SymbolKind.object].
-  ///
-  /// Operator overloads are *not* a separate kind here: the analysis server
-  /// reports them as plain [SymbolKind.method] declarations named `+`, `==`,
-  /// etc. — see [skipOperators] for how they're excluded by default instead.
+  /// An `extension` is [SymbolKind.namespace]; an `extension type` shares it
+  /// and is remapped to [SymbolKind.struct]. A type alias, function type
+  /// aliases included, is [SymbolKind.object]. An operator overload is a
+  /// [SymbolKind.method] named `+`, `==` and so on.
   static const defaultKinds = <SymbolKind>{
     .class$,
     .interface$,

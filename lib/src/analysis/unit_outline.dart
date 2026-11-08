@@ -25,14 +25,23 @@ import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/util/extensions.dart';
 
-/// Returns the outline of [unit], whose lines [lineInfo] holds.
-Outline unitOutline(CompilationUnit unit, LineInfo lineInfo) =>
-    _OutlineBuilder(lineInfo)._unit(unit);
+/// Returns the outline of [unit], whose lines [lineInfo] holds, and the
+/// element that each declaration in it declares, by the start of the
+/// declaration's name. A field that a primary constructor declares is
+/// declared by its parameter.
+({Outline outline, Map<Position, Element> elements}) unitOutline(
+  CompilationUnit unit,
+  LineInfo lineInfo,
+) {
+  final builder = _OutlineBuilder(lineInfo);
+  return (outline: builder._unit(unit), elements: builder._elements);
+}
 
 final class _OutlineBuilder {
   _OutlineBuilder(this._lineInfo);
 
   final LineInfo _lineInfo;
+  final _elements = <Position, Element>{};
 
   Outline _unit(CompilationUnit unit) => _outline(
     unit,
@@ -334,6 +343,12 @@ final class _OutlineBuilder {
         firstTokenAfterCommentAndMetadata.offset,
       _ => node.offset,
     };
+    if ((element.range, _declaredElementOf(node)) case (
+      final name?,
+      final declared?,
+    )) {
+      _elements[name.start] = declared;
+    }
     return .new(
       element: element,
       range: _range(start, end),
@@ -341,6 +356,20 @@ final class _OutlineBuilder {
       children: children,
     );
   }
+
+  /// The element that [node] declares: the field of a declaring parameter.
+  static Element? _declaredElementOf(AstNode node) => switch (node) {
+    FormalParameter(
+      declaredFragment: FormalParameterFragment(
+        element: FieldFormalParameterElement(:final field?),
+      ),
+    ) =>
+      field,
+    Declaration(:final declaredFragment?) => declaredFragment.element,
+    PrimaryConstructorDeclaration(:final declaredFragment?) =>
+      declaredFragment.element,
+    _ => null,
+  };
 
   /// The name of the declaration that [name] names. A name that error
   /// recovery made up is empty, and the analysis server shows it as

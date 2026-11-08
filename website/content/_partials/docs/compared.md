@@ -21,4 +21,4 @@ The Dart analyzer already flags unused private declarations through `unused_elem
 | GitHub annotations on the pull request | — | ✓ |
 | JSON output | ✓ | ✓ |
 
-Both resolve references the same way, because ciach asks the analysis server. The difference is scope and the removal step. Dart Code Metrics covers unused code as well, as part of a larger commercial toolset.
+Both resolve references the same way, because ciach runs the same analyzer. The difference is scope and the removal step. Dart Code Metrics covers unused code as well, as part of a larger commercial toolset.

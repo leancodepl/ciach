@@ -1,4 +1,4 @@
-// Recovery fixture. Expected findings are asserted by test/finder_test.dart;
+// Cross-library uses. Expected findings are asserted by test/finder_test.dart;
 // keep in sync.
 
 import 'package:sample_pkg/scenarios/xref_surface.dart';
@@ -10,10 +10,10 @@ final class XrefLoadedState extends XrefState {
 
   final bool active;
 
-  // Used only from another file -> confirmed used, NOT flagged.
+  // Used only from another file -> NOT flagged.
   bool get hasActive => active;
 
-  // Used only from another file -> confirmed used, NOT flagged.
+  // Used only from another file -> NOT flagged.
   final bool ready = true;
 
   // Used only within this file -> NOT flagged.

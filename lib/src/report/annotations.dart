@@ -31,10 +31,6 @@ enum Check {
   unused('unused-declaration', 'Unused declaration'),
   emptyFile('empty-file', 'Empty file'),
   docOnly('doc-only', 'Referenced only from a doc comment', notice: true),
-  recovered(
-    'recovered-reference',
-    'Recovered reference (possible analyzer bug)',
-  ),
   notAnalyzed('not-analyzed', 'Could not analyze');
 
   const Check(this.id, this.title, {this.notice = false});
@@ -54,8 +50,8 @@ typedef Annotation = ({
 });
 
 /// Every finding of [result] as an annotation, its path prefixed with
-/// [pathPrefix]: unused declarations, empty files, doc-only findings,
-/// recovered references and problems, in that order.
+/// [pathPrefix]: unused declarations, empty files, doc-only findings and
+/// problems, in that order.
 Iterable<Annotation> annotationsOf(
   FinderResult result,
   String pathPrefix,
@@ -95,15 +91,6 @@ Iterable<Annotation> annotationsOf(
       column: decl.column,
       message:
           "${decl.kind.label} '${decl.qualifiedName}' has no code references, only a dartdoc link",
-    );
-  }
-  for (final w in result.recoveredReferences) {
-    yield (
-      check: .recovered,
-      file: file(w.filePath),
-      line: w.line,
-      column: w.column,
-      message: "'${w.qualifiedName}' ${w.message}",
     );
   }
   for (final problem in result.problems) {

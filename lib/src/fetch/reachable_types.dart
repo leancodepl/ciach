@@ -23,7 +23,7 @@ import 'package:ciach/src/workspace/public_api.dart';
 /// reachable too. An omitted return type is `dynamic`, so a body never hands
 /// a type out.
 final class ReachableTypes {
-  ReachableTypes._(this._filesOf);
+  ReachableTypes._(this._internal);
 
   static Future<ReachableTypes> find({
     required LspClient client,
@@ -58,13 +58,7 @@ final class ReachableTypes {
         carriedBy[key] = carriers.where(types.containsKey).toSet();
       }),
     );
-    return ._({
-      for (final key in _unreached(types.keys, reachable, carriedBy))
-        key: {
-          key.path,
-          for (final loc in types[key]!.refs) SourceIndex.pathOf(loc.uri),
-        },
-    });
+    return ._(_unreached(types.keys, reachable, carriedBy).toSet());
   }
 
   /// The positions of [types]' references in scanned, importable files.
@@ -117,16 +111,11 @@ final class ReachableTypes {
     ).map((i) => keys[i]);
   }
 
-  /// For each internal type, the files naming it, where its members are most
-  /// likely used.
-  final Map<DeclKey, Set<String>> _filesOf;
+  /// The types that no other package can hold an instance of.
+  final Set<DeclKey> _internal;
 
   /// Whether no other package can hold an instance of [member]'s type.
-  bool isInternal(Candidate member) =>
-      _filesOf.containsKey(member.containerKey);
-
-  /// The files where [member] of an internal type is most likely used.
-  Set<String> filesFor(Candidate member) => _filesOf[member.containerKey]!;
+  bool isInternal(Candidate member) => _internal.contains(member.containerKey);
 
   /// Whether [member] is reachable only if its type is. Members of
   /// extensions are reached only by importing them.

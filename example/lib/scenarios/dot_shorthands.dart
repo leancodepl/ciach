@@ -59,7 +59,7 @@ enum Weight {
 }
 
 /// The same-file shorthand: `Weight.sameFile` is reached from the library that
-/// declares it, so no cross-library recovery is involved. Deliberately not a
+/// declares it, so no other library is involved. Deliberately not a
 /// `[Weight.sameFile]` doc link — that would be a reference of its own, and a
 /// missed shorthand would surface as doc-only instead of unused.
 Weight get sameFileWeight => .sameFile;

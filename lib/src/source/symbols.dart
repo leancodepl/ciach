@@ -19,43 +19,9 @@ import 'package:ciach/src/util/extensions.dart';
 /// container for nested members. [SymbolKind.namespace] is an extension.
 const typeLikeKinds = <SymbolKind>{.class$, .interface$, .enum$, .namespace};
 
-/// Names of Dart's overloadable operators. The symbol of an
-/// `operator +`/`operator ==`/… declaration is a plain [SymbolKind.method]
-/// named exactly one of these — there is no distinct operator symbol kind —
-/// so this is the only reliable way to recognize one.
-const _operatorNames = <String>{
-  '+',
-  '-',
-  '*',
-  '/',
-  '%',
-  '~/',
-  '&',
-  '|',
-  '^',
-  '~',
-  '<<',
-  '>>',
-  '>>>',
-  '<',
-  '<=',
-  '>',
-  '>=',
-  '==',
-  '[]',
-  '[]=',
-};
-
 /// Symbol-shape predicates and naming rules, kept off the finder so the
 /// classification logic reads as intent rather than mechanics.
 extension SymbolChecks on DocumentSymbol {
-  /// Whether this is an operator overload (`operator +`, `operator ==`, …).
-  bool get isOperator => kind == .method && _operatorNames.contains(name);
-
-  /// Whether this is a `call` method, which an object invoked like a function
-  /// (`obj(...)`) uses without a reference that the server reports.
-  bool get isCallMethod => kind == .method && name == 'call';
-
   /// Whether this is a private constructor (`Foo._`, `Foo._named`). A
   /// constructor is named with the class included (`Foo`, `Foo.named`), so the
   /// private marker is a segment after the last `.` starting with `_`; the

@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/fetch/implicit_calls.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
@@ -15,18 +14,21 @@ import 'package:ciach/src/util/concurrency.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/plural.dart';
-import 'package:path/path.dart' as p;
 
 final _log = Logger('ciach.finder');
 
 const _uncheckedDeclaration = 'Could not find references; kept.';
 
+const _noDeclaration =
+    'The analyzer found no declaration whose name starts here.';
+
 const _noSelectionRanges =
     'Could not read the syntax here; review findings before removing.';
 
-/// Requests what the verdict needs from the analysis server: each candidate's
-/// references, plus the semantic tokens and selection ranges the structural
-/// checks read, which it caches in the [SourceIndex].
+/// Gets what the verdict needs: each candidate's references from the
+/// analyzer, and from the analysis server the semantic tokens and selection
+/// ranges that the structural checks read, which it caches in the
+/// [SourceIndex].
 final class ReferenceFetch {
   ReferenceFetch({required this.options, required SourceIndex sources})
     : _sources = sources;
@@ -34,105 +36,39 @@ final class ReferenceFetch {
   final FinderOptions options;
   final SourceIndex _sources;
 
-  /// Queries `textDocument/references` for every candidate through one global
-  /// pool, reporting `[done/total]` progress as each file's last query lands.
-  /// A candidate whose request failed is left out, so it is never reported.
-  Future<({List<Candidate> checked, List<List<Location>> refs})> references(
-    LspClient client,
-    List<Candidate> candidates, {
-    required int totalFiles,
-    required String rootPath,
-  }) async {
-    final remainingPerFile = <String, int>{};
-    for (final candidate in candidates) {
-      remainingPerFile.update(candidate.path, (n) => n + 1, ifAbsent: () => 1);
-    }
-    var filesDone = totalFiles - remainingPerFile.length;
-
-    final fetched = await mapPooled(candidates, options.concurrency, (
-      candidate,
-    ) async {
-      // The server would answer for an unnamed extension's `on` type.
-      final refs = candidate.isUnnamedExtension
-          ? const <Location>[]
-          : await _referencesOf(client, candidate);
-      if (remainingPerFile.update(candidate.path, (n) => n - 1) == 0) {
-        filesDone++;
-        _log.info(
-          '[$filesDone/$totalFiles] ${p.relative(candidate.path, from: rootPath)}',
-        );
-      }
-      return refs;
-    });
-
-    final checked = <Candidate>[];
-    final refs = <List<Location>>[];
-    for (final (i, candidateRefs) in fetched.indexed) {
-      if (candidateRefs != null) {
-        checked.add(candidates[i]);
-        refs.add(candidateRefs);
-      }
-    }
-    return (checked: checked, refs: refs);
-  }
-
-  /// [candidates] and [refs], with the implicit uses of each `call` method,
-  /// which the reference query misses, added to its references. When the
-  /// lookup fails, the `call` methods are left out, so they are never
-  /// reported.
-  Future<({List<Candidate> checked, List<List<Location>> refs})>
-  withImplicitCalls(
-    LspClient client,
+  /// The references of each of [candidates], from [files] after they resolved
+  /// every file under the analysis root. A candidate whose declaration the
+  /// analyzer doesn't find is left out, so it is never reported.
+  ({List<Candidate> checked, List<List<Location>> refs}) references(
     ResolvedFiles files,
     List<Candidate> candidates,
-    List<List<Location>> refs,
-  ) async {
-    final usesOf = await findImplicitCalls(
-      client: client,
-      files: files,
-      sources: _sources,
-      calls: candidates.where((c) => c.symbol.isCallMethod).toList(),
-      concurrency: options.concurrency,
-    );
-    if (usesOf == null) {
-      final kept = [
-        for (final (i, candidate) in candidates.indexed)
-          if (!candidate.symbol.isCallMethod) (candidate, refs[i]),
-      ];
-      return (
-        checked: [for (final (candidate, _) in kept) candidate],
-        refs: [for (final (_, candidateRefs) in kept) candidateRefs],
-      );
-    }
-    await semanticTokensFor(client, usesOf.values.toList());
+  ) {
+    final found = [
+      for (final candidate in candidates)
+        if (_referencesOf(files, candidate) case final refs?)
+          (candidate: candidate, refs: refs),
+    ];
     return (
-      checked: candidates,
-      refs: [
-        for (final (i, candidate) in candidates.indexed)
-          [...refs[i], ...?usesOf[candidate]],
-      ],
+      checked: [for (final (:candidate, refs: _) in found) candidate],
+      refs: [for (final (candidate: _, :refs) in found) refs],
     );
   }
 
-  Future<List<Location>?> _referencesOf(
-    LspClient client,
-    Candidate candidate,
-  ) async {
+  List<Location>? _referencesOf(ResolvedFiles files, Candidate candidate) {
     final start = candidate.symbol.selectionRange.start;
-    try {
-      return await client.references(candidate.uri, start);
-    } on LspRequestException catch (e) {
+    final refs = files.referencesTo(candidate.path, start);
+    if (refs == null) {
       final name = candidate.symbol.declarationName(candidate.container);
       recordProblem(
         _uncheckedDeclaration,
-        e,
+        _noDeclaration,
         path: candidate.path,
         position: start,
         name:
             candidate.container?.let((container) => '$container.$name') ?? name,
       );
-      return null;
     }
+    return refs;
   }
 
   /// Fetches the semantic tokens of every referenced file that has none yet.

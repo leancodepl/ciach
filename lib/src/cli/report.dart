@@ -26,8 +26,6 @@ void logSummary(FinderResult result) {
     '${result.docOnly.length} referenced only from doc comments',
     if (result.allEmptyFiles.isNotEmpty)
       plural(result.allEmptyFiles.length, 'empty file', 'empty files'),
-    if (result.recoveredReferences.isNotEmpty)
-      '${result.recoveredReferences.length} recovered',
     if (result.problems.isNotEmpty) '${result.problems.length} not analyzed',
   ];
   _log.fine(

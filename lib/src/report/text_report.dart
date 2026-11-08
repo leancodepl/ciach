@@ -60,18 +60,6 @@ String textReport(
     _writeDeclarations(buffer, result.docOnly, style);
   }
 
-  if (result.recoveredReferences.isNotEmpty) {
-    _writeHeading(
-      buffer,
-      'Recovered references',
-      result.recoveredReferences.length,
-      'missed by find-references; kept',
-      style,
-      caution: true,
-    );
-    _writeRecovered(buffer, result.recoveredReferences, style);
-  }
-
   if (result.problems.isNotEmpty) {
     _writeHeading(
       buffer,
@@ -175,26 +163,6 @@ void _writeDeclarations(
         ..._notes(decl, style),
       ];
       buffer.writeln('  ${columns.join('  ')}');
-    }
-    buffer.writeln();
-  }
-}
-
-void _writeRecovered(
-  StringBuffer buffer,
-  List<RecoveredReference> recovered,
-  Style style,
-) {
-  for (final MapEntry(key: file, value: inFile)
-      in recovered.groupListsBy((r) => r.filePath).entries) {
-    buffer.writeln(style.path(file));
-    final locWidth = inFile.map((r) => '${r.line}:${r.column}'.length).max;
-    for (final r in inFile) {
-      final loc = '${r.line}:${r.column}'.padRight(locWidth);
-      buffer.writeln(
-        '  ${style.position(loc)}  ${r.qualifiedName}  '
-        '${style.position('used at ${r.usageFilePath}:${r.usageLine}:${r.usageColumn}')}',
-      );
     }
     buffer.writeln();
   }
@@ -307,8 +275,6 @@ String _summary(FinderResult result, Style style) {
         plural(result.allEmptyFiles.length, 'empty file', 'empty files'),
       ),
     if (result.docOnly.isNotEmpty) '${result.docOnly.length} doc-only',
-    if (result.recoveredReferences.isNotEmpty)
-      style.caution('${result.recoveredReferences.length} recovered'),
     if (result.problems.isNotEmpty)
       style.caution('${result.problems.length} not analyzed'),
   ];

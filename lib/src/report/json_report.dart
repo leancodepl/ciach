@@ -33,7 +33,6 @@ String jsonReport(FinderResult result) {
       for (final (:filePath, :name) in result.emptiedContainers)
         {'filePath': filePath, 'name': name},
     ],
-    'warnings': [for (final w in result.recoveredReferences) w.toJson()],
     'problems': [for (final problem in result.problems) problem.toJson()],
   });
 }

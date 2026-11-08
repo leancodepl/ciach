@@ -481,7 +481,7 @@ off only in its own `analysis_options.yaml`, with a comment that says why.
 # File size
 
 Keep a file under about 500 lines. Split by responsibility, not by line count:
-pull out a concern with its own state and name (the cross-library recovery,
+pull out a concern with its own state and name (the reference index,
 the transitive sweep), move a helper onto the type that owns its data
 (`DeadSpans.referrersAmong`), or give each variant its own file (the report
 formats). When the subclasses of a sealed class are about 40 lines or longer
@@ -624,9 +624,9 @@ request that you didn't open, suggest the rule instead of pushing it.
   requests. Say what you removed and why. When you write something that a
   package might already provide, say which packages you looked at and why they
   don't fit.
-- Write test notes that a reader can check: "Without the `'variable'` line in
-  `cross_library_refs.dart`, the new case fails on Dart 3.13.4; all tests pass
-  with this pull request."
+- Write test notes that a reader can check: "Without the `node.parent is
+  Label` check in `element_uses.dart`, the new case fails with analyzer
+  12.0.0; all tests pass with this pull request."
 - End the description with one attribution footer, not two.
 - Do the steps that this file asks for, such as a provenance header, instead of
   listing them as to-dos.

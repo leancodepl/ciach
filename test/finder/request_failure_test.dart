@@ -29,16 +29,17 @@ environment:
         '{"configVersion": 2, "packages": [{"name": "pkg", "rootUri": "../", '
         '"packageUri": "lib/", "languageVersion": "3.10"}]}',
       );
-    // The fake server fails the reference lookup on line 1.
+    // The fake server fails the semantic tokens request for this file.
     File(p.join(packagePath, 'lib', 'a.dart'))
       ..createSync(recursive: true)
-      ..writeAsStringSync('void brokenLookup() {}\nvoid reallyUnused() {}\n');
+      ..writeAsStringSync('void reallyUnused() {}\n');
   });
 
   tearDown(() => tmp.deleteSync(recursive: true));
 
-  // The real language server, except that references at line 1 fail like the
-  // Dart server's do (or, with [die], the server exits).
+  // The real language server, except that the semantic tokens request for
+  // `lib/a.dart` fails like the Dart server's requests do (or, with [die], the
+  // server exits).
   String proxyDart({bool die = false}) {
     final proxy = File(p.join(tmp.path, 'proxy.dart'))
       ..writeAsStringSync('''
@@ -82,15 +83,15 @@ Future<void> main(List<String> args) async {
   await for (final body in frames(stdin)) {
     final message = jsonDecode(body) as Map<String, Object?>;
     final params = message['params'];
-    if (message['method'] == 'textDocument/references' &&
+    if (message['method'] == 'textDocument/semanticTokens/full' &&
         params is Map &&
-        (params['position'] as Map)['line'] == 0) {
+        '\${(params['textDocument'] as Map)['uri']}'.endsWith('/lib/a.dart')) {
       if (die) {
         stderr.writeln('Injected crash');
         exit(3);
       }
       const error = 'An error occurred while handling '
-          'textDocument/references request';
+          'textDocument/semanticTokens/full request';
       send(stdout, jsonEncode({
         'jsonrpc': '2.0',
         'id': message['id'],
@@ -125,18 +126,20 @@ exec ${_quoted(Platform.resolvedExecutable)} ${_quoted(proxy.path)} "\$@"
   }
 
   test(
-    'a declaration the server fails on is kept and reported as a problem, and the run goes on',
+    'a request that the server fails is reported as a problem, and the run goes on',
     () async {
       final result = await Ciach(
         .new(rootPath: packagePath, dartExecutable: proxyDart()),
       ).run();
 
       expect(result.unused.map((d) => d.name), ['reallyUnused']);
-      expect(result.declarationsChecked, 1);
       final problem = result.problems.single;
-      expect(problem.name, 'brokenLookup');
-      expect(problem.location, 'lib/a.dart:1:6');
-      expect(problem.summary, 'Could not find references; kept.');
+      expect(problem.name, isNull);
+      expect(problem.location, 'lib/a.dart');
+      expect(
+        problem.summary,
+        'Could not read comments and annotations; findings may be missed.',
+      );
       expect(problem.cause, 'Injected failure');
       expect(problem.detail, '#0      injected');
     },
@@ -171,46 +174,36 @@ exec ${_quoted(Platform.resolvedExecutable)} ${_quoted(proxy.path)} "\$@"
           ...args,
         ]);
 
-    test(
-      'reports the declaration as not analyzed and exits as usual',
-      () async {
-        final result = await runCli(proxyDart(), ['--set-exit-if-changed']);
-        expect(
-          result.exitCode,
-          1,
-          reason: '${result.stdout}\n${result.stderr}',
-        );
-        final stdout = result.stdout as String;
-        final notAnalyzed = stdout.indexOf('Not analyzed (1)');
-        expect(notAnalyzed, isNonNegative, reason: stdout);
-        final findings = stdout.substring(0, notAnalyzed);
-        expect(findings, contains('reallyUnused'));
-        expect(findings, isNot(contains('brokenLookup')));
-        expect(
-          stdout.substring(notAnalyzed),
-          allOf(
-            contains('''
-  Could not find references; kept.
+    test('reports the file as not analyzed and exits as usual', () async {
+      final result = await runCli(proxyDart(), ['--set-exit-if-changed']);
+      expect(result.exitCode, 1, reason: '${result.stdout}\n${result.stderr}');
+      final stdout = result.stdout as String;
+      final notAnalyzed = stdout.indexOf('Not analyzed (1)');
+      expect(notAnalyzed, isNonNegative, reason: stdout);
+      expect(stdout.substring(0, notAnalyzed), contains('reallyUnused'));
+      expect(
+        stdout.substring(notAnalyzed),
+        allOf(
+          contains('''
+  Could not read comments and annotations; findings may be missed.
     Injected failure
     lib/a.dart
-      1:6  brokenLookup
 '''),
-            contains('-v shows the stack traces'),
-            contains('· 1 not analyzed'),
-            isNot(contains('#0')),
-          ),
-        );
-        // Problems are results, so stderr stays clean.
-        expect(result.stderr, isNot(contains('brokenLookup')));
-      },
-    );
+          contains('-v shows the stack traces'),
+          contains('· 1 not analyzed'),
+          isNot(contains('#0')),
+        ),
+      );
+      // Problems are results, so stderr stays clean.
+      expect(result.stderr, isNot(contains('Injected failure')));
+    });
 
     test('with -v, narrates the problem once as it happens', () async {
       final result = await runCli(proxyDart(), ['-v']);
       expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
       final stderr = result.stderr as String;
       expect(
-        '[finder]  lib/a.dart:1:6 (brokenLookup): '.allMatches(stderr),
+        '[finder]  lib/a.dart: Could not read'.allMatches(stderr),
         hasLength(1),
         reason: stderr,
       );

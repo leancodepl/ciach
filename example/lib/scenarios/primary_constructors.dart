@@ -62,8 +62,9 @@ class Chip({required var String label, var int badge = 0}) {
 
 class Ranged(var int low, [var int high = 10]);
 
-/// Not reported: a query at the header resolves to the class, which is used as
-/// a type below. Only its dead declaring parameter is.
+/// The class is used as a type below, but its constructor is never called, so
+/// the constructor is reported, report-only, and so is its dead declaring
+/// parameter.
 class const Secret._(final int seed);
 
 // --- Uses ---

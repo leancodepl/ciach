@@ -75,8 +75,8 @@ exit $exitCode
     );
   });
 
-  // Fails references like the Dart server: bare error, then a logMessage.
-  String failingReferencesServer() {
+  // Fails hover requests like the Dart server: bare error, then a logMessage.
+  String failingHoverServer() {
     final server = File(p.join(tmp.path, 'server.dart'))
       ..writeAsStringSync(r'''
 import 'dart:convert';
@@ -109,9 +109,9 @@ void main() {
       switch (message['method']) {
         case 'initialize':
           send({'id': id, 'result': {'capabilities': <String, Object?>{}}});
-        case 'textDocument/references':
+        case 'textDocument/hover':
           const error = 'An error occurred while handling '
-              'textDocument/references request';
+              'textDocument/hover request';
           send({
             'id': id,
             'error': {'code': -32001, 'message': error},
@@ -121,7 +121,7 @@ void main() {
             'params': {
               'type': 1,
               'message': '$error: Null check operator used on a null value\n'
-                  '#0      ElementReferencesComputer.compute',
+                  '#0      DartUnitHoverComputer.compute',
             },
           });
         case 'shutdown':
@@ -145,19 +145,19 @@ void main() {
     'a request the server threw on carries the exception it logged',
     () async {
       final client = await LspClient.start(
-        dartExecutable: failingReferencesServer(),
+        dartExecutable: failingHoverServer(),
       );
       addTearDown(client.dispose);
       await client.initialize(tmp.uri);
 
       await expectLater(
-        client.references(
+        client.hover(
           tmp.uri.resolve('a.dart'),
           const .new(line: 0, character: 0),
         ),
         throwsA(
           isA<LspRequestException>()
-              .having((e) => e.method, 'method', 'textDocument/references')
+              .having((e) => e.method, 'method', 'textDocument/hover')
               .having(
                 (e) => e.message,
                 'message',
@@ -166,7 +166,7 @@ void main() {
               .having(
                 (e) => e.detail,
                 'detail',
-                '#0      ElementReferencesComputer.compute',
+                '#0      DartUnitHoverComputer.compute',
               ),
         ),
       );

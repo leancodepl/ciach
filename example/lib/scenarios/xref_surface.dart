@@ -1,4 +1,4 @@
-// Recovery fixture, asserted by test/finder_test.dart.
+// Cross-library uses, asserted by test/finder_test.dart.
 
 abstract class XrefSurface {
   // Used only via `XrefGlossy` in xref_uses.dart -> NOT flagged.

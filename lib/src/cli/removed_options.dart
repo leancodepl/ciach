@@ -21,10 +21,13 @@ typedef Replacement = ({String key, List<String> values});
 /// The removed flags that became a value of `--also`, by config key.
 const _alsoFlags = {
   'overrides': 'overrides',
-  'operators': 'operators',
   'report-tojson': 'tojson',
   'unused-union-members': 'union-members',
 };
+
+/// Why ciach reports operator overloads without being asked, for the
+/// removed `operators` option and `--also` value.
+const _operatorsReported = 'operator overloads are reported by default now';
 
 /// The config keys of the options ciach no longer has.
 const removedKeys = {
@@ -47,6 +50,9 @@ String removedOptionAdvice(
 }) {
   if (key == 'fail-public' && value == false) {
     return 'every finding counts toward the exit code; to leave out what other packages can import, list those packages in `exported-packages`';
+  }
+  if (key == 'operators') {
+    return '$_operatorsReported, so drop it';
   }
   return switch (_replacementFor(key, value)) {
     null => 'that is the default now, so drop it',
@@ -85,25 +91,56 @@ final _longOption = RegExp(
   r'^--(?<negation>no-)?(?<name>[\w-]+)(?:=(?<value>.*))?$',
 );
 
-/// Why the first removed option in [arguments] is gone and what to do
-/// instead, or `null` when they name none.
-String? removedOptionMessage(List<String> arguments) {
-  for (final (i, argument) in arguments.indexed) {
-    if (argument == '--') {
-      break;
-    }
-    final match = _longOption.firstMatch(argument);
-    final key = match?.namedGroup('name');
-    if (match == null || key == null || !removedKeys.contains(key)) {
-      continue;
-    }
-    final Object? value = switch (key) {
-      // The value of `--generated-suffix` may be the next argument.
-      'generated-suffix' =>
-        match.namedGroup('value') ?? arguments.elementAtOrNull(i + 1),
-      _ => match.namedGroup('negation') == null,
-    };
-    return '`${argument.split('=').first}` was removed: ${removedOptionAdvice(key, value, inConfig: false)}.';
+/// Why the `--also` value [value] was removed, or `null` when ciach still
+/// has it.
+String? removedAlsoAdvice(String value) =>
+    value == 'operators' ? '$_operatorsReported, so drop it' : null;
+
+/// Why the first removed option or `--also` value in [arguments] is gone and
+/// what to do instead, or `null` when they name none.
+String? removedOptionMessage(List<String> arguments) => arguments
+    .takeWhile((argument) => argument != '--')
+    .indexed
+    .map(
+      (entry) => _removedMessage(
+        entry.$2,
+        next: arguments.elementAtOrNull(entry.$1 + 1),
+      ),
+    )
+    .nonNulls
+    .firstOrNull;
+
+/// Why [argument], which the argument [next] may follow, is a removed option
+/// or gives `--also` a removed value, or `null` when it is neither.
+String? _removedMessage(String argument, {required String? next}) {
+  final match = _longOption.firstMatch(argument);
+  final name = match?.namedGroup('name');
+  if (match == null || name == null) {
+    return null;
   }
-  return null;
+  // The values of `--also` and `--generated-suffix` may be the next argument.
+  final value = match.namedGroup('value') ?? next;
+  if (name == 'also') {
+    return _removedAlsoMessage(value ?? '');
+  }
+  if (!removedKeys.contains(name)) {
+    return null;
+  }
+  final setting = name == 'generated-suffix'
+      ? value
+      : match.namedGroup('negation') == null;
+  return '`${argument.split('=').first}` was removed: ${removedOptionAdvice(name, setting, inConfig: false)}.';
 }
+
+/// Why the first removed value among the comma-separated [values] of
+/// `--also` is gone, or `null` when it names none.
+String? _removedAlsoMessage(String values) => values
+    .split(',')
+    .map((value) => value.trim())
+    .map(
+      (value) => removedAlsoAdvice(
+        value,
+      )?.let((advice) => '`--also $value` was removed: $advice.'),
+    )
+    .nonNulls
+    .firstOrNull;

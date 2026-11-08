@@ -10,7 +10,6 @@
 
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/conventions/flutter_widgets.dart';
-import 'package:ciach/src/fetch/cross_library_refs.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/reference_kinds.dart';
 import 'package:ciach/src/source/source_index.dart';
@@ -18,7 +17,7 @@ import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/source/syntax_rules.dart';
 
 /// Decides whether a declaration is used, unused, or referenced only from doc
-/// comments, from the references the analysis server reported for it.
+/// comments, from its references.
 ///
 /// This is the semantic heart of the tool: everything that discounts a
 /// reference (a declaration's own span, the `State<Self>` pairing, doc-comment
@@ -33,24 +32,19 @@ class ReferenceClassifier {
   /// as dead — the opt-in `--also union-members` behavior.
   final bool unusedUnionMembers;
 
-  /// Classifies [candidate] from the [refs] reported for it, consulting
-  /// [crossLib] as a secondary check on members that appear unreferenced.
+  /// Classifies [candidate] from its [refs].
   ///
   /// A reference inside the candidate's own span never counts (see
   /// [isSelfReference]). Of the rest: any real (non-doc) one means used, only
   /// doc-comment links means doc-only, none means unused.
-  RefStatus classify(
-    Candidate candidate,
-    List<Location> refs,
-    CrossLibraryReferences crossLib,
-  ) {
+  RefStatus classify(Candidate candidate, List<Location> refs) {
     // An extension type is a type, so self-references don't keep it alive.
     if (candidate.symbol.kind == .class$ || candidate.isExtensionType) {
       return _classifyClass(candidate, refs);
     }
     final external = externalRefs(candidate, refs);
     if (external.isEmpty) {
-      return crossLib.isRecovered(candidate) ? .used : .unused;
+      return .unused;
     }
     return external.every(_sources.isDocReference) ? .docOnly : .used;
   }

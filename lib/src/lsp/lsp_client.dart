@@ -9,7 +9,6 @@
  */
 
 import 'dart:async';
-import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
@@ -68,14 +67,6 @@ class LspClient {
   /// The empty directory the server starts in when [initialize] gets
   /// analysis options. [dispose] deletes it.
   Directory? _emptyRoot;
-
-  final _diagnostics = <String, List<lsp.Diagnostic>>{};
-
-  /// The version of each open document, raised by every [didChange].
-  final _versions = <String, int>{};
-
-  /// The document that [didChange] changed last.
-  Uri? _lastChanged;
 
   /// Recent `window/logMessage` errors, oldest first.
   final _loggedErrors = <String>[];
@@ -147,9 +138,6 @@ class LspClient {
       const _CustomMethod(_analyzerStatusMethod),
       (params, context) async => wrapper._onAnalyzerStatus(params),
     );
-    client.textDocument.onPublishDiagnostics((params, context) async {
-      wrapper._diagnostics[params.uri] = params.diagnostics;
-    });
     client.window.onLogMessage((params, context) async {
       if (params.type == .error) {
         wrapper._onLoggedError(params.message);
@@ -340,30 +328,8 @@ class LspClient {
     return completer.future.whenComplete(timer.cancel);
   }
 
-  /// The diagnostics that the server last published, keyed by document URI.
-  Map<String, List<lsp.Diagnostic>> get diagnostics =>
-      UnmodifiableMapView(_diagnostics);
-
-  /// Completes once the server has analyzed the content that every
-  /// [didChange] so far sent. The server handles messages in order, so it
-  /// answers the `foldingRange` request sent here after those changes.
-  Future<void> waitForChangesAnalyzed() async {
-    if (_lastChanged case final changed?) {
-      await _guard(
-        lsp.RequestMethod.foldingRange.value,
-        () => _client.server.textDocument.foldingRange(
-          .new(textDocument: .new(uri: changed.toString())),
-        ),
-      );
-    }
-    if (_analyzing) {
-      await waitForAnalysisComplete();
-    }
-  }
-
   /// Notifies the server that [uri] is open with the given [text].
   void didOpen(Uri uri, String text) {
-    _versions[uri.toString()] = 1;
     _client.server.textDocument.didOpen(
       .new(
         textDocument: .new(
@@ -374,68 +340,6 @@ class LspClient {
         ),
       ),
     );
-  }
-
-  /// Opens [uri] with [text], unless it is open already.
-  void ensureOpen(Uri uri, String text) {
-    if (!_versions.containsKey(uri.toString())) {
-      didOpen(uri, text);
-    }
-  }
-
-  /// Replaces the content of the open document [uri] with [text], for this
-  /// session only; the file on disk doesn't change.
-  void didChange(Uri uri, String text) {
-    final key = uri.toString();
-    _lastChanged = uri;
-    _client.server.textDocument.didChange(
-      .new(
-        textDocument: .new(
-          uri: key,
-          version: _versions.update(key, (version) => version + 1),
-        ),
-        contentChanges: [
-          .textDocumentContentChangeWholeDocument(.new(text: text)),
-        ],
-      ),
-    );
-  }
-
-  /// Returns all references to the symbol at [position] within [uri].
-  ///
-  /// When [includeDeclaration] is false (the default), the declaration site
-  /// itself is excluded, so an empty result means "never referenced".
-  Future<List<Location>> references(
-    Uri uri,
-    Position position, {
-    bool includeDeclaration = false,
-  }) async {
-    final result = await _guard(
-      lsp.RequestMethod.references.value,
-      () => _client.server.textDocument.references(
-        .new(
-          textDocument: .new(uri: uri.toString()),
-          position: positionToLsp(position),
-          context: .new(includeDeclaration: includeDeclaration),
-        ),
-      ),
-    );
-    return result?.map(locationFromLsp).toList() ?? const [];
-  }
-
-  /// Resolves the declaration(s) the symbol at [position] in [uri] points to,
-  /// via `textDocument/definition` (forward resolution).
-  Future<List<Location>> definition(Uri uri, Position position) async {
-    final result = await _guard(
-      lsp.RequestMethod.definition.value,
-      () => _client.server.textDocument.definition(
-        .new(
-          textDocument: .new(uri: uri.toString()),
-          position: positionToLsp(position),
-        ),
-      ),
-    );
-    return _locationsOf(result.asDefinition);
   }
 
   /// The hover text at [position] in [uri]: the element's signature as the

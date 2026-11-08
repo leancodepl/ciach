@@ -29,7 +29,6 @@ void main() {
     List<UnusedDeclaration> docOnly = const [],
     List<String> emptyFiles = const [],
     List<String> emptyVariants = const [],
-    List<RecoveredReference> recoveredReferences = const [],
     List<AnalysisProblem> problems = const [],
   }) => .new(
     unused: unused,
@@ -39,28 +38,7 @@ void main() {
     elapsed: const .new(seconds: 1),
     emptyFiles: emptyFiles,
     emptyVariants: emptyVariants,
-    recoveredReferences: recoveredReferences,
     problems: problems,
-  );
-
-  RecoveredReference warning({
-    String name = 'baz',
-    String? container = 'A',
-    String filePath = 'lib/a.dart',
-    int line = 4,
-    int column = 7,
-    String usageFilePath = 'lib/b.dart',
-    int usageLine = 9,
-    int usageColumn = 2,
-  }) => .new(
-    name: name,
-    container: container,
-    filePath: filePath,
-    line: line,
-    column: column,
-    usageFilePath: usageFilePath,
-    usageLine: usageLine,
-    usageColumn: usageColumn,
   );
 
   AnalysisProblem problem({
@@ -177,19 +155,6 @@ void main() {
 ''');
       },
     );
-
-    test('emits a ::warning annotation for each recovered reference', () {
-      final out = githubReport(
-        resultWith(const [], recoveredReferences: [warning()]),
-      );
-      final lines = out.trimRight().split('\n');
-      expect(lines, hasLength(1));
-      expect(
-        lines.single,
-        startsWith('::warning file=lib/a.dart,line=4,col=7,'),
-      );
-      expect(lines.single, contains("::'A.baz' used at lib/b.dart:9:2"));
-    });
   });
 
   const root = (qualifiedName: '_root', filePath: 'lib/a.dart', line: 1);
@@ -220,29 +185,6 @@ void main() {
     test('adds nothing after the visibility of a plain finding', () {
       final out = textReport(resultWith([decl()]));
       expect(out, contains('  3:5  function  foo  (public)\n'));
-    });
-
-    test('separates recovered references by file, like findings', () {
-      final out = textReport(
-        resultWith(
-          const [],
-          recoveredReferences: [
-            warning(),
-            warning(name: 'qux', filePath: 'lib/c.dart', line: 12),
-          ],
-        ),
-      );
-      expect(
-        out,
-        contains('''
-lib/a.dart
-  4:7  A.baz  used at lib/b.dart:9:2
-
-lib/c.dart
-  12:7  A.qux  used at lib/b.dart:9:2
-
-'''),
-      );
     });
 
     test('lists doc-only findings in a separate, labeled section', () {
@@ -386,13 +328,7 @@ lib/c.dart
           for (final rule in driver['rules']! as List<Object?>)
             (rule! as Map<String, Object?>)['id'],
         ],
-        [
-          'unused-declaration',
-          'empty-file',
-          'doc-only',
-          'recovered-reference',
-          'not-analyzed',
-        ],
+        ['unused-declaration', 'empty-file', 'doc-only', 'not-analyzed'],
       );
       expect(run['results'], [
         {
@@ -615,28 +551,6 @@ lib/c.dart
       );
     });
 
-    test('includes recovered references as a warnings array', () {
-      final json =
-          jsonDecode(
-                jsonReport(
-                  resultWith(const [], recoveredReferences: [warning()]),
-                ),
-              )
-              as Map<String, Object?>;
-      final warnings = json['warnings']! as List<Object?>;
-      final entry = warnings.single! as Map<String, Object?>;
-      // `name`/`qualifiedName` mean the same as in `unused[]`.
-      expect(entry['name'], 'baz');
-      expect(entry['qualifiedName'], 'A.baz');
-      expect(entry['file'], 'lib/a.dart');
-      expect(entry['line'], 4);
-      expect(entry['column'], 7);
-      expect(entry['usageFile'], 'lib/b.dart');
-      expect(entry['usageLine'], 9);
-      expect(entry['usageColumn'], 2);
-      expect(entry['message'], contains('used at lib/b.dart:9:2'));
-    });
-
     test('lists the empty files and counts them', () {
       final json =
           jsonDecode(
@@ -654,12 +568,6 @@ lib/c.dart
       expect(summary['emptyVariantCount'], 1);
       expect(json['emptyFiles'], ['lib/blank.dart']);
       expect(json['emptyVariants'], ['lib/web.dart']);
-    });
-
-    test('warnings array is empty when there are no recovered references', () {
-      final json =
-          jsonDecode(jsonReport(resultWith([decl()]))) as Map<String, Object?>;
-      expect(json['warnings'], isEmpty);
     });
   });
 
@@ -712,7 +620,6 @@ lib/c.dart
           docOnly: [decl(name: 'docOnly', line: 41)],
           emptyFiles: ['lib/blank.dart', 'lib/zero.dart'],
           emptyVariants: ['lib/web.dart'],
-          recoveredReferences: [warning()],
           problems: [
             problem(filePath: 'lib/b.dart', line: 65, column: 11),
             problem(
@@ -743,10 +650,6 @@ Referenced only from doc comments (1) · not counted, never removed
 lib/a.dart
   41:5  function  docOnly  (public)
 
-Recovered references (1) · missed by find-references; kept
-lib/a.dart
-  4:7  A.baz  used at lib/b.dart:9:2
-
 Not analyzed (2) · the analysis failed here
   Could not find the references; kept.
     Null check operator used on a null value
@@ -757,7 +660,7 @@ Not analyzed (2) · the analysis failed here
     lib/secret.dart
   Likely a Dart SDK bug; -v shows the stack traces.
 
-Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) · 3 empty files · 1 doc-only · 1 recovered · 2 not analyzed''',
+Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) · 3 empty files · 1 doc-only · 2 not analyzed''',
       );
     });
 

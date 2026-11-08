@@ -36,7 +36,7 @@ export 'src/lsp/exceptions.dart'
     show AnalysisServerExitedException, LspRequestException;
 export 'src/model/finder_options.dart' show FinderOptions;
 export 'src/model/finder_result.dart'
-    show AnalysisProblem, EmptiedContainer, FinderResult, RecoveredReference;
+    show AnalysisProblem, EmptiedContainer, FinderResult;
 export 'src/model/removal_result.dart'
     show DeletedFile, LeftComment, RemovalResult;
 export 'src/model/symbol_kind.dart' show SymbolKind;

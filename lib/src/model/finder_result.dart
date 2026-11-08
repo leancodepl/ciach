@@ -12,62 +12,6 @@ import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/util/extensions.dart';
 
-/// A declaration that had no reported references but was confirmed used by the
-/// secondary definition check. Surfaced as a warning so the missed reference
-/// can be looked into.
-class RecoveredReference {
-  const RecoveredReference({
-    required this.name,
-    required this.filePath,
-    required this.line,
-    required this.column,
-    required this.usageFilePath,
-    required this.usageLine,
-    required this.usageColumn,
-    this.container,
-  });
-
-  /// Simple (unqualified) name of the recovered declaration.
-  final String name;
-
-  /// Enclosing declaration name (e.g. the class for a method), if any.
-  final String? container;
-
-  /// Declaration location (root-relative `/`-path, one-based line/column).
-  final String filePath;
-  final int line;
-  final int column;
-
-  /// The confirmed usage location.
-  final String usageFilePath;
-  final int usageLine;
-  final int usageColumn;
-
-  /// Fully qualified display name, e.g. `MyClass.myMethod`.
-  String get qualifiedName =>
-      container?.let((container) => '$container.$name') ?? name;
-
-  /// Channel-neutral explanation; callers prepend the name and declaration
-  /// location as their output format needs.
-  String get message =>
-      'used at $usageFilePath:$usageLine:$usageColumn, but the Dart analyzer '
-      'did not report this reference (find-references returned none); recovered '
-      'via definition — likely a Dart SDK find-references bug';
-
-  Map<String, Object?> toJson() => {
-    'name': name,
-    'qualifiedName': qualifiedName,
-    'container': ?container,
-    'file': filePath,
-    'line': line,
-    'column': column,
-    'usageFile': usageFilePath,
-    'usageLine': usageLine,
-    'usageColumn': usageColumn,
-    'message': message,
-  };
-}
-
 /// A declaration or file whose analysis failed; the run went on without it.
 class AnalysisProblem {
   const AnalysisProblem({
@@ -131,7 +75,6 @@ class FinderResult {
     required this.elapsed,
     this.emptyFiles = const [],
     this.emptyVariants = const [],
-    this.recoveredReferences = const [],
     this.problems = const [],
     this.emptiedContainers = const [],
   });
@@ -143,8 +86,8 @@ class FinderResult {
 
   /// Declarations with no *code* references, but at least one dartdoc
   /// `[Xxx]`-style comment link — informational, not a removal candidate.
-  /// A link resolves to a real declaration, so the analysis server counts it
-  /// as a reference; reporting these separately surfaces likely-dead code
+  /// A link resolves to a real declaration, so it counts as a reference;
+  /// reporting these separately surfaces likely-dead code
   /// without risking deletion of something that really is pointed to, just
   /// only from documentation. Sorted by file then position.
   final List<UnusedDeclaration> docOnly;
@@ -173,10 +116,6 @@ class FinderResult {
 
   /// Wall-clock time the run took.
   final Duration elapsed;
-
-  /// Declarations confirmed used by the secondary definition check despite
-  /// having no reported references — surfaced as warnings, not findings.
-  final List<RecoveredReference> recoveredReferences;
 
   /// What the run could not analyze. Affected code is kept, so a problem can
   /// hide a finding but never adds one.

@@ -16,8 +16,7 @@ import 'package:test/test.dart';
 import '../support/package_config.dart';
 
 /// An exported package whose `lib/src/helper.dart` type no other package can
-/// reach, so the uses of its members are looked up where the type is named.
-/// The first use of `Helper.run` is in dead code, the second is live. The only
+/// reach, so its members are checked. The first use of `Helper.run` is in dead code, the second is live. The only
 /// use of `Helper.stop` is in dead code. `Helper.close` is used in dead code
 /// and live in `bin/main.dart`, which doesn't name `Helper`.
 void main() {
@@ -28,7 +27,7 @@ void main() {
     ..writeAsStringSync(contents);
 
   setUpAll(() {
-    root = .systemTemp.createTempSync('ciach_probed_members_');
+    root = .systemTemp.createTempSync('ciach_unexported_type_members_');
     write('.dart_tool/package_config.json', packageConfig({'demo': '.'}));
     write('pubspec.yaml', '''
 name: demo
@@ -67,20 +66,13 @@ void main() => make().close();
 
   tearDownAll(() => root.deleteSync(recursive: true));
 
-  test(
-    'members used in dead code and live elsewhere are used, with no '
-    'recovered reference, and a member used only in dead code is unused',
-    () async {
-      final result = await Ciach(
-        .new(rootPath: root.path, exportedPackages: const ['**']),
-      ).run();
-      expect(result.unused.map((d) => d.qualifiedName), [
-        '_dead',
-        'Helper.stop',
-      ]);
-      expect(result.recoveredReferences, isEmpty);
-    },
-  );
+  test('members used in dead code and live elsewhere are used, and a member '
+      'used only in dead code is unused', () async {
+    final result = await Ciach(
+      .new(rootPath: root.path, exportedPackages: const ['**']),
+    ).run();
+    expect(result.unused.map((d) => d.qualifiedName), ['_dead', 'Helper.stop']);
+  });
 
   test(
     "a member used in dead code and live only in an excluded file that doesn't name its type is used",

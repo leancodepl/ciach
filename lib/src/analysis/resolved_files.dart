@@ -11,9 +11,12 @@ import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:ciach/src/analysis/line_positions.dart';
+import 'package:ciach/src/analysis/reference_index.dart';
 import 'package:ciach/src/analysis/resolved_class.dart';
 import 'package:ciach/src/analysis/resolved_file.dart';
 import 'package:ciach/src/analysis/unit_outline.dart';
+import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/util/cached_map.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/workspace/packages.dart';
@@ -37,11 +40,37 @@ final class ResolvedFiles {
   final AnalysisContextCollection _collection;
   final _packages = PackageResolver();
   late final _files = CachedMap<String, Future<ResolvedFile?>>(_resolve);
+  final _index = ReferenceIndex();
+
+  /// The element that each declaration of a resolved file declares, by the
+  /// file's path and the start of the declaration's name.
+  final _elements = <String, Map<Position, Element>>{};
 
   /// Returns the file at [path], an absolute and normalized path, or `null`
   /// when the analyzer can't resolve it, such as a file whose path isn't the
   /// path of its URI.
   Future<ResolvedFile?> of(String path) => _files[path];
+
+  /// Resolves the Dart files that the analysis root's `analysis_options.yaml`
+  /// files don't exclude, and the files at [paths], so that [referencesTo]
+  /// finds the uses in them.
+  Future<void> resolveAll(Iterable<String> paths) async {
+    for (final path in {
+      for (final context in _collection.contexts)
+        ...context.contextRoot.analyzedFiles().where(
+          (path) => path.endsWith('.dart'),
+        ),
+      ...paths,
+    }) {
+      await of(path);
+    }
+  }
+
+  /// Returns the references of the declaration whose name starts at [name]
+  /// in the file at [path], from the files resolved so far, or `null` when
+  /// that file isn't resolved or no declaration's name starts there.
+  List<Location>? referencesTo(String path, Position name) =>
+      _elements[path]?[name]?.let(_index.referencesTo);
 
   /// Ends the analysis.
   Future<void> dispose() => _collection.dispose();
@@ -50,7 +79,10 @@ final class ResolvedFiles {
     for (final context in _contextsFor(path)) {
       if (await context.currentSession.getResolvedUnit(path)
           case final ResolvedUnitResult result) {
-        return _fileOf(result, _packages.configOf(p.dirname(path)));
+        _index.add(path, result.unit, result.lineInfo);
+        final (:outline, :elements) = unitOutline(result.unit, result.lineInfo);
+        _elements[path] = elements;
+        return _fileOf(result, outline, _packages.configOf(p.dirname(path)));
       }
     }
     return null;
@@ -72,10 +104,12 @@ final class ResolvedFiles {
   static String _rootOf(AnalysisContext context) =>
       context.contextRoot.root.path;
 
-  /// Returns [result] as ciach reads it. [config] is the package config of
-  /// the file, which gives the package of a file outside `lib/`.
+  /// Returns [result], whose outline is [outline], as ciach reads it.
+  /// [config] is the package config of the file, which gives the package of
+  /// a file outside `lib/`.
   static ResolvedFile _fileOf(
     ResolvedUnitResult result,
+    Outline outline,
     PackageConfig? config,
   ) {
     final positionOf = result.lineInfo.positionOf;
@@ -89,7 +123,7 @@ final class ResolvedFiles {
     final annotations =
         (_Annotations()..visitCompilationUnit(result.unit)).annotations;
     return .new(
-      outline: unitOutline(result.unit, result.lineInfo),
+      outline: outline,
       annotationPackages: {
         for (final annotation in annotations)
           positionOf(_nameOf(annotation).offset): ?annotation.element?.library

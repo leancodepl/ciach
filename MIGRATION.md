@@ -22,6 +22,28 @@ These getters named what the analysis server had to look up before a rule
 could select a declaration. `package:analyzer` now resolves all of it, so
 both getters are gone, with no replacement.
 
+### Operator overloads are reported
+
+ciach used to skip operator overloads, because the analysis server didn't
+connect `a + b` to `operator +`. It now finds those uses, so an operator
+overload that nothing uses is reported like any other method. Drop
+`operators` from `--also` and from `also:` in `ciach.yaml`: both are errors
+now.
+
+### Recovered references
+
+ciach used to look again for the uses of a declaration that the analysis
+server reported no references for, and listed each use that it found as a
+recovered reference. It now finds every use with `package:analyzer`, so there
+is nothing left to recover, and the list is gone from every output:
+
+- The text report has no "Recovered references" section, and its summary line
+  no "recovered" count.
+- The JSON report has no `warnings` array.
+- The CI annotations and SARIF have no `recovered-reference` check.
+- In the Dart API, `FinderResult.recoveredReferences` and the
+  `RecoveredReference` class are gone, with no replacement.
+
 ## From 0.6 to 0.7
 
 ### Removed options

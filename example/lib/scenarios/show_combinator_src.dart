@@ -1,4 +1,4 @@
-// Recovery fixture. Expected findings are asserted by test/finder_test.dart;
+// Cross-library uses. Expected findings are asserted by test/finder_test.dart;
 // keep in sync.
 
 // Named in a `show` combinator -> used, NOT flagged.

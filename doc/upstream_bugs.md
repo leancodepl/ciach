@@ -1,9 +1,9 @@
 # Analysis server bugs found by ciach
 
-ciach asks the Dart analysis server for the references of every declaration in
-a project, so it runs into reference-search bugs that an editor rarely hits.
-These are the ones we reported to the Dart SDK. On an SDK without the fix, the
-affected code can be reported as unused, or the query can fail.
+ciach used to ask the Dart analysis server for the references of every
+declaration in a project, so it ran into reference-search bugs that an editor
+rarely hits. These are the ones we reported to the Dart SDK. ciach now finds
+references with `package:analyzer` itself, so these bugs don't affect it.
 
 The Dart SDK takes changes through Gerrit rather than pull requests, so each
 fix links to its CL and to the commit it landed as.

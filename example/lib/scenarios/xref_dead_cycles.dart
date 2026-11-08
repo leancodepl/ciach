@@ -1,5 +1,5 @@
-// `XrefLoadedState.ready` is recovered from two sites here: a dead one first,
-// then a live one. Asserted by test/finder_test.dart.
+// `XrefLoadedState.ready` is used at two sites here: a dead one first, then a
+// live one. Asserted by test/finder_test.dart.
 
 import 'package:sample_pkg/scenarios/xref_shapes.dart';
 

@@ -132,8 +132,6 @@ enum CiachOption<V> implements OptionDefinition<V> {
       allowedHelp: {
         'overrides':
             '@override members, often reached polymorphically or by a framework.',
-        'operators':
-            'Operator overloads: the analysis server never resolves `a + b` to the operator, so a used one is reported every time.',
         'tojson':
             'toJson() hooks, which `jsonEncode(obj)` calls by dynamic dispatch.',
         'union-members':
@@ -337,7 +335,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       defaultsTo: 16,
       min: 1,
       helpText:
-          'How many reference queries to run against the analysis server at once. Higher can be faster on large projects, up to the limit of the analysis server parallelism.',
+          'How many requests to send to the analysis server at once. Higher can be faster on large projects, up to the limit of the analysis server parallelism.',
     ),
   ),
   dart(

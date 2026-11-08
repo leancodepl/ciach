@@ -1,9 +1,7 @@
 import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/flutter_widgets.dart';
 import 'package:ciach/src/conventions/freezed.dart';
-import 'package:ciach/src/fetch/cross_library_refs.dart';
 import 'package:ciach/src/fetch/reference_fetch.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/model/finder_options.dart';
@@ -13,8 +11,6 @@ import 'package:ciach/src/settle/clause_only_types.dart';
 import 'package:ciach/src/settle/dead_spans.dart';
 import 'package:ciach/src/settle/emptied_containers.dart';
 import 'package:ciach/src/settle/overrides.dart';
-import 'package:ciach/src/settle/probed_references.dart';
-import 'package:ciach/src/settle/recovery.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
 import 'package:ciach/src/settle/removable.dart';
 import 'package:ciach/src/settle/remove_safety.dart';
@@ -35,7 +31,6 @@ final _log = Logger('ciach.finder');
 typedef Settled = ({
   List<UnusedDeclaration> unused,
   List<UnusedDeclaration> docOnly,
-  List<RecoveredReference> recovered,
   List<EmptiedContainer> emptied,
 });
 
@@ -43,7 +38,6 @@ typedef Settled = ({
 typedef _Verdicts = ({
   List<UnusedDeclaration> unused,
   List<UnusedDeclaration> docOnly,
-  List<RecoveredReference> recovered,
 });
 
 /// From references to findings: settles each candidate's verdict — classifies
@@ -52,8 +46,7 @@ typedef _Verdicts = ({
 /// and only what live code reaches is revived (see [TransitiveSweep]), so dead
 /// cycles are reported too. Each round then settles the verdicts, and what a
 /// round keeps revives what it reaches, until the dead set stops changing.
-/// Rounds reuse the fetched references and cached override lookups, and probe
-/// only the names a round newly leaves unreferenced.
+/// Rounds reuse the references and the cached override lookups.
 final class Settler {
   Settler({
     required this.options,
@@ -62,13 +55,11 @@ final class Settler {
     required ReferenceClassifier classifier,
     required Verdict verdict,
     required ReferenceFetch fetch,
-    required ConditionalImports conditionalImports,
   }) : _sources = sources,
        _freezed = freezed,
        _classifier = classifier,
        _verdict = verdict,
-       _fetch = fetch,
-       _conditionalImports = conditionalImports;
+       _fetch = fetch;
 
   final FinderOptions options;
   final SourceIndex _sources;
@@ -76,13 +67,6 @@ final class Settler {
   final ReferenceClassifier _classifier;
   final Verdict _verdict;
   final ReferenceFetch _fetch;
-  final ConditionalImports _conditionalImports;
-
-  late final _recovery = ReferenceRecovery(
-    sources: _sources,
-    classifier: _classifier,
-    concurrency: options.concurrency,
-  );
 
   late final _clauseOnly = ClauseOnlyTypes(
     sources: _sources,
@@ -111,10 +95,7 @@ final class Settler {
   /// so the rounds end on their own.
   static const _maxRounds = 16;
 
-  /// The findings for [candidates], from the server's [refsByCandidate].
-  /// The references of the [probed] candidates are the uses `probeMembers`
-  /// found, to which a round adds their full references before calling one
-  /// dead.
+  /// The findings for [candidates], from their [refsByCandidate].
   Future<Settled> settle(
     LspClient client,
     ResolvedFiles files,
@@ -122,8 +103,6 @@ final class Settler {
     List<List<Location>> refsByCandidate, {
     required Set<String> scannedPaths,
     required String rootPath,
-    required String analysisRoot,
-    Set<Candidate> probed = const {},
   }) async {
     final superclasses = SuperclassChecks(client, files);
     final overrides = OverrideRemovals(
@@ -134,61 +113,35 @@ final class Settler {
       rootPath: rootPath,
     );
 
-    final probedRefs = ProbedReferences(
-      fetch: _fetch,
-      classifier: _classifier,
-      conditionalImports: _conditionalImports,
-      client: client,
-      candidates: candidates,
-      rootPath: rootPath,
-      probed: probed,
-    );
-    var refs = refsByCandidate;
-
-    var crossLib = CrossLibraryReferences.empty;
     var deadSpans = options.transitive
-        ? _transitive.allUnreached(candidates, refs, rootPath)
+        ? _transitive.allUnreached(candidates, refsByCandidate, rootPath)
         : DeadSpans.empty;
     _Verdicts settled;
     Map<UnusedDeclaration, int> candidateOf;
     for (var round = 1; ; round++) {
-      final liveRefs = TransitiveSweep.liveRefs(refs, deadSpans);
-      crossLib = crossLib.merged(
-        await _recovery.recover(client, candidates, liveRefs, refs),
-      );
       final result = await _round(
         client,
         files,
         candidates,
-        refs,
-        liveRefs,
-        crossLib.whereNot(deadSpans.covers),
+        refsByCandidate,
+        TransitiveSweep.liveRefs(refsByCandidate, deadSpans),
         deadSpans,
         superclasses,
         overrides,
         scannedPaths,
         rootPath,
-        analysisRoot,
       );
       settled = result.settled;
       candidateOf = result.candidateOf;
       if (!options.transitive) {
         break;
       }
-      // A probed member's uses come only from the files that name its type, so
-      // before the next round calls it dead, its full references are added.
-      // The spans of round 1 are not checked this way: they count everything
-      // that no live code reaches as dead, and most of that is alive again in
-      // later rounds.
-      DeadSpans sweep() => _transitive.sweep(
+      final next = _transitive.sweep(
         candidates,
-        refs,
-        crossLib,
+        refsByCandidate,
         result.candidateOf,
         rootPath,
       );
-      refs = await probedRefs.withFullReferences(refs, sweep());
-      final next = sweep();
       if (next.sameAs(deadSpans)) {
         if (round > 1) {
           _log.fine('Settled after ${plural(round, 'round', 'rounds')}.');
@@ -207,16 +160,9 @@ final class Settler {
       );
       deadSpans = next;
     }
-    if (settled.recovered.isNotEmpty) {
-      _log.fine(
-        'Kept ${plural(settled.recovered.length, 'declaration', 'declarations')} the reference '
-        'search called unused: the definition check found a use for each.',
-      );
-    }
     return (
       unused: settled.unused.sorted(compareByLocation),
       docOnly: settled.docOnly.sorted(compareByLocation),
-      recovered: settled.recovered,
       emptied: emptiedContainers(candidates, candidateOf, rootPath),
     );
   }
@@ -230,26 +176,16 @@ final class Settler {
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
     List<List<Location>> liveRefs,
-    CrossLibraryReferences crossLib,
     DeadSpans deadSpans,
     SuperclassChecks superclasses,
     OverrideRemovals overrides,
     Set<String> scannedPaths,
     String rootPath,
-    String analysisRoot,
   ) async {
     final statuses = [
       for (final (i, candidate) in candidates.indexed)
-        _classifier.classify(candidate, liveRefs[i], crossLib),
+        _classifier.classify(candidate, liveRefs[i]),
     ];
-
-    final recovered = _recovery.warnings(
-      candidates,
-      liveRefs,
-      crossLib,
-      rootPath,
-      analysisRoot,
-    );
 
     // A deser-only union arm reads zero references but is a live serialization
     // member.
@@ -382,7 +318,7 @@ final class Settler {
     _dropEnclosedInDead(cut, deadSpans, rootPath);
 
     return (
-      settled: (unused: cut, docOnly: docOnly, recovered: recovered),
+      settled: (unused: cut, docOnly: docOnly),
       candidateOf: {
         for (final finding in cut) finding: cutCandidateOf[finding]!,
       },

@@ -52,7 +52,6 @@ void main() {
   Future<FinderResult> runFinder({
     bool includePublic = true,
     bool skipOverrides = true,
-    bool skipOperators = true,
     Set<SymbolKind>? kinds,
     // The scenario fixtures under lib/scenarios/ are scanned only by their
     // dedicated tests; exclude them from the default-run assertions.
@@ -67,7 +66,6 @@ void main() {
       includePublic: includePublic,
       exportedPackages: exportedPackages,
       skipOverrides: skipOverrides,
-      skipOperators: skipOperators,
       kinds: kinds ?? FinderOptions.defaultKinds,
       excludeGlobs: exclude,
       includeGlobs: include,
@@ -79,7 +77,6 @@ void main() {
   Future<Set<String>> findUnused({
     bool includePublic = true,
     bool skipOverrides = true,
-    bool skipOperators = true,
     Set<SymbolKind>? kinds,
     List<String> exclude = const ['lib/scenarios/**'],
     List<String> include = const [],
@@ -87,7 +84,6 @@ void main() {
     final result = await runFinder(
       includePublic: includePublic,
       skipOverrides: skipOverrides,
-      skipOperators: skipOperators,
       kinds: kinds,
       exclude: exclude,
       include: include,
@@ -127,6 +123,8 @@ void main() {
       'Direction.west',
       'Loud.whisper',
       'IntExtras.tripled',
+      // An operator overload that nothing uses; `Vector2.+` is used.
+      'Vector2.-',
       // Private constructors are reported like any other dead code. The sole,
       // zero-parameter `SoleMarker._()` also carries a prevent-instantiation
       // hint (asserted separately below).
@@ -134,11 +132,6 @@ void main() {
       'MultiCtor._unused',
       'ParamCtor._',
     });
-  });
-
-  test('including operators also reports operator overloads', () async {
-    final unused = await findUnused(skipOperators: false);
-    expect(unused, containsAll(['Vector2.+', 'Vector2.-']));
   });
 
   test('does not report a `call` method that an invoked object uses', () async {
@@ -1474,9 +1467,7 @@ void main() {
     });
   });
 
-  group('cross-library reference recovery', () {
-    // The consumer file must be scanned too, or the recovery can't see the
-    // usage sites the reference index misses.
+  group('cross-library references', () {
     Future<FinderResult> runXrefResult() => runFinder(
       include: const [
         'lib/scenarios/xref_shapes.dart',
@@ -1521,10 +1512,6 @@ void main() {
         final names = result.unused.map((d) => d.qualifiedName).toSet();
         expect(names, isNot(contains('XrefSurface.glossy')));
         expect(names, contains('XrefSurface.matte'));
-        final glossy = result.recoveredReferences.firstWhere(
-          (w) => w.qualifiedName == 'XrefSurface.glossy',
-        );
-        expect(glossy.usageFilePath, endsWith('xref_uses.dart'));
       },
     );
 
@@ -1532,49 +1519,15 @@ void main() {
       expect(await runXref(), isNot(contains('XrefEvent.signIn')));
     });
 
-    test(
-      'genuinely-dead members are still flagged — the recovery did not blind the detector',
-      () async {
-        final names = await runXref();
-        expect(names, contains('XrefLoadedState.deadShapeGetter'));
-        expect(names, contains('XrefEvent.deadEvent'));
-      },
-    );
-
-    test(
-      'each recovered reference is surfaced as a warning; normal and genuinely-dead declarations are not',
-      () async {
-        final result = await runXrefResult();
-        final warned = result.recoveredReferences
-            .map((w) => w.qualifiedName)
-            .toSet();
-        // Confirmed used by the secondary check.
-        expect(
-          warned,
-          containsAll([
-            'XrefLoadedState.hasActive',
-            'XrefLoadedState.ready',
-            'XrefEvent.signOut',
-          ]),
-        );
-        // Normally referenced -> not recovered, no warning.
-        expect(warned, isNot(contains('XrefEvent.signIn')));
-        expect(warned, isNot(contains('XrefLoadedState.localFlag')));
-        // Genuinely dead -> stays a finding, not a warning.
-        expect(warned, isNot(contains('XrefLoadedState.deadShapeGetter')));
-        expect(warned, isNot(contains('XrefEvent.deadEvent')));
-        // The warning carries the confirmed usage location and the hedge.
-        final signOut = result.recoveredReferences.firstWhere(
-          (w) => w.qualifiedName == 'XrefEvent.signOut',
-        );
-        expect(signOut.usageFilePath, endsWith('xref_uses.dart'));
-        expect(signOut.message, contains('likely a Dart SDK find-references'));
-      },
-    );
+    test('members that no code uses are flagged', () async {
+      final names = await runXref();
+      expect(names, contains('XrefLoadedState.deadShapeGetter'));
+      expect(names, contains('XrefEvent.deadEvent'));
+    });
   });
 
   test(
-    'transitive: a recovered member with a dead and a live use stays used',
+    'transitive: a member used from another library by dead and live code stays used',
     () async {
       final result = await runFinder(
         include: const [
@@ -1598,13 +1551,9 @@ void main() {
       exclude: const [],
     );
     final unused = result.unused.map((d) => d.qualifiedName).toSet();
-    final recovered = result.recoveredReferences
-        .map((w) => w.qualifiedName)
-        .toSet();
 
     expect(unused, contains('deadUnshownGetter'));
     expect(unused, isNot(contains('liveShownGetter')));
-    expect(recovered, contains('liveShownGetter'));
   });
 
   group('conditional imports', () {
@@ -1648,10 +1597,9 @@ void main() {
     });
   });
 
-  group('same-simple-name collision recovery', () {
-    // Two members share the simple name `status`: one used only from another
-    // file (must be recovered) and one never used (must stay flagged). Guards
-    // the definition position-matching that tells them apart.
+  group('members that share a name', () {
+    // Two members share the name `status`: one is used only from another file
+    // and one is never used.
     Future<FinderResult> runCollision() => runFinder(
       include: const [
         'lib/scenarios/xref_collision.dart',
@@ -1661,19 +1609,12 @@ void main() {
     );
 
     test(
-      'recovers the used member and still flags the dead namesake',
+      'keeps the member used from another file and flags its dead namesake',
       () async {
         final result = await runCollision();
         final unused = result.unused.map((d) => d.qualifiedName).toSet();
-        final warned = result.recoveredReferences
-            .map((w) => w.qualifiedName)
-            .toSet();
-        // The genuinely-dead namesake is still reported.
         expect(unused, contains('DeadState.status'));
-        // The used-only-cross-file namesake is recovered, not reported.
         expect(unused, isNot(contains('LiveState.status')));
-        expect(warned, contains('LiveState.status'));
-        expect(warned, isNot(contains('DeadState.status')));
       },
     );
   });
@@ -2012,6 +1953,7 @@ void main() {
         'Endpoint.port',
         'Chip.badge',
         'Ranged.high',
+        'Secret._',
         'Secret.seed',
         // The fixture's own entry points, called by nothing in the scan.
         'usePrimaryConstructors',
@@ -2088,9 +2030,11 @@ void main() {
       expect(decl!.removalBlocked, isTrue);
       expect(decl.hint, contains('primary constructor'));
       expect(findByQualified(result, 'Point.new'), isNull);
-      // A query at the header resolves to the class, so `Secret._` inherits the
-      // references of a class that is still used as a type.
-      expect(findByQualified(result, 'Secret._'), isNull);
+      // `Secret` is still used as a type, but nothing calls `Secret._`.
+      final secret = findByQualified(result, 'Secret._');
+      expect(secret, isNotNull);
+      expect(secret!.removalBlocked, isTrue);
+      expect(secret.hint, contains('primary constructor'));
     });
   });
 

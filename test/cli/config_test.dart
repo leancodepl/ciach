@@ -45,7 +45,7 @@ exported-packages: [packages/shared]
 generated: true
 project-config: false
 unused-translations: false
-also: [overrides, operators, union-members, tojson]
+also: [overrides, union-members, tojson]
 transitive: false
 set-exit-if-changed: true
 remove: true
@@ -79,7 +79,6 @@ dart: /sdk/bin/dart
       expect(resolved.projectConfig, isFalse);
       expect(resolved.unusedTranslations, isFalse);
       expect(resolved.overrides, isTrue);
-      expect(resolved.operators, isTrue);
       expect(resolved.unusedUnionMembers, isTrue);
       expect(resolved.reportToJson, isTrue);
       expect(resolved.transitive, isFalse);
@@ -207,16 +206,53 @@ concurrency: 4
 
     test('says to drop a removed option set to what is the default now', () {
       expect(
-        () => ConfigFile.parse('operators: false', origin: 'ciach.yaml'),
+        () => ConfigFile.parse('exported: true', origin: 'ciach.yaml'),
         throwsA(
           isA<FormatException>().having(
             (e) => e.message,
             'message',
-            'ciach.yaml: `operators` was removed: that is the default now, so drop it.',
+            'ciach.yaml: `exported` was removed: that is the default now, so drop it.',
           ),
         ),
       );
     });
+
+    test(
+      'says that operator overloads are reported now, for the removed `operators` option',
+      () {
+        expect(
+          () => ConfigFile.parse('operators: true', origin: 'ciach.yaml'),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              'ciach.yaml: `operators` was removed: operator overloads are reported by default now, so drop it.',
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'says that operator overloads are reported now, for `operators` under also',
+      () {
+        expect(
+          () => resolve(
+            const [],
+            .parse('also: [overrides, operators]', origin: 'ciach.yaml'),
+          ),
+          throwsA(
+            isA<UsageException>().having(
+              (e) => e.message,
+              'message',
+              contains(
+                '`operators` was removed: operator overloads are reported by default now, so drop it.',
+              ),
+            ),
+          ),
+        );
+      },
+    );
 
     test('rejects an unknown value under also', () {
       expect(
@@ -232,6 +268,24 @@ concurrency: 4
       );
     });
 
+    test(
+      'removedOptionMessage says that operator overloads are reported now, for `operators` given to `--also` either way',
+      () {
+        expect(
+          [
+            removedOptionMessage(['--also', 'operators']),
+            removedOptionMessage(['--also=tojson,operators']),
+            removedOptionMessage(['--also', 'tojson']),
+          ],
+          [
+            '`--also operators` was removed: operator overloads are reported by default now, so drop it.',
+            '`--also operators` was removed: operator overloads are reported by default now, so drop it.',
+            null,
+          ],
+        );
+      },
+    );
+
     test('removedOptionMessage names what replaced a removed flag', () {
       expect(
         removedOptionMessage(['lib', '--no-fail-public']),
@@ -243,7 +297,7 @@ concurrency: 4
       );
       expect(
         removedOptionMessage(['--no-operators']),
-        '`--no-operators` was removed: that is the default now, so drop it.',
+        '`--no-operators` was removed: operator overloads are reported by default now, so drop it.',
       );
       expect(
         removedOptionMessage(['--exported']),
@@ -544,7 +598,6 @@ concurrency: 4
       expect(resolved.projectConfig, isTrue);
       expect(resolved.unusedTranslations, isTrue);
       expect(resolved.overrides, isFalse);
-      expect(resolved.operators, isFalse);
       expect(resolved.unusedUnionMembers, isFalse);
       expect(resolved.reportToJson, isFalse);
       expect(resolved.transitive, isTrue);
@@ -887,7 +940,6 @@ format: text''', origin: 'c.yaml'),
       expect(options.includePublic, isFalse);
       // Inverted for the finder.
       expect(options.skipOverrides, isFalse);
-      expect(options.skipOperators, isTrue);
       expect(options.excludeGlobs, ['test/**']);
       expect(options.entryPoints.map((e) => '$e'), ['bootstrap']);
       expect(options.concurrency, 4);

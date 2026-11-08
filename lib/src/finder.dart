@@ -22,7 +22,7 @@
 /// | `conventions/`    | Framework rules that keep declarations alive: Flutter, freezed, l10n. |
 /// | `project_config/` | Entry points and generated files read from the project's own config.  |
 /// | `collect/`        | Which declarations get checked.                                       |
-/// | `fetch/`          | Asking the server for references, and for what it misses.             |
+/// | `fetch/`          | The references, and what the rules read about the referring code.     |
 /// | `settle/`         | Turning references into findings.                                     |
 /// | `remove/`         | `--remove`: deleting findings and emptied files.                      |
 /// | `report/`         | The output formats.                                                   |
@@ -39,7 +39,6 @@ import 'package:ciach/src/collect/candidate_collector.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/freezed.dart';
-import 'package:ciach/src/fetch/member_probe.dart';
 import 'package:ciach/src/fetch/reachable_types.dart';
 import 'package:ciach/src/fetch/reference_fetch.dart';
 import 'package:ciach/src/lsp/dart_executable.dart';
@@ -70,17 +69,17 @@ final _log = Logger('ciach.finder');
 
 const _unreadableFile = 'Could not read these files; skipped.';
 
-/// Finds declarations that are never referenced by driving the Dart analysis
-/// server over LSP.
+/// Finds declarations that are never referenced.
 ///
-/// `package:analyzer` lists the declarations of each file, and for every one
-/// of them, a `textDocument/references` query is issued at the declaration's
-/// name, with `includeDeclaration: false`. An empty result means the
-/// declaration is unused.
+/// `package:analyzer` resolves every file under the analysis root, lists the
+/// declarations of each scanned file, and records where each declaration is
+/// used. A declaration without uses outside itself is unused. The Dart
+/// analysis server, driven over LSP, gives the semantic tokens and the syntax
+/// nodes that the rules read.
 ///
 /// `Ciach` owns the server session, the analyzer and the pipeline (discover →
 /// collect → fetch → settle); each stage is a collaborator: [CandidateCollector] decides
-/// what to check, [ReferenceFetch] asks the server, [Settler] turns the answers
+/// what to check, [ReferenceFetch] gets the references, [Settler] turns them
 /// into findings with [ReferenceClassifier] deciding used/unused, [Verdict]
 /// deciding how a dead candidate is reported, and the `conventions/` rules
 /// keeping framework-driven declarations alive.
@@ -134,7 +133,6 @@ class Ciach {
   late final _settler = Settler(
     options: options,
     fetch: _fetch,
-    conditionalImports: _conditionalImports,
     sources: _sources,
     freezed: _freezed,
     classifier: _classifier,
@@ -289,24 +287,14 @@ class Ciach {
       final collected = [for (final list in perFile) ...list];
       _collector.reportSkipped();
 
-      // Phase 2: check references for every candidate through a single global
-      // pool, so the server stays saturated instead of stalling between files.
-      final fetched = await _references(
-        client,
-        resolved,
-        collected,
-        totalFiles: files.length,
-        rootPath: rootPath,
-      );
-      final withCalls = await _fetch.withImplicitCalls(
-        client,
-        resolved,
+      // Phase 2: find the references of every candidate in the files under
+      // the analysis root.
+      _log.info('Resolving the other files under the analysis root…');
+      await resolved.resolveAll(discovered.warmOnly);
+      final fetched = await _references(client, resolved, collected);
+      final (:candidates, :refsByCandidate) = _conditionalImports.share(
         fetched.candidates,
         fetched.refsByCandidate,
-      );
-      final (:candidates, :refsByCandidate) = _conditionalImports.share(
-        withCalls.checked,
-        withCalls.refs,
         _collector.declaredInVariants,
         _classifier,
         onDropped: _logDropped,
@@ -322,8 +310,6 @@ class Ciach {
         refsByCandidate,
         scannedPaths: files.where(opened.contains).toSet(),
         rootPath: rootPath,
-        analysisRoot: analysisRoot,
-        probed: fetched.probed,
       );
     } finally {
       await client.dispose();
@@ -339,7 +325,6 @@ class Ciach {
       elapsed: stopwatch.elapsed,
       emptyFiles: empty.files,
       emptyVariants: empty.variants,
-      recoveredReferences: settled.recovered,
       problems: problems.problems,
       emptiedContainers: settled.emptied,
     );
@@ -375,52 +360,26 @@ class Ciach {
 
   /// The references of [collected], less the candidates left unchecked.
   ///
-  /// Members of an unexported type wait until the types' references show
-  /// which ones another package can reach; the rest are settled by
-  /// [probeMembers] first, and the settling adds their full references to the
-  /// uses it found before calling one dead.
-  Future<
-    ({
-      List<Candidate> candidates,
-      List<List<Location>> refsByCandidate,
-      Set<Candidate> probed,
-    })
-  >
+  /// When other packages can import the scanned code, a member of a type
+  /// that they can reach is part of its API, so only the members of the
+  /// other types are checked.
+  Future<({List<Candidate> candidates, List<List<Location>> refsByCandidate})>
   _references(
     LspClient client,
     ResolvedFiles files,
-    List<Candidate> collected, {
-    required int totalFiles,
-    required String rootPath,
-  }) async {
+    List<Candidate> collected,
+  ) async {
     final api = _publicApi;
     final gated = api == null
         ? const <Candidate>{}
         : collected.where(ReachableTypes.isGated).toSet();
-    final candidates = <Candidate>[];
-    final refsByCandidate = <List<Location>>[];
-    Future<void> fetch(List<Candidate> batch, int files) async {
-      _log.info(
-        'Checking references for ${plural(batch.length, 'declaration', 'declarations')}…',
-      );
-      final fetched = await _fetch.references(
-        client,
-        batch,
-        totalFiles: files,
-        rootPath: rootPath,
-      );
-      await _fetch.semanticTokensFor(client, fetched.refs);
-      candidates.addAll(fetched.checked);
-      refsByCandidate.addAll(fetched.refs);
-    }
-
-    await fetch(collected.whereNot(gated.contains).toList(), totalFiles);
+    final fetched = _fetch.references(
+      files,
+      collected.whereNot(gated.contains).toList(),
+    );
+    await _fetch.semanticTokensFor(client, fetched.refs);
     if (api == null || gated.isEmpty) {
-      return (
-        candidates: candidates,
-        refsByCandidate: refsByCandidate,
-        probed: const <Candidate>{},
-      );
+      return (candidates: fetched.checked, refsByCandidate: fetched.refs);
     }
     final types = await ReachableTypes.find(
       client: client,
@@ -428,27 +387,17 @@ class Ciach {
       sources: _sources,
       fetch: _fetch,
       api: api,
-      candidates: candidates,
-      refs: refsByCandidate,
+      candidates: fetched.checked,
+      refs: fetched.refs,
     );
-    final internal = gated.where(types.isInternal).toList();
-    _log.info(
-      'Looking up uses of ${plural(internal.length, 'member', 'members')} of unexported types…',
+    final internal = _fetch.references(
+      files,
+      gated.where(types.isInternal).toList(),
     );
-    final probed = await probeMembers(
-      client: client,
-      sources: _sources,
-      types: types,
-      members: internal,
-      concurrency: options.concurrency,
-    );
-    candidates.addAll(probed.used);
-    refsByCandidate.addAll(probed.refs);
-    await fetch(probed.rest, probed.rest.map((c) => c.path).toSet().length);
+    await _fetch.semanticTokensFor(client, internal.refs);
     return (
-      candidates: candidates,
-      refsByCandidate: refsByCandidate,
-      probed: probed.used.toSet(),
+      candidates: [...fetched.checked, ...internal.checked],
+      refsByCandidate: [...fetched.refs, ...internal.refs],
     );
   }
 
