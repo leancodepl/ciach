@@ -10,9 +10,9 @@
 library;
 
 import 'package:ciach/src/analysis/resolved_class.dart';
-import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:ciach/src/source/symbols.dart';
 
 /// A declaration that the entry-point rules are checked against.

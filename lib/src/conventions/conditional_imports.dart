@@ -14,7 +14,7 @@ import 'package:collection/collection.dart';
 /// chooses between, such as `io.dart` and `web.dart` in
 /// `import 'io.dart' if (dart.library.js_interop) 'web.dart';`.
 ///
-/// The analysis server resolves every use to the default file, so namesakes in
+/// The analyzer resolves every use to the default file, so namesakes in
 /// the variants share their references: they are used, or reported and
 /// removed, together.
 final class ConditionalImports {

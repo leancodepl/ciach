@@ -9,11 +9,11 @@
  */
 
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/reference_kinds.dart';
+import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/paths.dart';

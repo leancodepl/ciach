@@ -2,16 +2,15 @@
 ///
 /// One statement can declare several variables, like `int a = 1, b = 2;`.
 /// Removing some of them cuts each out with a comma; removing all of them
-/// deletes the whole statement. The ranges come from the analysis server's
-/// selection ranges, so comments and line breaks in the statement don't
-/// matter.
+/// deletes the whole statement. The ranges come from the syntax nodes of the
+/// statement, so comments and line breaks in it don't matter.
 library;
 
-import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/source/list_cuts.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/selection_range.dart';
+import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:collection/collection.dart';
@@ -21,32 +20,8 @@ import 'package:collection/collection.dart';
 typedef DeclaratorAt = ({String path, Position name});
 
 extension DeclaratorCuts on SourceIndex {
-  /// Returns, grouped by file, the positions of the other variable names
-  /// declared in the same statements as [declarators].
-  ///
-  /// [declaratorCuts] needs the selection ranges at these positions to tell
-  /// where each variable of a statement starts and ends. Names inside a
-  /// variable's own initializer, like a closure's parameters, are left out.
-  /// The selection range at each of [declarators] must already be cached.
-  Map<String, Set<Position>> otherDeclaratorNames(
-    Iterable<DeclaratorAt> declarators,
-  ) {
-    final probes = <String, Set<Position>>{};
-    for (final (:path, :name) in declarators) {
-      if (selectionRangeAt(path, name) case SelectionRange(
-        :final range,
-        parent: SelectionRange(range: final list),
-      )) {
-        probes
-            .putIfAbsent(path, () => {})
-            .addAll(_namesIn(path, list).whereNot(range.contains));
-      }
-    }
-    return probes;
-  }
-
   /// Returns the position of every name declared within [range] of [path],
-  /// according to its semantic tokens.
+  /// according to its tokens.
   List<Position> _namesIn(String path, Range range) => [
     if (semanticTokens(path) case final tokens?)
       for (final token in tokens.between(range.start, range.end))
@@ -59,8 +34,7 @@ extension DeclaratorCuts on SourceIndex {
   /// is the whole statement, with its doc comment, annotations and `;`.
   /// Otherwise each group of adjacent removed variables is cut out with the
   /// comma after it, or, for a group that ends the statement, the comma before
-  /// it. The range is `null` when a selection range it depends on isn't
-  /// cached.
+  /// it. The range is `null` when the file can't be parsed.
   Map<DeclaratorAt, DeclarationRange?> declaratorCuts(
     Iterable<DeclaratorAt> declarators,
   ) {
@@ -119,12 +93,12 @@ extension DeclaratorCuts on SourceIndex {
 
   /// Returns the range of each variable in the declaration list at [list], in
   /// source order: `a = 1` and `b = 2` for `int a = 1, b = 2`. Returns `null`
-  /// when a selection range it needs isn't cached.
+  /// when the file can't be parsed.
   List<Range>? _declaratorsIn(String path, Range list) {
     final declarators = <Range>[];
     for (final name in _namesIn(path, list)) {
       // Skip names inside the previous variable's initializer, like a
-      // closure's parameters. Their selection ranges were never fetched.
+      // closure's parameters.
       if (declarators.lastOrNull?.contains(name) ?? false) {
         continue;
       }

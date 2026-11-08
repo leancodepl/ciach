@@ -2,7 +2,6 @@ import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/conventions/flutter_widgets.dart';
 import 'package:ciach/src/conventions/freezed.dart';
-import 'package:ciach/src/fetch/reference_fetch.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/model/finder_result.dart';
@@ -54,25 +53,21 @@ final class Settler {
     required FreezedUnions freezed,
     required ReferenceClassifier classifier,
     required Verdict verdict,
-    required ReferenceFetch fetch,
   }) : _sources = sources,
        _freezed = freezed,
        _classifier = classifier,
-       _verdict = verdict,
-       _fetch = fetch;
+       _verdict = verdict;
 
   final FinderOptions options;
   final SourceIndex _sources;
   final FreezedUnions _freezed;
   final ReferenceClassifier _classifier;
   final Verdict _verdict;
-  final ReferenceFetch _fetch;
 
   late final _clauseOnly = ClauseOnlyTypes(
     sources: _sources,
     classifier: _classifier,
     verdict: _verdict,
-    fetch: _fetch,
   );
 
   late final _transitive = TransitiveSweep(
@@ -80,7 +75,7 @@ final class Settler {
     verdict: _verdict,
   );
 
-  late final _variableCuts = VariableCuts(fetch: _fetch, sources: _sources);
+  late final _variableCuts = VariableCuts(_sources);
 
   late final _wholeTypes = WholeTypes(verdict: _verdict);
 
@@ -104,7 +99,6 @@ final class Settler {
     required Set<String> scannedPaths,
     required String rootPath,
   }) async {
-    final superclasses = SuperclassChecks(client, files);
     final overrides = OverrideRemovals(
       client,
       files,
@@ -126,7 +120,6 @@ final class Settler {
         refsByCandidate,
         TransitiveSweep.liveRefs(refsByCandidate, deadSpans),
         deadSpans,
-        superclasses,
         overrides,
         scannedPaths,
         rootPath,
@@ -177,7 +170,6 @@ final class Settler {
     List<List<Location>> refsByCandidate,
     List<List<Location>> liveRefs,
     DeadSpans deadSpans,
-    SuperclassChecks superclasses,
     OverrideRemovals overrides,
     Set<String> scannedPaths,
     String rootPath,
@@ -203,7 +195,7 @@ final class Settler {
       statuses,
       liveRefs,
       deadClassNames,
-      superclasses.needsConstructorArguments,
+      (cls) => needsSuperArguments(files, cls),
     );
 
     // `--remove` keeps a type that only doc comments mention, and its members.
@@ -280,7 +272,7 @@ final class Settler {
     // Make the fields and variables `--remove` can't cut out report-only now,
     // so that the next `--transitive` round keeps alive what they reference,
     // and a class that keeps one isn't listed as left empty.
-    final cut = await _variableCuts.withCuts(client, unused, rootPath);
+    final cut = _variableCuts.withCuts(unused, rootPath);
     final cutCandidateOf = {
       for (final (k, finding) in cut.indexed) finding: candidateOf[unused[k]]!,
     };
@@ -292,7 +284,6 @@ final class Settler {
       );
     _removableBefore.addAll(removable);
     for (final (i, finding) in await _clauseOnly.findings(
-      client,
       files,
       candidates,
       statuses,

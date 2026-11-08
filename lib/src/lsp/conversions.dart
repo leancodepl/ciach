@@ -9,8 +9,6 @@
 library;
 
 import 'package:ciach/src/source/locations.dart';
-import 'package:ciach/src/source/selection_range.dart';
-import 'package:ciach/src/util/extensions.dart';
 import 'package:pro_lsp/pro_lsp.dart' as lsp;
 
 lsp.Position positionToLsp(Position position) =>
@@ -24,8 +22,3 @@ Range rangeFromLsp(lsp.Range range) =>
 
 Location locationFromLsp(lsp.Location location) =>
     .new(uri: location.uri, range: rangeFromLsp(location.range));
-
-SelectionRange selectionRangeFromLsp(lsp.SelectionRange range) => .new(
-  range: rangeFromLsp(range.range),
-  parent: range.parent?.let(selectionRangeFromLsp),
-);

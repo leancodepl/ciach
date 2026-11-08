@@ -4,31 +4,29 @@ library;
 import 'dart:io';
 
 import 'package:ciach/ciach.dart';
-import 'package:ciach/src/fetch/reference_fetch.dart';
-import 'package:ciach/src/lsp/lsp_client.dart';
+import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/source/declarator_cuts.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../support/removal.dart';
+import '../support/resolved_files.dart';
 
-/// Removes fields and top-level variables with cuts worked out from a real
-/// analysis server.
+/// Removes fields and top-level variables with cuts worked out from the
+/// tokens and syntax nodes that the analyzer gives.
 void main() {
   late Directory tempDir;
-  late LspClient client;
+  late ResolvedFiles resolved;
   var files = 0;
 
-  setUpAll(() async {
+  setUpAll(() {
     tempDir = .systemTemp.createTempSync('ciach_declarator_cuts_');
-    client = await LspClient.start();
-    await client.initialize(tempDir.uri);
-    await client.waitForAnalysisComplete();
+    resolved = resolvedFilesUnder(tempDir.path);
   });
 
   tearDownAll(() async {
-    await client.dispose();
+    await resolved.dispose();
     tempDir.deleteSync(recursive: true);
   });
 
@@ -37,13 +35,8 @@ void main() {
   Future<String> remove(String source, List<String> names) async {
     final path = p.join(tempDir.path, 'lib${files++}.dart');
     File(path).writeAsStringSync(source);
-    client.didOpen(File(path).uri, source);
-    final sources = SourceIndex()..cacheLines(path, source.split('\n'));
-    final tokens = await sources.semanticTokensOf(client, path);
-    final fetch = ReferenceFetch(
-      options: .new(rootPath: tempDir.path),
-      sources: sources,
-    );
+    final tokens = (await resolved.of(path))!.tokens;
+    final sources = SourceIndex(resolved)..cacheLines(path, source.split('\n'));
     final removed = [
       for (final name in names)
         (
@@ -57,15 +50,6 @@ void main() {
               .start,
         ),
     ];
-    // Fetch selection ranges the way the settler does: first at the removed
-    // names, then at the other names in their statements.
-    await fetch.fetchSelectionRanges(client, {
-      path: {for (final declarator in removed) declarator.name},
-    });
-    await fetch.fetchSelectionRanges(
-      client,
-      sources.otherDeclaratorNames(removed),
-    );
     final cuts = sources.declaratorCuts(removed);
     removeDeclarations([
       for (final declarator in removed)

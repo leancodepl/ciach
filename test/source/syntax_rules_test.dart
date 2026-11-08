@@ -2,27 +2,31 @@ import 'dart:io';
 
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/conventions/flutter_widgets.dart';
-import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/selection_range.dart';
+import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/syntax_rules.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import '../support/fake_syntax.dart';
+
 /// The structural rules, against node chains shaped like the server's.
 void main() {
   late Directory tempDir;
   late String path;
+  late FakeSyntax syntax;
   late SourceIndex sources;
 
   setUp(() {
     tempDir = .systemTemp.createTempSync('ciach_syntax_test_');
     path = p.join(tempDir.path, 'a.dart');
-    sources = .new();
+    syntax = .new();
+    sources = .new(syntax);
   });
 
   tearDown(() {
@@ -66,12 +70,9 @@ void main() {
     Map<Position, SelectionRange> nodes,
   ) {
     File(path).writeAsStringSync(source);
-    sources
-      ..cacheLines(path, source.split('\n'))
-      ..cacheSemanticTokens(path, tokens);
-    for (final MapEntry(key: position, value: node) in nodes.entries) {
-      sources.cacheSelectionRange(path, position, node);
-    }
+    sources.cacheLines(path, source.split('\n'));
+    syntax.tokens[path] = tokens;
+    syntax.nodes[path] = nodes;
   }
 
   Location ref(int line, int character, int length) => .new(
@@ -202,7 +203,7 @@ enum Color {
 
     test('a values with a receiver is not bare', () {
       // Only the `Color.values` token has nodes: its parent starts at `Color`.
-      sources.cacheSemanticTokens(path, [tokens[0], tokens[3]]);
+      syntax.tokens[path] = [tokens[0], tokens[3]];
       expect(sources.enumIteratesOwnValues(enumCandidate()), isFalse);
     });
   });
@@ -283,7 +284,6 @@ class Foo {
         range(2, 14, 2, 15),
         fullRange: range(1, 2, 2, 30),
       );
-      expect(sources.redirectProbePosition(a), at(2, 24));
       expect(sources.isRedirectingFactory(a), isTrue);
     });
 
@@ -291,7 +291,6 @@ class Foo {
       final b = ctor('Foo.b', range(3, 2, 3, 27), range(3, 14, 3, 15));
       expect(sources.isRedirectingFactory(b), isFalse);
       final c = ctor('Foo.c', range(4, 2, 4, 21), range(4, 6, 4, 7));
-      expect(sources.redirectProbePosition(c), isNull);
       expect(sources.isRedirectingFactory(c), isFalse);
     });
   });

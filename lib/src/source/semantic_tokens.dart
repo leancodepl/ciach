@@ -1,38 +1,16 @@
+/*
+ * AI-Provenance:
+ *   model: claude-opus-5-5
+ *   harness: Claude Code
+ */
+
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/symbols.dart';
 
-/// The token type and modifier names a `semanticTokens` response indexes into.
-final class SemanticTokensLegend {
-  const SemanticTokensLegend({
-    required this.tokenTypes,
-    required this.tokenModifiers,
-  });
-
-  /// The legend from the server's `initialize` capabilities, or [empty].
-  factory SemanticTokensLegend.fromCapabilities(Map<String, Object?> json) =>
-      switch (json['semanticTokensProvider']) {
-        {
-          'legend': {
-            'tokenTypes': final List<Object?> types,
-            'tokenModifiers': final List<Object?> modifiers,
-          },
-        } =>
-          .new(
-            tokenTypes: [for (final t in types) '$t'],
-            tokenModifiers: [for (final m in modifiers) '$m'],
-          ),
-        _ => empty,
-      };
-
-  static const empty = SemanticTokensLegend(tokenTypes: [], tokenModifiers: []);
-
-  final List<String> tokenTypes;
-  final List<String> tokenModifiers;
-}
-
-/// A token on one line of a file, as classified by the analysis server. A
-/// multi-line comment or string arrives as one token per line. A `[Foo]` link
-/// in a doc comment is its own `class` token, not part of the comment.
+/// A token on one line of a file, classified as the semantic tokens of the
+/// analysis server classify it. A multi-line comment or string is one token
+/// per line. A `[Foo]` link in a doc comment is its own `class` token, not
+/// part of the comment.
 final class SemanticToken {
   const SemanticToken({
     required this.line,
@@ -83,52 +61,6 @@ final class SemanticToken {
 final _plainString = RegExp(
   r'''^r?(?<quote>'{3}|"{3}|'|")(?<value>[^\\$'"]*)\k<quote>$''',
 );
-
-/// Decodes the relative-encoded [data] of a `semanticTokens/full` response.
-/// Tokens outside the legend or the file are dropped.
-List<SemanticToken> decodeSemanticTokens(
-  List<int> data,
-  SemanticTokensLegend legend,
-  List<String> lines,
-) {
-  final tokens = <SemanticToken>[];
-  var line = 0;
-  var character = 0;
-  for (var i = 0; i + 4 < data.length; i += 5) {
-    final deltaLine = data[i];
-    if (deltaLine > 0) {
-      line += deltaLine;
-      character = data[i + 1];
-    } else {
-      character += data[i + 1];
-    }
-    final length = data[i + 2];
-    final typeIndex = data[i + 3];
-    final modifierBits = data[i + 4];
-    if (typeIndex < 0 ||
-        typeIndex >= legend.tokenTypes.length ||
-        line < 0 ||
-        line >= lines.length ||
-        character < 0 ||
-        character + length > lines[line].length) {
-      continue;
-    }
-    tokens.add(
-      .new(
-        line: line,
-        character: character,
-        length: length,
-        type: legend.tokenTypes[typeIndex],
-        modifiers: {
-          for (final (bit, tokenModifier) in legend.tokenModifiers.indexed)
-            if ((modifierBits >> bit) & 1 == 1) tokenModifier,
-        },
-        text: lines[line].substring(character, character + length),
-      ),
-    );
-  }
-  return tokens;
-}
 
 /// Lookups over a file's tokens, which are ordered by position.
 extension SemanticTokenLookup on List<SemanticToken> {

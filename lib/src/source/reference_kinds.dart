@@ -8,8 +8,8 @@
  *     - mark-ai-provenance
  */
 
-import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:ciach/src/source/source_index.dart';
 
 /// Recognizers for special *shapes* of reference — ones the classifier treats

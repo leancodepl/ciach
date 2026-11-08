@@ -9,13 +9,12 @@ import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/conventions/gen_l10n.dart';
 import 'package:ciach/src/conventions/resolved_declaration.dart';
-import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
-import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/outline.dart';
+import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/log.dart';
@@ -70,22 +69,17 @@ final class CandidateCollector {
   void reportSkipped() => _kept.report();
 
   /// The declarations of the open file [path] worth checking. [files]
-  /// resolves the file, and [client] gives its semantic tokens.
+  /// resolves the file.
   Future<List<Candidate>> collect(
-    LspClient client,
     ResolvedFiles files,
     String path,
     String rootPath,
   ) async {
-    final pendingTokens = _sources.semanticTokensOf(client, path);
     final file = await files.of(path);
     if (file == null) {
-      // The tokens are no longer needed.
-      pendingTokens.ignore();
       recordProblem(_uncollectedFile, unresolvedFile, path: path);
       return const [];
     }
-    await pendingTokens;
     if (file.firstError case (:final position, :final message)) {
       recordProblem(_compileErrors, message, path: path, position: position);
     }

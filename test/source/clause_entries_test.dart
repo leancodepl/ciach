@@ -5,8 +5,6 @@ import 'dart:io';
 
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/analysis/resolved_files.dart';
-import 'package:ciach/src/fetch/reference_fetch.dart';
-import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/source/clause_entries.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
@@ -16,55 +14,39 @@ import 'package:test/test.dart';
 import '../support/removal.dart';
 import '../support/resolved_files.dart';
 
-/// Cuts entries from `with` and `implements` clauses as the analysis server
-/// reads them, with its tokens and syntax nodes, and the outline that the
-/// analyzer gives.
+/// Cuts entries from `with` and `implements` clauses with the tokens, the
+/// syntax nodes and the outline that the analyzer gives.
 void main() {
   late Directory tempDir;
-  late LspClient client;
   late ResolvedFiles resolved;
   var files = 0;
 
-  setUpAll(() async {
+  setUpAll(() {
     tempDir = .systemTemp.createTempSync('ciach_clauses_');
-    client = await LspClient.start();
-    await client.initialize(tempDir.uri);
-    await client.waitForAnalysisComplete();
     resolved = resolvedFilesUnder(tempDir.path);
   });
 
   tearDownAll(() async {
-    await client.dispose();
     await resolved.dispose();
     tempDir.deleteSync(recursive: true);
   });
 
-  /// Writes [source] to a new file and caches its semantic tokens.
-  Future<(String, SourceIndex, ReferenceFetch)> index(String source) async {
+  /// Writes [source] to a new file and resolves it.
+  Future<(String, SourceIndex)> index(String source) async {
     final path = p.join(tempDir.path, 'lib${files++}.dart');
     File(path).writeAsStringSync(source);
-    client.didOpen(File(path).uri, source);
-    final sources = SourceIndex()..cacheLines(path, source.split('\n'));
-    await sources.semanticTokensOf(client, path);
-    return (
-      path,
-      sources,
-      ReferenceFetch(
-        options: .new(rootPath: tempDir.path),
-        sources: sources,
-      ),
-    );
+    await resolved.of(path);
+    return (path, SourceIndex(resolved)..cacheLines(path, source.split('\n')));
   }
 
   /// Returns the clause entries for [names], searched for in [source] after the
-  /// text [clause], as `clauseEntryAt` reads them once the selection ranges at
-  /// the names are fetched.
-  Future<(String, SourceIndex, ReferenceFetch, List<ClauseEntry?>)> entriesIn(
+  /// text [clause], as `clauseEntryAt` reads them.
+  Future<(String, SourceIndex, List<ClauseEntry?>)> entriesIn(
     String source,
     String clause,
     List<String> names,
   ) async {
-    final (path, sources, fetch) = await index(source);
+    final (path, sources) = await index(source);
     final unit = (await resolved.of(path))!.outline;
     final clauseStart = source.indexOf(clause);
     int nameAt(String name) {
@@ -80,13 +62,9 @@ void main() {
           end: sources.positionOf(path, nameAt(name) + name.length),
         ),
     ];
-    await fetch.fetchSelectionRanges(client, {
-      path: {for (final range in ranges) range.start},
-    });
     return (
       path,
       sources,
-      fetch,
       [
         for (final (i, range) in ranges.indexed)
           sources.clauseEntryAt(
@@ -99,20 +77,10 @@ void main() {
   }
 
   /// Returns [source] after removing the [cut] names from the clause that
-  /// starts with [clause], fetching selection ranges as the settler does.
+  /// starts with [clause].
   Future<String> cutFrom(String source, String clause, List<String> cut) async {
-    final (path, sources, fetch, entries) = await entriesIn(
-      source,
-      clause,
-      cut,
-    );
+    final (path, sources, entries) = await entriesIn(source, clause, cut);
     expect(entries, everyElement(isNotNull));
-    await fetch.fetchSelectionRanges(client, {
-      path: {
-        for (final entry in entries.nonNulls)
-          ...sources.namesInClause(path, entry.clause),
-      },
-    });
     final removals = sources.clauseCuts(entries.nonNulls, tempDir.path).values;
     removeDeclarations([
       for (final removal in removals.toSet())
@@ -225,8 +193,8 @@ ${types}abstract class A
 ${types}class A = B with C;
 class F extends B with C {}
 ''';
-      final (_, _, _, aliased) = await entriesIn(source, 'with C;', ['C']);
-      final (_, _, _, extended) = await entriesIn(source, 'with C {', ['C']);
+      final (_, _, aliased) = await entriesIn(source, 'with C;', ['C']);
+      final (_, _, extended) = await entriesIn(source, 'with C {', ['C']);
 
       expect(aliased.single?.keepsOne, isTrue);
       expect(extended.single?.keepsOne, isFalse);
@@ -245,7 +213,7 @@ class F extends B with C {}
   });
 
   test('returns no entry for a type argument of a clause entry', () async {
-    final (_, _, _, entries) = await entriesIn(
+    final (_, _, entries) = await entriesIn(
       '${types}abstract class A implements Comparable<C> {}\n',
       'implements',
       ['C'],
@@ -257,7 +225,7 @@ class F extends B with C {}
   test(
     'returns no entry for a type named outside a with or implements clause',
     () async {
-      final (_, _, _, entries) = await entriesIn(
+      final (_, _, entries) = await entriesIn(
         '${types}class A extends B {}\n',
         'extends',
         ['B'],

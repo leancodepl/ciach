@@ -111,7 +111,7 @@ is listed separately as doc-only: it never counts toward
 `--set-exit-if-changed`, and `--remove` never touches it. A declaration used
 only by other dead code is reported in the same run, naming what uses it.
 
-Empty files, the declarations that the analysis server could not analyze and
+Empty files, the declarations and files that ciach could not analyze and
 the JSON keys are described in [Reading the report][docs-report].
 
 ## What it skips by default

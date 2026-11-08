@@ -10,13 +10,19 @@ import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/dart/element/type.dart';
 import 'package:ciach/src/analysis/line_positions.dart';
 import 'package:ciach/src/analysis/reference_index.dart';
 import 'package:ciach/src/analysis/resolved_class.dart';
 import 'package:ciach/src/analysis/resolved_file.dart';
+import 'package:ciach/src/analysis/selection_ranges.dart';
 import 'package:ciach/src/analysis/unit_outline.dart';
+import 'package:ciach/src/analysis/unit_tokens.dart';
+import 'package:ciach/src/source/file_syntax.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
+import 'package:ciach/src/source/selection_range.dart';
+import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:ciach/src/util/cached_map.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/workspace/packages.dart';
@@ -30,7 +36,7 @@ const unresolvedFile = 'The analyzer could not resolve the file.';
 
 /// The Dart files under an analysis root, and the files that they import, as
 /// `package:analyzer` resolves them in this process.
-final class ResolvedFiles {
+final class ResolvedFiles implements FileSyntax {
   /// Creates the analysis of the Dart files under [root], an absolute and
   /// normalized path, with the Dart SDK at [sdkPath]. A file is resolved when
   /// it is first asked for.
@@ -40,7 +46,11 @@ final class ResolvedFiles {
   final AnalysisContextCollection _collection;
   final _packages = PackageResolver();
   late final _files = CachedMap<String, Future<ResolvedFile?>>(_resolve);
+  late final _parsed = CachedMap<String, ParsedUnitResult?>(_parse);
   final _index = ReferenceIndex();
+
+  /// The files resolved so far, by path.
+  final _resolved = <String, ResolvedFile>{};
 
   /// The element that each declaration of a resolved file declares, by the
   /// file's path and the start of the declaration's name.
@@ -50,6 +60,24 @@ final class ResolvedFiles {
   /// when the analyzer can't resolve it, such as a file whose path isn't the
   /// path of its URI.
   Future<ResolvedFile?> of(String path) => _files[path];
+
+  /// Returns the tokens of the file at [path] when [of] has resolved it
+  /// already.
+  @override
+  List<SemanticToken>? tokensOf(String path) => _resolved[path]?.tokens;
+
+  @override
+  SelectionRange? selectionRangeAt(String path, Position position) {
+    final parsed = _parsed[path];
+    if (parsed == null || position.line >= parsed.lineInfo.lineCount) {
+      return null;
+    }
+    return selectionRangeIn(
+      parsed.unit,
+      parsed.lineInfo,
+      parsed.lineInfo.getOffsetOfLine(position.line) + position.character,
+    );
+  }
 
   /// Resolves the Dart files that the analysis root's `analysis_options.yaml`
   /// files don't exclude, and the files at [paths], so that [referencesTo]
@@ -82,11 +110,20 @@ final class ResolvedFiles {
         _index.add(path, result.unit, result.lineInfo);
         final (:outline, :elements) = unitOutline(result.unit, result.lineInfo);
         _elements[path] = elements;
-        return _fileOf(result, outline, _packages.configOf(p.dirname(path)));
+        return _resolved[path] = _fileOf(
+          result,
+          outline,
+          _packages.configOf(p.dirname(path)),
+        );
       }
     }
     return null;
   }
+
+  ParsedUnitResult? _parse(String path) => _contextsFor(path)
+      .map((context) => context.currentSession.getParsedUnit(path))
+      .whereType<ParsedUnitResult>()
+      .firstOrNull;
 
   /// The contexts that may resolve [path], first those whose root holds it,
   /// the deepest first. A file of a dependency is in no context's root, and
@@ -124,6 +161,7 @@ final class ResolvedFiles {
         (_Annotations()..visitCompilationUnit(result.unit)).annotations;
     return .new(
       outline: outline,
+      tokens: unitTokens(result.unit, result.content, result.lineInfo),
       annotationPackages: {
         for (final annotation in annotations)
           positionOf(_nameOf(annotation).offset): ?annotation.element?.library
@@ -147,6 +185,22 @@ final class ResolvedFiles {
             :final nameOffset?,
           ))
             positionOf(nameOffset): supertypesOf(type),
+      },
+      needSuperArguments: {
+        for (final declaration in result.unit.declarations)
+          if (declaration.declaredFragment case Fragment(
+            element: ClassElement(
+              supertype: InterfaceType(
+                element: ClassElement(:final unnamedConstructor),
+              ),
+            ),
+            :final nameOffset?,
+          ))
+            if (unnamedConstructor?.formalParameters.none(
+                  (parameter) => parameter.isRequired,
+                ) !=
+                true)
+              positionOf(nameOffset),
       },
       firstError:
           minBy(

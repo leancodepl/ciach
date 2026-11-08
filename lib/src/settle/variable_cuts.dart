@@ -4,40 +4,32 @@
  *   harness: Claude Code
  */
 
-import 'package:ciach/src/fetch/reference_fetch.dart';
-import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/settle/verdict.dart';
 import 'package:ciach/src/source/declarator_cuts.dart';
-import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:collection/collection.dart';
 
 /// The text `--remove` deletes for a round's removable fields and top-level
-/// variables, worked out from the analysis server's selection ranges.
+/// variables, worked out from their syntax nodes.
 final class VariableCuts {
-  VariableCuts({required ReferenceFetch fetch, required SourceIndex sources})
-    : _fetch = fetch,
-      _sources = sources;
+  VariableCuts(this._sources);
 
-  final ReferenceFetch _fetch;
   final SourceIndex _sources;
 
   /// Returns [unused] with [UnusedDeclaration.cut] set on each removable field
   /// and top-level variable, both findings and coupled removals.
   ///
-  /// It first fetches the selection ranges this needs, for these variables
-  /// only. The cuts are worked out in one call, so two removed variables of
-  /// one statement are cut as one. A finding whose own cut, or the cut of a
+  /// The cuts are worked out in one call, so two removed variables of one
+  /// statement are cut as one. A finding whose own cut, or the cut of a
   /// variable coupled to it, can't be worked out becomes report-only, with
   /// [Verdict.noCutHint].
-  Future<List<UnusedDeclaration>> withCuts(
-    LspClient client,
+  List<UnusedDeclaration> withCuts(
     List<UnusedDeclaration> unused,
     String rootPath,
-  ) async {
+  ) {
     DeclaratorAt at(String filePath, int line, int column) => (
       path: absoluteUnder(filePath, rootPath),
       name: .new(line: line, character: column),
@@ -59,17 +51,6 @@ final class VariableCuts {
           if (isDeclarator(coupled.kind)) ofCoupled(coupled),
       ],
     ];
-    await _fetch.fetchSelectionRanges(
-      client,
-      declarators.groupFoldBy(
-        (declarator) => declarator.path,
-        (names, declarator) => (names ?? <Position>{})..add(declarator.name),
-      ),
-    );
-    await _fetch.fetchSelectionRanges(
-      client,
-      _sources.otherDeclaratorNames(declarators),
-    );
     final cuts = _sources.declaratorCuts(declarators);
     UnusedDeclaration withCuts(UnusedDeclaration finding) {
       final cut = isDeclarator(finding.kind) ? cuts[ofFinding(finding)] : null;

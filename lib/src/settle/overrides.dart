@@ -10,7 +10,6 @@ import 'package:ciach/src/settle/dead_spans.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
-import 'package:ciach/src/source/selection_range.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/source/syntax_rules.dart';
@@ -64,9 +63,6 @@ final class OverrideRemovals {
 
   static const _unlistedOverrides =
       'Could not find overrides; reported, not removed.';
-
-  static const _uncheckedOverride =
-      'Could not check an override; reported, not removed.';
 
   /// The kinds an override is deleted as, mapped to the kind the remover
   /// reads. A `field` goes as a declarator, so it can share a statement.
@@ -203,7 +199,6 @@ final class OverrideRemovals {
     if (!_scannedPaths.contains(path)) {
       return null;
     }
-    final uri = Uri.parse(location.uri);
     // Every scanned file was resolved while collecting candidates, so this is
     // a cache hit.
     final outline = (await _files.of(path))?.outline;
@@ -225,7 +220,7 @@ final class OverrideRemovals {
     // Deleting a declaring parameter changes the constructor signature at
     // every call site.
     if (kind == .field &&
-        await _isDeclaringParameter(uri, path, found.parent, start)) {
+        _sources.isNameInTypeHeader(path, start, found.parent)) {
       return null;
     }
     // No reference to check: the server answers a member's references for
@@ -238,29 +233,6 @@ final class OverrideRemovals {
       fullRange: node.range.toDeclarationRange,
       cut: null,
     );
-  }
-
-  /// Whether the field named at [name] is a declaring parameter of [type]'s
-  /// primary constructor. `true` when the shape cannot be read.
-  Future<bool> _isDeclaringParameter(
-    Uri uri,
-    String path,
-    Outline? type,
-    Position name,
-  ) async {
-    final List<SelectionRange?> ranges;
-    try {
-      ranges = await _client.selectionRanges(uri, [name]);
-    } on LspRequestException catch (e) {
-      recordProblem(_uncheckedOverride, e, path: path, position: name);
-      return true;
-    }
-    final innermost = ranges.single;
-    if (innermost == null) {
-      return true;
-    }
-    _sources.cacheSelectionRange(path, name, innermost);
-    return _sources.isNameInTypeHeader(path, name, type);
   }
 
   /// The outline node whose name starts at [position], with the node it is

@@ -57,7 +57,7 @@ final class Verdict {
   /// The hint for a field or top-level variable whose cut the finder couldn't
   /// work out.
   static const noCutHint =
-      "the analysis server didn't say where its statement ends, so `--remove` leaves it; remove it manually";
+      "ciach couldn't read where its statement ends, so `--remove` leaves it; remove it manually";
 
   /// The hint for a type with unused members that only doc comments mention.
   static const docOnlyTypeHint =

@@ -1,6 +1,6 @@
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/resolved_declaration.dart';
-import 'package:ciach/src/lsp/semantic_tokens.dart';
+import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:test/test.dart';
 
 import '../support/declarations.dart';

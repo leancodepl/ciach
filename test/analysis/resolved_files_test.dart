@@ -264,6 +264,56 @@ void notAClass() {}
   );
 
   test(
+    'lists the classes whose superclass has no unnamed constructor that takes no arguments',
+    () async {
+      const source = '''
+class NoArguments {
+  NoArguments({int? x});
+}
+
+class Positional {
+  Positional(int x);
+}
+
+class RequiredNamed {
+  RequiredNamed({required int x});
+}
+
+class OnlyNamed {
+  OnlyNamed.named();
+}
+
+class Implicit {}
+
+class A extends NoArguments {}
+
+class B extends Positional {}
+
+class C extends RequiredNamed {}
+
+class D extends OnlyNamed {}
+
+class E extends Implicit {}
+
+class F {}
+''';
+      final file = await resolve(source);
+
+      expect(
+        [
+          for (final position in file.needSuperArguments)
+            source.split('\n')[position.line],
+        ],
+        unorderedEquals([
+          'class B extends Positional {}',
+          'class C extends RequiredNamed {}',
+          'class D extends OnlyNamed {}',
+        ]),
+      );
+    },
+  );
+
+  test(
     'gives a class in a file outside `lib/` the package whose root holds the file',
     () async {
       final file = await resolve('''

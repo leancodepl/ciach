@@ -16,7 +16,7 @@
 /// |-------------------|-----------------------------------------------------------------------|
 /// | `model/`          | The options a run takes and the findings and results it returns.      |
 /// | `workspace/`      | The package on disk: Dart files, pubspecs, directives, public API.    |
-/// | `source/`         | Source text and the server's view of it: tokens, shapes, markers.     |
+/// | `source/`         | Source text and the syntax that the rules read: tokens, markers.      |
 /// | `lsp/`            | The analysis server session and what can go wrong with it.            |
 /// | `analysis/`       | The files as `package:analyzer` resolves them; nothing else uses it.  |
 /// | `conventions/`    | Framework rules that keep declarations alive: Flutter, freezed, l10n. |
@@ -74,12 +74,12 @@ const _unreadableFile = 'Could not read these files; skipped.';
 /// `package:analyzer` resolves every file under the analysis root, lists the
 /// declarations of each scanned file, and records where each declaration is
 /// used. A declaration without uses outside itself is unused. The Dart
-/// analysis server, driven over LSP, gives the semantic tokens and the syntax
-/// nodes that the rules read.
+/// analysis server, driven over LSP, lists the overrides of a member and gives
+/// the signatures that its hovers show.
 ///
 /// `Ciach` owns the server session, the analyzer and the pipeline (discover →
 /// collect → fetch → settle); each stage is a collaborator: [CandidateCollector] decides
-/// what to check, [ReferenceFetch] gets the references, [Settler] turns them
+/// what to check, [referencesOf] gets the references, [Settler] turns them
 /// into findings with [ReferenceClassifier] deciding used/unused, [Verdict]
 /// deciding how a dead candidate is reported, and the `conventions/` rules
 /// keeping framework-driven declarations alive.
@@ -94,9 +94,10 @@ class Ciach {
   /// The configuration for this run.
   final FinderOptions options;
 
-  /// Lazily-cached source text and tokens for every file touched this run,
-  /// shared by the classification and the structural detectors.
-  final _sources = SourceIndex();
+  /// The source text, tokens and syntax nodes of every file touched this
+  /// run, shared by the classification and the structural detectors. It is
+  /// set once the analyzer is set up.
+  late final SourceIndex _sources;
 
   /// The candidate files with nothing but directives and comments, as they
   /// are opened.
@@ -128,11 +129,8 @@ class Ciach {
     conditionalImports: _conditionalImports,
   );
 
-  late final _fetch = ReferenceFetch(options: options, sources: _sources);
-
   late final _settler = Settler(
     options: options,
-    fetch: _fetch,
     sources: _sources,
     freezed: _freezed,
     classifier: _classifier,
@@ -236,6 +234,7 @@ class Ciach {
       analysisRoot,
       sdkPath: sdkPathOf(dartExecutable),
     );
+    _sources = .new(resolved);
     _log.info('Starting Dart analysis server…');
     final client = await LspClient.start(dartExecutable: dartExecutable);
 
@@ -281,7 +280,7 @@ class Ciach {
         files,
         options.concurrency,
         (path) => opened.contains(path)
-            ? _collector.collect(client, resolved, path, rootPath)
+            ? _collector.collect(resolved, path, rootPath)
             : .value(const <Candidate>[]),
       );
       final collected = [for (final list in perFile) ...list];
@@ -300,7 +299,6 @@ class Ciach {
         onDropped: _logDropped,
       );
       declarationsChecked = candidates.length;
-      await _fetch.selectionRanges(client, candidates, refsByCandidate);
 
       // Phase 3: settle the verdicts; with `transitive`, in rounds.
       settled = await _settler.settle(
@@ -373,11 +371,10 @@ class Ciach {
     final gated = api == null
         ? const <Candidate>{}
         : collected.where(ReachableTypes.isGated).toSet();
-    final fetched = _fetch.references(
+    final fetched = referencesOf(
       files,
       collected.whereNot(gated.contains).toList(),
     );
-    await _fetch.semanticTokensFor(client, fetched.refs);
     if (api == null || gated.isEmpty) {
       return (candidates: fetched.checked, refsByCandidate: fetched.refs);
     }
@@ -385,16 +382,14 @@ class Ciach {
       client: client,
       files: files,
       sources: _sources,
-      fetch: _fetch,
       api: api,
       candidates: fetched.checked,
       refs: fetched.refs,
     );
-    final internal = _fetch.references(
+    final internal = referencesOf(
       files,
       gated.where(types.isInternal).toList(),
     );
-    await _fetch.semanticTokensFor(client, internal.refs);
     return (
       candidates: [...fetched.checked, ...internal.checked],
       refsByCandidate: [...fetched.refs, ...internal.refs],

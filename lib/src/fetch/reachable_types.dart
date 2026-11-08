@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/fetch/reference_fetch.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/source/locations.dart';
@@ -29,7 +28,6 @@ final class ReachableTypes {
     required LspClient client,
     required ResolvedFiles files,
     required SourceIndex sources,
-    required ReferenceFetch fetch,
     required PublicApi api,
     required List<Candidate> candidates,
     required List<List<Location>> refs,
@@ -41,7 +39,6 @@ final class ReachableTypes {
     };
     final positionsIn = _importableRefs(types.values, sources, api);
     final outlines = await _outlines(files, positionsIn.keys);
-    await fetch.fetchSelectionRanges(client, positionsIn);
 
     final carriersOf = _Carriers(client, sources, api, outlines);
     final reachable = <DeclKey>{};

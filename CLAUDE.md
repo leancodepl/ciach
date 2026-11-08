@@ -330,9 +330,9 @@ explicit null check.
   give it a helper and replace every copy; share a function, not a regex
   constant.
 - Read Dart source through `package:analyzer` in `lib/src/analysis/` (the
-  outline, annotations, supertypes) or through the analysis server (selection
-  ranges, semantic tokens, hover), not with regexes, text matching or a
-  hand-written tokenizer. Text matching mistakes a parameter named `required`
+  outline, annotations, supertypes, tokens, syntax nodes) or through the
+  analysis server (hover), not with regexes, text matching or a hand-written
+  tokenizer. Text matching mistakes a parameter named `required`
   for the keyword. A regex over Dart source needs a comment that says why.
   Check what is already cached before you call a server request too costly.
 - Keep each default, rule and fact in one place, and let everything else read
@@ -448,7 +448,8 @@ a project whose other dependencies use `analyzer` can add it. Only
 
 `lib/src/` is organized by the stage of a scan: `model/` (options, findings,
 results), `workspace/` (the package on disk), `source/` (source text and the
-server's view of it), `lsp/` (the analysis server session), `conventions/`
+syntax that the rules read), `lsp/` (the analysis server session),
+`analysis/` (the files as `package:analyzer` resolves them), `conventions/`
 and `project_config/` (what keeps declarations alive), `collect/`, `fetch/`
 and `settle/` (the pipeline), `remove/`, `report/`, `cli/` and `util/`.
 `lib/src/finder.dart` wires the stages, and its library doc maps the

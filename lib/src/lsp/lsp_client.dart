@@ -15,9 +15,7 @@ import 'dart:io';
 import 'package:ciach/src/lsp/conversions.dart';
 import 'package:ciach/src/lsp/dart_executable.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
-import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/locations.dart';
-import 'package:ciach/src/source/selection_range.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/version.dart';
@@ -28,9 +26,6 @@ import 'package:stream_channel/stream_channel.dart';
 /// notification. It is not part of the LSP spec, so it is handled as a custom
 /// notification.
 const _analyzerStatusMethod = r'$/analyzerStatus';
-
-/// The Dart-specific "go to super" request.
-const _superMethod = 'dart/textDocument/super';
 
 final _log = Logger('ciach.lsp');
 
@@ -78,13 +73,8 @@ class LspClient {
   final _stderrBuffer = StringBuffer();
   bool _shuttingDown = false;
 
-  SemanticTokensLegend _semanticTokensLegend = .empty;
-
   /// Everything the server wrote to stderr (useful when things go wrong).
   String get stderr => _stderrBuffer.toString();
-
-  /// The legend for `semanticTokens` responses. Empty until [initialize].
-  SemanticTokensLegend get semanticTokensLegend => _semanticTokensLegend;
 
   /// Spawns `<dart> language-server --protocol=lsp` and wires up the client.
   ///
@@ -163,27 +153,17 @@ class LspClient {
         ? null
         : _emptyRoot = Directory.systemTemp.createTempSync('ciach_root_');
     final startUri = emptyRoot?.uri.toString() ?? uri;
-    final result = await _guard(
+    await _guard(
       lsp.RequestMethod.initialize.value,
       () => _client.start(
         clientInfo: const .new(name: 'ciach', version: ciachVersion),
         rootUri: startUri,
         workspaceFolders: [.new(uri: startUri, name: 'root')],
-        // Semantic tokens make the server send its legend. `workDoneProgress`
-        // is left unset so progress arrives via `$/analyzerStatus`.
-        capabilities: const .new(
-          textDocument: .new(
-            semanticTokens: .new(
-              requests: .new(full: .bool(true)),
-              tokenTypes: [],
-              tokenModifiers: [],
-              formats: [.relative],
-            ),
-          ),
-        ),
+        // `workDoneProgress` is left unset so progress arrives via
+        // `$/analyzerStatus`.
+        capabilities: const .new(),
       ),
     );
-    _semanticTokensLegend = .fromCapabilities(result.capabilities.toJson());
     if (emptyRoot == null) {
       return;
     }
@@ -361,43 +341,6 @@ class LspClient {
     };
   }
 
-  /// The semantic tokens of [uri], with each token's text taken from [lines].
-  Future<List<SemanticToken>> semanticTokens(
-    Uri uri,
-    List<String> lines,
-  ) async {
-    final result = await _guard(
-      lsp.RequestMethod.full.value,
-      () => _client.server.textDocument.semanticTokensFull(
-        .new(textDocument: .new(uri: uri.toString())),
-      ),
-    );
-    return decodeSemanticTokens(
-      result?.data ?? const [],
-      _semanticTokensLegend,
-      lines,
-    );
-  }
-
-  /// The superclass, super constructor or overridden member of the element at
-  /// [position] in [uri]. `null` when there is none.
-  Future<Location?> superOf(Uri uri, Position position) async {
-    final result = await _guard(
-      _superMethod,
-      () => _client.connection.sendCustomRequest(
-        _superMethod,
-        lsp.TextDocumentPositionParams(
-          textDocument: .new(uri: uri.toString()),
-          position: positionToLsp(position),
-        ).toJson(),
-      ),
-    );
-    return switch (result) {
-      final Map<String, Object?> json => locationFromLsp(.fromJson(json)),
-      _ => null,
-    };
-  }
-
   /// The members that override the member at [position] in [uri], via
   /// `textDocument/implementation`. Empty when nothing overrides it.
   Future<List<Location>> implementations(Uri uri, Position position) async {
@@ -418,30 +361,6 @@ class LspClient {
       (definition?.asLocationList ?? [?definition?.asLocation])
           .map(locationFromLsp)
           .toList();
-
-  /// The syntax nodes enclosing each of [positions] in [uri], innermost first.
-  /// `null` where the server has no answer.
-  Future<List<SelectionRange?>> selectionRanges(
-    Uri uri,
-    List<Position> positions,
-  ) async {
-    if (positions.isEmpty) {
-      return const [];
-    }
-    final result = await _guard(
-      lsp.RequestMethod.selectionRange.value,
-      () => _client.server.textDocument.selectionRange(
-        .new(
-          textDocument: .new(uri: uri.toString()),
-          positions: positions.map(positionToLsp).toList(),
-        ),
-      ),
-    );
-    if (result == null || result.length != positions.length) {
-      return .filled(positions.length, null);
-    }
-    return result.map(selectionRangeFromLsp).toList();
-  }
 
   /// Gracefully shuts the server down and terminates the process.
   Future<void> dispose() async {

@@ -6,8 +6,6 @@
 
 import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/fetch/reference_fetch.dart';
-import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/settle/dead_spans.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
@@ -30,25 +28,20 @@ final class ClauseOnlyTypes {
     required SourceIndex sources,
     required ReferenceClassifier classifier,
     required Verdict verdict,
-    required ReferenceFetch fetch,
   }) : _sources = sources,
        _classifier = classifier,
-       _verdict = verdict,
-       _fetch = fetch;
+       _verdict = verdict;
 
   final SourceIndex _sources;
   final ReferenceClassifier _classifier;
   final Verdict _verdict;
-  final ReferenceFetch _fetch;
 
   /// Returns a finding, with its candidate index, for each such type whose
   /// members are all in [removable], the candidate indexes of the round's
   /// removable findings. A type with a clause entry that can't be removed gets
-  /// no finding. Selection ranges are fetched only for the clauses of these
-  /// types. [refsByCandidate] still holds the references into [deadSpans],
+  /// no finding. [refsByCandidate] still holds the references into [deadSpans],
   /// which name what a type is only referenced from.
   Future<List<(int, UnusedDeclaration)>> findings(
-    LspClient client,
     ResolvedFiles files,
     List<Candidate> candidates,
     List<RefStatus> statuses,
@@ -85,18 +78,9 @@ final class ClauseOnlyTypes {
         entriesOf[i] = entries;
       }
     }
-    await _fetch.fetchSelectionRanges(
-      client,
-      entriesOf.values.flattened.groupFoldBy(
-        (entry) => entry.path,
-        (names, entry) =>
-            (names ?? <Position>{})
-              ..addAll(_sources.namesInClause(entry.path, entry.clause)),
-      ),
-    );
-    // Drop a type if any of its clause entries gets no removal: the clause's
-    // selection ranges aren't cached, or the entry would take every mixin of
-    // a mixin application class. Dropping a type keeps its entries, which
+    // Drop a type if any of its clause entries gets no removal: its file can't
+    // be parsed, or the entry would take every mixin of a mixin application
+    // class. Dropping a type keeps its entries, which
     // changes the removals of other entries in the same clause, so repeat
     // until each type left has all its removals.
     var cuts = _sources.clauseCuts(entriesOf.values.flattened, rootPath);

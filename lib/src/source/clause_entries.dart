@@ -2,13 +2,13 @@
 /// removals that delete them from those clauses.
 library;
 
-import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/source/comment_stripping.dart';
 import 'package:ciach/src/source/list_cuts.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
+import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
@@ -41,10 +41,7 @@ const _clauseKeywords = {'with', 'implements'};
 extension ClauseEntries on SourceIndex {
   /// Returns the start of each name in [clause] after its keyword: `B`, `C` and
   /// `int` for `implements B, C<int>`. Comments are left out.
-  ///
-  /// [clauseCuts] needs the selection ranges at these positions to tell where
-  /// each entry of the clause starts and ends.
-  Iterable<Position> namesInClause(String path, Range clause) => [
+  Iterable<Position> _namesInClause(String path, Range clause) => [
     if (semanticTokens(path) case final tokens?)
       for (final token in tokens.between(clause.start, clause.end).skip(1))
         if (!token.isComment) token.start,
@@ -84,9 +81,9 @@ extension ClauseEntries on SourceIndex {
   /// Each group of adjacent removed entries is cut out with the comma after it,
   /// or, for a group that ends the clause, the comma before it. When every
   /// entry goes, the whole clause goes, keyword included: `class A with M {}`
-  /// becomes `class A {}`. An entry gets no removal when the selection ranges
-  /// of its clause aren't cached, or when it would take every mixin of a mixin
-  /// application class like `class A = B with M;`.
+  /// becomes `class A {}`. An entry gets no removal when its file can't be
+  /// parsed, or when it would take every mixin of a mixin application class
+  /// like `class A = B with M;`.
   Map<ClauseEntry, CoupledRemoval> clauseCuts(
     Iterable<ClauseEntry> entries,
     String rootPath,
@@ -137,11 +134,11 @@ extension ClauseEntries on SourceIndex {
   }
 
   /// Returns the range of each entry of [clause], in source order: `B` and
-  /// `C<int>` for `implements B, C<int>`. Returns `null` when a selection
-  /// range it needs isn't cached.
+  /// `C<int>` for `implements B, C<int>`. Returns `null` when the file can't
+  /// be parsed.
   List<Range>? _entriesIn(String path, Range clause) {
     final entries = <Position, Range>{};
-    for (final position in namesInClause(path, clause)) {
+    for (final position in _namesInClause(path, clause)) {
       var node = selectionRangeAt(path, position);
       while (node != null && node.parent?.range != clause) {
         node = node.parent;

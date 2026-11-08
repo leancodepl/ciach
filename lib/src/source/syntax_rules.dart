@@ -9,16 +9,16 @@
  */
 
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/selection_range.dart';
+import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:collection/collection.dart';
 
-/// Structural checks over a declaration or a reference, read from the
-/// server's semantic tokens and selection ranges cached in [SourceIndex]. When
-/// a check cannot confirm a shape, it answers in the direction that keeps code.
+/// Structural checks over a declaration or a reference, read from the tokens
+/// and the syntax nodes in [SourceIndex]. When a check cannot confirm a
+/// shape, it answers in the direction that keeps code.
 extension StructuralChecks on SourceIndex {
   /// Whether [ctor] is a redirecting factory, `factory X(..) = Target;`.
   ///
@@ -49,18 +49,6 @@ extension StructuralChecks on SourceIndex {
       node = node.parent;
     }
     return false;
-  }
-
-  /// The last token of [ctor], where [isRedirectingFactory] needs a selection
-  /// range. `null` unless [ctor] is a `factory`.
-  Position? redirectProbePosition(Candidate ctor) {
-    final range = ctor.outline.codeRange;
-    final tokens = semanticTokens(ctor.path)?.between(range.start, range.end);
-    if (tokens == null ||
-        tokens.none((t) => t.isKeyword && t.text == 'factory')) {
-      return null;
-    }
-    return tokens.lastOrNull?.start;
   }
 
   /// Whether [candidate] is declared in its type's header: a primary
