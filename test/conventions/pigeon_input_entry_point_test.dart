@@ -28,7 +28,17 @@ void main() {
     relativePath: path,
     symbol: symbol('Message', kind: .class$),
     outlineKind: outlineKind,
-    keywords: keywords,
+    tokensBeforeName: [
+      for (final keyword in keywords)
+        SemanticToken(
+          line: 1,
+          character: 0,
+          length: keyword.length,
+          type: 'keyword',
+          modifiers: const {},
+          text: keyword,
+        ),
+    ],
     leadingMetadata: [
       for (final annotation in annotations)
         SemanticToken(

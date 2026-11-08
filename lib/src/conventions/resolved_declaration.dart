@@ -78,8 +78,8 @@ final class ResolvedDeclaration {
     this.container,
     this.inEnum = false,
     this.outlineKind = .other,
-    this.keywords = const {},
     this.leadingMetadata = const [],
+    this.tokensBeforeName = const [],
     this.annotationPackages = const {},
     this.annotationClasses = const [],
     this.supertypes = const {},
@@ -104,12 +104,24 @@ final class ResolvedDeclaration {
   /// unlike [symbol], tells a mixin from a class.
   final OutlineKind outlineKind;
 
-  /// The keywords before the name of the declaration, such as `abstract` and
-  /// `class` in `abstract class Api`, or `const` in `const int version = 1;`.
-  final Set<String> keywords;
-
   /// The tokens of the declaration's doc comment and annotations.
   final Iterable<SemanticToken> leadingMetadata;
+
+  /// The tokens from the start of the declaration's code to its name, such as
+  /// `abstract` and `class` in `abstract class Api`.
+  final Iterable<SemanticToken> tokensBeforeName;
+
+  /// The keywords before the name of the declaration, such as `abstract` and
+  /// `class` in `abstract class Api`, or `const` in `const int version = 1;`.
+  Set<String> get keywords => {
+    // A keyword before the last annotation, such as the `const` in
+    // `@Meta(const []) final int x;`, belongs to an annotation.
+    for (final token in [
+      ...leadingMetadata,
+      ...tokensBeforeName,
+    ].reversed.takeWhile((token) => !token.isAnnotationPunctuation))
+      if (token.isKeyword) token.text,
+  };
 
   /// The package that declares each annotation in [leadingMetadata] that a
   /// rule names, by the position of the name after the `@`: `dart:core` for
