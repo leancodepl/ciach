@@ -328,7 +328,9 @@ explicit null check.
   `lib/src/lsp/semantic_tokens.dart`, instead of scanning it or writing another
   one. When the same expression or hand-written pattern appears a second time,
   give it a helper and replace every copy; share a function, not a regex
-  constant.
+  constant. This covers a filter on a general helper's result, too:
+  `directive.keyword == 'import'` became `Directive.importsIn` and
+  `isImport`.
 - Read Dart source through the analysis server (outline, selection ranges,
   semantic tokens, hover), not with regexes, text matching or a hand-written
   tokenizer. Text matching mistakes a parameter named `required` for the

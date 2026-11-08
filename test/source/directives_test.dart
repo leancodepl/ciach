@@ -50,4 +50,20 @@ import "a.dart" if (dart.library.io) "b.dart";
       expect(isDirectiveOnly('import;'), isFalse);
     });
   });
+
+  test(
+    '`Directive.importsIn` returns the imports that are not commented out',
+    () {
+      expect(
+        Directive.importsIn('''
+import 'a.dart';
+// import 'b.dart';
+export 'c.dart';
+part 'd.dart';
+import "e.dart" as e;
+''').map((import) => import.uris.single.namedGroup('uri')),
+        ['a.dart', 'e.dart'],
+      );
+    },
+  );
 }

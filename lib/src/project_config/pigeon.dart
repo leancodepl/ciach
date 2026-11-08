@@ -38,12 +38,9 @@ bool _importsPigeon(String path) {
   // Only a file that names the library is parsed: stripping comments is slow.
   return content != null &&
       content.contains(_pigeonLibrary) &&
-      Directive.allIn(content).any(
-        (directive) =>
-            directive.keyword == 'import' &&
-            directive.uris.any(
-              (uri) => uri.namedGroup('uri') == _pigeonLibrary,
-            ),
+      Directive.importsIn(content).any(
+        (import) =>
+            import.uris.any((uri) => uri.namedGroup('uri') == _pigeonLibrary),
       );
 }
 

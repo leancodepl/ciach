@@ -9,6 +9,10 @@ extension type Directive._(RegExpMatch _match) {
   static Iterable<Directive> allIn(String content) =>
       _directive.allMatches(stripComments(content)).map(Directive._);
 
+  /// The `import` directives in [content] that are not commented out.
+  static Iterable<Directive> importsIn(String content) =>
+      allIn(content).where((directive) => directive.isImport);
+
   /// `import`, `export` or `part`.
   String get keyword => _match.namedGroup('keyword')!;
 
@@ -18,6 +22,8 @@ extension type Directive._(RegExpMatch _match) {
   int get start => _match.start;
 
   int get end => _match.end;
+
+  bool get isImport => keyword == 'import';
 
   bool get isPartOf => keyword == 'part' && _partOf.hasMatch(body);
 
