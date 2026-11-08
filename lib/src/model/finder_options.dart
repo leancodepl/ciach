@@ -35,16 +35,14 @@ class FinderOptions {
     this.transitive = true,
     this.entryPoints = const [],
     this.translations = const [],
-    this.concurrency = 16,
     this.dartExecutable,
   }) : rootPath = rootPath.absoluteNormalized,
-       analysisRootPath = analysisRootPath?.absoluteNormalized,
-       assert(concurrency > 0, 'concurrency must be positive');
+       analysisRootPath = analysisRootPath?.absoluteNormalized;
 
   /// The package root to analyze, absolute and normalized.
   final String rootPath;
 
-  /// The directory the analysis server is pointed at, absolute and normalized,
+  /// The directory whose files are analyzed, absolute and normalized,
   /// for references outside [rootPath] — a sibling package depending on it by
   /// `path:`. Must contain [rootPath]; `null` (the default) means [rootPath].
   ///
@@ -130,13 +128,8 @@ class FinderOptions {
   /// findings in these files are report-only.
   final List<Translations> translations;
 
-  /// How many requests to the analysis server to keep in flight at once.
-  /// Higher values keep the analysis server busier; there are diminishing
-  /// returns past its internal parallelism.
-  final int concurrency;
-
-  /// Path to the `dart` executable of the SDK to analyze with, which also
-  /// runs the analysis server. Defaults to the SDK running this tool, or to
+  /// Path to the `dart` executable of the SDK to analyze with. Defaults to
+  /// the SDK running this tool, or to
   /// `dart` from `PATH` when this is a compiled binary; see
   /// `findDartExecutable`.
   final String? dartExecutable;

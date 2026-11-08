@@ -162,19 +162,11 @@ entry-points: [{name: bootstrap}, {name: registerWith, glob: [lib/**, bin/**]}]'
     });
 
     test('reports the resolved values, not the raw arguments', () {
-      final lines = describe(const [
-        '--no-public',
-        '-e',
-        'test/**',
-        '-j',
-        '4',
-        '/pkg',
-      ]);
+      final lines = describe(const ['--no-public', '-e', 'test/**', '/pkg']);
 
       expect(lines, containsAll(<String>['  path: /pkg (command line)']));
       expect(lines, contains('  public: false (command line)'));
       expect(lines, contains('  exclude: test/** (command line)'));
-      expect(lines, contains('  concurrency: 4 (command line)'));
       expect(lines, contains('  dart: /sdk/bin/dart (auto-detected)'));
     });
 
@@ -205,7 +197,7 @@ entry-points: [{name: registerWith, glob: lib/**}]''', origin: 'c.yaml'),
         lines,
         contains('  entry-points: registerWith in lib/** (config file)'),
       );
-      expect(lines, contains('  concurrency: 16 (default)'));
+      expect(lines, contains('  transitive: true (default)'));
       expect(lines, contains('  color: auto (auto-detected)'));
     });
 

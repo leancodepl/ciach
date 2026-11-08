@@ -294,8 +294,8 @@ explicit null check.
 - Order branches so that each one returns before any work that it doesn't
   need.
 - Declare a value inside the `try` that produces it, as `final`. Catch the
-  exception that the call throws (`LspRequestException`,
-  `FileSystemException`). A catch-all `on Object` turns a crash into quietly
+  exception that the call throws (`FileSystemException`,
+  `FormatException`). A catch-all `on Object` turns a crash into quietly
   worse results, so use one only to wrap and rethrow, to report a crash at the
   top of `main`, or for best-effort cleanup with a comment.
 - Inline a local or a helper that is used once when its name adds nothing; keep
@@ -321,20 +321,20 @@ explicit null check.
 - Before writing a helper, look for one: in `lib/src/util/` (`CachedMap`,
   `reachability.dart`, `plural.dart`, `extensions.dart`), in
   `package:collection`, `package:path`, `Uri`, `package:xml` and
-  `package_config`, in a library's own constants (pro_lsp's `RequestMethod`),
+  `package_config`, in a library's own constants (the analyzer's `Keyword`),
   and in LeanCode's packages (`jaspr_class_scope`). Search sorted data with the
   existing binary searches, `lastStartingAtOrBefore` in
   `lib/src/source/symbols.dart` and `firstIndexAtOrAfter` in
-  `lib/src/lsp/semantic_tokens.dart`, instead of scanning it or writing another
-  one. When the same expression or hand-written pattern appears a second time,
-  give it a helper and replace every copy; share a function, not a regex
-  constant.
+  `lib/src/source/semantic_tokens.dart`, instead of scanning it or writing
+  another one. When the same expression or hand-written pattern appears a
+  second time, give it a helper and replace every copy; share a function, not
+  a regex constant.
 - Read Dart source through `package:analyzer` in `lib/src/analysis/` (the
-  outline, annotations, supertypes, tokens, syntax nodes) or through the
-  analysis server (hover), not with regexes, text matching or a hand-written
-  tokenizer. Text matching mistakes a parameter named `required`
-  for the keyword. A regex over Dart source needs a comment that says why.
-  Check what is already cached before you call a server request too costly.
+  outline, annotations, supertypes, overrides, signatures, tokens and syntax
+  nodes), not with regexes, text matching or a hand-written tokenizer. Text
+  matching mistakes a parameter named `required` for the keyword. A regex
+  over Dart source needs a comment that says why. Check what is already
+  cached before you call an analyzer lookup too costly.
 - Keep each default, rule and fact in one place, and let everything else read
   it. When a type takes over a normalization or a check, delete the old copy,
   or have both places call one shared predicate, such as `analysisRootContains`
@@ -448,10 +448,10 @@ a project whose other dependencies use `analyzer` can add it. Only
 
 `lib/src/` is organized by the stage of a scan: `model/` (options, findings,
 results), `workspace/` (the package on disk), `source/` (source text and the
-syntax that the rules read), `lsp/` (the analysis server session),
-`analysis/` (the files as `package:analyzer` resolves them), `conventions/`
-and `project_config/` (what keeps declarations alive), `collect/`, `fetch/`
-and `settle/` (the pipeline), `remove/`, `report/`, `cli/` and `util/`.
+syntax that the rules read), `analysis/` (the files as `package:analyzer`
+resolves them), `conventions/` and `project_config/` (what keeps declarations
+alive), `collect/`, `fetch/` and `settle/` (the pipeline), `remove/`,
+`report/`, `cli/` and `util/`.
 `lib/src/finder.dart` wires the stages, and its library doc maps the
 directories; keep that map current when a directory is added or renamed. Put
 new code in the directory of its stage, never at the `lib/src/` root. Tests

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/model/finder_result.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/util/extensions.dart';
@@ -40,18 +39,14 @@ void recordProblem(
   String? name,
 }) {
   final collector = Zone.current[ProblemCollector._key] as ProblemCollector?;
-  final (cause, detail) = switch (error) {
-    LspRequestException(:final message, :final detail) => (message, detail),
-    FileSystemException(:final message, :final osError) => (
+  final cause = switch (error) {
+    FileSystemException(:final message, :final osError) =>
       osError?.message ?? message,
-      null,
-    ),
-    _ => ('$error', null),
+    _ => '$error',
   };
   final problem = AnalysisProblem(
     summary: summary,
     cause: cause,
-    detail: detail,
     filePath:
         collector?.rootPath.let((root) => relativePosix(path, root)) ?? path,
     line: position?.line.let((line) => line + 1),

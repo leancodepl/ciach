@@ -1,5 +1,5 @@
-/// The span to delete for a declaration the analysis server reports whole:
-/// a class, function, method, property or enum value.
+/// The span to delete for a declaration that the outline covers whole: a
+/// class, function, method, property or enum value.
 library;
 
 import 'package:ciach/src/model/unused_declaration.dart';

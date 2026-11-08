@@ -57,8 +57,8 @@ void main() {
       '[  1.2s] [finder]  Opening\n',
     );
     expect(
-      verbose.line(record(.FINE, 'Started', logger: 'ciach.lsp'), elapsed),
-      '[  1.2s] [lsp]     Started\n',
+      verbose.line(record(.FINE, 'Started', logger: 'ciach.remover'), elapsed),
+      '[  1.2s] [remover] Started\n',
     );
     expect(
       verbose.line(record(.INFO, 'x', logger: 'other'), elapsed),

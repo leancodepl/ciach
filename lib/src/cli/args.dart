@@ -35,7 +35,7 @@ const _reportGroup = OptionGroup('What to report');
 const _filesGroup = OptionGroup('Which files');
 const _outputGroup = OptionGroup('Output');
 const _ciGroup = OptionGroup('Exit code and removal');
-const _serverGroup = OptionGroup('Analysis server');
+const _sdkGroup = OptionGroup('Dart SDK');
 
 /// Every setting ciach accepts, declared once for the command line, the config
 /// file (`configKey`) and its default.
@@ -325,27 +325,14 @@ enum CiachOption<V> implements OptionDefinition<V> {
           'Explain what is happening on stderr: the config file and what it set, the resolved settings, each scan phase, and what --remove touches. Supersedes --progress. On by default in CI.',
     ),
   ),
-  concurrency(
-    IntOption(
-      group: _serverGroup,
-      argName: 'concurrency',
-      argAbbrev: 'j',
-      configKey: '/concurrency',
-      valueHelp: 'n',
-      defaultsTo: 16,
-      min: 1,
-      helpText:
-          'How many requests to send to the analysis server at once. Higher can be faster on large projects, up to the limit of the analysis server parallelism.',
-    ),
-  ),
   dart(
     StringOption(
-      group: _serverGroup,
+      group: _sdkGroup,
       argName: 'dart',
       configKey: '/dart',
       valueHelp: 'path',
       helpText:
-          'Path to the dart executable of the SDK to analyze with, which also runs the analysis server. Defaults to the SDK running this tool.',
+          'Path to the dart executable of the SDK to analyze with. Defaults to the SDK running this tool.',
     ),
   );
 

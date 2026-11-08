@@ -64,6 +64,6 @@ Each such finding names what it is only referenced from, so a chain can be judge
 
 ### Not analyzed
 
-If the analysis server fails on a declaration, or the analyzer can't resolve a file, the run goes on. That code is kept and listed under "Not analyzed" (`problems` in JSON); `-v` adds the stack traces.
+If ciach can't read a file, or the analyzer can't resolve a file or a declaration, the run goes on. That code is kept and listed under "Not analyzed" (`problems` in JSON); `-v` lists every location, not just the first few.
 
 A file with a compile error is listed there too, with its first error: the reference search finds no use that doesn't resolve, so the declarations that the file uses may be reported.

@@ -7,42 +7,6 @@ import 'package:test/test.dart';
 void main() {
   final stack = StackTrace.fromString('#0      main (file:///x.dart:1:1)');
 
-  test('a server that died says so, without a stack trace', () {
-    final text = describeFatalError(
-      const AnalysisServerExitedException(
-        executable: 'dart',
-        exitCode: 255,
-        stderr: 'Out of memory',
-      ),
-      stack,
-      verbose: false,
-    );
-    expect(text, '''
-error: The Dart analysis server (`dart language-server`) exited unexpectedly with code 255.
-Its stderr:
-Out of memory
-''');
-  });
-
-  test('a failed request points at -v for the server stack', () {
-    const error = LspRequestException(
-      'initialize',
-      'Bad state',
-      detail: '#0      Server.init',
-    );
-    expect(describeFatalError(error, stack, verbose: false), '''
-error: The Dart analysis server failed initialize: Bad state.
-Likely a Dart SDK bug; -v shows the stack trace.
-''');
-    expect(
-      describeFatalError(error, stack, verbose: true),
-      allOf(
-        contains('Server stack trace:\n#0      Server.init'),
-        endsWith('#0      main (file:///x.dart:1:1)\n'),
-      ),
-    );
-  });
-
   test('a failed removal names the files it already rewrote', () {
     expect(
       describeFatalError(

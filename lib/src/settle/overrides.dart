@@ -1,8 +1,5 @@
 import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/lsp/exceptions.dart';
-import 'package:ciach/src/lsp/lsp_client.dart';
-import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
@@ -14,7 +11,6 @@ import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/source/syntax_rules.dart';
 import 'package:ciach/src/util/cached_map.dart';
-import 'package:ciach/src/util/concurrency.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
@@ -32,20 +28,17 @@ typedef OverriddenMember = ({List<CoupledRemoval> removals, bool blocked});
 /// An override is dead with the member it implements — a call through any
 /// subclass would have referenced that member — but it is not a candidate
 /// (see [FinderOptions.skipOverrides]), so removing the member alone would
-/// leave it overriding nothing. `textDocument/implementation` answers with
-/// every override of a member, transitively and across files. Lookups are
-/// cached by candidate index across the rounds of a run.
+/// leave it overriding nothing. [ResolvedFiles.overridesOf] lists every
+/// override of a member, transitively and across files. Lookups are cached
+/// by candidate index across the rounds of a run.
 final class OverrideRemovals {
   OverrideRemovals(
-    this._client,
     this._files,
     this._sources, {
     required Set<String> scannedPaths,
     required String rootPath,
   }) : _scannedPaths = scannedPaths,
        _rootPath = rootPath;
-
-  final LspClient _client;
 
   final ResolvedFiles _files;
 
@@ -60,9 +53,6 @@ final class OverrideRemovals {
   late final _markers = CachedMap<String, IgnoreMarkers>(
     (path) => .parse(_sources.content(path)),
   );
-
-  static const _unlistedOverrides =
-      'Could not find overrides; reported, not removed.';
 
   /// The kinds an override is deleted as, mapped to the kind the remover
   /// reads. A `field` goes as a declarator, so it can share a statement.
@@ -87,13 +77,8 @@ final class OverrideRemovals {
     List<Candidate> candidates,
     List<int> members, {
     required DeadSpans kept,
-    required int concurrency,
   }) async {
-    await _lookUp(
-      members.whereNot(_byMember.containsKey).toList(),
-      candidates,
-      concurrency,
-    );
+    await _lookUp(members.whereNot(_byMember.containsKey).toList(), candidates);
     final byCandidate = <int, OverriddenMember>{};
     var coupled = 0;
     var couplingMembers = 0;
@@ -131,24 +116,15 @@ final class OverrideRemovals {
   }
 
   /// Looks up and caches the overrides of the [unchecked] members.
-  Future<void> _lookUp(
-    List<int> unchecked,
-    List<Candidate> candidates,
-    int concurrency,
-  ) async {
+  Future<void> _lookUp(List<int> unchecked, List<Candidate> candidates) async {
     if (unchecked.isEmpty) {
       return;
     }
     _log.info(
       'Checking ${plural(unchecked.length, 'dead member', 'dead members')} for overrides…',
     );
-    final results = await mapPooled(
-      unchecked,
-      concurrency,
-      (index) => of(candidates[index]),
-    );
-    for (final (i, index) in unchecked.indexed) {
-      _byMember[index] = results[i];
+    for (final index in unchecked) {
+      _byMember[index] = await of(candidates[index]);
     }
   }
 
@@ -160,22 +136,10 @@ final class OverrideRemovals {
 
   /// The overrides of the dead [member], as spans to remove with it.
   Future<OverriddenMember> of(Candidate member) async {
-    final List<Location> overrides;
-    try {
-      overrides = await _client.implementations(
-        member.uri,
-        member.symbol.selectionRange.start,
-      );
-    } on LspRequestException catch (e) {
-      recordProblem(
-        _unlistedOverrides,
-        e,
-        path: member.path,
-        position: member.symbol.selectionRange.start,
-        name: [?member.container, member.symbol.name].join('.'),
-      );
-      return blocked;
-    }
+    final overrides = _files.overridesOf(
+      member.path,
+      member.symbol.selectionRange.start,
+    );
     if (overrides.isEmpty) {
       return _none;
     }
@@ -223,9 +187,9 @@ final class OverrideRemovals {
         _sources.isNameInTypeHeader(path, start, found.parent)) {
       return null;
     }
-    // No reference to check: the server answers a member's references for
-    // its whole family of overrides, so the member being dead means none of
-    // them is referenced either.
+    // No reference to check: a member's references are those of its whole
+    // family of overrides, so the member being dead means none of them is
+    // referenced either.
     return (
       filePath: relativePosix(path, _rootPath),
       kind: kind,

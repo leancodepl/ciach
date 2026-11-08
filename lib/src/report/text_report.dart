@@ -176,20 +176,13 @@ void _writeProblems(
   bool verbose,
   int maxListed,
 ) {
-  var hasDetail = false;
   for (final MapEntry(key: summary, value: ofSummary)
       in problems.groupListsBy((p) => p.summary).entries) {
     buffer.writeln('  $summary');
     for (final MapEntry(key: cause, value: ofCause)
         in ofSummary.groupListsBy((p) => p.cause).entries) {
       _writeCause(buffer, cause, ofCause, style, verbose, maxListed);
-      hasDetail |= ofCause.first.detail != null;
     }
-  }
-  if (hasDetail && !verbose) {
-    buffer.writeln(
-      style.note('  Likely a Dart SDK bug; -v shows the stack traces.'),
-    );
   }
   buffer.writeln();
 }
@@ -215,13 +208,6 @@ void _writeCause(
         '    … and ${ofCause.length - listed.length} more (-v lists them all)',
       ),
     );
-  }
-  if (ofCause.first.detail case final detail? when verbose) {
-    buffer
-      ..writeln(style.note('    Stack trace of the first:'))
-      ..writeln(
-        style.note(detail.split('\n').map((line) => '      $line').join('\n')),
-      );
   }
 }
 

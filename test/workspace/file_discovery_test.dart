@@ -28,7 +28,7 @@ void main() {
   };
 
   test(
-    'excludes generated files from candidates but keeps them for warming',
+    'excludes generated files from candidates but keeps them for their references',
     () {
       write('lib/model.dart', 'class Model {}');
       write('lib/model.g.dart', '// generated\nclass ModelGen {}');
@@ -41,8 +41,11 @@ void main() {
 
       // The `.g.dart` and banner-marked files are excluded from candidates…
       expect(rel(result.candidates), {'lib/model.dart'});
-      // …but still returned for warming.
-      expect(rel(result.warmOnly), {'lib/model.g.dart', 'lib/mapper.dart'});
+      // …but still returned for their references.
+      expect(rel(result.referenceOnly), {
+        'lib/model.g.dart',
+        'lib/mapper.dart',
+      });
     },
   );
 
@@ -62,12 +65,12 @@ class Excluded {}
     );
 
     expect(rel(result.candidates), {'lib/model.dart'});
-    expect(rel(result.warmOnly), {'lib/catalog.dart'});
+    expect(rel(result.referenceOnly), {'lib/catalog.dart'});
     expect(rel(result.ignored), {'lib/catalog.dart'});
   });
 
   test(
-    'warm set ignores include/exclude globs (references can live anywhere)',
+    'the reference-only set ignores include/exclude globs (references can live anywhere)',
     () {
       write('lib/model.dart', 'class Model {}');
       write('lib/other.dart', 'class Other {}');
@@ -78,13 +81,13 @@ class Excluded {}
       );
 
       expect(rel(result.candidates), {'lib/model.dart'});
-      // Warmed even though it doesn't match the include glob.
-      expect(rel(result.warmOnly), {'lib/model.g.dart'});
+      // Returned even though it doesn't match the include glob.
+      expect(rel(result.referenceOnly), {'lib/model.g.dart'});
     },
   );
 
   test(
-    'with includeGenerated, generated files are candidates and the warm set is empty',
+    'with includeGenerated, generated files are candidates and the reference-only set is empty',
     () {
       write('lib/model.dart', 'class Model {}');
       write('lib/model.g.dart', '// generated\nclass ModelGen {}');
@@ -94,7 +97,7 @@ class Excluded {}
       );
 
       expect(rel(result.candidates), {'lib/model.dart', 'lib/model.g.dart'});
-      expect(result.warmOnly, isEmpty);
+      expect(result.referenceOnly, isEmpty);
     },
   );
 
@@ -109,11 +112,11 @@ class DefaultFirebaseOptions {}
     final result = discoverDartFilesSplit(.new(rootPath: tempDir.path));
 
     expect(rel(result.candidates), {'lib/model.dart'});
-    expect(rel(result.warmOnly), {'lib/firebase_options_prod.dart'});
+    expect(rel(result.referenceOnly), {'lib/firebase_options_prod.dart'});
   });
 
   test(
-    'a file matching additionalGeneratedGlobs is warmed, not scanned, and unlike an excluded one still opened',
+    'a file matching additionalGeneratedGlobs is reference-only, not scanned, and unlike an excluded one still read',
     () {
       write('lib/model.dart', 'class Model {}');
       write('lib/l10n/l10n.dart', 'abstract class AppLocalizations {}');
@@ -131,7 +134,7 @@ class DefaultFirebaseOptions {}
         'lib/model.dart',
         'lib/src/status_l10n.dart',
       });
-      expect(rel(result.warmOnly), {
+      expect(rel(result.referenceOnly), {
         'lib/l10n/l10n.dart',
         'lib/l10n/l10n_pl.dart',
       });
@@ -143,7 +146,7 @@ class DefaultFirebaseOptions {}
         'lib/model.dart',
         'lib/src/status_l10n.dart',
       });
-      expect(excluded.warmOnly, isEmpty);
+      expect(excluded.referenceOnly, isEmpty);
 
       // --generated scans them like any other file.
       final scanned = discoverDartFilesSplit(
@@ -154,7 +157,7 @@ class DefaultFirebaseOptions {}
         ),
       );
       expect(scanned.candidates, hasLength(4));
-      expect(scanned.warmOnly, isEmpty);
+      expect(scanned.referenceOnly, isEmpty);
     },
   );
 
@@ -166,7 +169,7 @@ class DefaultFirebaseOptions {}
     final result = discoverDartFilesSplit(.new(rootPath: tempDir.path));
 
     expect(rel(result.candidates), {'lib/model.dart'});
-    expect(result.warmOnly, isEmpty);
+    expect(result.referenceOnly, isEmpty);
   });
 
   test('files in `.widget_preview` are neither scanned nor opened', () {
@@ -176,7 +179,7 @@ class DefaultFirebaseOptions {}
     final result = discoverDartFilesSplit(.new(rootPath: tempDir.path));
 
     expect(rel(result.candidates), {'lib/button.dart'});
-    expect(result.warmOnly, isEmpty);
+    expect(result.referenceOnly, isEmpty);
   });
 
   group('isGeneratedBanner', () {

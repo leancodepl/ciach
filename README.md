@@ -186,11 +186,10 @@ that are report-only because removing them would not compile:
 | `--generated-glob <glob>` | — | Treat these files as generated: their references count, but nothing in them is reported or removed. For output without a suffix or banner, or code kept as is, like a vendored copy. Repeatable. |
 | `-k, --kinds <list>` | all | Report only these kinds: `class, mixin, interface, enum, extension, extension-type, function, method, constructor, field, property, getter, setter, variable, constant, enum-value, typedef`. |
 | `-f, --format <fmt>` | `text`; the service's on CI | `text`, `json`, `github`, `azure`, `teamcity`, `sarif`, `checkstyle` or `gitlab`. See [CI](#ci). |
-| `-j, --concurrency <n>` | `16` | Requests to send to the analysis server at once. |
 | `--[no-]color` | auto | Colorize the output. Honors `NO_COLOR`. |
 | `--[no-]progress` | auto | Show progress on stderr. On for a terminal, off in CI. |
 | `-v, --verbose` | off; on in CI | Explain the run on stderr: the config file and what it set, the settings, each phase, what was skipped and why, and what `--remove` touches. |
-| `--dart <path>` | auto | The `dart` of the SDK to analyze with, which also runs the analysis server. |
+| `--dart <path>` | auto | The `dart` of the SDK to analyze with. |
 | `--version` | — | Print the ciach version and exit. |
 | `-h, --help` | — | Print the usage information. |
 
@@ -267,15 +266,15 @@ for (final decl in result.unused) {
 ```
 
 ciach logs through [`package:logging`](https://pub.dev/packages/logging), with
-loggers such as `ciach.finder` and `ciach.lsp`. It never configures the root
-logger; listen on `Logger.root.onRecord` to see the records.
+loggers such as `ciach.finder` and `ciach.remover`. It never configures the
+root logger; listen on `Logger.root.onRecord` to see the records.
 
 ## Development
 
 ```bash
 dart pub get
 dart analyze --fatal-infos
-dart test          # spins up a real analysis server against the example/ package
+dart test          # runs the finder against the example/ package too
 ```
 
 The implementation lives under `lib/src/`; the CLI entry point is `bin/`.

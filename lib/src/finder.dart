@@ -17,7 +17,6 @@
 /// | `model/`          | The options a run takes and the findings and results it returns.      |
 /// | `workspace/`      | The package on disk: Dart files, pubspecs, directives, public API.    |
 /// | `source/`         | Source text and the syntax that the rules read: tokens, markers.      |
-/// | `lsp/`            | The analysis server session and what can go wrong with it.            |
 /// | `analysis/`       | The files as `package:analyzer` resolves them; nothing else uses it.  |
 /// | `conventions/`    | Framework rules that keep declarations alive: Flutter, freezed, l10n. |
 /// | `project_config/` | Entry points and generated files read from the project's own config.  |
@@ -41,11 +40,9 @@ import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/fetch/reachable_types.dart';
 import 'package:ciach/src/fetch/reference_fetch.dart';
-import 'package:ciach/src/lsp/dart_executable.dart';
-import 'package:ciach/src/lsp/lsp_client.dart';
-import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/model/finder_result.dart';
+import 'package:ciach/src/model/problems.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
 import 'package:ciach/src/settle/settler.dart';
 import 'package:ciach/src/settle/verdict.dart';
@@ -53,11 +50,10 @@ import 'package:ciach/src/source/directives.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
-import 'package:ciach/src/util/concurrency.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:ciach/src/util/plural.dart';
-import 'package:ciach/src/workspace/analysis_options.dart';
+import 'package:ciach/src/workspace/dart_executable.dart';
 import 'package:ciach/src/workspace/file_discovery.dart';
 import 'package:ciach/src/workspace/packages.dart';
 import 'package:ciach/src/workspace/path_dependents.dart';
@@ -73,11 +69,9 @@ const _unreadableFile = 'Could not read these files; skipped.';
 ///
 /// `package:analyzer` resolves every file under the analysis root, lists the
 /// declarations of each scanned file, and records where each declaration is
-/// used. A declaration without uses outside itself is unused. The Dart
-/// analysis server, driven over LSP, lists the overrides of a member and gives
-/// the signatures that its hovers show.
+/// used. A declaration without uses outside itself is unused.
 ///
-/// `Ciach` owns the server session, the analyzer and the pipeline (discover →
+/// `Ciach` owns the analyzer and the pipeline (discover →
 /// collect → fetch → settle); each stage is a collaborator: [CandidateCollector] decides
 /// what to check, [referencesOf] gets the references, [Settler] turns them
 /// into findings with [ReferenceClassifier] deciding used/unused, [Verdict]
@@ -85,7 +79,7 @@ const _unreadableFile = 'Could not read these files; skipped.';
 /// keeping framework-driven declarations alive.
 ///
 /// A run logs through `package:logging`, with loggers such as `ciach.finder`
-/// and `ciach.lsp`, and never configures the root logger: listen on
+/// and `ciach.remover`, and never configures the root logger: listen on
 /// `Logger.root.onRecord` to see the records.
 class Ciach {
   /// Creates a finder that runs with the given [options].
@@ -100,7 +94,7 @@ class Ciach {
   late final SourceIndex _sources;
 
   /// The candidate files with nothing but directives and comments, as they
-  /// are opened.
+  /// are read.
   final _directiveOnly = <String>[];
 
   /// Freezed-union tracking, fed as candidates are collected.
@@ -235,8 +229,6 @@ class Ciach {
       sdkPath: sdkPathOf(dartExecutable),
     );
     _sources = .new(resolved);
-    _log.info('Starting Dart analysis server…');
-    final client = await LspClient.start(dartExecutable: dartExecutable);
 
     final Settled settled;
     final int declarationsChecked;
@@ -247,50 +239,35 @@ class Ciach {
           'Analyzing within $analysisRoot: references outside the scanned package count.',
         );
       }
-      final analysisOptions = analysisOptionsWithoutLints(analysisRoot);
-      if (analysisOptions.isNotEmpty) {
-        _log.config('Analyzing without lint rules and analyzer plugins.');
-      }
-      await client.initialize(
-        Directory(analysisRoot).uri,
-        analysisOptions: analysisOptions,
-      );
-      _log.info('Waiting for initial analysis to complete…');
-      await client.waitForAnalysisComplete();
 
-      // Phase 0: open every file first, so the server analyzes them in one
-      // pass and keeps them resident. Generated files are opened so references
-      // into them resolve, but no candidates are collected from them.
+      // Phase 0: read every file. Generated files are read so that the
+      // references in them count, but no candidates are collected from them.
       _log.info(
-        'Opening ${plural(files.length + discovered.warmOnly.length, 'file', 'files')}…',
+        'Reading ${plural(files.length + discovered.referenceOnly.length, 'file', 'files')}…',
       );
-      final opened = <String>{
-        for (final path in discovered.warmOnly)
-          if (_openFile(client, path)) path,
+      final readable = <String>{
+        for (final path in discovered.referenceOnly)
+          if (_readFile(path)) path,
         for (final path in files)
-          if (_openFile(client, path, checkEmpty: true)) path,
+          if (_readFile(path, checkEmpty: true)) path,
       };
       empty = _emptyFiles();
 
-      // Phase 1: collect candidate declarations, concurrently.
+      // Phase 1: collect candidate declarations.
       _log.info(
         'Collecting declarations from ${plural(files.length, 'file', 'files')}…',
       );
-      final perFile = await mapPooled(
-        files,
-        options.concurrency,
-        (path) => opened.contains(path)
-            ? _collector.collect(resolved, path, rootPath)
-            : .value(const <Candidate>[]),
-      );
-      final collected = [for (final list in perFile) ...list];
+      final collected = [
+        for (final path in files.where(readable.contains))
+          ...await _collector.collect(resolved, path, rootPath),
+      ];
       _collector.reportSkipped();
 
       // Phase 2: find the references of every candidate in the files under
       // the analysis root.
       _log.info('Resolving the other files under the analysis root…');
-      await resolved.resolveAll(discovered.warmOnly);
-      final fetched = await _references(client, resolved, collected);
+      await resolved.resolveAll(discovered.referenceOnly);
+      final fetched = await _references(resolved, collected);
       final (:candidates, :refsByCandidate) = _conditionalImports.share(
         fetched.candidates,
         fetched.refsByCandidate,
@@ -302,15 +279,13 @@ class Ciach {
 
       // Phase 3: settle the verdicts; with `transitive`, in rounds.
       settled = await _settler.settle(
-        client,
         resolved,
         candidates,
         refsByCandidate,
-        scannedPaths: files.where(opened.contains).toSet(),
+        scannedPaths: files.where(readable.contains).toSet(),
         rootPath: rootPath,
       );
     } finally {
-      await client.dispose();
       await resolved.dispose();
     }
 
@@ -362,11 +337,7 @@ class Ciach {
   /// that they can reach is part of its API, so only the members of the
   /// other types are checked.
   Future<({List<Candidate> candidates, List<List<Location>> refsByCandidate})>
-  _references(
-    LspClient client,
-    ResolvedFiles files,
-    List<Candidate> collected,
-  ) async {
+  _references(ResolvedFiles files, List<Candidate> collected) async {
     final api = _publicApi;
     final gated = api == null
         ? const <Candidate>{}
@@ -379,7 +350,6 @@ class Ciach {
       return (candidates: fetched.checked, refsByCandidate: fetched.refs);
     }
     final types = await ReachableTypes.find(
-      client: client,
       files: files,
       sources: _sources,
       api: api,
@@ -396,9 +366,9 @@ class Ciach {
     );
   }
 
-  /// Opens [path] in the server, noting it in [_directiveOnly] if [checkEmpty]
-  /// and it has nothing but directives. `false` if the file cannot be read.
-  bool _openFile(LspClient client, String path, {bool checkEmpty = false}) {
+  /// Reads [path], noting it in [_directiveOnly] if [checkEmpty] and it has
+  /// nothing but directives. `false` if the file cannot be read.
+  bool _readFile(String path, {bool checkEmpty = false}) {
     final String content;
     try {
       content = File(path).readAsStringSync();
@@ -406,7 +376,6 @@ class Ciach {
       recordProblem(_unreadableFile, e, path: path);
       return false;
     }
-    client.didOpen(File(path).uri, content);
     _sources.cacheLines(path, content.split('\n'));
     if (checkEmpty && isDirectiveOnly(content)) {
       _directiveOnly.add(path);

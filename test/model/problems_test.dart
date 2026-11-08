@@ -1,16 +1,12 @@
 import 'dart:io';
 
 import 'package:ciach/ciach.dart';
-import 'package:ciach/src/lsp/problems.dart';
+import 'package:ciach/src/model/problems.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:test/test.dart';
 
 void main() {
-  const failure = LspRequestException(
-    'textDocument/references',
-    'Null check operator used on a null value',
-    detail: '#0      compute',
-  );
+  const failure = 'Null check operator used on a null value';
 
   test(
     'a run collects what it reports, however deep, relative to its root',
@@ -31,7 +27,6 @@ void main() {
       expect(problem.location, 'lib/a.dart:3:5');
       expect(problem.name, 'A.foo');
       expect(problem.cause, 'Null check operator used on a null value');
-      expect(problem.detail, '#0      compute');
     },
   );
 

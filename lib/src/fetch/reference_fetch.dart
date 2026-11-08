@@ -1,6 +1,6 @@
 import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/lsp/problems.dart';
+import 'package:ciach/src/model/problems.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';

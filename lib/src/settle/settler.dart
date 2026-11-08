@@ -2,7 +2,6 @@ import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/conventions/flutter_widgets.dart';
 import 'package:ciach/src/conventions/freezed.dart';
-import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/model/finder_result.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
@@ -92,7 +91,6 @@ final class Settler {
 
   /// The findings for [candidates], from their [refsByCandidate].
   Future<Settled> settle(
-    LspClient client,
     ResolvedFiles files,
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate, {
@@ -100,7 +98,6 @@ final class Settler {
     required String rootPath,
   }) async {
     final overrides = OverrideRemovals(
-      client,
       files,
       _sources,
       scannedPaths: scannedPaths,
@@ -114,7 +111,6 @@ final class Settler {
     Map<UnusedDeclaration, int> candidateOf;
     for (var round = 1; ; round++) {
       final result = await _round(
-        client,
         files,
         candidates,
         refsByCandidate,
@@ -164,7 +160,6 @@ final class Settler {
   /// candidate index. [refsByCandidate] still holds the references into
   /// [deadSpans], for [DeadSpans.referrersAmong].
   Future<({_Verdicts settled, Map<UnusedDeclaration, int> candidateOf})> _round(
-    LspClient client,
     ResolvedFiles files,
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
@@ -236,7 +231,6 @@ final class Settler {
       kept: .of([
         for (final type in docOnlyTypes) _verdict.finding(type, rootPath),
       ], rootPath),
-      concurrency: options.concurrency,
     );
 
     final unused = <UnusedDeclaration>[];

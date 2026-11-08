@@ -19,7 +19,7 @@ const _features = [
   _Feature(
     .search,
     'Backed by the real analyzer',
-    'Reference queries go to the Dart analysis server: the same resolution your IDE uses, not a regex.',
+    'The Dart analyzer that your IDE uses resolves every reference, not a regex.',
   ),
   _Feature(
     .git,
@@ -29,7 +29,7 @@ const _features = [
   _Feature(
     .shield,
     'Safe defaults',
-    '`@override` members, operators, entry points, generated files and `toJson()` are skipped unless you opt in.',
+    '`@override` members, entry points, generated files and `toJson()` are skipped unless you opt in.',
   ),
   _Feature(
     .braces,

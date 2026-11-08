@@ -14,10 +14,10 @@ class DartSdkNotFoundException implements Exception {
   String toString() => message;
 }
 
-/// The `dart` that launches the analysis server: [explicit] (`--dart`), else
-/// the SDK `package:cli_util` finds — the VM running this tool, or `dart` on
-/// `PATH` for a compiled binary (`dart install`, `dart compile exe`), which is
-/// ciach itself and must not be spawned as the server (#42).
+/// The `dart` of the SDK to analyze with: [explicit] (`--dart`), else the SDK
+/// `package:cli_util` finds — the VM running this tool, or `dart` on `PATH`
+/// for a compiled binary (`dart install`, `dart compile exe`), whose own
+/// executable is ciach rather than `dart` (#42).
 String findDartExecutable({String? explicit}) =>
     explicit ??
     cli_util.dartExecutable ??

@@ -16,6 +16,7 @@ import 'package:ciach/src/source/locations.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import '../support/locations.dart';
 import '../support/package_config.dart';
 import '../support/resolved_files.dart';
 
@@ -84,13 +85,32 @@ class JSExport {
   });
 
   /// Writes [source] to a new file in the directory [dir] of the package, and
-  /// resolves it.
-  Future<ResolvedFile> resolve(String source, {String dir = 'lib'}) async {
+  /// returns its path.
+  String write(String source, {String dir = 'lib'}) {
     final path = p.join(tempDir.path, dir, 'uses${written++}.dart');
     File(path)
       ..createSync(recursive: true)
       ..writeAsStringSync(source);
-    return (await files.of(path))!;
+    return path;
+  }
+
+  /// Writes [source] to a new file in the directory [dir] of the package, and
+  /// resolves it.
+  Future<ResolvedFile> resolve(String source, {String dir = 'lib'}) async =>
+      (await files.of(write(source, dir: dir)))!;
+
+  /// Whether the signature of each of the [functions] that [source] declares
+  /// is dynamic, by name.
+  Future<Map<String, bool?>> dynamicSignatures(
+    String source,
+    List<String> functions,
+  ) async {
+    final path = write(source);
+    await files.of(path);
+    return {
+      for (final name in functions)
+        name: files.hasDynamicSignature(path, positionOfName(path, name)),
+    };
   }
 
   /// The values of [byPosition] on each line of [source].
@@ -376,6 +396,63 @@ void c() => alsoMissing();
       );
       expect(broken.firstError?.message, contains("'missing'"));
       expect(valid.firstError, isNull);
+    },
+  );
+
+  test(
+    'a signature is dynamic when a parameter or the return type is `dynamic` or a bare `Function`, also when it is omitted, or holds one',
+    () async {
+      expect(
+        await dynamicSignatures(
+          '''
+void untyped(cb) {}
+omitted() => 0;
+void listed(List<dynamic> values) {}
+void callback(void Function(Function) f) {}
+(int, {dynamic x}) record() => (1, x: 2);
+Function? bare() => null;
+''',
+          ['untyped', 'omitted', 'listed', 'callback', 'record', 'bare'],
+        ),
+        {
+          'untyped': true,
+          'omitted': true,
+          'listed': true,
+          'callback': true,
+          'record': true,
+          'bare': true,
+        },
+      );
+    },
+  );
+
+  test(
+    'a signature with only other types is not dynamic, and a variable has none',
+    () async {
+      expect(
+        await dynamicSignatures(
+          '''
+void precise(int x, void Function(int) f) {}
+Object? get getter => null;
+
+class Box {
+  Box.sized(int size);
+
+  void fill(List<Object?> values) {}
+}
+
+int variable = 0;
+''',
+          ['precise', 'getter', 'sized', 'fill', 'variable'],
+        ),
+        {
+          'precise': false,
+          'getter': false,
+          'sized': false,
+          'fill': false,
+          'variable': null,
+        },
+      );
     },
   );
 

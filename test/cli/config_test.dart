@@ -67,7 +67,6 @@ kinds: [class, function]
 format: github
 color: true
 progress: true
-concurrency: 4
 dart: /sdk/bin/dart
 ''');
 
@@ -97,7 +96,6 @@ dart: /sdk/bin/dart
       expect(resolved.format, 'github');
       expect(resolved.color, isTrue);
       expect(resolved.showProgress, isTrue);
-      expect(resolved.concurrency, 4);
       expect(resolved.dartExecutable, '/sdk/bin/dart');
       // On its own, since it forces `progress` off.
       expect(resolveFile('verbose: true').verbose, isTrue);
@@ -117,13 +115,13 @@ dart: /sdk/bin/dart
       final config = ConfigFile.parse('''
 public: false
 exclude: ['test/**']
-concurrency: 4
+format: json
 ''', origin: 'ciach.yaml');
 
       expect(config.settings, {
         'public': false,
         'exclude': ['test/**'],
-        'concurrency': 4,
+        'format': 'json',
       });
       expect(config.path, 'ciach.yaml');
       expect(config.ignored, isFalse);
@@ -234,6 +232,22 @@ concurrency: 4
     );
 
     test(
+      'says that ciach no longer sends requests to an analysis server, for the removed `concurrency` option',
+      () {
+        expect(
+          () => ConfigFile.parse('concurrency: 4', origin: 'ciach.yaml'),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              'ciach.yaml: `concurrency` was removed: ciach no longer sends requests to an analysis server, so drop it.',
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
       'says that operator overloads are reported now, for `operators` under also',
       () {
         expect(
@@ -280,6 +294,28 @@ concurrency: 4
           [
             '`--also operators` was removed: operator overloads are reported by default now, so drop it.',
             '`--also operators` was removed: operator overloads are reported by default now, so drop it.',
+            null,
+          ],
+        );
+      },
+    );
+
+    test(
+      'removedOptionMessage says that ciach no longer sends requests to an analysis server, for `--concurrency` and `-j` in each spelling',
+      () {
+        expect(
+          [
+            removedOptionMessage(['--concurrency', '4']),
+            removedOptionMessage(['--concurrency=4']),
+            removedOptionMessage(['lib', '-j', '4']),
+            removedOptionMessage(['-j4']),
+            removedOptionMessage(['-k', 'class']),
+          ],
+          [
+            '`--concurrency` was removed: ciach no longer sends requests to an analysis server, so drop it.',
+            '`--concurrency` was removed: ciach no longer sends requests to an analysis server, so drop it.',
+            '`-j` was removed: ciach no longer sends requests to an analysis server, so drop it.',
+            '`-j` was removed: ciach no longer sends requests to an analysis server, so drop it.',
             null,
           ],
         );
@@ -408,18 +444,6 @@ concurrency: 4
       }
     });
 
-    test('rejects a non-positive concurrency', () {
-      for (final value in ['0', '-2', 'many', '1.5']) {
-        expect(
-          () => resolveFile('concurrency: $value'),
-          throwsA(
-            isFormatException('ciach.yaml', contains('positive integer')),
-          ),
-          reason: 'for concurrency: $value',
-        );
-      }
-    });
-
     test('checks the type of every key, even one the argv overrides', () {
       // Every option is given on the command line below, so only the eager
       // check when the file is parsed can still catch the bad value. A map fits
@@ -447,8 +471,6 @@ concurrency: 4
         '--color',
         '--progress',
         '--verbose',
-        '-j',
-        '2',
         '--dart',
         '/sdk/bin/dart',
         'lib',
@@ -610,7 +632,6 @@ concurrency: 4
       expect(resolved.kinds, FinderOptions.defaultKinds);
       expect(resolved.format, 'text');
       expect(resolved.verbose, isFalse);
-      expect(resolved.concurrency, 16);
       expect(resolved.dartExecutable, isNull);
     });
 
@@ -622,7 +643,6 @@ generated: true
 format: json
 color: false
 progress: false
-concurrency: 4
 dart: /sdk/bin/dart
 ''', origin: 'ciach.yaml');
 
@@ -633,8 +653,6 @@ dart: /sdk/bin/dart
         'github',
         '--color',
         '--progress',
-        '--concurrency',
-        '2',
         '--dart',
         '/other/dart',
         'packages/other',
@@ -646,7 +664,6 @@ dart: /sdk/bin/dart
       expect(resolved.format, 'github');
       expect(resolved.color, isTrue);
       expect(resolved.showProgress, isTrue);
-      expect(resolved.concurrency, 2);
       expect(resolved.dartExecutable, '/other/dart');
     });
 
@@ -886,20 +903,6 @@ format: text''', origin: 'c.yaml'),
       expect(resolve(const ['--progress']).showProgress, isTrue);
     });
 
-    test('rejects a non-positive --concurrency', () {
-      for (final value in ['0', '-1']) {
-        expect(
-          () => resolve(['--concurrency', value]),
-          throwsA(isUsageException(contains('below the minimum (1)'))),
-          reason: 'for --concurrency $value',
-        );
-      }
-      expect(
-        () => resolve(const ['--concurrency', 'lots']),
-        throwsA(isUsageException(contains('lots'))),
-      );
-    });
-
     test('rejects an unknown --kinds value', () {
       expect(
         () => resolve(const ['-k', 'klass']),
@@ -911,12 +914,15 @@ format: text''', origin: 'c.yaml'),
       // An out-of-range `--format` is not among them: an option's `allowed`
       // list is the arg parser's business, so that fails before resolution.
       expect(
-        () => resolve(const ['-k', 'klass', '-j', '0']),
+        () => resolve(const [
+          '-k',
+          'klass',
+        ], .parse('also: [override]', origin: 'ciach.yaml')),
         throwsA(
           isUsageException(
             allOf(
               contains("Unknown kind 'klass'"),
-              contains('below the minimum (1)'),
+              contains("Unknown value 'override' for `also`."),
             ),
           ),
         ),
@@ -931,8 +937,6 @@ format: text''', origin: 'c.yaml'),
         'overrides',
         '-e',
         'test/**',
-        '-j',
-        '4',
       ], .parse('entry-points: [{name: bootstrap}]', origin: 'ciach.yaml'));
       final options = resolved.finderOptions();
 
@@ -942,7 +946,6 @@ format: text''', origin: 'c.yaml'),
       expect(options.skipOverrides, isFalse);
       expect(options.excludeGlobs, ['test/**']);
       expect(options.entryPoints.map((e) => '$e'), ['bootstrap']);
-      expect(options.concurrency, 4);
     });
   });
 

@@ -36,7 +36,6 @@ class ResolvedOptions {
     required this.color,
     required this.showProgress,
     required this.verbose,
-    required this.concurrency,
     required this.dartExecutable,
   });
 
@@ -97,7 +96,6 @@ class ResolvedOptions {
   /// Whether to narrate the run on stderr. On by default on [ci], where the
   /// log is all there is to go on afterwards.
   final bool verbose;
-  final int concurrency;
   final String? dartExecutable;
 
   /// Returns the options for the finder. The entry points and generated files
@@ -123,7 +121,6 @@ class ResolvedOptions {
     transitive: transitive,
     entryPoints: [...entryPoints, ...detected.entryPoints],
     translations: unusedTranslations ? detected.translations : const [],
-    concurrency: concurrency,
     dartExecutable: dartExecutable ?? this.dartExecutable,
   );
 }
@@ -203,7 +200,6 @@ ResolvedOptions resolveOptions(
             defaults?.showProgress ??
             progressDefault),
     verbose: verbose,
-    concurrency: configuration.value(CiachOption.concurrency),
     dartExecutable: configuration.optionalValue(CiachOption.dart),
   );
 }

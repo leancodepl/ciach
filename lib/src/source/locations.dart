@@ -53,6 +53,16 @@ final class Location {
   final String uri;
   final Range range;
 
+  /// Orders locations by file, then by where they start.
+  static int byPlace(Location a, Location b) => switch ((
+    a.uri.compareTo(b.uri),
+    a.range.start.line.compareTo(b.range.start.line),
+  )) {
+    (0, 0) => a.range.start.character.compareTo(b.range.start.character),
+    (0, final byLine) => byLine,
+    (final byFile, _) => byFile,
+  };
+
   @override
   bool operator ==(Object other) =>
       other is Location && other.uri == uri && other.range == range;

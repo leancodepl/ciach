@@ -357,7 +357,9 @@ final class _OutlineBuilder {
     );
   }
 
-  /// The element that [node] declares: the field of a declaring parameter.
+  /// The element that [node] declares: the field of a declaring parameter,
+  /// and the primary constructor of a primary constructor's body, whose
+  /// `this` names it.
   static Element? _declaredElementOf(AstNode node) => switch (node) {
     FormalParameter(
       declaredFragment: FormalParameterFragment(
@@ -368,8 +370,27 @@ final class _OutlineBuilder {
     Declaration(:final declaredFragment?) => declaredFragment.element,
     PrimaryConstructorDeclaration(:final declaredFragment?) =>
       declaredFragment.element,
+    // The body sits in the body of its type.
+    PrimaryConstructorBody(parent: AstNode(:final parent)) =>
+      _primaryConstructorOf(parent),
     _ => null,
   };
+
+  /// The primary constructor in the header of the class, enum or extension
+  /// type [type], or `null` when it has none.
+  static Element? _primaryConstructorOf(AstNode? type) {
+    final namePart = switch (type) {
+      ClassDeclaration(:final namePart) ||
+      EnumDeclaration(:final namePart) => namePart,
+      final ExtensionTypeDeclaration type => extensionTypeNamePart(type),
+      _ => null,
+    };
+    return switch (namePart) {
+      PrimaryConstructorDeclaration(:final declaredFragment?) =>
+        declaredFragment.element,
+      _ => null,
+    };
+  }
 
   /// The name of the declaration that [name] names. A name that error
   /// recovery made up is empty, and the analysis server shows it as

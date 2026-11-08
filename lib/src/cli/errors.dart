@@ -1,65 +1,47 @@
 import 'dart:io';
 
 import 'package:ciach/src/analysis/language_versions.dart';
-import 'package:ciach/src/lsp/dart_executable.dart';
-import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/remove/remover.dart';
 import 'package:ciach/src/report/style.dart';
 import 'package:ciach/src/version.dart';
+import 'package:ciach/src/workspace/dart_executable.dart';
 import 'package:ciach/src/workspace/packages.dart';
 
 const _issueTracker = 'https://github.com/leancodepl/ciach/issues';
 
 /// A fatal [error] for stderr. The stack trace is shown only when [verbose],
-/// and only for a bug in ciach or a failed server request: an error the user
-/// can fix, such as a package without `pub get`, has no use for it.
+/// and only for a bug in ciach: an error the user can fix, such as a package
+/// without `pub get`, has no use for it.
 String describeFatalError(
   Object error,
   StackTrace stackTrace, {
   required bool verbose,
   Style style = .plain,
 }) {
-  final (message, detail, isBug) = switch (error) {
-    AnalysisServerExitedException(:final message) ||
+  final (message, isBug) = switch (error) {
     DartSdkNotFoundException(:final message) ||
     RemovalException(:final message) ||
     UnresolvedPackagesException(:final message) ||
-    UnsupportedLanguageVersionException(
-      :final message,
-    ) => (message, null, false),
-    LspRequestException(:final detail) => ('$error.', detail, false),
-    ProcessException(:final executable, :final message) => (
-      'Could not start `$executable`: $message',
-      null,
-      false,
-    ),
+    UnsupportedLanguageVersionException(:final message) => (message, false),
     FileSystemException(:final message, :final path, :final osError) => (
       [message, ?path, ?osError?.message].join(': '),
-      null,
       false,
     ),
-    _ => ('Internal error: $error', null, true),
+    _ => ('Internal error: $error', true),
   };
   final buffer = StringBuffer()
     ..writeln('${style.errorLabel('error:')} $message');
-  if (detail != null) {
-    buffer.writeln(
-      verbose
-          ? 'Server stack trace:\n${style.detail(detail)}'
-          : style.detail('Likely a Dart SDK bug; -v shows the stack trace.'),
-    );
-  }
   if (isBug) {
     buffer.writeln(
       'This is a bug in ciach $ciachVersion; please report it at $_issueTracker with the -v output.',
     );
-  }
-  if (verbose && (isBug || detail != null)) {
-    buffer
-      ..writeln()
-      ..writeln(style.detail('$stackTrace'.trimRight()));
-  } else if (isBug) {
-    buffer.writeln(style.detail('Run with -v for the stack trace.'));
+    if (verbose) {
+      buffer
+        ..writeln()
+        ..writeln(style.detail('$stackTrace'.trimRight()));
+    } else {
+      buffer.writeln(style.detail('Run with -v for the stack trace.'));
+    }
   }
   return buffer.toString();
 }

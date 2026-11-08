@@ -1,6 +1,20 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:path/path.dart' as p;
+
+/// Writes the [files] of a package named `app` under [root], by their paths
+/// relative to [root], with its `package_config.json`.
+void writeAppPackage(String root, Map<String, String> files) {
+  for (final MapEntry(key: path, value: source) in {
+    '.dart_tool/package_config.json': packageConfig({'app': '.'}),
+    ...files,
+  }.entries) {
+    File(p.join(root, path))
+      ..createSync(recursive: true)
+      ..writeAsStringSync(source);
+  }
+}
 
 /// A `package_config.json` as `pub get` writes it to `<package>/.dart_tool/`:
 /// [roots] maps each package to its root, relative to `<package>`. A package

@@ -141,7 +141,6 @@ String _setting(
   .color => resolved.color?.toString() ?? 'auto',
   .progress => '${resolved.showProgress}',
   .verbose => '${resolved.verbose}',
-  .concurrency => '${resolved.concurrency}',
   .dart => dartExecutable,
   // No config key, so never listed; spelled out so a new option must be too.
   .help || .version || .config || .noConfig => '',

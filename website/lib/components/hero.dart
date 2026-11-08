@@ -267,7 +267,7 @@ Component heroHeading({String? id}) => h1(id: id, [
 /// The paragraph under the heading, shared by the page and the social card.
 const heroLead =
     'Finds declarations nothing references and removes them for you. One '
-    'command, no setup, backed by the Dart analysis server.';
+    'command, no setup, backed by the Dart analyzer.';
 
 /// The install command in a prompt-style box. The copy button is a client
 /// island, so the social card leaves it out.

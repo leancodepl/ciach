@@ -14,7 +14,7 @@ import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:ciach/src/analysis/element_uses.dart';
 import 'package:ciach/src/analysis/language_versions.dart';
-import 'package:ciach/src/lsp/dart_executable.dart';
+import 'package:ciach/src/workspace/dart_executable.dart';
 import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';

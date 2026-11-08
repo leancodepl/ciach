@@ -9,9 +9,7 @@
  */
 
 import 'package:ciach/src/source/document_symbol.dart';
-import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
-import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
 
@@ -105,12 +103,6 @@ final class Candidate {
   /// left out because code uses their members without naming them.
   bool get isType =>
       container == null && typeLikeKinds.contains(symbol.kind) && !isExtension;
-
-  /// Whether [location], such as a definition that the server returns, points
-  /// at this candidate's name.
-  bool isNamedAt(Location location) =>
-      SourceIndex.pathOf(location.uri) == path &&
-      symbol.selectionRange.contains(location.range.start);
 
   /// This candidate's own `(path, name)` key.
   DeclKey get key => .new(path, symbol.name);

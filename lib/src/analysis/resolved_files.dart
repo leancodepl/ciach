@@ -16,6 +16,7 @@ import 'package:ciach/src/analysis/reference_index.dart';
 import 'package:ciach/src/analysis/resolved_class.dart';
 import 'package:ciach/src/analysis/resolved_file.dart';
 import 'package:ciach/src/analysis/selection_ranges.dart';
+import 'package:ciach/src/analysis/type_hierarchy.dart';
 import 'package:ciach/src/analysis/unit_outline.dart';
 import 'package:ciach/src/analysis/unit_tokens.dart';
 import 'package:ciach/src/source/file_syntax.dart';
@@ -47,7 +48,8 @@ final class ResolvedFiles implements FileSyntax {
   final _packages = PackageResolver();
   late final _files = CachedMap<String, Future<ResolvedFile?>>(_resolve);
   late final _parsed = CachedMap<String, ParsedUnitResult?>(_parse);
-  final _index = ReferenceIndex();
+  final _hierarchy = TypeHierarchy();
+  late final _index = ReferenceIndex(_hierarchy);
 
   /// The files resolved so far, by path.
   final _resolved = <String, ResolvedFile>{};
@@ -100,6 +102,25 @@ final class ResolvedFiles implements FileSyntax {
   List<Location>? referencesTo(String path, Position name) =>
       _elements[path]?[name]?.let(_index.referencesTo);
 
+  /// Returns the locations of the names of the members that override the
+  /// member whose name starts at [name] in the file at [path], among the
+  /// files resolved so far, or none when that file isn't resolved or no
+  /// member's name starts there.
+  List<Location> overridesOf(String path, Position name) =>
+      _elements[path]?[name]?.let(_hierarchy.overridesOf) ?? const [];
+
+  /// Returns whether the signature of the function, method or constructor
+  /// whose name starts at [name] in the file at [path] has a type through
+  /// which a caller can invoke any member: `dynamic`, as in
+  /// `void f(dynamic cb)` and in `f()`, whose return type is omitted, or a
+  /// bare `Function`. Returns `null` when that file isn't resolved or no
+  /// function, method or constructor's name starts there.
+  bool? hasDynamicSignature(String path, Position name) =>
+      switch (_elements[path]?[name]) {
+        final ExecutableElement function => _hasDynamicType(function.type),
+        _ => null,
+      };
+
   /// Ends the analysis.
   Future<void> dispose() => _collection.dispose();
 
@@ -107,6 +128,7 @@ final class ResolvedFiles implements FileSyntax {
     for (final context in _contextsFor(path)) {
       if (await context.currentSession.getResolvedUnit(path)
           case final ResolvedUnitResult result) {
+        _hierarchy.add(result.unit);
         _index.add(path, result.unit, result.lineInfo);
         final (:outline, :elements) = unitOutline(result.unit, result.lineInfo);
         _elements[path] = elements;
@@ -214,6 +236,22 @@ final class ResolvedFiles implements FileSyntax {
           ),
     );
   }
+
+  /// Whether [type] is `dynamic` or a bare `Function`, or has such a type in
+  /// its type arguments, parameters, return type or fields, as
+  /// `List<dynamic>` and `void Function(Function)` do.
+  static bool _hasDynamicType(DartType type) => switch (type) {
+    DynamicType() || InterfaceType(isDartCoreFunction: true) => true,
+    InterfaceType(:final typeArguments) => typeArguments.any(_hasDynamicType),
+    FunctionType(:final returnType, :final formalParameters) =>
+      _hasDynamicType(returnType) ||
+          formalParameters.any((parameter) => _hasDynamicType(parameter.type)),
+    RecordType(:final positionalFields, :final namedFields) => [
+      ...positionalFields.map((field) => field.type),
+      ...namedFields.map((field) => field.type),
+    ].any(_hasDynamicType),
+    _ => false,
+  };
 
   /// The name that follows the `@` of [annotation] and its import prefix:
   /// `Preview` in `@prefix.Preview.named()` and in `@Preview.named()`.

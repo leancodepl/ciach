@@ -44,6 +44,25 @@ is nothing left to recover, and the list is gone from every output:
 - In the Dart API, `FinderResult.recoveredReferences` and the
   `RecoveredReference` class are gone, with no replacement.
 
+### `--concurrency` is removed
+
+`--concurrency`, or `-j`, set how many requests ciach sent to the Dart
+analysis server at once. ciach no longer starts the analysis server, so the
+option has nothing left to set. Drop it from the command line and
+`concurrency` from `ciach.yaml`: both are errors now.
+
+### The analysis server in the Dart API
+
+This concerns only code that uses `package:ciach` as a library. ciach reads
+the code with `package:analyzer` in its own process and no longer starts the
+Dart analysis server, so these are gone, with no replacement:
+
+- `FinderOptions.concurrency`.
+- `LspRequestException` and `AnalysisServerExitedException`, which a run no
+  longer throws.
+- `AnalysisProblem.detail`, the stack trace of the server, and the `detail`
+  key of a problem in the JSON report.
+
 ## From 0.6 to 0.7
 
 ### Removed options

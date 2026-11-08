@@ -64,7 +64,7 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
 
   bool _annotatesByName(ResolvedDeclaration declaration) {
     final tokens = declaration.leadingMetadata.toList();
-    // The server gives the `(` of an annotation a token, so the first
+    // The `(` of an annotation has a token of its own, so the first
     // argument is the second token after the name.
     return tokens.indexed.any(
       (named) =>

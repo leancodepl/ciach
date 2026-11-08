@@ -40,7 +40,7 @@ class SourceIndex {
   /// The absolute file path a reference [uri] points at.
   static String pathOf(String uri) => Uri.parse(uri).toFilePath();
 
-  /// The files opened for this run — every path passed to [cacheLines].
+  /// The files read for this run — every path passed to [cacheLines].
   Iterable<String> get scannedPaths => _scanned;
 
   /// Reads [path] from disk, returning `null` if it can't be read.
@@ -72,8 +72,8 @@ class SourceIndex {
       )?.between(outline.range.start, outline.codeRange.start) ??
       const [];
 
-  /// Records the [lines] of a file already opened in the analysis server, so
-  /// its content isn't re-read from disk, and marks the file as scanned.
+  /// Records the [lines] of a file that the run read, so its content isn't
+  /// read from disk again, and marks the file as scanned.
   void cacheLines(String path, List<String> lines) {
     _lines[path] = lines;
     _content.invalidate(path);
@@ -81,8 +81,7 @@ class SourceIndex {
     _scanned.add(path);
   }
 
-  /// The full text of [path], reconstructed from the cached lines so it matches
-  /// the document content the analysis server resolved positions against.
+  /// The full text of [path], reconstructed from the cached lines.
   String content(String path) => _content[path];
 
   List<int> lineStarts(String path) => _lineStarts[path];
@@ -91,9 +90,10 @@ class SourceIndex {
   Position positionOf(String path, int offset) =>
       positionIn(lineStarts(path), offset);
 
-  /// Absolute offset of an LSP [position] in [path]'s content, or `null` if out
-  /// of range. LSP columns are UTF-16 code units, which is exactly how Dart
-  /// indexes a `String`, so the arithmetic needs no conversion.
+  /// Absolute offset of [position] in [path]'s content, or `null` if out of
+  /// range. A [Position] counts columns in UTF-16 code units, which is
+  /// exactly how Dart indexes a `String`, so the arithmetic needs no
+  /// conversion.
   int? offsetOf(String path, Position position) {
     final starts = lineStarts(path);
     if (position.line < 0 || position.line >= starts.length) {

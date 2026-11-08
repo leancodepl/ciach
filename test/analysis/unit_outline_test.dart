@@ -18,6 +18,7 @@ import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import '../support/locations.dart';
 import '../support/package_config.dart';
 import '../support/resolved_files.dart';
 
@@ -339,6 +340,29 @@ class Registry {
         (1, OutlineKind.constructor, 'Registry.named', 'named'),
         (1, OutlineKind.constructor, 'Registry.make', 'make'),
       ]);
+    },
+    skip: newestLanguageVersion < LanguageVersion(3, 13)
+        ? 'This analyzer does not support Dart 3.13 constructors.'
+        : false,
+  );
+
+  test(
+    'the `this` of the body of a primary constructor names the constructor, whose signature it reads',
+    () async {
+      final path = p.join(tempDir.path, 'lib', 'file${written++}.dart');
+      File(path).writeAsStringSync('''
+class Holder(dynamic value) {
+  this {
+    print(value);
+  }
+}
+''');
+      await files.of(path);
+
+      expect(
+        files.hasDynamicSignature(path, positionOfName(path, 'this')),
+        isTrue,
+      );
     },
     skip: newestLanguageVersion < LanguageVersion(3, 13)
         ? 'This analyzer does not support Dart 3.13 constructors.'

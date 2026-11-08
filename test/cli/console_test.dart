@@ -75,7 +75,7 @@ void main() {
     final c = console()..configure(verbose: true);
     final subscription = c.attach();
     addTearDown(subscription.cancel);
-    Logger('ciach.lsp').finest('deep');
+    Logger('ciach.remover').finest('deep');
     await pumpEventQueue();
     expect(err.toString(), contains('deep'));
   });

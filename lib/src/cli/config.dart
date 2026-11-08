@@ -149,10 +149,8 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     .format => _oneOf(key, formatNames),
     .kinds => _kinds(key),
     .entryPoints => _entryPoints(key),
-    .concurrency => _positiveInt(key),
     final option => switch (option.option) {
       FlagOption() => _boolean(key),
-      IntOption() => _positiveInt(key),
       MultiOption() => _strings(key),
       _ => _string(key),
     },
@@ -247,12 +245,6 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
       throw FormatException("$path: '$at': $about${e.message}");
     }
   }
-
-  int? _positiveInt(String key) => switch (settings[key]) {
-    null => null,
-    final int value && > 0 => value,
-    final other => _wrong(key, 'a positive integer', other),
-  };
 
   /// Reports the wrong type, naming the file and the key.
   Never _wrong(String key, String expected, Object? value) =>

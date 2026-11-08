@@ -17,4 +17,11 @@ extension LinePositions on LineInfo {
       character: location.columnNumber - 1,
     );
   }
+
+  /// The location of the [length] characters at [offset] in the file at
+  /// [path], whose lines this holds.
+  Location locationOf(String path, int offset, int length) => .new(
+    uri: Uri.file(path).toString(),
+    range: .new(start: positionOf(offset), end: positionOf(offset + length)),
+  );
 }

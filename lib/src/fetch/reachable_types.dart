@@ -1,16 +1,10 @@
-import 'dart:io';
-
 import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/lsp/exceptions.dart';
-import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/reference_kinds.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
-import 'package:ciach/src/util/cached_map.dart';
-import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/reachability.dart';
 import 'package:ciach/src/workspace/public_api.dart';
 
@@ -25,7 +19,6 @@ final class ReachableTypes {
   ReachableTypes._(this._internal);
 
   static Future<ReachableTypes> find({
-    required LspClient client,
     required ResolvedFiles files,
     required SourceIndex sources,
     required PublicApi api,
@@ -40,21 +33,18 @@ final class ReachableTypes {
     final positionsIn = _importableRefs(types.values, sources, api);
     final outlines = await _outlines(files, positionsIn.keys);
 
-    final carriersOf = _Carriers(client, sources, api, outlines);
+    final carriersOf = _Carriers(files, sources, api, outlines);
     final reachable = <DeclKey>{};
     final carriedBy = <DeclKey, Set<DeclKey>>{};
-    await Future.wait(
-      types.entries.map((entry) async {
-        final MapEntry(:key, value: type) = entry;
-        final carriers = await carriersOf(type);
-        // A carrier that is not a type here, such as [_root], hands it out.
-        if (api.exposes(key.path, key.name) ||
-            !carriers.every(types.containsKey)) {
-          reachable.add(key);
-        }
-        carriedBy[key] = carriers.where(types.containsKey).toSet();
-      }),
-    );
+    for (final MapEntry(:key, value: type) in types.entries) {
+      final carriers = carriersOf(type);
+      // A carrier that is not a type here, such as [_root], hands it out.
+      if (api.exposes(key.path, key.name) ||
+          !carriers.every(types.containsKey)) {
+        reachable.add(key);
+      }
+      carriedBy[key] = carriers.where(types.containsKey).toSet();
+    }
     return ._(_unreached(types.keys, reachable, carriedBy).toSet());
   }
 
@@ -129,22 +119,19 @@ typedef _Type = ({Candidate candidate, List<Location> refs});
 
 /// What hands a type out, read from the outlines of the files naming it.
 final class _Carriers {
-  _Carriers(this._client, this._sources, this._api, this._outlines);
+  _Carriers(this._files, this._sources, this._api, this._outlines);
 
-  final LspClient _client;
+  final ResolvedFiles _files;
   final SourceIndex _sources;
   final PublicApi _api;
   final Map<String, Outline> _outlines;
-  late final _signatures = CachedMap<(String, Position), Future<String?>>(
-    (at) => _hoverSignature(at.$1, at.$2),
-  );
 
   /// The types holding a reference to [type], and [_root] for a reference
   /// that hands it to everyone.
-  Future<Set<DeclKey>> call(_Type type) async => {
+  Set<DeclKey> call(_Type type) => {
     for (final loc in type.refs)
       if (_canHandOut(type, loc))
-        ?await _carrierAt(SourceIndex.pathOf(loc.uri), loc.range.start),
+        ?_carrierAt(SourceIndex.pathOf(loc.uri), loc.range.start),
   };
 
   /// Whether [loc] can hand [type] to another package: in an importable
@@ -160,7 +147,7 @@ final class _Carriers {
   /// The type the reference at [pos] hands its type to, [_root] when it
   /// hands it to everyone, or `null` when it sits in a body, a directive or
   /// an extension no other package can import.
-  Future<DeclKey?> _carrierAt(String path, Position pos) async {
+  DeclKey? _carrierAt(String path, Position pos) {
     final unit = _outlines[path];
     if (unit == null) {
       return _root;
@@ -172,7 +159,7 @@ final class _Carriers {
     final kind = top.element.kind;
     if (kind case .class$ || .mixin || .enum$ || .extension || .extensionType) {
       final member = top.childAt(pos);
-      if (member != null && await _hidesIn(member, top, path, pos)) {
+      if (member != null && _hidesIn(member, top, path, pos)) {
         return null;
       }
       if (kind != .extension) {
@@ -183,17 +170,12 @@ final class _Carriers {
           ? _root
           : null;
     }
-    return await _hidesIn(top, null, path, pos) ? null : _root;
+    return _hidesIn(top, null, path, pos) ? null : _root;
   }
 
   /// Whether a mention at [pos] in the function-like [node] stays inside it:
   /// it sits in the body, and nothing the signature hands out is `dynamic`.
-  Future<bool> _hidesIn(
-    Outline node,
-    Outline? owner,
-    String path,
-    Position pos,
-  ) async {
+  bool _hidesIn(Outline node, Outline? owner, String path, Position pos) {
     final element = node.element;
     if (element.kind
         case .field ||
@@ -208,8 +190,11 @@ final class _Carriers {
         (owner?.element.typeParameters ?? '').isNotEmpty) {
       return false;
     }
-    final signature = await _signature(path, node);
-    return signature != null && !_dynamic.hasMatch(signature);
+    return _files.hasDynamicSignature(
+          path,
+          element.range?.start ?? node.codeRange.start,
+        ) ==
+        false;
   }
 
   /// Where the body of [node] that holds [pos] starts: the syntax node that
@@ -231,27 +216,6 @@ final class _Carriers {
     }
     return null;
   }
-
-  /// [node]'s signature as the analyzer resolved it, e.g.
-  /// `void f(dynamic cb)` for `void f(cb)`, from its hover.
-  Future<String?> _signature(String path, Outline node) =>
-      _signatures[(path, node.element.range?.start ?? node.codeRange.start)];
-
-  Future<String?> _hoverSignature(String path, Position at) async {
-    try {
-      final hover = await _client.hover(File(path).uri, at);
-      return hover?.let(_fencedCode.firstMatch)?.namedGroup('signature');
-    } on LspRequestException {
-      return null;
-    }
-  }
 }
 
-/// Types through which a caller can invoke any member: `dynamic`, and a
-/// bare `Function`.
-final _dynamic = RegExp(r'\bdynamic\b|\bFunction\b(?!\s*[(<])');
-
 final _bodyOpener = RegExp(r'\{|=>|async\b|sync\b');
-
-/// The first fenced code block of a hover: the signature.
-final _fencedCode = RegExp(r'```dart\n(?<signature>[^`]*?)\n```');

@@ -48,14 +48,13 @@ typedef DiscoveredDartFiles = ({
   /// Files whose declarations are scanned and reported as candidates.
   List<String> candidates,
 
-  /// Generated files excluded from [candidates] but still opened to keep the
-  /// analysis server's units warm, so a declaration referenced *only* from
-  /// generated code isn't misreported as unused. Files marked
-  /// `// ciach:ignore-file` are among them, even when generated files are
-  /// candidates.
-  List<String> warmOnly,
+  /// Generated files excluded from [candidates] whose references still
+  /// count, so a declaration referenced *only* from generated code isn't
+  /// misreported as unused. Files marked `// ciach:ignore-file` are among
+  /// them, even when generated files are candidates.
+  List<String> referenceOnly,
 
-  /// The files of [warmOnly] that a `// ciach:ignore-file` marker put there.
+  /// The files of [referenceOnly] that a `// ciach:ignore-file` marker put there.
   List<String> ignored,
 });
 
@@ -68,10 +67,10 @@ List<String> discoverDartFiles(FinderOptions options) =>
     discoverDartFilesSplit(options).candidates;
 
 /// Like [discoverDartFiles], but also returns the excluded generated files as
-/// `warmOnly` (see [DiscoveredDartFiles]) so the caller can open them for
-/// reference resolution.
+/// `referenceOnly` (see [DiscoveredDartFiles]) so the caller can resolve the
+/// references in them.
 ///
-/// The warm-only set is deliberately not filtered by include/exclude globs — a
+/// The reference-only set is deliberately not filtered by include/exclude globs — a
 /// reference can live in a generated file the user isn't scanning — though
 /// skipped directories (`build/`, `.dart_tool/`, …) are still excluded.
 DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
@@ -85,7 +84,7 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
   final generatedGlobs = _globs(options.additionalGeneratedGlobs, context);
 
   final candidates = <String>[];
-  final warmOnly = <String>[];
+  final referenceOnly = <String>[];
   final ignored = <String>[];
   for (final entity in root.listSync(recursive: true, followLinks: false)) {
     if (entity is! File || !entity.path.endsWith('.dart')) {
@@ -106,14 +105,14 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
     if (!options.includeGenerated &&
         (generatedGlobs.any((glob) => glob.matches(relative)) ||
             _isGenerated(relative, () => source))) {
-      warmOnly.add(absolute);
+      referenceOnly.add(absolute);
       continue;
     }
     if (!_isSelected(relative, includeGlobs, excludeGlobs)) {
       continue;
     }
     if (IgnoreMarkers.parse(source).ignoresFile) {
-      warmOnly.add(absolute);
+      referenceOnly.add(absolute);
       ignored.add(absolute);
       continue;
     }
@@ -122,9 +121,13 @@ DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
   }
 
   candidates.sort();
-  warmOnly.sort();
+  referenceOnly.sort();
   ignored.sort();
-  return (candidates: candidates, warmOnly: warmOnly, ignored: ignored);
+  return (
+    candidates: candidates,
+    referenceOnly: referenceOnly,
+    ignored: ignored,
+  );
 }
 
 /// Whether [relative] matches an [include] glob, when there are any, and no

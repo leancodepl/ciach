@@ -48,7 +48,6 @@ void main() {
     int? line = 3,
     int? column = 5,
     String? name = 'A.foo',
-    String? detail = '#0      Foo.bar',
   }) => .new(
     summary: summary,
     cause: cause,
@@ -56,7 +55,6 @@ void main() {
     line: line,
     column: column,
     name: name,
-    detail: detail,
   );
 
   UnusedDeclaration decl({
@@ -584,7 +582,6 @@ void main() {
           'line': 3,
           'column': 5,
           'name': 'A.foo',
-          'detail': '#0      Foo.bar',
         },
       ]);
     });
@@ -629,7 +626,6 @@ void main() {
               line: null,
               column: null,
               name: null,
-              detail: null,
             ),
           ],
         ),
@@ -658,7 +654,6 @@ Not analyzed (2) · the analysis failed here
   Could not read these files; nothing reported.
     Permission denied
     lib/secret.dart
-  Likely a Dart SDK bug; -v shows the stack traces.
 
 Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) · 3 empty files · 1 doc-only · 2 not analyzed''',
       );
@@ -672,26 +667,20 @@ Found 2 unused declarations in 1 file (scanned 3 files, 10 declarations, 1.0s) �
       );
     });
 
-    test(
-      'lists the first few of a cause unless verbose, which adds the stack',
-      () {
-        final result = resultWith(
-          const [],
-          problems: [for (var i = 1; i <= 3; i++) problem(line: i)],
-        );
-        final short = textReport(result, maxListed: 2);
-        expect(short, contains('      2:5  A.foo'));
-        expect(short, isNot(contains('      3:5  A.foo')));
-        expect(short, contains('    … and 1 more (-v lists them all)'));
-        expect(short, contains('-v shows the stack traces'));
+    test('lists the first few of a cause unless verbose', () {
+      final result = resultWith(
+        const [],
+        problems: [for (var i = 1; i <= 3; i++) problem(line: i)],
+      );
+      final short = textReport(result, maxListed: 2);
+      expect(short, contains('      2:5  A.foo'));
+      expect(short, isNot(contains('      3:5  A.foo')));
+      expect(short, contains('    … and 1 more (-v lists them all)'));
 
-        final verbose = textReport(result, verbose: true, maxListed: 2);
-        expect(verbose, contains('      3:5  A.foo'));
-        expect(verbose, contains('    Stack trace of the first:'));
-        expect(verbose, contains('      #0      Foo.bar'));
-        expect(verbose, isNot(contains('-v')));
-      },
-    );
+      final verbose = textReport(result, verbose: true, maxListed: 2);
+      expect(verbose, contains('      3:5  A.foo'));
+      expect(verbose, isNot(contains('-v')));
+    });
 
     test('colors by role', () {
       const style = Style(enabled: true);

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:ciach/src/lsp/dart_executable.dart';
+import 'package:ciach/src/workspace/dart_executable.dart';
 import 'package:cli_util/cli_util.dart' show environmentOverridesKey;
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';

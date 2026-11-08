@@ -29,6 +29,11 @@ const _alsoFlags = {
 /// removed `operators` option and `--also` value.
 const _operatorsReported = 'operator overloads are reported by default now';
 
+/// Why the removed `concurrency` option, which set how many requests ciach
+/// sent to the analysis server at once, has nothing left to set.
+const _noServerRequests =
+    'ciach no longer sends requests to an analysis server';
+
 /// The config keys of the options ciach no longer has.
 const removedKeys = {
   'overrides',
@@ -38,7 +43,12 @@ const removedKeys = {
   'exported',
   'fail-public',
   'generated-suffix',
+  'concurrency',
 };
+
+/// The config keys of the removed options that had an abbreviation, by the
+/// abbreviation.
+const _removedAbbreviations = {'j': 'concurrency'};
 
 /// Why setting the removed option [key] to [value] (`true` or `false` for a
 /// flag) is not needed any more, or what to use instead, in the config file
@@ -53,6 +63,9 @@ String removedOptionAdvice(
   }
   if (key == 'operators') {
     return '$_operatorsReported, so drop it';
+  }
+  if (key == 'concurrency') {
+    return '$_noServerRequests, so drop it';
   }
   return switch (_replacementFor(key, value)) {
     null => 'that is the default now, so drop it',
@@ -91,6 +104,9 @@ final _longOption = RegExp(
   r'^--(?<negation>no-)?(?<name>[\w-]+)(?:=(?<value>.*))?$',
 );
 
+/// An abbreviated option, such as `-j` in `-j 4` and in `-j4`.
+final _abbreviatedOption = RegExp('^-(?<abbreviation>[a-zA-Z])');
+
 /// Why the `--also` value [value] was removed, or `null` when ciach still
 /// has it.
 String? removedAlsoAdvice(String value) =>
@@ -113,6 +129,12 @@ String? removedOptionMessage(List<String> arguments) => arguments
 /// Why [argument], which the argument [next] may follow, is a removed option
 /// or gives `--also` a removed value, or `null` when it is neither.
 String? _removedMessage(String argument, {required String? next}) {
+  if (_removedAbbreviations[_abbreviatedOption
+          .firstMatch(argument)
+          ?.namedGroup('abbreviation')]
+      case final name?) {
+    return '`${argument.substring(0, 2)}` was removed: ${removedOptionAdvice(name, null, inConfig: false)}.';
+  }
   final match = _longOption.firstMatch(argument);
   final name = match?.namedGroup('name');
   if (match == null || name == null) {

@@ -21,7 +21,6 @@ class AnalysisProblem {
     this.line,
     this.column,
     this.name,
-    this.detail,
   });
 
   /// What failed and the fallback, e.g. "Could not find references; kept."
@@ -39,9 +38,6 @@ class AnalysisProblem {
   /// The declaration, e.g. `MyClass.myMethod`.
   final String? name;
 
-  /// The server's stack trace, if any.
-  final String? detail;
-
   /// `path:line:column`, as far as known.
   String get location => [filePath, ?line, ?column].join(':');
 
@@ -56,7 +52,6 @@ class AnalysisProblem {
     'line': ?line,
     'column': ?column,
     'name': ?name,
-    'detail': ?detail,
   };
 }
 

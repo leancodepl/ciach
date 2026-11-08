@@ -9,16 +9,12 @@ library;
 
 import 'dart:io';
 
-import 'package:ciach/src/source/locations.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import '../support/locations.dart';
 import '../support/package_config.dart';
 import '../support/resolved_files.dart';
-
-/// A reference as the tests compare it: the file, relative to the package
-/// root, the one-based line, and the text that it covers.
-typedef _Reference = ({String file, int line, String text});
 
 /// The references that `ReferenceIndex` finds, read through `ResolvedFiles`,
 /// which feeds it every file that it resolves.
@@ -31,34 +27,12 @@ void main() {
 
   /// Writes the [files] of a package named `app`, by their paths relative to
   /// the package root.
-  void writePackage(Map<String, String> files, {String root = '.'}) {
-    for (final MapEntry(key: path, value: source) in {
-      '.dart_tool/package_config.json': packageConfig({'app': '.'}),
-      ...files,
-    }.entries) {
-      File(p.join(tempDir.path, root, path))
-        ..createSync(recursive: true)
-        ..writeAsStringSync(source);
-    }
-  }
-
-  /// [location] as the tests compare it.
-  _Reference referenceIn(Location location) {
-    final path = Uri.parse(location.uri).toFilePath();
-    final line = File(path).readAsLinesSync()[location.range.start.line];
-    return (
-      file: p.relative(path, from: tempDir.path),
-      line: location.range.start.line + 1,
-      text: line.substring(
-        location.range.start.character,
-        location.range.end.character,
-      ),
-    );
-  }
+  void writePackage(Map<String, String> files) =>
+      writeAppPackage(tempDir.path, files);
 
   /// The references of the declaration whose name is the [occurrence]th
   /// [name] in the file at [path], after every file is resolved.
-  Future<List<_Reference>?> referencesTo(
+  Future<List<LocationText>?> referencesTo(
     String path,
     String name, {
     int occurrence = 0,
@@ -67,14 +41,12 @@ void main() {
     addTearDown(files.dispose);
     await files.resolveAll(const []);
     final absolute = p.join(tempDir.path, path);
-    final source = File(absolute).readAsStringSync();
-    var offset = source.indexOf(name);
-    for (var i = 0; i < occurrence; i++) {
-      offset = source.indexOf(name, offset + 1);
-    }
     return files
-        .referencesTo(absolute, _positionAt(source, offset))
-        ?.map(referenceIn)
+        .referencesTo(
+          absolute,
+          positionOfName(absolute, name, occurrence: occurrence),
+        )
+        ?.map((location) => locationText(location, tempDir.path))
         .toList();
   }
 
@@ -249,11 +221,4 @@ void main() => shared();
 
     expect(await referencesTo('lib/a.dart', '{}'), isNull);
   });
-}
-
-/// The position of [offset] in [source].
-Position _positionAt(String source, int offset) {
-  final before = source.substring(0, offset);
-  final line = '\n'.allMatches(before).length;
-  return .new(line: line, character: offset - (before.lastIndexOf('\n') + 1));
 }

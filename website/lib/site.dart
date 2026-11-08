@@ -27,7 +27,7 @@ const tagline = 'Dead code detector for Dart and Flutter';
 const description =
     'ciach finds declarations nothing references in a Dart or Flutter package '
     '— classes, functions, methods, fields, constants, enum values — and can '
-    'remove them for you. Powered by the real Dart analysis server, ready for CI.';
+    'remove them for you. Powered by the Dart analyzer, ready for CI.';
 
 const repoUrl = 'https://github.com/leancodepl/ciach';
 const pubUrl = 'https://pub.dev/packages/ciach';
