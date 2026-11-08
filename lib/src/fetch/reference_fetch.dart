@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/fetch/implicit_calls.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
@@ -82,11 +83,13 @@ final class ReferenceFetch {
   Future<({List<Candidate> checked, List<List<Location>> refs})>
   withImplicitCalls(
     LspClient client,
+    ResolvedFiles files,
     List<Candidate> candidates,
     List<List<Location>> refs,
   ) async {
     final usesOf = await findImplicitCalls(
       client: client,
+      files: files,
       sources: _sources,
       calls: candidates.where((c) => c.symbol.isCallMethod).toList(),
       concurrency: options.concurrency,

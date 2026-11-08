@@ -65,3 +65,5 @@ Each such finding names what it is only referenced from, so a chain can be judge
 ### Not analyzed
 
 If the analysis server fails on a declaration or a file, the run goes on. That code is kept and listed under "Not analyzed" (`problems` in JSON); `-v` adds the stack traces.
+
+A file with a compile error is listed there too, with its first error: the reference search finds no use that doesn't resolve, so the declarations that the file uses may be reported.

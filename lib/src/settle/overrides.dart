@@ -1,7 +1,7 @@
+import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
-import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/model/symbol_kind.dart';
@@ -9,12 +9,14 @@ import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/settle/dead_spans.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/selection_range.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/source/syntax_rules.dart';
 import 'package:ciach/src/util/cached_map.dart';
 import 'package:ciach/src/util/concurrency.dart';
+import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:ciach/src/util/plural.dart';
@@ -37,6 +39,7 @@ typedef OverriddenMember = ({List<CoupledRemoval> removals, bool blocked});
 final class OverrideRemovals {
   OverrideRemovals(
     this._client,
+    this._files,
     this._sources, {
     required Set<String> scannedPaths,
     required String rootPath,
@@ -44,6 +47,8 @@ final class OverrideRemovals {
        _rootPath = rootPath;
 
   final LspClient _client;
+
+  final ResolvedFiles _files;
 
   final SourceIndex _sources;
 
@@ -199,12 +204,12 @@ final class OverrideRemovals {
       return null;
     }
     final uri = Uri.parse(location.uri);
-    // Every scanned file's outline was awaited while collecting candidates, so
-    // this is a cache hit and can't time out.
-    final outline = await _client.outline(uri);
+    // Every scanned file was resolved while collecting candidates, so this is
+    // a cache hit.
+    final outline = (await _files.of(path))?.outline;
     // The answer points at the override's name: an outline node's element range.
     final start = location.range.start;
-    final found = _nodeNamedAt(outline, start);
+    final found = outline?.let((outline) => _nodeNamedAt(outline, start));
     final kind = _removableKinds[found?.node.element.kind];
     if (found == null || kind == null) {
       return null;

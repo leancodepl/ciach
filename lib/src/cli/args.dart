@@ -347,7 +347,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       configKey: '/dart',
       valueHelp: 'path',
       helpText:
-          'Path to the dart executable used to launch the analysis server. Defaults to the SDK running this tool.',
+          'Path to the dart executable of the SDK to analyze with, which also runs the analysis server. Defaults to the SDK running this tool.',
     ),
   );
 

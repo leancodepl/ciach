@@ -53,12 +53,6 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
   final KeptMembers? members;
 
   @override
-  Set<String> get annotationNames => subtypes ? const {} : {annotation};
-
-  @override
-  Set<ServerLookup> get lookups => {if (subtypes) .annotationClasses};
-
-  @override
   bool _selects(ResolvedDeclaration declaration) => subtypes
       ? declaration.annotationClasses.any(
           (it) => _isAnnotation(it.type) || it.supertypes.any(_isAnnotation),

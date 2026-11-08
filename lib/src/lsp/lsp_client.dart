@@ -16,9 +16,7 @@ import 'dart:io';
 import 'package:ciach/src/lsp/conversions.dart';
 import 'package:ciach/src/lsp/dart_executable.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
-import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
-import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/selection_range.dart';
 import 'package:ciach/src/util/extensions.dart';
@@ -31,9 +29,6 @@ import 'package:stream_channel/stream_channel.dart';
 /// notification. It is not part of the LSP spec, so it is handled as a custom
 /// notification.
 const _analyzerStatusMethod = r'$/analyzerStatus';
-
-/// Sent for every open file once `initializationOptions.outline` is set.
-const _publishOutlineMethod = 'dart/textDocument/publishOutline';
 
 /// The Dart-specific "go to super" request.
 const _superMethod = 'dart/textDocument/super';
@@ -73,10 +68,6 @@ class LspClient {
   /// The empty directory the server starts in when [initialize] gets
   /// analysis options. [dispose] deletes it.
   Directory? _emptyRoot;
-
-  final _outlines = <String, Outline>{};
-
-  final _outlineWaiters = <String, Completer<Outline>>{};
 
   final _diagnostics = <String, List<lsp.Diagnostic>>{};
 
@@ -156,10 +147,6 @@ class LspClient {
       const _CustomMethod(_analyzerStatusMethod),
       (params, context) async => wrapper._onAnalyzerStatus(params),
     );
-    client.connection.registerCustomNotificationHandler(
-      const _CustomMethod(_publishOutlineMethod),
-      (params, context) async => wrapper._onPublishOutline(params),
-    );
     client.textDocument.onPublishDiagnostics((params, context) async {
       wrapper._diagnostics[params.uri] = params.diagnostics;
     });
@@ -194,14 +181,10 @@ class LspClient {
         clientInfo: const .new(name: 'ciach', version: ciachVersion),
         rootUri: startUri,
         workspaceFolders: [.new(uri: startUri, name: 'root')],
-        initializationOptions: const {'outline': true},
-        // Hierarchical document symbols yield nested `DocumentSymbol[]` rather
-        // than flat `SymbolInformation`; semantic tokens make the server send its
-        // legend. `workDoneProgress` is left unset so progress arrives via
-        // `$/analyzerStatus`.
+        // Semantic tokens make the server send its legend. `workDoneProgress`
+        // is left unset so progress arrives via `$/analyzerStatus`.
         capabilities: const .new(
           textDocument: .new(
-            documentSymbol: .new(hierarchicalDocumentSymbolSupport: true),
             semanticTokens: .new(
               requests: .new(full: .bool(true)),
               tokenTypes: [],
@@ -330,51 +313,12 @@ class LspClient {
   }
 
   void _failIdleWaiters(Object error) {
-    final waiters = [..._idleWaiters, ..._outlineWaiters.values];
+    final waiters = List.of(_idleWaiters);
     _idleWaiters.clear();
-    _outlineWaiters.clear();
     for (final waiter in waiters) {
       if (!waiter.isCompleted) {
         waiter.completeError(error);
       }
-    }
-  }
-
-  void _onPublishOutline(Object? params) {
-    if (params case {
-      'uri': final String uri,
-      'outline': final Map<String, Object?> json,
-    }) {
-      final outline = Outline.fromJson(json);
-      _outlines[uri] = outline;
-      _outlineWaiters.remove(uri)?.complete(outline);
-    }
-  }
-
-  /// The outline of [uri] if the server has already sent it.
-  Outline? cachedOutline(Uri uri) => _outlines[uri.toString()];
-
-  /// The outline of [uri]. Throws [LspRequestException] after [timeout].
-  Future<Outline> outline(
-    Uri uri, {
-    Duration timeout = const .new(minutes: 2),
-  }) async {
-    final key = uri.toString();
-    if (_outlines[key] case final outline?) {
-      return outline;
-    }
-    if (_exitError case final error?) {
-      throw error;
-    }
-    final completer = _outlineWaiters.putIfAbsent(key, Completer<Outline>.new);
-    try {
-      return await completer.future.timeout(timeout);
-    } on TimeoutException {
-      _outlineWaiters.remove(key);
-      throw LspRequestException(
-        _publishOutlineMethod,
-        'no outline arrived within ${timeout.inSeconds}s',
-      );
     }
   }
 
@@ -444,8 +388,6 @@ class LspClient {
   void didChange(Uri uri, String text) {
     final key = uri.toString();
     _lastChanged = uri;
-    // The server publishes the outline of the new content.
-    _outlines.remove(key);
     _client.server.textDocument.didChange(
       .new(
         textDocument: .new(
@@ -457,23 +399,6 @@ class LspClient {
         ],
       ),
     );
-  }
-
-  /// Returns the hierarchical document symbols for [uri].
-  ///
-  /// Hierarchical support is advertised in [initialize], so this is always the
-  /// `DocumentSymbol[]` variant (never flat `SymbolInformation`).
-  Future<List<DocumentSymbol>> documentSymbol(Uri uri) async {
-    final result = await _guard(
-      lsp.RequestMethod.documentSymbol.value,
-      () => _client.server.textDocument.documentSymbol(
-        .new(textDocument: .new(uri: uri.toString())),
-      ),
-    );
-    if (result.isNull) {
-      return const [];
-    }
-    return result.asDocumentSymbolList?.map(symbolFromLsp).toList() ?? const [];
   }
 
   /// Returns all references to the symbol at [position] within [uri].
@@ -567,37 +492,6 @@ class LspClient {
       final Map<String, Object?> json => locationFromLsp(.fromJson(json)),
       _ => null,
     };
-  }
-
-  /// The type at [position] in [uri], via `textDocument/prepareTypeHierarchy`.
-  /// At a constructor call this is the class that the constructor creates.
-  /// Empty when there is no type at [position].
-  Future<List<lsp.TypeHierarchyItem>> typeHierarchyItems(
-    Uri uri,
-    Position position,
-  ) async {
-    final result = await _guard(
-      lsp.RequestMethod.prepareTypeHierarchy.value,
-      () => _client.server.textDocument.prepareTypeHierarchy(
-        .new(
-          textDocument: .new(uri: uri.toString()),
-          position: positionToLsp(position),
-        ),
-      ),
-    );
-    return result ?? const [];
-  }
-
-  /// The direct supertypes of [item]: its superclass, mixins, interfaces and
-  /// `on` types, via `typeHierarchy/supertypes`.
-  Future<List<lsp.TypeHierarchyItem>> supertypes(
-    lsp.TypeHierarchyItem item,
-  ) async {
-    final result = await _guard(
-      lsp.RequestMethod.supertypes.value,
-      () => _client.server.typeHierarchy.supertypes(.new(item: item)),
-    );
-    return result ?? const [];
   }
 
   /// The members that override the member at [position] in [uri], via

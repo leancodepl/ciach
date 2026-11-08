@@ -127,8 +127,8 @@ final class _Tally {
       // keeps the extension.
       extensionMemberTotal.update(
         candidate.key,
-        (n) => n + (symbol.children?.length ?? 0),
-        ifAbsent: () => symbol.children?.length ?? 0,
+        (n) => n + symbol.children.length,
+        ifAbsent: () => symbol.children.length,
       );
     } else if (symbol.kind == .enum$ && !candidate.isEnumValue) {
       enumTypeStays[candidate.key] = !unused;

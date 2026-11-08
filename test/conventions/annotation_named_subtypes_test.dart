@@ -4,8 +4,8 @@
  *   harness: Claude Code
  */
 
+import 'package:ciach/src/analysis/resolved_class.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
-import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:test/test.dart';
 
 import '../support/declarations.dart';
@@ -147,23 +147,6 @@ void main() {
       );
       expect(rule.packages, {'stories'});
       expect(rule.files, ['app/**']);
-    });
-
-    test('asks the server for the classes, and for no package by hover', () {
-      final rule = EntryPoint.annotationNamed(
-        'Story',
-        packages: const {'stories'},
-        subtypes: true,
-        reason: 'shown',
-      );
-
-      expect(rule.lookups, {ServerLookup.annotationClasses});
-      // Only the built-in rules ask for a hover.
-      expect(EntryPoints([rule]).annotationNamesIn('lib/a.dart'), {
-        'JSExport',
-        'pragma',
-        'reflectiveTest',
-      });
     });
 
     test('without `subtypes`, a subclass of the annotation keeps nothing', () {

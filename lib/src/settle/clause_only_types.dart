@@ -4,10 +4,10 @@
  *   harness: Claude Code
  */
 
+import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/fetch/reference_fetch.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
-import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/settle/dead_spans.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
@@ -15,6 +15,7 @@ import 'package:ciach/src/settle/removable.dart';
 import 'package:ciach/src/settle/verdict.dart';
 import 'package:ciach/src/source/clause_entries.dart';
 import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
@@ -48,6 +49,7 @@ final class ClauseOnlyTypes {
   /// which name what a type is only referenced from.
   Future<List<(int, UnusedDeclaration)>> findings(
     LspClient client,
+    ResolvedFiles files,
     List<Candidate> candidates,
     List<RefStatus> statuses,
     List<List<Location>> refsByCandidate,
@@ -63,22 +65,21 @@ final class ClauseOnlyTypes {
       final outline = candidate.outline.element;
       if (statuses[i] != .used ||
           !const <OutlineKind>{.class$, .mixin}.contains(outline.kind) ||
-          (candidate.symbol.children?.length ?? 0) !=
+          candidate.symbol.children.length !=
               (members[candidate.key]?.removable ?? 0)) {
         continue;
       }
       final refs = _classifier.externalRefs(candidate, liveRefs[i]);
-      // The outline of every scanned file is already cached: the candidates
-      // were read from it.
+      // Every scanned file was resolved while collecting candidates, so this
+      // is a cache hit.
       final entries = [
         for (final loc in refs)
-          if (scannedPaths.contains(SourceIndex.pathOf(loc.uri)))
-            ?client
-                .cachedOutline(.parse(loc.uri))
-                ?.let(
-                  (unit) =>
-                      _sources.clauseEntryAt(loc, candidate.symbol.name, unit),
-                ),
+          if (SourceIndex.pathOf(loc.uri) case final path
+              when scannedPaths.contains(path))
+            ?(await files.of(path))?.outline.let(
+              (unit) =>
+                  _sources.clauseEntryAt(loc, candidate.symbol.name, unit),
+            ),
       ];
       if (entries.length == refs.length) {
         entriesOf[i] = entries;

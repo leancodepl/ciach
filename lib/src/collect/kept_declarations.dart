@@ -4,9 +4,8 @@
  *   harness: Claude Code
  */
 
-import 'package:ciach/src/collect/annotation_packages.dart';
+import 'package:ciach/src/analysis/resolved_file.dart';
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/collect/resolved_classes.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
@@ -22,15 +21,9 @@ final _log = Logger('ciach.finder');
 /// and what a `// ciach:` marker keeps. Each is recorded with its reason, for
 /// `--verbose`, together with the type that has to stay with it.
 final class KeptDeclarations {
-  KeptDeclarations(
-    this._entryPoints,
-    this._resolvedClasses,
-    this._annotationPackages,
-  );
+  KeptDeclarations(this._entryPoints);
 
   final EntryPoints _entryPoints;
-  final ResolvedClasses _resolvedClasses;
-  final AnnotationPackages _annotationPackages;
 
   /// Skipped as entry points this run, for `--verbose`.
   final _skippedEntryPoints = <_SkippedEntryPoint>[];
@@ -86,26 +79,28 @@ final class KeptDeclarations {
   }
 
   /// Returns [candidate], whose doc comment and annotations are
-  /// [leadingMetadata], as the entry-point rules read it.
+  /// [leadingMetadata], as the entry-point rules read it. [file] is the
+  /// resolved file that declares it.
   ResolvedDeclaration declarationOf(
     String relativePath,
     Candidate candidate,
     Iterable<SemanticToken> leadingMetadata,
+    ResolvedFile file,
   ) => .new(
     relativePath: relativePath,
     symbol: candidate.symbol,
     container: candidate.container,
     inEnum: candidate.containerSymbol?.kind == .enum$,
     leadingMetadata: leadingMetadata,
-    annotationPackages: _annotationPackages.packagesOf(
-      candidate.path,
-      leadingMetadata,
-    ),
-    annotationClasses: _resolvedClasses.annotationClassesOf(
-      candidate.path,
-      leadingMetadata,
-    ),
-    supertypes: _resolvedClasses.supertypesOf(candidate.path, candidate.symbol),
+    annotationPackages: {
+      for (final token in leadingMetadata)
+        token.start: ?file.annotationPackages[token.start],
+    },
+    annotationClasses: [
+      for (final token in leadingMetadata) ?file.annotationClasses[token.start],
+    ],
+    supertypes:
+        file.supertypes[candidate.symbol.selectionRange.start] ?? const {},
   );
 
   /// Returns whether [declaration] is called by a framework or a tool. Such a

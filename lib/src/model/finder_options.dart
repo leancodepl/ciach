@@ -143,9 +143,10 @@ class FinderOptions {
   /// returns past its internal parallelism.
   final int concurrency;
 
-  /// Path to the `dart` executable used to launch the analysis server.
-  /// Defaults to the SDK running this tool, or to `dart` from `PATH` when this
-  /// is a compiled binary; see `findDartExecutable`.
+  /// Path to the `dart` executable of the SDK to analyze with, which also
+  /// runs the analysis server. Defaults to the SDK running this tool, or to
+  /// `dart` from `PATH` when this is a compiled binary; see
+  /// `findDartExecutable`.
   final String? dartExecutable;
 
   /// The declaration kinds reported by default. Deliberately excludes

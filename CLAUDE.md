@@ -329,11 +329,12 @@ explicit null check.
   one. When the same expression or hand-written pattern appears a second time,
   give it a helper and replace every copy; share a function, not a regex
   constant.
-- Read Dart source through the analysis server (outline, selection ranges,
-  semantic tokens, hover), not with regexes, text matching or a hand-written
-  tokenizer. Text matching mistakes a parameter named `required` for the
-  keyword. A regex over Dart source needs a comment that says why. Check what is
-  already cached before you call a server request too costly.
+- Read Dart source through `package:analyzer` in `lib/src/analysis/` (the
+  outline, annotations, supertypes) or through the analysis server (selection
+  ranges, semantic tokens, hover), not with regexes, text matching or a
+  hand-written tokenizer. Text matching mistakes a parameter named `required`
+  for the keyword. A regex over Dart source needs a comment that says why.
+  Check what is already cached before you call a server request too costly.
 - Keep each default, rule and fact in one place, and let everything else read
   it. When a type takes over a normalization or a check, delete the old copy,
   or have both places call one shared predicate, such as `analysisRootContains`
@@ -393,6 +394,27 @@ explicit null check.
   Dart VM. If it can't, add one `// ignore:` with the reason.
 - When a LeanCode library forces the same workaround at every call site, change
   the library.
+
+# Analyzer versions
+
+ciach accepts every `analyzer` version in the range in `pubspec.yaml`, so that
+a project whose other dependencies use `analyzer` can add it. Only
+`lib/src/analysis/` imports `package:analyzer`.
+
+- Write code that compiles against every version in the range. CI analyzes
+  `lib/` and runs `test/analysis/` with the first release of each major
+  version, and runs everything with the newest.
+- When versions spell a member differently, read it in
+  `lib/src/analysis/analyzer_versions.dart`, the only file that makes dynamic
+  calls: find out once which member this analyzer has by reading the newer
+  one, and cast the result to its static type right away. The doc comment
+  says which versions have which member and what differs in meaning, and a
+  TODO names the floor at which the call becomes direct. Give each such
+  function a test in `test/analysis/analyzer_versions_test.dart`.
+- Make no dynamic call for a type that some versions lack; find another API
+  that all of them have.
+- Skip a test whose fixture needs a newer language version than an older
+  analyzer supports, with `newestLanguageVersion`.
 
 # Tests
 

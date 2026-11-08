@@ -270,17 +270,6 @@ void main() {
       expect(rules.keptMembersOf(counter), isEmpty);
     });
 
-    test(
-      'the built-in rules name `JSExport`, `pragma` and `reflectiveTest`',
-      () {
-        expect(rules.annotationNamesIn('lib/a.dart'), {
-          'JSExport',
-          'pragma',
-          'reflectiveTest',
-        });
-      },
-    );
-
     /// A token of [type] with [text], such as `(` or `'vm:entry-point'`.
     SemanticToken token(
       String type,

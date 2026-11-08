@@ -1,3 +1,4 @@
+import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/flutter_widgets.dart';
@@ -116,6 +117,7 @@ final class Settler {
   /// dead.
   Future<Settled> settle(
     LspClient client,
+    ResolvedFiles files,
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate, {
     required Set<String> scannedPaths,
@@ -123,9 +125,10 @@ final class Settler {
     required String analysisRoot,
     Set<Candidate> probed = const {},
   }) async {
-    final superclasses = SuperclassChecks(client);
+    final superclasses = SuperclassChecks(client, files);
     final overrides = OverrideRemovals(
       client,
+      files,
       _sources,
       scannedPaths: scannedPaths,
       rootPath: rootPath,
@@ -155,6 +158,7 @@ final class Settler {
       );
       final result = await _round(
         client,
+        files,
         candidates,
         refs,
         liveRefs,
@@ -222,6 +226,7 @@ final class Settler {
   /// [deadSpans], for [DeadSpans.referrersAmong].
   Future<({_Verdicts settled, Map<UnusedDeclaration, int> candidateOf})> _round(
     LspClient client,
+    ResolvedFiles files,
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
     List<List<Location>> liveRefs,
@@ -352,6 +357,7 @@ final class Settler {
     _removableBefore.addAll(removable);
     for (final (i, finding) in await _clauseOnly.findings(
       client,
+      files,
       candidates,
       statuses,
       refsByCandidate,

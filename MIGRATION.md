@@ -16,6 +16,12 @@ instead of the one from `package:pro_lsp`:
   `SymbolKind`s, so hide one of them: `import 'package:pro_lsp/pro_lsp.dart'
   hide SymbolKind;`.
 
+### `EntryPoint.lookups` and `EntryPoint.annotationNames`
+
+These getters named what the analysis server had to look up before a rule
+could select a declaration. `package:analyzer` now resolves all of it, so
+both getters are gone, with no replacement.
+
 ## From 0.6 to 0.7
 
 ### Removed options

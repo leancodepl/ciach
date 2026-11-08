@@ -1,23 +1,21 @@
 import 'dart:io';
 
-import 'package:ciach/src/collect/annotation_packages.dart';
+import 'package:ciach/src/analysis/resolved_file.dart';
+import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/collect/kept_declarations.dart';
-import 'package:ciach/src/collect/resolved_classes.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/conventions/gen_l10n.dart';
 import 'package:ciach/src/conventions/resolved_declaration.dart';
-import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
-import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
-import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/log.dart';
@@ -28,6 +26,9 @@ import 'package:collection/collection.dart';
 final _log = Logger('ciach.finder');
 
 const _uncollectedFile = 'Could not list declarations; file skipped.';
+
+const _compileErrors =
+    'Has compile errors; the declarations that it uses may be reported.';
 
 /// Which declarations get their references checked: every document symbol
 /// of a scanned file, less the kinds, visibilities, entry points and
@@ -58,15 +59,7 @@ final class CandidateCollector {
   /// What this run leaves unchecked on purpose, and why.
   late final _entryPoints = EntryPoints(options.entryPoints);
 
-  late final _resolvedClasses = ResolvedClasses(_sources, _entryPoints);
-
-  late final _annotationPackages = AnnotationPackages(_entryPoints);
-
-  late final _kept = KeptDeclarations(
-    _entryPoints,
-    _resolvedClasses,
-    _annotationPackages,
-  );
+  late final _kept = KeptDeclarations(_entryPoints);
 
   /// The pairing names in each conditional-import variant that was read,
   /// candidates or not; see [ConditionalImports.share].
@@ -76,53 +69,44 @@ final class CandidateCollector {
   /// `--verbose`.
   void reportSkipped() => _kept.report();
 
-  /// The declarations of the open file [path] worth checking.
+  /// The declarations of the open file [path] worth checking. [files]
+  /// resolves the file, and [client] gives its semantic tokens.
   Future<List<Candidate>> collect(
     LspClient client,
+    ResolvedFiles files,
     String path,
     String rootPath,
   ) async {
-    final uri = File(path).uri;
-    final pendingSymbols = client.documentSymbol(uri);
-    final pendingOutline = client.outline(uri);
     final pendingTokens = _sources.semanticTokensOf(client, path);
-    final List<DocumentSymbol> symbols;
-    final Outline outline;
-    try {
-      symbols = await pendingSymbols;
-      outline = await pendingOutline;
-    } on Object catch (e) {
-      // The other results are no longer needed.
-      pendingOutline.ignore();
+    final file = await files.of(path);
+    if (file == null) {
+      // The tokens are no longer needed.
       pendingTokens.ignore();
-      if (e is! LspRequestException) {
-        rethrow;
-      }
-      recordProblem(_uncollectedFile, e, path: path);
+      recordProblem(_uncollectedFile, unresolvedFile, path: path);
       return const [];
     }
-    final tokens = await pendingTokens;
+    await pendingTokens;
+    if (file.firstError case (:final position, :final message)) {
+      recordProblem(_compileErrors, message, path: path, position: position);
+    }
     final relativePath = relativePosix(path, rootPath);
-    await Future.wait([
-      _resolvedClasses.resolve(client, path, relativePath, tokens, symbols),
-      _annotationPackages.resolve(client, path, relativePath, tokens),
-    ]);
     if (_conditionalImports.contains(path)) {
-      declaredInVariants[path] = ConditionalImports.pairingNames(symbols);
+      declaredInVariants[path] = ConditionalImports.pairingNames(file.symbols);
     }
     final markers = _Markers(.parse(_sources.content(path)));
     // The whole walk has to run before the filter: it records the entry-point
     // containers the filter drops, and a container comes before its members.
     final candidates = _collect(
-      uri,
+      File(path).uri,
       path,
       relativePath,
-      symbols,
+      file,
+      file.symbols,
+      file.outline.children,
       null,
       null,
       const [],
       false,
-      .new(outline),
       markers,
     ).toList();
     markers.warnAbout(relativePath);
@@ -130,7 +114,8 @@ final class CandidateCollector {
   }
 
   /// Recursively walks the symbol tree, keeping only symbols worth checking,
-  /// and records the enclosing type name as their container.
+  /// and records the enclosing type name as their container. [outlines] are
+  /// the outline nodes that [symbols] were built from, in the same order.
   ///
   /// [parentIsEnum] marks children of an enum declaration so their enum values
   /// are remapped to the `enum-value` kind.
@@ -138,20 +123,17 @@ final class CandidateCollector {
     Uri uri,
     String path,
     String relativePath,
+    ResolvedFile file,
     List<DocumentSymbol> symbols,
+    List<Outline> outlines,
     String? container,
     Candidate? containerCandidate,
     List<KeptMembers> containerMembers,
     bool parentIsEnum,
-    _OutlineIndex outlines,
     _Markers markers,
   ) sync* {
     final statement = _Statement();
-    for (final (symbol, outline) in _declarations(
-      relativePath,
-      symbols,
-      outlines,
-    )) {
+    for (final (symbol, outline) in _declarations(symbols, outlines)) {
       final (:leadingMetadata, :start) = statement.next(
         outline,
         _sources.leadingMetadata(path, outline),
@@ -174,6 +156,7 @@ final class CandidateCollector {
         relativePath,
         candidate,
         leadingMetadata,
+        file,
       );
       if (_isCandidate(
         candidate,
@@ -194,43 +177,34 @@ final class CandidateCollector {
         uri,
         path,
         relativePath,
-        symbol.children ?? const [],
+        file,
+        symbol.children,
+        outline.children,
         childContainer,
         childContainerCandidate,
         _kept.keptMembersOf(declaration) ?? containerMembers,
         symbol.kind == .enum$,
-        outlines,
         markers,
       );
     }
   }
 
-  /// Pairs each of [symbols] with its outline entry, and skips a symbol the
-  /// outline doesn't list.
+  /// Pairs each of [symbols] with the node of [outlines] that it was built
+  /// from.
   ///
   /// A `test(...)` or `group(...)` call is not a declaration, and removing it
   /// would delete the test, so it is replaced by the declarations inside its
   /// closure.
-  Iterable<(DocumentSymbol, Outline)> _declarations(
-    String relativePath,
+  static Iterable<(DocumentSymbol, Outline)> _declarations(
     List<DocumentSymbol> symbols,
-    _OutlineIndex outlines,
+    List<Outline> outlines,
   ) sync* {
-    for (final symbol in symbols) {
-      final outline = outlines[symbol];
-      if (outline == null) {
-        _log.fine(
-          'Skipped $relativePath:${symbol.selectionRange.start.line + 1} '
-          "${symbol.name}: the analysis server's outline has no entry for it.",
-        );
-      } else if (outline.element.isDeclaration) {
+    for (final (i, symbol) in symbols.indexed) {
+      final outline = outlines[i];
+      if (outline.element.isDeclaration) {
         yield (symbol, outline);
       } else {
-        yield* _declarations(
-          relativePath,
-          symbol.children ?? const [],
-          outlines,
-        );
+        yield* _declarations(symbol.children, outline.children);
       }
     }
   }
@@ -397,26 +371,3 @@ final class _Markers {
     }
   }
 }
-
-/// Outline nodes by document symbol: a symbol's `range` is its node's
-/// `codeRange`.
-final class _OutlineIndex {
-  _OutlineIndex(Outline root)
-    : _byCodeRange = {
-        for (final node in root.descendants) _key(node.codeRange): node,
-      };
-
-  final Map<_RangeKey, Outline> _byCodeRange;
-
-  Outline? operator [](DocumentSymbol symbol) =>
-      _byCodeRange[_key(symbol.range)];
-
-  static _RangeKey _key(Range range) => (
-    range.start.line,
-    range.start.character,
-    range.end.line,
-    range.end.character,
-  );
-}
-
-typedef _RangeKey = (int, int, int, int);

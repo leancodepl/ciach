@@ -4,6 +4,7 @@ library;
 import 'dart:io';
 
 import 'package:ciach/ciach.dart';
+import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/fetch/reference_fetch.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/source/clause_entries.dart';
@@ -13,12 +14,15 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../support/removal.dart';
+import '../support/resolved_files.dart';
 
 /// Cuts entries from `with` and `implements` clauses as the analysis server
-/// reads them: its tokens, syntax nodes and outline.
+/// reads them, with its tokens and syntax nodes, and the outline that the
+/// analyzer gives.
 void main() {
   late Directory tempDir;
   late LspClient client;
+  late ResolvedFiles resolved;
   var files = 0;
 
   setUpAll(() async {
@@ -26,10 +30,12 @@ void main() {
     client = await LspClient.start();
     await client.initialize(tempDir.uri);
     await client.waitForAnalysisComplete();
+    resolved = resolvedFilesUnder(tempDir.path);
   });
 
   tearDownAll(() async {
     await client.dispose();
+    await resolved.dispose();
     tempDir.deleteSync(recursive: true);
   });
 
@@ -59,7 +65,7 @@ void main() {
     List<String> names,
   ) async {
     final (path, sources, fetch) = await index(source);
-    final unit = await client.outline(File(path).uri);
+    final unit = (await resolved.of(path))!.outline;
     final clauseStart = source.indexOf(clause);
     int nameAt(String name) {
       final start = source.indexOf(RegExp('\\b$name\\b'), clauseStart);

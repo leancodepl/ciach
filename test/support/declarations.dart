@@ -4,6 +4,7 @@
  *   harness: Claude Code
  */
 
+import 'package:ciach/src/analysis/resolved_class.dart';
 import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/source/document_symbol.dart';

@@ -9,9 +9,9 @@
  */
 
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/selection_range.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:collection/collection.dart';

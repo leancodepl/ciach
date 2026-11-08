@@ -8,7 +8,6 @@
 /// and ciach's own types, which the rest of ciach uses.
 library;
 
-import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/selection_range.dart';
 import 'package:ciach/src/util/extensions.dart';
@@ -29,13 +28,4 @@ Location locationFromLsp(lsp.Location location) =>
 SelectionRange selectionRangeFromLsp(lsp.SelectionRange range) => .new(
   range: rangeFromLsp(range.range),
   parent: range.parent?.let(selectionRangeFromLsp),
-);
-
-DocumentSymbol symbolFromLsp(lsp.DocumentSymbol symbol) => .new(
-  name: symbol.name,
-  kind: .values.byName(symbol.kind.name),
-  range: rangeFromLsp(symbol.range),
-  selectionRange: rangeFromLsp(symbol.selectionRange),
-  detail: symbol.detail,
-  children: symbol.children?.map(symbolFromLsp).toList(),
 );

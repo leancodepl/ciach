@@ -18,6 +18,7 @@
 /// | `workspace/`      | The package on disk: Dart files, pubspecs, directives, public API.    |
 /// | `source/`         | Source text and the server's view of it: tokens, shapes, markers.     |
 /// | `lsp/`            | The analysis server session and what can go wrong with it.            |
+/// | `analysis/`       | The files as `package:analyzer` resolves them; nothing else uses it.  |
 /// | `conventions/`    | Framework rules that keep declarations alive: Flutter, freezed, l10n. |
 /// | `project_config/` | Entry points and generated files read from the project's own config.  |
 /// | `collect/`        | Which declarations get checked.                                       |
@@ -32,6 +33,8 @@ library;
 import 'dart:async';
 import 'dart:io';
 
+import 'package:ciach/src/analysis/language_versions.dart';
+import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidate_collector.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
@@ -39,6 +42,7 @@ import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/fetch/member_probe.dart';
 import 'package:ciach/src/fetch/reachable_types.dart';
 import 'package:ciach/src/fetch/reference_fetch.dart';
+import 'package:ciach/src/lsp/dart_executable.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/model/finder_options.dart';
@@ -69,12 +73,13 @@ const _unreadableFile = 'Could not read these files; skipped.';
 /// Finds declarations that are never referenced by driving the Dart analysis
 /// server over LSP.
 ///
-/// For every declaration reported by `textDocument/documentSymbol`, a
-/// `textDocument/references` query is issued at the declaration's name, with
-/// `includeDeclaration: false`. An empty result means the declaration is unused.
+/// `package:analyzer` lists the declarations of each file, and for every one
+/// of them, a `textDocument/references` query is issued at the declaration's
+/// name, with `includeDeclaration: false`. An empty result means the
+/// declaration is unused.
 ///
-/// `Ciach` owns the server session and the pipeline (discover → collect →
-/// fetch → settle); each stage is a collaborator: [CandidateCollector] decides
+/// `Ciach` owns the server session, the analyzer and the pipeline (discover →
+/// collect → fetch → settle); each stage is a collaborator: [CandidateCollector] decides
 /// what to check, [ReferenceFetch] asks the server, [Settler] turns the answers
 /// into findings with [ReferenceClassifier] deciding used/unused, [Verdict]
 /// deciding how a dead candidate is reported, and the `conventions/` rules
@@ -140,7 +145,9 @@ class Ciach {
   ///
   /// Throws an [ArgumentError] if [FinderOptions.analysisRootPath] does not
   /// contain [FinderOptions.rootPath]; widening to a directory beside the
-  /// scanned one would drop references rather than add them.
+  /// scanned one would drop references rather than add them. Throws an
+  /// [UnsupportedLanguageVersionException] if a scanned package uses a newer
+  /// Dart language version than the analyzer supports.
   Future<FinderResult> run() {
     final problems = ProblemCollector(options.rootPath);
     return problems.collect(() => _run(problems));
@@ -221,14 +228,18 @@ class Ciach {
         for (final package in unresolved) relativePosix(package, rootPath),
       ]);
     }
+    checkLanguageVersions(files, rootPath);
     if (options.includePublic && options.analysisRootPath == null) {
       _notePathDependents(rootPath);
     }
 
-    _log.info('Starting Dart analysis server…');
-    final client = await LspClient.start(
-      dartExecutable: options.dartExecutable,
+    final dartExecutable = findDartExecutable(explicit: options.dartExecutable);
+    final resolved = ResolvedFiles(
+      analysisRoot,
+      sdkPath: sdkPathOf(dartExecutable),
     );
+    _log.info('Starting Dart analysis server…');
+    final client = await LspClient.start(dartExecutable: dartExecutable);
 
     final Settled settled;
     final int declarationsChecked;
@@ -272,7 +283,7 @@ class Ciach {
         files,
         options.concurrency,
         (path) => opened.contains(path)
-            ? _collector.collect(client, path, rootPath)
+            ? _collector.collect(client, resolved, path, rootPath)
             : .value(const <Candidate>[]),
       );
       final collected = [for (final list in perFile) ...list];
@@ -282,12 +293,14 @@ class Ciach {
       // pool, so the server stays saturated instead of stalling between files.
       final fetched = await _references(
         client,
+        resolved,
         collected,
         totalFiles: files.length,
         rootPath: rootPath,
       );
       final withCalls = await _fetch.withImplicitCalls(
         client,
+        resolved,
         fetched.candidates,
         fetched.refsByCandidate,
       );
@@ -304,6 +317,7 @@ class Ciach {
       // Phase 3: settle the verdicts; with `transitive`, in rounds.
       settled = await _settler.settle(
         client,
+        resolved,
         candidates,
         refsByCandidate,
         scannedPaths: files.where(opened.contains).toSet(),
@@ -313,6 +327,7 @@ class Ciach {
       );
     } finally {
       await client.dispose();
+      await resolved.dispose();
     }
 
     stopwatch.stop();
@@ -373,6 +388,7 @@ class Ciach {
   >
   _references(
     LspClient client,
+    ResolvedFiles files,
     List<Candidate> collected, {
     required int totalFiles,
     required String rootPath,
@@ -408,6 +424,7 @@ class Ciach {
     }
     final types = await ReachableTypes.find(
       client: client,
+      files: files,
       sources: _sources,
       fetch: _fetch,
       api: api,

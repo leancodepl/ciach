@@ -4,8 +4,8 @@
  *   harness: Claude Code
  */
 
+import 'package:ciach/src/analysis/resolved_class.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
-import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/project_config/flutter_widget_previews.dart';
 import 'package:test/test.dart';
 
@@ -33,7 +33,7 @@ void main() {
       )
       ?.reason;
 
-  const object = ResolvedClass('Object', null);
+  const object = ResolvedClass('Object', 'dart:core');
 
   test(
     "keeps a declaration annotated with Flutter's `Preview` or `MultiPreview`, or a subtype of either",

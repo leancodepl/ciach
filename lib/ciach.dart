@@ -9,7 +9,8 @@
  */
 
 /// Finds declarations that are never referenced in a Dart/Flutter package by
-/// driving the Dart analysis server over LSP.
+/// driving the Dart analysis server over LSP and reading the code with
+/// `package:analyzer`.
 ///
 /// The primary entry point is `Ciach`: configure it with
 /// `FinderOptions`, call `run()`, and inspect the `FinderResult`'s
@@ -25,6 +26,8 @@
 /// ```
 library;
 
+export 'src/analysis/language_versions.dart'
+    show UnsupportedLanguageVersionException;
 export 'src/conventions/entry_points.dart' show EntryPoint;
 export 'src/finder.dart' show Ciach;
 export 'src/lsp/dart_executable.dart'

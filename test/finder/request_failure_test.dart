@@ -5,6 +5,7 @@ library;
 import 'dart:io';
 
 import 'package:ciach/ciach.dart';
+import 'package:ciach/src/lsp/dart_executable.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -109,7 +110,12 @@ Future<void> main(List<String> args) async {
   }
 }
 ''');
-    final script = File(p.join(tmp.path, 'dart'))
+    // Laid out like Flutter's `bin/dart`, whose SDK is `bin/cache/dart-sdk`.
+    final bin = p.join(tmp.path, 'flutter', 'bin');
+    Link(
+      p.join(bin, 'cache', 'dart-sdk'),
+    ).createSync(sdkPathOf(Platform.resolvedExecutable), recursive: true);
+    final script = File(p.join(bin, 'dart'))
       ..writeAsStringSync('''
 #!/bin/sh
 exec ${_quoted(Platform.resolvedExecutable)} ${_quoted(proxy.path)} "\$@"

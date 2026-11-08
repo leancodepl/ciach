@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/reference_kinds.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:path/path.dart' as p;
@@ -185,17 +185,18 @@ void f() {}
     });
 
     test('leading metadata is the tokens before the code', () {
-      final outline = Outline.fromJson({
-        'element': {'kind': 'FUNCTION', 'name': 'f'},
-        'range': {
-          'start': {'line': 0, 'character': 0},
-          'end': {'line': 2, 'character': 11},
-        },
-        'codeRange': {
-          'start': {'line': 2, 'character': 0},
-          'end': {'line': 2, 'character': 11},
-        },
-      });
+      const outline = Outline(
+        element: .new(kind: .function, name: 'f'),
+        range: .new(
+          start: .new(line: 0, character: 0),
+          end: .new(line: 2, character: 11),
+        ),
+        codeRange: .new(
+          start: .new(line: 2, character: 0),
+          end: .new(line: 2, character: 11),
+        ),
+        children: [],
+      );
       expect(sources.leadingMetadata(path, outline).map((t) => t.text), [
         '/// Doc for [',
         'Foo',

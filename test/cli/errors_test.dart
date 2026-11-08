@@ -87,6 +87,25 @@ To skip it instead, use `--exclude`.
     );
   });
 
+  test(
+    'a scan that stops on its language version or its SDK prints the message alone',
+    () {
+      expect(
+        [
+          for (final error in [
+            UnsupportedLanguageVersionException({'.': .new(9, 0)}),
+            const DartSdkNotFoundException('Could not find the Dart SDK.'),
+          ])
+            describeFatalError(error, stack, verbose: true),
+        ],
+        [
+          'error: ${UnsupportedLanguageVersionException({'.': .new(9, 0)}).message}\n',
+          'error: Could not find the Dart SDK.\n',
+        ],
+      );
+    },
+  );
+
   test('-v adds no stack trace to an error the user can fix', () {
     expect(
       describeFatalError(

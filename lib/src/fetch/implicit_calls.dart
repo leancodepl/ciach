@@ -19,6 +19,7 @@ library;
 
 import 'dart:io';
 
+import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/lsp/conversions.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
@@ -47,6 +48,7 @@ const _lookupFailed =
 /// request to the server failed, so that the uses are unknown.
 Future<Map<Candidate, List<Location>>?> findImplicitCalls({
   required LspClient client,
+  required ResolvedFiles files,
   required SourceIndex sources,
   required List<Candidate> calls,
   required int concurrency,
@@ -85,8 +87,7 @@ Future<Map<Candidate, List<Location>>?> findImplicitCalls({
           path: added,
     };
     // A use can be in a file that ciach doesn't scan, such as one that
-    // `--exclude` skips. It has to be open to be rewritten and to get an
-    // outline.
+    // `--exclude` skips. It has to be open to be rewritten.
     for (final path in newErrorsByPath.keys) {
       client.ensureOpen(File(path).uri, sources.content(path));
     }
@@ -95,7 +96,7 @@ Future<Map<Candidate, List<Location>>?> findImplicitCalls({
       await Future.wait([
         for (final MapEntry(key: path, value: errors)
             in newErrorsByPath.entries)
-          _usesAmong(client, path, errors),
+          _usesAmong(files, path, errors),
       ]),
     );
 
@@ -139,7 +140,7 @@ Future<Map<Candidate, List<Location>>?> findImplicitCalls({
     for (final path in changed.toList()) {
       change(path, sources.content(path));
     }
-    // Later stages read outlines and diagnostics of the restored files.
+    // Later requests read the restored files.
     try {
       await client.waitForChangesAnalyzed();
     } on LspRequestException catch (e) {
@@ -174,15 +175,18 @@ Map<String, Set<Diagnostic>> _errors(LspClient client) => {
 
 /// The ranges of [errors] that can be uses of a `call` method. An error at a
 /// declaration's name, such as a class that no longer implements its
-/// interface, is not one, and wrapping that name would break the file.
+/// interface, is not one, and wrapping that name would break the file. The
+/// names are read from the file on disk: [_renamed] has the length of `call`,
+/// so they are where they are in the renamed copy.
 Future<Set<Range>> _usesAmong(
-  LspClient client,
+  ResolvedFiles files,
   String path,
   Set<Diagnostic> errors,
 ) async {
+  final outline = (await files.of(path))?.outline;
   final names = {
-    for (final outline in (await client.outline(File(path).uri)).descendants)
-      ?outline.element.range,
+    if (outline != null)
+      for (final node in outline.descendants) ?node.element.range,
   };
   // Two errors can have the same range, and one wrap is enough.
   return errors

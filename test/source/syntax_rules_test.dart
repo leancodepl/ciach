@@ -2,11 +2,11 @@ import 'dart:io';
 
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/conventions/flutter_widgets.dart';
-import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/selection_range.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/syntax_rules.dart';

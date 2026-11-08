@@ -1,11 +1,12 @@
 import 'dart:io';
 
+import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/fetch/reference_fetch.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
-import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/reference_kinds.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
@@ -26,6 +27,7 @@ final class ReachableTypes {
 
   static Future<ReachableTypes> find({
     required LspClient client,
+    required ResolvedFiles files,
     required SourceIndex sources,
     required ReferenceFetch fetch,
     required PublicApi api,
@@ -38,7 +40,7 @@ final class ReachableTypes {
           candidate.key: (candidate: candidate, refs: refs[i]),
     };
     final positionsIn = _importableRefs(types.values, sources, api);
-    final outlines = await _outlines(client, positionsIn.keys);
+    final outlines = await _outlines(files, positionsIn.keys);
     await fetch.fetchSelectionRanges(client, positionsIn);
 
     final carriersOf = _Carriers(client, sources, api, outlines);
@@ -83,21 +85,16 @@ final class ReachableTypes {
     return positionsIn;
   }
 
+  /// The outlines of the files at [paths] that the analyzer resolves. A file
+  /// without one hands out every type that it names.
   static Future<Map<String, Outline>> _outlines(
-    LspClient client,
+    ResolvedFiles files,
     Iterable<String> paths,
   ) async {
-    final outlines = <String, Outline>{};
-    await Future.wait(
-      paths.map((path) async {
-        try {
-          outlines[path] = await client.outline(File(path).uri);
-        } on LspRequestException {
-          // A file without an outline hands out every type it names.
-        }
-      }),
+    final outlines = await Future.wait(
+      paths.map((path) async => (path, (await files.of(path))?.outline)),
     );
-    return outlines;
+    return {for (final (path, outline) in outlines) path: ?outline};
   }
 
   /// The types neither [reachable] nor carried by a reachable type.

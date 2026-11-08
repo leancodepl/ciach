@@ -1,3 +1,4 @@
+import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
@@ -8,16 +9,16 @@ import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/cached_map.dart';
-import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 
 /// Whether a class can lose all of its constructors. The implicit default
 /// constructor that replaces them calls `super()`, which compiles only if the
 /// superclass's unnamed constructor takes no required arguments.
 final class SuperclassChecks {
-  SuperclassChecks(this._client);
+  SuperclassChecks(this._client, this._files);
 
   final LspClient _client;
+  final ResolvedFiles _files;
 
   static const _unreadSuperclass =
       'Could not read the superclass; constructors reported, not removed.';
@@ -54,13 +55,11 @@ final class SuperclassChecks {
 
   Future<bool> _needsArguments(String superclassUri, Position start) async {
     final uri = Uri.parse(superclassUri);
-    final List<DocumentSymbol> symbols;
-    try {
-      symbols = await _client.documentSymbol(uri);
-    } on LspRequestException catch (e) {
+    final symbols = (await _files.of(uri.toFilePath()))?.symbols;
+    if (symbols == null) {
       recordProblem(
         _unreadSuperclass,
-        e,
+        unresolvedFile,
         path: uri.toFilePath(),
         position: start,
       );
@@ -70,11 +69,9 @@ final class SuperclassChecks {
     if (declaration == null) {
       return true;
     }
-    final constructors = [
-      if (declaration.children case final children?)
-        for (final child in children)
-          if (child.kind == .constructor) child,
-    ];
+    final constructors = declaration.children
+        .where((child) => child.kind == .constructor)
+        .toList();
     if (constructors.isEmpty) {
       return false;
     }
@@ -134,9 +131,7 @@ final class SuperclassChecks {
     if (symbol.selectionRange.start == position) {
       return symbol;
     }
-    return symbol.children?.let(
-      (children) => _symbolNamedAt(children, position),
-    );
+    return _symbolNamedAt(symbol.children, position);
   }
 }
 

@@ -57,8 +57,8 @@ its page.
 dart install ciach
 ```
 
-That builds a native `ciach` you can run from anywhere. It runs the analysis
-server with the `dart` on your `PATH` (an fvm or Flutter `dart` works too);
+That builds a native `ciach` you can run from anywhere. It analyzes with the
+SDK of the `dart` on your `PATH` (an fvm or Flutter `dart` works too);
 `--dart <path>` picks another one.
 
 Or add it as a dev dependency, which pins the version for the team and CI:
@@ -71,8 +71,10 @@ dart run ciach
 The examples below use a bare `ciach`; with the dev dependency, prefix them with
 `dart run`.
 
-ciach needs Dart 3.10 or newer. It analyzes with the SDK it runs on, so that
-SDK has to be new enough for the code it scans.
+ciach needs Dart 3.10 or newer. It analyzes with the SDK it runs on and with
+the version of the `analyzer` package that pub picks for it, so both have to be
+new enough for the code it scans. When the analyzer is too old, ciach stops and
+says how to upgrade it.
 
 ## Quick start
 
@@ -189,7 +191,7 @@ that are report-only because removing them would not compile:
 | `--[no-]color` | auto | Colorize the output. Honors `NO_COLOR`. |
 | `--[no-]progress` | auto | Show progress on stderr. On for a terminal, off in CI. |
 | `-v, --verbose` | off; on in CI | Explain the run on stderr: the config file and what it set, the settings, each phase, what was skipped and why, and what `--remove` touches. |
-| `--dart <path>` | auto | The `dart` to run the analysis server with. |
+| `--dart <path>` | auto | The `dart` of the SDK to analyze with, which also runs the analysis server. |
 | `--version` | — | Print the ciach version and exit. |
 | `-h, --help` | — | Print the usage information. |
 
@@ -249,7 +251,8 @@ deleting blindly:
 - **A primary constructor shares its class's references**: a never-invoked one
   only surfaces once the class itself is dead.
 - **A package that doesn't analyze cleanly**, from a stale `pub get` or errors,
-  yields incomplete references.
+  yields incomplete references. Each file with a compile error is listed under
+  "Not analyzed".
 - **Bugs in the analysis server's reference search** can report used code as
   unused, or make a query fail and land a declaration under "Not analyzed".
   [doc/upstream_bugs.md][upstream-bugs] lists the ones ciach has found and the

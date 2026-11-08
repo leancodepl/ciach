@@ -59,6 +59,59 @@ jobs:
         uses: leancodepl/mobile-tools/.github/actions/pana-score@pana-score-v1.3
         continue-on-error: true
 
+  analyzer-versions:
+    name: Analyzer ${{ matrix.analyzer }}
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # The first release of each major version in the `analyzer` range of
+        # pubspec.yaml; the job above runs with the newest one. Before 13.0.0,
+        # `dart test` needs `test` 1.31.1, the last release that supports them.
+        include:
+          - analyzer: '10.0.0'
+            test: '1.31.1'
+          - analyzer: '11.0.0'
+            test: '1.31.1'
+          - analyzer: '12.0.0'
+            test: '1.31.1'
+          - analyzer: '13.0.0'
+          - analyzer: '14.0.0'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1.8.1
+        with:
+          sdk: '3.13'
+
+      - name: Use analyzer ${{ matrix.analyzer }}
+        env:
+          ANALYZER: ${{ matrix.analyzer }}
+          TEST: ${{ matrix.test }}
+        run: |
+          {
+            echo 'dependency_overrides:'
+            echo "  analyzer: $ANALYZER"
+            if [ -n "$TEST" ]; then echo "  test: $TEST"; fi
+          } > pubspec_overrides.yaml
+
+      - name: Download pub dependencies
+        run: dart pub get
+
+      # Only errors fail the job: which members are deprecated or
+      # experimental, and so which `ignore` comments are needed, differs
+      # between analyzer versions.
+      - name: Run analyzer
+        run: dart analyze --no-fatal-warnings lib
+
+      - name: Run analysis tests
+        run: dart test test/analysis
+
   verify-sdk-floor:
     name: Verify Dart 3.10 floor
 

@@ -16,5 +16,5 @@ ciach is a static, reference-based heuristic, so review its output rather than d
 - Reflection, dynamic invocation, and names used only from generated code you excluded are invisible to a reference search.
 - Other entry points, such as isolate entry points and native callbacks, have to be listed under `entry-points` or marked with `@pragma('vm:entry-point')`.
 - A primary constructor shares its class's references: a never-invoked one only surfaces once the class itself is dead.
-- A package that doesn't analyze cleanly, from a stale `pub get` or errors, yields incomplete references.
+- A package that doesn't analyze cleanly, from a stale `pub get` or errors, yields incomplete references. Each file with a compile error is listed under "Not analyzed".
 - Bugs in the analysis server's reference search can report used code as unused, or make a query fail and land a declaration under "Not analyzed". [doc/upstream_bugs.md](https://github.com/leancodepl/ciach/blob/main/doc/upstream_bugs.md) lists the ones ciach has found and the SDK commits that fixed them.

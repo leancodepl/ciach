@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:ciach/src/analysis/language_versions.dart';
+import 'package:ciach/src/lsp/dart_executable.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/remove/remover.dart';
 import 'package:ciach/src/report/style.dart';
@@ -19,8 +21,12 @@ String describeFatalError(
 }) {
   final (message, detail, isBug) = switch (error) {
     AnalysisServerExitedException(:final message) ||
+    DartSdkNotFoundException(:final message) ||
     RemovalException(:final message) ||
-    UnresolvedPackagesException(:final message) => (message, null, false),
+    UnresolvedPackagesException(:final message) ||
+    UnsupportedLanguageVersionException(
+      :final message,
+    ) => (message, null, false),
     LspRequestException(:final detail) => ('$error.', detail, false),
     ProcessException(:final executable, :final message) => (
       'Could not start `$executable`: $message',

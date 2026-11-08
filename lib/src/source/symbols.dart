@@ -8,19 +8,19 @@
  *     - mark-ai-provenance
  */
 
-import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/util/extensions.dart';
 
 /// Symbol kinds that introduce a lexical scope; their name becomes the
 /// container for nested members. [SymbolKind.namespace] is an extension.
 const typeLikeKinds = <SymbolKind>{.class$, .interface$, .enum$, .namespace};
 
-/// Names of Dart's overloadable operators. The analysis server reports an
-/// `operator +`/`operator ==`/… declaration as a plain [SymbolKind.method]
+/// Names of Dart's overloadable operators. The symbol of an
+/// `operator +`/`operator ==`/… declaration is a plain [SymbolKind.method]
 /// named exactly one of these — there is no distinct operator symbol kind —
 /// so this is the only reliable way to recognize one.
 const _operatorNames = <String>{
@@ -56,8 +56,8 @@ extension SymbolChecks on DocumentSymbol {
   /// (`obj(...)`) uses without a reference that the server reports.
   bool get isCallMethod => kind == .method && name == 'call';
 
-  /// Whether this is a private constructor (`Foo._`, `Foo._named`). The server
-  /// names constructors with the class included (`Foo`, `Foo.named`), so the
+  /// Whether this is a private constructor (`Foo._`, `Foo._named`). A
+  /// constructor is named with the class included (`Foo`, `Foo.named`), so the
   /// private marker is a segment after the last `.` starting with `_`; the
   /// unnamed constructor (no `.`) is never private here.
   bool get isPrivateConstructor {
@@ -69,11 +69,11 @@ extension SymbolChecks on DocumentSymbol {
   }
 
   /// Whether this is a primary constructor's `this : …` body part, which the
-  /// server reports as a constructor named `this` — a name no ordinary
+  /// outline lists as a constructor named `this` — a name no ordinary
   /// constructor can have.
   bool get isPrimaryConstructorBody => kind == .constructor && name == 'this';
 
-  /// Whether the parameter list is empty. The server reports the signature in
+  /// Whether the parameter list is empty. The signature is in
   /// [DocumentSymbol.detail] as the parenthesized parameter list (`()`,
   /// `(int a)`, …); if the detail is missing we can't tell the arity, so treat
   /// it as empty to avoid missing the zero-parameter marker.
@@ -97,14 +97,14 @@ extension SymbolChecks on DocumentSymbol {
       siblings.where((s) => s.kind == .constructor).length == 1 &&
       hasNoParameters;
 
-  /// The kind ciach reports for this symbol. The analysis server tags enum
-  /// values with [SymbolKind.enum$] (same as the enum type), so remap them to
+  /// The kind ciach reports for this symbol. A symbol has the kind that the
+  /// analysis server gives its declaration: an enum value has
+  /// [SymbolKind.enum$] (same as the enum type), so it is remapped to
   /// [SymbolKind.enumMember] under an enum to match the `enum-value` CLI kind.
-  /// It tags mixins with [SymbolKind.class$], so remap them to
-  /// [SymbolKind.interface$], the `mixin` CLI kind. It tags a type alias
-  /// with [SymbolKind.object] and a function type alias with
-  /// [SymbolKind.class$], so remap both to [SymbolKind.object], the `typedef`
-  /// CLI kind.
+  /// A mixin has [SymbolKind.class$], remapped to [SymbolKind.interface$],
+  /// the `mixin` CLI kind. A type alias has [SymbolKind.object] and a
+  /// function type alias [SymbolKind.class$], both remapped to
+  /// [SymbolKind.object], the `typedef` CLI kind.
   SymbolKind reportedKind({
     required bool parentIsEnum,
     bool isExtensionType = false,
@@ -120,11 +120,11 @@ extension SymbolChecks on DocumentSymbol {
 
   /// The name to report for this symbol.
   ///
-  /// The analysis server names constructor symbols with the class included
-  /// (`Foo` for the unnamed constructor, `Foo.named` for a named one). The
-  /// [container] already carries the class, so strip that prefix and report the
-  /// unnamed constructor as `new` — yielding `Foo.named` / `Foo.new` once
-  /// combined with the container, rather than `Foo.Foo.named` / `Foo.Foo`.
+  /// A constructor symbol is named with the class included (`Foo` for the
+  /// unnamed constructor, `Foo.named` for a named one). The [container]
+  /// already carries the class, so strip that prefix and report the unnamed
+  /// constructor as `new` — yielding `Foo.named` / `Foo.new` once combined
+  /// with the container, rather than `Foo.Foo.named` / `Foo.Foo`.
   String declarationName(String? container) {
     if (kind != .constructor) {
       return name;
@@ -174,8 +174,8 @@ extension RangeConversion on Range {
 }
 
 /// The last of [items] starting at or before [position], or `null` when none
-/// does. [items] must be in source order, as the analysis server reports
-/// declarations, which makes this a binary search.
+/// does. [items] must be in source order, as the outline lists declarations,
+/// which makes this a binary search.
 T? lastStartingAtOrBefore<T>(
   List<T> items,
   Position position,

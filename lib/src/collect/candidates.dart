@@ -8,9 +8,9 @@
  *     - mark-ai-provenance
  */
 
-import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
@@ -74,7 +74,7 @@ final class Candidate {
   final bool isPreventInstantiationCtor;
 
   /// `extension on T { … }`: nothing can name it, so it gets no reference
-  /// query. The server calls it `extension on T`.
+  /// query. Its outline names it `extension on T`.
   bool get isUnnamedExtension => outline.element.isUnnamedExtension;
 
   /// `extension type Name(…)`: a type, named like a class.

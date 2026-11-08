@@ -1,5 +1,5 @@
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/lsp/outline.dart';
+import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/paths.dart';

@@ -32,9 +32,6 @@ final class SubtypeEntryPoint extends EntryPoint {
       'has `$supertype` among its supertypes, so its public methods are entry points';
 
   @override
-  Set<ServerLookup> get lookups => const {.supertypes};
-
-  @override
   bool _selects(ResolvedDeclaration declaration) => declaration.supertypes.any(
     (type) => type.isNamed(supertype, package: package),
   );

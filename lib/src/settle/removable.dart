@@ -9,8 +9,8 @@
 library;
 
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
+import 'package:ciach/src/source/outline.dart';
 import 'package:collection/collection.dart';
 
 /// The candidate indices of the findings in [candidateOf] that `--remove`

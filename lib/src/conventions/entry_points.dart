@@ -1,3 +1,4 @@
+import 'package:ciach/src/analysis/resolved_class.dart';
 import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/conventions/test_reflective_loader.dart';
 import 'package:ciach/src/source/document_symbol.dart';
@@ -112,14 +113,6 @@ sealed class EntryPoint {
   /// The members that the rule keeps in a type that it selects, or `null`
   /// for none.
   KeptMembers? get members => null;
-
-  /// The requests that the analysis server has to answer before the rule can
-  /// select a declaration.
-  Set<ServerLookup> get lookups => const {};
-
-  /// The names after the `@` whose declaring package the analysis server has
-  /// to give before the rule can select a declaration.
-  Set<String> get annotationNames => const {};
 
   final List<Glob> _globs;
 
@@ -240,17 +233,6 @@ enum MemberSelection {
       };
 }
 
-/// A kind of request that a rule needs the analysis server to answer before
-/// it can select a declaration.
-enum ServerLookup {
-  /// The class that an annotation's constructor call creates, and its
-  /// supertypes.
-  annotationClasses,
-
-  /// The supertypes of a class.
-  supertypes,
-}
-
 /// [EntryPoint.builtIn] followed by a project's own rules; the first match
 /// wins.
 final class EntryPoints {
@@ -270,19 +252,4 @@ final class EntryPoints {
     for (final rule in _rules)
       if (rule.members case final members? when rule.matches(type)) members,
   ];
-
-  /// Returns the requests that the analysis server has to answer in the file
-  /// at [relativePath] for the rules that apply to it.
-  Set<ServerLookup> lookupsIn(String relativePath) => {
-    for (final rule in _rules)
-      if (rule.appliesTo(relativePath)) ...rule.lookups,
-  };
-
-  /// Returns the names after the `@` whose declaring package the analysis
-  /// server has to give in the file at [relativePath] for the rules that
-  /// apply to it.
-  Set<String> annotationNamesIn(String relativePath) => {
-    for (final rule in _rules)
-      if (rule.appliesTo(relativePath)) ...rule.annotationNames,
-  };
 }
