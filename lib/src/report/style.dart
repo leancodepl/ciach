@@ -1,19 +1,8 @@
-import 'dart:io';
-
 import 'package:ciach/src/util/log.dart' show Level;
 
 /// ANSI styling for one stream; a no-op when not [enabled]. Styles nest.
 final class Style {
   const Style({required this.enabled});
-
-  /// The style for [stream].
-  factory Style.of(Stdout stream, {bool? color}) => .new(
-    enabled: shouldStyle(
-      color: color,
-      supportsAnsiEscapes: stream.supportsAnsiEscapes,
-      environment: Platform.environment,
-    ),
-  );
 
   /// [color] if given, else [supportsAnsiEscapes] unless `NO_COLOR` is set.
   static bool shouldStyle({

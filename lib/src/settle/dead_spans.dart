@@ -45,8 +45,6 @@ final class DeadSpans {
 
   bool get isEmpty => _byPath.isEmpty;
 
-  bool get isNotEmpty => _byPath.isNotEmpty;
-
   bool covers(String path, Position position) =>
       ownerOf(path, position) != null;
 

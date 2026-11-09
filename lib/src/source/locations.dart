@@ -23,9 +23,6 @@ final class Position implements Comparable<Position> {
     final byLine => byLine,
   };
 
-  /// Whether this position is before [other].
-  bool isBefore(Position other) => compareTo(other) < 0;
-
   /// Whether this position is at or before [other].
   bool atOrBefore(Position other) => compareTo(other) <= 0;
 

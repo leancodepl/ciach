@@ -27,17 +27,6 @@ String relativePosix(String absPath, String rootPath) =>
 String absoluteUnder(String posixPath, String rootPath) =>
     p.joinAll([rootPath, ...p.posix.split(posixPath)]).absoluteNormalized;
 
-/// A usage site's path for display: relative to [rootPath] inside the scanned
-/// package, to [analysisRoot] outside it — `pkgs/app/lib/x.dart`, not
-/// `../app/lib/x.dart`.
-String relativeUsagePosix(
-  String absPath,
-  String rootPath,
-  String analysisRoot,
-) => p.isWithin(rootPath, absPath)
-    ? relativePosix(absPath, rootPath)
-    : relativePosix(absPath, analysisRoot);
-
 /// Whether [dir] is [path] or a directory above it.
 bool dirContains(String dir, String path) =>
     p.equals(dir, path) || p.isWithin(dir, path);

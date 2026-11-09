@@ -20,9 +20,6 @@ final class Outline {
 
   final List<Outline> children;
 
-  /// Whether the declaration has a doc comment or annotations.
-  bool get hasLeadingMetadata => range.start.isBefore(codeRange.start);
-
   /// The range of the declaration's name, or of its code when it has no name
   /// range.
   Range get nameRange => element.range ?? codeRange;
