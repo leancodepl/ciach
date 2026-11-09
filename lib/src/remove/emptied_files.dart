@@ -1,8 +1,8 @@
 import 'dart:io';
 
+import 'package:ciach/src/analysis/directives.dart';
 import 'package:ciach/src/model/removal_result.dart';
 import 'package:ciach/src/remove/text_spans.dart';
-import 'package:ciach/src/source/directives.dart';
 import 'package:ciach/src/util/cached_map.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
@@ -95,7 +95,7 @@ final class _Package {
   final _packages = PackageResolver();
   final _contents = CachedMap<String, String?>(readSource);
   late final _directives = CachedMap<String, List<Directive>>(
-    (path) => content(path)?.let(Directive.allIn).toList() ?? const [],
+    (path) => content(path)?.let(directivesIn) ?? const [],
   );
 
   String? content(String path) => _contents[path];
@@ -119,7 +119,7 @@ final class _Package {
             return null;
           case .droppable:
             spans.putIfAbsent(path, () => []).add((
-              start: directive.start,
+              start: withIndentation(content(path)!, directive.start),
               end: directive.end,
             ));
         }
@@ -130,8 +130,7 @@ final class _Package {
 
   _Link _link(Directive directive, String from, String target) {
     final resolved = {
-      for (final uri in directive.uris.map((uri) => uri.namedGroup('uri')!))
-        uri: _packages.resolve(uri, from),
+      for (final uri in directive.uris) uri: _packages.resolve(uri, from),
     };
     if (resolved.entries.any(
       (entry) =>
@@ -142,7 +141,7 @@ final class _Package {
     if (!resolved.containsValue(target)) {
       return .none;
     }
-    return directive.isPartOf || directive.isConditional
+    return directive.kind == .partOf || directive.isConditional
         ? .blocking
         : .droppable;
   }

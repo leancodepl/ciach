@@ -111,6 +111,47 @@ void kept() {}
 ''');
     });
 
+    test(
+      'a dropped import takes its doc comment and annotation, and its indentation',
+      () {
+        write('lib/dead.dart', 'void gone() {}\n');
+        write('lib/user.dart', '''
+import 'dart:io';
+/// Why it is imported.
+@Deprecated('x')
+import 'dead.dart';
+  import 'dead.dart' as dead;
+
+void kept() {}
+''');
+
+        removeDeclarations([gone('lib/dead.dart', line: 0)], tempDir.path);
+
+        expect(read('lib/user.dart'), '''
+import 'dart:io';
+
+void kept() {}
+''');
+      },
+    );
+
+    test('an import after code on its line is dropped from that line', () {
+      write('lib/dead.dart', 'void gone() {}\n');
+      write('lib/user.dart', '''
+import 'dart:io'; import 'dead.dart';
+
+void kept() {}
+''');
+
+      removeDeclarations([gone('lib/dead.dart', line: 0)], tempDir.path);
+
+      // The space before the dropped import stays; `dart format` removes it.
+      expect(read('lib/user.dart'), '''
+import 'dart:io'; 
+void kept() {}
+''');
+    });
+
     test('a `library` line and comments do not keep a file', () {
       write('lib/dead.dart', '''
 // Copyright: nobody.

@@ -1,3 +1,4 @@
+import 'package:ciach/src/analysis/public_api.dart';
 import 'package:ciach/src/analysis/resolved_file.dart';
 import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
@@ -14,7 +15,6 @@ import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
-import 'package:ciach/src/workspace/public_api.dart';
 import 'package:collection/collection.dart';
 
 final _log = Logger('ciach.finder');

@@ -4,8 +4,7 @@ library;
 
 import 'dart:math';
 
-import 'package:ciach/src/model/unused_declaration.dart';
-import 'package:ciach/src/source/comment_stripping.dart';
+import 'package:ciach/src/source/comment_scanning.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 
@@ -25,18 +24,13 @@ List<Span> mergeSpans(List<Span> spans) {
   return merged;
 }
 
-/// The start of [fullRange], moved to the start of its line when only
+/// [offset], moved to the start of its line in [content] when only
 /// indentation precedes it.
-int startWithIndentation(
-  DeclarationRange fullRange,
-  List<String> lines,
-  int Function(int line, int column) offsetOf,
-) {
-  final prefix = lines[fullRange.startLine].substring(0, fullRange.startColumn);
-  return offsetOf(
-    fullRange.startLine,
-    prefix.trim().isEmpty ? 0 : fullRange.startColumn,
-  );
+int withIndentation(String content, int offset) {
+  final lineStart = offset == 0 ? 0 : content.lastIndexOf('\n', offset - 1) + 1;
+  return content.substring(lineStart, offset).trim().isEmpty
+      ? lineStart
+      : offset;
 }
 
 /// If nothing but whitespace, or a `//` comment, follows [end] on its line,

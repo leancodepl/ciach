@@ -5,7 +5,7 @@ import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/remove/declaration_spans.dart';
 import 'package:ciach/src/remove/emptied_files.dart';
 import 'package:ciach/src/remove/text_spans.dart';
-import 'package:ciach/src/source/comment_stripping.dart';
+import 'package:ciach/src/source/comment_scanning.dart';
 import 'package:ciach/src/source/line_starts.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
@@ -170,17 +170,16 @@ class RemovalException implements Exception {
   String content,
   List<UnusedDeclaration> decls,
 ) {
-  final lines = content.split('\n');
   final comments = _OwnLineComments(content);
   int offsetOf(int line, int column) => comments.starts[line] + column;
 
   final enumSpans = [
     for (final decl in decls.where((decl) => decl.isEnumValue))
-      ?spanFor(decl, content, lines, offsetOf),
+      spanFor(decl, content, offsetOf),
   ];
   final spans = [
     for (final decl in decls.whereNot((decl) => decl.isEnumValue))
-      ?_spanOf(decl, content, lines, offsetOf),
+      ?_spanOf(decl, content, offsetOf),
     // Merge each enum's value spans, then drop a separator comma left orphaned
     // when a trailing run of values is removed from a compact single-line
     // enum.
@@ -286,14 +285,13 @@ final class _OwnLineComments {
 Span? _spanOf(
   UnusedDeclaration decl,
   String content,
-  List<String> lines,
   int Function(int line, int column) offsetOf,
 ) {
   if (decl.cut case final cut?) {
-    return _wholeLines(cut, content, lines, offsetOf);
+    return _wholeLines(cut, content, offsetOf);
   }
   if (!declaratorKinds.contains(decl.kind)) {
-    return spanFor(decl, content, lines, offsetOf);
+    return spanFor(decl, content, offsetOf);
   }
   _log.fine(
     'Left ${decl.qualifiedName} in ${decl.filePath} in place: the finder found no range to cut it out by.',
@@ -307,7 +305,6 @@ Span? _spanOf(
 Span _wholeLines(
   DeclarationRange cut,
   String content,
-  List<String> lines,
   int Function(int line, int column) offsetOf,
 ) {
   final start = offsetOf(cut.startLine, cut.startColumn);
@@ -315,5 +312,5 @@ Span _wholeLines(
   final whole = consumeLineEnd(content, end);
   return whole == end
       ? (start: start, end: end)
-      : (start: startWithIndentation(cut, lines, offsetOf), end: whole);
+      : (start: withIndentation(content, start), end: whole);
 }

@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:ciach/src/source/directives.dart';
+import 'package:ciach/src/analysis/directives.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/paths.dart';
@@ -144,9 +144,6 @@ final class PublicApi {
   }
 }
 
-final _show = RegExp(r'\bshow\b(?<names>[^;]*?)(?=\b(?:show|hide)\b|$)');
-final _hide = RegExp(r'\bhide\b(?<names>[^;]*?)(?=\b(?:show|hide)\b|$)');
-
 final class _Directives {
   _Directives(this.exports, this.parts);
 
@@ -155,22 +152,23 @@ final class _Directives {
     String path,
     PackageResolver packages,
   ) {
-    final directives = Directive.allIn(content).toList();
+    final directives = directivesIn(content);
     return .new(
       [
         for (final directive in directives)
           if (directive case Directive(
-            keyword: 'export',
-            uris: [..., final last],
+            kind: .export,
+            :final shown,
+            :final hidden,
           ))
             (
               paths: directive.pathsFrom(path, packages),
-              names: _Names.parse(directive.body.substring(last.end)),
+              names: .of(shown, hidden),
             ),
       ],
       [
         for (final directive in directives)
-          if (directive case Directive(keyword: 'part', isPartOf: false))
+          if (directive.kind == .part)
             ...directive.pathsFrom(path, packages).take(1),
       ],
     );
@@ -188,18 +186,12 @@ typedef _Export = ({List<String> paths, _Names names});
 final class _Names {
   const _Names(this.shown, this.hidden);
 
-  /// The `show` and `hide` clauses in [combinators].
-  factory _Names.parse(String combinators) {
-    Set<String>? clause(RegExp keyword) => keyword
-        .firstMatch(combinators)
-        ?.let(
-          (match) => {
-            for (final name in match.namedGroup('names')!.split(','))
-              name.trim(),
-          },
-        );
-    return all.intersection(.new(clause(_show), clause(_hide) ?? const {}));
-  }
+  /// The names that an `export` lets through when its `show` clauses let
+  /// [shown] through, or all names when `null`, and its `hide` clauses leave
+  /// out [hidden].
+  factory _Names.of(Set<String>? shown, Set<String> hidden) =>
+      shown?.let((shown) => .new(shown.difference(hidden), const {})) ??
+      .new(null, hidden);
 
   static const all = _Names(null, {});
 

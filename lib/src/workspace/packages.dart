@@ -45,8 +45,6 @@ String? readSource(String path) {
   }
 }
 
-final uriLiteral = RegExp(r'''r?(?<quote>['"])(?<uri>[^'"\n]*)\k<quote>''');
-
 /// What [PackageResolver.resolve] returns for a `package:` URI no package
 /// config lists.
 const unknownPackage = '';

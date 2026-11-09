@@ -3,7 +3,7 @@ library;
 
 import 'dart:io';
 
-import 'package:ciach/src/workspace/public_api.dart';
+import 'package:ciach/src/analysis/public_api.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -71,6 +71,18 @@ export 'src/stub.dart' if (dart.library.io) 'src/io.dart';
       expect(api.exposes(path('lib/src/deep.dart'), 'G'), isFalse);
       expect(api.exposes(path('lib/src/io.dart'), 'f'), isTrue);
     });
+
+    test(
+      'an export with `show` and `hide` lets through what it shows and does not hide',
+      () {
+        write('lib/a.dart', "export 'src/both.dart' show A, B hide B;");
+
+        final api = PublicApi.scan(root.path, exportedPackages: ['**']);
+
+        expect(api.exposes(path('lib/src/both.dart'), 'A'), isTrue);
+        expect(api.exposes(path('lib/src/both.dart'), 'B'), isFalse);
+      },
+    );
 
     test('a part shares its library visibility', () {
       write('lib/lib_pkg.dart', "part 'src/part.dart';");

@@ -8,42 +8,12 @@
  *     - mark-ai-provenance
  */
 
-/// Text scanning for when the resolved files can't help: comment blanking
-/// for the directive rewriting after `--remove`, which runs on the edited
-/// text, and whitespace skipping.
+/// Text scanning for the comments of a file, which hold the `// ciach:`
+/// markers, the comments that other tools read, and the whitespace that
+/// `--remove` skips in the text that it edits.
 library;
 
 import 'package:ciach/src/util/extensions.dart';
-
-final _nonNewline = RegExp(r'[^\n]');
-
-/// [content] with `//` and `/* */` comments blanked to spaces; strings and
-/// offsets preserved.
-String stripComments(String content) {
-  final n = content.length;
-  final out = StringBuffer();
-  var i = 0;
-  while (i < n) {
-    final start = i;
-    if (stringLiteralEnd(content, i) case final end?) {
-      out.write(content.substring(start, end));
-      i = end;
-      continue;
-    }
-    switch (content[i]) {
-      case '/' when i + 1 < n && content[i + 1] == '/':
-        i = content.indexOfOrNull('\n', i) ?? n;
-        out.write(content.substring(start, i).replaceAll(_nonNewline, ' '));
-      case '/' when i + 1 < n && content[i + 1] == '*':
-        i = _skipBlockComment(content, i);
-        out.write(content.substring(start, i).replaceAll(_nonNewline, ' '));
-      default:
-        out.write(content[i]);
-        i++;
-    }
-  }
-  return out.toString();
-}
 
 /// The `//` comments of [content], doc comments included, by offset: none in a
 /// string or a block comment.
@@ -51,7 +21,7 @@ Iterable<({int offset, String text})> lineComments(String content) sync* {
   final n = content.length;
   var i = 0;
   while (i < n) {
-    if (stringLiteralEnd(content, i) case final end?) {
+    if (_stringLiteralEnd(content, i) case final end?) {
       i = end;
     } else if (content.startsWith('//', i)) {
       final end = content.indexOfOrNull('\n', i) ?? n;
@@ -63,24 +33,6 @@ Iterable<({int offset, String text})> lineComments(String content) sync* {
       i++;
     }
   }
-}
-
-/// The index of the first character at or after [from] that is neither
-/// whitespace nor in a comment.
-int skipCommentsAndWhitespace(String content, int from) {
-  var i = from;
-  while (i < content.length) {
-    if (content.startsWith('//', i)) {
-      i = content.indexOfOrNull('\n', i) ?? content.length;
-    } else if (content.startsWith('/*', i)) {
-      i = _skipBlockComment(content, i);
-    } else if (content[i].trim().isEmpty) {
-      i++;
-    } else {
-      break;
-    }
-  }
-  return i;
 }
 
 bool _isIdentStart(String ch) =>
@@ -116,7 +68,7 @@ bool _isQuote(String c) => c == "'" || c == '"';
 
 /// The index just past the string literal that starts at [i], or `null` when
 /// none does.
-int? stringLiteralEnd(String content, int i) => switch (content[i]) {
+int? _stringLiteralEnd(String content, int i) => switch (content[i]) {
   final c when _isQuote(c) => _skipString(content, i, raw: false),
   'r' when i + 1 < content.length && _isQuote(content[i + 1]) => _skipString(
     content,

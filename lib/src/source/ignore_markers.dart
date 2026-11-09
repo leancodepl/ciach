@@ -1,7 +1,7 @@
 /// `// ciach:ignore` comments, which keep declarations from being reported.
 library;
 
-import 'package:ciach/src/source/comment_stripping.dart';
+import 'package:ciach/src/source/comment_scanning.dart';
 import 'package:ciach/src/source/line_starts.dart';
 import 'package:collection/collection.dart';
 

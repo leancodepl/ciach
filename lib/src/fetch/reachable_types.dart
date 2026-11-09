@@ -1,10 +1,10 @@
+import 'package:ciach/src/analysis/public_api.dart';
 import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/reachability.dart';
-import 'package:ciach/src/workspace/public_api.dart';
 
 /// Unexported types another package may still hold an instance of.
 ///

@@ -1,6 +1,6 @@
+import 'package:ciach/src/analysis/directives.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
-import 'package:ciach/src/source/directives.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/symbols.dart';
@@ -184,17 +184,12 @@ final class _DirectiveIndex {
   final Set<String> _files;
   final _packages = PackageResolver();
   final _directives = CachedMap<String, List<Directive>>(
-    (path) => [...Directive.allIn(readSource(path) ?? '')],
+    (path) => readSource(path)?.let(directivesIn) ?? const [],
   );
 
   /// The [libraryFiles] of each variant, for every conditional directive.
   Iterable<List<Set<String>>> conditionalVariants() sync* {
     for (final path in _files) {
-      // Only a file that may hold one is parsed: stripping comments is slow.
-      final content = readSource(path);
-      if (content == null || !_maybeConditional.hasMatch(content)) {
-        continue;
-      }
       for (final directive in _directives[path]) {
         if (directive.isConditional) {
           yield directive.pathsFrom(path, _packages).map(libraryFiles).toList();
@@ -210,14 +205,8 @@ final class _DirectiveIndex {
     [library],
     (path) => [
       for (final directive in _directives[path])
-        if (directive.keyword != 'import' && !directive.isPartOf)
+        if (directive.kind case .export || .part)
           ...directive.pathsFrom(path, _packages).where(_files.contains),
     ],
   );
 }
-
-/// What may start a conditional `import` or `export`.
-final _maybeConditional = RegExp(
-  r'^[ \t]*(?:import|export)\b[^;]*\bif\s*\(',
-  multiLine: true,
-);

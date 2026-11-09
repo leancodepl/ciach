@@ -15,9 +15,9 @@
 /// | Directory         | What it holds                                                         |
 /// |-------------------|-----------------------------------------------------------------------|
 /// | `model/`          | The options a run takes and the findings and results it returns.      |
-/// | `workspace/`      | The package on disk: Dart files, pubspecs, directives, public API.    |
+/// | `workspace/`      | The package on disk: Dart files, pubspecs and package configs.        |
 /// | `source/`         | Source text, outlines, markers, and the syntax that the rules read.   |
-/// | `analysis/`       | The files as `package:analyzer` resolves them; nothing else uses it.  |
+/// | `analysis/`       | The files as `package:analyzer` reads them; nothing else uses it.     |
 /// | `conventions/`    | Framework rules that keep declarations alive: Flutter, freezed, l10n. |
 /// | `project_config/` | Entry points and generated files read from the project's own config.  |
 /// | `collect/`        | Which declarations get checked.                                       |
@@ -31,7 +31,9 @@ library;
 
 import 'dart:async';
 
+import 'package:ciach/src/analysis/directives.dart';
 import 'package:ciach/src/analysis/language_versions.dart';
+import 'package:ciach/src/analysis/public_api.dart';
 import 'package:ciach/src/analysis/resolved_file.dart';
 import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidate_collector.dart';
@@ -46,7 +48,6 @@ import 'package:ciach/src/model/finder_result.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
 import 'package:ciach/src/settle/settler.dart';
 import 'package:ciach/src/settle/verdict.dart';
-import 'package:ciach/src/source/directives.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/util/log.dart';
@@ -56,7 +57,6 @@ import 'package:ciach/src/workspace/dart_executable.dart';
 import 'package:ciach/src/workspace/file_discovery.dart';
 import 'package:ciach/src/workspace/packages.dart';
 import 'package:ciach/src/workspace/path_dependents.dart';
-import 'package:ciach/src/workspace/public_api.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
