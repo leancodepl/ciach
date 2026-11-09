@@ -87,7 +87,7 @@ final class CandidateCollector {
       path: path,
       relativePath: relativePath,
       resolved: file,
-      markers: _Markers(.parse(file.content)),
+      markers: _Markers(file.markers),
     );
     // The whole walk has to run before the filter: it records the entry-point
     // containers the filter drops, and a container comes before its members.

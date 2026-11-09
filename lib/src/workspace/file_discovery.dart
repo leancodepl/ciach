@@ -8,12 +8,9 @@
  *     - mark-ai-provenance
  */
 
-import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:ciach/src/model/finder_options.dart';
-import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:collection/collection.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
@@ -43,83 +40,64 @@ const _generatedSuffixes = [
   '.chopper.dart',
 ];
 
-/// The `.dart` files discovered under the configured root, split by role.
-typedef DiscoveredDartFiles = ({
-  /// Files whose declarations are scanned and reported as candidates.
-  List<String> candidates,
+/// The `.dart` files under the root, sorted by their paths alone; see
+/// [dartFilesByPath].
+typedef DartFilePaths = ({
+  /// The files that the include and exclude globs select.
+  List<String> selected,
 
-  /// Generated files excluded from [candidates] whose references still
-  /// count, so a declaration referenced *only* from generated code isn't
-  /// misreported as unused. Files marked `// ciach:ignore-file` are among
-  /// them, even when generated files are candidates.
-  List<String> referenceOnly,
+  /// The files that the globs leave out. A banner that marks one generated
+  /// still makes it reference-only.
+  List<String> unselected,
 
-  /// The files of [referenceOnly] that a `// ciach:ignore-file` marker put there.
-  List<String> ignored,
+  /// The files that their name or a generated glob marks as generated,
+  /// whichever globs select them. None when generated files are scanned.
+  List<String> generated,
 });
 
-/// Discovers the `.dart` files under the configured root that should be
-/// scanned for declarations, honoring include/exclude globs and
-/// generated-file rules, and the excluded generated files as `referenceOnly`
-/// (see [DiscoveredDartFiles]), so that the caller can resolve the references
-/// in them.
-///
-/// Results are returned as absolute file paths, sorted for stable output.
-/// The reference-only set is deliberately not filtered by include/exclude
-/// globs — a reference can live in a generated file the user isn't scanning —
-/// though skipped directories (`build/`, `.dart_tool/`, …) are still excluded.
-DiscoveredDartFiles discoverDartFiles(FinderOptions options) {
+/// The `.dart` files under the configured root, outside the skipped
+/// directories: those that their name or a generated glob marks as
+/// generated, and the others by whether the include and exclude globs select
+/// them. The paths are absolute, normalized and sorted.
+DartFilePaths dartFilesByPath(FinderOptions options) {
   // Already absolute and normalized: `FinderOptions` is the only way in.
   final rootPath = options.rootPath;
-  final root = Directory(rootPath);
   final context = p.Context(style: .posix);
-
   final includeGlobs = _globs(options.includeGlobs, context);
   final excludeGlobs = _globs(options.excludeGlobs, context);
   final generatedGlobs = _globs(options.additionalGeneratedGlobs, context);
 
-  final candidates = <String>[];
-  final referenceOnly = <String>[];
-  final ignored = <String>[];
-  for (final file
-      in root.listSync(recursive: true, followLinks: false).whereType<File>()) {
+  final selected = <String>[];
+  final unselected = <String>[];
+  final generated = <String>[];
+  for (final file in Directory(
+    rootPath,
+  ).listSync(recursive: true, followLinks: false).whereType<File>()) {
     if (!file.path.endsWith('.dart')) {
       continue;
     }
-
     final absolute = p.normalize(file.absolute.path);
     // Path relative to root, in POSIX form so globs behave predictably.
     final relative = context.joinAll(
       p.split(p.relative(absolute, from: rootPath)),
     );
-
     if (isInSkippedDir(relative)) {
       continue;
     }
-    // Read once, and only when a check needs it.
-    late final source = _read(file);
     if (!options.includeGenerated &&
         (generatedGlobs.any((glob) => glob.matches(relative)) ||
-            _isGenerated(relative, () => source))) {
-      referenceOnly.add(absolute);
-      continue;
+            _generatedSuffixes.any(p.basename(relative).endsWith))) {
+      generated.add(absolute);
+    } else if (_isSelected(relative, includeGlobs, excludeGlobs)) {
+      selected.add(absolute);
+    } else {
+      unselected.add(absolute);
     }
-    if (!_isSelected(relative, includeGlobs, excludeGlobs)) {
-      continue;
-    }
-    if (IgnoreMarkers.parse(source).ignoresFile) {
-      referenceOnly.add(absolute);
-      ignored.add(absolute);
-      continue;
-    }
-
-    candidates.add(absolute);
   }
-
   return (
-    candidates: candidates..sort(),
-    referenceOnly: referenceOnly..sort(),
-    ignored: ignored..sort(),
+    selected: selected..sort(),
+    unselected: unselected..sort(),
+    generated: generated..sort(),
   );
 }
 
@@ -135,63 +113,3 @@ List<Glob> _globs(List<String> patterns, p.Context context) => [
 
 bool isInSkippedDir(String relativePath) =>
     p.split(relativePath).any(_skippedDirs.contains);
-
-/// Whether the file at [relativePath] is generated: by its name, or by the
-/// banner atop its [source].
-bool _isGenerated(String relativePath, String Function() source) {
-  final name = p.basename(relativePath);
-  if (_generatedSuffixes.any(name.endsWith)) {
-    return true;
-  }
-  final content = source();
-  return isGeneratedBanner(content.substring(0, min(content.length, 2000)));
-}
-
-/// The banner that build_runner writes at the top of a generated file. It is
-/// matched anywhere in the first 300 characters of the file.
-const _buildBanner = 'GENERATED CODE - DO NOT MODIFY BY HAND';
-
-/// A banner that warns against editing generated code, or `flutterfire
-/// configure`'s, which doesn't.
-final _banner = RegExp(
-  r'\b(?:auto-?)?generated\b.{0,200}?\b(?:do not|don.t|must not)\s+(?:\w+\s+)?(?:edit|modify)\b|\b(?:do not|don.t)\s+(?:edit|modify)\b.{0,200}?\bgenerated\b|\bgenerated by flutterfire cli\b',
-  caseSensitive: false,
-);
-
-/// Returns whether [source] starts with a banner that marks generated code.
-/// Only the comments before the first declaration are read. Doc comments are
-/// skipped, because a doc comment can mention generated code in a file that
-/// is not generated.
-bool isGeneratedBanner(String source) {
-  if (source.substring(0, min(source.length, 300)).contains(_buildBanner)) {
-    return true;
-  }
-  final comments = StringBuffer();
-  var inBlock = false;
-  for (final raw in const LineSplitter().convert(source)) {
-    final line = raw.trim();
-    if (inBlock) {
-      comments.write(' $line');
-      inBlock = !line.contains('*/');
-    } else if (line.startsWith('///')) {
-      continue;
-    } else if (line.startsWith('//')) {
-      comments.write(' $line');
-    } else if (line.startsWith('/*')) {
-      comments.write(' $line');
-      inBlock = !line.substring(2).contains('*/');
-    } else if (line.isNotEmpty) {
-      break;
-    }
-  }
-  return _banner.hasMatch(comments.toString());
-}
-
-/// The text of [file]; empty when it cannot be read.
-String _read(File file) {
-  try {
-    return file.readAsStringSync();
-  } on FileSystemException {
-    return '';
-  }
-}

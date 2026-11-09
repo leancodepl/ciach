@@ -1,11 +1,11 @@
 import 'dart:io';
 
+import 'package:ciach/src/analysis/comments.dart';
 import 'package:ciach/src/model/removal_result.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/remove/declaration_spans.dart';
 import 'package:ciach/src/remove/emptied_files.dart';
 import 'package:ciach/src/remove/text_spans.dart';
-import 'package:ciach/src/source/comment_scanning.dart';
 import 'package:ciach/src/source/line_starts.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
@@ -222,7 +222,7 @@ final class _OwnLineComments {
 
   /// The `//` comments by offset, read only once a line starts with `//`.
   late final _byOffset = {
-    for (final comment in lineComments(_content)) comment.offset: comment,
+    for (final comment in lineCommentsIn(_content)) comment.offset: comment,
   };
 
   /// [span], with the lines directly above it that apply to the next line

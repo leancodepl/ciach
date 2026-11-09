@@ -1,10 +1,10 @@
-/// Character-offset spans in a file's text, and the whitespace arithmetic
-/// that keeps a deletion tidy.
+/// Character-offset spans in a file's text, the whitespace arithmetic that
+/// keeps a deletion tidy, and the comments of other tools, which tell what a
+/// deletion takes along.
 library;
 
 import 'dart:math';
 
-import 'package:ciach/src/source/comment_scanning.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 
@@ -63,5 +63,49 @@ int skipSameLineBlank(String content, int from) {
 /// Whether [ch] is a space or tab — a blank that stays on the same line.
 bool isSpaceOrTab(String ch) => switch (ch) {
   ' ' || '\t' => true,
+  _ => false,
+};
+
+/// Whether [comment] applies to the next line only: an analyzer
+/// `// ignore:`, a custom_lint `// expect_lint:` or a spell checker's
+/// `// cspell:disable-next-line`.
+bool isNextLineDirective(String comment) =>
+    _nextLineDirective.hasMatch(comment);
+
+final _nextLineDirective = RegExp(
+  r'^//\s*(ignore:|expect_lint:|(cspell|spell-checker):\s*disable-next-line)',
+  caseSensitive: false,
+);
+
+/// A comment another tool reads, such as `// coverage:ignore-start`,
+/// `// ciach:ignore-end` or `// dart format off`. It may pair with a comment
+/// elsewhere in the file.
+bool isToolDirective(String comment) => _toolDirective.hasMatch(comment);
+
+final _toolDirective = RegExp(r'^//\s*([\w.-]+:\S|dart format\b)');
+
+/// The index of the first non-whitespace character at or after [from], if
+/// any.
+int? nextNonWhitespace(String content, int from) {
+  for (var i = from; i < content.length; i++) {
+    if (!_isWhitespace(content[i])) {
+      return i;
+    }
+  }
+  return null;
+}
+
+/// The index of the last non-whitespace character before [before], if any.
+int? previousNonWhitespace(String content, int before) {
+  for (var i = before - 1; i >= 0; i--) {
+    if (!_isWhitespace(content[i])) {
+      return i;
+    }
+  }
+  return null;
+}
+
+bool _isWhitespace(String ch) => switch (ch) {
+  ' ' || '\t' || '\n' || '\r' => true,
   _ => false,
 };

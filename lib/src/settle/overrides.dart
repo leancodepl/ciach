@@ -3,7 +3,6 @@ import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/settle/dead_spans.dart';
-import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/symbols.dart';
@@ -41,9 +40,6 @@ final class OverrideRemovals {
   final Set<String> _scannedPaths;
 
   final String _rootPath;
-
-  /// The `// ciach:` markers of each file an override lives in, by path.
-  final _markers = <String, IgnoreMarkers>{};
 
   /// The kinds of the overrides that are deleted. A `field` goes as a
   /// declarator, so it can share a statement.
@@ -150,9 +146,10 @@ final class OverrideRemovals {
         !_removableKinds.contains(node.element.kind)) {
       return null;
     }
-    if ((_markers[path] ??= .parse(
-          file.content,
-        )).keeping(start: node.range.start.line, nameLine: start.line) !=
+    if (file.markers.keeping(
+          start: node.range.start.line,
+          nameLine: start.line,
+        ) !=
         null) {
       return null;
     }

@@ -1,7 +1,6 @@
 /// `// ciach:ignore` comments, which keep declarations from being reported.
 library;
 
-import 'package:ciach/src/source/comment_scanning.dart';
 import 'package:ciach/src/source/line_starts.dart';
 import 'package:collection/collection.dart';
 
@@ -39,7 +38,11 @@ final class IgnoreMarkers {
        _sameLine = sameLine,
        _ranges = ranges;
 
-  factory IgnoreMarkers.parse(String content) {
+  /// The markers among [comments], the `//` comments of [content].
+  factory IgnoreMarkers.parse(
+    String content,
+    Iterable<({int offset, String text})> comments,
+  ) {
     if (!content.contains('ciach:')) {
       return none;
     }
@@ -50,7 +53,7 @@ final class IgnoreMarkers {
     final issues = <MarkerIssue>[];
     int? openedAt;
     final lines = _Lines(content);
-    for (final (:offset, :text) in lineComments(content)) {
+    for (final (:offset, :text) in comments) {
       final (:line, :ownLine) = lines.at(offset);
       final marker = text.startsWith('///')
           ? null

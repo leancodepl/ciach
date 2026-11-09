@@ -10,6 +10,7 @@ import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
+import 'package:ciach/src/analysis/comments.dart';
 import 'package:ciach/src/analysis/declaration_annotation.dart';
 import 'package:ciach/src/analysis/line_positions.dart';
 import 'package:ciach/src/analysis/reference_index.dart';
@@ -231,6 +232,7 @@ final class ResolvedFiles implements FileSyntax {
 
     return .new(
       content: result.content,
+      markers: .parse(result.content, lineCommentsOf(result.unit)),
       outline: outline,
       annotations: {
         for (final MapEntry(key: name, value: declared) in annotations.entries)

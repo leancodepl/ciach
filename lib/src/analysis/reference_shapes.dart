@@ -11,6 +11,7 @@ library;
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/source/line_info.dart';
+import 'package:ciach/src/analysis/comments.dart';
 import 'package:ciach/src/analysis/line_positions.dart';
 import 'package:ciach/src/source/file_syntax.dart';
 import 'package:ciach/src/source/locations.dart';
@@ -106,22 +107,13 @@ bool isStateTypeArgumentAt(CompilationUnit unit, int offset) => switch (unit
 /// Where the whitespace before [keyword] starts: after the token or the
 /// comment before it, or at the start of [keyword]'s line when a `//`
 /// comment comes right before it.
-int _spaceBefore(LineInfo lineInfo, Token keyword) {
-  Token? lastComment;
-  for (
-    Token? comment = keyword.precedingComments;
-    comment != null;
-    comment = comment.next
-  ) {
-    lastComment = comment;
-  }
-  return switch (lastComment) {
-    Token(type: .SINGLE_LINE_COMMENT, :final end) =>
-      lineInfo.getOffsetOfLineAfter(end),
-    final Token comment => comment.end,
-    null => keyword.previous!.end,
-  };
-}
+int _spaceBefore(LineInfo lineInfo, Token keyword) =>
+    switch (commentsBefore(keyword).lastOrNull) {
+      Token(type: .SINGLE_LINE_COMMENT, :final end) =>
+        lineInfo.getOffsetOfLineAfter(end),
+      final Token comment => comment.end,
+      null => keyword.previous!.end,
+    };
 
 /// See [FileSyntax.declaratorAt].
 ({VariableStatement statement, Range declarator})? declaratorAt(

@@ -4,7 +4,6 @@ library;
 
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/remove/text_spans.dart';
-import 'package:ciach/src/source/comment_scanning.dart';
 
 /// Computes the span to delete for an enum value or a "whole-node" kind
 /// (class, function, method, property, …) whose [DeclarationRange] already

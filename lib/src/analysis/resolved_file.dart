@@ -6,6 +6,7 @@
 
 import 'package:ciach/src/analysis/declaration_annotation.dart';
 import 'package:ciach/src/analysis/resolved_class.dart';
+import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
 
@@ -14,6 +15,7 @@ import 'package:ciach/src/source/outline.dart';
 final class ResolvedFile {
   const ResolvedFile({
     required this.content,
+    required this.markers,
     required this.outline,
     required this.annotations,
     required this.supertypes,
@@ -23,6 +25,9 @@ final class ResolvedFile {
 
   /// The text of the file.
   final String content;
+
+  /// The `// ciach:` markers in the file.
+  final IgnoreMarkers markers;
 
   /// The outline of the whole file.
   final Outline outline;

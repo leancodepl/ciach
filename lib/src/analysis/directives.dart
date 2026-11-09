@@ -9,9 +9,8 @@
 /// so that they also read a file that `--remove` has just edited.
 library;
 
-import 'package:analyzer/dart/analysis/results.dart';
-import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart' hide Directive;
+import 'package:ciach/src/analysis/dart_text.dart';
 import 'package:ciach/src/workspace/packages.dart';
 
 /// The keyword that starts a [Directive].
@@ -64,7 +63,7 @@ final class Directive {
 /// The `import`, `export`, `part` and `part of` directives of [content], in
 /// order.
 List<Directive> directivesIn(String content) => [
-  for (final directive in _parse(content).unit.directives)
+  for (final directive in parseDart(content).unit.directives)
     ?switch (directive) {
       ImportDirective() => _namespaceDirective(.import, directive),
       ExportDirective() => _namespaceDirective(.export, directive),
@@ -90,7 +89,7 @@ List<Directive> directivesIn(String content) => [
 /// `part of` directives. An `export` or `part` directive counts as content:
 /// the file passes something on. So does source that doesn't parse.
 bool isDirectiveOnly(String content) {
-  final result = _parse(content);
+  final result = parseDart(content);
   return result.errors.isEmpty &&
       result.unit.declarations.isEmpty &&
       result.unit.directives.every(
@@ -100,9 +99,6 @@ bool isDirectiveOnly(String content) {
         },
       );
 }
-
-ParseStringResult _parse(String content) =>
-    parseString(content: content, throwIfDiagnostics: false);
 
 Directive _namespaceDirective(
   DirectiveKind kind,

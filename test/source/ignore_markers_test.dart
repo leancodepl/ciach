@@ -1,12 +1,17 @@
+import 'package:ciach/src/analysis/comments.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:test/test.dart';
 
 void main() {
+  /// The markers of [source], among the comments that the analyzer reads.
+  IgnoreMarkers markersIn(String source) =>
+      .parse(source, lineCommentsIn(source));
+
   /// The marker keeping a declaration that starts on [start] and is named on
   /// [nameLine], with every line one-based.
   MarkerAt? keeping(String source, int start, [int? nameLine]) =>
-      IgnoreMarkers.parse(source)
+      markersIn(source)
           .keeping(start: start - 1, nameLine: (nameLine ?? start) - 1)
           ?.let((kept) => (line: kept.line + 1, marker: kept.marker));
 
@@ -86,7 +91,7 @@ void after() {}
     });
 
     test('an unclosed range runs to the end of the file, with an issue', () {
-      final markers = IgnoreMarkers.parse('''
+      final markers = markersIn('''
 // ciach:ignore-start
 void kept() {}
 ''');
@@ -101,7 +106,7 @@ void kept() {}
     });
 
     test('a stray end and a nested start are issues', () {
-      final markers = IgnoreMarkers.parse('''
+      final markers = markersIn('''
 // ciach:ignore-end
 // ciach:ignore-start
 // ciach:ignore-start
@@ -116,12 +121,12 @@ void kept() {}
 void f() {}
 // ciach:ignore-file
 ''';
-    expect(IgnoreMarkers.parse(marked).ignoresFile, isTrue);
-    expect(IgnoreMarkers.parse('void f() {}').ignoresFile, isFalse);
+    expect(markersIn(marked).ignoresFile, isTrue);
+    expect(markersIn('void f() {}').ignoresFile, isFalse);
   });
 
   test('an unknown marker is an issue', () {
-    final markers = IgnoreMarkers.parse('''
+    final markers = markersIn('''
 // ciach:ignroe
 void f() {}
 ''');
@@ -143,7 +148,7 @@ const text = """
 """;
 void c() {}
 ''';
-    final markers = IgnoreMarkers.parse(source);
+    final markers = markersIn(source);
     expect(markers.isEmpty, isTrue);
     expect(markers.ignoresFile, isFalse);
     expect(markers.issues, isEmpty);
@@ -158,7 +163,7 @@ void old() {}
 */
 void f() {}
 ''';
-    final markers = IgnoreMarkers.parse(source);
+    final markers = markersIn(source);
     expect(markers.ignoresFile, isFalse);
     expect(markers.isEmpty, isTrue);
   });
@@ -179,7 +184,7 @@ void kept() {} /* legacy */ // ciach:ignore
   });
 
   test('every marker keeping a declaration is among its keepers', () {
-    final markers = IgnoreMarkers.parse('''
+    final markers = markersIn('''
 // ciach:ignore-start
 // ciach:ignore
 void kept() {}
@@ -192,7 +197,7 @@ void kept() {}
   });
 
   test('a mention of ciach that is no marker is ignored', () {
-    final markers = IgnoreMarkers.parse('''
+    final markers = markersIn('''
 // ciach: the tool
 void f() {}
 ''');

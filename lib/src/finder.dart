@@ -32,6 +32,7 @@ library;
 import 'dart:async';
 
 import 'package:ciach/src/analysis/directives.dart';
+import 'package:ciach/src/analysis/discovered_files.dart';
 import 'package:ciach/src/analysis/language_versions.dart';
 import 'package:ciach/src/analysis/public_api.dart';
 import 'package:ciach/src/analysis/resolved_file.dart';
@@ -54,7 +55,6 @@ import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:ciach/src/util/plural.dart';
 import 'package:ciach/src/workspace/dart_executable.dart';
-import 'package:ciach/src/workspace/file_discovery.dart';
 import 'package:ciach/src/workspace/packages.dart';
 import 'package:ciach/src/workspace/path_dependents.dart';
 import 'package:collection/collection.dart';
