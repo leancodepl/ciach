@@ -7,6 +7,7 @@
 @Timeout(Duration(minutes: 5))
 library;
 
+import 'package:ciach/src/analysis/declaration_annotation.dart';
 import 'package:ciach/src/analysis/resolved_class.dart';
 import 'package:ciach/src/analysis/resolved_file.dart';
 import 'package:ciach/src/source/locations.dart';
@@ -141,63 +142,71 @@ void h() {}
 ''';
       final file = await resolve(source);
 
-      expect(byLine(source, file.annotationClasses), {
-        0: isEmpty,
-        1: isEmpty,
-        2: isEmpty,
-        3: [annotationClass('Preview', [])],
-        4: [
-          annotationClass('DarkPreview', ['Preview']),
-        ],
-        5: [
-          annotationClass('ThemedPreview', [
-            'Themed',
-            'DarkPreview',
-            'Preview',
-          ]),
-        ],
-        6: [
-          annotationClass('DarkPreview', ['Preview']),
-        ],
-        7: [annotationClass('Preview', [])],
-        8: isEmpty,
-        9: isEmpty,
-        10: isEmpty,
-        // The name of a generic class has no type parameters.
-        11: [
-          annotationClass('Typed', ['Preview']),
-        ],
-        // A typedef stands for the class that it names.
-        12: [
-          annotationClass('DarkPreview', ['Preview']),
-        ],
-        13: [
-          annotationClass('DarkPreview', ['Preview']),
-        ],
-        14: [
-          annotationClass('Typed', ['Preview']),
-        ],
-        // A typedef in the type arguments is not the annotation's class.
-        15: [
-          annotationClass('Typed', ['Preview']),
-        ],
-        // A static constant, not a constructor of `Holder`.
-        16: isEmpty,
-        17: isEmpty,
-        18: isEmpty,
-        19: isEmpty,
-        20: isEmpty,
-        // A named constructor of a prefixed class.
-        21: [annotationClass('Preview', [])],
-        // A static constant of a prefixed class.
-        22: isEmpty,
-        23: isEmpty,
-      });
+      expect(
+        byLine(source, {
+          for (final MapEntry(key: name, value: annotations)
+              in file.annotations.entries)
+            for (final annotation in annotations)
+              name: ?annotation.createdClass,
+        }),
+        {
+          0: isEmpty,
+          1: isEmpty,
+          2: isEmpty,
+          3: [annotationClass('Preview', [])],
+          4: [
+            annotationClass('DarkPreview', ['Preview']),
+          ],
+          5: [
+            annotationClass('ThemedPreview', [
+              'Themed',
+              'DarkPreview',
+              'Preview',
+            ]),
+          ],
+          6: [
+            annotationClass('DarkPreview', ['Preview']),
+          ],
+          7: [annotationClass('Preview', [])],
+          8: isEmpty,
+          9: isEmpty,
+          10: isEmpty,
+          // The name of a generic class has no type parameters.
+          11: [
+            annotationClass('Typed', ['Preview']),
+          ],
+          // A typedef stands for the class that it names.
+          12: [
+            annotationClass('DarkPreview', ['Preview']),
+          ],
+          13: [
+            annotationClass('DarkPreview', ['Preview']),
+          ],
+          14: [
+            annotationClass('Typed', ['Preview']),
+          ],
+          // A typedef in the type arguments is not the annotation's class.
+          15: [
+            annotationClass('Typed', ['Preview']),
+          ],
+          // A static constant, not a constructor of `Holder`.
+          16: isEmpty,
+          17: isEmpty,
+          18: isEmpty,
+          19: isEmpty,
+          20: isEmpty,
+          // A named constructor of a prefixed class.
+          21: [annotationClass('Preview', [])],
+          // A static constant of a prefixed class.
+          22: isEmpty,
+          23: isEmpty,
+        },
+      );
     },
   );
 
   test(
-    'keys an annotation by the name after its `@` and import prefix',
+    'keys the annotations of a declaration by the start of its name, and names each after its `@` and import prefix',
     () async {
       const source = '''
 import 'previews.dart' as previews;
@@ -206,9 +215,55 @@ import 'previews.dart' as previews;
 ''';
       final file = await resolve(source);
 
-      expect(file.annotationClasses.keys, [
-        Position(line: 2, character: source.split('\n')[2].indexOf('Preview')),
-      ]);
+      expect(file.annotations, {
+        Position(line: 2, character: source.split('\n')[2].indexOf('a()')): [
+          DeclarationAnnotation(
+            'Preview',
+            package: 'app',
+            createdClass: annotationClass('Preview', []),
+          ),
+        ],
+      });
+    },
+  );
+
+  test(
+    'reads the first argument of an annotation when it is a string without interpolation, and gives every variable of a statement its annotations',
+    () async {
+      const source = r'''
+import 'dart:core' as core;
+
+@pragma('vm:entry-point') void a() {}
+@core.pragma("vm:entry-point") void b() {}
+@pragma(r'vm:entry-point', 'call') void c() {}
+@pragma('vm:' 'entry-point') void d() {}
+@pragma('dart2js:noInline', 'vm:entry-point') void e() {}
+@pragma('vm:${1}') void f() {}
+@override void g() {}
+@pragma('vm:entry-point') int h = 0, i = 0;
+''';
+      final file = await resolve(source);
+
+      expect(
+        byLine(source, {
+          for (final MapEntry(key: name, value: annotations)
+              in file.annotations.entries)
+            name: annotations.single.argument,
+        }),
+        {
+          0: isEmpty,
+          1: isEmpty,
+          2: ['vm:entry-point'],
+          3: ['vm:entry-point'],
+          4: ['vm:entry-point'],
+          5: ['vm:entry-point'],
+          6: ['dart2js:noInline'],
+          7: [null],
+          8: [null],
+          9: ['vm:entry-point', 'vm:entry-point'],
+          10: isEmpty,
+        },
+      );
     },
   );
 
@@ -342,18 +397,25 @@ void e() {}
 ''';
       final file = await resolve(source);
 
-      expect(byLine(source, file.annotationPackages), {
-        0: isEmpty,
-        1: isEmpty,
-        2: isEmpty,
-        3: isEmpty,
-        4: ['dart:core'],
-        5: ['dart:js_interop'],
-        6: ['app'],
-        7: ['dart:core'],
-        8: isEmpty,
-        9: isEmpty,
-      });
+      expect(
+        byLine(source, {
+          for (final MapEntry(key: name, value: annotations)
+              in file.annotations.entries)
+            name: annotations.single.package,
+        }),
+        {
+          0: isEmpty,
+          1: isEmpty,
+          2: isEmpty,
+          3: isEmpty,
+          4: ['dart:core'],
+          5: ['dart:js_interop'],
+          6: ['app'],
+          7: ['dart:core'],
+          8: isEmpty,
+          9: isEmpty,
+        },
+      );
     },
   );
 

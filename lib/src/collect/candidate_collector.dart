@@ -11,7 +11,6 @@ import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/outline.dart';
-import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/log.dart';
@@ -112,11 +111,7 @@ final class CandidateCollector {
   ) sync* {
     final statement = _Statement();
     for (final outline in _declarations(outlines)) {
-      final (:leadingMetadata, :start) = statement.next(
-        outline,
-        _sources.leadingMetadata(file.path, outline),
-      );
-      _freezed.noteIfAnnotated(file.path, outline, leadingMetadata);
+      final start = statement.startOf(outline);
       final candidate = Candidate(
         path: file.path,
         outline: outline,
@@ -125,9 +120,9 @@ final class CandidateCollector {
       final declaration = _kept.declarationOf(
         file.relativePath,
         candidate,
-        leadingMetadata,
         file.resolved,
       );
+      _freezed.noteIfAnnotated(file.path, outline, declaration.annotations);
       if (_isCandidate(
         candidate,
         declaration,
@@ -212,7 +207,6 @@ final class CandidateCollector {
     ResolvedDeclaration declaration, {
     required List<KeptMembers> containerMembers,
   }) {
-    final leadingMetadata = declaration.leadingMetadata;
     if (!options.kinds.contains(candidate.reportedKind)) {
       return false;
     }
@@ -235,7 +229,9 @@ final class CandidateCollector {
     }
 
     if (options.skipOverrides &&
-        leadingMetadata.any((t) => t.isAnnotationNamed('override'))) {
+        declaration.annotations.any(
+          (annotation) => annotation.name == 'override',
+        )) {
       return false;
     }
     return true;
@@ -252,33 +248,22 @@ typedef _ScannedFile = ({
   _Markers markers,
 });
 
-/// The variable statement that the declarations being collected belong to, for the
-/// declarators after the first. It declares fields or top-level variables.
-///
-/// A variable statement's doc comment, annotations and modifiers sit on its
-/// first declarator, so a later one (`b` in `@override final int a, b;`) reads
-/// that statement's instead of its own, which are empty. Likewise, a marker
-/// above the statement keeps every declarator.
+/// The statement that the declarations being collected belong to. A marker
+/// above a variable statement keeps every declarator, also the later ones,
+/// such as `b` in `final int a, b;`, whose range starts at its name.
 final class _Statement {
-  var _metadata = const <SemanticToken>[];
   var _start = 0;
 
-  /// The leading metadata of the declaration [outline], whose own is
-  /// [ownMetadata], and the line its statement starts on.
-  ({Iterable<SemanticToken> leadingMetadata, int start}) next(
-    Outline outline,
-    Iterable<SemanticToken> ownMetadata,
-  ) {
+  /// The line that the statement of the declaration [outline] starts on.
+  int startOf(Outline outline) {
     final isVariable = const <OutlineKind>{
       .field,
       .topLevelVariable,
     }.contains(outline.element.kind);
     if (isVariable && outline.range.start == outline.codeRange.start) {
-      return (leadingMetadata: _metadata, start: _start);
+      return _start;
     }
-    _metadata = isVariable ? ownMetadata.toList() : const [];
-    _start = outline.range.start.line;
-    return (leadingMetadata: ownMetadata, start: _start);
+    return _start = outline.range.start.line;
   }
 }
 

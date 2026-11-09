@@ -9,7 +9,6 @@ import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
-import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:collection/collection.dart';
@@ -78,27 +77,19 @@ final class KeptDeclarations {
     }
   }
 
-  /// Returns [candidate], whose doc comment and annotations are
-  /// [leadingMetadata], as the entry-point rules read it. [file] is the
+  /// Returns [candidate] as the entry-point rules read it. [file] is the
   /// resolved file that declares it.
   ResolvedDeclaration declarationOf(
     String relativePath,
     Candidate candidate,
-    Iterable<SemanticToken> leadingMetadata,
     ResolvedFile file,
   ) => .new(
     relativePath: relativePath,
     outline: candidate.outline,
     container: candidate.container,
     inEnum: candidate.containerOutline?.element.kind == .enum$,
-    leadingMetadata: leadingMetadata,
-    annotationPackages: {
-      for (final token in leadingMetadata)
-        token.start: ?file.annotationPackages[token.start],
-    },
-    annotationClasses: [
-      for (final token in leadingMetadata) ?file.annotationClasses[token.start],
-    ],
+    annotations:
+        file.annotations[candidate.outline.nameRange.start] ?? const [],
     supertypes: file.supertypes[candidate.outline.nameRange.start] ?? const {},
   );
 

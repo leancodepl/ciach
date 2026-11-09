@@ -1,6 +1,5 @@
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/resolved_declaration.dart';
-import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:test/test.dart';
 
 import '../support/declarations.dart';
@@ -203,21 +202,11 @@ void main() {
     /// A class annotated with `@[annotation]`, which [package] declares.
     ResolvedDeclaration annotatedClass(
       String annotation, {
-      required String package,
+      required String? package,
     }) => .new(
       relativePath: 'lib/a.dart',
       outline: declared('Counter', kind: .class$),
-      annotationPackages: {const .new(line: 0, character: 1): package},
-      leadingMetadata: [
-        SemanticToken(
-          line: 0,
-          character: 1,
-          length: annotation.length,
-          type: 'class',
-          modifiers: const {'annotation'},
-          text: annotation,
-        ),
-      ],
+      annotations: [.new(annotation, package: package)],
     );
 
     test('`@JSExport` keeps the class and its public members', () {
@@ -269,91 +258,45 @@ void main() {
     });
 
     test('an annotation whose package is unknown keeps nothing', () {
-      final counter = ResolvedDeclaration(
-        relativePath: 'lib/a.dart',
-        outline: declared('Counter', kind: .class$),
-        leadingMetadata: annotatedClass(
-          'JSExport',
-          package: 'dart:js_interop',
-        ).leadingMetadata,
-      );
+      final counter = annotatedClass('JSExport', package: null);
 
       expect(rules.match(counter), isNull);
       expect(rules.keptMembersOf(counter), isEmpty);
     });
 
-    /// A token of [type] with [text], such as `(` or `'vm:entry-point'`.
-    SemanticToken token(
-      String type,
-      String text, {
-      Set<String> modifiers = const {},
-    }) => .new(
-      line: 0,
-      character: 0,
-      length: text.length,
-      type: type,
-      modifiers: modifiers,
-      text: text,
-    );
-
-    /// The tokens of `@[name]([arguments])`, with [prefix] before [name].
-    List<SemanticToken> annotation(
-      String name,
-      List<String> arguments, {
-      String? prefix,
-    }) => [
-      token('annotation', '@'),
-      if (prefix != null) ...[
-        token('variable', prefix),
-        token('annotation', '.'),
-      ],
-      token('class', name, modifiers: const {'annotation'}),
-      token('annotation', '('),
-      for (final argument in arguments) token('string', argument),
-      token('annotation', ')'),
-    ];
-
-    /// A function whose annotation has the tokens [leadingMetadata] and is
-    /// declared in [package].
+    /// A function annotated with `@[annotation]`, which [package] declares,
+    /// whose first argument is the string [argument].
     ResolvedDeclaration annotatedFunction(
-      List<SemanticToken> leadingMetadata, {
+      String annotation, {
+      String? argument,
       String package = 'dart:core',
     }) => .new(
       relativePath: 'lib/a.dart',
       outline: declared('callback'),
-      leadingMetadata: leadingMetadata,
-      annotationPackages: {const .new(line: 0, character: 0): package},
+      annotations: [.new(annotation, package: package, argument: argument)],
     );
 
-    test(
-      "`@pragma('vm:entry-point')` keeps the declaration, with an import prefix, any quotes or a second argument",
-      () {
-        for (final leadingMetadata in [
-          annotation('pragma', ["'vm:entry-point'"]),
-          annotation('pragma', ['"vm:entry-point"'], prefix: 'core'),
-          annotation('pragma', ["r'vm:entry-point'", "'call'"]),
-        ]) {
-          expect(
-            rules.match(annotatedFunction(leadingMetadata))?.reason,
-            "marked `@pragma('vm:entry-point')` for native code or reflection",
-            reason: 'for ${leadingMetadata.map((t) => t.text).join()}',
-          );
-        }
-      },
-    );
+    test("`@pragma('vm:entry-point')` keeps the declaration", () {
+      expect(
+        rules
+            .match(annotatedFunction('pragma', argument: 'vm:entry-point'))
+            ?.reason,
+        "marked `@pragma('vm:entry-point')` for native code or reflection",
+      );
+    });
 
     test(
-      "another `@pragma` value, `vm:entry-point` as a second argument and `@Deprecated('vm:entry-point')` keep nothing",
+      "another `@pragma` value, a `@pragma` without a string and `@Deprecated('vm:entry-point')` keep nothing",
       () {
-        for (final leadingMetadata in [
-          annotation('pragma', ["'vm:prefer-inline'"]),
-          annotation('pragma', ["'dart2js:noInline'", "'vm:entry-point'"]),
-          annotation('Deprecated', ["'vm:entry-point'"]),
+        for (final declaration in [
+          annotatedFunction('pragma', argument: 'vm:prefer-inline'),
+          annotatedFunction('pragma'),
+          annotatedFunction('Deprecated', argument: 'vm:entry-point'),
         ]) {
           expect(
-            rules.match(annotatedFunction(leadingMetadata)),
+            rules.match(declaration),
             isNull,
-            reason: 'for ${leadingMetadata.map((t) => t.text).join()}',
+            reason: 'for ${declaration.annotations.single}',
           );
         }
       },
@@ -363,7 +306,8 @@ void main() {
       expect(
         rules.match(
           annotatedFunction(
-            annotation('pragma', ["'vm:entry-point'"]),
+            'pragma',
+            argument: 'vm:entry-point',
             package: 'app',
           ),
         ),

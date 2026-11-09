@@ -8,9 +8,9 @@ import 'package:analyzer/dart/analysis/analysis_context.dart';
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
-import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
+import 'package:ciach/src/analysis/declaration_annotation.dart';
 import 'package:ciach/src/analysis/line_positions.dart';
 import 'package:ciach/src/analysis/reference_index.dart';
 import 'package:ciach/src/analysis/resolved_class.dart';
@@ -132,11 +132,12 @@ final class ResolvedFiles implements FileSyntax {
           case final ResolvedUnitResult result) {
         _hierarchy.add(result.unit);
         _index.add(path, result.unit);
-        final (:outline, :elements) = unitOutline(result.unit);
+        final (:outline, :elements, :annotations) = unitOutline(result.unit);
         _elements[path] = elements;
         return _resolved[path] = _fileOf(
           result,
           outline,
+          annotations,
           _packages.configOf(p.dirname(path)),
         );
       }
@@ -166,11 +167,13 @@ final class ResolvedFiles implements FileSyntax {
       context.contextRoot.root.path;
 
   /// Returns [result], whose outline is [outline], as ciach reads it.
-  /// [config] is the package config of the file, which gives the package of
-  /// a file outside `lib/`.
+  /// [annotations] are the annotations of each declaration, by the start of
+  /// its name, and [config] is the package config of the file, which gives
+  /// the package of a file outside `lib/`.
   static ResolvedFile _fileOf(
     ResolvedUnitResult result,
     Outline outline,
+    Map<Position, List<Annotation>> annotations,
     PackageConfig? config,
   ) {
     final positionOf = result.lineInfo.positionOf;
@@ -181,25 +184,31 @@ final class ResolvedFiles implements FileSyntax {
       for (final supertype in type.allSupertypes) classOf(supertype.element),
     };
 
-    final annotations =
-        (_Annotations()..visitCompilationUnit(result.unit)).annotations;
     return .new(
       outline: outline,
       tokens: unitTokens(result.unit, result.content),
-      annotationPackages: {
-        for (final annotation in annotations)
-          positionOf(_nameOf(annotation).offset): ?annotation.element?.library
-              ?.let((library) => _packageOf(library, config)),
-      },
-      annotationClasses: {
-        for (final annotation in annotations)
-          if (annotation.element case ConstructorElement(
-            enclosingElement: final type,
-          ))
-            positionOf(_nameOf(annotation).offset): .new(
-              classOf(type),
-              supertypesOf(type),
-            ),
+      annotations: {
+        for (final MapEntry(key: name, value: declared) in annotations.entries)
+          name: [
+            for (final annotation in declared)
+              DeclarationAnnotation(
+                _nameOf(annotation).name,
+                package: annotation.element?.library?.let(
+                  (library) => _packageOf(library, config),
+                ),
+                argument: switch (annotation.arguments?.arguments.firstOrNull) {
+                  StringLiteral(:final stringValue?) => stringValue,
+                  _ => null,
+                },
+                createdClass: switch (annotation.element) {
+                  ConstructorElement(enclosingElement: final type) => .new(
+                    classOf(type),
+                    supertypesOf(type),
+                  ),
+                  _ => null,
+                },
+              ),
+          ],
       },
       supertypes: {
         for (final declaration in result.unit.declarations)
@@ -279,12 +288,4 @@ final class ResolvedFiles implements FileSyntax {
         Uri(scheme: 'dart') && final uri => '$uri',
         final uri => config?.packageOf(uri)?.name,
       };
-}
-
-/// Collects the annotations of a file.
-final class _Annotations extends RecursiveAstVisitor<void> {
-  final annotations = <Annotation>[];
-
-  @override
-  void visitAnnotation(Annotation node) => annotations.add(node);
 }

@@ -62,20 +62,13 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
   bool _isAnnotation(ResolvedClass type) =>
       type.name == annotation && packages.contains(type.package);
 
-  bool _annotatesByName(ResolvedDeclaration declaration) {
-    final tokens = declaration.leadingMetadata.toList();
-    // The `(` of an annotation has a token of its own, so the first
-    // argument is the second token after the name.
-    return tokens.indexed.any(
-      (named) =>
-          named.$2.isAnnotationNamed(annotation) &&
-          packages.contains(declaration.annotationPackages[named.$2.start]) &&
-          (argument == null ||
-              (tokens.elementAtOrNull(named.$1 + 1)?.text == '(' &&
-                  tokens.elementAtOrNull(named.$1 + 2)?.stringValue ==
-                      argument)),
-    );
-  }
+  bool _annotatesByName(ResolvedDeclaration declaration) =>
+      declaration.annotations.any(
+        (it) =>
+            it.name == annotation &&
+            packages.contains(it.package) &&
+            (argument == null || it.argument == argument),
+      );
 
   @override
   AnnotationNamedEntryPoint _withFiles(List<String> files) => .new(

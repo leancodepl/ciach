@@ -4,22 +4,19 @@
  *   harness: Claude Code
  */
 
+import 'package:ciach/src/analysis/declaration_annotation.dart';
 import 'package:ciach/src/analysis/resolved_class.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/semantic_tokens.dart';
 
 /// A file as the analyzer resolves it: its declarations, and what the
-/// entry-point rules read about its annotations and classes.
-///
-/// The annotations are keyed by the position of the name that follows the `@`
-/// and the import prefix, such as `Preview` in `@prefix.Preview.named()`.
+/// entry-point rules read about their annotations and classes.
 final class ResolvedFile {
   const ResolvedFile({
     required this.outline,
     required this.tokens,
-    required this.annotationPackages,
-    required this.annotationClasses,
+    required this.annotations,
     required this.supertypes,
     required this.needSuperArguments,
     required this.firstError,
@@ -31,12 +28,9 @@ final class ResolvedFile {
   /// The tokens of the file, in order.
   final List<SemanticToken> tokens;
 
-  /// The package that declares each annotation: `dart:core` for `pragma` in
-  /// `@pragma('vm:entry-point')`.
-  final Map<Position, String> annotationPackages;
-
-  /// The class that each annotation that calls a constructor creates.
-  final Map<Position, AnnotationClass> annotationClasses;
+  /// The annotations of each declaration that has any, by the start of its
+  /// name. A variable has the annotations of its statement.
+  final Map<Position, List<DeclarationAnnotation>> annotations;
 
   /// All the supertypes of each class and mixin, by the position of its name.
   final Map<Position, Set<ResolvedClass>> supertypes;

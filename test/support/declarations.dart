@@ -24,7 +24,8 @@ Outline declared(String name, {OutlineKind kind = .function}) {
   );
 }
 
-/// [outline] in the file at [path], inside [container].
+/// [outline] in the file at [path], inside [container], annotated with
+/// constructor calls that create [annotationClasses].
 ResolvedDeclaration declarationAt(
   String path,
   Outline outline,
@@ -36,5 +37,12 @@ ResolvedDeclaration declarationAt(
   outline: outline,
   container: container,
   inEnum: inEnum,
-  annotationClasses: annotationClasses,
+  annotations: [
+    for (final created in annotationClasses)
+      .new(
+        created.type.name,
+        package: created.type.package,
+        createdClass: created,
+      ),
+  ],
 );

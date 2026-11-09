@@ -28,14 +28,22 @@ import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/util/extensions.dart';
 
-/// Returns the outline of [unit], and the element that each declaration in
-/// it declares, by the start of the declaration's name. A field that a
-/// primary constructor declares is declared by its parameter.
-({Outline outline, Map<Position, Element> elements}) unitOutline(
-  CompilationUnit unit,
-) {
+/// Returns the outline of [unit], and the element and the annotations of each
+/// declaration in it, by the start of the declaration's name. A field that a
+/// primary constructor declares is declared by its parameter, and a variable
+/// has the annotations of its statement.
+({
+  Outline outline,
+  Map<Position, Element> elements,
+  Map<Position, List<Annotation>> annotations,
+})
+unitOutline(CompilationUnit unit) {
   final builder = _OutlineBuilder(unit.lineInfo);
-  return (outline: builder._unit(unit), elements: builder._elements);
+  return (
+    outline: builder._unit(unit),
+    elements: builder._elements,
+    annotations: builder._annotations,
+  );
 }
 
 final class _OutlineBuilder {
@@ -43,6 +51,7 @@ final class _OutlineBuilder {
 
   final LineInfo _lineInfo;
   final _elements = <Position, Element>{};
+  final _annotations = <Position, List<Annotation>>{};
 
   Outline _unit(CompilationUnit unit) => _outline(
     unit,
@@ -339,11 +348,14 @@ final class _OutlineBuilder {
         firstTokenAfterCommentAndMetadata.offset,
       _ => node.offset,
     };
-    if ((element.range, _declaredElementOf(node)) case (
-      final name?,
-      final declared?,
-    )) {
-      _elements[name.start] = declared;
+    if (element.range case final name?) {
+      if (_declaredElementOf(node) case final declared?) {
+        _elements[name.start] = declared;
+      }
+      if (_annotationsOf(node) case final annotations
+          when annotations.isNotEmpty) {
+        _annotations[name.start] = annotations;
+      }
     }
     return .new(
       element: element,
@@ -370,6 +382,17 @@ final class _OutlineBuilder {
     PrimaryConstructorBody(parent: AstNode(:final parent)) =>
       _primaryConstructorOf(parent),
     _ => null,
+  };
+
+  /// The annotations of the declaration [node]. A variable has those of its
+  /// statement.
+  static List<Annotation> _annotationsOf(AstNode node) => switch (node) {
+    VariableDeclaration(
+      parent: VariableDeclarationList(parent: AnnotatedNode(:final metadata)),
+    ) ||
+    AnnotatedNode(:final metadata) ||
+    FormalParameter(:final metadata) => metadata,
+    _ => const [],
   };
 
   /// The primary constructor in the header of the class, enum or extension

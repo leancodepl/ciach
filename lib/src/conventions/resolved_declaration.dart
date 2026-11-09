@@ -5,14 +5,12 @@
  */
 
 /// What the entry-point rules read about a declaration: its name and place,
-/// the packages that declare its annotations, and the classes of its
-/// annotations and supertypes as the analyzer resolves them.
+/// and its annotations and supertypes as the analyzer resolves them.
 library;
 
+import 'package:ciach/src/analysis/declaration_annotation.dart';
 import 'package:ciach/src/analysis/resolved_class.dart';
-import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
-import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:ciach/src/source/symbols.dart';
 
 /// A declaration that the entry-point rules are checked against.
@@ -22,9 +20,7 @@ final class ResolvedDeclaration {
     required this.outline,
     this.container,
     this.inEnum = false,
-    this.leadingMetadata = const [],
-    this.annotationPackages = const {},
-    this.annotationClasses = const [],
+    this.annotations = const [],
     this.supertypes = const {},
   });
 
@@ -44,17 +40,13 @@ final class ResolvedDeclaration {
   /// Whether [container] is an enum.
   final bool inEnum;
 
-  /// The tokens of the declaration's doc comment and annotations.
-  final Iterable<SemanticToken> leadingMetadata;
+  /// The annotations of the declaration. A variable has the annotations of
+  /// its statement.
+  final List<DeclarationAnnotation> annotations;
 
-  /// The package that declares each annotation in [leadingMetadata], by the
-  /// position of the name after the `@` and its import prefix: `dart:core`
-  /// for `pragma` in `@pragma('vm:entry-point')`.
-  final Map<Position, String> annotationPackages;
-
-  /// The classes that the constructor calls in the declaration's
-  /// annotations create.
-  final List<AnnotationClass> annotationClasses;
+  /// The classes that the constructor calls in [annotations] create.
+  Iterable<AnnotationClass> get annotationClasses =>
+      annotations.map((annotation) => annotation.createdClass).nonNulls;
 
   /// All the supertypes of the declaration when it is a class or a mixin,
   /// and none otherwise.

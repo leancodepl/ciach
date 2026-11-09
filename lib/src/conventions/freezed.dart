@@ -8,9 +8,9 @@
  *     - mark-ai-provenance
  */
 
+import 'package:ciach/src/analysis/declaration_annotation.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/source/outline.dart';
-import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/source/syntax_rules.dart';
@@ -31,12 +31,12 @@ class FreezedUnions {
   void noteIfAnnotated(
     String path,
     Outline declaration,
-    Iterable<SemanticToken> leadingMetadata,
+    List<DeclarationAnnotation> annotations,
   ) {
     if (declaration.element.declaresMembers &&
-        leadingMetadata.any(
-          (t) =>
-              t.isAnnotationNamed('freezed') || t.isAnnotationNamed('Freezed'),
+        annotations.any(
+          (annotation) =>
+              annotation.name == 'freezed' || annotation.name == 'Freezed',
         )) {
       _annotatedClasses.add(.new(path, declaration.element.name));
     }
