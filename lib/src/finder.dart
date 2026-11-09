@@ -144,7 +144,7 @@ final class _Run {
     sources: _sources,
     freezed: _freezed,
     classifier: _classifier,
-    verdict: .new(options: options, sources: _sources, classifier: _classifier),
+    verdict: .new(options: options, classifier: _classifier),
   );
 
   Future<FinderResult> run() {

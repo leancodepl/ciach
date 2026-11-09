@@ -37,6 +37,10 @@ final class OutlineElement {
     this.parameters,
     this.returnType,
     this.typeParameters,
+    this.isRedirectingFactory = false,
+    this.isInTypeHeader = false,
+    this.isFinalInstanceField = false,
+    this.usesOwnValues = false,
   });
 
   final OutlineKind kind;
@@ -57,6 +61,24 @@ final class OutlineElement {
 
   /// The type parameters as written, e.g. `<T extends Object>`.
   final String? typeParameters;
+
+  /// Whether this is a redirecting factory constructor, such as
+  /// `factory Foo.a() = _A;`.
+  final bool isRedirectingFactory;
+
+  /// Whether this is declared in its type's header: a primary constructor,
+  /// like `Point` in `class Point(var int x)`, or a field that a declaring
+  /// parameter declares, like `x`.
+  final bool isInTypeHeader;
+
+  /// Whether this is a `final` instance field in the body of its type, which
+  /// a constructor has to initialize: `final`, and neither `static` nor
+  /// `const`.
+  final bool isFinalInstanceField;
+
+  /// Whether this enum reads its own `values` in its body without naming
+  /// itself, as in `values.any(…)`.
+  final bool usesOwnValues;
 
   /// Whether this is a class, enum, extension, extension type or mixin, which
   /// can declare members.

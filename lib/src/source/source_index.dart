@@ -13,7 +13,6 @@ import 'dart:io';
 import 'package:ciach/src/source/file_syntax.dart';
 import 'package:ciach/src/source/line_starts.dart';
 import 'package:ciach/src/source/locations.dart';
-import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/selection_range.dart';
 import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:ciach/src/util/cached_map.dart';
@@ -61,13 +60,6 @@ class SourceIndex {
   /// `null` when the file can't be parsed.
   SelectionRange? selectionRangeAt(String path, Position position) =>
       _syntax.selectionRangeAt(path, position);
-
-  /// The tokens of [outline]'s doc comment and annotations.
-  Iterable<SemanticToken> leadingMetadata(String path, Outline outline) =>
-      semanticTokens(
-        path,
-      )?.between(outline.range.start, outline.codeRange.start) ??
-      const [];
 
   /// Records the [lines] of a file that the run read, so its content isn't
   /// read from disk again, and marks the file as scanned.

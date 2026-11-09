@@ -28,6 +28,8 @@ import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/util/extensions.dart';
 
+part 'body_outlines.dart';
+
 /// Returns the outline of [unit], and the element and the annotations of each
 /// declaration in it, by the start of the declaration's name. A field that a
 /// primary constructor declares is declared by its parameter, and a variable
@@ -73,6 +75,7 @@ final class _OutlineBuilder {
           kind: .enum$,
           name: _nameOf(namePart.typeName),
           range: _rangeOf(namePart.typeName),
+          usesOwnValues: _readsOwnValues(member),
         ),
         [
           for (final constant in body.constants)
@@ -230,6 +233,7 @@ final class _OutlineBuilder {
             // A named one is named from its `.`, as the analysis server does.
             range: _rangeOf(constructorName ?? typeName),
             parameters: formalParameters.toSource(),
+            isInTypeHeader: true,
           ),
         ),
         for (final parameter in formalParameters.parameters)
@@ -266,6 +270,8 @@ final class _OutlineBuilder {
         ].join('.'),
         range: _rangeOf(node.name ?? typeName ?? keyword ?? node),
         parameters: node.parameters.toSource(),
+        isRedirectingFactory:
+            node.factoryKeyword != null && node.redirectedConstructor != null,
       ),
       _bodyOutlines(node.body),
     );
@@ -309,10 +315,28 @@ final class _OutlineBuilder {
     );
   }
 
-  /// The outline of [node], a declaration of [kind] with nothing but a name.
+  /// The outline of [node], a declaration of [kind] with nothing but a name:
+  /// an enum value, a variable, or a declaring parameter, which is in the
+  /// header of its type.
   Outline _named(AstNode node, OutlineKind kind, Token name) => _outline(
     node,
-    .new(kind: kind, name: _nameOf(name), range: _rangeOf(name)),
+    .new(
+      kind: kind,
+      name: _nameOf(name),
+      range: _rangeOf(name),
+      isInTypeHeader: node is FormalParameter,
+      isFinalInstanceField: switch (node) {
+        VariableDeclaration(
+          parent: VariableDeclarationList(
+            isFinal: true,
+            isConst: false,
+            parent: FieldDeclaration(isStatic: false),
+          ),
+        ) =>
+          true,
+        _ => false,
+      },
+    ),
   );
 
   /// The local functions and the test and group calls in [body].
@@ -384,6 +408,13 @@ final class _OutlineBuilder {
     _ => null,
   };
 
+  /// Whether the body of the enum [node] reads the enum's own `values`.
+  static bool _readsOwnValues(EnumDeclaration node) {
+    final reads = _OwnValues(node.declaredFragment?.element);
+    node.body.accept(reads);
+    return reads.found;
+  }
+
   /// The annotations of the declaration [node]. A variable has those of its
   /// statement.
   static List<Annotation> _annotationsOf(AstNode node) => switch (node) {
@@ -432,67 +463,20 @@ final class _OutlineBuilder {
       _lineInfo.rangeOf(entity.offset, entity.end);
 }
 
-/// Collects the outlines of the local functions in a body, and of the
-/// `test(...)` and `group(...)` calls, with the outlines inside each group.
-final class _BodyOutlines extends RecursiveAstVisitor<void> {
-  _BodyOutlines(this._builder);
+/// Finds a read of the `values` of [_enum].
+final class _OwnValues extends RecursiveAstVisitor<void> {
+  _OwnValues(this._enum);
 
-  final _OutlineBuilder _builder;
-  final outlines = <Outline>[];
+  final Element? _enum;
+  bool found = false;
 
   @override
-  void visitFunctionDeclaration(FunctionDeclaration node) =>
-      outlines.add(_builder._function(node));
-
-  /// Adds a call of a test or group function. Like the analysis server, it
-  /// skips the arguments of a call that resolves to no function or method,
-  /// such as a call of a function that doesn't exist.
-  @override
-  void visitMethodInvocation(MethodInvocation node) {
-    final name = node.methodName;
-    final element = name.element;
-    if (element is! ExecutableElement) {
-      return;
-    }
-    if (_isGroup(element)) {
-      final group = _BodyOutlines(_builder);
-      node.argumentList.accept(group);
-      outlines.add(_call(node, .unitTestGroup, group.outlines));
-    } else if (_isTest(element)) {
-      outlines.add(_call(node, .unitTestTest, const []));
-    } else {
-      super.visitMethodInvocation(node);
+  void visitSimpleIdentifier(SimpleIdentifier node) {
+    if (node case SimpleIdentifier(
+      name: 'values',
+      element: GetterElement(:final enclosingElement),
+    ) when enclosingElement == _enum) {
+      found = true;
     }
   }
-
-  /// The outline of the test or group call [node], named after the function
-  /// that it calls.
-  Outline _call(MethodInvocation node, OutlineKind kind, List<Outline> inside) {
-    final range = _builder._rangeOf(node);
-    return .new(
-      element: .new(
-        kind: kind,
-        name: node.methodName.name,
-        range: _builder._rangeOf(node.methodName),
-      ),
-      range: range,
-      codeRange: range,
-      children: inside,
-    );
-  }
-
-  /// Whether [element] is annotated `@isTestGroup`, or is `group` from a
-  /// library whose file name ends with `test.dart`.
-  static bool _isGroup(ExecutableElement element) =>
-      element.metadata.hasIsTestGroup || _isTestFunction(element, 'group');
-
-  /// Whether [element] is annotated `@isTest`, or is `test` from a library
-  /// whose file name ends with `test.dart`.
-  static bool _isTest(ExecutableElement element) =>
-      element.metadata.hasIsTest || _isTestFunction(element, 'test');
-
-  static bool _isTestFunction(ExecutableElement element, String name) =>
-      element is TopLevelFunctionElement &&
-      element.name == name &&
-      element.library.firstFragment.source.fullName.endsWith('test.dart');
 }

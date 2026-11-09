@@ -339,4 +339,119 @@ class Holder(dynamic value) {
         ? 'This analyzer does not support Dart 3.13 constructors.'
         : false,
   );
+
+  /// The names of the declarations in [outline] that [test] holds for.
+  Set<String> namesWhere(Outline outline, bool Function(OutlineElement) test) =>
+      {
+        for (final node in nestedIn(outline))
+          if (test(node.element)) node.element.name,
+      };
+
+  test(
+    'marks a redirecting factory, and neither a factory with a body nor a generative constructor',
+    () async {
+      final outline = await outlineOf('''
+class Shape {
+  Shape();
+  factory Shape.circle() = Circle;
+  factory Shape.square() => Circle();
+  factory Shape.empty() {
+    return Circle();
+  }
+}
+
+class Circle extends Shape {}
+''');
+
+      expect(namesWhere(outline, (element) => element.isRedirectingFactory), {
+        'Shape.circle',
+      });
+    },
+  );
+
+  test(
+    'marks a primary constructor and the fields of its declaring parameters as in the header of their class, and no member of its body',
+    () async {
+      final outline = await outlineOf('''
+class Point(var int x, final int y, int z) {
+  final int w = 0;
+  this : assert(z > 0);
+  Point.origin() : this(0, 0, 1);
+}
+''');
+
+      expect(namesWhere(outline, (element) => element.isInTypeHeader), {
+        'Point',
+        'x',
+        'y',
+      });
+    },
+    skip: newestLanguageVersion < LanguageVersion(3, 13)
+        ? 'This analyzer does not support Dart 3.13 constructors.'
+        : false,
+  );
+
+  test(
+    'marks the final instance fields in the body of a class, also the later variables of a statement, and no static, const or other field',
+    () async {
+      final outline = await outlineOf('''
+class Fields {
+  final int a = 0, b = 1;
+  late final int c;
+  int d = 0;
+  static final int e = 0;
+  static const int f = 0;
+  var g = 0;
+}
+
+final int top = 0;
+''');
+
+      expect(namesWhere(outline, (element) => element.isFinalInstanceField), {
+        'a',
+        'b',
+        'c',
+      });
+    },
+  );
+
+  test(
+    "marks an enum that reads its own `values` in its body, with or without its name, and no enum that reads only a parameter named `values` or another enum's `values`",
+    () async {
+      final outline = await outlineOf('''
+enum Bare {
+  a;
+  static Bare first() => values.first;
+}
+
+enum Passed {
+  a;
+  static int count() => countOf(values);
+}
+
+enum Qualified {
+  a;
+  static List<Qualified> all() => Qualified.values;
+}
+
+enum Local {
+  a;
+  static int sum(List<int> values) => values.length;
+}
+
+enum Other {
+  a;
+  static int count() => Bare.values.length;
+}
+
+int countOf(List<Object> values) => values.length;
+''');
+
+      expect(namesWhere(outline, (element) => element.usesOwnValues), {
+        'Bare',
+        'Passed',
+        'Qualified',
+      });
+    },
+  );
 }

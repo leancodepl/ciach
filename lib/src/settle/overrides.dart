@@ -8,7 +8,6 @@ import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
-import 'package:ciach/src/source/syntax_rules.dart';
 import 'package:ciach/src/util/cached_map.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
@@ -170,8 +169,7 @@ final class OverrideRemovals {
     }
     // Deleting a declaring parameter changes the constructor signature at
     // every call site.
-    if (node.element.kind == .field &&
-        _sources.isNameInTypeHeader(path, start, found.parent)) {
+    if (node.element.isInTypeHeader) {
       return null;
     }
     // No reference to check: a member's references are those of its whole

@@ -68,7 +68,9 @@ class RemoveSafety {
       // No declaration to inspect: block.
       final classCandidate = tally.classByKey[key];
       if (classCandidate == null ||
-          sources.classHasFinalInstanceField(classCandidate) ||
+          classCandidate.outline.children.any(
+            (member) => member.element.isFinalInstanceField,
+          ) ||
           superclassNeedsArguments(classCandidate)) {
         blockedCtorClasses.add(key);
       }
@@ -131,8 +133,8 @@ final class _Tally {
       );
     } else if (candidate.kind == .enum$) {
       enumTypeStays[candidate.key] = !unused;
-      if (refs.any(_sources.isDotValuesRef) ||
-          _sources.enumIteratesOwnValues(candidate)) {
+      if (candidate.outline.element.usesOwnValues ||
+          refs.any(_sources.isDotValuesRef)) {
         enumValuesIterated.add(candidate.key);
       }
     } else if (candidate.isEnumValue) {

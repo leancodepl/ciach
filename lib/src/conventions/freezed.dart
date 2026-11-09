@@ -11,9 +11,7 @@
 import 'package:ciach/src/analysis/declaration_annotation.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/source/outline.dart';
-import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
-import 'package:ciach/src/source/syntax_rules.dart';
 
 /// `freezed` union conventions.
 ///
@@ -49,7 +47,6 @@ class FreezedUnions {
   Set<int> deserializationOnlyArms(
     List<Candidate> candidates,
     List<RefStatus> statuses,
-    SourceIndex sources,
   ) {
     final unionsWithUsedFromJson = <DeclKey>{};
     for (final (i, c) in candidates.indexed) {
@@ -72,7 +69,7 @@ class FreezedUnions {
       if (c.containerKey case final key?
           when _annotatedClasses.contains(key) &&
               unionsWithUsedFromJson.contains(key) &&
-              sources.isRedirectingFactory(c)) {
+              c.outline.element.isRedirectingFactory) {
         arms.add(i);
       }
     }

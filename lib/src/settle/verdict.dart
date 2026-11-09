@@ -6,24 +6,18 @@ import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
 import 'package:ciach/src/settle/remove_safety.dart';
 import 'package:ciach/src/source/locations.dart';
-import 'package:ciach/src/source/source_index.dart';
+import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/symbols.dart';
-import 'package:ciach/src/source/syntax_rules.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/paths.dart';
 
 /// What becomes of one unused candidate: silently suppressed, reported but
 /// report-only, or a finding — and how that finding is spelled.
 final class Verdict {
-  Verdict({
-    required this.options,
-    required SourceIndex sources,
-    required ReferenceClassifier classifier,
-  }) : _sources = sources,
-       _classifier = classifier;
+  Verdict({required this.options, required ReferenceClassifier classifier})
+    : _classifier = classifier;
 
   final FinderOptions options;
-  final SourceIndex _sources;
   final ReferenceClassifier _classifier;
 
   /// Advisory note attached to a sole, zero-parameter private constructor
@@ -208,11 +202,9 @@ final class Verdict {
   Translations? _translations(Candidate candidate) =>
       translationsOf(candidate, options.translations, options.rootPath);
 
-  /// See [StructuralChecks.isDeclaredInTypeHeader].
-  bool _isHeaderDeclaration(Candidate candidate) => switch (candidate.kind) {
-    .constructor || .field => _sources.isDeclaredInTypeHeader(candidate),
-    _ => false,
-  };
+  /// See [OutlineElement.isInTypeHeader].
+  bool _isHeaderDeclaration(Candidate candidate) =>
+      candidate.outline.element.isInTypeHeader;
 
   /// Whether [candidate] goes with an already-dead class's own declaration —
   /// any constructor, or a declaring parameter — so a single removal is not

@@ -179,7 +179,6 @@ final class Settler {
     final freezedUnionArms = _freezed.deserializationOnlyArms(
       candidates,
       statuses,
-      _sources,
     );
 
     final deadClassNames = _deadClassNames(candidates, statuses);
