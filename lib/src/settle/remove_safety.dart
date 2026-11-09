@@ -28,6 +28,8 @@ typedef SuperclassNeedsArguments = bool Function(Candidate cls);
 /// * [enumValuesIterated] — enums whose values are all reachable through
 ///   `.values` iteration, so a value reached only that way is used, not dead,
 ///   and is suppressed entirely rather than reported.
+/// * [extensionsWithLiveMembers] — extensions with a member that isn't dead,
+///   which keeps the extension in use, also when nothing names it.
 /// * [deadExtensions] — extensions nothing names and every member of which is
 ///   dead: reported and removed whole, like a dead class.
 class RemoveSafety {
@@ -35,6 +37,7 @@ class RemoveSafety {
     required this.emptiedEnums,
     required this.blockedCtorClasses,
     required this.enumValuesIterated,
+    required this.extensionsWithLiveMembers,
     required this.deadExtensions,
   });
 
@@ -96,23 +99,20 @@ class RemoveSafety {
           candidate.key,
     };
 
-    final deadMembers = dead
-        .where((candidate) => candidate.isExtensionMember)
-        .groupListsBy((member) => member.containerKey);
-    final deadExtensions = {
-      // Unnamed extensions on one type share a key; merging can only keep.
-      for (final MapEntry(:key, value: extensions)
-          in candidates
-              .where((candidate) => candidate.isExtension)
-              .groupListsBy((extension) => extension.key)
-              .entries)
-        if (extensions.every(dead.contains) &&
-            // Every member counts, so one excluded by `--kinds`/`--no-public`
-            // keeps the extension.
-            (deadMembers[key]?.length ?? 0) ==
-                extensions
-                    .map((extension) => extension.outline.children.length)
-                    .sum)
+    // Unnamed extensions on one type share a key; merging can only keep.
+    final extensionsByKey = candidates
+        .where((candidate) => candidate.isExtension)
+        .groupListsBy((extension) => extension.key);
+    final deadOutlines = {for (final candidate in dead) candidate.outline};
+    final extensionsWithLiveMembers = {
+      for (final MapEntry(:key, value: extensions) in extensionsByKey.entries)
+        // A member that isn't a dead candidate counts as live, also one that
+        // `--kinds` or `--no-public` leaves out. A local function in a member
+        // is no member.
+        if (!extensions.every(
+          (extension) =>
+              extension.outline.children.every(deadOutlines.contains),
+        ))
           key,
     };
 
@@ -120,7 +120,13 @@ class RemoveSafety {
       emptiedEnums: emptiedEnums,
       blockedCtorClasses: blockedCtorClasses,
       enumValuesIterated: enumValuesIterated,
-      deadExtensions: deadExtensions,
+      extensionsWithLiveMembers: extensionsWithLiveMembers,
+      deadExtensions: {
+        for (final MapEntry(:key, value: extensions) in extensionsByKey.entries)
+          if (!extensionsWithLiveMembers.contains(key) &&
+              extensions.every(dead.contains))
+            key,
+      },
     );
   }
 
@@ -138,5 +144,6 @@ class RemoveSafety {
   final Set<DeclKey> emptiedEnums;
   final Set<DeclKey> blockedCtorClasses;
   final Set<DeclKey> enumValuesIterated;
+  final Set<DeclKey> extensionsWithLiveMembers;
   final Set<DeclKey> deadExtensions;
 }

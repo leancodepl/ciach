@@ -14,6 +14,17 @@ extension LiveHelpers on int {
   int stale() => this * 3;
 }
 
+/// Nothing names it, but [main] calls `measure` -> USED. Its local function
+/// and `_base`, which only `measure` calls, don't make the extension dead.
+extension LocalHelpers on int {
+  int measure() {
+    int doubled(int n) => n * 2;
+    return doubled(_base());
+  }
+
+  int _base() => this;
+}
+
 /// Both members dead -> UNUSED. The server names it `extension on String`.
 extension on String {
   String shoutedOnce() => '$this!';
@@ -54,3 +65,11 @@ extension type SelfMeters(int value) {
 extension type Meters(int value) {}
 
 Meters toMeters(int value) => Meters(value);
+
+/// Nothing but a doc comment names it, and [main] calls `percent` -> USED.
+extension DocNamedHelpers on int {
+  int percent() => this * 100;
+}
+
+/// Prints [DocNamedHelpers.percent] and `measure` of 21.
+void main() => print(21.percent() + 21.measure());

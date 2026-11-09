@@ -241,12 +241,15 @@ final class Settler {
         ): i,
     };
     // A type in [reportOnlyTypes] and its members are left out:
-    // [WholeTypes.report] reports the type once.
+    // [WholeTypes.report] reports the type once. So is an extension that a
+    // live member keeps in use.
     final docOnly = [
       for (final (i, candidate) in candidates.indexed)
         if (statuses[i] == .docOnly &&
             !reportOnlyTypes.containsKey(candidate.key) &&
-            !reportOnlyTypes.containsKey(candidate.containerKey))
+            !reportOnlyTypes.containsKey(candidate.containerKey) &&
+            !(candidate.isExtension &&
+                safety.extensionsWithLiveMembers.contains(candidate.key)))
           _verdict.finding(candidate, rootPath),
     ];
     // Make the fields and variables `--remove` can't cut out report-only now,

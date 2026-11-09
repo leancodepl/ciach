@@ -1075,6 +1075,36 @@ void main() {
     );
 
     test(
+      'an extension with a live member is never reported, also when that member holds a local function and calls a private member',
+      () async {
+        // Transitively, the members that only the extension uses are dead.
+        final result = await runFinder(
+          include: extensionFixture,
+          exclude: const [],
+          transitive: true,
+        );
+        expect(
+          result.unused
+              .map((d) => d.qualifiedName)
+              .where((name) => name.startsWith('LocalHelpers')),
+          isEmpty,
+        );
+      },
+    );
+
+    test(
+      'an extension with a live member is not doc-only when only a doc comment names it',
+      () async {
+        final result = await runExtensions();
+        expect(findByQualified(result, 'DocNamedHelpers'), isNull);
+        expect(
+          result.docOnly.map((d) => d.qualifiedName),
+          isNot(contains('DocNamedHelpers')),
+        );
+      },
+    );
+
+    test(
       'an unnamed extension is reported whole as `extension on <type>`, its members unqualified',
       () async {
         final result = await runExtensions();
