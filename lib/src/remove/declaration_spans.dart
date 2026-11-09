@@ -16,7 +16,6 @@ Span? spanFor(
   int Function(int line, int column) offsetOf,
 ) {
   final range = decl.range;
-  final baseStart = offsetOf(range.startLine, range.startColumn);
   final baseEnd = offsetOf(range.endLine, range.endColumn);
   final fullStart = startWithIndentation(decl.fullRange, lines, offsetOf);
 
@@ -24,10 +23,9 @@ Span? spanFor(
   var end = baseEnd;
 
   if (decl.isEnumValue) {
-    (start, end) = _extendEnumValue(
+    (:start, :end) = _extendEnumValue(
       content,
       valueStart: fullStart,
-      baseStart: baseStart,
       baseEnd: baseEnd,
     );
   } else if (end < content.length && content[end] == ';') {
@@ -44,23 +42,22 @@ Span? spanFor(
 /// consuming a trailing comma (keeps the shape for the common
 /// trailing-comma style); falls back to the leading comma for the last value
 /// in a list without one.
-(int, int) _extendEnumValue(
+Span _extendEnumValue(
   String content, {
   required int valueStart,
-  required int baseStart,
   required int baseEnd,
 }) {
   final forward = nextNonWhitespace(content, baseEnd);
   if (forward != null && content[forward] == ',') {
     // Swallow the blank after the comma too, but stop at a line break so a
     // multi-line enum's indentation stays intact.
-    return (valueStart, skipSameLineBlank(content, forward + 1));
+    return (start: valueStart, end: skipSameLineBlank(content, forward + 1));
   }
   final backward = previousNonWhitespace(content, valueStart);
   if (backward != null && content[backward] == ',') {
-    return (backward, baseEnd);
+    return (start: backward, end: baseEnd);
   }
-  return (valueStart, baseEnd);
+  return (start: valueStart, end: baseEnd);
 }
 
 /// Drops the separator comma left dangling when a compact single-line enum
