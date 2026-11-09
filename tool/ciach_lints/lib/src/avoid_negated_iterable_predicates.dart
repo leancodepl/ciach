@@ -139,21 +139,19 @@ class NegationRewrite._({
       MethodInvocation() when _negationOf(node) == null => (false, node),
       _ => (false, null),
     };
-    if (call is! MethodInvocation || call.typeArguments != null) {
-      return null;
-    }
-    final MethodInvocation(:target, :methodName, :operator, :argumentList) =
-        call;
-    final targetType = target?.staticType;
-    if (target == null ||
-        targetType == null ||
-        !typeSystem.isSubtypeOf(
+    if (call
+        case MethodInvocation(
+          typeArguments: null,
+          target: final Expression target &&
+              Expression(staticType: final targetType?),
+          :final methodName,
+          :final operator,
+          argumentList: ArgumentList(arguments: [final Expression argument]),
+        )
+        when typeSystem.isSubtypeOf(
           typeSystem.promoteToNonNull(targetType),
           typeProvider.iterableDynamicType,
         )) {
-      return null;
-    }
-    if (argumentList.arguments case [final Expression argument]) {
       final predicate = _NegatedPredicate.of(argument, content);
       final rewritten = _rewritten(
         methodName.name,

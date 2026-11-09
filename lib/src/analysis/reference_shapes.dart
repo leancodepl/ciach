@@ -79,7 +79,10 @@ bool isStateTypeArgumentAt(CompilationUnit unit, int offset) => switch (unit
     range: lineInfo.rangeOfEntity(clause),
     entries: entries.map(lineInfo.rangeOfEntity).toList(),
     whole: lineInfo.rangeOf(_spaceBefore(lineInfo, keyword), clause.end),
-    keepsOne: clause is WithClause && clause.parent is ClassTypeAlias,
+    keepsOne: switch (clause) {
+      WithClause(parent: ClassTypeAlias()) => true,
+      _ => false,
+    },
   );
   return switch (unit.nodeCovering(offset: offset)) {
     NamedType(importPrefix: null, name: Token(:final lexeme), :final parent) &&
@@ -154,7 +157,9 @@ bool isInBodyAt(CompilationUnit unit, int offset, int start, int end) {
     node != null && node.offset >= start;
     node = node.parent
   ) {
-    if (node is FunctionBody && node.end == end && node.offset != start) {
+    if (node case FunctionBody(
+      :final offset,
+    ) when node.end == end && offset != start) {
       return true;
     }
   }

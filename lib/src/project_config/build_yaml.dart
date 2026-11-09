@@ -18,8 +18,10 @@ Iterable<String> _buildYamlFiles(String rootPath) {
   }
   return [
     for (final entity in dir.listSync(followLinks: false))
-      if (entity is File && _buildYamlName.hasMatch(p.basename(entity.path)))
-        entity.path,
+      if (entity case File(
+        :final path,
+      ) when _buildYamlName.hasMatch(p.basename(path)))
+        path,
   ]..sort();
 }
 
@@ -39,6 +41,6 @@ Iterable<({String key, Object? config})> targetBuilders(
 ) => [
   for (final target in targets)
     if (target case {'builders': final Map<Object?, Object?> builders})
-      for (final MapEntry(:key, value: config) in builders.entries)
-        if (key is String) (key: key, config: config),
+      for (final MapEntry(key: name, value: config) in builders.entries)
+        if (name case final String key) (key: key, config: config),
 ];

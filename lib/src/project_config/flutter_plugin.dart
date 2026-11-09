@@ -9,8 +9,8 @@ Iterable<EntryPoint> flutterPluginEntryPoints(Pubspec pubspec) => [
   if (pubspec.yaml?['flutter'] case {
     'plugin': {'platforms': final Map<Object?, Object?> platforms},
   })
-    for (final MapEntry(key: platform, value: config) in platforms.entries)
-      if (config is Map<Object?, Object?>)
+    for (final MapEntry(key: platform, :value) in platforms.entries)
+      if (value case final Map<Object?, Object?> config)
         ..._pluginClassesOf(platform, config),
 ];
 
@@ -29,5 +29,8 @@ Iterable<EntryPoint> _registerWith(
   Object? fileName,
   Object? platform,
 ) => configRule('$plugin.registerWith', [
-  if (fileName is String) 'lib/$fileName' else 'lib/**',
+  switch (fileName) {
+    final String name => 'lib/$name',
+    _ => 'lib/**',
+  },
 ], 'called by Flutter to register the $platform plugin');

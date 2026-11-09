@@ -23,19 +23,15 @@ final class _BodyOutlines extends RecursiveAstVisitor<void> {
   /// such as a call of a function that doesn't exist.
   @override
   void visitMethodInvocation(MethodInvocation node) {
-    final name = node.methodName;
-    final element = name.element;
-    if (element is! ExecutableElement) {
-      return;
-    }
-    if (_isGroup(element)) {
-      final group = _BodyOutlines(_builder);
-      node.argumentList.accept(group);
-      outlines.add(_call(node, .unitTestGroup, group.outlines));
-    } else if (_isTest(element)) {
-      outlines.add(_call(node, .unitTestTest, const []));
-    } else {
-      super.visitMethodInvocation(node);
+    switch (node.methodName.element) {
+      case final ExecutableElement element when _isGroup(element):
+        final group = _BodyOutlines(_builder);
+        node.argumentList.accept(group);
+        outlines.add(_call(node, .unitTestGroup, group.outlines));
+      case final ExecutableElement element when _isTest(element):
+        outlines.add(_call(node, .unitTestTest, const []));
+      case ExecutableElement():
+        super.visitMethodInvocation(node);
     }
   }
 
@@ -66,7 +62,10 @@ final class _BodyOutlines extends RecursiveAstVisitor<void> {
       element.metadata.hasIsTest || _isTestFunction(element, 'test');
 
   static bool _isTestFunction(ExecutableElement element, String name) =>
-      element is TopLevelFunctionElement &&
-      element.name == name &&
-      element.library.firstFragment.source.fullName.endsWith('test.dart');
+      switch (element) {
+        TopLevelFunctionElement(:final library) =>
+          element.name == name &&
+              library.firstFragment.source.fullName.endsWith('test.dart'),
+        _ => false,
+      };
 }

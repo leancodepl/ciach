@@ -149,7 +149,10 @@ LetShape? _switchShape(SwitchExpression node, TypeSystem typeSystem) {
     type: variable.type,
     body: value.expression,
     aliases: const [],
-    fallback: nothing.expression is NullLiteral ? null : nothing.expression,
+    fallback: switch (nothing.expression) {
+      NullLiteral() => null,
+      final fallback => fallback,
+    },
   );
 }
 
@@ -208,7 +211,10 @@ LetShape? _conditionalShape(ConditionalExpression node) {
   final (whenNull, whenNotNull) = equalsNull
       ? (node.thenExpression, node.elseExpression)
       : (node.elseExpression, node.thenExpression);
-  final fallback = whenNull is NullLiteral ? null : whenNull;
+  final fallback = switch (whenNull) {
+    NullLiteral() => null,
+    _ => whenNull,
+  };
   if (target case SimpleIdentifier(:final name) when _isLocal(target)) {
     if (_identifiersNamed(whenNotNull, name) == 0) {
       return null;
@@ -333,7 +339,7 @@ class _Counter(final String name, final List<Expression> aliases)
 
   @override
   void visitNode(AstNode node) {
-    if (node is! Expression || !aliases.contains(node)) {
+    if (!aliases.contains(node)) {
       super.visitNode(node);
     }
   }
@@ -361,7 +367,10 @@ Rewrite rewriteOf(LetShape shape, String Function(AstNode node) text) {
   final String sketch;
   final bool usesLet;
   if (_chainRoot(body, aliases) case final root?
-      when (root is! SimpleIdentifier || root.name == variable) &&
+      when switch (root) {
+            SimpleIdentifier(:final name) => name == variable,
+            _ => true,
+          } &&
           _mentions(body, variable, aliases) == 1) {
     code = root == body
         ? receiver
@@ -427,8 +436,10 @@ String _withAliasesNamed(
 /// null-aware. The first selector has to be a `.` or an index, since `?`
 /// cannot precede `!` or another `?.`.
 Expression? _chainRoot(Expression body, List<Expression> aliases) {
-  bool isRoot(Expression node) =>
-      node is SimpleIdentifier || aliases.contains(node);
+  bool isRoot(Expression node) => switch (node) {
+    SimpleIdentifier() => true,
+    _ => aliases.contains(node),
+  };
   if (isRoot(body)) {
     return body;
   }
@@ -464,7 +475,10 @@ Expression? _chainRoot(Expression body, List<Expression> aliases) {
 /// Whether [node] is the variable: an identifier called [variable], or one
 /// of the [aliases].
 bool _isVariable(Expression node, String variable, List<Expression> aliases) =>
-    node is SimpleIdentifier && node.name == variable || aliases.contains(node);
+    switch (node) {
+      SimpleIdentifier(:final name) when name == variable => true,
+      _ => aliases.contains(node),
+    };
 
 /// The function [body] calls with the variable, called [variable] or one of
 /// the [aliases], as its only argument, `int.parse(v)` or `f(v)`, as a

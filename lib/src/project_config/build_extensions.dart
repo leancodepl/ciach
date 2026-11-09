@@ -4,8 +4,8 @@ import 'package:ciach/src/project_config/project_files.dart';
 /// `build_extensions`. The patterns are expanded in the same way as
 /// `expectedOutputs` in package:build expands them.
 Iterable<String> outputGlobs(Map<Object?, Object?> buildExtensions) => [
-  for (final MapEntry(key: input, value: outputs) in buildExtensions.entries)
-    if (input is String)
+  for (final MapEntry(:key, value: outputs) in buildExtensions.entries)
+    if (key case final String input)
       for (final output in _dartOutputs(outputs)) _outputGlob(input, output),
 ];
 

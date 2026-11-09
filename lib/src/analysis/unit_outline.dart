@@ -111,7 +111,10 @@ final class _OutlineBuilder {
       _outline(
         member,
         .new(
-          kind: type is GenericFunctionType ? .functionTypeAlias : .typeAlias,
+          kind: switch (type) {
+            GenericFunctionType() => .functionTypeAlias,
+            _ => .typeAlias,
+          },
           name: _nameOf(name),
           range: _rangeOf(name),
           parameters: switch (type) {
@@ -324,7 +327,10 @@ final class _OutlineBuilder {
       kind: kind,
       name: _nameOf(name),
       range: _rangeOf(name),
-      isInTypeHeader: node is FormalParameter,
+      isInTypeHeader: switch (node) {
+        FormalParameter() => true,
+        _ => false,
+      },
       isFinalInstanceField: switch (node) {
         VariableDeclaration(
           parent: VariableDeclarationList(

@@ -23,7 +23,6 @@ import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:ciach/src/analysis/assignments.dart';
 import 'package:ciach/src/util/extensions.dart';
-import 'package:collection/collection.dart';
 
 /// A use of `element` in the text from `offset` to `offset + length`, which is
 /// empty for a constructor call that names no constructor (`Foo()`).
@@ -79,9 +78,7 @@ final class _Uses extends RecursiveAstVisitor<void> {
     SyntacticEntity start,
     SyntacticEntity end,
   ) {
-    if (initializers.none(
-      (initializer) => initializer is SuperConstructorInvocation,
-    )) {
+    if (initializers.whereType<SuperConstructorInvocation>().isEmpty) {
       _add(
         _forwardedTo(constructor?.superConstructor),
         start.offset,
@@ -122,7 +119,7 @@ final class _Uses extends RecursiveAstVisitor<void> {
     if (node.element case final ConstructorElement constructor) {
       // The name of `@Tag.named()` can be `Tag.named`, whose last identifier
       // then uses the constructor.
-      if (node.name.element is ConstructorElement) {
+      if (node.name.element case ConstructorElement()) {
         _addNamedArguments(_forwardedTo(constructor), node.arguments);
       } else {
         _addConstructor(
@@ -386,7 +383,10 @@ final class _Uses extends RecursiveAstVisitor<void> {
   /// is an identifier, which [_addNamedArguments] has added already.
   @override
   void visitSimpleIdentifier(SimpleIdentifier node) {
-    if (node.inDeclarationContext() || node.parent is Label) {
+    if (node.inDeclarationContext()) {
+      return;
+    }
+    if (node.parent case Label()) {
       return;
     }
     for (final element in _accessedElements(node, node.element)) {

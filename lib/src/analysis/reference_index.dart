@@ -107,7 +107,7 @@ final class ReferenceIndex {
         ...searchedType.methods.where((method) => method.lookupName == name),
       ],
       // A `this.` parameter names a field of its own class.
-      if (member is FieldElement)
+      if (member case FieldElement())
         for (final constructor in type.constructors)
           for (final parameter in constructor.formalParameters)
             if (parameter case FieldFormalParameterElement(

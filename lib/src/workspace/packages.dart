@@ -31,10 +31,11 @@ PackageTree scanPackageTree(String root) {
 /// Every file under [dir], never entering a skipped directory.
 List<String> _filesUnder(Directory dir) => [
   for (final entity in dir.listSync(followLinks: false))
-    if (entity is Directory && !isInSkippedDir(p.basename(entity.path)))
-      ..._filesUnder(entity)
-    else if (entity is File)
-      p.normalize(entity.absolute.path),
+    if (entity case final Directory directory
+        when !isInSkippedDir(p.basename(directory.path)))
+      ..._filesUnder(directory)
+    else if (entity case File(:final absolute))
+      p.normalize(absolute.path),
 ];
 
 /// The text of the file at [path]; `null` when it cannot be read.

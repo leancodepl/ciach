@@ -240,8 +240,14 @@ explicit null check.
 - Branch on several values with one switch over a record, such as
   `switch ((key, value))` in `lib/src/cli/removed_options.dart`, not with `if`
   conditions that repeat the same null checks.
+- Test a type with a pattern, not with `is` or `is!`: `if (x case Foo())`,
+  `if (x case final Foo foo)`, a switch arm, or a field of a larger pattern,
+  like `parent: Label()`. Write a type test whose result is a value as a
+  switch expression, `switch (node) { FormalParameter() => true, _ => false }`.
+  Filter with `whereType<Foo>()`, not with a predicate `(x) => x is Foo`. An
+  `operator ==` is the exception: it keeps `other is Foo && other.a == a`.
 - Put type tests, null checks and field values in the pattern, not in a `when`
-  guard: `SemanticToken(isKeyword: true, :final text)`,
+  guard: `NamedType(importPrefix: null, :final parent)`,
   `PropertyAccess(:final target?)`. `prefer_pattern_over_guard` flags a guard
   that makes such a test on a variable of its own pattern, and moves the test.
   Capture a field under its own name with the shorthand: `:final name?`, not

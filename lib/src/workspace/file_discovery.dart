@@ -81,12 +81,13 @@ DiscoveredDartFiles discoverDartFiles(FinderOptions options) {
   final candidates = <String>[];
   final referenceOnly = <String>[];
   final ignored = <String>[];
-  for (final entity in root.listSync(recursive: true, followLinks: false)) {
-    if (entity is! File || !entity.path.endsWith('.dart')) {
+  for (final file
+      in root.listSync(recursive: true, followLinks: false).whereType<File>()) {
+    if (!file.path.endsWith('.dart')) {
       continue;
     }
 
-    final absolute = p.normalize(entity.absolute.path);
+    final absolute = p.normalize(file.absolute.path);
     // Path relative to root, in POSIX form so globs behave predictably.
     final relative = context.joinAll(
       p.split(p.relative(absolute, from: rootPath)),
@@ -96,7 +97,7 @@ DiscoveredDartFiles discoverDartFiles(FinderOptions options) {
       continue;
     }
     // Read once, and only when a check needs it.
-    late final source = _read(entity);
+    late final source = _read(file);
     if (!options.includeGenerated &&
         (generatedGlobs.any((glob) => glob.matches(relative)) ||
             _isGenerated(relative, () => source))) {

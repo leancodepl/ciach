@@ -35,7 +35,10 @@ bool? _hasNamePart;
 /// Whether [node] has `namePart`, which analyzer 14.0.0 added.
 bool _readsNamePart(ExtensionTypeDeclaration node) {
   try {
-    return (node as dynamic).namePart is ClassNamePart;
+    return switch ((node as dynamic).namePart) {
+      ClassNamePart() => true,
+      _ => false,
+    };
     // The error tells that the member is missing.
     // ignore: avoid_catching_errors
   } on NoSuchMethodError {

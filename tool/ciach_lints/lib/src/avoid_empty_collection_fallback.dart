@@ -186,8 +186,9 @@ class EmptyFallback({
   /// put one there: a null check when the check promotes [left], or else an
   /// if-case that binds [_name], unless the loop already uses that name.
   late final _Guard? _guard = switch ((use, _enclosing, _name)) {
-    (.spread || .target, _, _) || (_, null, _) => null,
-    (_, final loop?, _) when loop.parent is LabeledStatement => null,
+    (.spread || .target, _, _) ||
+    (_, null, _) ||
+    (_, AstNode(parent: LabeledStatement()), _) => null,
     _ when _promotes => _NullCheck(),
     (_, final loop?, final name?) when !_clashes(loop, name) => _IfCase(name),
     _ => null,

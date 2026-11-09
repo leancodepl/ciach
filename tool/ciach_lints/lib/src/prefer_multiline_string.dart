@@ -152,7 +152,10 @@ List<_Piece> _scan(String text) {
 /// The `\n` escapes in [pieces], not counting one ending the string.
 int _interiorNewlines(List<_Piece> pieces) {
   final newlines = pieces.whereType<_Newline>().length;
-  return pieces.lastOrNull is _Newline ? newlines - 1 : newlines;
+  return switch (pieces.lastOrNull) {
+    _Newline() => newlines - 1,
+    _ => newlines,
+  };
 }
 
 /// The multi-line form of [pieces], or null if a line would end in whitespace

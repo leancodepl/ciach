@@ -13,11 +13,12 @@ void copyTree(Directory from, Directory to) {
   for (final entity in from.listSync(recursive: true, followLinks: false)) {
     final relative = p.relative(entity.path, from: from.path);
     final target = p.join(to.path, relative);
-    if (entity is Directory) {
-      Directory(target).createSync(recursive: true);
-    } else if (entity is File) {
-      File(target).parent.createSync(recursive: true);
-      entity.copySync(target);
+    switch (entity) {
+      case Directory():
+        Directory(target).createSync(recursive: true);
+      case final File file:
+        File(target).parent.createSync(recursive: true);
+        file.copySync(target);
     }
   }
 }

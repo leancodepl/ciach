@@ -396,6 +396,23 @@ format: json
       );
     });
 
+    test(
+      'rejects a non-string in the glob list of an entry point, naming the type of the item',
+      () {
+        expect(
+          () => resolveFile('entry-points: [{name: a, glob: [lib/a.dart, 1]}]'),
+          throwsA(
+            isFormatException(
+              'ciach.yaml',
+              contains(
+                "'entry-points[0].glob' must be a glob or a list of globs, got a number.",
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
     test('rejects an unknown format', () {
       expect(
         () => resolveFile('format: xml'),

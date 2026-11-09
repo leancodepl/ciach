@@ -76,7 +76,10 @@ class MergeSwitchArms({required super.context})
   );
 
   late final _run = switch (node.thisOrAncestorMatching(
-    (node) => node is SwitchExpression || node is SwitchStatement,
+    (node) => switch (node) {
+      SwitchExpression() || SwitchStatement() => true,
+      _ => false,
+    },
   )) {
     final AstNode switchNode => ArmRun.allIn(
       switchNode,

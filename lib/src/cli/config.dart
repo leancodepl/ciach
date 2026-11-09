@@ -45,16 +45,22 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     if (document == null) {
       return ._(settings: const {}, path: origin, ignored: false);
     }
-    if (document is! Map) {
-      throw FormatException('$origin: the top level must be a map of options.');
-    }
+    final entries = switch (document) {
+      Map(:final entries) => entries,
+      _ => throw FormatException(
+        '$origin: the top level must be a map of options.',
+      ),
+    };
 
     final settings = <String, Object?>{
-      for (final entry in document.entries)
+      for (final entry in entries)
         // A valueless key (`public:`) counts as unset, and YAML collections
         // are unwrapped to plain Dart ones.
         if (entry.value case final value?)
-          '${entry.key}': value is Iterable ? value.toList() : value,
+          '${entry.key}': switch (value) {
+            final Iterable<Object?> list => list.toList(),
+            _ => value,
+          },
     };
     if (removedKeys.firstWhereOrNull(settings.containsKey) case final key?) {
       throw FormatException(
@@ -172,15 +178,26 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
   };
 
   /// The strings under [key], accepting a bare string as a one-element list.
-  List<String>? _strings(String key) => switch (settings[key]) {
-    null => null,
-    final String value => [value],
-    final Iterable<Object?> values => [
-      for (final value in values)
-        if (value is String) value else _wrong(key, 'a list of strings', value),
-    ],
-    final other => _wrong(key, 'a list of strings', other),
-  };
+  List<String>? _strings(String key) =>
+      _stringList(settings[key], key, 'a list of strings');
+
+  /// [value], the setting at [key], as a list of strings, accepting a bare
+  /// string as a one-element list, or `null` when [value] is `null`. Reports
+  /// any other value, and an item of a list that isn't a string, as not
+  /// [expected].
+  List<String>? _stringList(Object? value, String key, String expected) =>
+      switch (value) {
+        null => null,
+        final String one => [one],
+        final Iterable<Object?> many => [
+          for (final item in many)
+            switch (item) {
+              final String text => text,
+              final other => _wrong(key, expected, other),
+            },
+        ],
+        final other => _wrong(key, expected, other),
+      };
 
   /// The string under [key], which has to be one of [allowed].
   String? _oneOf(String key, List<String> allowed) {
@@ -230,18 +247,16 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
   };
 
   EntryPoint _rule(String at, String name, Object? glob) {
-    final files = switch (glob) {
-      null => const <String>[],
-      final String one => [one],
-      final Iterable<Object?> many when many.every((g) => g is String) =>
-        many.cast<String>().toList(),
-      final other => _wrong('$at.glob', 'a glob or a list of globs', other),
-    };
+    final files =
+        _stringList(glob, '$at.glob', 'a glob or a list of globs') ?? const [];
     try {
       return .fromConfig(name, files: files);
     } on FormatException catch (e) {
       // The glob package's error carries the glob as its source; name it.
-      final about = e.source is String ? "glob '${e.source}': " : '';
+      final about = switch (e.source) {
+        final String glob => "glob '$glob': ",
+        _ => '',
+      };
       throw FormatException("$path: '$at': $about${e.message}");
     }
   }

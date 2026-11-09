@@ -134,11 +134,13 @@ class GuardRewrite._({
     guarded.pattern.accept(variables);
     final scope =
         guarded.thisOrAncestorMatching(
-          (node) =>
-              node is SwitchExpression ||
-              node is SwitchStatement ||
-              node is IfStatement ||
-              node is IfElement,
+          (node) => switch (node) {
+            SwitchExpression() ||
+            SwitchStatement() ||
+            IfStatement() ||
+            IfElement() => true,
+            _ => false,
+          },
         ) ??
         guarded;
     final operands = _andOperands(whenClause.expression).toList();

@@ -273,9 +273,14 @@ Expression? _lengthTarget(Expression bound) => switch (bound) {
 /// `legend.tokenModifiers`, so that reading it once gives the same list as
 /// reading it in each round of the loop.
 bool _isNameChain(Expression list) => switch (list) {
-  SimpleIdentifier() || PrefixedIdentifier() => true,
+  SimpleIdentifier() ||
+  PrefixedIdentifier() ||
+  PropertyAccess(
+    target: ThisExpression(),
+    operator: Token(type: .PERIOD),
+  ) => true,
   PropertyAccess(:final target?, operator: Token(type: .PERIOD)) =>
-    target is ThisExpression || _isNameChain(target),
+    _isNameChain(target),
   _ => false,
 };
 

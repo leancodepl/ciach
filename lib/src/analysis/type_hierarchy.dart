@@ -85,10 +85,13 @@ final class TypeHierarchy {
   /// declares, or else the one that the last mixin of [type] that has one
   /// declares or inherits, unless that is [member] itself.
   static ExecutableElement? _overrideIn(InterfaceElement type, Element member) {
-    final (name, library) = (member.name, member.library);
     // An extension type redeclares the members of the types that it
     // implements, and only an extension type implements an extension type.
-    if (type is ExtensionTypeElement || name == null || library == null) {
+    if (type case ExtensionTypeElement()) {
+      return null;
+    }
+    final (name, library) = (member.name, member.library);
+    if (name == null || library == null) {
       return null;
     }
     // The member of the kind of [member] that the lookups find by its name.
