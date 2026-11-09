@@ -80,13 +80,11 @@ final class TransitiveSweep {
   static List<List<Location>> liveRefs(
     List<List<Location>> refsByCandidate,
     DeadSpans deadSpans,
-  ) => deadSpans.isEmpty
-      ? refsByCandidate
-      : [
-          for (final refs in refsByCandidate)
-            [
-              for (final loc in refs)
-                if (!deadSpans.covers(loc.path, loc.range.start)) loc,
-            ],
-        ];
+  ) => [
+    for (final refs in refsByCandidate)
+      [
+        for (final loc in refs)
+          if (!deadSpans.covers(loc.path, loc.range.start)) loc,
+      ],
+  ];
 }

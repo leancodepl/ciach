@@ -59,20 +59,21 @@ final class Verdict {
 
   /// Whether an unused [candidate] should be silently suppressed (never
   /// reported): a live freezed-union arm, an exempt `toJson` hook, a
-  /// constructor removed with its already-dead class, an extension or its
+  /// constructor or declaring parameter removed with its dead class, an
+  /// extension or its
   /// members (see [RemoveSafety.deadExtensions]), or an enum value reached
   /// only through `.values` iteration.
   bool isSuppressed(
     Candidate candidate,
     int index,
     Set<int> freezedUnionArms,
-    Map<String, Set<String>> deadClassNames,
     RemoveSafety safety,
   ) {
     final containerKey = candidate.containerKey;
     return freezedUnionArms.contains(index) ||
         (!options.reportToJson && isToJsonHook(candidate)) ||
-        _isRemovedWithDeadClass(candidate, deadClassNames) ||
+        ((candidate.kind == .constructor || _isHeaderDeclaration(candidate)) &&
+            safety.deadClasses.contains(containerKey)) ||
         // Used through its members, never by name.
         (candidate.isExtension &&
             !safety.deadExtensions.contains(candidate.key)) ||
@@ -192,14 +193,4 @@ final class Verdict {
   /// See [OutlineElement.isInTypeHeader].
   bool _isHeaderDeclaration(Candidate candidate) =>
       candidate.outline.element.isInTypeHeader;
-
-  /// Whether [candidate] goes with an already-dead class's own declaration —
-  /// any constructor, or a declaring parameter — so a single removal is not
-  /// reported twice.
-  bool _isRemovedWithDeadClass(
-    Candidate candidate,
-    Map<String, Set<String>> deadClassNames,
-  ) =>
-      (candidate.kind == .constructor || _isHeaderDeclaration(candidate)) &&
-      (deadClassNames[candidate.path]?.contains(candidate.container) ?? false);
 }

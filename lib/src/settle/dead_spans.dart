@@ -43,8 +43,6 @@ final class DeadSpans {
       for (final span in spans) span.owner,
   }.length;
 
-  bool get isEmpty => _byPath.isEmpty;
-
   bool covers(String path, int offset) => ownerOf(path, offset) != null;
 
   /// The outermost finding whose removal deletes [offset] in [path]. The
@@ -76,9 +74,6 @@ final class DeadSpans {
   /// The findings whose removal deletes one of [refs], in source order. A
   /// declaration with no other references is dead only because they are.
   List<DeadReferrer> referrersAmong(Iterable<Location> refs) {
-    if (isEmpty) {
-      return const [];
-    }
     final owners = {
       for (final loc in refs) ?ownerOf(loc.path, loc.range.start),
     };

@@ -8,18 +8,17 @@
  *     - mark-ai-provenance
  */
 
+import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/source/file_syntax.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:collection/collection.dart';
-
-/// Whether a class's superclass needs constructor arguments.
-typedef SuperclassNeedsArguments = bool Function(Candidate cls);
 
 /// The remove-safety pre-pass: facts gathered up front so the reporting loop
 /// stays a set of cheap lookups when deciding which findings are report-only
 /// (`removalBlocked`) because auto-removing them would break the build.
 ///
+/// * [deadClasses] — classes and mixins that are unused. One is removed whole,
+///   with its constructors and its header's declarations.
 /// * [emptiedEnums] — enums every one of whose values would be removed while
 ///   the enum type itself stays, leaving `enum E {}` (a compile error).
 /// * [blockedCtorClasses] — live classes all of whose constructors are dead:
@@ -34,6 +33,7 @@ typedef SuperclassNeedsArguments = bool Function(Candidate cls);
 ///   dead: reported and removed whole, like a dead class.
 class RemoveSafety {
   const RemoveSafety({
+    required this.deadClasses,
     required this.emptiedEnums,
     required this.blockedCtorClasses,
     required this.enumValuesIterated,
@@ -42,16 +42,18 @@ class RemoveSafety {
   });
 
   static RemoveSafety analyze(
-    FileSyntax syntax,
+    ResolvedFiles files,
     List<Candidate> candidates,
     List<RefStatus> statuses,
     List<List<Location>> refsByCandidate,
-    Map<String, Set<String>> deadClassNames,
-    SuperclassNeedsArguments superclassNeedsArguments,
   ) {
     final dead = {
       for (final (i, candidate) in candidates.indexed)
         if (statuses[i] == .unused) candidate,
+    };
+    final deadClasses = {
+      for (final candidate in dead)
+        if (candidate.isClassOrMixin) candidate.key,
     };
 
     final enumStays = {
@@ -72,13 +74,19 @@ class RemoveSafety {
       for (final candidate in candidates)
         if (candidate.isClassOrMixin) candidate.key: candidate,
     };
+    // An implicit default constructor would strand a `final` field, or call a
+    // super constructor that needs arguments. Without a declaration or a
+    // resolved file to inspect, block.
     bool needsConstructor(Candidate? cls) =>
-        // No declaration to inspect: block.
         cls == null ||
         cls.outline.children.any(
           (member) => member.element.isFinalInstanceField,
         ) ||
-        superclassNeedsArguments(cls);
+        (files
+                .resolved(cls.path)
+                ?.needSuperArguments
+                .contains(cls.outline.nameRange.start) ??
+            true);
     final blockedCtorClasses = {
       for (final key in _allPartsDead(
         candidates.where((candidate) => candidate.kind == .constructor),
@@ -86,16 +94,14 @@ class RemoveSafety {
       ))
         // A dead class is removed whole (its constructors go with it), so its
         // constructors are never reported on their own — nothing to guard.
-        if (!(deadClassNames[key.path]?.contains(key.name) ?? false) &&
-            needsConstructor(classes[key]))
-          key,
+        if (!deadClasses.contains(key) && needsConstructor(classes[key])) key,
     };
 
     final enumValuesIterated = {
       for (final (i, candidate) in candidates.indexed)
         if (candidate.kind == .enum$ &&
             (candidate.outline.element.usesOwnValues ||
-                refsByCandidate[i].any(syntax.isEnumValuesAccess)))
+                refsByCandidate[i].any(files.isEnumValuesAccess)))
           candidate.key,
     };
 
@@ -117,6 +123,7 @@ class RemoveSafety {
     };
 
     return .new(
+      deadClasses: deadClasses,
       emptiedEnums: emptiedEnums,
       blockedCtorClasses: blockedCtorClasses,
       enumValuesIterated: enumValuesIterated,
@@ -141,6 +148,7 @@ class RemoveSafety {
       if (contained.every(dead.contains)) ?container,
   ];
 
+  final Set<DeclKey> deadClasses;
   final Set<DeclKey> emptiedEnums;
   final Set<DeclKey> blockedCtorClasses;
   final Set<DeclKey> enumValuesIterated;

@@ -12,7 +12,6 @@ import 'package:ciach/src/settle/overrides.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
 import 'package:ciach/src/settle/removable.dart';
 import 'package:ciach/src/settle/remove_safety.dart';
-import 'package:ciach/src/settle/superclasses.dart';
 import 'package:ciach/src/settle/transitive.dart';
 import 'package:ciach/src/settle/variable_cuts.dart';
 import 'package:ciach/src/settle/verdict.dart';
@@ -29,12 +28,6 @@ typedef Settled = ({
   List<UnusedDeclaration> unused,
   List<UnusedDeclaration> docOnly,
   List<EmptiedContainer> emptied,
-});
-
-/// What one round settles.
-typedef _Verdicts = ({
-  List<UnusedDeclaration> unused,
-  List<UnusedDeclaration> docOnly,
 });
 
 /// From references to findings: settles each candidate's verdict — classifies
@@ -73,10 +66,6 @@ final class Settler {
     verdict: _verdict,
   );
 
-  late final _variableCuts = VariableCuts(_files);
-
-  late final _wholeTypes = WholeTypes(verdict: _verdict);
-
   /// Candidates an earlier round found removable. A group guard (every value
   /// of an enum, every constructor of a class) doesn't block them later: the
   /// members that joined the group since stay blocked, so the group isn't
@@ -104,10 +93,10 @@ final class Settler {
     var deadSpans = options.transitive
         ? _transitive.allUnreached(candidates, refsByCandidate, rootPath)
         : DeadSpans.empty;
-    _Verdicts settled;
-    Map<UnusedDeclaration, int> candidateOf;
+    ({List<UnusedDeclaration> docOnly, Map<UnusedDeclaration, int> candidateOf})
+    result;
     for (var round = 1; ; round++) {
-      final result = _round(
+      result = _round(
         candidates,
         refsByCandidate,
         TransitiveSweep.liveRefs(refsByCandidate, deadSpans),
@@ -116,8 +105,6 @@ final class Settler {
         scannedPaths,
         rootPath,
       );
-      settled = result.settled;
-      candidateOf = result.candidateOf;
       if (!options.transitive) {
         break;
       }
@@ -146,16 +133,17 @@ final class Settler {
       deadSpans = next;
     }
     return (
-      unused: settled.unused.sorted(compareByLocation),
-      docOnly: settled.docOnly.sorted(compareByLocation),
-      emptied: emptiedContainers(candidates, candidateOf, rootPath),
+      unused: result.candidateOf.keys.sorted(compareByLocation),
+      docOnly: result.docOnly.sorted(compareByLocation),
+      emptied: emptiedContainers(candidates, result.candidateOf, rootPath),
     );
   }
 
   /// One round, classifying from [liveRefs], with each unused finding's
   /// candidate index. [refsByCandidate] still holds the references into
   /// [deadSpans], for [DeadSpans.referrersAmong].
-  ({_Verdicts settled, Map<UnusedDeclaration, int> candidateOf}) _round(
+  ({List<UnusedDeclaration> docOnly, Map<UnusedDeclaration, int> candidateOf})
+  _round(
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
     List<List<Location>> liveRefs,
@@ -176,37 +164,16 @@ final class Settler {
       statuses,
     );
 
-    final deadClassNames = _deadClassNames(candidates, statuses);
-
-    final safety = RemoveSafety.analyze(
-      _files,
-      candidates,
-      statuses,
-      liveRefs,
-      deadClassNames,
-      (cls) => needsSuperArguments(_files, cls),
-    );
-
-    // `--remove` keeps a type that only doc comments mention, and its members.
-    final docOnlyTypes = [
-      for (final (i, candidate) in candidates.indexed)
-        if (statuses[i] == .docOnly && candidate.isType) candidate,
-    ];
+    final safety = RemoveSafety.analyze(_files, candidates, statuses, liveRefs);
 
     final reported = <int>{
       for (final (i, candidate) in candidates.indexed)
         if (statuses[i] == .unused &&
-            !_verdict.isSuppressed(
-              candidate,
-              i,
-              freezedUnionArms,
-              deadClassNames,
-              safety,
-            ))
+            !_verdict.isSuppressed(candidate, i, freezedUnionArms, safety))
           i,
     };
 
-    final reportOnlyTypes = _wholeTypes.reportOnly(
+    final reportOnly = reportOnlyTypes(
       candidates,
       statuses,
       reported,
@@ -222,8 +189,12 @@ final class Settler {
         for (final index in reported)
           if (_verdict.canBeOverridden(candidates[index])) index,
       ],
+      // `--remove` keeps a type that only doc comments mention, and its
+      // members.
       kept: .of([
-        for (final type in docOnlyTypes) _verdict.finding(type, rootPath),
+        for (final (i, candidate) in candidates.indexed)
+          if (statuses[i] == .docOnly && candidate.isType)
+            _verdict.finding(candidate, rootPath),
       ], rootPath),
     );
 
@@ -240,14 +211,14 @@ final class Settler {
           rootPath: rootPath,
         ): i,
     };
-    // A type in [reportOnlyTypes] and its members are left out:
-    // [WholeTypes.report] reports the type once. So is an extension that a
-    // live member keeps in use.
+    // A type in [reportOnly] and its members are left out: [reportWholeTypes]
+    // reports the type once. So is an extension that a live member keeps in
+    // use.
     final docOnly = [
       for (final (i, candidate) in candidates.indexed)
         if (statuses[i] == .docOnly &&
-            !reportOnlyTypes.containsKey(candidate.key) &&
-            !reportOnlyTypes.containsKey(candidate.containerKey) &&
+            !reportOnly.containsKey(candidate.key) &&
+            !reportOnly.containsKey(candidate.containerKey) &&
             !(candidate.isExtension &&
                 safety.extensionsWithLiveMembers.contains(candidate.key)))
           _verdict.finding(candidate, rootPath),
@@ -255,17 +226,11 @@ final class Settler {
     // Make the fields and variables `--remove` can't cut out report-only now,
     // so that the next `--transitive` round keeps alive what they reference,
     // and a class that keeps one isn't listed as left empty.
-    final unused = candidateOf.keys.toList();
-    final cut = _variableCuts.withCuts(unused, rootPath);
-    final cutCandidateOf = {
-      for (final (k, finding) in cut.indexed) finding: candidateOf[unused[k]]!,
-    };
+    final cutCandidateOf = withVariableCuts(_files, candidateOf, rootPath);
     // Members of a type reported once as report-only aren't reported, so
     // `--remove` must not count them as removed.
     final removable = removableIndices(cutCandidateOf)
-        .whereNot(
-          (i) => reportOnlyTypes.containsKey(candidates[i].containerKey),
-        )
+        .whereNot((i) => reportOnly.containsKey(candidates[i].containerKey))
         .toSet();
     _removableBefore.addAll(removable);
     final clauseOnly = _clauseOnly.findings(
@@ -278,20 +243,19 @@ final class Settler {
       scannedPaths,
       rootPath,
     );
-    final findings = _withoutEnclosedInDead(
-      _wholeTypes.report(
-        {...cutCandidateOf, ...clauseOnly},
-        candidates,
-        reportOnlyTypes,
-        _removableBefore,
+    return (
+      docOnly: docOnly,
+      candidateOf: _withoutEnclosedInDead(
+        reportWholeTypes(
+          _verdict,
+          {...cutCandidateOf, ...clauseOnly},
+          candidates,
+          reportOnly,
+          _removableBefore,
+          rootPath,
+        ),
         rootPath,
       ),
-      deadSpans,
-      rootPath,
-    );
-    return (
-      settled: (unused: findings.keys.toList(), docOnly: docOnly),
-      candidateOf: findings,
     );
   }
 
@@ -300,12 +264,8 @@ final class Settler {
   /// reported separately.
   static Map<UnusedDeclaration, int> _withoutEnclosedInDead(
     Map<UnusedDeclaration, int> candidateOf,
-    DeadSpans deadSpans,
     String rootPath,
   ) {
-    if (deadSpans.isEmpty) {
-      return candidateOf;
-    }
     final removable = DeadSpans.of(candidateOf.keys, rootPath);
     return .fromEntries(
       candidateOf.entries.whereNot(
@@ -315,21 +275,6 @@ final class Settler {
       ),
     );
   }
-
-  /// Names of classes flagged unused, per file. A whole dead class is removed
-  /// as one node, taking its own constructor(s) with it, so those constructors
-  /// must not also be reported (or removed) on their own.
-  static Map<String, Set<String>> _deadClassNames(
-    List<Candidate> candidates,
-    List<RefStatus> statuses,
-  ) => candidates
-      .whereIndexed(
-        (i, candidate) => statuses[i] == .unused && candidate.isClassOrMixin,
-      )
-      .groupFoldBy<String, Set<String>>(
-        (cls) => cls.path,
-        (names, cls) => (names ?? {})..add(cls.name),
-      );
 
   UnusedDeclaration _unusedFinding(
     int i, {
