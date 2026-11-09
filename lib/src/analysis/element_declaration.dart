@@ -20,8 +20,16 @@ final class ElementDeclaration {
   const ElementDeclaration._(this.path, this.offset, this.kind, this.name);
 
   /// Returns the declaration of [element], or `null` for an element that no
-  /// file declares, such as `dynamic`.
+  /// file declares, such as `dynamic` and the `loadLibrary` function of a
+  /// deferred import.
   static ElementDeclaration? of(Element element) {
+    // The analyzer creates `loadLibrary` in the deferred library, but gives
+    // it no offset there.
+    if (element case TopLevelFunctionElement(
+      :final library,
+    ) when element == library.loadLibraryFunction) {
+      return null;
+    }
     final fragment = element.firstFragment;
     return fragment.libraryFragment?.source.fullName.let(
       (path) => ._(path, fragment.offset, element.kind, element.name),

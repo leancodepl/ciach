@@ -192,6 +192,29 @@ void main() => shared();
     },
   );
 
+  test(
+    'a call or tear-off of `loadLibrary` on a deferred import refers to nothing, and other references are found',
+    () async {
+      package.writeAll({
+        'lib/a.dart': 'int value = 1;\n',
+        'lib/b.dart': '''
+import 'a.dart' deferred as a;
+
+Future<int> read() async {
+  await a.loadLibrary();
+  final load = a.loadLibrary;
+  await load();
+  return a.value;
+}
+''',
+      });
+
+      expect(await referencesTo('lib/a.dart', 'value'), [
+        (file: 'lib/b.dart', line: 7, text: 'value'),
+      ]);
+    },
+  );
+
   test('finds nothing where no declaration has its name', () async {
     package.writeAll({'lib/a.dart': 'void f() {}\n'});
 
