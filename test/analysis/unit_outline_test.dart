@@ -37,7 +37,7 @@ void group(String description, void Function() body) {}
 
   /// Writes [source] to a new file and returns its outline.
   Future<Outline> outlineOf(String source) async =>
-      (await package.files.of(package.writeNew(source)))!.outline;
+      (await package.resolveNew(source)).outline;
 
   /// The declarations in [outline], in order, each with how deep it is
   /// nested, its kind, its name and the text of its name range in [source].

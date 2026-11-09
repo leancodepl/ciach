@@ -7,74 +7,19 @@
 @Timeout(Duration(minutes: 5))
 library;
 
-import 'package:ciach/src/analysis/declaration_annotation.dart';
-import 'package:ciach/src/analysis/resolved_class.dart';
-import 'package:ciach/src/analysis/resolved_file.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:test/test.dart';
 
 import '../support/locations.dart';
+import '../support/previews_package.dart';
 import '../support/test_package.dart';
 
 void main() {
   late TestPackage package;
 
-  setUpAll(() {
-    package = .new('resolved_files')
-      ..writeAll({
-        'pubspec.yaml': 'name: app\n',
-        'lib/previews.dart': '''
-class Preview {
-  const Preview();
-  const Preview.named();
-}
-
-class DarkPreview extends Preview {
-  const DarkPreview();
-}
-
-mixin Themed {}
-
-class ThemedPreview with Themed implements DarkPreview {
-  const ThemedPreview();
-}
-
-const preview = Preview();
-
-const sameAsPreview = preview;
-
-const heldPreview = Holder.held;
-
-const previewList = [Preview()];
-
-class Typed<T> extends Preview {
-  const Typed();
-}
-
-typedef AliasPreview = DarkPreview;
-
-typedef AliasOfAlias = AliasPreview;
-
-typedef AliasTyped<T extends Object> = Typed<T>;
-
-class Holder {
-  static const held = DarkPreview();
-}
-''',
-        'lib/local.dart': '''
-class JSExport {
-  const JSExport();
-}
-''',
-      });
-  });
+  setUpAll(() => package = previewsPackage());
 
   tearDownAll(() => package.dispose());
-
-  /// Writes [source] to a new file in the directory [dir] of the package, and
-  /// resolves it.
-  Future<ResolvedFile> resolve(String source, {String dir = 'lib'}) async =>
-      (await package.files.of(package.writeNew(source, dir: dir)))!;
 
   /// Whether the signature of each of the [functions] that [source] declares
   /// is dynamic, by name.
@@ -93,184 +38,10 @@ class JSExport {
     };
   }
 
-  /// The values of [byPosition] on each line of [source].
-  Map<int, List<T>> byLine<T>(String source, Map<Position, T> byPosition) => {
-    for (final (line, _) in source.split('\n').indexed)
-      line: [
-        for (final MapEntry(key: position, :value) in byPosition.entries)
-          if (position.line == line) value,
-      ],
-  };
-
-  const object = ResolvedClass('Object', 'dart:core');
-  ResolvedClass app(String name) => .new(name, 'app');
-
-  /// The class [type] from the package `app` that an annotation creates,
-  /// whose supertypes are [supertypes] and `Object`.
-  AnnotationClass annotationClass(String type, List<String> supertypes) => .new(
-    app(type),
-    {for (final supertype in supertypes) app(supertype), object},
-  );
-
-  test(
-    'resolves the class of each annotation that calls a constructor, with all its supertypes, and of no annotation that reads a constant',
-    () async {
-      const source = '''
-import 'previews.dart';
-import 'previews.dart' as previews;
-
-@Preview() void a() {}
-@DarkPreview() void b() {}
-@ThemedPreview() void c() {}
-@previews.DarkPreview() void d() {}
-@Preview.named() void e() {}
-@preview void f() {}
-@override void g() {}
-void h() {}
-@Typed<int>() void i() {}
-@AliasPreview() void j() {}
-@previews.AliasOfAlias() void k() {}
-@AliasTyped<int>() void l() {}
-@Typed<AliasPreview>() void m() {}
-@Holder.held void n() {}
-@previews.preview void o() {}
-@sameAsPreview void p() {}
-@heldPreview void q() {}
-@previewList void r() {}
-@previews.Preview.named() void s() {}
-@previews.Holder.held void t() {}
-''';
-      final file = await resolve(source);
-
-      expect(
-        byLine(source, {
-          for (final MapEntry(key: name, value: annotations)
-              in file.annotations.entries)
-            for (final annotation in annotations)
-              name: ?annotation.createdClass,
-        }),
-        {
-          0: isEmpty,
-          1: isEmpty,
-          2: isEmpty,
-          3: [annotationClass('Preview', [])],
-          4: [
-            annotationClass('DarkPreview', ['Preview']),
-          ],
-          5: [
-            annotationClass('ThemedPreview', [
-              'Themed',
-              'DarkPreview',
-              'Preview',
-            ]),
-          ],
-          6: [
-            annotationClass('DarkPreview', ['Preview']),
-          ],
-          7: [annotationClass('Preview', [])],
-          8: isEmpty,
-          9: isEmpty,
-          10: isEmpty,
-          // The name of a generic class has no type parameters.
-          11: [
-            annotationClass('Typed', ['Preview']),
-          ],
-          // A typedef stands for the class that it names.
-          12: [
-            annotationClass('DarkPreview', ['Preview']),
-          ],
-          13: [
-            annotationClass('DarkPreview', ['Preview']),
-          ],
-          14: [
-            annotationClass('Typed', ['Preview']),
-          ],
-          // A typedef in the type arguments is not the annotation's class.
-          15: [
-            annotationClass('Typed', ['Preview']),
-          ],
-          // A static constant, not a constructor of `Holder`.
-          16: isEmpty,
-          17: isEmpty,
-          18: isEmpty,
-          19: isEmpty,
-          20: isEmpty,
-          // A named constructor of a prefixed class.
-          21: [annotationClass('Preview', [])],
-          // A static constant of a prefixed class.
-          22: isEmpty,
-          23: isEmpty,
-        },
-      );
-    },
-  );
-
-  test(
-    'keys the annotations of a declaration by the start of its name, and names each after its `@` and import prefix',
-    () async {
-      const source = '''
-import 'previews.dart' as previews;
-
-@previews.Preview.named() void a() {}
-''';
-      final file = await resolve(source);
-
-      expect(file.annotations, {
-        Position(line: 2, character: source.split('\n')[2].indexOf('a()')): [
-          DeclarationAnnotation(
-            'Preview',
-            package: 'app',
-            createdClass: annotationClass('Preview', []),
-          ),
-        ],
-      });
-    },
-  );
-
-  test(
-    'reads the first argument of an annotation when it is a string without interpolation, and gives every variable of a statement its annotations',
-    () async {
-      const source = r'''
-import 'dart:core' as core;
-
-@pragma('vm:entry-point') void a() {}
-@core.pragma("vm:entry-point") void b() {}
-@pragma(r'vm:entry-point', 'call') void c() {}
-@pragma('vm:' 'entry-point') void d() {}
-@pragma('dart2js:noInline', 'vm:entry-point') void e() {}
-@pragma('vm:${1}') void f() {}
-@override void g() {}
-@pragma('vm:entry-point') int h = 0, i = 0;
-''';
-      final file = await resolve(source);
-
-      expect(
-        byLine(source, {
-          for (final MapEntry(key: name, value: annotations)
-              in file.annotations.entries)
-            name: annotations.single.argument,
-        }),
-        {
-          0: isEmpty,
-          1: isEmpty,
-          2: ['vm:entry-point'],
-          3: ['vm:entry-point'],
-          4: ['vm:entry-point'],
-          5: ['vm:entry-point'],
-          6: ['dart2js:noInline'],
-          7: [null],
-          8: [null],
-          9: ['vm:entry-point', 'vm:entry-point'],
-          10: isEmpty,
-        },
-      );
-    },
-  );
-
   test(
     'resolves the supertypes of each class and mixin, and of nothing else',
     () async {
-      final file = await resolve('''
+      final file = await package.resolveNew('''
 import 'previews.dart';
 
 class Shown extends DarkPreview {
@@ -352,7 +123,7 @@ class E extends Implicit {}
 
 class F {}
 ''';
-      final file = await resolve(source);
+      final file = await package.resolveNew(source);
 
       expect(
         [
@@ -371,7 +142,7 @@ class F {}
   test(
     'gives a class in a file outside `lib/` the package whose root holds the file',
     () async {
-      final file = await resolve('''
+      final file = await package.resolveNew('''
 class Base {}
 
 class Derived extends Base {}
@@ -382,54 +153,16 @@ class Derived extends Base {}
   );
 
   test(
-    'resolves the package that declares every annotation: a package by its name, an SDK library by its URI',
-    () async {
-      const source = '''
-import 'dart:core' as core;
-import 'dart:js_interop' as js;
-import 'local.dart' as local;
-
-@core.pragma('vm:entry-point') void a() {}
-@js.JSExport() class B {}
-@local.JSExport() class C {}
-@core.Deprecated('x') void d() {}
-void e() {}
-''';
-      final file = await resolve(source);
-
-      expect(
-        byLine(source, {
-          for (final MapEntry(key: name, value: annotations)
-              in file.annotations.entries)
-            name: annotations.single.package,
-        }),
-        {
-          0: isEmpty,
-          1: isEmpty,
-          2: isEmpty,
-          3: isEmpty,
-          4: ['dart:core'],
-          5: ['dart:js_interop'],
-          6: ['app'],
-          7: ['dart:core'],
-          8: isEmpty,
-          9: isEmpty,
-        },
-      );
-    },
-  );
-
-  test(
     'gives the first compile error of a file, and none for a file without one',
     () async {
-      final broken = await resolve('''
+      final broken = await package.resolveNew('''
 void a() {}
 
 void b() => missing();
 
 void c() => alsoMissing();
 ''');
-      final valid = await resolve('void a() {}\n');
+      final valid = await package.resolveNew('void a() {}\n');
 
       // The wording of the message differs between analyzer versions.
       expect(

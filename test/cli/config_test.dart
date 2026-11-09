@@ -1,39 +1,12 @@
-import 'dart:io';
-
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/args.dart';
-import 'package:ciach/src/cli/ci.dart';
 import 'package:ciach/src/cli/config.dart';
-import 'package:ciach/src/cli/options.dart';
-import 'package:ciach/src/cli/removed_options.dart';
 import 'package:config/config.dart';
-import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import '../support/cli_options.dart';
+
 void main() {
-  final parser = buildParser();
-
-  /// Resolves [arguments] against [config], the environment-probed defaults
-  /// given explicitly so no test depends on the terminal or CI it runs in.
-  ResolvedOptions resolveWith(
-    List<String> arguments,
-    ConfigFile config, {
-    required bool progressDefault,
-    CiRunner? detectedCi,
-  }) => resolveOptions(
-    resolveConfiguration(parser.parse(arguments), config),
-    progressDefault: progressDefault,
-    detectedCi: detectedCi,
-  );
-
-  /// As above, with progress off unless asked for.
-  ResolvedOptions resolve(List<String> arguments, [ConfigFile? config]) =>
-      resolveWith(arguments, config ?? const .empty(), progressDefault: false);
-
-  /// What a config [source] alone resolves to.
-  ResolvedOptions resolveFile(String source) =>
-      resolve(const [], .parse(source, origin: 'ciach.yaml'));
-
   group('ConfigFile.parse', () {
     test('reads every option', () {
       // Checked through the merge, which is what the CLI does with them.
@@ -106,7 +79,9 @@ dart: /sdk/bin/dart
       // other way round holds too, but for the `entry-points` list, which has
       // no command-line spelling.
       final cliOnly = {'help', 'version', 'config', 'no-config'};
-      final optionNames = parser.options.keys.toSet().difference(cliOnly);
+      final optionNames = buildParser().options.keys.toSet().difference(
+        cliOnly,
+      );
 
       expect(configKeys.difference({'path', 'entry-points'}), optionNames);
     });
@@ -159,7 +134,10 @@ format: json
       expect(
         () => ConfigFile.parse('publik: false', origin: 'ciach.yaml'),
         throwsA(
-          isFormatException('ciach.yaml', contains("unknown option 'publik'")),
+          isFormatExceptionFrom(
+            'ciach.yaml',
+            contains("unknown option 'publik'"),
+          ),
         ),
       );
     });
@@ -282,79 +260,6 @@ format: json
       );
     });
 
-    test(
-      'removedOptionMessage says that operator overloads are reported now, for `operators` given to `--also` either way',
-      () {
-        expect(
-          [
-            removedOptionMessage(['--also', 'operators']),
-            removedOptionMessage(['--also=tojson,operators']),
-            removedOptionMessage(['--also', 'tojson']),
-          ],
-          [
-            '`--also operators` was removed: operator overloads are reported by default now, so drop it.',
-            '`--also operators` was removed: operator overloads are reported by default now, so drop it.',
-            null,
-          ],
-        );
-      },
-    );
-
-    test(
-      'removedOptionMessage says that ciach no longer sends requests to an analysis server, for `--concurrency` and `-j` in each spelling',
-      () {
-        expect(
-          [
-            removedOptionMessage(['--concurrency', '4']),
-            removedOptionMessage(['--concurrency=4']),
-            removedOptionMessage(['lib', '-j', '4']),
-            removedOptionMessage(['-j4']),
-            removedOptionMessage(['-k', 'class']),
-          ],
-          [
-            '`--concurrency` was removed: ciach no longer sends requests to an analysis server, so drop it.',
-            '`--concurrency` was removed: ciach no longer sends requests to an analysis server, so drop it.',
-            '`-j` was removed: ciach no longer sends requests to an analysis server, so drop it.',
-            '`-j` was removed: ciach no longer sends requests to an analysis server, so drop it.',
-            null,
-          ],
-        );
-      },
-    );
-
-    test('removedOptionMessage names what replaced a removed flag', () {
-      expect(
-        removedOptionMessage(['lib', '--no-fail-public']),
-        startsWith('`--no-fail-public` was removed: '),
-      );
-      expect(
-        removedOptionMessage(['--report-tojson']),
-        '`--report-tojson` was removed: use `--also tojson`.',
-      );
-      expect(
-        removedOptionMessage(['--no-operators']),
-        '`--no-operators` was removed: operator overloads are reported by default now, so drop it.',
-      );
-      expect(
-        removedOptionMessage(['--exported']),
-        '`--exported` was removed: that is the default now, so drop it.',
-      );
-      expect(
-        removedOptionMessage(['--no-exported']),
-        "`--no-exported` was removed: use `--exported-packages '**'`.",
-      );
-      expect(
-        removedOptionMessage(['--generated-suffix', '.gc.dart']),
-        "`--generated-suffix` was removed: use `--generated-glob '**/*.gc.dart'`.",
-      );
-      expect(
-        removedOptionMessage(['--fail-public']),
-        '`--fail-public` was removed: that is the default now, so drop it.',
-      );
-      expect(removedOptionMessage(['--', '--overrides']), isNull);
-      expect(removedOptionMessage(['--also', 'overrides']), isNull);
-    });
-
     test('--exported-packages lists the packages whose API is left out', () {
       expect(resolve(['--exported-packages', 'packages/*']).exportedPackages, [
         'packages/*',
@@ -365,7 +270,10 @@ format: json
       expect(
         () => ConfigFile.parse('- public', origin: 'ciach.yaml'),
         throwsA(
-          isFormatException('ciach.yaml', contains('must be a map of options')),
+          isFormatExceptionFrom(
+            'ciach.yaml',
+            contains('must be a map of options'),
+          ),
         ),
       );
     });
@@ -373,7 +281,9 @@ format: json
     test('rejects malformed YAML', () {
       expect(
         () => ConfigFile.parse('public: [unclosed', origin: 'ciach.yaml'),
-        throwsA(isFormatException('ciach.yaml', contains('not valid YAML'))),
+        throwsA(
+          isFormatExceptionFrom('ciach.yaml', contains('not valid YAML')),
+        ),
       );
     });
 
@@ -381,7 +291,7 @@ format: json
       expect(
         () => resolveFile('public: sometimes'),
         throwsA(
-          isFormatException(
+          isFormatExceptionFrom(
             'ciach.yaml',
             contains("'public' must be true or false, got a string"),
           ),
@@ -392,7 +302,9 @@ format: json
     test('rejects a non-string in a list', () {
       expect(
         () => resolveFile('exclude: [1]'),
-        throwsA(isFormatException('ciach.yaml', contains('a list of strings'))),
+        throwsA(
+          isFormatExceptionFrom('ciach.yaml', contains('a list of strings')),
+        ),
       );
     });
 
@@ -402,7 +314,7 @@ format: json
         expect(
           () => resolveFile('entry-points: [{name: a, glob: [lib/a.dart, 1]}]'),
           throwsA(
-            isFormatException(
+            isFormatExceptionFrom(
               'ciach.yaml',
               contains(
                 "'entry-points[0].glob' must be a glob or a list of globs, got a number.",
@@ -417,7 +329,7 @@ format: json
       expect(
         () => resolveFile('format: xml'),
         throwsA(
-          isFormatException(
+          isFormatExceptionFrom(
             'ciach.yaml',
             contains(
               'text, json, github, azure, teamcity, sarif, checkstyle, gitlab',
@@ -431,7 +343,7 @@ format: json
       expect(
         () => resolveFile('kinds: [klass]'),
         throwsA(
-          isFormatException('ciach.yaml', contains("Unknown kind 'klass'")),
+          isFormatExceptionFrom('ciach.yaml', contains("Unknown kind 'klass'")),
         ),
       );
     });
@@ -440,7 +352,7 @@ format: json
       expect(
         () => resolveFile('kinds: [constant]'),
         throwsA(
-          isFormatException(
+          isFormatExceptionFrom(
             'ciach.yaml',
             contains(
               '`constant` was removed: ciach reports a `const` variable as a `variable` or a `field`, so use those.',
@@ -469,7 +381,7 @@ format: json
       for (final MapEntry(key: source, value: message) in cases.entries) {
         expect(
           () => resolveFile(source),
-          throwsA(isFormatException('ciach.yaml', contains(message))),
+          throwsA(isFormatExceptionFrom('ciach.yaml', contains(message))),
           reason: 'for $source',
         );
       }
@@ -513,537 +425,10 @@ format: json
             everyOption,
             .parse('$key: {a: b}', origin: 'ciach.yaml'),
           ),
-          throwsA(isFormatException('ciach.yaml', contains("'$key'"))),
+          throwsA(isFormatExceptionFrom('ciach.yaml', contains("'$key'"))),
           reason: 'for a wrong value under $key',
         );
       }
     });
   });
-
-  group('ConfigFile.load', () {
-    late Directory tempDir;
-
-    setUp(() {
-      tempDir = .systemTemp.createTempSync('ciach_config_test_');
-    });
-
-    tearDown(() {
-      tempDir.deleteSync(recursive: true);
-    });
-
-    void write(String name, String content) =>
-        File(p.join(tempDir.path, name)).writeAsStringSync(content);
-
-    test('discovers ciach.yaml in the project directory', () {
-      write('ciach.yaml', 'public: false');
-
-      final config = ConfigFile.load(projectDir: tempDir.path);
-
-      expect(config.path, p.join(tempDir.path, 'ciach.yaml'));
-      expect(config.settings['public'], isFalse);
-    });
-
-    test('discovers ciach.yaml only, not other spellings', () {
-      write('ciach.yml', 'format: json');
-      write('.ciach.yaml', 'format: json');
-
-      expect(ConfigFile.load(projectDir: tempDir.path).path, isNull);
-
-      write('ciach.yaml', 'format: github');
-
-      expect(
-        ConfigFile.load(projectDir: tempDir.path).settings['format'],
-        'github',
-      );
-    });
-
-    test('returns an empty config when the directory has none', () {
-      final config = ConfigFile.load(projectDir: tempDir.path);
-
-      expect(config.path, isNull);
-      expect(config.settings, isEmpty);
-    });
-
-    test('does not look outside the project directory', () {
-      write('ciach.yaml', 'public: false');
-      final nested = Directory(p.join(tempDir.path, 'nested'))..createSync();
-
-      expect(ConfigFile.load(projectDir: nested.path).path, isNull);
-    });
-
-    test('loads an explicit path from outside the project directory', () {
-      write('elsewhere.yaml', 'format: json');
-      final nested = Directory(p.join(tempDir.path, 'nested'))..createSync();
-
-      final config = ConfigFile.load(
-        projectDir: nested.path,
-        explicitPath: p.join(tempDir.path, 'elsewhere.yaml'),
-      );
-
-      expect(config.settings['format'], 'json');
-    });
-
-    test('an explicit path wins over a discoverable file', () {
-      write('ciach.yaml', 'format: github');
-      write('other.yaml', 'format: json');
-
-      final config = ConfigFile.load(
-        projectDir: tempDir.path,
-        explicitPath: p.join(tempDir.path, 'other.yaml'),
-      );
-
-      expect(config.settings['format'], 'json');
-    });
-
-    test('reports a missing explicit path', () {
-      expect(
-        () => ConfigFile.load(
-          projectDir: tempDir.path,
-          explicitPath: p.join(tempDir.path, 'nope.yaml'),
-        ),
-        throwsA(
-          isA<FormatException>().having(
-            (e) => e.message,
-            'message',
-            contains('Config file does not exist'),
-          ),
-        ),
-      );
-    });
-
-    test('ignore reads nothing, but still names the file it skipped', () {
-      // Invalid on purpose: --no-config never parses it, so it can't fail.
-      write('ciach.yaml', 'publik: [unclosed');
-
-      final config = ConfigFile.load(projectDir: tempDir.path, ignore: true);
-
-      expect(config.ignored, isTrue);
-      expect(config.path, p.join(tempDir.path, 'ciach.yaml'));
-      expect(config.settings, isEmpty);
-    });
-
-    test('ignore reports no path when there was no config anyway', () {
-      final config = ConfigFile.load(projectDir: tempDir.path, ignore: true);
-
-      expect(config.ignored, isTrue);
-      expect(config.path, isNull);
-    });
-
-    test('ignore skips an explicit path, and its would-be errors', () {
-      final config = ConfigFile.load(
-        projectDir: tempDir.path,
-        explicitPath: p.join(tempDir.path, 'nope.yaml'),
-        ignore: true,
-      );
-
-      expect(config.path, isNull);
-    });
-  });
-
-  group('resolveOptions', () {
-    test('falls back to the built-in defaults with no config and no args', () {
-      final resolved = resolve(const []);
-
-      expect(resolved.rootPath, '.');
-      expect(resolved.includePublic, isTrue);
-      expect(resolved.exportedPackages, isEmpty);
-      expect(resolved.includeGenerated, isFalse);
-      expect(resolved.projectConfig, isTrue);
-      expect(resolved.unusedTranslations, isTrue);
-      expect(resolved.overrides, isFalse);
-      expect(resolved.unusedUnionMembers, isFalse);
-      expect(resolved.reportToJson, isFalse);
-      expect(resolved.transitive, isTrue);
-      expect(resolved.setExitIfChanged, isFalse);
-      expect(resolved.remove, isFalse);
-      expect(resolved.force, isFalse);
-      expect(resolved.includeGlobs, isEmpty);
-      expect(resolved.excludeGlobs, isEmpty);
-      expect(resolved.additionalGeneratedGlobs, isEmpty);
-      expect(resolved.kinds, FinderOptions.defaultKinds);
-      expect(resolved.format, 'text');
-      expect(resolved.verbose, isFalse);
-      expect(resolved.dartExecutable, isNull);
-    });
-
-    test('command-line flags override the config', () {
-      final config = ConfigFile.parse('''
-path: packages/app
-public: false
-generated: true
-format: json
-color: false
-progress: false
-dart: /sdk/bin/dart
-''', origin: 'ciach.yaml');
-
-      final resolved = resolve(const [
-        '--public',
-        '--no-generated',
-        '--format',
-        'github',
-        '--color',
-        '--progress',
-        '--dart',
-        '/other/dart',
-        'packages/other',
-      ], config);
-
-      expect(resolved.rootPath, 'packages/other');
-      expect(resolved.includePublic, isTrue);
-      expect(resolved.includeGenerated, isFalse);
-      expect(resolved.format, 'github');
-      expect(resolved.color, isTrue);
-      expect(resolved.showProgress, isTrue);
-      expect(resolved.dartExecutable, '/other/dart');
-    });
-
-    test('a command-line list replaces the config list, not appends', () {
-      final config = ConfigFile.parse(
-        "exclude: ['test/**']\nkinds: [class]",
-        origin: 'ciach.yaml',
-      );
-
-      final resolved = resolve(const ['-e', 'tool/**', '-k', 'method'], config);
-
-      expect(resolved.excludeGlobs, ['tool/**']);
-      expect(resolved.kinds, <SymbolKind>{.method});
-    });
-
-    test('repeated command-line values all survive', () {
-      final resolved = resolve(const [
-        '-e',
-        'test/**',
-        '-e',
-        'tool/**',
-        '--generated-glob',
-        'lib/l10n/**',
-        '--generated-glob',
-        'third_party/**',
-      ]);
-
-      expect(resolved.excludeGlobs, ['test/**', 'tool/**']);
-      expect(resolved.additionalGeneratedGlobs, [
-        'lib/l10n/**',
-        'third_party/**',
-      ]);
-    });
-
-    test('explicitly passing a flag at its default value still wins', () {
-      // --public matches the default, so only the layer it came from tells it
-      // apart from an absent flag — and it has to, to beat `public: false`.
-      final resolved = resolve(const [
-        '--public',
-      ], .parse('public: false', origin: 'ciach.yaml'));
-
-      expect(resolved.includePublic, isTrue);
-    });
-
-    test('auto-detected color and progress are the last resort', () {
-      final auto = resolveWith(const [], const .empty(), progressDefault: true);
-      // Each stream decides for itself.
-      expect(auto.color, isNull);
-      expect(auto.showProgress, isTrue);
-
-      final fromConfig = resolveWith(
-        const [],
-        .parse('color: false\nprogress: false', origin: 'c.yaml'),
-        progressDefault: true,
-      );
-      expect(fromConfig.color, isFalse);
-      expect(fromConfig.showProgress, isFalse);
-
-      final fromArgs = resolveWith(
-        const ['--no-color', '--no-progress'],
-        .parse('color: true\nprogress: true', origin: 'c.yaml'),
-        progressDefault: true,
-      );
-      expect(fromArgs.color, isFalse);
-      expect(fromArgs.showProgress, isFalse);
-    });
-
-    group('CI', () {
-      test('turns on set-exit-if-changed and off progress', () {
-        final local = resolveWith(
-          const [],
-          const .empty(),
-          progressDefault: true,
-        );
-        expect(local.ci, isNull);
-        expect(local.setExitIfChanged, isFalse);
-        expect(local.verbose, isFalse);
-        expect(local.showProgress, isTrue);
-        expect(local.format, 'text');
-
-        final onCi = resolveWith(
-          const [],
-          const .empty(),
-          progressDefault: true,
-          detectedCi: .gitlab,
-        );
-        expect(onCi.ci, CiRunner.gitlab);
-        expect(onCi.setExitIfChanged, isTrue);
-        expect(onCi.verbose, isTrue);
-        expect(onCi.showProgress, isFalse);
-        // GitLab has no annotation format.
-        expect(onCi.format, 'text');
-      });
-
-      test('on GitHub Actions, the format defaults to github', () {
-        final resolved = resolveWith(
-          const [],
-          const .empty(),
-          progressDefault: false,
-          detectedCi: .githubActions,
-        );
-        expect(resolved.format, 'github');
-      });
-
-      test('an explicit value beats the CI default', () {
-        final fromArgs = resolveWith(
-          const [
-            '--no-set-exit-if-changed',
-            '--no-verbose',
-            '--progress',
-            '-f',
-            'json',
-          ],
-          const .empty(),
-          progressDefault: false,
-          detectedCi: .githubActions,
-        );
-        expect(fromArgs.ci, CiRunner.githubActions);
-        expect(fromArgs.setExitIfChanged, isFalse);
-        expect(fromArgs.verbose, isFalse);
-        expect(fromArgs.showProgress, isTrue);
-        expect(fromArgs.format, 'json');
-
-        final fromConfig = resolveWith(
-          const [],
-          .parse('''
-set-exit-if-changed: false
-verbose: false
-progress: true
-format: text''', origin: 'c.yaml'),
-          progressDefault: false,
-          detectedCi: .githubActions,
-        );
-        expect(fromConfig.setExitIfChanged, isFalse);
-        expect(fromConfig.verbose, isFalse);
-        expect(fromConfig.showProgress, isTrue);
-        expect(fromConfig.format, 'text');
-      });
-
-      test('--no-ci keeps the local defaults on a runner', () {
-        for (final resolved in [
-          resolveWith(
-            const ['--no-ci'],
-            const .empty(),
-            progressDefault: true,
-            detectedCi: .githubActions,
-          ),
-          resolveWith(
-            const [],
-            .parse('ci: false', origin: 'c.yaml'),
-            progressDefault: true,
-            detectedCi: .githubActions,
-          ),
-        ]) {
-          expect(resolved.ci, isNull);
-          expect(resolved.setExitIfChanged, isFalse);
-          expect(resolved.verbose, isFalse);
-          expect(resolved.showProgress, isTrue);
-          expect(resolved.format, 'text');
-        }
-      });
-
-      test('--ci applies the CI defaults anywhere', () {
-        final forced = resolveWith(
-          const ['--ci'],
-          const .empty(),
-          progressDefault: true,
-        );
-        expect(forced.ci, CiRunner.other);
-        expect(forced.setExitIfChanged, isTrue);
-        expect(forced.verbose, isTrue);
-        expect(forced.showProgress, isFalse);
-        expect(forced.format, 'text');
-
-        // On a known service, --ci only confirms it.
-        final confirmed = resolveWith(
-          const ['--ci'],
-          const .empty(),
-          progressDefault: false,
-          detectedCi: .githubActions,
-        );
-        expect(confirmed.ci, CiRunner.githubActions);
-        expect(confirmed.format, 'github');
-
-        // The command line beats a config file's opt-out.
-        expect(
-          resolveWith(
-            const ['--ci'],
-            .parse('ci: false', origin: 'c.yaml'),
-            progressDefault: false,
-            detectedCi: .githubActions,
-          ).ci,
-          CiRunner.githubActions,
-        );
-      });
-    });
-
-    test('verbose comes from the command line or the config', () {
-      expect(resolve(const ['--verbose']).verbose, isTrue);
-      expect(resolve(const ['-v']).verbose, isTrue);
-      expect(resolveFile('verbose: true').verbose, isTrue);
-      expect(
-        resolve(const [
-          '--no-verbose',
-        ], .parse('verbose: true', origin: 'c.yaml')).verbose,
-        isFalse,
-      );
-    });
-
-    test('verbose supersedes the progress line', () {
-      // Both write to stderr, so verbose wins however progress was asked for.
-      expect(
-        resolveWith(
-          const ['--verbose', '--progress'],
-          const .empty(),
-          progressDefault: true,
-        ).showProgress,
-        isFalse,
-      );
-      expect(
-        resolveWith(
-          const [],
-          .parse('verbose: true\nprogress: true', origin: 'c.yaml'),
-          progressDefault: true,
-        ).showProgress,
-        isFalse,
-      );
-      expect(
-        resolveWith(
-          const ['--progress'],
-          .parse('verbose: true', origin: 'c.yaml'),
-          progressDefault: false,
-        ).showProgress,
-        isFalse,
-      );
-      // …but progress still works when verbose is off.
-      expect(resolve(const ['--progress']).showProgress, isTrue);
-    });
-
-    test('rejects an unknown --kinds value', () {
-      expect(
-        () => resolve(const ['-k', 'klass']),
-        throwsA(isUsageException(contains("Unknown kind 'klass'"))),
-      );
-    });
-
-    test('rejects the removed `--kinds` value `constant`', () {
-      expect(
-        () => resolve(const ['-k', 'class,constant']),
-        throwsA(
-          isUsageException(
-            contains(
-              '`constant` was removed: ciach reports a `const` variable as a `variable` or a `field`, so use those.',
-            ),
-          ),
-        ),
-      );
-    });
-
-    test('reports every problem at once, not just the first', () {
-      // An out-of-range `--format` is not among them: an option's `allowed`
-      // list is the arg parser's business, so that fails before resolution.
-      expect(
-        () => resolve(const [
-          '-k',
-          'klass',
-        ], .parse('also: [override]', origin: 'ciach.yaml')),
-        throwsA(
-          isUsageException(
-            allOf(
-              contains("Unknown kind 'klass'"),
-              contains("Unknown value 'override' for `also`."),
-            ),
-          ),
-        ),
-      );
-    });
-
-    test('hands the finder its share of the settings', () {
-      final resolved = resolve(const [
-        '--no-public',
-        '--no-project-config',
-        '--also',
-        'overrides',
-        '-e',
-        'test/**',
-      ], .parse('entry-points: [{name: bootstrap}]', origin: 'ciach.yaml'));
-      final options = resolved.finderOptions();
-
-      expect(options.rootPath, p.normalize(p.absolute('.')));
-      expect(options.includePublic, isFalse);
-      // Inverted for the finder.
-      expect(options.skipOverrides, isFalse);
-      expect(options.excludeGlobs, ['test/**']);
-      expect(options.entryPoints.map((e) => '$e'), ['bootstrap']);
-    });
-  });
-
-  group('project config', () {
-    late Directory package;
-
-    setUp(() {
-      package = .systemTemp.createTempSync('ciach_config_project_');
-      File(p.join(package.path, 'pubspec.yaml')).writeAsStringSync('''
-name: server
-dependencies:
-  dart_frog: any
-  serverpod: any
-''');
-      File(p.join(package.path, 'l10n.yaml')).writeAsStringSync('');
-    });
-
-    tearDown(() => package.deleteSync(recursive: true));
-
-    test('is merged into the finder options', () {
-      final options = resolve(
-        [package.path, '--generated-glob', 'gen/**'],
-        .parse('entry-points: [{name: bootstrap}]', origin: 'ciach.yaml'),
-      ).finderOptions();
-
-      expect(
-        options.entryPoints.map((e) => e.label),
-        containsAllInOrder(['bootstrap', 'onRequest']),
-      );
-      // The template is scanned for unused messages, so it isn't generated.
-      expect(options.additionalGeneratedGlobs, [
-        'gen/**',
-        'lib/l10n/app_localizations_*.dart',
-      ]);
-    });
-
-    test('--no-project-config reads none of it', () {
-      final options = resolve([
-        package.path,
-        '--no-project-config',
-      ]).finderOptions();
-
-      expect(options.entryPoints, isEmpty);
-      expect(options.additionalGeneratedGlobs, isEmpty);
-    });
-  });
 }
-
-/// A [UsageException] whose message matches [message].
-Matcher isUsageException(Matcher message) =>
-    isA<UsageException>().having((e) => e.message, 'message', message);
-
-/// A [FormatException] whose message names [origin] and matches [message].
-Matcher isFormatException(String origin, Matcher message) =>
-    isA<FormatException>()
-        .having((e) => e.message, 'message', startsWith('$origin:'))
-        .having((e) => e.message, 'message', message);

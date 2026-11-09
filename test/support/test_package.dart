@@ -6,6 +6,7 @@
 
 import 'dart:io';
 
+import 'package:ciach/src/analysis/resolved_file.dart';
 import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/workspace/dart_executable.dart';
 import 'package:path/path.dart' as p;
@@ -75,6 +76,11 @@ final class TestPackage {
   /// absolute path.
   String writeNew(String source, {String dir = 'lib'}) =>
       write(p.join(dir, 'file${_written++}.dart'), source);
+
+  /// Writes [source] to a new file in the directory [dir] and returns the
+  /// file as [files] resolves it.
+  Future<ResolvedFile> resolveNew(String source, {String dir = 'lib'}) async =>
+      (await files.of(writeNew(source, dir: dir)))!;
 
   /// Ends the analysis and deletes the directory.
   Future<void> dispose() async {
