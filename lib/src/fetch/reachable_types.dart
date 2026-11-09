@@ -159,8 +159,8 @@ final class _Carriers {
       return false;
     }
     if (!_files.isInBody(path, offset, node.codeRange) ||
-        (element.typeParameters ?? '').isNotEmpty ||
-        (owner?.element.typeParameters ?? '').isNotEmpty) {
+        element.hasTypeParameters ||
+        (owner?.element.hasTypeParameters ?? false)) {
       return false;
     }
     return _files.hasDynamicSignature(path, node.nameRange.start) == false;

@@ -9,9 +9,6 @@ import 'package:path/path.dart' as p;
 /// `--out` said, `lib/firebase_options.dart` by default.
 Iterable<String> flutterFireGeneratedGlobs(String packagePath) sync* {
   final file = File(p.join(packagePath, 'firebase.json'));
-  if (!file.existsSync()) {
-    return;
-  }
   final Object? json;
   try {
     json = jsonDecode(file.readAsStringSync());

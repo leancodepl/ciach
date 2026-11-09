@@ -11,7 +11,6 @@ library;
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/source/outline.dart';
-import 'package:collection/collection.dart';
 
 /// The candidate indices of the findings in [candidateOf] that `--remove`
 /// deletes.
@@ -20,16 +19,10 @@ Set<int> removableIndices(Map<UnusedDeclaration, int> candidateOf) => {
     if (!finding.removalBlocked) i,
 };
 
-/// Returns, by key, each class, mixin or extension with a member in
-/// [removable]: its outline, and how many of its members are in [removable].
-Map<DeclKey, ({Outline? outline, int removable})> removableMembers(
+/// The outlines of the candidates in [removable]. A type is emptied when
+/// every member of its outline is among them; a local function in a member
+/// is no member.
+Set<Outline> removableOutlines(
   List<Candidate> candidates,
   Set<int> removable,
-) => {
-  for (final MapEntry(:key, value: members)
-      in removable
-          .map((i) => candidates[i])
-          .groupListsBy((candidate) => candidate.containerKey)
-          .entries)
-    ?key: (outline: members.first.containerOutline, removable: members.length),
-};
+) => {for (final i in removable) candidates[i].outline};

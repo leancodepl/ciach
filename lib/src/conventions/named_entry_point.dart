@@ -44,9 +44,6 @@ final class NamedEntryPoint extends EntryPoint {
       : reason;
 
   @override
-  String containerReason(String qualified) => 'declares the entry point $name';
-
-  @override
   NamedEntryPoint _withFiles(List<String> files) =>
       .new(name: name, reason: reason, files: files);
 

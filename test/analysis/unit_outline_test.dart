@@ -147,7 +147,7 @@ typedef Ints = List<int>;
   );
 
   test(
-    'gives parameters, type parameters and the return type of a function or method as written',
+    'tells whether a declaration has parameters and type parameters, and gives the return type of a function or method as written',
     () async {
       final outline = await outlineOf('''
 class Box<T extends num> {
@@ -172,21 +172,21 @@ typedef Ints = List<int>;
           for (final node in nestedIn(outline))
             (
               node.element.name,
-              node.element.parameters,
-              node.element.typeParameters,
+              node.element.hasNoParameters,
+              node.element.hasTypeParameters,
               node.element.returnType,
             ),
         ],
         [
-          ('Box', null, '<T extends num>', null),
-          ('Box', '(T value, {int? size})', null, null),
-          ('map', '(R Function(T) f)', '<R>', 'R'),
-          ('size', null, null, 'int'),
-          ('log', '(String message, [int level = 0])', null, 'void'),
-          ('untyped', '', null, ''),
-          ('Callback', '(int value)', null, null),
-          ('Compare', '(T a, T b)', '<T>', null),
-          ('Ints', null, null, null),
+          ('Box', true, true, null),
+          ('Box', false, false, null),
+          ('map', false, true, 'R'),
+          ('size', true, false, 'int'),
+          ('log', false, false, 'void'),
+          ('untyped', true, false, ''),
+          ('Callback', false, false, null),
+          ('Compare', false, true, null),
+          ('Ints', true, false, null),
         ],
       );
     },

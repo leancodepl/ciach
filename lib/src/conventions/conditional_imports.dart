@@ -48,8 +48,6 @@ final class ConditionalImports {
     });
   }
 
-  static final empty = ConditionalImports._(const {});
-
   /// The files of the other variants, by file of a variant; see
   /// [_DirectiveIndex.libraryFiles].
   final Map<String, Set<String>> _counterparts;

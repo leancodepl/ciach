@@ -1,6 +1,5 @@
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/source/outline.dart';
-import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
 
 /// Return types of a `toJson` hook.
@@ -20,19 +19,18 @@ const _jsonValueTypes = {
 /// `toJson` returning a JSON value type. `jsonEncode` calls it without a
 /// source-level reference, so it is exempt from the reference check.
 bool isToJsonHook(Candidate candidate) => switch (candidate.outline.element) {
-  OutlineElement(kind: .method, name: 'toJson', hasNoParameters: true) =>
-    isJsonValueType(candidate.outline.element.returnType),
+  OutlineElement(
+    kind: .method,
+    name: 'toJson',
+    hasNoParameters: true,
+    :final returnType?,
+  ) =>
+    // The source of the return type, like `Map<String, dynamic>?`.
+    _jsonValueTypes.contains(
+      (returnType.endsWith('?')
+              ? returnType.substring(0, returnType.length - 1)
+              : returnType)
+          .withoutTypeArguments,
+    ),
   _ => false,
 };
-
-/// Whether [returnType] (e.g. `Map<String, dynamic>?`) is a JSON value type.
-bool isJsonValueType(String? returnType) {
-  if (returnType == null) {
-    return false;
-  }
-  var name = returnType.trim();
-  if (name.endsWith('?')) {
-    name = name.substring(0, name.length - 1).trimRight();
-  }
-  return _jsonValueTypes.contains(name.withoutTypeArguments);
-}

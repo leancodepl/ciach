@@ -164,23 +164,16 @@ sealed class EntryPoint {
   /// The text that shows what the rule selects to the user.
   String get label;
 
-  /// Whether this rule applies to the file at [relativePath], POSIX and
-  /// relative to the package root.
-  bool appliesTo(String relativePath) =>
-      _globs.isEmpty || _globs.any((glob) => glob.matches(relativePath));
-
-  /// Whether this rule selects [declaration] in a file that it applies to.
+  /// Whether this rule selects [declaration] in a file that its globs match,
+  /// or in any file when it has none.
   bool matches(ResolvedDeclaration declaration) =>
-      _selects(declaration) && appliesTo(declaration.relativePath);
+      _selects(declaration) &&
+      (_globs.isEmpty ||
+          _globs.any((glob) => glob.matches(declaration.relativePath)));
 
   /// Why [declaration], which this rule matches, is kept, for `--verbose`,
   /// or `null` when the rule doesn't keep it.
   String? reasonFor(ResolvedDeclaration declaration) => reason;
-
-  /// Why the type that declares [qualified], which this rule matches, is
-  /// kept, for `--verbose`.
-  String containerReason(String qualified) =>
-      'declares the entry point $qualified';
 
   /// Returns this rule, limited to the package in the directory [prefix].
   /// [prefix] is relative to the scanned root and is escaped as a glob. An

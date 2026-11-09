@@ -35,7 +35,7 @@ List<Location>? _referencesOf(ResolvedFiles files, Candidate candidate) {
       _uncheckedDeclaration,
       _noDeclaration,
       path: candidate.path,
-      position: candidate.positionOf(start),
+      position: candidate.namePosition,
       name: candidate.outline.element.qualifiedName(candidate.container),
     );
   }

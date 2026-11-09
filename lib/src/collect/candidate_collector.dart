@@ -31,11 +31,11 @@ final class CandidateCollector {
   CandidateCollector({
     required this.options,
     required FreezedUnions freezed,
+    required ConditionalImports conditionalImports,
     PublicApi? publicApi,
-    ConditionalImports? conditionalImports,
   }) : _freezed = freezed,
        _publicApi = publicApi,
-       _conditionalImports = conditionalImports ?? .empty;
+       _conditionalImports = conditionalImports;
 
   final FinderOptions options;
 
@@ -112,19 +112,34 @@ final class CandidateCollector {
     List<Outline> outlines,
     ({Outline? container, List<KeptMembers> keptMembers}) parent,
   ) sync* {
-    final statement = _Statement();
+    // A marker above a variable statement keeps every declarator, also the
+    // later ones, such as `b` in `final int a, b;`, whose range starts at its
+    // name.
+    var statementStart = 0;
     for (final outline in _declarations(outlines)) {
-      final start = statement.startOf(outline);
+      final isLaterDeclarator =
+          const <OutlineKind>{
+            .field,
+            .topLevelVariable,
+          }.contains(outline.element.kind) &&
+          outline.range.start == outline.codeRange.start;
+      if (!isLaterDeclarator) {
+        statementStart = outline.range.start;
+      }
       final candidate = Candidate(
         path: file.path,
-        lineStarts: file.resolved.lineStarts,
+        file: file.resolved,
         outline: outline,
         containerOutline: parent.container,
       );
-      final declaration = _kept.declarationOf(
-        file.relativePath,
-        candidate,
-        file.resolved,
+      final name = outline.nameRange.start;
+      final declaration = ResolvedDeclaration(
+        relativePath: file.relativePath,
+        outline: outline,
+        container: candidate.container,
+        inEnum: parent.container?.element.kind == .enum$,
+        annotations: file.resolved.annotations[name] ?? const [],
+        supertypes: file.resolved.supertypes[name] ?? const {},
       );
       _freezed.noteIfAnnotated(file.path, outline, declaration.annotations);
       if (_isCandidate(
@@ -132,7 +147,7 @@ final class CandidateCollector {
         declaration,
         containerMembers: parent.keptMembers,
         markers: file.markers,
-        start: start,
+        start: file.resolved.positionOf(statementStart).line,
       )) {
         yield candidate;
       }
@@ -142,8 +157,7 @@ final class CandidateCollector {
         outline.element.declaresMembers
             ? (
                 container: outline,
-                keptMembers:
-                    _kept.keptMembersOf(declaration) ?? parent.keptMembers,
+                keptMembers: _entryPoints.keptMembersOf(declaration),
               )
             : parent,
       );
@@ -190,29 +204,11 @@ final class CandidateCollector {
     required _Markers markers,
     required int start,
   }) {
-    if (markers.keeping(
-          start: candidate.positionOf(start).line,
-          nameLine: candidate
-              .positionOf(candidate.outline.nameRange.start)
-              .line,
-        )
+    if (markers.keeping(start: start, nameLine: candidate.namePosition.line)
         case final kept?) {
       _kept.byMarker(declaration.relativePath, candidate, kept);
       return false;
     }
-    return _shouldConsider(
-      candidate,
-      declaration,
-      containerMembers: containerMembers,
-    );
-  }
-
-  /// Returns whether the references to [candidate] should be checked.
-  bool _shouldConsider(
-    Candidate candidate,
-    ResolvedDeclaration declaration, {
-    required List<KeptMembers> containerMembers,
-  }) {
     if (!options.kinds.contains(candidate.reportedKind)) {
       return false;
     }
@@ -254,25 +250,6 @@ typedef _ScannedFile = ({
   _Markers markers,
 });
 
-/// The statement that the declarations being collected belong to. A marker
-/// above a variable statement keeps every declarator, also the later ones,
-/// such as `b` in `final int a, b;`, whose range starts at its name.
-final class _Statement {
-  var _start = 0;
-
-  /// The offset that the statement of the declaration [outline] starts at.
-  int startOf(Outline outline) {
-    final isVariable = const <OutlineKind>{
-      .field,
-      .topLevelVariable,
-    }.contains(outline.element.kind);
-    if (isVariable && outline.range.start == outline.codeRange.start) {
-      return _start;
-    }
-    return _start = outline.range.start;
-  }
-}
-
 /// The markers of one file, and which of them kept a declaration.
 final class _Markers {
   _Markers(this._markers);
@@ -283,9 +260,6 @@ final class _Markers {
   /// The marker keeping the declaration that starts on [start] and is named
   /// on [nameLine]; see [IgnoreMarkers.keeping].
   MarkerAt? keeping({required int start, required int nameLine}) {
-    if (_markers.isEmpty) {
-      return null;
-    }
     final keepers = _markers.keepers(start: start, nameLine: nameLine);
     _used.addAll(keepers);
     return keepers.firstOrNull;

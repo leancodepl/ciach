@@ -52,12 +52,25 @@ class Point(final int x) {
 class Dead {
   int paint() => 1;
 }
+
+class Runner {
+  int run() {
+    int unusedHelper() => 0;
+    return 1;
+  }
+}
 ''');
     write('bin/main.dart', '''
 import 'package:shapes/shapes.dart';
 
 void main() {
-  print([Tile() is Painter, Canvas().erase(), Wrapped(1).value, Point(1).x]);
+  print([
+    Tile() is Painter,
+    Canvas().erase(),
+    Wrapped(1).value,
+    Point(1).x,
+    Runner().run(),
+  ]);
 }
 ''');
   });
@@ -74,9 +87,11 @@ void main() {
       'Wrapped.doubled',
       'Point.moved',
       'Dead',
+      'Runner.unusedHelper',
     ]);
     // Canvas keeps erase, and Wrapped and Point keep the fields their headers
     // declare. Dead is removed whole, and so is Parsing, which nothing names.
+    // Runner keeps run: the unused local function in it is no member.
     expect(result.emptiedContainers, [
       (filePath: 'lib/shapes.dart', name: 'Painter'),
     ]);

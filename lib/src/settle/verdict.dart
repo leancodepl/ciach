@@ -153,7 +153,7 @@ final class Verdict {
   }) {
     final outline = candidate.outline;
     // An unnamed extension's name range is its `on` type.
-    final position = candidate.positionOf(
+    final position = candidate.file.positionOf(
       candidate.isUnnamedExtension
           ? outline.codeRange.start
           : outline.nameRange.start,

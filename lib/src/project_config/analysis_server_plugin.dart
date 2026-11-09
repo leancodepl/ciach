@@ -8,7 +8,7 @@ import 'package:path/path.dart' as p;
 /// one that depends on analysis_server_plugin only through another package.
 Iterable<EntryPoint> analysisServerPluginEntryPoints(
   Pubspec pubspec, {
-  bool loadedAsPlugin = false,
+  required bool loadedAsPlugin,
 }) sync* {
   if (loadedAsPlugin ||
       pubspec.dependencies.contains('analysis_server_plugin')) {

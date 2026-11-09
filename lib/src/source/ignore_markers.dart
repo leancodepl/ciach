@@ -52,9 +52,14 @@ final class IgnoreMarkers {
     final ranges = <(int, int)>[];
     final issues = <MarkerIssue>[];
     int? openedAt;
-    final lines = _Lines(content);
+    final lineStarts = lineStartsOf(content);
     for (final (:offset, :text) in comments) {
-      final (:line, :ownLine) = lines.at(offset);
+      final line = positionIn(lineStarts, offset).line;
+      // Only whitespace comes before the marker on its line.
+      final ownLine = content
+          .substring(lineStarts[line], offset)
+          .trim()
+          .isEmpty;
       final marker = text.startsWith('///')
           ? null
           : _marker.firstMatch(text)?.namedGroup('marker');
@@ -97,7 +102,7 @@ final class IgnoreMarkers {
       }
     }
     if (openedAt != null) {
-      ranges.add((openedAt, lines.count));
+      ranges.add((openedAt, lineStarts.length));
       issues.add((
         line: openedAt,
         message:
@@ -138,9 +143,6 @@ final class IgnoreMarkers {
   /// ending past the last line.
   final List<(int, int)> _ranges;
 
-  /// Whether this file has markers for single declarations or ranges.
-  bool get isEmpty => _nextLine.isEmpty && _sameLine.isEmpty && _ranges.isEmpty;
-
   /// The markers that keep a declaration whose doc comment and annotations
   /// start on [start] and whose name is on [nameLine], both zero-based.
   ///
@@ -169,25 +171,4 @@ final class IgnoreMarkers {
     for (final line in _sameLine) (line: line, marker: ignoreMarker),
     for (final (open, _) in _ranges) (line: open, marker: ignoreStartMarker),
   ];
-}
-
-/// The lines of a file, for placing a comment by its offset.
-final class _Lines {
-  _Lines(this._content) : _starts = lineStartsOf(_content);
-
-  final String _content;
-  final List<int> _starts;
-
-  /// How many lines there are.
-  int get count => _starts.length;
-
-  /// The zero-based line of [offset], and whether only whitespace comes
-  /// before it on that line.
-  ({int line, bool ownLine}) at(int offset) {
-    final line = positionIn(_starts, offset).line;
-    return (
-      line: line,
-      ownLine: _content.substring(_starts[line], offset).trim().isEmpty,
-    );
-  }
 }

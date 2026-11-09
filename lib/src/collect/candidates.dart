@@ -8,14 +8,14 @@
  *     - mark-ai-provenance
  */
 
+import 'package:ciach/src/analysis/resolved_file.dart';
 import 'package:ciach/src/model/symbol_kind.dart';
-import 'package:ciach/src/source/line_starts.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
 
-/// A file path paired with a declaration name, used as a map key to look up
-/// per-declaration facts gathered by the remove-safety pre-pass.
+/// A file path paired with a declaration name, the key of a declaration in
+/// maps and sets.
 final class DeclKey {
   const DeclKey(this.path, this.name);
 
@@ -47,15 +47,15 @@ enum RefStatus {
 final class Candidate {
   const Candidate({
     required this.path,
-    required this.lineStarts,
+    required this.file,
     required this.outline,
     this.containerOutline,
   });
 
   final String path;
 
-  /// The offset at which each line of the file at [path] starts.
-  final List<int> lineStarts;
+  /// The file at [path], as the analyzer resolves it.
+  final ResolvedFile file;
 
   final Outline outline;
 
@@ -123,9 +123,9 @@ final class Candidate {
   /// This candidate's own `(path, name)` key.
   DeclKey get key => .new(path, name);
 
-  /// The zero-based line and column of [offset] in this candidate's file.
-  ({int line, int column}) positionOf(int offset) =>
-      positionIn(lineStarts, offset);
+  /// The zero-based line and column of this declaration's name.
+  ({int line, int column}) get namePosition =>
+      file.positionOf(outline.nameRange.start);
 
   /// The `(path, container)` key of this candidate's enclosing declaration,
   /// or `null` when it has no container.

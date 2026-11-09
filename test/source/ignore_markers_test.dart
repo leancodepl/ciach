@@ -130,7 +130,7 @@ void f() {}
 // ciach:ignroe
 void f() {}
 ''');
-    expect(markers.isEmpty, isTrue);
+    expect(markers.all, isEmpty);
     expect(
       markers.issues.single.message,
       startsWith('unknown marker `ciach:ignroe`'),
@@ -149,7 +149,7 @@ const text = """
 void c() {}
 ''';
     final markers = markersIn(source);
-    expect(markers.isEmpty, isTrue);
+    expect(markers.all, isEmpty);
     expect(markers.ignoresFile, isFalse);
     expect(markers.issues, isEmpty);
   });
@@ -165,7 +165,7 @@ void f() {}
 ''';
     final markers = markersIn(source);
     expect(markers.ignoresFile, isFalse);
-    expect(markers.isEmpty, isTrue);
+    expect(markers.all, isEmpty);
   });
 
   test('punctuation may follow a marker', () {
@@ -201,7 +201,7 @@ void kept() {}
 // ciach: the tool
 void f() {}
 ''');
-    expect(markers.isEmpty, isTrue);
+    expect(markers.all, isEmpty);
     expect(markers.issues, isEmpty);
   });
 }

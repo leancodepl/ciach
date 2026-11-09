@@ -95,8 +95,8 @@ final class _OutlineBuilder {
             kind: .functionTypeAlias,
             name: _nameOf(name),
             range: name.range,
-            parameters: parameters.toSource(),
-            typeParameters: typeParameters?.toSource(),
+            hasNoParameters: parameters.parameters.isEmpty,
+            hasTypeParameters: typeParameters != null,
           ),
         ),
       ],
@@ -110,11 +110,12 @@ final class _OutlineBuilder {
           },
           name: _nameOf(name),
           range: name.range,
-          parameters: switch (type) {
-            GenericFunctionType(:final parameters) => parameters.toSource(),
-            _ => null,
+          hasNoParameters: switch (type) {
+            GenericFunctionType(:final parameters) =>
+              parameters.parameters.isEmpty,
+            _ => true,
           },
-          typeParameters: typeParameters?.toSource(),
+          hasTypeParameters: typeParameters != null,
         ),
       ),
     ],
@@ -153,7 +154,7 @@ final class _OutlineBuilder {
       kind: kind,
       name: _nameOf(name),
       range: name.range,
-      typeParameters: typeParameters?.toSource(),
+      hasTypeParameters: typeParameters != null,
     ),
     members,
   );
@@ -172,7 +173,7 @@ final class _OutlineBuilder {
           _ => '<unnamed extension>',
         },
         range: (node.name ?? extendedType)?.range,
-        typeParameters: node.typeParameters?.toSource(),
+        hasTypeParameters: node.typeParameters != null,
       ),
       _members(node.body),
     );
@@ -224,7 +225,7 @@ final class _OutlineBuilder {
             name: [typeName.lexeme, ?constructorName?.name.lexeme].join('.'),
             // A named one is named from its `.`, as the analysis server does.
             range: (constructorName ?? typeName).range,
-            parameters: formalParameters.toSource(),
+            hasNoParameters: formalParameters.parameters.isEmpty,
             isInTypeHeader: true,
           ),
         ),
@@ -261,7 +262,7 @@ final class _OutlineBuilder {
           if (node.name?.lexeme case final name? && != 'new') name,
         ].join('.'),
         range: (node.name ?? typeName ?? keyword ?? node).range,
-        parameters: node.parameters.toSource(),
+        hasNoParameters: node.parameters.parameters.isEmpty,
         isRedirectingFactory:
             node.factoryKeyword != null && node.redirectedConstructor != null,
       ),
@@ -279,9 +280,9 @@ final class _OutlineBuilder {
       ),
       name: _nameOf(node.name),
       range: node.name.range,
-      parameters: node.parameters?.toSource(),
+      hasNoParameters: node.parameters?.parameters.isEmpty ?? true,
       returnType: node.returnType?.toSource() ?? '',
-      typeParameters: node.typeParameters?.toSource(),
+      hasTypeParameters: node.typeParameters != null,
     ),
     _bodyOutlines(node.body),
   );
@@ -299,9 +300,9 @@ final class _OutlineBuilder {
         ),
         name: _nameOf(node.name),
         range: node.name.range,
-        parameters: parameters?.toSource() ?? '',
+        hasNoParameters: parameters?.parameters.isEmpty ?? true,
         returnType: node.returnType?.toSource() ?? '',
-        typeParameters: typeParameters?.toSource(),
+        hasTypeParameters: typeParameters != null,
       ),
       _bodyOutlines(body),
     );

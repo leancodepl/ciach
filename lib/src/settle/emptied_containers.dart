@@ -20,15 +20,22 @@ List<EmptiedContainer> emptiedContainers(
   String rootPath,
 ) {
   final removable = removableIndices(candidateOf);
-  final members = removableMembers(candidates, removable);
+  final removed = removableOutlines(candidates, removable);
+  final containers = {
+    for (final i in removable)
+      if (candidates[i] case Candidate(
+        :final containerKey?,
+        :final containerOutline?,
+      ))
+        containerKey: containerOutline,
+  };
   return [
-    for (final MapEntry(key: container, value: (:outline, :removable))
-        in members.entries)
-      if (outline?.children.length == removable &&
+    for (final MapEntry(key: container, value: outline) in containers.entries)
+      if (outline.children.every(removed.contains) &&
           // An extension type keeps its representation field, like `value` in
           // `extension type Id(int value)`. The outline leaves that field
           // out, so the type would wrongly look emptied.
-          outline!.element.kind != .extensionType)
+          outline.element.kind != .extensionType)
         (
           filePath: relativePosix(container.path, rootPath),
           name: container.name,

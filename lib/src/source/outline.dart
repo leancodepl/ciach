@@ -31,9 +31,9 @@ final class OutlineElement {
     required this.kind,
     required this.name,
     this.range,
-    this.parameters,
+    this.hasNoParameters = true,
     this.returnType,
-    this.typeParameters,
+    this.hasTypeParameters = false,
     this.isRedirectingFactory = false,
     this.isInTypeHeader = false,
     this.isFinalInstanceField = false,
@@ -49,15 +49,15 @@ final class OutlineElement {
   /// The range of the name, or of the `on` type for an unnamed extension.
   final Range? range;
 
-  /// The parameter list as written, e.g. `(int a, {required int b})`.
-  final String? parameters;
+  /// Whether its parameter list is empty, or it has none, like a getter.
+  final bool hasNoParameters;
 
   /// The return type of a method or a function as written, empty when it has
   /// none.
   final String? returnType;
 
-  /// The type parameters as written, e.g. `<T extends Object>`.
-  final String? typeParameters;
+  /// Whether it declares type parameters, like `<T extends Object>`.
+  final bool hasTypeParameters;
 
   /// Whether this is a redirecting factory constructor, such as
   /// `factory Foo.a() = _A;`.

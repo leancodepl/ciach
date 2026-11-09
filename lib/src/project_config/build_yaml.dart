@@ -1,29 +1,23 @@
 import 'dart:io';
 
 import 'package:ciach/src/project_config/project_files.dart';
+import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
 /// Returns the package's `build.yaml`, and every `build.<name>.yaml` that
 /// `build_runner --config <name>` can use instead of it.
 List<Map<Object?, Object?>> readBuildYamls(String rootPath) => [
-  for (final file in _buildYamlFiles(rootPath)) ?readYamlMap(file),
-];
-
-final _buildYamlName = RegExp(r'^build(\.[^.]+)?\.yaml$');
-
-Iterable<String> _buildYamlFiles(String rootPath) {
-  final dir = Directory(rootPath);
-  if (!dir.existsSync()) {
-    return const [];
-  }
-  return [
-    for (final entity in dir.listSync(followLinks: false))
+  for (final path in [
+    for (final entity in Directory(rootPath).listSync(followLinks: false))
       if (entity case File(
         :final path,
       ) when _buildYamlName.hasMatch(p.basename(path)))
         path,
-  ]..sort();
-}
+  ].sorted())
+    ?readYamlMap(path),
+];
+
+final _buildYamlName = RegExp(r'^build(\.[^.]+)?\.yaml$');
 
 /// Returns the configurations of the targets that are listed under `targets:`
 /// in [buildYaml].

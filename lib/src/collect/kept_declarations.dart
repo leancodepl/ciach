@@ -4,7 +4,6 @@
  *   harness: Claude Code
  */
 
-import 'package:ciach/src/analysis/resolved_file.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/resolved_declaration.dart';
@@ -67,30 +66,9 @@ final class KeptDeclarations {
         yield candidate;
         continue;
       }
-      _skippedEntryPoints.add((
-        path: relativePath,
-        line: candidate.positionOf(candidate.outline.nameRange.start).line + 1,
-        name: candidate.name,
-        reason: reason,
-      ));
+      _skip(relativePath, candidate, candidate.name, reason);
     }
   }
-
-  /// Returns [candidate] as the entry-point rules read it. [file] is the
-  /// resolved file that declares it.
-  ResolvedDeclaration declarationOf(
-    String relativePath,
-    Candidate candidate,
-    ResolvedFile file,
-  ) => .new(
-    relativePath: relativePath,
-    outline: candidate.outline,
-    container: candidate.container,
-    inEnum: candidate.containerOutline?.element.kind == .enum$,
-    annotations:
-        file.annotations[candidate.outline.nameRange.start] ?? const [],
-    supertypes: file.supertypes[candidate.outline.nameRange.start] ?? const {},
-  );
 
   /// Returns whether [candidate], which the rules read as [declaration], is
   /// called by a framework or a tool. Such a declaration has no reference in
@@ -107,8 +85,8 @@ final class KeptDeclarations {
     final qualified = declaration.qualifiedName;
     final rule = _entryPoints.match(declaration);
     if (rule != null && container != null) {
-      _entryPointContainers[DeclKey(relativePath, container)] ??= rule
-          .containerReason(qualified);
+      _entryPointContainers[DeclKey(relativePath, container)] ??=
+          'declares the entry point $qualified';
     }
     final reason =
         rule?.reasonFor(declaration) ??
@@ -118,21 +96,9 @@ final class KeptDeclarations {
     if (reason == null) {
       return false;
     }
-    _skippedEntryPoints.add((
-      path: relativePath,
-      line: candidate.positionOf(outline.nameRange.start).line + 1,
-      name: qualified,
-      reason: reason,
-    ));
+    _skip(relativePath, candidate, qualified, reason);
     return true;
   }
-
-  /// Returns the members that the rules keep in [declaration], a type, or
-  /// `null` when [declaration] is not a type.
-  List<KeptMembers>? keptMembersOf(ResolvedDeclaration declaration) =>
-      declaration.outline.element.declaresMembers
-      ? _entryPoints.keptMembersOf(declaration)
-      : null;
 
   /// Records [candidate] as kept by the marker [kept], and its type too.
   void byMarker(String relativePath, Candidate candidate, MarkerAt kept) {
@@ -142,13 +108,22 @@ final class KeptDeclarations {
       _entryPointContainers[DeclKey(relativePath, container)] ??=
           'declares $qualified, kept by `// ${kept.marker}`';
     }
-    _skippedEntryPoints.add((
-      path: relativePath,
-      line: candidate.positionOf(candidate.outline.nameRange.start).line + 1,
-      name: qualified,
-      reason: 'kept by `// ${kept.marker}` on line ${kept.line + 1}',
-    ));
+    _skip(
+      relativePath,
+      candidate,
+      qualified,
+      'kept by `// ${kept.marker}` on line ${kept.line + 1}',
+    );
   }
+
+  /// Records [candidate], named [name] in the log, as skipped for [reason].
+  void _skip(String path, Candidate candidate, String name, String reason) =>
+      _skippedEntryPoints.add((
+        path: path,
+        line: candidate.namePosition.line + 1,
+        name: name,
+        reason: reason,
+      ));
 }
 
 /// A skipped entry point: root-relative POSIX path, one-based line, the name

@@ -54,20 +54,6 @@ extension DeclarationNames on OutlineElement {
   /// constructor can have.
   bool get isPrimaryConstructorBody => kind == .constructor && name == 'this';
 
-  /// Whether the parameter list is empty. If [parameters] is missing, the
-  /// arity is unknown, so it is treated as empty to avoid missing the
-  /// zero-parameter marker.
-  bool get hasNoParameters {
-    final parameters = this.parameters?.trim();
-    if (parameters == null || parameters.isEmpty) {
-      return true;
-    }
-    final inner = parameters.startsWith('(') && parameters.endsWith(')')
-        ? parameters.substring(1, parameters.length - 1).trim()
-        : parameters;
-    return inner.isEmpty;
-  }
-
   /// The name to report for this declaration.
   ///
   /// A constructor is named with the class included (`Foo` for the unnamed

@@ -41,7 +41,6 @@ extension FlutterWidgets on FileSyntax {
     bool holds(Candidate state, Location loc) =>
         state.isClassOrMixin &&
         state.path == loc.path &&
-        !identical(state, widget) &&
         state.outline.codeRange.contains(loc.range.start);
     // The State subclass that holds each pairing reference, with its index,
     // or `null` when no candidate holds it. The widget's own `createState`

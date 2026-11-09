@@ -49,13 +49,12 @@ final class ClauseOnlyTypes {
     Set<String> scannedPaths,
     String rootPath,
   ) {
-    final members = removableMembers(candidates, removable);
+    final removed = removableOutlines(candidates, removable);
     final entriesOf = {
       for (final (i, candidate) in candidates.indexed)
         if (statuses[i] == .used &&
             const <OutlineKind>{.class$, .mixin}.contains(candidate.kind) &&
-            candidate.outline.children.length ==
-                (members[candidate.key]?.removable ?? 0))
+            candidate.outline.children.every(removed.contains))
           i: ?_clauseEntriesNaming(candidate, liveRefs[i], scannedPaths),
     };
     // Drop a type if any of its clause entries gets no removal, because the
