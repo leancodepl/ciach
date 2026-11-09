@@ -8,7 +8,6 @@
  *     - mark-ai-provenance
  */
 
-import 'package:ciach/src/model/finder_result.dart';
 import 'package:ciach/src/report/annotations.dart';
 import 'package:ciach/src/util/extensions.dart';
 
@@ -18,16 +17,11 @@ import 'package:ciach/src/util/extensions.dart';
 /// Each type is declared by an `inspectionType` message before its first
 /// use.
 ///
-/// [pathPrefix] is prepended to each path, as in `githubReport`.
-///
 /// [TeamCity inspections]: https://www.jetbrains.com/help/teamcity/service-messages.html#Reporting+Inspections
-String teamCityReport(FinderResult result, {String pathPrefix = '.'}) {
+String teamCityReport(Iterable<Annotation> annotations) {
   final buffer = StringBuffer();
   final declared = <Check>{};
-  for (final (:check, :file, :line, column: _, :message) in annotationsOf(
-    result,
-    pathPrefix,
-  )) {
+  for (final (:check, :file, :line, column: _, :message) in annotations) {
     final typeId = 'ciach.${check.id}';
     if (declared.add(check)) {
       buffer.writeln(

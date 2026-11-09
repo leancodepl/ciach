@@ -54,9 +54,9 @@ Set<String> parseAlso(List<String> raw) {
       for (final name in entry.split(','))
         if (name.trim() case final trimmed when trimmed.isNotEmpty) trimmed,
   };
-  String? removedMessage(String name) =>
-      removedAlsoAdvice(name)?.let((advice) => '`$name` was removed: $advice.');
-  if (names.map(removedMessage).nonNulls.firstOrNull case final message?) {
+  String? removedValue(String name) =>
+      removedAlsoAdvice(name)?.let((advice) => removedMessage(name, advice));
+  if (names.map(removedValue).nonNulls.firstOrNull case final message?) {
     throw FormatException(message);
   }
   if (names.whereNot(alsoNames.contains).firstOrNull case final unknown?) {
@@ -100,6 +100,6 @@ Set<SymbolKind> parseKinds(List<String> raw) {
 
 /// The error for the `--kinds` value [name], which selects no kind.
 FormatException _kindError(String name) => .new(
-  removedKindAdvice(name)?.let((advice) => '`$name` was removed: $advice.') ??
+  removedKindAdvice(name)?.let((advice) => removedMessage(name, advice)) ??
       "Unknown kind '$name'. Valid kinds: $kindNames.",
 );

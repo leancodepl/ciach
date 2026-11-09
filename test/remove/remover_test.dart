@@ -450,12 +450,11 @@ Status? statusHolder;
       // `only` is line index 1, columns 2..6.
       final blockedValue = UnusedDeclaration(
         name: 'only',
-        kind: .enum$,
         filePath: 'lib.dart',
         line: 2,
         column: 3,
         isPrivate: false,
-        isEnumValue: true,
+        kind: .enumValue,
         range: rangeIn(source, (
           startLine: 1,
           startColumn: 2,

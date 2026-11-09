@@ -15,6 +15,8 @@ import 'package:ciach/src/cli/options.dart';
 import 'package:config/config.dart';
 import 'package:test/test.dart';
 
+import 'format_exception.dart';
+
 final _parser = buildParser();
 
 /// Resolves [arguments] against [config], the environment-probed defaults
@@ -45,6 +47,4 @@ Matcher isUsageException(Matcher message) =>
 
 /// A [FormatException] whose message names [origin] and matches [message].
 Matcher isFormatExceptionFrom(String origin, Matcher message) =>
-    isA<FormatException>()
-        .having((e) => e.message, 'message', startsWith('$origin:'))
-        .having((e) => e.message, 'message', message);
+    formatExceptionWith(allOf(startsWith('$origin:'), message));

@@ -36,7 +36,7 @@ enum Direction {
           startColumn: 2,
           endLine: 2,
           endColumn: 2 + 'south'.length,
-          isEnumValue: true,
+          kind: .enumValue,
         ),
       ]);
       expect(result, isNot(contains('south')));
@@ -59,7 +59,7 @@ enum Direction {
           startColumn: 2,
           endLine: 2,
           endColumn: 2 + 'south'.length,
-          isEnumValue: true,
+          kind: .enumValue,
         ),
       ]);
       expect(result, isNot(contains('south')));
@@ -79,7 +79,7 @@ enum Direction {
           startColumn: start,
           endLine: 0,
           endColumn: start + name.length,
-          isEnumValue: true,
+          kind: .enumValue,
         );
       }
 
@@ -115,7 +115,7 @@ enum Direction {
           startColumn: start,
           endLine: 0,
           endColumn: start + name.length,
-          isEnumValue: true,
+          kind: .enumValue,
         );
       }
 
@@ -187,7 +187,7 @@ enum Accuracy { best, high, medium }
           startColumn: column,
           endLine: line,
           endColumn: column + name.length,
-          isEnumValue: true,
+          kind: .enumValue,
         );
       }
 
@@ -238,7 +238,7 @@ enum Level { low, mid, top }
           startColumn: column,
           endLine: line,
           endColumn: column + name.length,
-          isEnumValue: true,
+          kind: .enumValue,
         );
       }
 
@@ -285,7 +285,7 @@ enum Direction {
             startColumn: column,
             endLine: line,
             endColumn: column + name.length,
-            isEnumValue: true,
+            kind: .enumValue,
           );
         }
 
@@ -312,7 +312,7 @@ enum Direction {
             startColumn: start,
             endLine: 0,
             endColumn: start + name.length,
-            isEnumValue: true,
+            kind: .enumValue,
           );
         }
 
@@ -352,7 +352,7 @@ enum E {
             startColumn: 2,
             endLine: 2,
             endColumn: 3,
-            isEnumValue: true,
+            kind: .enumValue,
           ),
         ]);
         expect(result, isNot(contains('  b')));
@@ -375,7 +375,7 @@ enum E {
             startColumn: start,
             endLine: 0,
             endColumn: start + 1,
-            isEnumValue: true,
+            kind: .enumValue,
           ),
         ]);
         expect(result.trim(), 'enum E { a; final int x = 0; }');
@@ -401,7 +401,7 @@ enum E {
             startColumn: 2,
             endLine: 2,
             endColumn: 3,
-            isEnumValue: true,
+            kind: .enumValue,
           ),
         ]);
         expect(result, isNot(contains('  b')));

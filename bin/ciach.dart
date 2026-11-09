@@ -129,30 +129,18 @@ Future<int> _run(List<String> arguments) async {
     return 2;
   }
 
-  // Up front: a missing SDK fails fast, and verbose shows the real `dart`.
-  final String dartExecutable;
-  try {
-    dartExecutable = findDartExecutable(explicit: resolved.dartExecutable);
-  } on DartSdkNotFoundException catch (e) {
-    _log.severe(e.message);
-    return 2;
-  }
-
   // Built here so the checks below, --verbose and the run all read the same
-  // normalized paths.
-  final options = resolved.finderOptions(dartExecutable: dartExecutable);
+  // normalized paths. A missing SDK fails here, before anything runs.
+  final options = resolved.finderOptions(
+    dartExecutable: findDartExecutable(explicit: resolved.dartExecutable),
+  );
   final rootPath = options.rootPath;
 
   if (!_analysisRootIsValid(options)) {
     return 2;
   }
 
-  describeSettings(
-    configuration,
-    resolved,
-    options,
-    dartExecutable: dartExecutable,
-  ).forEach(_log.config);
+  describeSettings(configuration, resolved, options).forEach(_log.config);
 
   final result = await Ciach(options).run();
   logSummary(result);

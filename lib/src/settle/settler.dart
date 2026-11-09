@@ -43,17 +43,15 @@ final class Settler {
     required ResolvedFiles files,
     required FreezedUnions freezed,
     required ReferenceClassifier classifier,
-    required Verdict verdict,
   }) : _files = files,
        _freezed = freezed,
-       _classifier = classifier,
-       _verdict = verdict;
+       _classifier = classifier;
 
   final FinderOptions options;
   final ResolvedFiles _files;
   final FreezedUnions _freezed;
   final ReferenceClassifier _classifier;
-  final Verdict _verdict;
+  late final _verdict = Verdict(options: options, classifier: _classifier);
 
   late final _clauseOnly = ClauseOnlyTypes(
     syntax: _files,

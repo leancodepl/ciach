@@ -4,6 +4,7 @@ import 'package:ciach/src/cli/ci.dart';
 import 'package:ciach/src/cli/console.dart';
 import 'package:ciach/src/cli/options.dart';
 import 'package:ciach/src/model/finder_result.dart';
+import 'package:ciach/src/report/annotations.dart';
 import 'package:ciach/src/report/azure_report.dart';
 import 'package:ciach/src/report/checkstyle_report.dart';
 import 'package:ciach/src/report/github_report.dart';
@@ -76,7 +77,7 @@ void writeReport(
         'github' => githubReport,
         _ => throw StateError("No reporter for the format '$format'."),
       };
-      console.output(report(result, pathPrefix: prefix));
+      console.output(report(annotationsOf(result, prefix)));
   }
 }
 

@@ -8,7 +8,6 @@
  *     - mark-ai-provenance
  */
 
-import 'package:ciach/src/model/finder_result.dart';
 import 'package:ciach/src/report/annotations.dart';
 import 'package:ciach/src/util/extensions.dart';
 
@@ -16,15 +15,10 @@ import 'package:ciach/src/util/extensions.dart';
 /// finding, which the run's summary lists with its file and line. Azure has
 /// no severity below a warning, so doc-only findings are warnings too.
 ///
-/// [pathPrefix] is prepended to each path, as in `githubReport`.
-///
 /// [Azure Pipelines logging commands]: https://learn.microsoft.com/azure/devops/pipelines/scripts/logging-commands
-String azureReport(FinderResult result, {String pathPrefix = '.'}) {
+String azureReport(Iterable<Annotation> annotations) {
   final buffer = StringBuffer();
-  for (final (:check, :file, :line, :column, :message) in annotationsOf(
-    result,
-    pathPrefix,
-  )) {
+  for (final (:check, :file, :line, :column, :message) in annotations) {
     final properties = [
       'type=warning',
       'sourcepath=${_escapeAzure(file, property: true)}',

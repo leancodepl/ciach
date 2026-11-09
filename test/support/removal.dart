@@ -30,7 +30,7 @@ DeclarationRange rangeIn(
   );
 }
 
-/// A finding in [filePath] of [source], whose doc comment or annotations
+/// A finding in `lib.dart`, whose text is [source], and whose doc comment or annotations
 /// start at [docLine]:[docColumn].
 UnusedDeclaration decl(
   String source, {
@@ -39,19 +39,16 @@ UnusedDeclaration decl(
   required int endLine,
   required int endColumn,
   SymbolKind kind = .function,
-  bool isEnumValue = false,
   int? docLine,
   int? docColumn,
   DeclarationRange? cut,
-  String filePath = 'lib.dart',
 }) => .new(
   name: 'x',
   kind: kind,
-  filePath: filePath,
+  filePath: 'lib.dart',
   line: startLine + 1,
   column: startColumn + 1,
   isPrivate: false,
-  isEnumValue: isEnumValue,
   range: rangeIn(source, (
     startLine: startLine,
     startColumn: startColumn,

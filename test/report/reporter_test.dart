@@ -11,6 +11,7 @@
 import 'dart:convert';
 
 import 'package:ciach/ciach.dart';
+import 'package:ciach/src/report/annotations.dart';
 import 'package:ciach/src/report/azure_report.dart';
 import 'package:ciach/src/report/checkstyle_report.dart';
 import 'package:ciach/src/report/github_report.dart';
@@ -86,17 +87,19 @@ void main() {
   group('githubReport', () {
     test('emits one ::warning annotation per finding', () {
       final out = githubReport(
-        resultWith([
-          decl(),
-          decl(
-            name: '_bar',
-            kind: .field,
-            line: 8,
-            column: 2,
-            isPrivate: true,
-            container: 'A',
-          ),
-        ]),
+        annotationsOf(
+          resultWith([
+            decl(),
+            decl(
+              name: '_bar',
+              kind: .field,
+              line: 8,
+              column: 2,
+              isPrivate: true,
+              container: 'A',
+            ),
+          ]),
+        ),
       );
       final lines = out.trimRight().split('\n');
       expect(lines, hasLength(2));
@@ -107,26 +110,30 @@ void main() {
       expect(lines[1], contains("Unused private field 'A._bar'"));
     });
 
-    test('prepends pathPrefix for sub-directory scans', () {
-      final out = githubReport(resultWith([decl()]), pathPrefix: 'app');
+    test('prepends the path prefix for sub-directory scans', () {
+      final out = githubReport(annotationsOf(resultWith([decl()]), 'app'));
       expect(out, contains('file=app/lib/a.dart,'));
     });
 
     test('escapes commas in properties and percent signs in the message', () {
       final out = githubReport(
-        resultWith([decl(name: '50%', filePath: 'lib/a,b.dart')]),
+        annotationsOf(
+          resultWith([decl(name: '50%', filePath: 'lib/a,b.dart')]),
+        ),
       );
       expect(out, contains('file=lib/a%2Cb.dart,'));
       expect(out, contains("Unused function '50%25'"));
     });
 
     test('produces no output when nothing is unused', () {
-      expect(githubReport(resultWith(const [])), isEmpty);
+      expect(githubReport(annotationsOf(resultWith(const []))), isEmpty);
     });
 
     test('emits a lower-severity ::notice for doc-only findings', () {
       final out = githubReport(
-        resultWith(const [], docOnly: [decl(name: 'docOnlyThing')]),
+        annotationsOf(
+          resultWith(const [], docOnly: [decl(name: 'docOnlyThing')]),
+        ),
       );
       expect(out, startsWith('::notice '));
       expect(out, contains("docOnlyThing' has no code references"));
@@ -136,12 +143,14 @@ void main() {
       'emits a ::warning annotation on the first line of each empty file',
       () {
         final out = githubReport(
-          resultWith(
-            const [],
-            emptyFiles: ['lib/blank.dart'],
-            emptyVariants: ['lib/web.dart'],
+          annotationsOf(
+            resultWith(
+              const [],
+              emptyFiles: ['lib/blank.dart'],
+              emptyVariants: ['lib/web.dart'],
+            ),
+            'app',
           ),
-          pathPrefix: 'app',
         );
         expect(out, '''
 ::warning file=app/lib/blank.dart,line=1,col=1,title=Empty file::Has nothing but comments and library, import or part-of directives
@@ -208,12 +217,14 @@ void main() {
   group('azureReport', () {
     test('emits one task.logissue warning per finding, doc-only too', () {
       final out = azureReport(
-        resultWith(
-          [decl()],
-          docOnly: [decl(name: 'docOnlyThing', line: 9)],
-          emptyFiles: ['lib/blank.dart'],
+        annotationsOf(
+          resultWith(
+            [decl()],
+            docOnly: [decl(name: 'docOnlyThing', line: 9)],
+            emptyFiles: ['lib/blank.dart'],
+          ),
+          'app',
         ),
-        pathPrefix: 'app',
       );
       expect(out, '''
 ##vso[task.logissue type=warning;sourcepath=app/lib/a.dart;linenumber=3;columnnumber=5]Unused declaration: Unused function 'foo'
@@ -224,7 +235,9 @@ void main() {
 
     test('escapes percent signs, semicolons and brackets', () {
       final out = azureReport(
-        resultWith([decl(name: '50%', filePath: 'lib/a;b].dart')]),
+        annotationsOf(
+          resultWith([decl(name: '50%', filePath: 'lib/a;b].dart')]),
+        ),
       );
       expect(out, contains('sourcepath=lib/a%3Bb%5D.dart;'));
       expect(out, contains("Unused function '50%AZP25'"));
@@ -232,9 +245,11 @@ void main() {
 
     test('leaves out the position a problem lacks', () {
       final out = azureReport(
-        resultWith(
-          const [],
-          problems: [problem(line: null, column: null, name: null)],
+        annotationsOf(
+          resultWith(
+            const [],
+            problems: [problem(line: null, column: null, name: null)],
+          ),
         ),
       );
       expect(
@@ -246,18 +261,20 @@ void main() {
     });
 
     test('produces no output when nothing is found', () {
-      expect(azureReport(resultWith(const [])), isEmpty);
+      expect(azureReport(annotationsOf(resultWith(const []))), isEmpty);
     });
   });
 
   group('teamCityReport', () {
     test('declares each inspection type once, before its first use', () {
       final out = teamCityReport(
-        resultWith(
-          [decl(), decl(name: 'bar', line: 7)],
-          docOnly: [decl(name: 'docOnlyThing', line: 9)],
+        annotationsOf(
+          resultWith(
+            [decl(), decl(name: 'bar', line: 7)],
+            docOnly: [decl(name: 'docOnlyThing', line: 9)],
+          ),
+          'app',
         ),
-        pathPrefix: 'app',
       );
       expect(out, '''
 ##teamcity[inspectionType id='ciach.unused-declaration' name='Unused declaration' category='ciach' description='Unused declaration']
@@ -270,23 +287,25 @@ void main() {
 
     test('escapes bars, brackets and newlines', () {
       final out = teamCityReport(
-        resultWith([decl(name: 'a|b', hint: '[x]\ny')]),
+        annotationsOf(resultWith([decl(name: 'a|b', hint: '[x]\ny')])),
       );
       expect(out, contains("message='Unused function |'a||b|' — |[x|]|ny'"));
     });
 
     test('escapes the Unicode line breaks', () {
       final out = teamCityReport(
-        resultWith([decl(hint: 'a\u0085b\u2028c\u2029d')]),
+        annotationsOf(resultWith([decl(hint: 'a\u0085b\u2028c\u2029d')])),
       );
       expect(out, contains('a|xb|lc|pd'));
     });
 
     test('leaves out the line a problem lacks', () {
       final out = teamCityReport(
-        resultWith(
-          const [],
-          problems: [problem(line: null, column: null, name: null)],
+        annotationsOf(
+          resultWith(
+            const [],
+            problems: [problem(line: null, column: null, name: null)],
+          ),
         ),
       );
       expect(out, isNot(contains('line=')));
@@ -294,7 +313,7 @@ void main() {
     });
 
     test('produces no output when nothing is found', () {
-      expect(teamCityReport(resultWith(const [])), isEmpty);
+      expect(teamCityReport(annotationsOf(resultWith(const []))), isEmpty);
     });
   });
 
@@ -303,11 +322,13 @@ void main() {
       final log =
           jsonDecode(
                 sarifReport(
-                  resultWith(
-                    [decl()],
-                    docOnly: [decl(name: 'docOnlyThing', line: 9)],
+                  annotationsOf(
+                    resultWith(
+                      [decl()],
+                      docOnly: [decl(name: 'docOnlyThing', line: 9)],
+                    ),
+                    'app',
                   ),
-                  pathPrefix: 'app',
                 ),
               )
               as Map<String, Object?>;
@@ -361,7 +382,7 @@ void main() {
 
     test('percent-encodes the uri', () {
       final out = sarifReport(
-        resultWith([decl(filePath: 'lib/my widget#1.dart')]),
+        annotationsOf(resultWith([decl(filePath: 'lib/my widget#1.dart')])),
       );
       expect(out, contains('"uri": "lib/my%20widget%231.dart"'));
     });
@@ -370,9 +391,11 @@ void main() {
       final log =
           jsonDecode(
                 sarifReport(
-                  resultWith(
-                    const [],
-                    problems: [problem(line: null, column: null)],
+                  annotationsOf(
+                    resultWith(
+                      const [],
+                      problems: [problem(line: null, column: null)],
+                    ),
                   ),
                 ),
               )
@@ -384,11 +407,13 @@ void main() {
   group('checkstyleReport', () {
     test('groups the findings by file', () {
       final out = checkstyleReport(
-        resultWith(
-          [decl(), decl(name: 'bar', filePath: 'lib/b.dart', line: 7)],
-          docOnly: [decl(name: 'docOnlyThing', line: 9)],
+        annotationsOf(
+          resultWith(
+            [decl(), decl(name: 'bar', filePath: 'lib/b.dart', line: 7)],
+            docOnly: [decl(name: 'docOnlyThing', line: 9)],
+          ),
+          'app',
         ),
-        pathPrefix: 'app',
       );
       expect(out, """
 <?xml version="1.0" encoding="UTF-8"?>
@@ -415,7 +440,9 @@ void main() {
 
     test('escapes markup', () {
       final out = checkstyleReport(
-        resultWith([decl(name: 'a<b>&"c"', filePath: 'lib/a&b.dart')]),
+        annotationsOf(
+          resultWith([decl(name: 'a<b>&"c"', filePath: 'lib/a&b.dart')]),
+        ),
       );
       expect(nameAndMessage(out), (
         'lib/a&b.dart',
@@ -424,13 +451,15 @@ void main() {
     });
 
     test('keeps whitespace and drops what XML cannot hold', () {
-      final out = checkstyleReport(resultWith([decl(hint: 'a\r\n\tb\x1Bc')]));
+      final out = checkstyleReport(
+        annotationsOf(resultWith([decl(hint: 'a\r\n\tb\x1Bc')])),
+      );
       expect(out, isNot(contains('&#x1B;')));
       expect(nameAndMessage(out).$2, endsWith('a\r\n\tbc'));
     });
 
     test('has no files when nothing is found', () {
-      expect(checkstyleReport(resultWith(const [])), '''
+      expect(checkstyleReport(annotationsOf(resultWith(const []))), '''
 <?xml version="1.0" encoding="UTF-8"?>
 <checkstyle version="4.3"/>
 ''');
@@ -439,7 +468,7 @@ void main() {
 
   group('gitlabReport', () {
     List<Object?> issues(FinderResult result) =>
-        jsonDecode(gitlabReport(result, pathPrefix: 'app')) as List<Object?>;
+        jsonDecode(gitlabReport(annotationsOf(result, 'app'))) as List<Object?>;
 
     test('emits one Code Quality issue per finding', () {
       final [unused, docOnly] = issues(
@@ -492,9 +521,11 @@ void main() {
 
   test('githubReport joins the hint and the dead referrer with dashes', () {
     final out = githubReport(
-      resultWith([
-        decl(hint: 'a hint', onlyReferencedFrom: [root]),
-      ]),
+      annotationsOf(
+        resultWith([
+          decl(hint: 'a hint', onlyReferencedFrom: [root]),
+        ]),
+      ),
     );
     expect(
       out,
@@ -584,11 +615,16 @@ void main() {
 
     test('github annotates each, with what position is known', () {
       final github = githubReport(
-        resultWith(
-          const [],
-          problems: [problem(), problem(line: null, column: null, name: null)],
+        annotationsOf(
+          resultWith(
+            const [],
+            problems: [
+              problem(),
+              problem(line: null, column: null, name: null),
+            ],
+          ),
+          'pkg',
         ),
-        pathPrefix: 'pkg',
       );
       expect(
         github,

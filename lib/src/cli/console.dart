@@ -94,10 +94,7 @@ final class Console {
   }
 
   /// Shows every log record from now on.
-  StreamSubscription<LogRecord> attach() {
-    Logger.root.level = level;
-    return Logger.root.onRecord.listen(log);
-  }
+  StreamSubscription<LogRecord> attach() => Logger.root.onRecord.listen(log);
 
   /// Writes the result to stdout.
   void output(String text) {
@@ -144,7 +141,7 @@ final class Console {
         ? '${message.substring(0, max - 2)}…'
         : message;
     final padding = ' ' * (_progressLength - text.length).clamp(0, 1 << 16);
-    _err.write('\r${_formatter.progress(text)}$padding');
+    _err.write('\r${errStyle.detail(text)}$padding');
     _progressLength = text.length;
   }
 }

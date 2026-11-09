@@ -49,14 +49,15 @@ typedef Annotation = ({
   String message,
 });
 
-/// Every finding of [result] as an annotation, its path prefixed with
-/// [pathPrefix]: unused declarations, empty files, doc-only findings and
-/// problems, in that order.
+/// Every finding of [result] as an annotation: unused declarations, empty
+/// files, doc-only findings and problems, in that order. Each path starts
+/// with [pathPrefix], the scan root's path from the repository root, which
+/// the CI service resolves paths from.
 Iterable<Annotation> annotationsOf(
-  FinderResult result,
-  String pathPrefix,
-) sync* {
-  String file(String filePath) => _annotationFile(filePath, pathPrefix);
+  FinderResult result, [
+  String pathPrefix = '.',
+]) sync* {
+  String file(String filePath) => p.posix.normalize('$pathPrefix/$filePath');
   for (final decl in result.unused) {
     yield (
       check: .unused,
@@ -104,11 +105,6 @@ Iterable<Annotation> annotationsOf(
     );
   }
 }
-
-String _annotationFile(String filePath, String pathPrefix) =>
-    pathPrefix == '.' || pathPrefix.isEmpty
-    ? filePath
-    : p.posix.normalize('$pathPrefix/$filePath');
 
 /// The first finding [decl] is only referenced from, and how many others
 /// there are; the JSON report lists them all.

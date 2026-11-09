@@ -147,8 +147,7 @@ entry-points: [{name: bootstrap}, {name: registerWith, glob: [lib/**, bin/**]}]'
       return describeSettings(
         configuration,
         resolved,
-        resolved.finderOptions(),
-        dartExecutable: '/sdk/bin/dart',
+        resolved.finderOptions(dartExecutable: '/sdk/bin/dart'),
       );
     }
 
@@ -186,8 +185,7 @@ entry-points: [{name: registerWith, glob: lib/**}]''', origin: 'c.yaml'),
       final lines = describeSettings(
         configuration,
         resolved,
-        resolved.finderOptions(),
-        dartExecutable: '/sdk/bin/dart',
+        resolved.finderOptions(dartExecutable: '/sdk/bin/dart'),
       );
 
       expect(lines, contains('  public: false (command line)'));

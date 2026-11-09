@@ -41,6 +41,13 @@ for it passes offsets too. The offset of a zero-based line and column is the
 column plus the index just after the line's preceding `\n`, or plus 0 on the
 first line. The one-based `line` and `column` of a finding don't change.
 
+### `UnusedDeclaration.isEnumValue`
+
+`isEnumValue` is now a getter that tells whether `kind` is
+`SymbolKind.enumValue`, so the `UnusedDeclaration` constructor no longer
+takes it. Code that builds a finding for an enum value passes
+`kind: .enumValue` instead.
+
 ### `--kinds constant`
 
 ciach reports a `const` variable as a `variable` or a `field`, so

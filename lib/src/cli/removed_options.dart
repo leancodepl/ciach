@@ -15,10 +15,6 @@ library;
 import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 
-/// What a removed option became: the values for the option with the config
-/// key `key` to take. No values set it to an empty list.
-typedef Replacement = ({String key, List<String> values});
-
 /// The removed flags that became a value of `--also`, by config key.
 const _alsoFlags = {
   'overrides': 'overrides',
@@ -41,10 +37,6 @@ const removedKeys = {
   'generated-suffix',
   'concurrency',
 };
-
-/// The config keys of the removed options that had an abbreviation, by the
-/// abbreviation.
-const _removedAbbreviations = {'j': 'concurrency'};
 
 /// Why setting the removed option [key] to [value] (`true` or `false` for a
 /// flag) is not needed any more, or what to use instead, in the config file
@@ -70,24 +62,27 @@ String removedOptionAdvice(
   },
 };
 
-/// What setting the removed option [key] to [value] became, or `null` when
-/// that is the default now.
-Replacement? _replacementFor(String key, Object? value) =>
-    switch ((key, value)) {
-      ('exported', false) => (key: 'exported-packages', values: const ['**']),
-      ('generated-suffix', final Iterable<Object?> suffixes) => (
-        key: 'generated-glob',
-        values: [for (final suffix in suffixes) '**/*$suffix'],
-      ),
-      ('generated-suffix', final suffix) => (
-        key: 'generated-glob',
-        values: ['**/*${suffix ?? '<suffix>'}'],
-      ),
-      (final flag, true) => _alsoFlags[flag]?.let(
-        (also) => (key: 'also', values: [also]),
-      ),
-      _ => null,
-    };
+/// What setting the removed option [key] to [value] became: the values for
+/// the option with the config key `key` to take, none setting it to an empty
+/// list. `null` when that is the default now.
+({String key, List<String> values})? _replacementFor(
+  String key,
+  Object? value,
+) => switch ((key, value)) {
+  ('exported', false) => (key: 'exported-packages', values: const ['**']),
+  ('generated-suffix', final Iterable<Object?> suffixes) => (
+    key: 'generated-glob',
+    values: [for (final suffix in suffixes) '**/*$suffix'],
+  ),
+  ('generated-suffix', final suffix) => (
+    key: 'generated-glob',
+    values: ['**/*${suffix ?? '<suffix>'}'],
+  ),
+  (final flag, true) => _alsoFlags[flag]?.let(
+    (also) => (key: 'also', values: [also]),
+  ),
+  _ => null,
+};
 
 /// [value], single-quoted when a shell or YAML would read it otherwise.
 String _quoted(String value) =>
@@ -96,9 +91,6 @@ String _quoted(String value) =>
 final _longOption = RegExp(
   r'^--(?<negation>no-)?(?<name>[\w-]+)(?:=(?<value>.*))?$',
 );
-
-/// An abbreviated option, such as `-j` in `-j 4` and in `-j4`.
-final _abbreviatedOption = RegExp('^-(?<abbreviation>[a-zA-Z])');
 
 /// Why the `--also` value [value] was removed, or `null` when ciach still
 /// has it.
@@ -125,17 +117,18 @@ String? removedOptionMessage(List<String> arguments) => arguments
 /// Why [argument], which the argument [next] may follow, is a removed option
 /// or gives `--also` a removed value, or `null` when it is neither.
 String? _removedMessage(String argument, {required String? next}) {
-  if (_removedAbbreviations[_abbreviatedOption
-          .firstMatch(argument)
-          ?.namedGroup('abbreviation')]
-      case final name?) {
-    return '`${argument.substring(0, 2)}` was removed: ${removedOptionAdvice(name, null, inConfig: false)}.';
+  // `-j`, in `-j 4` and in `-j4`, was short for `--concurrency`.
+  if (argument.startsWith('-j')) {
+    return removedMessage(
+      '-j',
+      removedOptionAdvice('concurrency', null, inConfig: false),
+    );
   }
   final match = _longOption.firstMatch(argument);
-  final name = match?.namedGroup('name');
-  if (match == null || name == null) {
+  if (match == null) {
     return null;
   }
+  final name = match.namedGroup('name')!;
   // The values of `--also` and `--generated-suffix` may be the next argument.
   final value = match.namedGroup('value') ?? next;
   if (name == 'also') {
@@ -147,8 +140,15 @@ String? _removedMessage(String argument, {required String? next}) {
   final setting = name == 'generated-suffix'
       ? value
       : match.namedGroup('negation') == null;
-  return '`${argument.split('=').first}` was removed: ${removedOptionAdvice(name, setting, inConfig: false)}.';
+  return removedMessage(
+    argument.split('=').first,
+    removedOptionAdvice(name, setting, inConfig: false),
+  );
 }
+
+/// The message that [option] was removed, with [advice] on what to do.
+String removedMessage(String option, String advice) =>
+    '`$option` was removed: $advice.';
 
 /// Why the first removed value among the comma-separated [values] of
 /// `--also` is gone, or `null` when it names none.
@@ -158,7 +158,7 @@ String? _removedAlsoMessage(String values) => values
     .map(
       (value) => removedAlsoAdvice(
         value,
-      )?.let((advice) => '`--also $value` was removed: $advice.'),
+      )?.let((advice) => removedMessage('--also $value', advice)),
     )
     .nonNulls
     .firstOrNull;

@@ -160,43 +160,31 @@ Iterable<String> _problemLines(
     yield '  $summary';
     for (final MapEntry(key: cause, value: ofCause)
         in ofSummary.groupListsBy((p) => p.cause).entries) {
-      yield* _causeLines(cause, ofCause, style, verbose, maxListed);
+      yield '    ${style.failure(cause)}';
+      final listed = verbose ? ofCause : ofCause.take(maxListed).toList();
+      for (final MapEntry(key: file, value: inFile)
+          in listed.groupListsBy((p) => p.filePath).entries) {
+        yield '    ${style.path(file)}';
+        yield* _problemRows(inFile, style);
+      }
+      if (ofCause.length > listed.length) {
+        yield style.note(
+          '    … and ${ofCause.length - listed.length} more (-v lists them all)',
+        );
+      }
     }
   }
   yield '';
 }
 
-Iterable<String> _causeLines(
-  String cause,
-  List<AnalysisProblem> ofCause,
-  Style style,
-  bool verbose,
-  int maxListed,
-) sync* {
-  yield '    ${style.failure(cause)}';
-  final listed = verbose ? ofCause : ofCause.take(maxListed).toList();
-  for (final MapEntry(key: file, value: inFile)
-      in listed.groupListsBy((p) => p.filePath).entries) {
-    yield '    ${style.path(file)}';
-    yield* _problemRows(inFile, style);
-  }
-  if (ofCause.length > listed.length) {
-    yield style.note(
-      '    … and ${ofCause.length - listed.length} more (-v lists them all)',
-    );
-  }
-}
-
-Iterable<String> _problemRows(List<AnalysisProblem> inFile, Style style) sync* {
-  final rows = inFile.where((p) => p.line != null).toList();
-  if (rows.isEmpty) {
-    return;
-  }
-  final locWidth = rows.map((p) => '${p.line}:${p.column ?? 1}'.length).max;
-  for (final p in rows) {
-    final loc = '${p.line}:${p.column ?? 1}'.padRight(locWidth);
-    yield '      ${[style.position(loc), ?p.name].join('  ')}';
-  }
+Iterable<String> _problemRows(List<AnalysisProblem> inFile, Style style) {
+  final rows = inFile.where((p) => p.line != null);
+  final locWidth =
+      rows.map((p) => '${p.line}:${p.column ?? 1}'.length).maxOrNull ?? 0;
+  return [
+    for (final p in rows)
+      '      ${[style.position('${p.line}:${p.column ?? 1}'.padRight(locWidth)), ?p.name].join('  ')}',
+  ];
 }
 
 /// What the text report adds in parentheses after a finding.

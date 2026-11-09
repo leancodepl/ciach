@@ -15,25 +15,16 @@ Span spanFor(
   DeclarationRange fullRange, {
   required bool isEnumValue,
 }) {
-  final baseEnd = range.end;
-  final fullStart = withIndentation(content, fullRange.start);
-
-  var start = fullStart;
-  var end = baseEnd;
-
-  if (isEnumValue) {
-    (:start, :end) = _extendEnumValue(
-      content,
-      valueStart: fullStart,
-      baseEnd: baseEnd,
-    );
-  } else if (end < content.length && content[end] == ';') {
-    // Some whole-node kinds (bodyless constructors, arrow-bodied members)
-    // don't include their terminating `;` in the range.
-    end++;
-  }
-
-  return (start: start, end: consumeLineEnd(content, end));
+  final start = withIndentation(content, fullRange.start);
+  final span = isEnumValue
+      ? _extendEnumValue(content, valueStart: start, baseEnd: range.end)
+      // Some whole-node kinds (bodyless constructors, arrow-bodied members)
+      // don't include their terminating `;` in the range.
+      : (
+          start: start,
+          end: content.startsWith(';', range.end) ? range.end + 1 : range.end,
+        );
+  return (start: span.start, end: consumeLineEnd(content, span.end));
 }
 
 /// Enum values are comma-separated, not self-terminating: dropping one

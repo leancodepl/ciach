@@ -10,7 +10,6 @@
 
 import 'dart:convert';
 
-import 'package:ciach/src/model/finder_result.dart';
 import 'package:ciach/src/report/annotations.dart';
 
 /// A [GitLab Code Quality][] report, for a job's `codequality` artifact,
@@ -19,17 +18,11 @@ import 'package:ciach/src/report/annotations.dart';
 /// fingerprint hashes the finding without its line, so a finding that only
 /// moved is not reported as new.
 ///
-/// [pathPrefix] is prepended to each path, as in `githubReport`.
-///
 /// [GitLab Code Quality]: https://docs.gitlab.com/ci/testing/code_quality/#code-quality-report-format
-String gitlabReport(FinderResult result, {String pathPrefix = '.'}) {
-  const encoder = JsonEncoder.withIndent('  ');
+String gitlabReport(Iterable<Annotation> annotations) {
   final seen = <String, int>{};
   final issues = <Map<String, Object?>>[];
-  for (final (:check, :file, :line, column: _, :message) in annotationsOf(
-    result,
-    pathPrefix,
-  )) {
+  for (final (:check, :file, :line, column: _, :message) in annotations) {
     final key = [check.id, file, message].join('\n');
     // The occurrence tells identical findings in one file apart.
     final occurrence = seen.update(key, (n) => n + 1, ifAbsent: () => 0);
@@ -44,7 +37,7 @@ String gitlabReport(FinderResult result, {String pathPrefix = '.'}) {
       },
     });
   }
-  return encoder.convert(issues);
+  return const JsonEncoder.withIndent('  ').convert(issues);
 }
 
 /// A 64-bit FNV-1a hash of [key], in hex.

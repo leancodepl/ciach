@@ -50,9 +50,6 @@ final class LogFormatter {
     ].map((line) => '$line\n').join();
   }
 
-  /// [message] styled for the progress line.
-  String progress(String message) => style.detail(message);
-
   String _prefix(LogRecord record, Duration elapsed) {
     final seconds = (elapsed.inMilliseconds / 1000).toStringAsFixed(1);
     final name = record.loggerName;

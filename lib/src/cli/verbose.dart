@@ -3,7 +3,6 @@ import 'package:ciach/src/cli/ci.dart';
 import 'package:ciach/src/cli/config.dart';
 import 'package:ciach/src/cli/options.dart';
 import 'package:ciach/src/model/finder_options.dart';
-import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/util/plural.dart';
 import 'package:collection/collection.dart';
 import 'package:config/config.dart';
@@ -75,19 +74,17 @@ String _onOff(bool value) => value ? 'on' : 'off';
 /// The `--verbose` rundown of the run's settings: one line per config key, each
 /// naming the layer its value came from.
 ///
-/// [resolved] supplies the values, [configuration] their layers, [options] the
-/// normalized paths the run will use, and [dartExecutable] the `dart` only the
-/// caller can resolve.
+/// [resolved] supplies the values, [configuration] their layers, and
+/// [options] the normalized paths and the `dart` that the run will use.
 List<String> describeSettings(
   CiachConfiguration configuration,
   ResolvedOptions resolved,
-  FinderOptions options, {
-  required String dartExecutable,
-}) => [
+  FinderOptions options,
+) => [
   'Settings for this run:',
   for (final option in CiachOption.values)
     if (option.configKey case final key?)
-      '  $key: ${_setting(option, resolved, options, dartExecutable)} (${_source(configuration.valueSourceType(option))})${_detected(option, resolved)}',
+      '  $key: ${_setting(option, resolved, options)} (${_source(configuration.valueSourceType(option))})${_detected(option, resolved)}',
 ];
 
 /// Returns the values that the project config adds to [option], formatted for
@@ -112,7 +109,6 @@ String _setting(
   CiachOption<dynamic> option,
   ResolvedOptions resolved,
   FinderOptions options,
-  String dartExecutable,
 ) => switch (option) {
   .path => options.rootPath,
   // Unset, the analysis root is the scanned root.
@@ -136,12 +132,12 @@ String _setting(
   .include => _value(resolved.includeGlobs),
   .generatedGlob => _value(resolved.additionalGeneratedGlobs),
   .entryPoints => _value(resolved.entryPoints),
-  .kinds => _kinds(resolved.kinds),
+  .kinds => resolved.kinds.map((kind) => kind.label).sorted().join(', '),
   .format => resolved.format,
   .color => resolved.color?.toString() ?? 'auto',
   .progress => '${resolved.showProgress}',
   .verbose => '${resolved.verbose}',
-  .dart => dartExecutable,
+  .dart => '${options.dartExecutable}',
   // No config key, so never listed; spelled out so a new option must be too.
   .help || .version || .config || .noConfig => '',
 };
@@ -165,7 +161,3 @@ String _value(Object? value) => switch (value) {
     '{${value.entries.map((e) => '${e.key}: ${_value(e.value)}').join(', ')}}',
   _ => '$value',
 };
-
-/// The kind labels, sorted.
-String _kinds(Set<SymbolKind> kinds) =>
-    kinds.map((kind) => kind.label).sorted().join(', ');

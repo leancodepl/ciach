@@ -10,7 +10,6 @@
 
 import 'dart:convert';
 
-import 'package:ciach/src/model/finder_result.dart';
 import 'package:ciach/src/report/annotations.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/version.dart';
@@ -19,12 +18,9 @@ import 'package:ciach/src/version.dart';
 /// static-analysis dashboards import: one result per finding, a `warning`
 /// for each unused finding and empty file, a `note` for each doc-only one.
 ///
-/// [pathPrefix] is prepended to each path, as in `githubReport`.
-///
 /// [SARIF 2.1.0]: https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html
-String sarifReport(FinderResult result, {String pathPrefix = '.'}) {
-  const encoder = JsonEncoder.withIndent('  ');
-  return encoder.convert({
+String sarifReport(Iterable<Annotation> annotations) {
+  return const JsonEncoder.withIndent('  ').convert({
     r'$schema': 'https://json.schemastore.org/sarif-2.1.0.json',
     'version': '2.1.0',
     'runs': [
@@ -44,10 +40,7 @@ String sarifReport(FinderResult result, {String pathPrefix = '.'}) {
           },
         },
         'results': [
-          for (final (:check, :file, :line, :column, :message) in annotationsOf(
-            result,
-            pathPrefix,
-          ))
+          for (final (:check, :file, :line, :column, :message) in annotations)
             {
               'ruleId': check.id,
               'ruleIndex': check.index,

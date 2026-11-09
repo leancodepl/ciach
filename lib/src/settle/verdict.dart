@@ -177,7 +177,6 @@ final class Verdict {
           (container?.let(isPrivateName) ?? false) ||
           candidate.belongsToUnnamedExtension,
       container: container,
-      isEnumValue: candidate.isEnumValue,
       range: outline.codeRange.toDeclarationRange,
       fullRange: outline.range.toDeclarationRange,
       coupledRemovals: coupledRemovals,

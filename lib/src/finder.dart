@@ -48,7 +48,6 @@ import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/model/finder_result.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
 import 'package:ciach/src/settle/settler.dart';
-import 'package:ciach/src/settle/verdict.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/util/log.dart';
@@ -67,13 +66,6 @@ final _log = Logger('ciach.finder');
 /// `package:analyzer` resolves every file under the analysis root, lists the
 /// declarations of each scanned file, and records where each declaration is
 /// used. A declaration without uses outside itself is unused.
-///
-/// `Ciach` owns the analyzer and the pipeline (discover →
-/// collect → fetch → settle); each stage is a collaborator: [CandidateCollector] decides
-/// what to check, [referencesOf] gets the references, [Settler] turns them
-/// into findings with [ReferenceClassifier] deciding used/unused, [Verdict]
-/// deciding how a dead candidate is reported, and the `conventions/` rules
-/// keeping framework-driven declarations alive.
 ///
 /// A run logs through `package:logging`, with loggers such as `ciach.finder`
 /// and `ciach.remover`, and never configures the root logger: listen on
@@ -136,7 +128,6 @@ final class _Run {
     files: _files,
     freezed: _freezed,
     classifier: _classifier,
-    verdict: .new(options: options, classifier: _classifier),
   );
 
   Future<FinderResult> run() {
@@ -248,6 +239,7 @@ final class _Run {
       _collector.reportSkipped();
       // The files whose declarations were collected.
       final scanned = {for (final path in files) path: ?_files.resolved(path)};
+      final scannedPaths = scanned.keys.toSet();
       empty = _emptyFiles(scanned);
 
       // Phase 2: find the references of every candidate in the files under
@@ -260,7 +252,7 @@ final class _Run {
           recordIfUnreadable(path);
         }
       }
-      final fetched = _references(collected, scanned.keys.toSet());
+      final fetched = _references(collected, scannedPaths);
       final (:candidates, :refsByCandidate) = _conditionalImports.share(
         fetched.candidates,
         fetched.refsByCandidate,
@@ -274,14 +266,13 @@ final class _Run {
       settled = _settler.settle(
         candidates,
         refsByCandidate,
-        scannedPaths: scanned.keys.toSet(),
+        scannedPaths: scannedPaths,
         rootPath: rootPath,
       );
     } finally {
       await _files.dispose();
     }
 
-    stopwatch.stop();
     return .new(
       unused: settled.unused,
       docOnly: settled.docOnly,

@@ -64,7 +64,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     };
     if (removedKeys.firstWhereOrNull(settings.containsKey) case final key?) {
       throw FormatException(
-        '$origin: `$key` was removed: ${removedOptionAdvice(key, settings[key], inConfig: true)}.',
+        '$origin: ${removedMessage(key, removedOptionAdvice(key, settings[key], inConfig: true))}',
       );
     }
 
@@ -236,11 +236,9 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
   static const _ruleFields = {'name', 'glob'};
 
   EntryPoint _entryPoint(String at, Object? rule) => switch (rule) {
-    {'name': final String name, 'glob': final glob}
-        when _ruleFields.containsAll(rule.keys) =>
-      _rule(at, name, glob),
+    // Without `glob`, the rule applies to any file.
     {'name': final String name} when _ruleFields.containsAll(rule.keys) =>
-      _rule(at, name, null),
+      _rule(at, name, rule['glob']),
     _ => throw FormatException(
       "$path: '$at' must be `{name: <declaration>, glob: <glob, list of globs, or none>}`, got $rule.",
     ),

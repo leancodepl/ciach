@@ -89,7 +89,6 @@ typedef _Removal = ({
   String filePath,
   String name,
   SymbolKind kind,
-  bool isEnumValue,
   DeclarationRange range,
   DeclarationRange fullRange,
   DeclarationRange? cut,
@@ -98,9 +97,7 @@ typedef _Removal = ({
 /// The declarations to remove, and their coupled removals, by file.
 Map<String, List<_Removal>> _byFile(List<UnusedDeclaration> declarations) =>
     <_Removal>[
-      // A blocked finding is reported but never auto-removed: deleting it
-      // safely would need a source rewrite (e.g. an `if (x case DeadType())`
-      // branch), so leave it — and anything coupled to it — entirely alone.
+      // A blocked finding stays, and so does what is coupled to it.
       for (final decl in declarations.whereNot(
         (decl) => decl.removalBlocked,
       )) ...[
@@ -108,23 +105,16 @@ Map<String, List<_Removal>> _byFile(List<UnusedDeclaration> declarations) =>
           filePath: decl.filePath,
           name: decl.qualifiedName,
           kind: decl.kind,
-          isEnumValue: decl.isEnumValue,
           range: decl.range,
           fullRange: decl.fullRange,
           cut: decl.cut,
         ),
-        // Coupled removals are extra spans that must be deleted together
-        // with the declaration to keep the source compiling (a dead
-        // StatefulWidget's paired `State` subclass, or an override of a dead
-        // member), but that are not findings in their own right. Each names
-        // its own file, so group it under that file, where its span merges
-        // with the rest.
+        // A coupled removal can be in another file.
         for (final coupled in decl.coupledRemovals)
           (
             filePath: coupled.filePath,
             name: '',
             kind: coupled.kind,
-            isEnumValue: false,
             range: coupled.range,
             fullRange: coupled.fullRange,
             cut: coupled.cut,
@@ -192,11 +182,15 @@ class RemovalException implements Exception {
 ) {
   final comments = _OwnLineComments(content);
   final enumSpans = [
-    for (final removal in removals.where((removal) => removal.isEnumValue))
+    for (final removal in removals.where(
+      (removal) => removal.kind == .enumValue,
+    ))
       spanFor(content, removal.range, removal.fullRange, isEnumValue: true),
   ];
   final spans = [
-    for (final removal in removals.whereNot((removal) => removal.isEnumValue))
+    for (final removal in removals.whereNot(
+      (removal) => removal.kind == .enumValue,
+    ))
       ?_spanOf(removal, content),
     // Merge each enum's value spans, then drop a separator comma left orphaned
     // when a trailing run of values is removed from a compact single-line

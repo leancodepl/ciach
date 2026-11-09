@@ -83,8 +83,6 @@ DeletedFile? _deleteIfEmptied(
   return file;
 }
 
-typedef _Span = ({int start, int end});
-
 enum _Link { none, droppable, blocking }
 
 /// The package's Dart files, contents cached across the rewrites.
@@ -100,18 +98,15 @@ final class _Package {
 
   String? content(String path) => _contents[path];
 
-  /// The directives in [path], none when it can't be read.
-  List<Directive> directives(String path) => _directives[path];
-
   /// Spans to drop per file, or `null` when a directive naming [target] can't
   /// be dropped.
-  Map<String, List<_Span>>? linksTo(String target) {
-    final spans = <String, List<_Span>>{};
+  Map<String, List<Span>>? linksTo(String target) {
+    final spans = <String, List<Span>>{};
     for (final path in _files) {
       if (path == target) {
         continue;
       }
-      for (final directive in directives(path)) {
+      for (final directive in _directives[path]) {
         switch (_link(directive, path, target)) {
           case .none:
             break;
@@ -156,11 +151,9 @@ final class _Package {
     return p.posix.joinAll(p.split(target)).endsWith('/lib/$libRelative');
   }
 
-  void dropSpans(String path, List<_Span> spans) {
-    final source = content(path);
-    if (source == null) {
-      return;
-    }
+  /// Drops [spans] from the file at [path], which [linksTo] read.
+  void dropSpans(String path, List<Span> spans) {
+    final source = content(path)!;
     final buffer = StringBuffer();
     var cursor = 0;
     for (final span in spans.sortedBy<num>((s) => s.start)) {

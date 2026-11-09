@@ -56,7 +56,6 @@ class UnusedDeclaration {
     required this.range,
     DeclarationRange? fullRange,
     this.container,
-    this.isEnumValue = false,
     this.coupledRemovals = const [],
     this.removalBlocked = false,
     this.hint,
@@ -103,7 +102,7 @@ class UnusedDeclaration {
   /// Whether this is an enum value (e.g. `south` in `enum Direction`).
   /// Removing one requires also tidying up a neighboring comma, unlike other
   /// declaration kinds.
-  final bool isEnumValue;
+  bool get isEnumValue => kind == .enumValue;
 
   /// Extra spans — each in a named file — that must be removed together with
   /// this declaration to keep the source compiling, but that are not
@@ -166,7 +165,6 @@ class UnusedDeclaration {
     range: range,
     fullRange: fullRange,
     container: container,
-    isEnumValue: isEnumValue,
     coupledRemovals: coupledRemovals ?? this.coupledRemovals,
     removalBlocked: removalBlocked ?? this.removalBlocked,
     hint: hint ?? this.hint,

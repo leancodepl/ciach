@@ -83,8 +83,4 @@ second'''),
 ''',
     );
   });
-
-  test('the progress line is dim', () {
-    expect(styled.progress('Opening'), '\x1b[2mOpening\x1b[22m');
-  });
 }

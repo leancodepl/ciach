@@ -8,7 +8,6 @@
  *     - mark-ai-provenance
  */
 
-import 'package:ciach/src/model/finder_result.dart';
 import 'package:ciach/src/report/annotations.dart';
 import 'package:collection/collection.dart';
 import 'package:xml/xml.dart';
@@ -18,14 +17,9 @@ import 'package:xml/xml.dart';
 /// `warning` for each unused finding and empty file, an `info` for each
 /// doc-only one.
 ///
-/// [pathPrefix] is prepended to each path, as in `githubReport`.
-///
 /// [Checkstyle]: https://checkstyle.org
-String checkstyleReport(FinderResult result, {String pathPrefix = '.'}) {
-  final byFile = annotationsOf(
-    result,
-    pathPrefix,
-  ).groupListsBy((annotation) => annotation.file);
+String checkstyleReport(Iterable<Annotation> annotations) {
+  final byFile = annotations.groupListsBy((annotation) => annotation.file);
   final builder = XmlBuilder()..declaration(encoding: 'UTF-8');
   builder.element(
     'checkstyle',

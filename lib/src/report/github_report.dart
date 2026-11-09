@@ -8,7 +8,6 @@
  *     - mark-ai-provenance
  */
 
-import 'package:ciach/src/model/finder_result.dart';
 import 'package:ciach/src/report/annotations.dart';
 import 'package:ciach/src/util/extensions.dart';
 
@@ -16,18 +15,10 @@ import 'package:ciach/src/util/extensions.dart';
 /// unused finding and empty file (surfacing them inline on the PR diff and
 /// Checks tab) and one lower-severity `::notice` per doc-only finding.
 ///
-/// Annotation paths are resolved relative to the repository root. [pathPrefix]
-/// (POSIX, `/`-separated) is prepended to each finding's path so that scans of
-/// a sub-directory still point at the right file; it defaults to `.` (the
-/// scan root is the repository root).
-///
 /// [GitHub Actions workflow commands]: https://docs.github.com/actions/reference/workflow-commands-for-github-actions
-String githubReport(FinderResult result, {String pathPrefix = '.'}) {
+String githubReport(Iterable<Annotation> annotations) {
   final buffer = StringBuffer();
-  for (final (:check, :file, :line, :column, :message) in annotationsOf(
-    result,
-    pathPrefix,
-  )) {
+  for (final (:check, :file, :line, :column, :message) in annotations) {
     final properties = [
       'file=${_escapeProperty(file)}',
       ?line?.let((line) => 'line=$line'),
