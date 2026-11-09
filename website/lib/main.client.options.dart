@@ -47,8 +47,11 @@ ClientOptions get defaultClientOptions => ClientOptions(
     'docs_toc': ClientLoader(
       (p) => _docs_toc.DocsToc(
         path: p.get<String>('path'),
-        ids: p.get<List<Object?>>('ids').cast<String>(),
-        labels: p.get<List<Object?>>('labels').cast<String>(),
+        sections: p
+            .get<List<Object?>>('sections')
+            .cast<Map<String, Object?>>()
+            .map((i) => _docs_toc.TocSection.fromJson(i))
+            .toList(),
       ),
       loader: _docs_toc.loadLibrary,
     ),

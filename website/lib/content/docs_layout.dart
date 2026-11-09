@@ -186,8 +186,9 @@ class const DocsLayout({
               p(classes: Prose.eyebrow.name, [.text(title)]),
               DocsToc(
                 path: page.url,
-                ids: [for (final entry in entries) entry.id],
-                labels: [for (final entry in entries) entry.text],
+                sections: [
+                  for (final entry in entries) .new(entry.id, entry.text),
+                ],
               ),
               p(classes: _navFoot.name, [
                 externalLink(readmeUrl, [const .text('README on GitHub →')]),

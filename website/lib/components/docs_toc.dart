@@ -19,11 +19,8 @@ class const DocsToc({
   /// Absolute path of the page the sections live on, e.g. `/docs`.
   required final String path,
 
-  /// Section element ids, in page order.
-  required final List<String> ids,
-
-  /// Link labels, parallel to [ids].
-  required final List<String> labels,
+  /// The sections to link to, in page order.
+  required final List<TocSection> sections,
   super.key,
 }) extends StatefulComponent {
   static const _class = _$DocsTocScope;
@@ -33,6 +30,20 @@ class const DocsToc({
 
   @override
   State<DocsToc> createState() => _DocsTocState();
+}
+
+/// A section that [DocsToc] links to: the id of its element and the label of
+/// its link.
+class const TocSection(final String id, final String label) {
+  /// How Jaspr passes a section to a client component: as a JSON object.
+  @decoder
+  static TocSection fromJson(Map<String, Object?> json) => switch (json) {
+    {'id': final String id, 'label': final String label} => .new(id, label),
+    _ => throw FormatException('Not a table of contents section: $json'),
+  };
+
+  @encoder
+  Map<String, Object?> toJson() => {'id': id, 'label': label};
 }
 
 class _DocsTocState() extends State<DocsToc> {
@@ -87,7 +98,7 @@ class _DocsTocState() extends State<DocsToc> {
   /// one once the page is scrolled to the bottom.
   void _update() {
     final threshold = web.window.innerHeight * 0.3;
-    final ids = component.ids;
+    final ids = [for (final TocSection(:id) in component.sections) id];
     final scrolledInto = ids.lastWhereOrNull(
       (id) => switch (web.document.getElementById(id)) {
         final element? => element.getBoundingClientRect().top <= threshold,
@@ -106,13 +117,13 @@ class _DocsTocState() extends State<DocsToc> {
   @override
   Component build(BuildContext context) {
     return ul([
-      for (final (index, id) in component.ids.indexed)
+      for (final TocSection(:id, :label) in component.sections)
         li([
           a(
             href: '${component.path}#$id',
             classes: id == _active ? DocsToc.active.name : null,
             attributes: id == _active ? const {'aria-current': 'true'} : null,
-            [.text(component.labels[index])],
+            [.text(label)],
           ),
         ]),
     ]);

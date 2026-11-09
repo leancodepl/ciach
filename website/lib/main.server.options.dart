@@ -96,6 +96,5 @@ Map<String, Object?> __demo_triggerDemoTrigger(_demo_trigger.DemoTrigger c) => {
 };
 Map<String, Object?> __docs_tocDocsToc(_docs_toc.DocsToc c) => {
   'path': c.path,
-  'ids': c.ids,
-  'labels': c.labels,
+  'sections': c.sections.map((i) => i.toJson()).toList(),
 };
