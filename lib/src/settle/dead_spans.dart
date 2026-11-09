@@ -1,5 +1,4 @@
 import 'package:ciach/src/model/unused_declaration.dart';
-import 'package:ciach/src/source/clause_entries.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:collection/collection.dart';
@@ -31,7 +30,7 @@ final class DeadSpans {
             .add((
               range: coupled.fullRange,
               owner: finding,
-              isClauseEntry: coupled.kind == clauseCutKind,
+              isClauseEntry: coupled.isClauseEntry,
             ));
       }
     }

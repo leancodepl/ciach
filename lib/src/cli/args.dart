@@ -231,7 +231,7 @@ enum CiachOption<V> implements OptionDefinition<V> {
       defaultsTo: [],
       valueHelp: 'kind,kind',
       // Rejects an unknown kind wherever it came from; the conversion to
-      // symbol kinds happens later.
+      // kinds happens later.
       customValidator: parseKinds,
       // Listed in `usage`, which can read them off kindAliases.
       helpText:

@@ -51,7 +51,7 @@ void main() {
   );
 
   test('`--kinds=typedef` reports only the type aliases', () async {
-    final result = await run(fixturePath, kinds: {.object});
+    final result = await run(fixturePath, kinds: {.typedef});
 
     expect(result.unused.map((d) => d.qualifiedName), [
       'DeadAlias',

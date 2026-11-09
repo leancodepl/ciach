@@ -17,23 +17,24 @@ import 'package:ciach/src/util/extensions.dart';
 /// The kind and the naming rules of the declaration that an outline node
 /// describes.
 extension DeclarationNames on OutlineElement {
-  /// The kind that reports print and `--kinds` selects. A mixin application
-  /// class is a class, and every type alias is a typedef.
-  SymbolKind get reportedKind => switch (kind) {
+  /// The kind that reports print and `--kinds` selects, or `null` for a file
+  /// or a test, which declare nothing. A mixin application class is a class,
+  /// and every type alias is a typedef.
+  SymbolKind? get reportedKind => switch (kind) {
     .class$ || .classTypeAlias => .class$,
-    .compilationUnit => .file,
     .constructor => .constructor,
     .enum$ => .enum$,
-    .enumConstant => .enumMember,
-    .extension => .namespace,
-    .extensionType => .struct,
+    .enumConstant => .enumValue,
+    .extension => .extension,
+    .extensionType => .extensionType,
     .field => .field,
     .function => .function,
     .getter || .setter => .property,
-    .method || .unitTestGroup || .unitTestTest => .method,
-    .mixin => .interface$,
+    .method => .method,
+    .mixin => .mixin,
     .topLevelVariable => .variable,
-    .typeAlias || .functionTypeAlias => .object,
+    .typeAlias || .functionTypeAlias => .typedef,
+    .compilationUnit || .unitTestGroup || .unitTestTest => null,
   };
 
   /// Whether this is a private constructor (`Foo._`, `Foo._named`). A

@@ -104,6 +104,12 @@ final _abbreviatedOption = RegExp('^-(?<abbreviation>[a-zA-Z])');
 String? removedAlsoAdvice(String value) =>
     value == 'operators' ? _operatorsReported : null;
 
+/// Why the `--kinds` value [value] was removed, or `null` when ciach still
+/// has it.
+String? removedKindAdvice(String value) => value == 'constant'
+    ? 'ciach reports a `const` variable as a `variable` or a `field`, so use those'
+    : null;
+
 /// Why the first removed option or `--also` value in [arguments] is gone and
 /// what to do instead, or `null` when they name none.
 String? removedOptionMessage(List<String> arguments) => arguments

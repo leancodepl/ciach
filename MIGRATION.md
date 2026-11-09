@@ -5,16 +5,33 @@
 ### `SymbolKind` in the Dart API
 
 This concerns only code that uses `package:ciach` as a library. The
-`SymbolKind` that it exports is now ciach's own enum, with the same values,
-instead of the one from `package:pro_lsp`:
+`SymbolKind` that it exports is now ciach's own enum instead of the one from
+`package:pro_lsp`. It has only the kinds that ciach reports, named after
+Dart's declarations:
 
-- The `SymbolKindLabel` extension is gone. `kind.label` works as before,
-  because `label` is now a member of the enum.
+- `interface$` is now `mixin`, `namespace` is `extension`, `struct` is
+  `extensionType`, `enumMember` is `enumValue`, and `object` is `typedef`.
+- `constant` is gone, and so are the kinds that no reported declaration had:
+  `file`, `module`, `package`, `string`, `number`, `boolean`, `array`, `key`,
+  `null$`, `event`, `operator$` and `typeParameter`.
+- The `SymbolKindLabel` extension is gone. `kind.label` gives the same labels
+  as before, because `label` is now a member of the enum.
 - `SymbolKind.value` and `SymbolKind.decode`, the protocol's numbers for the
   kinds, are gone too.
 - Code that imports `package:pro_lsp` as well gets two different
   `SymbolKind`s, so hide one of them: `import 'package:pro_lsp/pro_lsp.dart'
   hide SymbolKind;`.
+
+A `CoupledRemoval` that takes a type out of a `with` or `implements` clause
+used to have the kind `typeParameter`. It now has the kind of that type and
+`isClauseEntry: true`. Code that builds a `CoupledRemoval` sets
+`isClauseEntry` too.
+
+### `--kinds constant`
+
+ciach reports a `const` variable as a `variable` or a `field`, so
+`--kinds constant` selected nothing. It is now an error, and so is `constant`
+in `kinds:` in `ciach.yaml`. Use `variable` and `field` instead.
 
 ### `EntryPoint.lookups` and `EntryPoint.annotationNames`
 

@@ -103,7 +103,8 @@ extension FlutterWidgets on SourceIndex {
         )) {
           out.add((
             filePath: relativePosix(state.path, rootPath),
-            kind: state.outline.element.reportedKind,
+            kind: state.reportedKind,
+            isClauseEntry: false,
             range: state.outline.codeRange.toDeclarationRange,
             fullRange: state.outline.range.toDeclarationRange,
             cut: null,

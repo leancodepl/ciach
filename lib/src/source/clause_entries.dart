@@ -15,24 +15,17 @@ import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:collection/collection.dart';
 
-/// The `kind` of a [CoupledRemoval] that removes a type from a `with` or
-/// `implements` clause, like `M` from `class A with M {}`. It borrows the kind
-/// of a type parameter, which no other removal has, so `DeadSpans` can tell
-/// these removals apart. Its `range` and `fullRange` cover the entry, like
-/// `M<int>`, and its `cut` is the text that `--remove` deletes, which can hold
-/// other entries too.
-const clauseCutKind = SymbolKind.typeParameter;
-
 /// A type named in a `with` or `implements` clause.
 ///
 /// `path` is the file and `clause` the range of the clause, keyword included.
-/// `name` is the position of the type's name. `keepsOne` is true for the
-/// `with` clause of a mixin application class, like `class A = B with M;`,
-/// which must keep at least one mixin.
+/// `name` is the position of the type's name, and `kind` the kind of the
+/// type. `keepsOne` is true for the `with` clause of a mixin application
+/// class, like `class A = B with M;`, which must keep at least one mixin.
 typedef ClauseEntry = ({
   String path,
   Range clause,
   Position name,
+  SymbolKind kind,
   bool keepsOne,
 });
 
@@ -51,25 +44,27 @@ extension ClauseEntries on SourceIndex {
   /// `implements` clause, like `M` in `class A with M {}` or in
   /// `class A with M<int> {}`.
   ///
-  /// [unit] is the outline of the file that holds [loc]. Returns `null` for any
-  /// other reference to [name], such as a type annotation, an `extends` or `on`
+  /// [type] is the declaration of the type that [loc] references, and [unit]
+  /// the outline of the file that holds [loc]. Returns `null` for any other
+  /// reference to [type], such as a type annotation, an `extends` or `on`
   /// clause, `p.M`, or a type argument like the `M` in `implements List<M>`.
-  ClauseEntry? clauseEntryAt(Location loc, String name, Outline unit) {
+  ClauseEntry? clauseEntryAt(Location loc, OutlineElement type, Outline unit) {
     final path = loc.path;
-    final type = selectionRangeAt(path, loc.range.start);
-    final clause = type?.parent?.range;
+    final node = selectionRangeAt(path, loc.range.start);
+    final clause = node?.parent?.range;
     final keyword = clause?.let((clause) => _keywordOf(path, clause));
-    if (type == null ||
+    if (node == null ||
         clause == null ||
         keyword == null ||
-        type.range.start != loc.range.start ||
-        semanticTokens(path)?.startingAt(loc.range.start)?.text != name) {
+        node.range.start != loc.range.start ||
+        semanticTokens(path)?.startingAt(loc.range.start)?.text != type.name) {
       return null;
     }
     return (
       path: path,
       clause: clause,
       name: loc.range.start,
+      kind: type.reportedKind!,
       keepsOne:
           keyword == 'with' &&
           unit.childAt(loc.range.start)?.element.kind == .classTypeAlias,
@@ -100,7 +95,7 @@ extension ClauseEntries on SourceIndex {
     List<ClauseEntry> removed,
     String rootPath,
   ) {
-    final (:path, :clause, name: _, :keepsOne) = removed.first;
+    final (:path, :clause, name: _, kind: _, :keepsOne) = removed.first;
     final all = _entriesIn(path, clause);
     final whole = _withSpaceBefore(path, clause);
     if (all == null || whole == null) {
@@ -121,9 +116,11 @@ extension ClauseEntries on SourceIndex {
       final deleted = (cut ?? whole).toDeclarationRange;
       for (final entry in all.sublist(i, j)) {
         final range = entry.toDeclarationRange;
-        cuts[byName[entry.start]!] = (
+        final removed = byName[entry.start]!;
+        cuts[removed] = (
           filePath: filePath,
-          kind: clauseCutKind,
+          kind: removed.kind,
+          isClauseEntry: true,
           range: range,
           fullRange: range,
           cut: deleted,

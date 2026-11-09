@@ -21,7 +21,6 @@ import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/remove/remover.dart';
 import 'package:ciach/src/settle/verdict.dart';
-import 'package:ciach/src/source/clause_entries.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
@@ -289,7 +288,7 @@ void main() {
       final result = await runFinder();
       final enumValues = {
         for (final d in result.unused)
-          if (d.kind == .enumMember) d.qualifiedName,
+          if (d.kind == .enumValue) d.qualifiedName,
       };
       expect(enumValues, {'Direction.south', 'Direction.west'});
       final enumTypes = {
@@ -304,7 +303,7 @@ void main() {
   test(
     'enum-value kind filter selects unused enum values, enum does not',
     () async {
-      expect(await findUnused(kinds: {.enumMember}), {
+      expect(await findUnused(kinds: {.enumValue}), {
         'Direction.south',
         'Direction.west',
       });
@@ -423,7 +422,7 @@ void main() {
     // dead members, and its finding carries their overrides.
     List<CoupledRemoval> overridesOf(UnusedDeclaration type) => [
       for (final removal in type.coupledRemovals)
-        if (removal.kind != clauseCutKind) removal,
+        if (!removal.isClauseEntry) removal,
     ];
 
     test('couples every override of a dead member to its removal', () async {
@@ -1056,7 +1055,7 @@ void main() {
         final result = await runExtensions();
         final decl = findByQualified(result, 'DeadHelpers');
         expect(decl, isNotNull, reason: 'nothing calls either member');
-        expect(decl!.kind, SymbolKind.namespace);
+        expect(decl!.kind, SymbolKind.extension);
         expect(decl.kind.label, 'extension');
         expect(decl.removalBlocked, isFalse);
         expect(findByQualified(result, 'DeadHelpers.first'), isNull);
@@ -1081,7 +1080,7 @@ void main() {
         final result = await runExtensions();
         final decl = findByQualified(result, 'extension on String');
         expect(decl, isNotNull);
-        expect(decl!.kind, SymbolKind.namespace);
+        expect(decl!.kind, SymbolKind.extension);
         expect(decl.column, 1);
         expect(findByQualified(result, 'shoutedOnce'), isNull);
         expect(
@@ -1118,7 +1117,7 @@ void main() {
         ]) {
           final decl = findByQualified(result, qualified);
           expect(decl, isNotNull, reason: '$qualified is dead');
-          expect(decl!.kind, SymbolKind.namespace);
+          expect(decl!.kind, SymbolKind.extension);
           expect(decl.column, 1);
         }
         // Reported whole, so the members are not findings of their own.
@@ -1133,7 +1132,7 @@ void main() {
         final result = await runExtensions();
         final decl = findByQualified(result, 'DeadMeters');
         expect(decl, isNotNull);
-        expect(decl!.kind, SymbolKind.struct);
+        expect(decl!.kind, SymbolKind.extensionType);
         expect(decl.kind.label, 'extension type');
         expect(decl.removalBlocked, isFalse);
         expect(findByQualified(result, 'DeadMeters.scaled'), isNull);
@@ -1156,9 +1155,9 @@ void main() {
     test(
       '`-k extension-type` selects the extension types on their own, which `-k extension` does not',
       () async {
-        expect(await byKind(.struct), {'DeadMeters', 'SelfMeters'});
+        expect(await byKind(.extensionType), {'DeadMeters', 'SelfMeters'});
         expect(
-          await byKind(.namespace),
+          await byKind(.extension),
           isNot(contains(anyOf('DeadMeters', 'SelfMeters'))),
         );
       },
@@ -1168,7 +1167,7 @@ void main() {
       '`-k extension` alone keeps an extension whose members were never checked, reporting only a member-less one',
       () async {
         // Unchecked members can't be proven dead; `Hollow` has none.
-        expect(await byKind(.namespace), {'Hollow'});
+        expect(await byKind(.extension), {'Hollow'});
       },
     );
 

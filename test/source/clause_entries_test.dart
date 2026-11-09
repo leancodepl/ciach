@@ -59,7 +59,11 @@ void main() {
       sources,
       [
         for (final (i, range) in ranges.indexed)
-          sources.clauseEntryAt(.new(path: path, range: range), names[i], unit),
+          sources.clauseEntryAt(
+            .new(path: path, range: range),
+            .new(kind: .mixin, name: names[i]),
+            unit,
+          ),
       ],
     );
   }

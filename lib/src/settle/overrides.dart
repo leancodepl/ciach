@@ -1,7 +1,6 @@
 import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/model/finder_options.dart';
-import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/settle/dead_spans.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
@@ -54,13 +53,13 @@ final class OverrideRemovals {
     (path) => .parse(_sources.content(path)),
   );
 
-  /// The kinds an override is deleted as, mapped to the kind the remover
-  /// reads. A `field` goes as a declarator, so it can share a statement.
-  static const _removableKinds = <OutlineKind, SymbolKind>{
-    .method: .method,
-    .getter: .property,
-    .setter: .property,
-    .field: .field,
+  /// The kinds of the overrides that are deleted. A `field` goes as a
+  /// declarator, so it can share a statement.
+  static const _removableKinds = <OutlineKind>{
+    .method,
+    .getter,
+    .setter,
+    .field,
   };
 
   static const blocked = (removals: <CoupledRemoval>[], blocked: true);
@@ -158,8 +157,7 @@ final class OverrideRemovals {
     // which is where an outline node's element range starts.
     final start = location.range.start;
     final found = outline?.let((outline) => _nodeNamedAt(outline, start));
-    final kind = _removableKinds[found?.node.element.kind];
-    if (found == null || kind == null) {
+    if (found == null || !_removableKinds.contains(found.node.element.kind)) {
       return null;
     }
     final node = found.node;
@@ -172,7 +170,7 @@ final class OverrideRemovals {
     }
     // Deleting a declaring parameter changes the constructor signature at
     // every call site.
-    if (kind == .field &&
+    if (node.element.kind == .field &&
         _sources.isNameInTypeHeader(path, start, found.parent)) {
       return null;
     }
@@ -181,7 +179,8 @@ final class OverrideRemovals {
     // referenced either.
     return (
       filePath: relativePosix(path, _rootPath),
-      kind: kind,
+      kind: node.element.reportedKind!,
+      isClauseEntry: false,
       range: node.codeRange.toDeclarationRange,
       fullRange: node.range.toDeclarationRange,
       cut: null,

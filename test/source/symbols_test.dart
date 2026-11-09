@@ -11,7 +11,7 @@ import 'package:test/test.dart';
 
 void main() {
   test(
-    'reports each kind of declaration with the kind that `--kinds` selects',
+    'reports each kind of declaration with the kind that `--kinds` selects, and a file or a test with none',
     () {
       expect(
         {
@@ -21,23 +21,23 @@ void main() {
         {
           OutlineKind.class$: SymbolKind.class$,
           OutlineKind.classTypeAlias: SymbolKind.class$,
-          OutlineKind.compilationUnit: SymbolKind.file,
+          OutlineKind.compilationUnit: null,
           OutlineKind.constructor: SymbolKind.constructor,
           OutlineKind.enum$: SymbolKind.enum$,
-          OutlineKind.enumConstant: SymbolKind.enumMember,
-          OutlineKind.extension: SymbolKind.namespace,
-          OutlineKind.extensionType: SymbolKind.struct,
+          OutlineKind.enumConstant: SymbolKind.enumValue,
+          OutlineKind.extension: SymbolKind.extension,
+          OutlineKind.extensionType: SymbolKind.extensionType,
           OutlineKind.field: SymbolKind.field,
           OutlineKind.function: SymbolKind.function,
-          OutlineKind.functionTypeAlias: SymbolKind.object,
+          OutlineKind.functionTypeAlias: SymbolKind.typedef,
           OutlineKind.getter: SymbolKind.property,
           OutlineKind.method: SymbolKind.method,
-          OutlineKind.mixin: SymbolKind.interface$,
+          OutlineKind.mixin: SymbolKind.mixin,
           OutlineKind.setter: SymbolKind.property,
           OutlineKind.topLevelVariable: SymbolKind.variable,
-          OutlineKind.typeAlias: SymbolKind.object,
-          OutlineKind.unitTestGroup: SymbolKind.method,
-          OutlineKind.unitTestTest: SymbolKind.method,
+          OutlineKind.typeAlias: SymbolKind.typedef,
+          OutlineKind.unitTestGroup: null,
+          OutlineKind.unitTestTest: null,
         },
       );
     },

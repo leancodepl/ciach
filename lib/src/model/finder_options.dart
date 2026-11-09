@@ -58,7 +58,7 @@ class FinderOptions {
   /// Files matching any of these globs (relative to [rootPath]) are skipped.
   final List<String> excludeGlobs;
 
-  /// Which symbol kinds are considered declarations worth reporting.
+  /// The kinds of the declarations to report.
   final Set<SymbolKind> kinds;
 
   /// Whether to report public declarations: those whose name doesn't start
@@ -134,28 +134,7 @@ class FinderOptions {
   /// `findDartExecutable`.
   final String? dartExecutable;
 
-  /// The declaration kinds reported by default. Deliberately excludes
-  /// [SymbolKind.typeParameter] (always "used" within its scope) and the
-  /// primitive value kinds that no Dart declaration has.
-  ///
-  /// An `extension` is [SymbolKind.namespace]; an `extension type` shares it
-  /// and is remapped to [SymbolKind.struct]. A type alias, function type
-  /// aliases included, is [SymbolKind.object]. An operator overload is a
-  /// [SymbolKind.method] named `+`, `==` and so on.
-  static const defaultKinds = <SymbolKind>{
-    .class$,
-    .interface$,
-    .enum$,
-    .namespace,
-    .struct,
-    .function,
-    .method,
-    .constructor,
-    .field,
-    .property,
-    .variable,
-    .constant,
-    .enumMember,
-    .object,
-  };
+  /// The declaration kinds reported by default: all of them. An operator
+  /// overload is a [SymbolKind.method] named `+`, `==` and so on.
+  static const defaultKinds = {...SymbolKind.values};
 }

@@ -27,17 +27,22 @@ typedef DeclarationRange = ({
 /// The kinds of declaration that can share a statement with others, like `a`
 /// and `b` in `int a = 1, b = 2;`. The `range` of one covers only `a = 1`, so
 /// `--remove` deletes its [UnusedDeclaration.cut] instead.
-const declaratorKinds = <SymbolKind>{.field, .variable, .constant};
+const declaratorKinds = <SymbolKind>{.field, .variable};
 
 /// A declaration to remove together with a reported one. It names its own
 /// `filePath` (relative to the analyzed root, `/`-separated), so it can live in
 /// another file, like a dead `StatefulWidget`'s `State` subclass.
 ///
 /// `range`, `fullRange`, `kind` and `cut` mean what they do on
-/// [UnusedDeclaration].
+/// [UnusedDeclaration]. When `isClauseEntry` is true, the removal takes a
+/// type out of a `with` or `implements` clause, like `M` out of
+/// `class A with M {}`: its `kind` is the kind of that type, its `range` and
+/// `fullRange` cover the entry, like `M<int>`, and its `cut` is the text that
+/// `--remove` deletes, which can hold other entries too.
 typedef CoupledRemoval = ({
   String filePath,
   SymbolKind kind,
+  bool isClauseEntry,
   DeclarationRange range,
   DeclarationRange fullRange,
   DeclarationRange? cut,

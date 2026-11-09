@@ -70,7 +70,11 @@ final class ClauseOnlyTypes {
                 .resolved(loc.path)
                 ?.outline
                 .let(
-                  (unit) => _sources.clauseEntryAt(loc, candidate.name, unit),
+                  (unit) => _sources.clauseEntryAt(
+                    loc,
+                    candidate.outline.element,
+                    unit,
+                  ),
                 ),
       ];
       if (entries.length == refs.length) {

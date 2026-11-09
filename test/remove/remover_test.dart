@@ -163,6 +163,7 @@ class Pair {
         (
           filePath: 'lib.dart',
           kind: .field,
+          isClauseEntry: false,
           range: (startLine: 1, startColumn: 22, endLine: 1, endColumn: 31),
           fullRange: (startLine: 1, startColumn: 22, endLine: 1, endColumn: 31),
           cut: statement,
@@ -171,6 +172,7 @@ class Pair {
         (
           filePath: 'lib.dart',
           kind: .field,
+          isClauseEntry: false,
           range: (startLine: 1, startColumn: 12, endLine: 1, endColumn: 20),
           fullRange: (startLine: 1, startColumn: 12, endLine: 1, endColumn: 20),
           cut: statement,
@@ -210,6 +212,7 @@ class Mixed implements Halved {
           (
             filePath: 'lib.dart',
             kind: .field,
+            isClauseEntry: false,
             range: (startLine: 5, startColumn: 12, endLine: 5, endColumn: 20),
             fullRange: (
               startLine: 5,
@@ -269,6 +272,7 @@ class Kept {}
           (
             filePath: 'lib.dart',
             kind: .class$,
+            isClauseEntry: false,
             range: (startLine: 6, startColumn: 0, endLine: 6, endColumn: 51),
             fullRange: (
               startLine: 6,
@@ -321,6 +325,7 @@ String describe(S s) => switch (s) {
           (
             filePath: 'lib.dart',
             kind: .class$,
+            isClauseEntry: false,
             range: (startLine: 8, startColumn: 2, endLine: 9, endColumn: 0),
             fullRange: (startLine: 8, startColumn: 2, endLine: 9, endColumn: 0),
             cut: null,

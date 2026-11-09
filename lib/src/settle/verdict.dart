@@ -183,7 +183,7 @@ final class Verdict {
         : candidate.container;
     return .new(
       name: name,
-      kind: outline.element.reportedKind,
+      kind: candidate.reportedKind,
       filePath: relativePosix(candidate.path, rootPath),
       // Positions are zero-based; report them one-based for humans.
       line: start.line + 1,

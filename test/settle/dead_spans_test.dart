@@ -1,6 +1,5 @@
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/settle/dead_spans.dart';
-import 'package:ciach/src/source/clause_entries.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:test/test.dart';
 
@@ -83,7 +82,8 @@ void main() {
         coupledRemovals: [
           (
             filePath: 'lib/a.dart',
-            kind: clauseCutKind,
+            kind: .mixin,
+            isClauseEntry: true,
             range: range,
             fullRange: range,
             cut: clause,

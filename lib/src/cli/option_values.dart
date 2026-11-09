@@ -14,16 +14,17 @@ library;
 
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/cli/removed_options.dart';
+import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 
-/// Friendly `--kinds` names mapped to LSP symbol kinds.
+/// The `--kinds` names, mapped to the kinds that they select.
 const kindAliases = <String, SymbolKind>{
   'class': .class$,
-  'mixin': .interface$,
-  'interface': .interface$,
+  'mixin': .mixin,
+  'interface': .mixin,
   'enum': .enum$,
-  'extension': .namespace,
-  'extension-type': .struct,
+  'extension': .extension,
+  'extension-type': .extensionType,
   'function': .function,
   'method': .method,
   'constructor': .constructor,
@@ -32,9 +33,8 @@ const kindAliases = <String, SymbolKind>{
   'getter': .property,
   'setter': .property,
   'variable': .variable,
-  'constant': .constant,
-  'enum-value': .enumMember,
-  'typedef': .object,
+  'enum-value': .enumValue,
+  'typedef': .typedef,
 };
 
 /// The `--kinds` alias names, sorted, for help text and error messages.
@@ -80,10 +80,11 @@ const formatNames = [
   'gitlab',
 ];
 
-/// Parses the `--kinds` values (comma-separated, repeatable) into symbol kinds,
+/// Parses the `--kinds` values (comma-separated, repeatable) into kinds,
 /// falling back to [FinderOptions.defaultKinds] when none are given.
 ///
-/// Throws a [FormatException] naming the offending value on an unknown kind.
+/// Throws a [FormatException] naming the offending value on a removed or an
+/// unknown kind.
 Set<SymbolKind> parseKinds(List<String> raw) {
   if (raw.isEmpty) {
     return FinderOptions.defaultKinds;
@@ -93,9 +94,12 @@ Set<SymbolKind> parseKinds(List<String> raw) {
       for (final name in entry.split(','))
         if (name.trim().toLowerCase() case final trimmed
             when trimmed.isNotEmpty)
-          kindAliases[trimmed] ??
-              (throw FormatException(
-                "Unknown kind '$trimmed'. Valid kinds: $kindNames.",
-              )),
+          kindAliases[trimmed] ?? (throw _kindError(trimmed)),
   };
 }
+
+/// The error for the `--kinds` value [name], which selects no kind.
+FormatException _kindError(String name) => .new(
+  removedKindAdvice(name)?.let((advice) => '`$name` was removed: $advice.') ??
+      "Unknown kind '$name'. Valid kinds: $kindNames.",
+);

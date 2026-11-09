@@ -419,6 +419,20 @@ format: json
       );
     });
 
+    test('rejects the removed kind `constant` with what to use instead', () {
+      expect(
+        () => resolveFile('kinds: [constant]'),
+        throwsA(
+          isFormatException(
+            'ciach.yaml',
+            contains(
+              '`constant` was removed: ciach reports a `const` variable as a `variable` or a `field`, so use those.',
+            ),
+          ),
+        ),
+      );
+    });
+
     test('rejects a malformed entry point, naming the key', () {
       final cases = {
         'entry-points: {name: a}': 'a list of `{name, glob}` rules',
@@ -907,6 +921,19 @@ format: text''', origin: 'c.yaml'),
       expect(
         () => resolve(const ['-k', 'klass']),
         throwsA(isUsageException(contains("Unknown kind 'klass'"))),
+      );
+    });
+
+    test('rejects the removed `--kinds` value `constant`', () {
+      expect(
+        () => resolve(const ['-k', 'class,constant']),
+        throwsA(
+          isUsageException(
+            contains(
+              '`constant` was removed: ciach reports a `const` variable as a `variable` or a `field`, so use those.',
+            ),
+          ),
+        ),
       );
     });
 

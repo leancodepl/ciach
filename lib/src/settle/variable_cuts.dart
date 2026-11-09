@@ -60,6 +60,7 @@ final class VariableCuts {
             (
               filePath: coupled.filePath,
               kind: coupled.kind,
+              isClauseEntry: coupled.isClauseEntry,
               range: coupled.range,
               fullRange: coupled.fullRange,
               cut: cuts[ofCoupled(coupled)],

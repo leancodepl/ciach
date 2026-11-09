@@ -213,7 +213,7 @@ final class CandidateCollector {
     required List<KeptMembers> containerMembers,
   }) {
     final leadingMetadata = declaration.leadingMetadata;
-    if (!options.kinds.contains(candidate.outline.element.reportedKind)) {
+    if (!options.kinds.contains(candidate.reportedKind)) {
       return false;
     }
     // Only the messages of a gen-l10n file are checked: removing one from the

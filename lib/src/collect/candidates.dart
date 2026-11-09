@@ -8,6 +8,7 @@
  *     - mark-ai-provenance
  */
 
+import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
@@ -63,6 +64,10 @@ final class Candidate {
 
   /// The name of [containerOutline].
   String? get container => containerOutline?.element.name;
+
+  /// The kind that reports print. A candidate is always a declaration, so it
+  /// has one.
+  SymbolKind get reportedKind => outline.element.reportedKind!;
 
   bool get isEnumValue => kind == .enumConstant;
 
