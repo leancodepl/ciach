@@ -58,7 +58,7 @@ final class ClauseOnlyTypes {
       final outline = candidate.outline.element;
       if (statuses[i] != .used ||
           !const <OutlineKind>{.class$, .mixin}.contains(outline.kind) ||
-          candidate.symbol.children.length !=
+          candidate.outline.children.length !=
               (members[candidate.key]?.removable ?? 0)) {
         continue;
       }
@@ -70,8 +70,7 @@ final class ClauseOnlyTypes {
                 .resolved(loc.path)
                 ?.outline
                 .let(
-                  (unit) =>
-                      _sources.clauseEntryAt(loc, candidate.symbol.name, unit),
+                  (unit) => _sources.clauseEntryAt(loc, candidate.name, unit),
                 ),
       ];
       if (entries.length == refs.length) {

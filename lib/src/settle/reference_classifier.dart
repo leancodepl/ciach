@@ -39,7 +39,7 @@ class ReferenceClassifier {
   /// doc-comment links means doc-only, none means unused.
   RefStatus classify(Candidate candidate, List<Location> refs) {
     // An extension type is a type, so self-references don't keep it alive.
-    if (candidate.symbol.kind == .class$ || candidate.isExtensionType) {
+    if (candidate.isClassOrMixin || candidate.isExtensionType) {
       return _classifyClass(candidate, refs);
     }
     final external = externalRefs(candidate, refs);
@@ -104,7 +104,7 @@ class ReferenceClassifier {
   bool isSelfReference(Candidate candidate, Location loc) =>
       (loc.path == candidate.path &&
           candidate.outline.range.contains(loc.range.start)) ||
-      _sources.isStatePairingReference(candidate.symbol.name, loc);
+      _sources.isStatePairingReference(candidate.name, loc);
 
   /// Whether [candidate] — already classified as unused under
   /// `--also union-members` — is kept dead by *type patterns*: at least one

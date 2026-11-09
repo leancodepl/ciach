@@ -136,7 +136,7 @@ final class OverrideRemovals {
   /// The overrides of the dead [member], as spans to remove with it.
   OverriddenMember of(Candidate member) {
     final removals = _files
-        .overridesOf(member.path, member.symbol.selectionRange.start)
+        .overridesOf(member.path, member.outline.nameRange.start)
         .map(_removalFor)
         .toList();
     // An override that has to stay blocks the member.

@@ -28,12 +28,13 @@ final class NamedEntryPoint extends EntryPoint {
   /// select it in an enum.
   @override
   bool _selects(ResolvedDeclaration declaration) {
-    final ResolvedDeclaration(:symbol, :container) = declaration;
+    final ResolvedDeclaration(outline: Outline(:element), :container) =
+        declaration;
     return declaration.qualifiedName == name ||
         (container == name &&
             !declaration.inEnum &&
-            symbol.kind == .constructor &&
-            symbol.declarationName(container) == 'new');
+            element.kind == .constructor &&
+            element.declarationName(container) == 'new');
   }
 
   @override

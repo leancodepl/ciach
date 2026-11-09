@@ -6,29 +6,34 @@
 
 import 'package:ciach/src/analysis/resolved_class.dart';
 import 'package:ciach/src/conventions/resolved_declaration.dart';
-import 'package:ciach/src/model/symbol_kind.dart';
-import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/outline.dart';
 
-/// A symbol as the server reports it; the shape is irrelevant to the rules.
-DocumentSymbol symbol(String name, {SymbolKind kind = .function}) {
+/// The outline of a declaration named [name]; its ranges are irrelevant to
+/// the rules.
+Outline declared(String name, {OutlineKind kind = .function}) {
   const range = Range(
     start: .new(line: 0, character: 0),
     end: .new(line: 0, character: 0),
   );
-  return .new(name: name, kind: kind, range: range, selectionRange: range);
+  return .new(
+    element: .new(kind: kind, name: name, range: range),
+    range: range,
+    codeRange: range,
+    children: const [],
+  );
 }
 
-/// [symbol] in the file at [path], inside [container].
+/// [outline] in the file at [path], inside [container].
 ResolvedDeclaration declarationAt(
   String path,
-  DocumentSymbol symbol,
+  Outline outline,
   String? container, {
   bool inEnum = false,
   List<AnnotationClass> annotationClasses = const [],
 }) => .new(
   relativePath: path,
-  symbol: symbol,
+  outline: outline,
   container: container,
   inEnum: inEnum,
   annotationClasses: annotationClasses,

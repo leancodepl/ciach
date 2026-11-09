@@ -1,5 +1,5 @@
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/source/document_symbol.dart';
+import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
 
@@ -19,8 +19,8 @@ const _jsonValueTypes = {
 /// Whether [candidate] is a `toJson()` hook: a parameterless method named
 /// `toJson` returning a JSON value type. `jsonEncode` calls it without a
 /// source-level reference, so it is exempt from the reference check.
-bool isToJsonHook(Candidate candidate) => switch (candidate.symbol) {
-  DocumentSymbol(kind: .method, name: 'toJson', hasNoParameters: true) =>
+bool isToJsonHook(Candidate candidate) => switch (candidate.outline.element) {
+  OutlineElement(kind: .method, name: 'toJson', hasNoParameters: true) =>
     isJsonValueType(candidate.outline.element.returnType),
   _ => false,
 };

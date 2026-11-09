@@ -26,7 +26,7 @@ void main() {
       .match(
         declarationAt(
           'lib/button.dart',
-          symbol('buttonPreview'),
+          declared('buttonPreview'),
           null,
           annotationClasses: [annotationClass],
         ),

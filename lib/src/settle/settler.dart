@@ -338,10 +338,10 @@ final class Settler {
   ) {
     final deadClassNames = <String, Set<String>>{};
     for (final (i, candidate) in candidates.indexed) {
-      if (statuses[i] == .unused && candidate.symbol.kind == .class$) {
+      if (statuses[i] == .unused && candidate.isClassOrMixin) {
         deadClassNames
             .putIfAbsent(candidate.path, () => <String>{})
-            .add(candidate.symbol.name);
+            .add(candidate.name);
       }
     }
     return deadClassNames;
@@ -360,7 +360,7 @@ final class Settler {
     final candidate = candidates[i];
     final refs = liveRefs[i];
     final blockedByOverride = overridden?.blocked ?? false;
-    final pairedState = candidate.symbol.kind == .class$
+    final pairedState = candidate.isClassOrMixin
         ? _sources.pairedStateRemovals(
             candidate,
             refs,

@@ -28,7 +28,7 @@ const _noDeclaration =
 }
 
 List<Location>? _referencesOf(ResolvedFiles files, Candidate candidate) {
-  final start = candidate.symbol.selectionRange.start;
+  final start = candidate.outline.nameRange.start;
   final refs = files.referencesTo(candidate.path, start);
   if (refs == null) {
     recordProblem(
@@ -36,7 +36,7 @@ List<Location>? _referencesOf(ResolvedFiles files, Candidate candidate) {
       _noDeclaration,
       path: candidate.path,
       position: start,
-      name: candidate.symbol.qualifiedName(candidate.container),
+      name: candidate.outline.element.qualifiedName(candidate.container),
     );
   }
   return refs;

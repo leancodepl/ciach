@@ -8,7 +8,6 @@
  *     - mark-ai-provenance
  */
 
-import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
@@ -41,53 +40,61 @@ enum RefStatus {
   unused,
 }
 
-/// A declaration to check: the symbol plus enough context to look up its
-/// references and to report it later.
+/// A declaration to check: its outline node plus enough context to look up
+/// its references and to report it later.
 final class Candidate {
   const Candidate({
     required this.path,
-    required this.symbol,
     required this.outline,
-    required this.container,
-    required this.isEnumValue,
-    required this.isPreventInstantiationCtor,
-    this.containerSymbol,
     this.containerOutline,
   });
 
   final String path;
-  final DocumentSymbol symbol;
 
   final Outline outline;
-  final String? container;
 
-  /// The symbol [container] names, so a member can be placed against its type's
-  /// header or body.
-  final DocumentSymbol? containerSymbol;
-
+  /// The type that declares this member, so a member can be placed against
+  /// its type's header or body, or `null` at the top level.
   final Outline? containerOutline;
-  final bool isEnumValue;
-  final bool isPreventInstantiationCtor;
+
+  String get name => outline.element.name;
+
+  OutlineKind get kind => outline.element.kind;
+
+  /// The name of [containerOutline].
+  String? get container => containerOutline?.element.name;
+
+  bool get isEnumValue => kind == .enumConstant;
+
+  /// Whether this is the classic prevent-instantiation marker: a class's
+  /// sole, zero-parameter private constructor (`Foo._();`).
+  bool get isPreventInstantiationCtor =>
+      outline.element.isPrivateConstructor &&
+      outline.element.hasNoParameters &&
+      containerOutline?.children
+              .where((member) => member.element.kind == .constructor)
+              .length ==
+          1;
 
   /// `extension on T { … }`: nothing can name it, so its references aren't
   /// looked up. Its outline names it `extension on T`.
   bool get isUnnamedExtension => outline.element.isUnnamedExtension;
 
   /// `extension type Name(…)`: a type, named like a class.
-  bool get isExtensionType => outline.element.kind == .extensionType;
+  bool get isExtensionType => kind == .extensionType;
 
-  bool get isExtension => outline.element.kind == .extension;
+  bool get isExtension => kind == .extension;
 
-  bool get isMixin => outline.element.kind == .mixin;
+  /// Whether this is a class, a mixin application class or a mixin.
+  bool get isClassOrMixin =>
+      const <OutlineKind>{.class$, .classTypeAlias, .mixin}.contains(kind);
 
-  /// `typedef Name = Type;` or a function type alias. A mixin application
-  /// class (`class C = B with M;`) is a class, not a type alias.
-  bool get isTypeAlias => const <OutlineKind>{
-    .typeAlias,
-    .functionTypeAlias,
-  }.contains(outline.element.kind);
-
-  bool get isExtensionMember => containerSymbol?.kind == .namespace;
+  /// Whether this is a member of an extension or an extension type, whose
+  /// members are resolved statically.
+  bool get isExtensionMember => const <OutlineKind>{
+    .extension,
+    .extensionType,
+  }.contains(containerOutline?.element.kind);
 
   bool get isInUnnamedExtension =>
       containerOutline?.element.isUnnamedExtension ?? false;
@@ -100,10 +107,11 @@ final class Candidate {
   /// Whether this is a class, enum, mixin or extension type. Extensions are
   /// left out because code uses their members without naming them.
   bool get isType =>
-      container == null && typeLikeKinds.contains(symbol.kind) && !isExtension;
+      container == null &&
+      (isClassOrMixin || kind == .enum$ || isExtensionType);
 
   /// This candidate's own `(path, name)` key.
-  DeclKey get key => .new(path, symbol.name);
+  DeclKey get key => .new(path, name);
 
   /// The `(path, container)` key of this candidate's enclosing declaration,
   /// or `null` when it has no container.

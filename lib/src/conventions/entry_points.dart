@@ -1,7 +1,7 @@
 import 'package:ciach/src/analysis/resolved_class.dart';
 import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/conventions/test_reflective_loader.dart';
-import 'package:ciach/src/source/document_symbol.dart';
+import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:collection/collection.dart';
 import 'package:glob/glob.dart';
@@ -223,13 +223,14 @@ enum MemberSelection {
   reflectiveTestMethods;
 
   /// Whether [member] is one of the selected members.
-  bool includes(DocumentSymbol member) =>
-      !isPrivateName(member.name) &&
+  bool includes(Outline member) =>
+      !isPrivateName(member.element.name) &&
       switch (this) {
-        publicMethods => member.kind == .method,
-        publicMembers => member.kind != .constructor,
+        publicMethods => member.element.kind == .method,
+        publicMembers => member.element.kind != .constructor,
         reflectiveTestMethods =>
-          member.kind == .method && isReflectiveTestMethod(member.name),
+          member.element.kind == .method &&
+              isReflectiveTestMethod(member.element.name),
       };
 }
 

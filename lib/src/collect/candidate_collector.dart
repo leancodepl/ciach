@@ -9,7 +9,6 @@ import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/conventions/gen_l10n.dart';
 import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/model/finder_options.dart';
-import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/semantic_tokens.dart';
@@ -27,9 +26,9 @@ const _uncollectedFile = 'Could not list declarations; file skipped.';
 const _compileErrors =
     'Has compile errors; the declarations that it uses may be reported.';
 
-/// Which declarations get their references checked: every document symbol
-/// of a scanned file, less the kinds, visibilities, entry points and
-/// conventions the options leave out.
+/// Which declarations get their references checked: every declaration of a
+/// scanned file, except the kinds, visibilities, entry points and
+/// conventions that the options leave out.
 final class CandidateCollector {
   CandidateCollector({
     required this.options,
@@ -83,116 +82,86 @@ final class CandidateCollector {
     }
     final relativePath = relativePosix(path, rootPath);
     if (_conditionalImports.contains(path)) {
-      declaredInVariants[path] = ConditionalImports.pairingNames(file.symbols);
+      declaredInVariants[path] = ConditionalImports.pairingNames(
+        file.outline.children,
+      );
     }
-    final markers = _Markers(.parse(_sources.content(path)));
+    final scanned = (
+      path: path,
+      relativePath: relativePath,
+      resolved: file,
+      markers: _Markers(.parse(_sources.content(path))),
+    );
     // The whole walk has to run before the filter: it records the entry-point
     // containers the filter drops, and a container comes before its members.
-    final candidates = _collect(
-      path,
-      relativePath,
-      file,
-      file.symbols,
-      file.outline.children,
-      null,
-      null,
-      const [],
-      false,
-      markers,
-    ).toList();
-    markers.warnAbout(relativePath);
+    final candidates = _collect(scanned, file.outline.children, (
+      container: null,
+      keptMembers: const [],
+    )).toList();
+    scanned.markers.warnAbout(relativePath);
     return _kept.withoutContainers(candidates, relativePath).toList();
   }
 
-  /// Recursively walks the symbol tree, keeping only symbols worth checking,
-  /// and records the enclosing type name as their container. [outlines] are
-  /// the outline nodes that [symbols] were built from, in the same order.
-  ///
-  /// [parentIsEnum] marks children of an enum declaration so their enum values
-  /// are remapped to the `enum-value` kind.
+  /// Recursively walks the declarations in [outlines], keeping only those
+  /// worth checking. [parent] is the type that declares them, or `null` at
+  /// the top level, and the members that the rules keep in it.
   Iterable<Candidate> _collect(
-    String path,
-    String relativePath,
-    ResolvedFile file,
-    List<DocumentSymbol> symbols,
+    _ScannedFile file,
     List<Outline> outlines,
-    String? container,
-    Candidate? containerCandidate,
-    List<KeptMembers> containerMembers,
-    bool parentIsEnum,
-    _Markers markers,
+    ({Outline? container, List<KeptMembers> keptMembers}) parent,
   ) sync* {
     final statement = _Statement();
-    for (final (symbol, outline) in _declarations(symbols, outlines)) {
+    for (final outline in _declarations(outlines)) {
       final (:leadingMetadata, :start) = statement.next(
         outline,
-        _sources.leadingMetadata(path, outline),
+        _sources.leadingMetadata(file.path, outline),
       );
-      _freezed.noteIfAnnotated(path, symbol, leadingMetadata);
+      _freezed.noteIfAnnotated(file.path, outline, leadingMetadata);
       final candidate = Candidate(
-        path: path,
-        symbol: symbol,
+        path: file.path,
         outline: outline,
-        container: container,
-        containerSymbol: containerCandidate?.symbol,
-        containerOutline: containerCandidate?.outline,
-        isEnumValue: parentIsEnum && symbol.kind == .enum$,
-        isPreventInstantiationCtor: symbol.isPreventInstantiationMarker(
-          symbols,
-        ),
+        containerOutline: parent.container,
       );
       final declaration = _kept.declarationOf(
-        relativePath,
+        file.relativePath,
         candidate,
         leadingMetadata,
-        file,
+        file.resolved,
       );
       if (_isCandidate(
         candidate,
         declaration,
-        containerMembers: containerMembers,
-        markers: markers,
+        containerMembers: parent.keptMembers,
+        markers: file.markers,
         start: start,
       )) {
         yield candidate;
       }
-      final (
-        childContainer,
-        childContainerCandidate,
-      ) = typeLikeKinds.contains(symbol.kind)
-          ? (symbol.name, candidate)
-          : (container, containerCandidate);
       yield* _collect(
-        path,
-        relativePath,
         file,
-        symbol.children,
         outline.children,
-        childContainer,
-        childContainerCandidate,
-        _kept.keptMembersOf(declaration) ?? containerMembers,
-        symbol.kind == .enum$,
-        markers,
+        outline.element.declaresMembers
+            ? (
+                container: outline,
+                keptMembers:
+                    _kept.keptMembersOf(declaration) ?? parent.keptMembers,
+              )
+            : parent,
       );
     }
   }
 
-  /// Pairs each of [symbols] with the node of [outlines] that it was built
-  /// from.
+  /// The declarations in [outlines].
   ///
   /// A `test(...)` or `group(...)` call is not a declaration, and removing it
   /// would delete the test, so it is replaced by the declarations inside its
   /// closure.
-  static Iterable<(DocumentSymbol, Outline)> _declarations(
-    List<DocumentSymbol> symbols,
-    List<Outline> outlines,
-  ) sync* {
-    for (final (i, symbol) in symbols.indexed) {
-      final outline = outlines[i];
+  static Iterable<Outline> _declarations(List<Outline> outlines) sync* {
+    for (final outline in outlines) {
       if (outline.element.isDeclaration) {
-        yield (symbol, outline);
+        yield outline;
       } else {
-        yield* _declarations(symbol.children, outline.children);
+        yield* _declarations(outline.children);
       }
     }
   }
@@ -201,14 +170,13 @@ final class CandidateCollector {
   /// of an API that `exported-packages` leaves out. An unnamed extension and
   /// its members are private, since no other library can use them.
   bool _skipsPublic(Candidate candidate) {
-    final symbol = candidate.symbol;
-    if (isPrivateName(symbol.name) || candidate.belongsToUnnamedExtension) {
+    if (isPrivateName(candidate.name) || candidate.belongsToUnnamedExtension) {
       return false;
     }
     return !options.includePublic ||
         (_publicApi?.exposes(
               candidate.path,
-              candidate.container ?? symbol.name,
+              candidate.container ?? candidate.name,
             ) ??
             false);
   }
@@ -225,7 +193,7 @@ final class CandidateCollector {
   }) {
     if (markers.keeping(
           start: start,
-          nameLine: candidate.symbol.selectionRange.start.line,
+          nameLine: candidate.outline.nameRange.start.line,
         )
         case final kept?) {
       _kept.byMarker(declaration.relativePath, candidate, kept);
@@ -244,16 +212,8 @@ final class CandidateCollector {
     ResolvedDeclaration declaration, {
     required List<KeptMembers> containerMembers,
   }) {
-    final symbol = candidate.symbol;
     final leadingMetadata = declaration.leadingMetadata;
-    if (!options.kinds.contains(
-      symbol.reportedKind(
-        parentIsEnum: candidate.isEnumValue,
-        isExtensionType: candidate.isExtensionType,
-        isMixin: candidate.isMixin,
-        isTypeAlias: candidate.isTypeAlias,
-      ),
-    )) {
+    if (!options.kinds.contains(candidate.outline.element.reportedKind)) {
       return false;
     }
     // Only the messages of a gen-l10n file are checked: removing one from the
@@ -266,16 +226,11 @@ final class CandidateCollector {
     if (_kept.isEntryPoint(declaration, containerMembers)) {
       return false;
     }
-    if (symbol.kind == .namespace &&
-        !candidate.isExtension &&
-        !candidate.isExtensionType) {
-      return false;
-    }
     if (_skipsPublic(candidate)) {
       return false;
     }
-    // Already represented by the header's constructor symbol.
-    if (symbol.isPrimaryConstructorBody) {
+    // The primary constructor in the type's header is the candidate.
+    if (candidate.outline.element.isPrimaryConstructorBody) {
       return false;
     }
 
@@ -287,7 +242,17 @@ final class CandidateCollector {
   }
 }
 
-/// The variable statement that the symbols being collected belong to, for the
+/// The file whose declarations are being collected: its path, the path
+/// relative to the package root, the file as the analyzer resolves it, and
+/// its `// ciach:` markers.
+typedef _ScannedFile = ({
+  String path,
+  String relativePath,
+  ResolvedFile resolved,
+  _Markers markers,
+});
+
+/// The variable statement that the declarations being collected belong to, for the
 /// declarators after the first. It declares fields or top-level variables.
 ///
 /// A variable statement's doc comment, annotations and modifiers sit on its

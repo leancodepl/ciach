@@ -56,7 +56,7 @@ extension StructuralChecks on SourceIndex {
   /// (`var int x`). Removing either alone breaks the type.
   bool isDeclaredInTypeHeader(Candidate candidate) => isNameInTypeHeader(
     candidate.path,
-    candidate.symbol.selectionRange.start,
+    candidate.outline.nameRange.start,
     candidate.containerOutline,
   );
 

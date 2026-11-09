@@ -10,18 +10,32 @@
 
 import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
-import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/util/extensions.dart';
 
-/// Symbol kinds that introduce a lexical scope; their name becomes the
-/// container for nested members. [SymbolKind.namespace] is an extension.
-const typeLikeKinds = <SymbolKind>{.class$, .interface$, .enum$, .namespace};
+/// The kind and the naming rules of the declaration that an outline node
+/// describes.
+extension DeclarationNames on OutlineElement {
+  /// The kind that reports print and `--kinds` selects. A mixin application
+  /// class is a class, and every type alias is a typedef.
+  SymbolKind get reportedKind => switch (kind) {
+    .class$ || .classTypeAlias => .class$,
+    .compilationUnit => .file,
+    .constructor => .constructor,
+    .enum$ => .enum$,
+    .enumConstant => .enumMember,
+    .extension => .namespace,
+    .extensionType => .struct,
+    .field => .field,
+    .function => .function,
+    .getter || .setter => .property,
+    .method || .unitTestGroup || .unitTestTest => .method,
+    .mixin => .interface$,
+    .topLevelVariable => .variable,
+    .typeAlias || .functionTypeAlias => .object,
+  };
 
-/// Symbol-shape predicates and naming rules, kept off the finder so the
-/// classification logic reads as intent rather than mechanics.
-extension SymbolChecks on DocumentSymbol {
   /// Whether this is a private constructor (`Foo._`, `Foo._named`). A
   /// constructor is named with the class included (`Foo`, `Foo.named`), so the
   /// private marker is a segment after the last `.` starting with `_`; the
@@ -39,56 +53,25 @@ extension SymbolChecks on DocumentSymbol {
   /// constructor can have.
   bool get isPrimaryConstructorBody => kind == .constructor && name == 'this';
 
-  /// Whether the parameter list is empty. The signature is in
-  /// [DocumentSymbol.detail] as the parenthesized parameter list (`()`,
-  /// `(int a)`, …); if the detail is missing we can't tell the arity, so treat
-  /// it as empty to avoid missing the zero-parameter marker.
+  /// Whether the parameter list is empty. If [parameters] is missing, the
+  /// arity is unknown, so it is treated as empty to avoid missing the
+  /// zero-parameter marker.
   bool get hasNoParameters {
-    final detail = this.detail?.trim();
-    if (detail == null || detail.isEmpty) {
+    final parameters = this.parameters?.trim();
+    if (parameters == null || parameters.isEmpty) {
       return true;
     }
-    final inner = detail.startsWith('(') && detail.endsWith(')')
-        ? detail.substring(1, detail.length - 1).trim()
-        : detail;
+    final inner = parameters.startsWith('(') && parameters.endsWith(')')
+        ? parameters.substring(1, parameters.length - 1).trim()
+        : parameters;
     return inner.isEmpty;
   }
 
-  /// Whether this is the classic prevent-instantiation marker: a class's sole,
-  /// zero-parameter private constructor (`Foo._();`). [siblings] are the
-  /// constructor's fellow class members, used to confirm it is the class's
-  /// only constructor.
-  bool isPreventInstantiationMarker(List<DocumentSymbol> siblings) =>
-      isPrivateConstructor &&
-      siblings.where((s) => s.kind == .constructor).length == 1 &&
-      hasNoParameters;
-
-  /// The kind ciach reports for this symbol. A symbol has the kind that
-  /// [DocumentSymbol.fromOutline] gives its declaration: an enum value has
-  /// [SymbolKind.enum$] (same as the enum type), so it is remapped to
-  /// [SymbolKind.enumMember] under an enum to match the `enum-value` CLI kind.
-  /// A mixin has [SymbolKind.class$], remapped to [SymbolKind.interface$],
-  /// the `mixin` CLI kind. A type alias has [SymbolKind.object] and a
-  /// function type alias [SymbolKind.class$], both remapped to
-  /// [SymbolKind.object], the `typedef` CLI kind.
-  SymbolKind reportedKind({
-    required bool parentIsEnum,
-    bool isExtensionType = false,
-    bool isMixin = false,
-    bool isTypeAlias = false,
-  }) => switch (kind) {
-    _ when isTypeAlias => .object,
-    .enum$ when parentIsEnum => .enumMember,
-    .class$ when isMixin => .interface$,
-    .namespace when isExtensionType => .struct,
-    _ => kind,
-  };
-
-  /// The name to report for this symbol.
+  /// The name to report for this declaration.
   ///
-  /// A constructor symbol is named with the class included (`Foo` for the
-  /// unnamed constructor, `Foo.named` for a named one). The [container]
-  /// already carries the class, so strip that prefix and report the unnamed
+  /// A constructor is named with the class included (`Foo` for the unnamed
+  /// constructor, `Foo.named` for a named one). The [container] already
+  /// carries the class, so strip that prefix and report the unnamed
   /// constructor as `new` — yielding `Foo.named` / `Foo.new` once combined
   /// with the container, rather than `Foo.Foo.named` / `Foo.Foo`.
   String declarationName(String? container) {
@@ -101,16 +84,13 @@ extension SymbolChecks on DocumentSymbol {
     return name.isEmpty || name == container ? 'new' : name;
   }
 
-  /// The name of this symbol as the report prints it: `name` at the top
+  /// The name of this declaration as the report prints it: `name` at the top
   /// level, and `Container.member` inside [container].
   String qualifiedName(String? container) =>
       container?.let(
         (container) => '$container.${declarationName(container)}',
       ) ??
       name;
-
-  /// The symbol's code, body included.
-  DeclarationRange get declarationRange => range.toDeclarationRange;
 }
 
 extension OutlineChildren on Outline {
@@ -158,13 +138,6 @@ T? lastStartingAtOrBefore<T>(
     }
   }
   return lo == 0 ? null : items[lo - 1];
-}
-
-/// Position geometry against a symbol's source range.
-extension PositionGeometry on Position {
-  /// Whether this position falls within [symbol]'s full source range.
-  bool within(DocumentSymbol symbol) =>
-      symbol.range.start.atOrBefore(this) && atOrBefore(symbol.range.end);
 }
 
 /// Whether [name] (possibly qualified, e.g. `Foo._bar`) is library-private —

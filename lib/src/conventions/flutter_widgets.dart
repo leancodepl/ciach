@@ -10,7 +10,6 @@
 
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
-import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/reference_kinds.dart';
 import 'package:ciach/src/source/semantic_tokens.dart';
@@ -78,32 +77,33 @@ extension FlutterWidgets on SourceIndex {
     final out = <CoupledRemoval>[];
     var blocked = false;
     for (final loc in widgetRefs) {
-      if (!isStatePairingReference(widget.symbol.name, loc)) {
+      if (!isStatePairingReference(widget.name, loc)) {
         continue;
       }
       final path = loc.path;
       // The widget's own `createState` return type is inside the widget and
       // removed with it; only a pairing reference outside the widget points at
       // the separate State subclass.
-      if (path == widget.path && loc.range.start.within(widget.symbol)) {
+      if (path == widget.path &&
+          widget.outline.codeRange.contains(loc.range.start)) {
         continue;
       }
       final before = out.length;
       for (final (j, state) in candidates.indexed) {
-        if (state.symbol.kind != .class$ ||
+        if (!state.isClassOrMixin ||
             state.path != path ||
             identical(state, widget) ||
-            !loc.range.start.within(state.symbol)) {
+            !state.outline.codeRange.contains(loc.range.start)) {
           continue;
         }
         if (_referencedOnlyWithin(
           refsByCandidate[j],
-          widget.symbol,
+          widget.outline.codeRange,
           widget.path,
         )) {
           out.add((
             filePath: relativePosix(state.path, rootPath),
-            kind: state.symbol.kind,
+            kind: state.outline.element.reportedKind,
             range: state.outline.codeRange.toDeclarationRange,
             fullRange: state.outline.range.toDeclarationRange,
             cut: null,
@@ -122,11 +122,11 @@ extension FlutterWidgets on SourceIndex {
   /// alive, so it must not block coupling.
   bool _referencedOnlyWithin(
     List<Location> refs,
-    DocumentSymbol enclosing,
+    Range enclosing,
     String path,
   ) => refs.every(
     (loc) =>
         isDocReference(loc) ||
-        (loc.path == path && loc.range.start.within(enclosing)),
+        (loc.path == path && enclosing.contains(loc.range.start)),
   );
 }

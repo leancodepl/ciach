@@ -2,8 +2,6 @@ import 'dart:io';
 
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/conventions/flutter_widgets.dart';
-import 'package:ciach/src/model/symbol_kind.dart';
-import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/selection_range.dart';
@@ -164,27 +162,15 @@ enum Color {
       at(3, 30): chain([range(3, 30, 3, 36), range(3, 24, 3, 36)]),
     };
 
-    Candidate enumCandidate() {
-      final symbol = DocumentSymbol(
-        name: 'Color',
-        kind: .enum$,
+    Candidate enumCandidate() => .new(
+      path: path,
+      outline: .new(
+        element: .new(kind: .enum$, name: 'Color', range: range(0, 5, 0, 10)),
         range: range(0, 0, 4, 1),
-        selectionRange: range(0, 5, 0, 10),
-      );
-      return .new(
-        path: path,
-        symbol: symbol,
-        outline: .new(
-          element: const .new(kind: .enum$, name: 'Color'),
-          range: range(0, 0, 4, 1),
-          codeRange: range(0, 0, 4, 1),
-          children: const [],
-        ),
-        container: null,
-        isEnumValue: false,
-        isPreventInstantiationCtor: false,
-      );
-    }
+        codeRange: range(0, 0, 4, 1),
+        children: const [],
+      ),
+    );
 
     setUp(() => load(source, tokens, nodes));
 
@@ -256,21 +242,18 @@ class Foo {
       Range? fullRange,
     }) => .new(
       path: path,
-      symbol: .new(
-        name: name,
-        kind: .constructor,
-        range: codeRange,
-        selectionRange: nameRange,
-      ),
       outline: .new(
-        element: .new(kind: .constructor, name: name),
+        element: .new(kind: .constructor, name: name, range: nameRange),
         range: fullRange ?? codeRange,
         codeRange: codeRange,
         children: const [],
       ),
-      container: 'Foo',
-      isEnumValue: false,
-      isPreventInstantiationCtor: false,
+      containerOutline: .new(
+        element: const .new(kind: .class$, name: 'Foo'),
+        range: range(0, 0, 5, 1),
+        codeRange: range(0, 0, 5, 1),
+        children: const [],
+      ),
     );
 
     setUp(() => load(source, tokens, nodes));
@@ -318,24 +301,15 @@ class Point(var int x) {
       at(1, 10): chain([range(1, 2, 1, 19), range(0, 23, 2, 1), classRange]),
     };
 
-    Candidate member(String name, SymbolKind kind, Range nameRange) => .new(
+    Candidate member(String name, OutlineKind kind, Range nameRange) => .new(
       path: path,
-      symbol: .new(
-        name: name,
-        kind: kind,
-        range: nameRange,
-        selectionRange: nameRange,
-      ),
       outline: .new(
-        element: .new(kind: .field, name: name),
+        element: .new(kind: kind, name: name, range: nameRange),
         range: nameRange,
         codeRange: nameRange,
         children: const [],
       ),
-      container: 'Point',
       containerOutline: classOutline,
-      isEnumValue: false,
-      isPreventInstantiationCtor: false,
     );
 
     setUp(() => load(source, const [], nodes));
@@ -352,13 +326,13 @@ class Point(var int x) {
     test('a body member is not, nor is one without nodes', () {
       expect(
         sources.isDeclaredInTypeHeader(
-          member('sum', .property, range(1, 10, 1, 13)),
+          member('sum', .getter, range(1, 10, 1, 13)),
         ),
         isFalse,
       );
       expect(
         sources.isDeclaredInTypeHeader(
-          member('other', .property, range(1, 14, 1, 15)),
+          member('other', .getter, range(1, 14, 1, 15)),
         ),
         isFalse,
       );

@@ -14,5 +14,5 @@ bool needsSuperArguments(ResolvedFiles files, Candidate cls) =>
     files
         .resolved(cls.path)
         ?.needSuperArguments
-        .contains(cls.symbol.selectionRange.start) ??
+        .contains(cls.outline.nameRange.start) ??
     true;

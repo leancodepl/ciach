@@ -5,7 +5,6 @@
  */
 
 import 'package:ciach/src/analysis/resolved_class.dart';
-import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/semantic_tokens.dart';
@@ -16,7 +15,7 @@ import 'package:ciach/src/source/semantic_tokens.dart';
 /// The annotations are keyed by the position of the name that follows the `@`
 /// and the import prefix, such as `Preview` in `@prefix.Preview.named()`.
 final class ResolvedFile {
-  ResolvedFile({
+  const ResolvedFile({
     required this.outline,
     required this.tokens,
     required this.annotationPackages,
@@ -31,12 +30,6 @@ final class ResolvedFile {
 
   /// The tokens of the file, in order.
   final List<SemanticToken> tokens;
-
-  /// The declarations at the top level of the file, with the declarations
-  /// inside them.
-  late final List<DocumentSymbol> symbols = [
-    for (final declaration in outline.children) .fromOutline(declaration),
-  ];
 
   /// The package that declares each annotation: `dart:core` for `pragma` in
   /// `@pragma('vm:entry-point')`.

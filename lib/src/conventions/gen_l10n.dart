@@ -43,4 +43,4 @@ bool isTranslationMessage(Candidate candidate) =>
       .method,
     }.contains(candidate.outline.element.kind) &&
     !(candidate.container?.let(isPrivateName) ?? true) &&
-    !_localizationsPlumbing.contains(candidate.symbol.name);
+    !_localizationsPlumbing.contains(candidate.name);

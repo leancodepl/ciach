@@ -111,7 +111,6 @@ final class _Tally {
   final extensionMemberDead = <DeclKey, int>{};
 
   void add(Candidate candidate, List<Location> refs, {required bool unused}) {
-    final symbol = candidate.symbol;
     if (candidate.containerKey case final key?
         when candidate.isExtensionMember && unused) {
       extensionMemberDead.update(key, (n) => n + 1, ifAbsent: () => 1);
@@ -127,10 +126,10 @@ final class _Tally {
       // keeps the extension.
       extensionMemberTotal.update(
         candidate.key,
-        (n) => n + symbol.children.length,
-        ifAbsent: () => symbol.children.length,
+        (n) => n + candidate.outline.children.length,
+        ifAbsent: () => candidate.outline.children.length,
       );
-    } else if (symbol.kind == .enum$ && !candidate.isEnumValue) {
+    } else if (candidate.kind == .enum$) {
       enumTypeStays[candidate.key] = !unused;
       if (refs.any(_sources.isDotValuesRef) ||
           _sources.enumIteratesOwnValues(candidate)) {
@@ -138,9 +137,9 @@ final class _Tally {
       }
     } else if (candidate.isEnumValue) {
       enumValues.add(candidate.containerKey, dead: unused);
-    } else if (symbol.kind == .class$) {
+    } else if (candidate.isClassOrMixin) {
       classByKey[candidate.key] = candidate;
-    } else if (symbol.kind == .constructor) {
+    } else if (candidate.kind == .constructor) {
       constructors.add(candidate.containerKey, dead: unused);
     }
   }

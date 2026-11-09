@@ -1,8 +1,8 @@
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
 import 'package:ciach/src/source/directives.dart';
-import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/cached_map.dart';
 import 'package:ciach/src/util/extensions.dart';
@@ -56,27 +56,30 @@ final class ConditionalImports {
   Set<String> counterpartFilesOf(String path) =>
       _counterparts[path] ?? const {};
 
-  /// The pairing names in [symbols], a file's outline, and their members:
-  /// `Type.member`, or the top-level name. Private names and members of
-  /// unnamed extensions are left out, since no other library can use them.
-  static Set<String> pairingNames(List<DocumentSymbol> symbols) => {
-    for (final symbol in symbols)
-      if (pairingName(symbol, null) case final name?) ...[
+  /// The pairing names of the top-level [declarations] of a file, and of
+  /// their members: `Type.member`, or the top-level name. Private names and
+  /// members of unnamed extensions are left out, since no other library can
+  /// use them.
+  static Set<String> pairingNames(List<Outline> declarations) => {
+    for (final Outline(:element, :children) in declarations)
+      if (pairingName(element, null) case final name?) ...[
         name,
-        if (typeLikeKinds.contains(symbol.kind))
-          for (final child in symbol.children) ?pairingName(child, symbol.name),
+        if (element.declaresMembers)
+          for (final child in children)
+            ?pairingName(child.element, element.name),
       ],
   };
 
-  /// The name that pairs [symbol] with its namesakes; see [pairingNames].
-  static String? pairingName(DocumentSymbol symbol, String? container) {
-    final type = container ?? symbol.name;
-    if (isPrivateName(symbol.name) ||
+  /// The name that pairs [declaration] with its namesakes; see
+  /// [pairingNames].
+  static String? pairingName(OutlineElement declaration, String? container) {
+    final type = container ?? declaration.name;
+    if (isPrivateName(declaration.name) ||
         isPrivateName(type) ||
         type.startsWith('extension on ')) {
       return null;
     }
-    final name = symbol.declarationName(container);
+    final name = declaration.declarationName(container);
     return container?.let((it) => '$it.$name') ?? name;
   }
 
@@ -166,7 +169,7 @@ final class ConditionalImports {
   }
 
   String? _pairingNameOf(Candidate candidate) => contains(candidate.path)
-      ? pairingName(candidate.symbol, candidate.container)
+      ? pairingName(candidate.outline.element, candidate.container)
       : null;
 }
 

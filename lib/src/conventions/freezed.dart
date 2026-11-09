@@ -9,7 +9,7 @@
  */
 
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/source/document_symbol.dart';
+import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
@@ -26,19 +26,19 @@ class FreezedUnions {
   /// Keys `(path, class name)` of classes annotated `@freezed`/`@Freezed`.
   final _annotatedClasses = <DeclKey>{};
 
-  /// Records [symbol] as a freezed class if it is a type annotated with
+  /// Records [declaration] as a freezed class if it is a type annotated with
   /// `@freezed` or `@Freezed`.
   void noteIfAnnotated(
     String path,
-    DocumentSymbol symbol,
+    Outline declaration,
     Iterable<SemanticToken> leadingMetadata,
   ) {
-    if (typeLikeKinds.contains(symbol.kind) &&
+    if (declaration.element.declaresMembers &&
         leadingMetadata.any(
           (t) =>
               t.isAnnotationNamed('freezed') || t.isAnnotationNamed('Freezed'),
         )) {
-      _annotatedClasses.add(.new(path, symbol.name));
+      _annotatedClasses.add(.new(path, declaration.element.name));
     }
   }
 
@@ -54,9 +54,9 @@ class FreezedUnions {
     final unionsWithUsedFromJson = <DeclKey>{};
     for (final (i, c) in candidates.indexed) {
       if (c.containerKey case final key?
-          when c.symbol.kind == .constructor &&
+          when c.kind == .constructor &&
               statuses[i] == .used &&
-              c.symbol.declarationName(c.container) == 'fromJson') {
+              c.outline.element.declarationName(c.container) == 'fromJson') {
         unionsWithUsedFromJson.add(key);
       }
     }
@@ -66,7 +66,7 @@ class FreezedUnions {
       if (statuses[i] != .unused) {
         continue;
       }
-      if (c.symbol.kind != .constructor) {
+      if (c.kind != .constructor) {
         continue;
       }
       if (c.containerKey case final key?

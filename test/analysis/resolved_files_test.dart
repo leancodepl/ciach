@@ -243,8 +243,9 @@ void notAClass() {}
 
       expect(
         {
-          for (final symbol in file.symbols)
-            symbol.name: file.supertypes[symbol.selectionRange.start],
+          for (final declaration in file.outline.children)
+            declaration.element.name:
+                file.supertypes[declaration.nameRange.start],
         },
         {
           'Shown': {app('DarkPreview'), app('Preview'), object},

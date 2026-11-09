@@ -31,7 +31,7 @@ void main() {
     ) => rule.matches(
       declarationAt(
         'lib/a.dart',
-        symbol('card'),
+        declared('card'),
         null,
         annotationClasses: annotationClasses,
       ),
@@ -56,7 +56,7 @@ void main() {
         rule.matches(
           declarationAt(
             'lib/a.dart',
-            symbol('card', kind: .method),
+            declared('card', kind: .method),
             'Gallery',
             annotationClasses: [annotationClass('Story')],
           ),
@@ -66,7 +66,7 @@ void main() {
       expect(matchesCard(rule, [annotationClass('Deprecated')]), isFalse);
       // A declaration named like the class is not annotated with it.
       expect(
-        rule.matches(declarationAt('lib/a.dart', symbol('Story'), null)),
+        rule.matches(declarationAt('lib/a.dart', declared('Story'), null)),
         isFalse,
       );
     });
@@ -111,7 +111,7 @@ void main() {
         rule.matches(
           declarationAt(
             'lib/stories/card.dart',
-            symbol('card'),
+            declared('card'),
             null,
             annotationClasses: story,
           ),
@@ -122,7 +122,7 @@ void main() {
         rule.matches(
           declarationAt(
             'lib/card.dart',
-            symbol('card'),
+            declared('card'),
             null,
             annotationClasses: story,
           ),

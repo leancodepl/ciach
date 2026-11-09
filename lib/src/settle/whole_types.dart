@@ -40,7 +40,7 @@ final class WholeTypes {
     final types = {
       for (final (i, candidate) in candidates.indexed)
         if (candidate.isType)
-          if (switch ((statuses[i], candidate.symbol.kind)) {
+          if (switch ((statuses[i], candidate.kind)) {
                 (.docOnly, _) => Verdict.docOnlyTypeHint,
                 (.used, .enum$)
                     when safety.emptiedEnums.contains(candidate.key) =>

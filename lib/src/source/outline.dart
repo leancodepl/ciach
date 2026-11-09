@@ -1,11 +1,6 @@
 import 'package:ciach/src/source/locations.dart';
 
 /// A declaration in the outline of a file, with the declarations inside it.
-///
-/// Unlike a `DocumentSymbol`, it knows the kind that Dart gives the
-/// declaration, the signature, and a [range] that includes the doc comment
-/// and annotations. [codeRange] equals the document symbol's `range`,
-/// [OutlineElement.range] its `selectionRange`.
 final class Outline {
   const Outline({
     required this.element,
@@ -27,6 +22,10 @@ final class Outline {
 
   /// Whether the declaration has a doc comment or annotations.
   bool get hasLeadingMetadata => range.start.isBefore(codeRange.start);
+
+  /// The range of the declaration's name, or of its code when it has no name
+  /// range.
+  Range get nameRange => element.range ?? codeRange;
 }
 
 /// The declaration an [Outline] node describes.
@@ -59,6 +58,16 @@ final class OutlineElement {
   /// The type parameters as written, e.g. `<T extends Object>`.
   final String? typeParameters;
 
+  /// Whether this is a class, enum, extension, extension type or mixin, which
+  /// can declare members.
+  bool get declaresMembers => const <OutlineKind>{
+    .class$,
+    .enum$,
+    .extension,
+    .extensionType,
+    .mixin,
+  }.contains(kind);
+
   /// Whether this is an unnamed extension. It is named after its `on` type,
   /// without type parameters: `extension<T> on List<T>` becomes
   /// `extension on List<T>`.
@@ -67,7 +76,7 @@ final class OutlineElement {
 
   /// Whether this declares something. The outline also lists `test(...)` and
   /// `group(...)` calls, and calls to functions annotated `@isTest` or
-  /// `@isTestGroup`, which the document symbols mirror as methods.
+  /// `@isTestGroup`.
   bool get isDeclaration => kind != .unitTestGroup && kind != .unitTestTest;
 }
 

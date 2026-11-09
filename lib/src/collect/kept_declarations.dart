@@ -60,10 +60,10 @@ final class KeptDeclarations {
     String relativePath,
   ) sync* {
     for (final candidate in candidates) {
-      final symbol = candidate.symbol;
       final reason =
-          candidate.container == null && typeLikeKinds.contains(symbol.kind)
-          ? _entryPointContainers[DeclKey(relativePath, symbol.name)]
+          candidate.container == null &&
+              candidate.outline.element.declaresMembers
+          ? _entryPointContainers[DeclKey(relativePath, candidate.name)]
           : null;
       if (reason == null) {
         yield candidate;
@@ -71,8 +71,8 @@ final class KeptDeclarations {
       }
       _skippedEntryPoints.add((
         path: relativePath,
-        line: symbol.selectionRange.start.line + 1,
-        name: symbol.name,
+        line: candidate.outline.nameRange.start.line + 1,
+        name: candidate.name,
         reason: reason,
       ));
     }
@@ -88,9 +88,9 @@ final class KeptDeclarations {
     ResolvedFile file,
   ) => .new(
     relativePath: relativePath,
-    symbol: candidate.symbol,
+    outline: candidate.outline,
     container: candidate.container,
-    inEnum: candidate.containerSymbol?.kind == .enum$,
+    inEnum: candidate.containerOutline?.element.kind == .enum$,
     leadingMetadata: leadingMetadata,
     annotationPackages: {
       for (final token in leadingMetadata)
@@ -99,8 +99,7 @@ final class KeptDeclarations {
     annotationClasses: [
       for (final token in leadingMetadata) ?file.annotationClasses[token.start],
     ],
-    supertypes:
-        file.supertypes[candidate.symbol.selectionRange.start] ?? const {},
+    supertypes: file.supertypes[candidate.outline.nameRange.start] ?? const {},
   );
 
   /// Returns whether [declaration] is called by a framework or a tool. Such a
@@ -112,7 +111,8 @@ final class KeptDeclarations {
     ResolvedDeclaration declaration,
     List<KeptMembers> containerMembers,
   ) {
-    final ResolvedDeclaration(:relativePath, :symbol, :container) = declaration;
+    final ResolvedDeclaration(:relativePath, :outline, :container) =
+        declaration;
     final qualified = declaration.qualifiedName;
     final rule = _entryPoints.match(declaration);
     if (rule != null && container != null) {
@@ -122,14 +122,14 @@ final class KeptDeclarations {
     final reason =
         rule?.reasonFor(declaration) ??
         containerMembers
-            .firstWhereOrNull((members) => members.selection.includes(symbol))
+            .firstWhereOrNull((members) => members.selection.includes(outline))
             ?.reason;
     if (reason == null) {
       return false;
     }
     _skippedEntryPoints.add((
       path: relativePath,
-      line: symbol.selectionRange.start.line + 1,
+      line: outline.nameRange.start.line + 1,
       name: qualified,
       reason: reason,
     ));
@@ -139,22 +139,21 @@ final class KeptDeclarations {
   /// Returns the members that the rules keep in [declaration], a type, or
   /// `null` when [declaration] is not a type.
   List<KeptMembers>? keptMembersOf(ResolvedDeclaration declaration) =>
-      typeLikeKinds.contains(declaration.symbol.kind)
+      declaration.outline.element.declaresMembers
       ? _entryPoints.keptMembersOf(declaration)
       : null;
 
   /// Records [candidate] as kept by the marker [kept], and its type too.
   void byMarker(String relativePath, Candidate candidate, MarkerAt kept) {
-    final symbol = candidate.symbol;
     final container = candidate.container;
-    final qualified = symbol.qualifiedName(container);
+    final qualified = candidate.outline.element.qualifiedName(container);
     if (container != null) {
       _entryPointContainers[DeclKey(relativePath, container)] ??=
           'declares $qualified, kept by `// ${kept.marker}`';
     }
     _skippedEntryPoints.add((
       path: relativePath,
-      line: symbol.selectionRange.start.line + 1,
+      line: candidate.outline.nameRange.start.line + 1,
       name: qualified,
       reason: 'kept by `// ${kept.marker}` on line ${kept.line + 1}',
     ));

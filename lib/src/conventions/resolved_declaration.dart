@@ -10,8 +10,8 @@
 library;
 
 import 'package:ciach/src/analysis/resolved_class.dart';
-import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:ciach/src/source/symbols.dart';
 
@@ -19,7 +19,7 @@ import 'package:ciach/src/source/symbols.dart';
 final class ResolvedDeclaration {
   const ResolvedDeclaration({
     required this.relativePath,
-    required this.symbol,
+    required this.outline,
     this.container,
     this.inEnum = false,
     this.leadingMetadata = const [],
@@ -31,14 +31,15 @@ final class ResolvedDeclaration {
   /// The file of the declaration, POSIX and relative to the package root.
   final String relativePath;
 
-  final DocumentSymbol symbol;
+  final Outline outline;
 
-  /// The name of the type that declares [symbol], or `null` at the top level.
+  /// The name of the type that declares [outline], or `null` at the top
+  /// level.
   final String? container;
 
   /// The name of the declaration as the report prints it, such as
   /// `Container.member`.
-  String get qualifiedName => symbol.qualifiedName(container);
+  String get qualifiedName => outline.element.qualifiedName(container);
 
   /// Whether [container] is an enum.
   final bool inEnum;

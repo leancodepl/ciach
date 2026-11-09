@@ -86,7 +86,7 @@ final class ReachableTypes {
   static bool isGated(Candidate member) =>
       member.container != null &&
       member.containerOutline?.element.kind != .extension &&
-      !isPrivateName(member.symbol.name);
+      !isPrivateName(member.name);
 }
 
 /// A carrier no type matches, so whatever it carries is reachable.

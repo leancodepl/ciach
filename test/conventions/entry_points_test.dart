@@ -13,25 +13,27 @@ void main() {
 
       expect(rule.files, isEmpty);
       expect(
-        rule.matches(declarationAt('lib/a.dart', symbol('bootstrap'), null)),
+        rule.matches(declarationAt('lib/a.dart', declared('bootstrap'), null)),
         isTrue,
       );
       expect(
-        rule.matches(declarationAt('bin/b.dart', symbol('bootstrap'), null)),
+        rule.matches(declarationAt('bin/b.dart', declared('bootstrap'), null)),
         isTrue,
       );
       expect(
         rule.matches(
           declarationAt(
             'lib/a.dart',
-            symbol('bootstrap', kind: .variable),
+            declared('bootstrap', kind: .topLevelVariable),
             null,
           ),
         ),
         isTrue,
       );
       expect(
-        rule.matches(declarationAt('lib/a.dart', symbol('bootstrapped'), null)),
+        rule.matches(
+          declarationAt('lib/a.dart', declared('bootstrapped'), null),
+        ),
         isFalse,
       );
     });
@@ -44,19 +46,27 @@ void main() {
 
       expect(
         rule.matches(
-          declarationAt('lib/src/my_plugin.dart', symbol('registerWith'), null),
+          declarationAt(
+            'lib/src/my_plugin.dart',
+            declared('registerWith'),
+            null,
+          ),
         ),
         isTrue,
       );
       expect(
         rule.matches(
-          declarationAt('bin/tool.dart', symbol('registerWith'), null),
+          declarationAt('bin/tool.dart', declared('registerWith'), null),
         ),
         isTrue,
       );
       expect(
         rule.matches(
-          declarationAt('lib/src/my_helper.dart', symbol('registerWith'), null),
+          declarationAt(
+            'lib/src/my_helper.dart',
+            declared('registerWith'),
+            null,
+          ),
         ),
         isFalse,
       );
@@ -64,7 +74,7 @@ void main() {
 
     test('a qualified name matches a member of that container only', () {
       final rule = EntryPoint.fromConfig('MyPlugin.registerWith');
-      final member = symbol('registerWith', kind: .method);
+      final member = declared('registerWith', kind: .method);
 
       expect(
         rule.matches(declarationAt('lib/a.dart', member, 'MyPlugin')),
@@ -75,14 +85,16 @@ void main() {
         isFalse,
       );
       expect(
-        rule.matches(declarationAt('lib/a.dart', symbol('registerWith'), null)),
+        rule.matches(
+          declarationAt('lib/a.dart', declared('registerWith'), null),
+        ),
         isFalse,
       );
     });
 
     test('a constructor rule uses the name the report prints', () {
-      final unnamed = symbol('Parked', kind: .constructor);
-      final named = symbol('Parked.make', kind: .constructor);
+      final unnamed = declared('Parked', kind: .constructor);
+      final named = declared('Parked.make', kind: .constructor);
 
       expect(
         EntryPoint.fromConfig(
@@ -106,8 +118,8 @@ void main() {
 
     test('a type name matches its unnamed constructor, except in an enum', () {
       final rule = EntryPoint.fromConfig('Card');
-      final unnamed = symbol('Card', kind: .constructor);
-      final named = symbol('Card.blank', kind: .constructor);
+      final unnamed = declared('Card', kind: .constructor);
+      final named = declared('Card.blank', kind: .constructor);
 
       expect(
         rule.matches(declarationAt('lib/a.dart', unnamed, 'Card')),
@@ -122,7 +134,7 @@ void main() {
       expect(rule.matches(declarationAt('lib/a.dart', named, 'Card')), isFalse);
       expect(
         rule.matches(
-          declarationAt('lib/a.dart', symbol('Card', kind: .method), 'Card'),
+          declarationAt('lib/a.dart', declared('Card', kind: .method), 'Card'),
         ),
         isFalse,
       );
@@ -142,7 +154,7 @@ void main() {
         rule.matches(
           declarationAt(
             'lib/a.dart',
-            symbol('registerWith', kind: .method),
+            declared('registerWith', kind: .method),
             'P',
           ),
         ),
@@ -194,7 +206,7 @@ void main() {
       required String package,
     }) => .new(
       relativePath: 'lib/a.dart',
-      symbol: symbol('Counter', kind: .class$),
+      outline: declared('Counter', kind: .class$),
       annotationPackages: {const .new(line: 0, character: 1): package},
       leadingMetadata: [
         SemanticToken(
@@ -259,7 +271,7 @@ void main() {
     test('an annotation whose package is unknown keeps nothing', () {
       final counter = ResolvedDeclaration(
         relativePath: 'lib/a.dart',
-        symbol: symbol('Counter', kind: .class$),
+        outline: declared('Counter', kind: .class$),
         leadingMetadata: annotatedClass(
           'JSExport',
           package: 'dart:js_interop',
@@ -308,7 +320,7 @@ void main() {
       String package = 'dart:core',
     }) => .new(
       relativePath: 'lib/a.dart',
-      symbol: symbol('callback'),
+      outline: declared('callback'),
       leadingMetadata: leadingMetadata,
       annotationPackages: {const .new(line: 0, character: 0): package},
     );
@@ -361,16 +373,22 @@ void main() {
 
     test('main is an entry point in every file, but not as a member', () {
       expect(
-        rules.match(declarationAt('bin/app.dart', symbol('main'), null))?.label,
+        rules
+            .match(declarationAt('bin/app.dart', declared('main'), null))
+            ?.label,
         'main',
       );
       expect(
-        rules.match(declarationAt('test/a_test.dart', symbol('main'), null)),
+        rules.match(declarationAt('test/a_test.dart', declared('main'), null)),
         isNotNull,
       );
       expect(
         rules.match(
-          declarationAt('lib/a.dart', symbol('main', kind: .method), 'Runner'),
+          declarationAt(
+            'lib/a.dart',
+            declared('main', kind: .method),
+            'Runner',
+          ),
         ),
         isNull,
       );
@@ -384,7 +402,7 @@ void main() {
           'integration_test/nested/flutter_test_config.dart',
         ]) {
           final rule = rules.match(
-            declarationAt(path, symbol('testExecutable'), null),
+            declarationAt(path, declared('testExecutable'), null),
           );
           expect(rule?.label, 'testExecutable', reason: 'for $path');
           expect(rule?.reason, contains('flutter test'));
@@ -396,7 +414,7 @@ void main() {
           rules.match(
             declarationAt(
               'test/flutter_test_config.dart',
-              symbol('testExecutable', kind: .variable),
+              declared('testExecutable', kind: .topLevelVariable),
               null,
             ),
           ),
@@ -410,7 +428,7 @@ void main() {
           'test/my_flutter_test_config.dart',
         ]) {
           expect(
-            rules.match(declarationAt(path, symbol('testExecutable'), null)),
+            rules.match(declarationAt(path, declared('testExecutable'), null)),
             isNull,
             reason: 'for $path',
           );
@@ -422,7 +440,7 @@ void main() {
           rules.match(
             declarationAt(
               'test/flutter_test_config.dart',
-              symbol('testExecutable', kind: .method),
+              declared('testExecutable', kind: .method),
               'Config',
             ),
           ),
@@ -438,17 +456,19 @@ void main() {
     ]);
 
     expect(
-      rules.match(declarationAt('tool/gen.dart', symbol('main'), null))?.reason,
+      rules
+          .match(declarationAt('tool/gen.dart', declared('main'), null))
+          ?.reason,
       'the program entry point',
     );
     expect(
-      rules.match(declarationAt('lib/a.dart', symbol('serve'), null)),
+      rules.match(declarationAt('lib/a.dart', declared('serve'), null)),
       isNull,
     );
     expect(
       EntryPoints([
         .fromConfig('serve'),
-      ]).match(declarationAt('lib/a.dart', symbol('serve'), null))?.reason,
+      ]).match(declarationAt('lib/a.dart', declared('serve'), null))?.reason,
       contains('entry-points'),
     );
   });
@@ -462,7 +482,7 @@ void main() {
     final rules = EntryPoints([rule]);
     final endpoint = ResolvedDeclaration(
       relativePath: 'lib/greeting.dart',
-      symbol: symbol('GreetingEndpoint', kind: .class$),
+      outline: declared('GreetingEndpoint', kind: .class$),
       supertypes: {
         const .new('Endpoint', 'serverpod'),
         const .new('Object', null),
@@ -475,7 +495,7 @@ void main() {
         rules.match(
           .new(
             relativePath: 'lib/greeting.dart',
-            symbol: symbol('LocalEndpoint', kind: .class$),
+            outline: declared('LocalEndpoint', kind: .class$),
             supertypes: {const .new('Endpoint', 'app')},
           ),
         ),
@@ -487,14 +507,17 @@ void main() {
       final members = rules.keptMembersOf(endpoint).single;
       expect(members, same(rule.members));
       expect(
-        members.selection.includes(symbol('hello', kind: .method)),
+        members.selection.includes(declared('hello', kind: .method)),
         isTrue,
       );
       expect(
-        members.selection.includes(symbol('_helper', kind: .method)),
+        members.selection.includes(declared('_helper', kind: .method)),
         isFalse,
       );
-      expect(members.selection.includes(symbol('name', kind: .field)), isFalse);
+      expect(
+        members.selection.includes(declared('name', kind: .field)),
+        isFalse,
+      );
     });
   });
 
@@ -502,11 +525,13 @@ void main() {
     test('`publicMembers` takes every public member but constructors', () {
       expect(
         [
-          symbol('value', kind: .field),
-          symbol('increment', kind: .method),
-          symbol('_hidden', kind: .method),
-          symbol('Counter', kind: .constructor),
-        ].where(MemberSelection.publicMembers.includes).map((s) => s.name),
+              declared('value', kind: .field),
+              declared('increment', kind: .method),
+              declared('_hidden', kind: .method),
+              declared('Counter', kind: .constructor),
+            ]
+            .where(MemberSelection.publicMembers.includes)
+            .map((member) => member.element.name),
         ['value', 'increment'],
       );
     });
@@ -514,13 +539,13 @@ void main() {
     test('`reflectiveTestMethods` takes the methods that run as tests', () {
       expect(
         [
-              symbol('test_parses', kind: .method),
-              symbol('setUp', kind: .method),
-              symbol('helper', kind: .method),
-              symbol('test_field', kind: .field),
+              declared('test_parses', kind: .method),
+              declared('setUp', kind: .method),
+              declared('helper', kind: .method),
+              declared('test_field', kind: .field),
             ]
             .where(MemberSelection.reflectiveTestMethods.includes)
-            .map((s) => s.name),
+            .map((member) => member.element.name),
         ['test_parses', 'setUp'],
       );
     });
