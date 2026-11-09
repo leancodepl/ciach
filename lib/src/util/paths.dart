@@ -53,6 +53,14 @@ Iterable<String> dirAndAncestors(String dir) sync* {
   }
 }
 
+/// The nearest directory that is or contains each of [dirs], which are
+/// absolute and normalized.
+String commonAncestor(List<String> dirs) {
+  bool containsAll(String dir) =>
+      dirs.every((other) => dirContains(dir, other));
+  return dirAndAncestors(dirs.first).firstWhere(containsAll);
+}
+
 /// Whether [dir] holds a `.git`: a directory in a plain clone, a file in a
 /// submodule or a worktree.
 bool isRepositoryRoot(String dir) =>

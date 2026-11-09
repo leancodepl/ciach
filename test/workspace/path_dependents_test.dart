@@ -45,10 +45,10 @@ name: root_app
 dependencies:
   core: {path: pkgs/core}
 ''');
-    final dependents = pathDependentsOutside(core, core);
-    expect(dependents, [repository, p.join(repository, 'pkgs', 'app')]);
-    // The analysis root to suggest is the repository, not its parent.
-    expect(commonAncestor([core, ...dependents]), repository);
+    expect(pathDependentsOutside(core, core), [
+      repository,
+      p.join(repository, 'pkgs', 'app'),
+    ]);
   });
 
   test('is empty for a package at the repository root', () {

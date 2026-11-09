@@ -25,14 +25,6 @@ List<String> pathDependentsOutside(String rootPath, String analysisRoot) {
   ];
 }
 
-/// The nearest directory that is or contains each of [dirs], absolute and
-/// normalized.
-String commonAncestor(List<String> dirs) {
-  bool containsAll(String dir) =>
-      dirs.every((other) => dirContains(dir, other));
-  return dirAndAncestors(dirs.first).firstWhere(containsAll);
-}
-
 /// The nearest directory at or above [dir] with a `.git`.
 String? _repositoryOf(String dir) =>
     dirAndAncestors(dir).firstWhereOrNull(isRepositoryRoot);

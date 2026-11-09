@@ -38,6 +38,21 @@ void main() {
     });
   });
 
+  group('commonAncestor', () {
+    test('is the directory that contains the others', () {
+      expect(commonAncestor([ab, a]), a);
+      expect(commonAncestor([a, ab]), a);
+    });
+
+    test('is the nearest directory above siblings', () {
+      expect(commonAncestor([ab, p.join(a, 'c')]), a);
+    });
+
+    test('is the directory itself when it is the only one', () {
+      expect(commonAncestor([ab]), ab);
+    });
+  });
+
   group('isRepositoryRoot', () {
     late Directory dir;
 
