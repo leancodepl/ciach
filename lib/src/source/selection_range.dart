@@ -15,12 +15,5 @@ final class SelectionRange {
   final SelectionRange? parent;
 
   @override
-  bool operator ==(Object other) =>
-      other is SelectionRange && other.range == range && other.parent == parent;
-
-  @override
-  int get hashCode => Object.hash(range, parent);
-
-  @override
   String toString() => 'SelectionRange(range: $range, parent: $parent)';
 }

@@ -45,7 +45,7 @@ void main() {
   final sources = SourceIndex(syntax);
 
   Location at(String path, int line, int character) => .new(
-    uri: Uri.file(path).toString(),
+    path: path,
     range: .new(
       start: .new(line: line, character: character),
       end: .new(line: line, character: character + 1),

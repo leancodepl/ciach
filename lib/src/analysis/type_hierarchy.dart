@@ -10,6 +10,7 @@ import 'package:ciach/src/analysis/element_declaration.dart';
 import 'package:ciach/src/analysis/line_positions.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/util/extensions.dart';
+import 'package:ciach/src/util/reachability.dart';
 import 'package:collection/collection.dart';
 
 /// The subtypes of the types in the files that were added, and the members
@@ -17,20 +18,22 @@ import 'package:collection/collection.dart';
 final class TypeHierarchy {
   /// The types that name each type in their `extends`, `with`, `on` or
   /// `implements` clause.
-  final _directSubtypes =
-      <ElementDeclaration, Map<ElementDeclaration, InterfaceElement>>{};
+  final _directSubtypes = <ElementDeclaration, Set<ElementDeclaration>>{};
+
+  /// The element of each type that an added file declares.
+  final _types = <ElementDeclaration, InterfaceElement>{};
 
   /// Adds the supertypes of the types that [unit] declares.
   void add(CompilationUnit unit) {
     for (final declaration in unit.declarations) {
-      if ((
-            declaration.declaredFragment?.element,
-            declaration.declaredFragment?.element.let(ElementDeclaration.of),
-          )
-          case (final InterfaceElement type, final subtype?)) {
-        for (final supertype in _namedSupertypes(declaration)) {
-          if (ElementDeclaration.of(supertype) case final key?) {
-            (_directSubtypes[key] ??= {})[subtype] = type;
+      if (declaration.declaredFragment?.element
+          case final InterfaceElement type) {
+        if (ElementDeclaration.of(type) case final subtype?) {
+          _types[subtype] = type;
+          for (final supertype in _namedSupertypes(declaration)) {
+            if (ElementDeclaration.of(supertype) case final key?) {
+              (_directSubtypes[key] ??= {}).add(subtype);
+            }
           }
         }
       }
@@ -39,24 +42,18 @@ final class TypeHierarchy {
 
   /// Returns the types that extend, mix in or implement [type], directly or
   /// through other types, among the types of the added files.
-  Map<ElementDeclaration, InterfaceElement> subtypesOf(InterfaceElement type) {
-    final subtypes = <ElementDeclaration, InterfaceElement>{};
-    void addSubtypesOf(ElementDeclaration type) {
-      if (_directSubtypes[type] case final direct?) {
-        for (final MapEntry(key: subtype, value: element) in direct.entries) {
-          if (!subtypes.containsKey(subtype)) {
-            subtypes[subtype] = element;
-            addSubtypesOf(subtype);
-          }
-        }
-      }
-    }
+  Map<ElementDeclaration, InterfaceElement> subtypesOf(InterfaceElement type) =>
+      {
+        for (final subtype in reachableFrom(
+          _directSubtypesOf(.of(type)),
+          _directSubtypesOf,
+        ))
+          subtype: _types[subtype]!,
+      };
 
-    if (ElementDeclaration.of(type) case final declaration?) {
-      addSubtypesOf(declaration);
-    }
-    return subtypes;
-  }
+  Iterable<ElementDeclaration> _directSubtypesOf(ElementDeclaration? type) => [
+    ...?_directSubtypes[type],
+  ];
 
   /// Returns the locations of the names of the members that override
   /// [member], sorted by file and position, as the analysis server's
@@ -94,28 +91,31 @@ final class TypeHierarchy {
     if (type is ExtensionTypeElement || name == null || library == null) {
       return null;
     }
-    final declared = switch (member) {
-      MethodElement() => type.getMethod(name),
-      GetterElement() => type.getGetter(name),
-      SetterElement() => type.getSetter(name),
+    // The member of the kind of [member] that the lookups find by its name.
+    ExecutableElement? memberLike(
+      MethodElement? Function(String) method,
+      GetterElement? Function(String) getter,
+      SetterElement? Function(String) setter,
+    ) => switch (member) {
+      MethodElement() => method(name),
+      GetterElement() => getter(name),
+      SetterElement() => setter(name),
       FieldElement(:final isFinal) =>
-        type.getGetter(name) ?? (isFinal ? null : type.getSetter(name)),
+        getter(name) ?? (isFinal ? null : setter(name)),
       _ => null,
     };
+    final declared = memberLike(type.getMethod, type.getGetter, type.getSetter);
     if (declared != null && declared.isAccessibleIn(library)) {
       return declared;
     }
-    ExecutableElement? inheritedBy(InterfaceElement mixin) => switch (member) {
-      MethodElement() => mixin.lookUpMethod(name: name, library: library),
-      GetterElement() => mixin.lookUpGetter(name: name, library: library),
-      SetterElement() => mixin.lookUpSetter(name: name, library: library),
-      FieldElement(:final isFinal) =>
-        mixin.lookUpGetter(name: name, library: library) ??
-            (isFinal ? null : mixin.lookUpSetter(name: name, library: library)),
-      _ => null,
-    };
     final inherited = type.mixins.reversed
-        .map((mixin) => inheritedBy(mixin.element))
+        .map(
+          (mixin) => memberLike(
+            (name) => mixin.element.lookUpMethod(name: name, library: library),
+            (name) => mixin.element.lookUpGetter(name: name, library: library),
+            (name) => mixin.element.lookUpSetter(name: name, library: library),
+          ),
+        )
         .nonNulls
         .firstOrNull;
     // The getter of a field is the field.

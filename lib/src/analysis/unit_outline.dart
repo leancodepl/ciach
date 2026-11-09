@@ -8,13 +8,16 @@
 /// each type, and the local functions and the `test(...)` and `group(...)`
 /// calls in each body.
 ///
-/// It follows `DartUnitOutlineComputer` in the analysis server, whose outline
-/// ciach read over LSP before, except that it gives a return type only to
-/// functions and methods, names a test or group call after the function that
-/// it calls, and lists no Flutter widgets: ciach reads none of these.
+/// It follows `DartUnitOutlineComputer` in the analysis server, except that
+/// it gives a return type only to functions and methods, names a test or
+/// group call after the function that it calls, and lists no Flutter
+/// widgets: ciach reads none of these. Like the server's, it lists the
+/// primary constructor of a class only, not of an enum or an extension type,
+/// and gives an enum no type parameters.
 library;
 
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/syntactic_entity.dart';
 import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
@@ -25,15 +28,13 @@ import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/util/extensions.dart';
 
-/// Returns the outline of [unit], whose lines [lineInfo] holds, and the
-/// element that each declaration in it declares, by the start of the
-/// declaration's name. A field that a primary constructor declares is
-/// declared by its parameter.
+/// Returns the outline of [unit], and the element that each declaration in
+/// it declares, by the start of the declaration's name. A field that a
+/// primary constructor declares is declared by its parameter.
 ({Outline outline, Map<Position, Element> elements}) unitOutline(
   CompilationUnit unit,
-  LineInfo lineInfo,
 ) {
-  final builder = _OutlineBuilder(lineInfo);
+  final builder = _OutlineBuilder(unit.lineInfo);
   return (outline: builder._unit(unit), elements: builder._elements);
 }
 
@@ -45,7 +46,7 @@ final class _OutlineBuilder {
 
   Outline _unit(CompilationUnit unit) => _outline(
     unit,
-    .new(kind: .compilationUnit, name: '<unit>', range: _nodeRange(unit)),
+    .new(kind: .compilationUnit, name: '<unit>', range: _rangeOf(unit)),
     [for (final member in unit.declarations) ..._declarations(member)],
   );
 
@@ -62,7 +63,7 @@ final class _OutlineBuilder {
         .new(
           kind: .enum$,
           name: _nameOf(namePart.typeName),
-          range: _tokenRange(namePart.typeName),
+          range: _rangeOf(namePart.typeName),
         ),
         [
           for (final constant in body.constants)
@@ -88,7 +89,7 @@ final class _OutlineBuilder {
           .new(
             kind: .functionTypeAlias,
             name: _nameOf(name),
-            range: _tokenRange(name),
+            range: _rangeOf(name),
             parameters: parameters.toSource(),
             typeParameters: typeParameters?.toSource(),
           ),
@@ -100,7 +101,7 @@ final class _OutlineBuilder {
         .new(
           kind: type is GenericFunctionType ? .functionTypeAlias : .typeAlias,
           name: _nameOf(name),
-          range: _tokenRange(name),
+          range: _rangeOf(name),
           parameters: switch (type) {
             GenericFunctionType(:final parameters) => parameters.toSource(),
             _ => null,
@@ -143,7 +144,7 @@ final class _OutlineBuilder {
     .new(
       kind: kind,
       name: _nameOf(name),
-      range: _tokenRange(name),
+      range: _rangeOf(name),
       typeParameters: typeParameters?.toSource(),
     ),
     members,
@@ -153,17 +154,16 @@ final class _OutlineBuilder {
   /// type, and its name range is that type's.
   Outline _extension(ExtensionDeclaration node) {
     final extendedType = node.onClause?.extendedType;
-    final onType = extendedType?.toSource() ?? '';
     return _outline(
       node,
       .new(
         kind: .extension,
-        name: switch (node.name?.lexeme ?? '') {
-          '' when onType.isNotEmpty => 'extension on $onType',
-          '' => '<unnamed extension>',
-          final name => name,
+        name: switch ((node.name?.lexeme, extendedType?.toSource())) {
+          (final name? && != '', _) => name,
+          (_, final onType? && != '') => 'extension on $onType',
+          _ => '<unnamed extension>',
         },
-        range: node.name?.let(_tokenRange) ?? extendedType?.let(_nodeRange),
+        range: (node.name ?? extendedType)?.let(_rangeOf),
         typeParameters: node.typeParameters?.toSource(),
       ),
       _members(node.body),
@@ -193,7 +193,7 @@ final class _OutlineBuilder {
             .new(
               kind: .constructor,
               name: 'this',
-              range: _tokenRange(thisKeyword),
+              range: _rangeOf(thisKeyword),
             ),
             _bodyOutlines(body),
           ),
@@ -203,37 +203,37 @@ final class _OutlineBuilder {
 
   /// The primary constructor in the class header [namePart], if it has one,
   /// and the fields that its declaring parameters declare.
-  List<Outline> _primaryConstructor(ClassNamePart namePart) {
-    if (namePart is! PrimaryConstructorDeclaration ||
-        namePart.declaredFragment == null) {
-      return const [];
-    }
-    final PrimaryConstructorDeclaration(
-      :typeName,
-      :constructorName,
-      :formalParameters,
-    ) = namePart;
-    return [
-      _outline(
-        namePart,
-        .new(
-          kind: .constructor,
-          name: [typeName.lexeme, ?constructorName?.name.lexeme].join('.'),
-          // A named one is named from its `.`, as the analysis server does.
-          range: constructorName?.let(_nodeRange) ?? _tokenRange(typeName),
-          parameters: formalParameters.toSource(),
-        ),
-      ),
-      for (final parameter in formalParameters.parameters)
-        if (parameter case FormalParameter(
-          declaredFragment: FormalParameterFragment(
-            element: FieldFormalParameterElement(isDeclaring: true),
+  List<Outline> _primaryConstructor(
+    ClassNamePart namePart,
+  ) => switch (namePart) {
+    PrimaryConstructorDeclaration(
+      declaredFragment: _?,
+      :final typeName,
+      :final constructorName,
+      :final formalParameters,
+    ) =>
+      [
+        _outline(
+          namePart,
+          .new(
+            kind: .constructor,
+            name: [typeName.lexeme, ?constructorName?.name.lexeme].join('.'),
+            // A named one is named from its `.`, as the analysis server does.
+            range: _rangeOf(constructorName ?? typeName),
+            parameters: formalParameters.toSource(),
           ),
-          :final name?,
-        ))
-          _named(parameter, .field, name),
-    ];
-  }
+        ),
+        for (final parameter in formalParameters.parameters)
+          if (parameter case FormalParameter(
+            declaredFragment: FormalParameterFragment(
+              element: FieldFormalParameterElement(isDeclaring: true),
+            ),
+            :final name?,
+          ))
+            _named(parameter, .field, name),
+      ],
+    _ => const [],
+  };
 
   /// The outline of a constructor, named like `Foo` or `Foo.named`. One
   /// declared with `new` or `factory` and no class name, such as
@@ -255,11 +255,7 @@ final class _OutlineBuilder {
           // `new` names the unnamed constructor.
           if (node.name?.lexeme case final name? && != 'new') name,
         ].join('.'),
-        range:
-            node.name?.let(_tokenRange) ??
-            typeName?.let(_nodeRange) ??
-            keyword?.let(_tokenRange) ??
-            _nodeRange(node),
+        range: _rangeOf(node.name ?? typeName ?? keyword ?? node),
         parameters: node.parameters.toSource(),
       ),
       _bodyOutlines(node.body),
@@ -269,13 +265,13 @@ final class _OutlineBuilder {
   Outline _method(MethodDeclaration node) => _outline(
     node,
     .new(
-      kind: node.isGetter
-          ? .getter
-          : node.isSetter
-          ? .setter
-          : .method,
+      kind: _accessorOr(
+        .method,
+        isGetter: node.isGetter,
+        isSetter: node.isSetter,
+      ),
       name: _nameOf(node.name),
-      range: _tokenRange(node.name),
+      range: _rangeOf(node.name),
       parameters: node.parameters?.toSource(),
       returnType: node.returnType?.toSource() ?? '',
       typeParameters: node.typeParameters?.toSource(),
@@ -289,13 +285,13 @@ final class _OutlineBuilder {
     return _outline(
       node,
       .new(
-        kind: node.isGetter
-            ? .getter
-            : node.isSetter
-            ? .setter
-            : .function,
+        kind: _accessorOr(
+          .function,
+          isGetter: node.isGetter,
+          isSetter: node.isSetter,
+        ),
         name: _nameOf(node.name),
-        range: _tokenRange(node.name),
+        range: _rangeOf(node.name),
         parameters: parameters?.toSource() ?? '',
         returnType: node.returnType?.toSource() ?? '',
         typeParameters: typeParameters?.toSource(),
@@ -307,7 +303,7 @@ final class _OutlineBuilder {
   /// The outline of [node], a declaration of [kind] with nothing but a name.
   Outline _named(AstNode node, OutlineKind kind, Token name) => _outline(
     node,
-    .new(kind: kind, name: _nameOf(name), range: _tokenRange(name)),
+    .new(kind: kind, name: _nameOf(name), range: _rangeOf(name)),
   );
 
   /// The local functions and the test and group calls in [body].
@@ -351,8 +347,8 @@ final class _OutlineBuilder {
     }
     return .new(
       element: element,
-      range: _range(start, end),
-      codeRange: _range(codeStart, node.end),
+      range: _lineInfo.rangeOf(start, end),
+      codeRange: _lineInfo.rangeOf(codeStart, node.end),
       children: children,
     );
   }
@@ -398,12 +394,19 @@ final class _OutlineBuilder {
   static String _nameOf(Token name) =>
       name.lexeme.isEmpty ? '<unnamed>' : name.lexeme;
 
-  Range _tokenRange(Token token) => _range(token.offset, token.end);
+  /// The kind of a getter or a setter, or else [kind].
+  static OutlineKind _accessorOr(
+    OutlineKind kind, {
+    required bool isGetter,
+    required bool isSetter,
+  }) => switch ((isGetter, isSetter)) {
+    (true, _) => .getter,
+    (_, true) => .setter,
+    _ => kind,
+  };
 
-  Range _nodeRange(AstNode node) => _range(node.offset, node.end);
-
-  Range _range(int start, int end) =>
-      .new(start: _lineInfo.positionOf(start), end: _lineInfo.positionOf(end));
+  Range _rangeOf(SyntacticEntity entity) =>
+      _lineInfo.rangeOf(entity.offset, entity.end);
 }
 
 /// Collects the outlines of the local functions in a body, and of the
@@ -442,12 +445,12 @@ final class _BodyOutlines extends RecursiveAstVisitor<void> {
   /// The outline of the test or group call [node], named after the function
   /// that it calls.
   Outline _call(MethodInvocation node, OutlineKind kind, List<Outline> inside) {
-    final range = _builder._nodeRange(node);
+    final range = _builder._rangeOf(node);
     return .new(
       element: .new(
         kind: kind,
         name: node.methodName.name,
-        range: _builder._nodeRange(node.methodName),
+        range: _builder._rangeOf(node.methodName),
       ),
       range: range,
       codeRange: range,

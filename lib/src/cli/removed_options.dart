@@ -25,14 +25,9 @@ const _alsoFlags = {
   'unused-union-members': 'union-members',
 };
 
-/// Why ciach reports operator overloads without being asked, for the
-/// removed `operators` option and `--also` value.
-const _operatorsReported = 'operator overloads are reported by default now';
-
-/// Why the removed `concurrency` option, which set how many requests ciach
-/// sent to the analysis server at once, has nothing left to set.
-const _noServerRequests =
-    'ciach no longer sends requests to an analysis server';
+/// Why the removed `operators` option and `--also` value are not needed.
+const _operatorsReported =
+    'operator overloads are reported by default now, so drop it';
 
 /// The config keys of the options ciach no longer has.
 const removedKeys = {
@@ -57,25 +52,22 @@ String removedOptionAdvice(
   String key,
   Object? value, {
   required bool inConfig,
-}) {
-  if (key == 'fail-public' && value == false) {
-    return 'every finding counts toward the exit code; to leave out what other packages can import, list those packages in `exported-packages`';
-  }
-  if (key == 'operators') {
-    return '$_operatorsReported, so drop it';
-  }
-  if (key == 'concurrency') {
-    return '$_noServerRequests, so drop it';
-  }
-  return switch (_replacementFor(key, value)) {
+}) => switch ((key, value)) {
+  ('fail-public', false) =>
+    'every finding counts toward the exit code; to leave out what other packages can import, list those packages in `exported-packages`',
+  ('operators', _) => _operatorsReported,
+  // It set how many requests ciach sent to the analysis server at once.
+  ('concurrency', _) =>
+    'ciach no longer sends requests to an analysis server, so drop it',
+  _ => switch (_replacementFor(key, value)) {
     null => 'that is the default now, so drop it',
     final replacement when inConfig =>
       'use `${replacement.key}: [${replacement.values.map(_quoted).join(', ')}]`',
     (:final key, values: []) => 'use `--$key=`',
     (:final key, :final values) =>
       'use ${values.map((value) => '`--$key ${_quoted(value)}`').join(' ')}',
-  };
-}
+  },
+};
 
 /// What setting the removed option [key] to [value] became, or `null` when
 /// that is the default now.
@@ -110,7 +102,7 @@ final _abbreviatedOption = RegExp('^-(?<abbreviation>[a-zA-Z])');
 /// Why the `--also` value [value] was removed, or `null` when ciach still
 /// has it.
 String? removedAlsoAdvice(String value) =>
-    value == 'operators' ? '$_operatorsReported, so drop it' : null;
+    value == 'operators' ? _operatorsReported : null;
 
 /// Why the first removed option or `--also` value in [arguments] is gone and
 /// what to do instead, or `null` when they name none.
@@ -143,7 +135,7 @@ String? _removedMessage(String argument, {required String? next}) {
   // The values of `--also` and `--generated-suffix` may be the next argument.
   final value = match.namedGroup('value') ?? next;
   if (name == 'also') {
-    return _removedAlsoMessage(value ?? '');
+    return value?.let(_removedAlsoMessage);
   }
   if (!removedKeys.contains(name)) {
     return null;

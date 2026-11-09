@@ -7,28 +7,20 @@
 @Timeout(Duration(minutes: 5))
 library;
 
-import 'dart:io';
-
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../support/locations.dart';
-import '../support/package_config.dart';
-import '../support/resolved_files.dart';
+import '../support/test_package.dart';
 
 /// The references that `ReferenceIndex` finds, read through `ResolvedFiles`,
 /// which feeds it every file that it resolves.
 void main() {
-  late Directory tempDir;
+  late TestPackage package;
 
-  setUp(() => tempDir = .systemTemp.createTempSync('ciach_reference_index_'));
+  setUp(() => package = .new('reference_index'));
 
-  tearDown(() => tempDir.deleteSync(recursive: true));
-
-  /// Writes the [files] of a package named `app`, by their paths relative to
-  /// the package root.
-  void writePackage(Map<String, String> files) =>
-      writeAppPackage(tempDir.path, files);
+  tearDown(() => package.dispose());
 
   /// The references of the declaration whose name is the [occurrence]th
   /// [name] in the file at [path], after every file is resolved.
@@ -37,23 +29,21 @@ void main() {
     String name, {
     int occurrence = 0,
   }) async {
-    final files = resolvedFilesUnder(tempDir.path);
-    addTearDown(files.dispose);
-    await files.resolveAll(const []);
-    final absolute = p.join(tempDir.path, path);
-    return files
+    await package.files.resolveAll(const []);
+    final absolute = p.join(package.root, path);
+    return package.files
         .referencesTo(
           absolute,
           positionOfName(absolute, name, occurrence: occurrence),
         )
-        ?.map((location) => locationText(location, tempDir.path))
+        ?.map((location) => locationText(location, package.root))
         .toList();
   }
 
   test(
     'a field is referenced by its reads, its writes and its `this.` parameters, sorted by file and line',
     () async {
-      writePackage({
+      package.writeAll({
         'lib/b.dart': '''
 import 'a.dart';
 
@@ -79,7 +69,7 @@ Box make() => Box(size: 2);
   );
 
   test('a getter is referenced by the writes of its setter too', () async {
-    writePackage({
+    package.writeAll({
       'lib/a.dart': '''
 class Box {
   int get size => 0;
@@ -98,7 +88,7 @@ void use(Box box) => box.size = 1;
   test(
     'an instance method is referenced through the types above and below its type, but not by a method of the same name in an unrelated type',
     () async {
-      writePackage({
+      package.writeAll({
         'lib/a.dart': '''
 abstract class Shape {
   void draw();
@@ -133,7 +123,7 @@ void use(Shape shape, Dot dot, Pen pen) {
   test(
     'a private member is not referenced by a member of the same name in another library',
     () async {
-      writePackage({
+      package.writeAll({
         'lib/a.dart': '''
 class Base {
   void _run() {}
@@ -161,7 +151,7 @@ void use(Sub sub) => sub._run();
   test(
     'a static method is not referenced by a static method of the same name in a subtype',
     () async {
-      writePackage({
+      package.writeAll({
         'lib/a.dart': '''
 class Base {
   static void create() {}
@@ -187,28 +177,14 @@ void use() {
   test(
     'a declaration is referenced from another package under the root, which another analysis context resolves',
     () async {
-      File(p.join(tempDir.path, 'core', '.dart_tool', 'package_config.json'))
-        ..createSync(recursive: true)
-        ..writeAsStringSync(packageConfig({'core': '.'}));
-      File(
-        p.join(tempDir.path, 'core', 'pubspec.yaml'),
-      ).writeAsStringSync('name: core\n');
-      File(p.join(tempDir.path, 'core', 'lib', 'core.dart'))
-        ..createSync(recursive: true)
-        ..writeAsStringSync('void shared() {}\n');
-      File(p.join(tempDir.path, 'app', '.dart_tool', 'package_config.json'))
-        ..createSync(recursive: true)
-        ..writeAsStringSync(packageConfig({'app': '.', 'core': '../core'}));
-      File(
-        p.join(tempDir.path, 'app', 'pubspec.yaml'),
-      ).writeAsStringSync('name: app\n');
-      File(p.join(tempDir.path, 'app', 'lib', 'app.dart'))
-        ..createSync(recursive: true)
-        ..writeAsStringSync('''
+      package.writeCoreAndApp(
+        core: 'void shared() {}\n',
+        app: '''
 import 'package:core/core.dart';
 
 void main() => shared();
-''');
+''',
+      );
 
       expect(await referencesTo('core/lib/core.dart', 'shared'), [
         (file: 'app/lib/app.dart', line: 3, text: 'shared'),
@@ -217,7 +193,7 @@ void main() => shared();
   );
 
   test('finds nothing where no declaration has its name', () async {
-    writePackage({'lib/a.dart': 'void f() {}\n'});
+    package.writeAll({'lib/a.dart': 'void f() {}\n'});
 
     expect(await referencesTo('lib/a.dart', '{}'), isNull);
   });

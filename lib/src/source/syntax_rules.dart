@@ -109,7 +109,7 @@ extension StructuralChecks on SourceIndex {
   }
 
   /// Whether [enumCandidate] uses a bare `values` inside its body, as in
-  /// `values.any(…)`. A references query on the enum does not see that use;
+  /// `values.any(…)`. The references of the enum don't include that use;
   /// [isDotValuesRef] covers the qualified form. A bare `values` is one whose
   /// enclosing expression starts at the token itself, not at a receiver.
   bool enumIteratesOwnValues(Candidate enumCandidate) =>
@@ -134,7 +134,7 @@ extension StructuralChecks on SourceIndex {
   /// and the `values` token form one expression node. [enumIteratesOwnValues]
   /// covers the bare form.
   bool isDotValuesRef(Location loc) {
-    final path = SourceIndex.pathOf(loc.uri);
+    final path = loc.path;
     final position = loc.range.start;
     final tokens = semanticTokens(path);
     final parent = selectionRangeAt(path, position)?.parent;
@@ -154,7 +154,7 @@ extension StructuralChecks on SourceIndex {
   /// starts with `case`, or is a switch-expression arm whose own parent starts
   /// with `switch`. Anything else, or a reference with no nodes, is a use.
   bool isPatternRef(Location loc) {
-    final path = SourceIndex.pathOf(loc.uri);
+    final path = loc.path;
     final position = loc.range.start;
     final tokens = semanticTokens(path);
     final type = selectionRangeAt(path, position);

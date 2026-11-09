@@ -1,9 +1,8 @@
 import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/model/problems.dart';
+import 'package:ciach/src/collect/problems.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/symbols.dart';
-import 'package:ciach/src/util/extensions.dart';
 
 const _uncheckedDeclaration = 'Could not find references; kept.';
 
@@ -32,13 +31,12 @@ List<Location>? _referencesOf(ResolvedFiles files, Candidate candidate) {
   final start = candidate.symbol.selectionRange.start;
   final refs = files.referencesTo(candidate.path, start);
   if (refs == null) {
-    final name = candidate.symbol.declarationName(candidate.container);
     recordProblem(
       _uncheckedDeclaration,
       _noDeclaration,
       path: candidate.path,
       position: start,
-      name: candidate.container?.let((container) => '$container.$name') ?? name,
+      name: candidate.symbol.qualifiedName(candidate.container),
     );
   }
   return refs;

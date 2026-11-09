@@ -63,8 +63,8 @@ extension SymbolChecks on DocumentSymbol {
       siblings.where((s) => s.kind == .constructor).length == 1 &&
       hasNoParameters;
 
-  /// The kind ciach reports for this symbol. A symbol has the kind that the
-  /// analysis server gives its declaration: an enum value has
+  /// The kind ciach reports for this symbol. A symbol has the kind that
+  /// [DocumentSymbol.fromOutline] gives its declaration: an enum value has
   /// [SymbolKind.enum$] (same as the enum type), so it is remapped to
   /// [SymbolKind.enumMember] under an enum to match the `enum-value` CLI kind.
   /// A mixin has [SymbolKind.class$], remapped to [SymbolKind.interface$],
@@ -162,22 +162,9 @@ T? lastStartingAtOrBefore<T>(
 
 /// Position geometry against a symbol's source range.
 extension PositionGeometry on Position {
-  /// Whether this position is at or before [end].
-  bool atOrBefore(Position end) =>
-      line < end.line || (line == end.line && character <= end.character);
-
-  /// Whether this position is before [other].
-  bool isBefore(Position other) =>
-      line < other.line || (line == other.line && character < other.character);
-
   /// Whether this position falls within [symbol]'s full source range.
-  bool within(DocumentSymbol symbol) {
-    final start = symbol.range.start;
-    final afterStart =
-        line > start.line ||
-        (line == start.line && character >= start.character);
-    return afterStart && atOrBefore(symbol.range.end);
-  }
+  bool within(DocumentSymbol symbol) =>
+      symbol.range.start.atOrBefore(this) && atOrBefore(symbol.range.end);
 }
 
 /// Whether [name] (possibly qualified, e.g. `Foo._bar`) is library-private —

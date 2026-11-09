@@ -4,39 +4,30 @@ library;
 import 'dart:io';
 
 import 'package:ciach/ciach.dart';
-import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/source/declarator_cuts.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../support/removal.dart';
-import '../support/resolved_files.dart';
+import '../support/test_package.dart';
 
 /// Removes fields and top-level variables with cuts worked out from the
 /// tokens and syntax nodes that the analyzer gives.
 void main() {
-  late Directory tempDir;
-  late ResolvedFiles resolved;
-  var files = 0;
+  late TestPackage package;
 
-  setUpAll(() {
-    tempDir = .systemTemp.createTempSync('ciach_declarator_cuts_');
-    resolved = resolvedFilesUnder(tempDir.path);
-  });
+  setUpAll(() => package = .new('declarator_cuts'));
 
-  tearDownAll(() async {
-    await resolved.dispose();
-    tempDir.deleteSync(recursive: true);
-  });
+  tearDownAll(() => package.dispose());
 
   /// Writes [source] to a new file, removes the variables named [names] from it
   /// as `--remove` would, and returns the result.
   Future<String> remove(String source, List<String> names) async {
-    final path = p.join(tempDir.path, 'lib${files++}.dart');
-    File(path).writeAsStringSync(source);
-    final tokens = (await resolved.of(path))!.tokens;
-    final sources = SourceIndex(resolved)..cacheLines(path, source.split('\n'));
+    final path = package.writeNew(source);
+    final tokens = (await package.files.of(path))!.tokens;
+    final sources = SourceIndex(package.files)
+      ..cacheLines(path, source.split('\n'));
     final removed = [
       for (final name in names)
         (
@@ -60,9 +51,9 @@ void main() {
           endColumn: declarator.name.character + 1,
           kind: .variable,
           cut: cuts[declarator],
-          filePath: p.basename(path),
+          filePath: p.relative(path, from: package.root),
         ),
-    ], tempDir.path);
+    ], package.root);
     return File(path).readAsStringSync();
   }
 

@@ -7,10 +7,10 @@
 /// The kind of a declaration: one of the symbol kinds of the Language Server
 /// Protocol, in its order.
 ///
-/// The analysis server reports a Dart declaration with the closest of them,
-/// such as [namespace] for an extension. ciach reports some declarations with
-/// another kind than the server: a mixin with [interface$], an extension type
-/// with [struct], an enum value with [enumMember] and every typedef with
+/// A declaration's symbol has the closest of them, as the analysis server
+/// gives it, such as [namespace] for an extension. ciach reports some
+/// declarations with another kind: a mixin with [interface$], an extension
+/// type with [struct], an enum value with [enumMember] and every typedef with
 /// [object]. [label] is the name that reports print.
 enum SymbolKind {
   file,

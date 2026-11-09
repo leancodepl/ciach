@@ -76,7 +76,7 @@ void main() {
   }
 
   Location ref(int line, int character, int length) => .new(
-    uri: File(path).uri.toString(),
+    path: path,
     range: .new(start: at(line, character), end: at(line, character + length)),
   );
 
@@ -172,7 +172,6 @@ enum Color {
         selectionRange: range(0, 5, 0, 10),
       );
       return .new(
-        uri: File(path).uri,
         path: path,
         symbol: symbol,
         outline: .new(
@@ -256,7 +255,6 @@ class Foo {
       Range nameRange, {
       Range? fullRange,
     }) => .new(
-      uri: File(path).uri,
       path: path,
       symbol: .new(
         name: name,
@@ -321,7 +319,6 @@ class Point(var int x) {
     };
 
     Candidate member(String name, SymbolKind kind, Range nameRange) => .new(
-      uri: File(path).uri,
       path: path,
       symbol: .new(
         name: name,

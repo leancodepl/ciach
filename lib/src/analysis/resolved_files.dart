@@ -63,10 +63,13 @@ final class ResolvedFiles implements FileSyntax {
   /// path of its URI.
   Future<ResolvedFile?> of(String path) => _files[path];
 
+  /// Returns the file at [path] when [of] has resolved it already.
+  ResolvedFile? resolved(String path) => _resolved[path];
+
   /// Returns the tokens of the file at [path] when [of] has resolved it
   /// already.
   @override
-  List<SemanticToken>? tokensOf(String path) => _resolved[path]?.tokens;
+  List<SemanticToken>? tokensOf(String path) => resolved(path)?.tokens;
 
   @override
   SelectionRange? selectionRangeAt(String path, Position position) {
@@ -76,7 +79,6 @@ final class ResolvedFiles implements FileSyntax {
     }
     return selectionRangeIn(
       parsed.unit,
-      parsed.lineInfo,
       parsed.lineInfo.getOffsetOfLine(position.line) + position.character,
     );
   }
@@ -129,8 +131,8 @@ final class ResolvedFiles implements FileSyntax {
       if (await context.currentSession.getResolvedUnit(path)
           case final ResolvedUnitResult result) {
         _hierarchy.add(result.unit);
-        _index.add(path, result.unit, result.lineInfo);
-        final (:outline, :elements) = unitOutline(result.unit, result.lineInfo);
+        _index.add(path, result.unit);
+        final (:outline, :elements) = unitOutline(result.unit);
         _elements[path] = elements;
         return _resolved[path] = _fileOf(
           result,
@@ -183,7 +185,7 @@ final class ResolvedFiles implements FileSyntax {
         (_Annotations()..visitCompilationUnit(result.unit)).annotations;
     return .new(
       outline: outline,
-      tokens: unitTokens(result.unit, result.content, result.lineInfo),
+      tokens: unitTokens(result.unit, result.content),
       annotationPackages: {
         for (final annotation in annotations)
           positionOf(_nameOf(annotation).offset): ?annotation.element?.library
@@ -210,19 +212,20 @@ final class ResolvedFiles implements FileSyntax {
       },
       needSuperArguments: {
         for (final declaration in result.unit.declarations)
-          if (declaration.declaredFragment case Fragment(
-            element: ClassElement(
-              supertype: InterfaceType(
-                element: ClassElement(:final unnamedConstructor),
-              ),
-            ),
-            :final nameOffset?,
-          ))
-            if (unnamedConstructor?.formalParameters.none(
-                  (parameter) => parameter.isRequired,
-                ) !=
-                true)
-              positionOf(nameOffset),
+          if (declaration.declaredFragment
+              case Fragment(
+                element: ClassElement(
+                  supertype: InterfaceType(
+                    element: ClassElement(:final unnamedConstructor),
+                  ),
+                ),
+                :final nameOffset?,
+              )
+              when unnamedConstructor?.formalParameters.any(
+                    (parameter) => parameter.isRequired,
+                  ) ??
+                  true)
+            positionOf(nameOffset),
       },
       firstError:
           minBy(

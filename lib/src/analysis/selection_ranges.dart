@@ -7,7 +7,7 @@
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/syntactic_entity.dart';
 import 'package:analyzer/dart/ast/token.dart';
-import 'package:analyzer/source/line_info.dart';
+import 'package:ciach/src/analysis/argument_names.dart';
 import 'package:ciach/src/analysis/line_positions.dart';
 import 'package:ciach/src/source/selection_range.dart';
 
@@ -15,12 +15,8 @@ import 'package:ciach/src/source/selection_range.dart';
 /// as `DartSelectionRangeComputer` in the analysis server lists them: each
 /// node whose range differs from the range of the node inside it, without the
 /// name and type parameters of a class header. Where no node holds [offset],
-/// the range is empty at [offset]. [lineInfo] holds the lines of [unit].
-SelectionRange selectionRangeIn(
-  CompilationUnit unit,
-  LineInfo lineInfo,
-  int offset,
-) {
+/// the range is empty at [offset].
+SelectionRange selectionRangeIn(CompilationUnit unit, int offset) {
   final ranges = <({int start, int end})>[];
   void add(int start, int end) {
     if (ranges.lastOrNull != (start: start, end: end)) {
@@ -42,20 +38,11 @@ SelectionRange selectionRangeIn(
     add(node.offset, node.end);
   }
   if (ranges.isEmpty) {
-    final position = lineInfo.positionOf(offset);
-    return .new(
-      range: .new(start: position, end: position),
-    );
+    return .new(range: unit.lineInfo.rangeOf(offset, offset));
   }
   SelectionRange? outer;
   for (final (:start, :end) in ranges.reversed) {
-    outer = .new(
-      range: .new(
-        start: lineInfo.positionOf(start),
-        end: lineInfo.positionOf(end),
-      ),
-      parent: outer,
-    );
+    outer = .new(range: unit.lineInfo.rangeOf(start, end), parent: outer);
   }
   return outer!;
 }
@@ -71,9 +58,9 @@ SelectionRange selectionRangeIn(
 /// `int x = 1`, wraps the parameter `int x`, and the name of a named argument
 /// is a label, so their nodes have these ranges already.
 Iterable<({int start, int end})> _innerRanges(AstNode node, int offset) sync* {
-  final children = node.childEntities.toList();
   switch (node) {
     case FormalParameter():
+      final children = node.childEntities.toList();
       final defaultAt = children.indexWhere(
         (child) => const {
           TokenType.EQ,
@@ -83,13 +70,14 @@ Iterable<({int start, int end})> _innerRanges(AstNode node, int offset) sync* {
       if (defaultAt > 0 && offset < children[defaultAt].offset) {
         yield (start: node.offset, end: children[defaultAt - 1].end);
       }
-    case AstNode(parent: ArgumentList() || RecordLiteral())
-        when children.length > 2 &&
-            children[0] is Token &&
-            _firstTokenOf(children[1]).type == .COLON &&
-            offset <= children[1].end:
-      yield (start: children[0].offset, end: children[0].end);
-      yield (start: children[0].offset, end: children[1].end);
+    case AstNode(parent: ArgumentList() || RecordLiteral()):
+      if (argumentNameOf(node) case (
+        :final name,
+        :final colon,
+      ) when offset <= colon.end) {
+        yield (start: name.offset, end: name.end);
+        yield (start: name.offset, end: colon.end);
+      }
   }
 }
 

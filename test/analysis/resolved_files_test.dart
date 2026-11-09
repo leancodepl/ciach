@@ -7,33 +7,22 @@
 @Timeout(Duration(minutes: 5))
 library;
 
-import 'dart:io';
-
 import 'package:ciach/src/analysis/resolved_class.dart';
 import 'package:ciach/src/analysis/resolved_file.dart';
-import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/source/locations.dart';
-import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../support/locations.dart';
-import '../support/package_config.dart';
-import '../support/resolved_files.dart';
+import '../support/test_package.dart';
 
 void main() {
-  late Directory tempDir;
-  late ResolvedFiles files;
-  var written = 0;
+  late TestPackage package;
 
   setUpAll(() {
-    tempDir = .systemTemp.createTempSync('ciach_resolved_files_');
-    File(p.join(tempDir.path, '.dart_tool', 'package_config.json'))
-      ..createSync(recursive: true)
-      ..writeAsStringSync(packageConfig({'app': '.'}));
-    File(p.join(tempDir.path, 'pubspec.yaml')).writeAsStringSync('name: app\n');
-    File(p.join(tempDir.path, 'lib', 'previews.dart'))
-      ..createSync(recursive: true)
-      ..writeAsStringSync('''
+    package = .new('resolved_files')
+      ..writeAll({
+        'pubspec.yaml': 'name: app\n',
+        'lib/previews.dart': '''
 class Preview {
   const Preview();
   const Preview.named();
@@ -70,34 +59,21 @@ typedef AliasTyped<T extends Object> = Typed<T>;
 class Holder {
   static const held = DarkPreview();
 }
-''');
-    File(p.join(tempDir.path, 'lib', 'local.dart')).writeAsStringSync('''
+''',
+        'lib/local.dart': '''
 class JSExport {
   const JSExport();
 }
-''');
-    files = resolvedFilesUnder(tempDir.path);
+''',
+      });
   });
 
-  tearDownAll(() async {
-    await files.dispose();
-    tempDir.deleteSync(recursive: true);
-  });
-
-  /// Writes [source] to a new file in the directory [dir] of the package, and
-  /// returns its path.
-  String write(String source, {String dir = 'lib'}) {
-    final path = p.join(tempDir.path, dir, 'uses${written++}.dart');
-    File(path)
-      ..createSync(recursive: true)
-      ..writeAsStringSync(source);
-    return path;
-  }
+  tearDownAll(() => package.dispose());
 
   /// Writes [source] to a new file in the directory [dir] of the package, and
   /// resolves it.
   Future<ResolvedFile> resolve(String source, {String dir = 'lib'}) async =>
-      (await files.of(write(source, dir: dir)))!;
+      (await package.files.of(package.writeNew(source, dir: dir)))!;
 
   /// Whether the signature of each of the [functions] that [source] declares
   /// is dynamic, by name.
@@ -105,11 +81,14 @@ class JSExport {
     String source,
     List<String> functions,
   ) async {
-    final path = write(source);
-    await files.of(path);
+    final path = package.writeNew(source);
+    await package.files.of(path);
     return {
       for (final name in functions)
-        name: files.hasDynamicSignature(path, positionOfName(path, name)),
+        name: package.files.hasDynamicSignature(
+          path,
+          positionOfName(path, name),
+        ),
     };
   }
 
@@ -457,6 +436,6 @@ int variable = 0;
   );
 
   test('returns `null` for a path that is not absolute', () async {
-    expect(await files.of('lib/local.dart'), isNull);
+    expect(await package.files.of('lib/local.dart'), isNull);
   });
 }

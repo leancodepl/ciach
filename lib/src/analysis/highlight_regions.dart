@@ -15,6 +15,8 @@ import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:ciach/src/analysis/analyzer_versions.dart';
+import 'package:ciach/src/analysis/argument_names.dart';
+import 'package:ciach/src/analysis/assignments.dart';
 
 /// The text from [offset] to [offset] + [length] as one token of [type] with
 /// [modifiers].
@@ -90,7 +92,8 @@ final class HighlightRegions extends RecursiveAstVisitor<void> {
   @override
   void visitSimpleIdentifier(SimpleIdentifier node) {
     final parent = node.parent;
-    final element = _writtenOrRead(node);
+    // The left side of an assignment names the setter that it writes.
+    final element = assignmentTo(node)?.writeElement ?? node.element;
     final inAnnotation =
         parent is Annotation ||
         parent is PrefixedIdentifier && parent.parent is Annotation;
@@ -216,8 +219,9 @@ final class HighlightRegions extends RecursiveAstVisitor<void> {
     super.visitEnumConstantDeclaration(node);
   }
 
-  /// Adds the name of [node], which declares it, as the name of no other
-  /// type declaration does.
+  /// Adds the name of [node] as a declaration. As in the analysis server,
+  /// the names of classes and extension types are declarations, and the
+  /// names of mixins, enums, extensions and typedefs are not.
   @override
   void visitClassDeclaration(ClassDeclaration node) {
     _addDeclared(node.namePart.typeName, node.declaredFragment?.element);
@@ -288,19 +292,14 @@ final class HighlightRegions extends RecursiveAstVisitor<void> {
   }
 
   /// Adds the names of the dotted name that a conditional import tests, such
-  /// as `dart.library.io`, where `library` is no keyword.
+  /// as `dart.library.io`, where `library` is no keyword. From analyzer
+  /// 12.0.0 on, they are tokens of the dotted name; before, they are
+  /// identifiers, which [visitSimpleIdentifier] adds.
   @override
   void visitConfiguration(Configuration node) {
-    for (
-      Token? token = node.name.beginToken;
-      token != null;
-      token = token.next
-    ) {
-      if (token.type != .PERIOD) {
-        _add(token, null);
-      }
-      if (token == node.name.endToken) {
-        break;
+    for (final name in node.name.childEntities.whereType<Token>()) {
+      if (name.type != .PERIOD) {
+        _add(name, null);
       }
     }
     super.visitConfiguration(node);
@@ -318,18 +317,28 @@ final class HighlightRegions extends RecursiveAstVisitor<void> {
     super.visitExtensionOverride(node);
   }
 
-  /// Adds the name of each argument that [node] passes by name and that is a
-  /// keyword elsewhere, such as `source` in `pick(source: a)`. From analyzer
-  /// 13.0.0 on, it is a token of the argument rather than an identifier.
   @override
   void visitArgumentList(ArgumentList node) {
-    for (final AstNode argument in node.arguments) {
-      final name = argument.beginToken;
-      if (name.keyword != null && name.next?.type == .COLON) {
+    _addNamesOf(node.arguments);
+    super.visitArgumentList(node);
+  }
+
+  @override
+  void visitRecordLiteral(RecordLiteral node) {
+    _addNamesOf(node.fields);
+    super.visitRecordLiteral(node);
+  }
+
+  /// Adds the name of each of [arguments] that is named, also one that is a
+  /// keyword elsewhere, such as `source` in `pick(source: a)`. Before
+  /// analyzer 13.0.0, the name is an identifier, which [visitSimpleIdentifier]
+  /// adds.
+  void _addNamesOf(Iterable<AstNode> arguments) {
+    for (final argument in arguments) {
+      if (argumentNameOf(argument) case (:final name, colon: _)) {
         _add(name, null);
       }
     }
-    super.visitArgumentList(node);
   }
 
   @override
@@ -345,53 +354,18 @@ final class HighlightRegions extends RecursiveAstVisitor<void> {
     super.visitPatternField(node);
   }
 
-  /// Leaves out the name of [node], which the server gives no token.
+  /// Leaves out the names of the fields of [node], which the server gives no
+  /// tokens.
   @override
-  void visitRecordTypeAnnotationNamedField(
-    RecordTypeAnnotationNamedField node,
-  ) {
-    covered.add(node.name.offset);
-    super.visitRecordTypeAnnotationNamedField(node);
-  }
-
-  /// Leaves out the name of [node], which the server gives no token.
-  @override
-  void visitRecordTypeAnnotationPositionalField(
-    RecordTypeAnnotationPositionalField node,
-  ) {
-    if (node.name case final name?) {
-      covered.add(name.offset);
-    }
-    super.visitRecordTypeAnnotationPositionalField(node);
-  }
-
-  /// The element that [node] names: the setter of an assignment's left side,
-  /// the getter of a compound one's.
-  static Element? _writtenOrRead(SimpleIdentifier node) {
-    final target = switch (node.parent) {
-      PrefixedIdentifier(:final identifier) && final parent
-          when identifier == node =>
-        parent,
-      PropertyAccess(:final propertyName) && final parent
-          when propertyName == node =>
-        parent,
-      _ => node,
-    };
-    return switch (target.parent) {
-      AssignmentExpression(
-        :final leftHandSide,
-        writeElement: final writeElement?,
-      ) ||
-      PrefixExpression(
-        operand: final leftHandSide,
-        writeElement: final writeElement?,
-      ) ||
-      PostfixExpression(
-        operand: final leftHandSide,
-        writeElement: final writeElement?,
-      ) when leftHandSide == target => writeElement,
-      _ => node.element,
-    };
+  void visitRecordTypeAnnotation(RecordTypeAnnotation node) {
+    covered.addAll([
+      for (final field in [
+        ...node.positionalFields,
+        ...?node.namedFields?.fields,
+      ])
+        ?field.name?.offset,
+    ]);
+    super.visitRecordTypeAnnotation(node);
   }
 
   /// The type of a token that names [element].

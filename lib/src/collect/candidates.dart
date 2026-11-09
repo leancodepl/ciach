@@ -41,11 +41,10 @@ enum RefStatus {
   unused,
 }
 
-/// A declaration to check: the symbol plus enough context to query references
-/// for it and to report it later.
+/// A declaration to check: the symbol plus enough context to look up its
+/// references and to report it later.
 final class Candidate {
   const Candidate({
-    required this.uri,
     required this.path,
     required this.symbol,
     required this.outline,
@@ -56,7 +55,6 @@ final class Candidate {
     this.containerOutline,
   });
 
-  final Uri uri;
   final String path;
   final DocumentSymbol symbol;
 
@@ -71,8 +69,8 @@ final class Candidate {
   final bool isEnumValue;
   final bool isPreventInstantiationCtor;
 
-  /// `extension on T { … }`: nothing can name it, so it gets no reference
-  /// query. Its outline names it `extension on T`.
+  /// `extension on T { … }`: nothing can name it, so its references aren't
+  /// looked up. Its outline names it `extension on T`.
   bool get isUnnamedExtension => outline.element.isUnnamedExtension;
 
   /// `extension type Name(…)`: a type, named like a class.

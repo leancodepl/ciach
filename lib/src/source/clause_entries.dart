@@ -55,7 +55,7 @@ extension ClauseEntries on SourceIndex {
   /// other reference to [name], such as a type annotation, an `extends` or `on`
   /// clause, `p.M`, or a type argument like the `M` in `implements List<M>`.
   ClauseEntry? clauseEntryAt(Location loc, String name, Outline unit) {
-    final path = SourceIndex.pathOf(loc.uri);
+    final path = loc.path;
     final type = selectionRangeAt(path, loc.range.start);
     final clause = type?.parent?.range;
     final keyword = clause?.let((clause) => _keywordOf(path, clause));

@@ -60,20 +60,15 @@ typedef DiscoveredDartFiles = ({
 
 /// Discovers the `.dart` files under the configured root that should be
 /// scanned for declarations, honoring include/exclude globs and
-/// generated-file rules.
+/// generated-file rules, and the excluded generated files as `referenceOnly`
+/// (see [DiscoveredDartFiles]), so that the caller can resolve the references
+/// in them.
 ///
 /// Results are returned as absolute file paths, sorted for stable output.
-List<String> discoverDartFiles(FinderOptions options) =>
-    discoverDartFilesSplit(options).candidates;
-
-/// Like [discoverDartFiles], but also returns the excluded generated files as
-/// `referenceOnly` (see [DiscoveredDartFiles]) so the caller can resolve the
-/// references in them.
-///
-/// The reference-only set is deliberately not filtered by include/exclude globs — a
-/// reference can live in a generated file the user isn't scanning — though
-/// skipped directories (`build/`, `.dart_tool/`, …) are still excluded.
-DiscoveredDartFiles discoverDartFilesSplit(FinderOptions options) {
+/// The reference-only set is deliberately not filtered by include/exclude
+/// globs — a reference can live in a generated file the user isn't scanning —
+/// though skipped directories (`build/`, `.dart_tool/`, …) are still excluded.
+DiscoveredDartFiles discoverDartFiles(FinderOptions options) {
   // Already absolute and normalized: `FinderOptions` is the only way in.
   final rootPath = options.rootPath;
   final root = Directory(rootPath);

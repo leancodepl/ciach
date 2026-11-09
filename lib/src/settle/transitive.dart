@@ -11,7 +11,6 @@ import 'package:ciach/src/settle/reference_classifier.dart';
 import 'package:ciach/src/settle/removable.dart';
 import 'package:ciach/src/settle/verdict.dart';
 import 'package:ciach/src/source/locations.dart';
-import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/plural.dart';
 import 'package:ciach/src/util/reachability.dart';
@@ -68,13 +67,7 @@ final class TransitiveSweep {
       for (final i in removable)
         for (final loc in refsByCandidate[i])
           if (_classifier.classify(candidates[i], [loc]) == .used)
-            (
-              target: i,
-              containers: containers(
-                SourceIndex.pathOf(loc.uri),
-                loc.range.start,
-              ),
-            ),
+            (target: i, containers: containers(loc.path, loc.range.start)),
     ];
     final dead = unreached(removable, uses);
     return .of([
@@ -93,11 +86,7 @@ final class TransitiveSweep {
           for (final refs in refsByCandidate)
             [
               for (final loc in refs)
-                if (!deadSpans.covers(
-                  SourceIndex.pathOf(loc.uri),
-                  loc.range.start,
-                ))
-                  loc,
+                if (!deadSpans.covers(loc.path, loc.range.start)) loc,
             ],
         ];
 }

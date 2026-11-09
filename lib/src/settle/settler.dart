@@ -90,13 +90,13 @@ final class Settler {
   static const _maxRounds = 16;
 
   /// The findings for [candidates], from their [refsByCandidate].
-  Future<Settled> settle(
+  Settled settle(
     ResolvedFiles files,
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate, {
     required Set<String> scannedPaths,
     required String rootPath,
-  }) async {
+  }) {
     final overrides = OverrideRemovals(
       files,
       _sources,
@@ -110,7 +110,7 @@ final class Settler {
     _Verdicts settled;
     Map<UnusedDeclaration, int> candidateOf;
     for (var round = 1; ; round++) {
-      final result = await _round(
+      final result = _round(
         files,
         candidates,
         refsByCandidate,
@@ -159,7 +159,7 @@ final class Settler {
   /// One round, classifying from [liveRefs], with each unused finding's
   /// candidate index. [refsByCandidate] still holds the references into
   /// [deadSpans], for [DeadSpans.referrersAmong].
-  Future<({_Verdicts settled, Map<UnusedDeclaration, int> candidateOf})> _round(
+  ({_Verdicts settled, Map<UnusedDeclaration, int> candidateOf}) _round(
     ResolvedFiles files,
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
@@ -168,7 +168,7 @@ final class Settler {
     OverrideRemovals overrides,
     Set<String> scannedPaths,
     String rootPath,
-  ) async {
+  ) {
     final statuses = [
       for (final (i, candidate) in candidates.indexed)
         _classifier.classify(candidate, liveRefs[i]),
@@ -184,7 +184,7 @@ final class Settler {
 
     final deadClassNames = _deadClassNames(candidates, statuses);
 
-    final safety = await RemoveSafety.analyze(
+    final safety = RemoveSafety.analyze(
       _sources,
       candidates,
       statuses,
@@ -222,7 +222,7 @@ final class Settler {
 
     // Remove a dead member's overrides with it. If an override has to stay,
     // for example because it is in a doc-only type, keep the member too.
-    final overridden = await overrides.couple(
+    final overridden = overrides.couple(
       candidates,
       [
         for (final index in reported)
@@ -277,7 +277,7 @@ final class Settler {
         (i) => reportOnlyTypes.containsKey(candidates[i].containerKey),
       );
     _removableBefore.addAll(removable);
-    for (final (i, finding) in await _clauseOnly.findings(
+    for (final (i, finding) in _clauseOnly.findings(
       files,
       candidates,
       statuses,

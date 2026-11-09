@@ -6,6 +6,7 @@
 
 import 'dart:io';
 
+import 'package:ciach/src/source/line_starts.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:path/path.dart' as p;
 
@@ -16,10 +17,9 @@ typedef LocationText = ({String file, int line, String text});
 /// Returns [location] as the tests compare it, with its file relative to
 /// [root].
 LocationText locationText(Location location, String root) {
-  final path = Uri.parse(location.uri).toFilePath();
-  final line = File(path).readAsLinesSync()[location.range.start.line];
+  final line = File(location.path).readAsLinesSync()[location.range.start.line];
   return (
-    file: p.relative(path, from: root),
+    file: p.relative(location.path, from: root),
     line: location.range.start.line + 1,
     text: line.substring(
       location.range.start.character,
@@ -36,9 +36,12 @@ Position positionOfName(String path, String name, {int occurrence = 0}) {
   for (var i = 0; i < occurrence; i++) {
     offset = source.indexOf(name, offset + 1);
   }
-  final before = source.substring(0, offset);
-  return .new(
-    line: '\n'.allMatches(before).length,
-    character: offset - (before.lastIndexOf('\n') + 1),
-  );
+  return positionIn(lineStartsOf(source), offset);
+}
+
+/// Returns the text of [source] that [range] covers.
+String textIn(String source, Range range) {
+  final starts = lineStartsOf(source);
+  int offsetOf(Position position) => starts[position.line] + position.character;
+  return source.substring(offsetOf(range.start), offsetOf(range.end));
 }

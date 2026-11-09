@@ -14,7 +14,7 @@ import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/syntax_rules.dart';
 
 /// Whether a class's superclass needs constructor arguments.
-typedef SuperclassNeedsArguments = Future<bool> Function(Candidate cls);
+typedef SuperclassNeedsArguments = bool Function(Candidate cls);
 
 /// The remove-safety pre-pass: facts gathered up front so the reporting loop
 /// stays a set of cheap lookups when deciding which findings are report-only
@@ -38,14 +38,14 @@ class RemoveSafety {
     required this.deadExtensions,
   });
 
-  static Future<RemoveSafety> analyze(
+  static RemoveSafety analyze(
     SourceIndex sources,
     List<Candidate> candidates,
     List<RefStatus> statuses,
     List<List<Location>> refsByCandidate,
     Map<String, Set<String>> deadClassNames,
     SuperclassNeedsArguments superclassNeedsArguments,
-  ) async {
+  ) {
     final tally = _Tally(sources);
     for (final (i, candidate) in candidates.indexed) {
       tally.add(candidate, refsByCandidate[i], unused: statuses[i] == .unused);
@@ -69,7 +69,7 @@ class RemoveSafety {
       final classCandidate = tally.classByKey[key];
       if (classCandidate == null ||
           sources.classHasFinalInstanceField(classCandidate) ||
-          await superclassNeedsArguments(classCandidate)) {
+          superclassNeedsArguments(classCandidate)) {
         blockedCtorClasses.add(key);
       }
     }

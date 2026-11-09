@@ -5,12 +5,11 @@
  */
 
 import 'package:ciach/src/source/locations.dart';
-import 'package:ciach/src/source/symbols.dart';
 
 /// A token on one line of a file, classified as the semantic tokens of the
-/// analysis server classify it. A multi-line comment or string is one token
-/// per line. A `[Foo]` link in a doc comment is its own `class` token, not
-/// part of the comment.
+/// analysis server classify it. A comment or string that spans lines is one
+/// token on its last line. A `[Foo]` link in a doc comment is its own `class`
+/// token, not part of the comment.
 final class SemanticToken {
   const SemanticToken({
     required this.line,
@@ -38,8 +37,6 @@ final class SemanticToken {
   bool get isDocComment => isComment && modifiers.contains('documentation');
 
   bool get isKeyword => type == 'keyword';
-
-  bool get isImportPrefix => modifiers.contains('importPrefix');
 
   bool get isDeclaration => modifiers.contains('declaration');
 

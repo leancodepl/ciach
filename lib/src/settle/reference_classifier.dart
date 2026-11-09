@@ -102,7 +102,7 @@ class ReferenceClassifier {
   /// the unnamed constructor's declaration keeps nothing alive), or the
   /// `State<Foo>` pairing ([FlutterWidgets.isStatePairingReference]).
   bool isSelfReference(Candidate candidate, Location loc) =>
-      (SourceIndex.pathOf(loc.uri) == candidate.path &&
+      (loc.path == candidate.path &&
           candidate.outline.range.contains(loc.range.start)) ||
       _sources.isStatePairingReference(candidate.symbol.name, loc);
 

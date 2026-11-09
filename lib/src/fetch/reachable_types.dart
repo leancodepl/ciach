@@ -18,20 +18,27 @@ import 'package:ciach/src/workspace/public_api.dart';
 final class ReachableTypes {
   ReachableTypes._(this._internal);
 
-  static Future<ReachableTypes> find({
+  static ReachableTypes find({
     required ResolvedFiles files,
     required SourceIndex sources,
     required PublicApi api,
     required List<Candidate> candidates,
     required List<List<Location>> refs,
-  }) async {
+  }) {
     final types = <DeclKey, _Type>{
       for (final (i, candidate) in candidates.indexed)
         if (candidate.isType)
           candidate.key: (candidate: candidate, refs: refs[i]),
     };
-    final positionsIn = _importableRefs(types.values, sources, api);
-    final outlines = await _outlines(files, positionsIn.keys);
+    // The outlines of the scanned, importable files that name the types. A
+    // file without one hands out every type that it names.
+    final outlines = {
+      for (final type in types.values)
+        for (final loc in type.refs)
+          if (sources.scannedPaths.contains(loc.path) &&
+              api.isImportable(loc.path))
+            loc.path: ?files.resolved(loc.path)?.outline,
+    };
 
     final carriersOf = _Carriers(files, sources, api, outlines);
     final reachable = <DeclKey>{};
@@ -46,36 +53,6 @@ final class ReachableTypes {
       carriedBy[key] = carriers.where(types.containsKey).toSet();
     }
     return ._(_unreached(types.keys, reachable, carriedBy).toSet());
-  }
-
-  /// The positions of [types]' references in scanned, importable files.
-  static Map<String, Set<Position>> _importableRefs(
-    Iterable<_Type> types,
-    SourceIndex sources,
-    PublicApi api,
-  ) {
-    final positionsIn = <String, Set<Position>>{};
-    for (final type in types) {
-      for (final loc in type.refs) {
-        final path = SourceIndex.pathOf(loc.uri);
-        if (sources.scannedPaths.contains(path) && api.isImportable(path)) {
-          (positionsIn[path] ??= {}).add(loc.range.start);
-        }
-      }
-    }
-    return positionsIn;
-  }
-
-  /// The outlines of the files at [paths] that the analyzer resolves. A file
-  /// without one hands out every type that it names.
-  static Future<Map<String, Outline>> _outlines(
-    ResolvedFiles files,
-    Iterable<String> paths,
-  ) async {
-    final outlines = await Future.wait(
-      paths.map((path) async => (path, (await files.of(path))?.outline)),
-    );
-    return {for (final (path, outline) in outlines) path: ?outline};
   }
 
   /// The types neither [reachable] nor carried by a reachable type.
@@ -130,14 +107,13 @@ final class _Carriers {
   /// that hands it to everyone.
   Set<DeclKey> call(_Type type) => {
     for (final loc in type.refs)
-      if (_canHandOut(type, loc))
-        ?_carrierAt(SourceIndex.pathOf(loc.uri), loc.range.start),
+      if (_canHandOut(type, loc)) ?_carrierAt(loc.path, loc.range.start),
   };
 
   /// Whether [loc] can hand [type] to another package: in an importable
   /// file, outside [type] itself, not a doc comment.
   bool _canHandOut(_Type type, Location loc) {
-    final path = SourceIndex.pathOf(loc.uri);
+    final path = loc.path;
     return _api.isImportable(path) &&
         !(path == type.candidate.path &&
             type.candidate.outline.range.contains(loc.range.start)) &&

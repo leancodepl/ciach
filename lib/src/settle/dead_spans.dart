@@ -1,8 +1,6 @@
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/source/clause_entries.dart';
 import 'package:ciach/src/source/locations.dart';
-import 'package:ciach/src/source/source_index.dart';
-import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:collection/collection.dart';
 
@@ -96,7 +94,7 @@ final class DeadSpans {
     }
     final owners = <UnusedDeclaration>[];
     for (final loc in refs) {
-      final owner = ownerOf(SourceIndex.pathOf(loc.uri), loc.range.start);
+      final owner = ownerOf(loc.path, loc.range.start);
       if (owner != null && owners.none((seen) => identical(seen, owner))) {
         owners.add(owner);
       }

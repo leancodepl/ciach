@@ -7,64 +7,35 @@
 @Timeout(Duration(minutes: 5))
 library;
 
-import 'dart:io';
-
-import 'package:ciach/src/analysis/resolved_files.dart';
-import 'package:ciach/src/source/locations.dart';
-import 'package:path/path.dart' as p;
+import 'package:ciach/src/source/line_starts.dart';
 import 'package:test/test.dart';
 
-import '../support/package_config.dart';
-import '../support/resolved_files.dart';
+import '../support/locations.dart';
+import '../support/test_package.dart';
 
 /// The syntax nodes that `selectionRangeIn` lists, read through
 /// `ResolvedFiles.selectionRangeAt`.
 void main() {
-  late Directory tempDir;
-  late ResolvedFiles files;
-  var written = 0;
+  late TestPackage package;
 
-  setUpAll(() {
-    tempDir = .systemTemp.createTempSync('ciach_selection_ranges_');
-    File(p.join(tempDir.path, '.dart_tool', 'package_config.json'))
-      ..createSync(recursive: true)
-      ..writeAsStringSync(packageConfig({'app': '.'}));
-    files = resolvedFilesUnder(tempDir.path);
-  });
+  setUpAll(() => package = .new('selection_ranges'));
 
-  tearDownAll(() async {
-    await files.dispose();
-    tempDir.deleteSync(recursive: true);
-  });
+  tearDownAll(() => package.dispose());
 
   /// The text of each node that holds the first [marker] in [source],
   /// written to a new file, innermost first.
   List<String> nodesAt(String source, String marker) {
-    final path = p.join(tempDir.path, 'lib', 'file${written++}.dart');
-    File(path)
-      ..createSync(recursive: true)
-      ..writeAsStringSync(source);
-    final lines = source.split('\n');
-    final offset = source.indexOf(marker);
-    final line = '\n'.allMatches(source.substring(0, offset)).length;
-    int offsetOf(Position position) =>
-        lines
-            .take(position.line)
-            .fold(0, (sum, line) => sum + line.length + 1) +
-        position.character;
+    final path = package.writeNew(source);
     return [
       for (
-        var node = files.selectionRangeAt(
+        var node = package.files.selectionRangeAt(
           path,
-          .new(
-            line: line,
-            character: offset - (source.lastIndexOf('\n', offset - 1) + 1),
-          ),
+          positionIn(lineStartsOf(source), source.indexOf(marker)),
         );
         node != null;
         node = node.parent
       )
-        source.substring(offsetOf(node.range.start), offsetOf(node.range.end)),
+        textIn(source, node.range),
     ];
   }
 

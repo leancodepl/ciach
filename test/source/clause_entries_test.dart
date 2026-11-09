@@ -4,39 +4,31 @@ library;
 import 'dart:io';
 
 import 'package:ciach/ciach.dart';
-import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/source/clause_entries.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
-import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../support/removal.dart';
-import '../support/resolved_files.dart';
+import '../support/test_package.dart';
 
 /// Cuts entries from `with` and `implements` clauses with the tokens, the
 /// syntax nodes and the outline that the analyzer gives.
 void main() {
-  late Directory tempDir;
-  late ResolvedFiles resolved;
-  var files = 0;
+  late TestPackage package;
 
-  setUpAll(() {
-    tempDir = .systemTemp.createTempSync('ciach_clauses_');
-    resolved = resolvedFilesUnder(tempDir.path);
-  });
+  setUpAll(() => package = .new('clauses'));
 
-  tearDownAll(() async {
-    await resolved.dispose();
-    tempDir.deleteSync(recursive: true);
-  });
+  tearDownAll(() => package.dispose());
 
   /// Writes [source] to a new file and resolves it.
   Future<(String, SourceIndex)> index(String source) async {
-    final path = p.join(tempDir.path, 'lib${files++}.dart');
-    File(path).writeAsStringSync(source);
-    await resolved.of(path);
-    return (path, SourceIndex(resolved)..cacheLines(path, source.split('\n')));
+    final path = package.writeNew(source);
+    await package.files.of(path);
+    return (
+      path,
+      SourceIndex(package.files)..cacheLines(path, source.split('\n')),
+    );
   }
 
   /// Returns the clause entries for [names], searched for in [source] after the
@@ -47,7 +39,7 @@ void main() {
     List<String> names,
   ) async {
     final (path, sources) = await index(source);
-    final unit = (await resolved.of(path))!.outline;
+    final unit = (await package.files.of(path))!.outline;
     final clauseStart = source.indexOf(clause);
     int nameAt(String name) {
       final start = source.indexOf(RegExp('\\b$name\\b'), clauseStart);
@@ -67,11 +59,7 @@ void main() {
       sources,
       [
         for (final (i, range) in ranges.indexed)
-          sources.clauseEntryAt(
-            .new(uri: File(path).uri.toString(), range: range),
-            names[i],
-            unit,
-          ),
+          sources.clauseEntryAt(.new(path: path, range: range), names[i], unit),
       ],
     );
   }
@@ -81,7 +69,7 @@ void main() {
   Future<String> cutFrom(String source, String clause, List<String> cut) async {
     final (path, sources, entries) = await entriesIn(source, clause, cut);
     expect(entries, everyElement(isNotNull));
-    final removals = sources.clauseCuts(entries.nonNulls, tempDir.path).values;
+    final removals = sources.clauseCuts(entries.nonNulls, package.root).values;
     removeDeclarations([
       for (final removal in removals.toSet())
         decl(
@@ -93,7 +81,7 @@ void main() {
           cut: removal.cut,
           filePath: removal.filePath,
         ),
-    ], tempDir.path);
+    ], package.root);
     return File(path).readAsStringSync();
   }
 

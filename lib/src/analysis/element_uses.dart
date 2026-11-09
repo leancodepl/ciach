@@ -21,6 +21,8 @@ import 'package:analyzer/dart/ast/syntactic_entity.dart';
 import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:ciach/src/analysis/assignments.dart';
+import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 
 /// A use of `element` in the text from `offset` to `offset + length`, which is
@@ -50,18 +52,41 @@ final class _Uses extends RecursiveAstVisitor<void> {
       _add(element, at.offset, at.length);
 
   /// Adds a call of [constructor], which [name] names: `.named` from the
-  /// period on, or the place right after [type] when it names none.
+  /// period on, or the place right after [type] when it names none, and the
+  /// uses of its `this.` parameters that [arguments] passes by name.
   void _addConstructor(
     ConstructorElement? constructor, {
     required SyntacticEntity type,
     Token? period,
     SyntacticEntity? name,
+    ArgumentList? arguments,
   }) {
     final declaration = _forwardedTo(constructor);
     if (period != null && name != null) {
       _add(declaration, period.offset, name.end - period.offset);
     } else {
       _add(declaration, type.end, 0);
+    }
+    _addNamedArguments(declaration, arguments);
+  }
+
+  /// Adds the implicit `super()` call that [constructor] makes when its
+  /// [initializers] call no super constructor, from [start] to the end of
+  /// [end].
+  void _addImplicitSuperCall(
+    ConstructorElement? constructor,
+    Iterable<ConstructorInitializer> initializers,
+    SyntacticEntity start,
+    SyntacticEntity end,
+  ) {
+    if (initializers.none(
+      (initializer) => initializer is SuperConstructorInvocation,
+    )) {
+      _add(
+        _forwardedTo(constructor?.superConstructor),
+        start.offset,
+        end.end - start.offset,
+      );
     }
   }
 
@@ -71,17 +96,17 @@ final class _Uses extends RecursiveAstVisitor<void> {
     ConstructorElement? constructor,
     ArgumentList? arguments,
   ) {
+    if (constructor == null || arguments == null) {
+      return;
+    }
     final parameters = {
-      for (final parameter in [...?constructor?.formalParameters])
+      for (final parameter in constructor.formalParameters)
         if (parameter case FieldFormalParameterElement(
           isNamed: true,
           :final name?,
         ))
           name: parameter,
     };
-    if (parameters.isEmpty || arguments == null) {
-      return;
-    }
     // The argument's node type differs between analyzer versions, but each
     // named argument starts with its name and a colon.
     for (final AstNode argument in arguments.arguments) {
@@ -97,15 +122,17 @@ final class _Uses extends RecursiveAstVisitor<void> {
     if (node.element case final ConstructorElement constructor) {
       // The name of `@Tag.named()` can be `Tag.named`, whose last identifier
       // then uses the constructor.
-      if (node.name.element is! ConstructorElement) {
+      if (node.name.element is ConstructorElement) {
+        _addNamedArguments(_forwardedTo(constructor), node.arguments);
+      } else {
         _addConstructor(
           constructor,
           type: node.typeArguments ?? node.name,
           period: node.period,
           name: node.constructorName,
+          arguments: node.arguments,
         );
       }
-      _addNamedArguments(_forwardedTo(constructor), node.arguments);
     }
     node.name.accept(this);
     node.typeArguments?.accept(this);
@@ -144,20 +171,18 @@ final class _Uses extends RecursiveAstVisitor<void> {
         _addAt(_forwardedTo(superConstructor), node.namePart.typeName);
       // So does a primary constructor without `super(…)`, from its name.
       case ClassDeclaration(
-            namePart: PrimaryConstructorDeclaration(
-              :final declaredFragment?,
-              :final typeName,
-              :final constructorName,
-            ),
-            :final body,
-          )
-          when _initializersOf(
-            body,
-          ).none((initializer) => initializer is SuperConstructorInvocation):
-        _add(
-          _forwardedTo(declaredFragment.element.superConstructor),
-          typeName.offset,
-          (constructorName ?? typeName).end - typeName.offset,
+        namePart: PrimaryConstructorDeclaration(
+          :final declaredFragment?,
+          :final typeName,
+          :final constructorName,
+        ),
+        :final body,
+      ):
+        _addImplicitSuperCall(
+          declaredFragment.element,
+          _initializersOf(body),
+          typeName,
+          constructorName ?? typeName,
         );
       default:
     }
@@ -180,17 +205,14 @@ final class _Uses extends RecursiveAstVisitor<void> {
 
   @override
   void visitConstructorDeclaration(ConstructorDeclaration node) {
-    final constructor = node.declaredFragment?.element;
-    if (node.initializers.none((i) => i is SuperConstructorInvocation)) {
-      final start = node.typeName ?? node.newKeyword ?? node.factoryKeyword;
-      final end = node.name ?? start;
-      if (start != null && end != null) {
-        _add(
-          _forwardedTo(constructor?.superConstructor),
-          start.offset,
-          end.end - start.offset,
-        );
-      }
+    if (node.typeName ?? node.newKeyword ?? node.factoryKeyword
+        case final start?) {
+      _addImplicitSuperCall(
+        node.declaredFragment?.element,
+        node.initializers,
+        start,
+        node.name ?? start,
+      );
     }
     super.visitConstructorDeclaration(node);
   }
@@ -203,16 +225,16 @@ final class _Uses extends RecursiveAstVisitor<void> {
 
   @override
   void visitConstructorName(ConstructorName node) {
-    final constructor = node.element;
     _addConstructor(
-      constructor,
+      node.element,
       type: node.type,
       period: node.period,
       name: node.name,
+      arguments: switch (node.parent) {
+        InstanceCreationExpression(:final argumentList) => argumentList,
+        _ => null,
+      },
     );
-    if (node.parent case InstanceCreationExpression(:final argumentList)) {
-      _addNamedArguments(_forwardedTo(constructor), argumentList);
-    }
     node.type.accept(this);
   }
 
@@ -220,9 +242,9 @@ final class _Uses extends RecursiveAstVisitor<void> {
   void visitDotShorthandConstructorInvocation(
     DotShorthandConstructorInvocation node,
   ) {
-    final constructor = node.element;
-    _addAt(_forwardedTo(constructor), node.constructorName);
-    _addNamedArguments(_forwardedTo(constructor), node.argumentList);
+    final constructor = _forwardedTo(node.element);
+    _addAt(constructor, node.constructorName);
+    _addNamedArguments(constructor, node.argumentList);
     node.typeArguments?.accept(this);
     node.argumentList.accept(this);
   }
@@ -245,15 +267,14 @@ final class _Uses extends RecursiveAstVisitor<void> {
 
   @override
   void visitEnumConstantDeclaration(EnumConstantDeclaration node) {
-    final constructor = node.constructorElement;
     final selector = node.arguments?.constructorSelector;
     _addConstructor(
-      constructor,
+      node.constructorElement,
       type: node.name,
       period: selector?.period,
       name: selector?.name,
+      arguments: node.arguments?.argumentList,
     );
-    _addNamedArguments(_forwardedTo(constructor), node.arguments?.argumentList);
     node.documentationComment?.accept(this);
     node.metadata.accept(this);
     node.arguments?.typeArguments?.accept(this);
@@ -317,10 +338,13 @@ final class _Uses extends RecursiveAstVisitor<void> {
 
   @override
   void visitPatternField(PatternField node) {
-    if (node.name case final name?) {
-      // A field written `:foo` is named by the variable after the colon.
-      final at = name.name ?? name;
-      _add(node.element, at.offset, name.name == null ? 0 : at.length);
+    switch (node.name) {
+      case PatternFieldName(name: final name?):
+        _addAt(node.element, name);
+      // A field written `:foo` names its getter with no text, at the colon.
+      case final name?:
+        _add(node.element, name.offset, 0);
+      case null:
     }
     super.visitPatternField(node);
   }
@@ -341,14 +365,13 @@ final class _Uses extends RecursiveAstVisitor<void> {
   void visitRedirectingConstructorInvocation(
     RedirectingConstructorInvocation node,
   ) {
-    final constructor = node.element;
     _addConstructor(
-      constructor,
+      node.element,
       type: node.thisKeyword,
       period: node.period,
       name: node.constructorName,
+      arguments: node.argumentList,
     );
-    _addNamedArguments(_forwardedTo(constructor), node.argumentList);
     node.argumentList.accept(this);
   }
 
@@ -373,14 +396,13 @@ final class _Uses extends RecursiveAstVisitor<void> {
 
   @override
   void visitSuperConstructorInvocation(SuperConstructorInvocation node) {
-    final constructor = node.element;
     _addConstructor(
-      constructor,
+      node.element,
       type: node.superKeyword,
       period: node.period,
       name: node.constructorName,
+      arguments: node.argumentList,
     );
-    _addNamedArguments(_forwardedTo(constructor), node.argumentList);
     node.argumentList.accept(this);
   }
 
@@ -397,35 +419,11 @@ final class _Uses extends RecursiveAstVisitor<void> {
   /// The elements that [node], which names [element], reads and writes: the
   /// setter of an assignment (`x = 1`), the getter and the setter of a
   /// compound assignment (`x += 1`, `x++`), and [element] otherwise.
-  static List<Element?> _accessedElements(Expression node, Element? element) {
-    final target = switch (node.parent) {
-      PrefixedIdentifier(:final identifier) && final parent
-          when identifier == node =>
-        parent,
-      PropertyAccess(:final propertyName) && final parent
-          when propertyName == node =>
-        parent,
-      _ => node,
-    };
-    return switch (target.parent) {
-      AssignmentExpression(
-        :final leftHandSide,
-        :final readElement,
-        writeElement: final writeElement?,
-      ) ||
-      PrefixExpression(
-        operand: final leftHandSide,
-        :final readElement,
-        writeElement: final writeElement?,
-      ) ||
-      PostfixExpression(
-        operand: final leftHandSide,
-        :final readElement,
-        writeElement: final writeElement?,
-      ) when leftHandSide == target => [readElement, writeElement],
-      _ => [element],
-    };
-  }
+  static List<Element?> _accessedElements(Expression node, Element? element) =>
+      assignmentTo(node)?.let(
+        (assignment) => [assignment.readElement, assignment.writeElement],
+      ) ??
+      [element];
 
   /// The initializers of the primary constructor in the class [body].
   static Iterable<ConstructorInitializer> _initializersOf(AstNode body) =>
@@ -441,12 +439,8 @@ final class _Uses extends RecursiveAstVisitor<void> {
   /// The constructor that a call of [constructor] runs: the constructor of
   /// the superclass for one that a mixin application class forwards to it.
   static ConstructorElement? _forwardedTo(ConstructorElement? constructor) {
-    final seen = <ConstructorElement>{};
     var current = constructor?.baseElement;
     while (current != null && _isForwarding(current)) {
-      if (!seen.add(current)) {
-        return null;
-      }
       current = current.superConstructor?.baseElement;
     }
     return current;

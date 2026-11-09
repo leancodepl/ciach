@@ -37,9 +37,6 @@ class SourceIndex {
   );
   final _scanned = <String>{};
 
-  /// The absolute file path a reference [uri] points at.
-  static String pathOf(String uri) => Uri.parse(uri).toFilePath();
-
   /// The files read for this run — every path passed to [cacheLines].
   Iterable<String> get scannedPaths => _scanned;
 

@@ -26,18 +26,7 @@ final class Outline {
   final List<Outline> children;
 
   /// Whether the declaration has a doc comment or annotations.
-  bool get hasLeadingMetadata =>
-      range.start.line < codeRange.start.line ||
-      (range.start.line == codeRange.start.line &&
-          range.start.character < codeRange.start.character);
-
-  /// This node and every node nested in it.
-  Iterable<Outline> get descendants sync* {
-    yield this;
-    for (final child in children) {
-      yield* child.descendants;
-    }
-  }
+  bool get hasLeadingMetadata => range.start.isBefore(codeRange.start);
 }
 
 /// The declaration an [Outline] node describes.

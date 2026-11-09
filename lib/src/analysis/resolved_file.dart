@@ -19,11 +19,11 @@ final class ResolvedFile {
   ResolvedFile({
     required this.outline,
     required this.tokens,
-    this.annotationPackages = const {},
-    this.annotationClasses = const {},
-    this.supertypes = const {},
-    this.needSuperArguments = const {},
-    this.firstError,
+    required this.annotationPackages,
+    required this.annotationClasses,
+    required this.supertypes,
+    required this.needSuperArguments,
+    required this.firstError,
   });
 
   /// The outline of the whole file.

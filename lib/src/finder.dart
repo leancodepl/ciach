@@ -36,13 +36,13 @@ import 'package:ciach/src/analysis/language_versions.dart';
 import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidate_collector.dart';
 import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/collect/problems.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/fetch/reachable_types.dart';
 import 'package:ciach/src/fetch/reference_fetch.dart';
 import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/model/finder_result.dart';
-import 'package:ciach/src/model/problems.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
 import 'package:ciach/src/settle/settler.dart';
 import 'package:ciach/src/settle/verdict.dart';
@@ -88,6 +88,22 @@ class Ciach {
   /// The configuration for this run.
   final FinderOptions options;
 
+  /// Runs the analysis and returns the declarations that are never referenced.
+  ///
+  /// Throws an [ArgumentError] if [FinderOptions.analysisRootPath] does not
+  /// contain [FinderOptions.rootPath]; widening to a directory beside the
+  /// scanned one would drop references rather than add them. Throws an
+  /// [UnsupportedLanguageVersionException] if a scanned package uses a newer
+  /// Dart language version than the analyzer supports.
+  Future<FinderResult> run() => _Run(options).run();
+}
+
+/// One run of [Ciach], with the state that it builds up.
+final class _Run {
+  _Run(this.options);
+
+  final FinderOptions options;
+
   /// The source text, tokens and syntax nodes of every file touched this
   /// run, shared by the classification and the structural detectors. It is
   /// set once the analyzer is set up.
@@ -131,13 +147,6 @@ class Ciach {
     verdict: .new(options: options, sources: _sources, classifier: _classifier),
   );
 
-  /// Runs the analysis and returns the declarations that are never referenced.
-  ///
-  /// Throws an [ArgumentError] if [FinderOptions.analysisRootPath] does not
-  /// contain [FinderOptions.rootPath]; widening to a directory beside the
-  /// scanned one would drop references rather than add them. Throws an
-  /// [UnsupportedLanguageVersionException] if a scanned package uses a newer
-  /// Dart language version than the analyzer supports.
   Future<FinderResult> run() {
     final problems = ProblemCollector(options.rootPath);
     return problems.collect(() => _run(problems));
@@ -189,7 +198,7 @@ class Ciach {
       );
     }
 
-    final discovered = discoverDartFilesSplit(options);
+    final discovered = discoverDartFiles(options);
     final files = discovered.candidates;
     _log.info(
       'Discovered ${plural(files.length, 'Dart file', 'Dart files')} to scan.',
@@ -245,9 +254,8 @@ class Ciach {
       _log.info(
         'Reading ${plural(files.length + discovered.referenceOnly.length, 'file', 'files')}…',
       );
-      final readable = <String>{
-        for (final path in discovered.referenceOnly)
-          if (_readFile(path)) path,
+      discovered.referenceOnly.forEach(_readFile);
+      final scanned = {
         for (final path in files)
           if (_readFile(path, checkEmpty: true)) path,
       };
@@ -258,7 +266,7 @@ class Ciach {
         'Collecting declarations from ${plural(files.length, 'file', 'files')}…',
       );
       final collected = [
-        for (final path in files.where(readable.contains))
+        for (final path in scanned)
           ...await _collector.collect(resolved, path, rootPath),
       ];
       _collector.reportSkipped();
@@ -267,7 +275,7 @@ class Ciach {
       // the analysis root.
       _log.info('Resolving the other files under the analysis root…');
       await resolved.resolveAll(discovered.referenceOnly);
-      final fetched = await _references(resolved, collected);
+      final fetched = _references(resolved, collected);
       final (:candidates, :refsByCandidate) = _conditionalImports.share(
         fetched.candidates,
         fetched.refsByCandidate,
@@ -278,11 +286,11 @@ class Ciach {
       declarationsChecked = candidates.length;
 
       // Phase 3: settle the verdicts; with `transitive`, in rounds.
-      settled = await _settler.settle(
+      settled = _settler.settle(
         resolved,
         candidates,
         refsByCandidate,
-        scannedPaths: files.where(readable.contains).toSet(),
+        scannedPaths: scanned,
         rootPath: rootPath,
       );
     } finally {
@@ -336,8 +344,8 @@ class Ciach {
   /// When other packages can import the scanned code, a member of a type
   /// that they can reach is part of its API, so only the members of the
   /// other types are checked.
-  Future<({List<Candidate> candidates, List<List<Location>> refsByCandidate})>
-  _references(ResolvedFiles files, List<Candidate> collected) async {
+  ({List<Candidate> candidates, List<List<Location>> refsByCandidate})
+  _references(ResolvedFiles files, List<Candidate> collected) {
     final api = _publicApi;
     final gated = api == null
         ? const <Candidate>{}
@@ -349,7 +357,7 @@ class Ciach {
     if (api == null || gated.isEmpty) {
       return (candidates: fetched.checked, refsByCandidate: fetched.refs);
     }
-    final types = await ReachableTypes.find(
+    final types = ReachableTypes.find(
       files: files,
       sources: _sources,
       api: api,

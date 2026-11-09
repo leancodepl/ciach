@@ -7,8 +7,6 @@
 @Timeout(Duration(minutes: 5))
 library;
 
-import 'dart:io';
-
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/element/element.dart';
@@ -16,10 +14,9 @@ import 'package:ciach/src/analysis/element_uses.dart';
 import 'package:ciach/src/analysis/language_versions.dart';
 import 'package:ciach/src/workspace/dart_executable.dart';
 import 'package:package_config/package_config.dart';
-import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-import '../support/package_config.dart';
+import '../support/test_package.dart';
 
 /// A use as the tests compare it: the kind and name of the declaration that
 /// it uses, such as `new` for an unnamed constructor, and the text that it
@@ -27,43 +24,31 @@ import '../support/package_config.dart';
 typedef _Use = ({ElementKind kind, String name, String text});
 
 void main() {
-  late Directory tempDir;
+  late TestPackage package;
   late AnalysisContextCollection collection;
-  var written = 0;
 
   setUpAll(() {
-    tempDir = .systemTemp.createTempSync('ciach_element_uses_');
-    File(p.join(tempDir.path, '.dart_tool', 'package_config.json'))
-      ..createSync(recursive: true)
-      ..writeAsStringSync(
-        packageConfig(
-          {'app': '.'},
-          languageVersions: {'app': '$newestLanguageVersion'},
-        ),
-      );
-    File(p.join(tempDir.path, 'lib', 'shown.dart'))
-      ..createSync(recursive: true)
-      ..writeAsStringSync('''
+    package = .new('element_uses', languageVersion: '$newestLanguageVersion')
+      ..write('lib/shown.dart', '''
 const shown = 1;
 
 class Shown {}
 ''');
     collection = .new(
-      includedPaths: [tempDir.path],
+      includedPaths: [package.root],
       sdkPath: sdkPathOf(findDartExecutable()),
     );
   });
 
   tearDownAll(() async {
     await collection.dispose();
-    tempDir.deleteSync(recursive: true);
+    await package.dispose();
   });
 
   /// The uses in [source], written to a new file, of the package's own
   /// declarations of the [kinds].
   Future<List<_Use>> usesIn(String source, Set<ElementKind> kinds) async {
-    final path = p.join(tempDir.path, 'lib', 'file${written++}.dart');
-    File(path).writeAsStringSync(source);
+    final path = package.writeNew(source);
     final result =
         await collection.contextFor(path).currentSession.getResolvedUnit(path)
             as ResolvedUnitResult;
@@ -281,6 +266,27 @@ void f() => Mixed.named();
         completion([
           (kind: ElementKind.CONSTRUCTOR, name: 'named', text: '.named'),
         ]),
+      );
+    },
+  );
+
+  test(
+    'a call of a constructor of mixin application classes that extend each other uses no constructor of the package, as the analyzer breaks the cycle at `Object`',
+    () {
+      return expectLater(
+        usesIn(
+          '''
+mixin M {}
+
+class A = B with M;
+
+class B = A with M;
+
+void f() => A();
+''',
+          {.CONSTRUCTOR},
+        ),
+        completion(isEmpty),
       );
     },
   );

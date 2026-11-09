@@ -41,7 +41,7 @@ final class ClauseOnlyTypes {
   /// removable findings. A type with a clause entry that can't be removed gets
   /// no finding. [refsByCandidate] still holds the references into [deadSpans],
   /// which name what a type is only referenced from.
-  Future<List<(int, UnusedDeclaration)>> findings(
+  List<(int, UnusedDeclaration)> findings(
     ResolvedFiles files,
     List<Candidate> candidates,
     List<RefStatus> statuses,
@@ -51,7 +51,7 @@ final class ClauseOnlyTypes {
     DeadSpans deadSpans,
     Set<String> scannedPaths,
     String rootPath,
-  ) async {
+  ) {
     final members = removableMembers(candidates, removable);
     final entriesOf = <int, List<ClauseEntry>>{};
     for (final (i, candidate) in candidates.indexed) {
@@ -63,16 +63,16 @@ final class ClauseOnlyTypes {
         continue;
       }
       final refs = _classifier.externalRefs(candidate, liveRefs[i]);
-      // Every scanned file was resolved while collecting candidates, so this
-      // is a cache hit.
       final entries = [
         for (final loc in refs)
-          if (SourceIndex.pathOf(loc.uri) case final path
-              when scannedPaths.contains(path))
-            ?(await files.of(path))?.outline.let(
-              (unit) =>
-                  _sources.clauseEntryAt(loc, candidate.symbol.name, unit),
-            ),
+          if (scannedPaths.contains(loc.path))
+            ?files
+                .resolved(loc.path)
+                ?.outline
+                .let(
+                  (unit) =>
+                      _sources.clauseEntryAt(loc, candidate.symbol.name, unit),
+                ),
       ];
       if (entries.length == refs.length) {
         entriesOf[i] = entries;

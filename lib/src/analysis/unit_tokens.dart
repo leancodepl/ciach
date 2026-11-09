@@ -6,14 +6,14 @@
 
 /// Builds the tokens of a resolved file as the analysis server's semantic
 /// tokens list them: every identifier, keyword, literal and comment, with no
-/// punctuation but the `@` and the parentheses of an annotation.
+/// punctuation but the `@`, the `.` and the parentheses of an annotation.
 ///
 /// It follows `DartUnitHighlightsComputer` and `SemanticTokenEncoder` in the
-/// analysis server, whose tokens ciach read over LSP before, for what ciach
-/// reads: where each token is, whether it is a comment, a doc comment, a
-/// keyword or a string, whether it names a class or a property, and whether
-/// it declares something or names an annotation. Other identifiers get a
-/// type from their element, which can differ from the server's.
+/// analysis server for what ciach reads: where each token is, whether it is
+/// a comment, a doc comment, a keyword or a string, whether it names a class
+/// or a property, and whether it declares something or names an annotation.
+/// Other identifiers get a type from their element, which can differ from
+/// the server's.
 library;
 
 import 'dart:collection';
@@ -26,16 +26,12 @@ import 'package:ciach/src/analysis/highlight_regions.dart';
 import 'package:ciach/src/analysis/line_positions.dart';
 import 'package:ciach/src/source/semantic_tokens.dart';
 
-/// Returns the tokens of [unit], whose text is [content] and whose lines
-/// [lineInfo] holds, in order.
-List<SemanticToken> unitTokens(
-  CompilationUnit unit,
-  String content,
-  LineInfo lineInfo,
-) {
+/// Returns the tokens of [unit], whose text is [content], in order.
+List<SemanticToken> unitTokens(CompilationUnit unit, String content) {
   final visitor = HighlightRegions()..visitCompilationUnit(unit);
   final regions = visitor.regions;
-  final named = {
+  // The offsets of the tokens that a region already types.
+  final typed = {
     for (final region in regions) region.offset,
     ...visitor.covered,
   };
@@ -52,17 +48,16 @@ List<SemanticToken> unitTokens(
     if (token.isEof) {
       break;
     }
-    if (!named.contains(token.offset)) {
+    if (!typed.contains(token.offset)) {
       if (_typeOf(token) case final type?) {
         regions.add(.of(token, type));
       }
     }
   }
   regions.sort(HighlightRegion.byPlace);
-  final lines = content.split('\n');
   return [
     for (final region in _withoutOverlaps(regions))
-      ..._onEachLine(region, lineInfo, lines),
+      _onLastLine(region, unit.lineInfo, content),
   ];
 }
 
@@ -78,11 +73,8 @@ String? _typeOf(Token token) => switch (token) {
 };
 
 /// Whether [comment] is a `///` or `/**` doc comment.
-bool _isDocComment(Token comment) => switch (comment.type) {
-  .SINGLE_LINE_COMMENT => comment.lexeme.startsWith('///'),
-  .MULTI_LINE_COMMENT => comment.lexeme.startsWith('/**'),
-  _ => false,
-};
+bool _isDocComment(Token comment) =>
+    comment.lexeme.startsWith('///') || comment.lexeme.startsWith('/**');
 
 /// [sorted] with each region that holds others split around them, as the
 /// server's `splitOverlappingTokens` does: `@pragma(` around `pragma` gives
@@ -117,32 +109,22 @@ Iterable<HighlightRegion> _withoutOverlaps(List<HighlightRegion> sorted) sync* {
   yield* close(from, open.first.end);
 }
 
-/// The token of [region] on each line of [lines] that it spans. Like the
-/// server, it splits the region at line starts and lets each part but the
-/// last run to the start of the next line, and like ciach's decoder of the
-/// server's tokens, it drops a part that runs past the end of its line, so a
-/// region that spans lines keeps only its last line.
-Iterable<SemanticToken> _onEachLine(
+/// The token of the part of [region] on its last line, in [content]: a
+/// region that spans lines, such as a block comment, gets a token on its
+/// last line only.
+SemanticToken _onLastLine(
   HighlightRegion region,
   LineInfo lineInfo,
-  List<String> lines,
-) sync* {
-  final start = lineInfo.positionOf(region.offset);
+  String content,
+) {
   final end = lineInfo.positionOf(region.end);
-  for (var line = start.line; line <= end.line; line++) {
-    final from = line == start.line ? start.character : 0;
-    final to = line == end.line
-        ? end.character
-        : lineInfo.getOffsetOfLine(line + 1) - lineInfo.getOffsetOfLine(line);
-    if (to <= lines[line].length) {
-      yield .new(
-        line: line,
-        character: from,
-        length: to - from,
-        type: region.type,
-        modifiers: region.modifiers,
-        text: lines[line].substring(from, to),
-      );
-    }
-  }
+  final start = max(region.offset, lineInfo.getOffsetOfLine(end.line));
+  return .new(
+    line: end.line,
+    character: end.character - (region.end - start),
+    length: region.end - start,
+    type: region.type,
+    modifiers: region.modifiers,
+    text: content.substring(start, region.end),
+  );
 }

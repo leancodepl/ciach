@@ -63,7 +63,6 @@ final class OverrideRemovals {
     .field: .field,
   };
 
-  static const _none = (removals: <CoupledRemoval>[], blocked: false);
   static const blocked = (removals: <CoupledRemoval>[], blocked: true);
 
   /// Override lookups by candidate index, cached across rounds.
@@ -73,12 +72,12 @@ final class OverrideRemovals {
   /// into [candidates], by index. Members with nothing to say are left out.
   /// A member one of whose overrides is in [kept] is blocked instead: that
   /// override has to stay, so the member does too.
-  Future<Map<int, OverriddenMember>> couple(
+  Map<int, OverriddenMember> couple(
     List<Candidate> candidates,
     List<int> members, {
     required DeadSpans kept,
-  }) async {
-    await _lookUp(members.whereNot(_byMember.containsKey).toList(), candidates);
+  }) {
+    _lookUp(members.whereNot(_byMember.containsKey).toList(), candidates);
     final byCandidate = <int, OverriddenMember>{};
     var coupled = 0;
     var couplingMembers = 0;
@@ -116,7 +115,7 @@ final class OverrideRemovals {
   }
 
   /// Looks up and caches the overrides of the [unchecked] members.
-  Future<void> _lookUp(List<int> unchecked, List<Candidate> candidates) async {
+  void _lookUp(List<int> unchecked, List<Candidate> candidates) {
     if (unchecked.isEmpty) {
       return;
     }
@@ -124,7 +123,7 @@ final class OverrideRemovals {
       'Checking ${plural(unchecked.length, 'dead member', 'dead members')} for overrides…',
     );
     for (final index in unchecked) {
-      _byMember[index] = await of(candidates[index]);
+      _byMember[index] = of(candidates[index]);
     }
   }
 
@@ -135,38 +134,28 @@ final class OverrideRemovals {
   );
 
   /// The overrides of the dead [member], as spans to remove with it.
-  Future<OverriddenMember> of(Candidate member) async {
-    final overrides = _files.overridesOf(
-      member.path,
-      member.symbol.selectionRange.start,
-    );
-    if (overrides.isEmpty) {
-      return _none;
-    }
-    final removals = <CoupledRemoval>[];
-    for (final override in overrides) {
-      // An override that has to stay blocks the member.
-      final removal = await _removalFor(override);
-      if (removal == null) {
-        return blocked;
-      }
-      removals.add(removal);
-    }
-    return (removals: removals, blocked: false);
+  OverriddenMember of(Candidate member) {
+    final removals = _files
+        .overridesOf(member.path, member.symbol.selectionRange.start)
+        .map(_removalFor)
+        .toList();
+    // An override that has to stay blocks the member.
+    return removals.contains(null)
+        ? blocked
+        : (removals: removals.nonNulls.toList(), blocked: false);
   }
 
   /// The span to delete for the override at [location], or `null` when it has
   /// to stay: an unscanned file, a declaration that cannot be read, a kind
   /// this tool won't delete, or one a `// ciach:` marker keeps.
-  Future<CoupledRemoval?> _removalFor(Location location) async {
-    final path = SourceIndex.pathOf(location.uri);
+  CoupledRemoval? _removalFor(Location location) {
+    final path = location.path;
     if (!_scannedPaths.contains(path)) {
       return null;
     }
-    // Every scanned file was resolved while collecting candidates, so this is
-    // a cache hit.
-    final outline = (await _files.of(path))?.outline;
-    // The answer points at the override's name: an outline node's element range.
+    final outline = _files.resolved(path)?.outline;
+    // [ResolvedFiles.overridesOf] gives where the override's name starts,
+    // which is where an outline node's element range starts.
     final start = location.range.start;
     final found = outline?.let((outline) => _nodeNamedAt(outline, start));
     final kind = _removableKinds[found?.node.element.kind];

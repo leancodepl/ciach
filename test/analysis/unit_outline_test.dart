@@ -7,72 +7,36 @@
 @Timeout(Duration(minutes: 5))
 library;
 
-import 'dart:io';
-
 import 'package:ciach/src/analysis/language_versions.dart';
-import 'package:ciach/src/analysis/resolved_files.dart';
-import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:package_config/package_config.dart';
-import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../support/locations.dart';
-import '../support/package_config.dart';
-import '../support/resolved_files.dart';
+import '../support/test_package.dart';
 
 /// The outline that `unitOutline` builds, read through `ResolvedFiles`, which
 /// resolves the file first.
 void main() {
-  late Directory tempDir;
-  late ResolvedFiles files;
-  var written = 0;
+  late TestPackage package;
 
   setUpAll(() {
-    tempDir = .systemTemp.createTempSync('ciach_unit_outline_');
-    File(p.join(tempDir.path, '.dart_tool', 'package_config.json'))
-      ..createSync(recursive: true)
-      ..writeAsStringSync(
-        packageConfig(
-          {'app': '.'},
-          languageVersions: {'app': '$newestLanguageVersion'},
-        ),
-      );
-    // A library whose file name ends with `test.dart` declares the `test`
-    // and `group` functions that the outline lists calls of.
-    File(p.join(tempDir.path, 'lib', 'fake_test.dart'))
-      ..createSync(recursive: true)
-      ..writeAsStringSync('''
+    package = .new('unit_outline', languageVersion: '$newestLanguageVersion')
+      // A library whose file name ends with `test.dart` declares the `test`
+      // and `group` functions that the outline lists calls of.
+      ..write('lib/fake_test.dart', '''
 void test(String description, void Function() body) {}
 
 void group(String description, void Function() body) {}
 ''');
-    files = resolvedFilesUnder(tempDir.path);
   });
 
-  tearDownAll(() async {
-    await files.dispose();
-    tempDir.deleteSync(recursive: true);
-  });
+  tearDownAll(() => package.dispose());
 
   /// Writes [source] to a new file and returns its outline.
-  Future<Outline> outlineOf(String source) async {
-    final path = p.join(tempDir.path, 'lib', 'file${written++}.dart');
-    File(path).writeAsStringSync(source);
-    return (await files.of(path))!.outline;
-  }
-
-  /// The text of [source] that [range] covers.
-  String textOf(String source, Range range) {
-    final lines = source.split('\n');
-    int offsetOf(Position position) =>
-        lines
-            .take(position.line)
-            .fold(0, (sum, line) => sum + line.length + 1) +
-        position.character;
-    return source.substring(offsetOf(range.start), offsetOf(range.end));
-  }
+  Future<Outline> outlineOf(String source) async =>
+      (await package.files.of(package.writeNew(source)))!.outline;
 
   /// The declarations in [outline], in order, each with how deep it is
   /// nested, its kind, its name and the text of its name range in [source].
@@ -85,12 +49,20 @@ void group(String description, void Function() body) {}
         0,
         child.element.kind,
         child.element.name,
-        child.element.range?.let((range) => textOf(source, range)),
+        child.element.range?.let((range) => textIn(source, range)),
       ),
       for (final (depth, kind, name, nameText) in declarationsIn(source, child))
         (depth + 1, kind, name, nameText),
     ],
   ];
+
+  /// The nodes nested in [outline], each before the nodes nested in it.
+  Iterable<Outline> nestedIn(Outline outline) sync* {
+    for (final child in outline.children) {
+      yield child;
+      yield* nestedIn(child);
+    }
+  }
 
   test(
     'lists each declaration with its kind and name, and the members of each type',
@@ -204,7 +176,7 @@ typedef Ints = List<int>;
 
       expect(
         [
-          for (final node in outline.descendants.skip(1))
+          for (final node in nestedIn(outline))
             (
               node.element.name,
               node.element.parameters,
@@ -238,8 +210,8 @@ void f() {}
       final outline = await outlineOf(source);
 
       final f = outline.children.single;
-      expect(textOf(source, f.range), source.trimRight());
-      expect(textOf(source, f.codeRange), 'void f() {}');
+      expect(textIn(source, f.range), source.trimRight());
+      expect(textIn(source, f.codeRange), 'void f() {}');
     },
   );
 
@@ -256,8 +228,8 @@ final int a = 1, b = 2, c = 3;
         [
           for (final variable in outline.children)
             (
-              textOf(source, variable.range),
-              textOf(source, variable.codeRange),
+              textIn(source, variable.range),
+              textIn(source, variable.codeRange),
             ),
         ],
         [
@@ -349,18 +321,17 @@ class Registry {
   test(
     'the `this` of the body of a primary constructor names the constructor, whose signature it reads',
     () async {
-      final path = p.join(tempDir.path, 'lib', 'file${written++}.dart');
-      File(path).writeAsStringSync('''
+      final path = package.writeNew('''
 class Holder(dynamic value) {
   this {
     print(value);
   }
 }
 ''');
-      await files.of(path);
+      await package.files.of(path);
 
       expect(
-        files.hasDynamicSignature(path, positionOfName(path, 'this')),
+        package.files.hasDynamicSignature(path, positionOfName(path, 'this')),
         isTrue,
       );
     },

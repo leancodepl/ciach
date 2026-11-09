@@ -1,16 +1,14 @@
-import 'dart:io';
-
 import 'package:ciach/src/analysis/resolved_file.dart';
 import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/collect/kept_declarations.dart';
+import 'package:ciach/src/collect/problems.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/conventions/gen_l10n.dart';
 import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/model/finder_options.dart';
-import 'package:ciach/src/model/problems.dart';
 import 'package:ciach/src/source/document_symbol.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/outline.dart';
@@ -68,7 +66,7 @@ final class CandidateCollector {
   /// `--verbose`.
   void reportSkipped() => _kept.report();
 
-  /// The declarations of the open file [path] worth checking. [files]
+  /// The declarations of the file at [path] worth checking. [files]
   /// resolves the file.
   Future<List<Candidate>> collect(
     ResolvedFiles files,
@@ -91,7 +89,6 @@ final class CandidateCollector {
     // The whole walk has to run before the filter: it records the entry-point
     // containers the filter drops, and a container comes before its members.
     final candidates = _collect(
-      File(path).uri,
       path,
       relativePath,
       file,
@@ -114,7 +111,6 @@ final class CandidateCollector {
   /// [parentIsEnum] marks children of an enum declaration so their enum values
   /// are remapped to the `enum-value` kind.
   Iterable<Candidate> _collect(
-    Uri uri,
     String path,
     String relativePath,
     ResolvedFile file,
@@ -134,7 +130,6 @@ final class CandidateCollector {
       );
       _freezed.noteIfAnnotated(path, symbol, leadingMetadata);
       final candidate = Candidate(
-        uri: uri,
         path: path,
         symbol: symbol,
         outline: outline,
@@ -168,7 +163,6 @@ final class CandidateCollector {
           ? (symbol.name, candidate)
           : (container, containerCandidate);
       yield* _collect(
-        uri,
         path,
         relativePath,
         file,

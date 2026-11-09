@@ -292,7 +292,7 @@ void main() {
     }) => [
       token('annotation', '@'),
       if (prefix != null) ...[
-        token('variable', prefix, modifiers: const {'importPrefix'}),
+        token('variable', prefix),
         token('annotation', '.'),
       ],
       token('class', name, modifiers: const {'annotation'}),

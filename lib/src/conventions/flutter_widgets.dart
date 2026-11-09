@@ -25,7 +25,7 @@ extension FlutterWidgets on SourceIndex {
   /// Whether [loc] is [className] as the sole type argument in an
   /// `extends State<…>` clause. That reference is not a use of the widget.
   bool isStatePairingReference(String className, Location loc) {
-    final path = SourceIndex.pathOf(loc.uri);
+    final path = loc.path;
     final position = loc.range.start;
     final tokens = semanticTokens(path);
     final argument = selectionRangeAt(path, position);
@@ -81,7 +81,7 @@ extension FlutterWidgets on SourceIndex {
       if (!isStatePairingReference(widget.symbol.name, loc)) {
         continue;
       }
-      final path = SourceIndex.pathOf(loc.uri);
+      final path = loc.path;
       // The widget's own `createState` return type is inside the widget and
       // removed with it; only a pairing reference outside the widget points at
       // the separate State subclass.
@@ -127,7 +127,6 @@ extension FlutterWidgets on SourceIndex {
   ) => refs.every(
     (loc) =>
         isDocReference(loc) ||
-        (SourceIndex.pathOf(loc.uri) == path &&
-            loc.range.start.within(enclosing)),
+        (loc.path == path && loc.range.start.within(enclosing)),
   );
 }

@@ -6,13 +6,11 @@
 
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
-import 'package:analyzer/source/line_info.dart';
 import 'package:ciach/src/analysis/element_declaration.dart';
 import 'package:ciach/src/analysis/element_uses.dart';
 import 'package:ciach/src/analysis/line_positions.dart';
 import 'package:ciach/src/analysis/type_hierarchy.dart';
 import 'package:ciach/src/source/locations.dart';
-import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 
 /// The uses of declarations in the files that were added, and the references
@@ -28,12 +26,12 @@ final class ReferenceIndex {
   /// The uses of each declaration.
   final _uses = <ElementDeclaration, List<Location>>{};
 
-  /// Adds the uses in [unit], the file at [path] whose lines [lineInfo] holds.
-  void add(String path, CompilationUnit unit, LineInfo lineInfo) {
+  /// Adds the uses in [unit], the file at [path].
+  void add(String path, CompilationUnit unit) {
     for (final (:element, :offset, :length) in elementUses(unit)) {
       if (ElementDeclaration.of(element) case final declaration?) {
         (_uses[declaration] ??= []).add(
-          lineInfo.locationOf(path, offset, length),
+          unit.lineInfo.locationOf(path, offset, length),
         );
       }
     }
@@ -53,7 +51,14 @@ final class ReferenceIndex {
       final element => element,
     };
     final searched = switch (element) {
-      MethodElement() || FieldElement() => _hierarchyOf(element),
+      MethodElement(
+        isStatic: false,
+        enclosingElement: final InterfaceElement type,
+      ) ||
+      FieldElement(
+        isStatic: false,
+        enclosingElement: final InterfaceElement type,
+      ) => _hierarchyOf(element, type),
       _ => [element],
     };
     return {
@@ -68,24 +73,16 @@ final class ReferenceIndex {
             ?setter,
           ],
         ])
-          ...?ElementDeclaration.of(declared)?.let((key) => _uses[key]),
+          ...?_uses[ElementDeclaration.of(declared)],
     }.sorted(Location.byPlace);
   }
 
   /// The members that the analysis server searches for the references of
-  /// the instance [member]: the methods and fields named like it in the types
-  /// above its type that declare such a member, and in all the subtypes of
-  /// those types. A private member is searched for only in its own library,
-  /// and a field also by its `this.` parameters.
-  Iterable<Element> _hierarchyOf(Element member) {
-    if (member
-        case FieldElement(isStatic: true) || MethodElement(isStatic: true)) {
-      return [member];
-    }
-    final type = member.enclosingElement;
-    if (type is! InterfaceElement) {
-      return [member];
-    }
+  /// the instance [member] of [type]: the methods and fields named like it in
+  /// the types above [type] that declare such a member, and in all the
+  /// subtypes of those types. A private member is searched for only in its
+  /// own library, and a field also by the `this.` parameters of [type].
+  Iterable<Element> _hierarchyOf(Element member, InterfaceElement type) {
     final name = member.displayName;
     final library = _libraryPathOf(member);
     final types =
@@ -104,19 +101,19 @@ final class ReferenceIndex {
         }..removeWhere(
           (_, type) => member.isPrivate && _libraryPathOf(type) != library,
         );
-    final field = ElementDeclaration.of(member);
     return [
-      for (final type in types.values) ...[
-        ...type.fields.where((field) => field.lookupName == name),
-        ...type.methods.where((method) => method.lookupName == name),
-        if (member is FieldElement)
-          for (final constructor in type.constructors)
-            for (final parameter in constructor.formalParameters)
-              if (parameter case FieldFormalParameterElement(
-                field: final parameterField?,
-              ) when ElementDeclaration.of(parameterField) == field)
-                parameter,
+      for (final searchedType in types.values) ...[
+        ...searchedType.fields.where((field) => field.lookupName == name),
+        ...searchedType.methods.where((method) => method.lookupName == name),
       ],
+      // A `this.` parameter names a field of its own class.
+      if (member is FieldElement)
+        for (final constructor in type.constructors)
+          for (final parameter in constructor.formalParameters)
+            if (parameter case FieldFormalParameterElement(
+              :final field?,
+            ) when ElementDeclaration.of(field) == .of(member))
+              parameter,
     ];
   }
 

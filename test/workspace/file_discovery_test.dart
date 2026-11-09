@@ -37,7 +37,7 @@ void main() {
         '// GENERATED CODE - DO NOT MODIFY BY HAND\nclass Mapper {}',
       );
 
-      final result = discoverDartFilesSplit(.new(rootPath: tempDir.path));
+      final result = discoverDartFiles(.new(rootPath: tempDir.path));
 
       // The `.g.dart` and banner-marked files are excluded from candidates…
       expect(rel(result.candidates), {'lib/model.dart'});
@@ -60,7 +60,7 @@ class Catalog {}
 class Excluded {}
 ''');
 
-    final result = discoverDartFilesSplit(
+    final result = discoverDartFiles(
       .new(rootPath: tempDir.path, excludeGlobs: const ['lib/excluded.dart']),
     );
 
@@ -76,7 +76,7 @@ class Excluded {}
       write('lib/other.dart', 'class Other {}');
       write('lib/model.g.dart', '// generated\nclass ModelGen {}');
 
-      final result = discoverDartFilesSplit(
+      final result = discoverDartFiles(
         .new(rootPath: tempDir.path, includeGlobs: const ['lib/model.dart']),
       );
 
@@ -92,7 +92,7 @@ class Excluded {}
       write('lib/model.dart', 'class Model {}');
       write('lib/model.g.dart', '// generated\nclass ModelGen {}');
 
-      final result = discoverDartFilesSplit(
+      final result = discoverDartFiles(
         .new(rootPath: tempDir.path, includeGenerated: true),
       );
 
@@ -109,7 +109,7 @@ class Excluded {}
 class DefaultFirebaseOptions {}
 ''');
 
-    final result = discoverDartFilesSplit(.new(rootPath: tempDir.path));
+    final result = discoverDartFiles(.new(rootPath: tempDir.path));
 
     expect(rel(result.candidates), {'lib/model.dart'});
     expect(rel(result.referenceOnly), {'lib/firebase_options_prod.dart'});
@@ -124,7 +124,7 @@ class DefaultFirebaseOptions {}
       // Its name ends like a gen-l10n file's, but it is hand-written.
       write('lib/src/status_l10n.dart', 'String status() => "";');
 
-      final result = discoverDartFilesSplit(
+      final result = discoverDartFiles(
         .new(
           rootPath: tempDir.path,
           additionalGeneratedGlobs: const ['lib/l10n/**'],
@@ -139,7 +139,7 @@ class DefaultFirebaseOptions {}
         'lib/l10n/l10n_pl.dart',
       });
 
-      final excluded = discoverDartFilesSplit(
+      final excluded = discoverDartFiles(
         .new(rootPath: tempDir.path, excludeGlobs: const ['lib/l10n/**']),
       );
       expect(rel(excluded.candidates), {
@@ -149,7 +149,7 @@ class DefaultFirebaseOptions {}
       expect(excluded.referenceOnly, isEmpty);
 
       // --generated scans them like any other file.
-      final scanned = discoverDartFilesSplit(
+      final scanned = discoverDartFiles(
         .new(
           rootPath: tempDir.path,
           includeGenerated: true,
@@ -166,7 +166,7 @@ class DefaultFirebaseOptions {}
     write('build/gen.g.dart', '// generated\nclass Gen {}');
     write('.dart_tool/tool.g.dart', '// generated\nclass Tool {}');
 
-    final result = discoverDartFilesSplit(.new(rootPath: tempDir.path));
+    final result = discoverDartFiles(.new(rootPath: tempDir.path));
 
     expect(rel(result.candidates), {'lib/model.dart'});
     expect(result.referenceOnly, isEmpty);
@@ -176,7 +176,7 @@ class DefaultFirebaseOptions {}
     write('lib/button.dart', 'class Button {}');
     write('.widget_preview/lib/main.dart', 'void main() {}');
 
-    final result = discoverDartFilesSplit(.new(rootPath: tempDir.path));
+    final result = discoverDartFiles(.new(rootPath: tempDir.path));
 
     expect(rel(result.candidates), {'lib/button.dart'});
     expect(result.referenceOnly, isEmpty);

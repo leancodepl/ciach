@@ -10,11 +10,24 @@ library;
 
 /// A place in source text: a zero-based line, and a zero-based column in UTF-16
 /// code units, which is how Dart strings count characters.
-final class Position {
+final class Position implements Comparable<Position> {
   const Position({required this.line, required this.character});
 
   final int line;
   final int character;
+
+  /// Orders positions by line, then by column.
+  @override
+  int compareTo(Position other) => switch (line.compareTo(other.line)) {
+    0 => character.compareTo(other.character),
+    final byLine => byLine,
+  };
+
+  /// Whether this position is before [other].
+  bool isBefore(Position other) => compareTo(other) < 0;
+
+  /// Whether this position is at or before [other].
+  bool atOrBefore(Position other) => compareTo(other) <= 0;
 
   @override
   bool operator ==(Object other) =>
@@ -45,31 +58,28 @@ final class Range {
   String toString() => 'Range(start: $start, end: $end)';
 }
 
-/// A [range] in the file at [uri].
+/// A [range] in the file at [path].
 final class Location {
-  const Location({required this.uri, required this.range});
+  const Location({required this.path, required this.range});
 
-  /// The file URI, such as `file:///home/me/app/lib/main.dart`.
-  final String uri;
+  /// The absolute path of the file, such as `/home/me/app/lib/main.dart`.
+  final String path;
   final Range range;
 
   /// Orders locations by file, then by where they start.
-  static int byPlace(Location a, Location b) => switch ((
-    a.uri.compareTo(b.uri),
-    a.range.start.line.compareTo(b.range.start.line),
-  )) {
-    (0, 0) => a.range.start.character.compareTo(b.range.start.character),
-    (0, final byLine) => byLine,
-    (final byFile, _) => byFile,
-  };
+  static int byPlace(Location a, Location b) =>
+      switch (a.path.compareTo(b.path)) {
+        0 => a.range.start.compareTo(b.range.start),
+        final byFile => byFile,
+      };
 
   @override
   bool operator ==(Object other) =>
-      other is Location && other.uri == uri && other.range == range;
+      other is Location && other.path == path && other.range == range;
 
   @override
-  int get hashCode => Object.hash(uri, range);
+  int get hashCode => Object.hash(path, range);
 
   @override
-  String toString() => 'Location(uri: $uri, range: $range)';
+  String toString() => 'Location(path: $path, range: $range)';
 }

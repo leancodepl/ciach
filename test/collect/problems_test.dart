@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/ciach.dart';
-import 'package:ciach/src/model/problems.dart';
+import 'package:ciach/src/collect/problems.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:test/test.dart';
 
