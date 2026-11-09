@@ -11,7 +11,6 @@
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/source/file_syntax.dart';
 import 'package:ciach/src/source/locations.dart';
-import 'package:ciach/src/source/symbols.dart';
 import 'package:collection/collection.dart';
 
 /// Decides whether a declaration is used, unused, or referenced only from doc

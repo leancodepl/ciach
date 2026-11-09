@@ -74,8 +74,13 @@ final class CandidateCollector {
       }
       return const [];
     }
-    if (file.firstError case (:final position, :final message)) {
-      recordProblem(_compileErrors, message, path: path, position: position);
+    if (file.firstError case (:final offset, :final message)) {
+      recordProblem(
+        _compileErrors,
+        message,
+        path: path,
+        position: file.positionOf(offset),
+      );
     }
     final relativePath = relativePosix(path, rootPath);
     if (_conditionalImports.contains(path)) {
@@ -112,6 +117,7 @@ final class CandidateCollector {
       final start = statement.startOf(outline);
       final candidate = Candidate(
         path: file.path,
+        lineStarts: file.resolved.lineStarts,
         outline: outline,
         containerOutline: parent.container,
       );
@@ -185,8 +191,10 @@ final class CandidateCollector {
     required int start,
   }) {
     if (markers.keeping(
-          start: start,
-          nameLine: candidate.outline.nameRange.start.line,
+          start: candidate.positionOf(start).line,
+          nameLine: candidate
+              .positionOf(candidate.outline.nameRange.start)
+              .line,
         )
         case final kept?) {
       _kept.byMarker(declaration.relativePath, candidate, kept);
@@ -215,7 +223,7 @@ final class CandidateCollector {
         !isTranslationMessage(candidate)) {
       return false;
     }
-    if (_kept.isEntryPoint(declaration, containerMembers)) {
+    if (_kept.isEntryPoint(candidate, declaration, containerMembers)) {
       return false;
     }
     if (_skipsPublic(candidate)) {
@@ -252,7 +260,7 @@ typedef _ScannedFile = ({
 final class _Statement {
   var _start = 0;
 
-  /// The line that the statement of the declaration [outline] starts on.
+  /// The offset that the statement of the declaration [outline] starts at.
   int startOf(Outline outline) {
     final isVariable = const <OutlineKind>{
       .field,
@@ -261,7 +269,7 @@ final class _Statement {
     if (isVariable && outline.range.start == outline.codeRange.start) {
       return _start;
     }
-    return _start = outline.range.start.line;
+    return _start = outline.range.start;
   }
 }
 

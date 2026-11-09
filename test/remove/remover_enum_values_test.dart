@@ -31,6 +31,7 @@ enum Direction {
 ''';
       final result = applyRemoval(source, [
         decl(
+          source,
           startLine: 2,
           startColumn: 2,
           endLine: 2,
@@ -53,6 +54,7 @@ enum Direction {
 ''';
       final result = applyRemoval(source, [
         decl(
+          source,
           startLine: 2,
           startColumn: 2,
           endLine: 2,
@@ -72,6 +74,7 @@ enum Direction {
       UnusedDeclaration valueNamed(String name) {
         final start = source.indexOf(name);
         return decl(
+          source,
           startLine: 0,
           startColumn: start,
           endLine: 0,
@@ -107,6 +110,7 @@ enum Direction {
       UnusedDeclaration valueNamed(String name) {
         final start = source.indexOf(name);
         return decl(
+          source,
           startLine: 0,
           startColumn: start,
           endLine: 0,
@@ -178,6 +182,7 @@ enum Accuracy { best, high, medium }
         final line = '\n'.allMatches(source.substring(0, start)).length;
         final column = start - (source.lastIndexOf('\n', start - 1) + 1);
         return decl(
+          source,
           startLine: line,
           startColumn: column,
           endLine: line,
@@ -228,6 +233,7 @@ enum Level { low, mid, top }
         final line = '\n'.allMatches(source.substring(0, start)).length;
         final column = start - (source.lastIndexOf('\n', start - 1) + 1);
         return decl(
+          source,
           startLine: line,
           startColumn: column,
           endLine: line,
@@ -274,6 +280,7 @@ enum Direction {
           final line = '\n'.allMatches(source.substring(0, start)).length;
           final column = start - (source.lastIndexOf('\n', start - 1) + 1);
           return decl(
+            source,
             startLine: line,
             startColumn: column,
             endLine: line,
@@ -300,6 +307,7 @@ enum Direction {
         UnusedDeclaration valueNamed(String name) {
           final start = source.indexOf(' $name') + 1;
           return decl(
+            source,
             startLine: 0,
             startColumn: start,
             endLine: 0,
@@ -339,6 +347,7 @@ enum E {
         // `b` is the last value, on line index 2, columns 2..3.
         final result = applyRemoval(source, [
           decl(
+            source,
             startLine: 2,
             startColumn: 2,
             endLine: 2,
@@ -361,6 +370,7 @@ enum E {
         final start = source.indexOf(' b') + 1;
         final result = applyRemoval(source, [
           decl(
+            source,
             startLine: 0,
             startColumn: start,
             endLine: 0,
@@ -386,6 +396,7 @@ enum E {
         // `b` is a middle value, on line index 2, columns 2..3.
         final result = applyRemoval(source, [
           decl(
+            source,
             startLine: 2,
             startColumn: 2,
             endLine: 2,

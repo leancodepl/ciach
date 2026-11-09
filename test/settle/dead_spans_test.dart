@@ -1,11 +1,14 @@
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/settle/dead_spans.dart';
-import 'package:ciach/src/source/locations.dart';
 import 'package:test/test.dart';
 
 void main() {
   const rootPath = '/root';
   const path = '/root/lib/a.dart';
+
+  /// The offset of the zero-based [line] and [column] in a file whose lines
+  /// are 100 characters long.
+  int at(int line, int column) => line * 100 + column;
 
   UnusedDeclaration finding(String name, (int, int) start, (int, int) end) =>
       .new(
@@ -15,16 +18,11 @@ void main() {
         line: start.$1 + 1,
         column: start.$2 + 1,
         isPrivate: false,
-        range: (
-          startLine: start.$1,
-          startColumn: start.$2,
-          endLine: end.$1,
-          endColumn: end.$2,
-        ),
+        range: (start: at(start.$1, start.$2), end: at(end.$1, end.$2)),
       );
 
   group('DeadSpans.ownerOf', () {
-    const inside = Position(line: 1, character: 0);
+    final inside = at(1, 0);
 
     test('picks the span that ends later when two start together', () {
       final short = finding('short', (0, 0), (2, 0));
@@ -50,7 +48,7 @@ void main() {
 
     test('is null outside every span', () {
       final spans = DeadSpans.of([finding('f', (0, 0), (2, 0))], rootPath);
-      expect(spans.ownerOf(path, const .new(line: 3, character: 0)), isNull);
+      expect(spans.ownerOf(path, at(3, 0)), isNull);
       expect(spans.ownerOf('/root/lib/b.dart', inside), isNull);
     });
   });
@@ -58,10 +56,10 @@ void main() {
   group('DeadSpans.ownerOf in a clause entry', () {
     // Line 3 is `class Held with C<Arg>, D<Other> {}`, and removing `C` and `D`
     // deletes ` with C<Arg>, D<Other>`.
-    const clause = (startLine: 3, startColumn: 10, endLine: 3, endColumn: 32);
-    const atC = Position(line: 3, character: 16);
-    const atArg = Position(line: 3, character: 18);
-    const atOther = Position(line: 3, character: 26);
+    final clause = (start: at(3, 10), end: at(3, 32));
+    final atC = at(3, 16);
+    final atArg = at(3, 18);
+    final atOther = at(3, 26);
 
     /// A type declared on [line] that `--remove` also removes from the
     /// clause on line 3, where its entry starts at [startColumn] and ends at
@@ -72,12 +70,7 @@ void main() {
       int startColumn,
       int endColumn,
     ) {
-      final range = (
-        startLine: 3,
-        startColumn: startColumn,
-        endLine: 3,
-        endColumn: endColumn,
-      );
+      final range = (start: at(3, startColumn), end: at(3, endColumn));
       return finding(name, (line, 0), (line, 10)).copyWith(
         coupledRemovals: [
           (

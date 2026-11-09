@@ -30,17 +30,13 @@ final class VariableCuts {
     List<UnusedDeclaration> unused,
     String rootPath,
   ) {
-    DeclaratorAt at(String filePath, int line, int column) => (
-      path: absoluteUnder(filePath, rootPath),
-      name: .new(line: line, character: column),
-    );
+    // A declarator's code range starts at its name.
+    DeclaratorAt at(String filePath, DeclarationRange range) =>
+        (path: absoluteUnder(filePath, rootPath), name: range.start);
     DeclaratorAt ofFinding(UnusedDeclaration finding) =>
-        at(finding.filePath, finding.line - 1, finding.column - 1);
-    DeclaratorAt ofCoupled(CoupledRemoval coupled) => at(
-      coupled.filePath,
-      coupled.range.startLine,
-      coupled.range.startColumn,
-    );
+        at(finding.filePath, finding.range);
+    DeclaratorAt ofCoupled(CoupledRemoval coupled) =>
+        at(coupled.filePath, coupled.range);
     bool isDeclarator(SymbolKind kind) => declaratorKinds.contains(kind);
 
     final removable = unused.whereNot((finding) => finding.removalBlocked);

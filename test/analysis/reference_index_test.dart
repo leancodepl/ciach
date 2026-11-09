@@ -34,7 +34,7 @@ void main() {
     return package.files
         .referencesTo(
           absolute,
-          positionOfName(absolute, name, occurrence: occurrence),
+          offsetOfName(absolute, name, occurrence: occurrence),
         )
         ?.map((location) => locationText(location, package.root))
         .toList();

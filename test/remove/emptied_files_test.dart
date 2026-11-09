@@ -34,15 +34,22 @@ void main() {
       p.join(tempDir.path, p.joinAll(p.posix.split(relativePath))),
     ).existsSync();
 
-    /// `void gone() {}` on line index [line].
-    UnusedDeclaration gone(String filePath, {int line = 2}) => .new(
+    /// The range of [text] in the file at [filePath], which the test wrote.
+    DeclarationRange rangeOf(String filePath, String text) {
+      final start = read(filePath).indexOf(text);
+      return (start: start, end: start + text.length);
+    }
+
+    /// `void gone() {}` in the file at [filePath], relative to [root], the
+    /// directory under the test's own that the run removes from.
+    UnusedDeclaration gone(String filePath, {String root = ''}) => .new(
       name: 'gone',
       kind: .function,
       filePath: filePath,
-      line: line + 1,
+      line: 1,
       column: 6,
       isPrivate: false,
-      range: (startLine: line, startColumn: 0, endLine: line, endColumn: 14),
+      range: rangeOf(p.posix.join(root, filePath), 'void gone() {}'),
     );
 
     setUp(() {
@@ -102,7 +109,7 @@ import 'dart:io';
 void kept() {}
 ''');
 
-      removeDeclarations([gone('lib/dead.dart', line: 0)], tempDir.path);
+      removeDeclarations([gone('lib/dead.dart')], tempDir.path);
 
       expect(read('lib/user.dart'), '''
 import 'dart:io';
@@ -125,7 +132,7 @@ import 'dead.dart';
 void kept() {}
 ''');
 
-        removeDeclarations([gone('lib/dead.dart', line: 0)], tempDir.path);
+        removeDeclarations([gone('lib/dead.dart')], tempDir.path);
 
         expect(read('lib/user.dart'), '''
 import 'dart:io';
@@ -143,7 +150,7 @@ import 'dart:io'; import 'dead.dart';
 void kept() {}
 ''');
 
-      removeDeclarations([gone('lib/dead.dart', line: 0)], tempDir.path);
+      removeDeclarations([gone('lib/dead.dart')], tempDir.path);
 
       // The space before the dropped import stays; `dart format` removes it.
       expect(read('lib/user.dart'), '''
@@ -165,7 +172,7 @@ import 'dart:async';
 /// Gone.
 void gone() {}
 ''');
-      removeDeclarations([gone('lib/dead.dart', line: 9)], tempDir.path);
+      removeDeclarations([gone('lib/dead.dart')], tempDir.path);
       expect(exists('lib/dead.dart'), isFalse);
     });
 
@@ -198,14 +205,14 @@ export 'package:pkg/other.dart' show Kept;
 class DeadClass {}
 ''');
       final result = removeDeclarations([
-        const .new(
+        .new(
           name: 'DeadClass',
           kind: .class$,
           filePath: 'lib/dead.dart',
           line: 4,
           column: 7,
           isPrivate: false,
-          range: (startLine: 3, startColumn: 0, endLine: 3, endColumn: 17),
+          range: rangeOf('lib/dead.dart', 'class DeadClass {}'),
         ),
       ], tempDir.path);
 
@@ -374,7 +381,7 @@ void kept() {}
         write('core/pubspec.yaml', 'name: core\n');
         write('core/lib/dead.dart', 'void coreDead() {}\n');
         removeDeclarations([
-          gone('lib/dead.dart'),
+          gone('lib/dead.dart', root: 'app'),
         ], p.join(tempDir.path, 'app'));
         expect(exists('app/lib/dead.dart'), isFalse);
         expect(read('app/lib/user.dart'), contains('package:core/dead.dart'));
@@ -404,7 +411,7 @@ import 'dead.dart'
 /// Still here.
 void kept() {}
 ''');
-      removeDeclarations([gone('lib/dead.dart', line: 0)], tempDir.path);
+      removeDeclarations([gone('lib/dead.dart')], tempDir.path);
       expect(exists('lib/dead.dart'), isFalse);
       expect(read('lib/user.dart'), '''
 
@@ -415,14 +422,14 @@ void kept() {}
 
     test('a report-only finding does not empty its file', () {
       write('lib/dead.dart', 'void gone() {}\n');
-      const blocked = UnusedDeclaration(
+      final blocked = UnusedDeclaration(
         name: 'gone',
         kind: .function,
         filePath: 'lib/dead.dart',
         line: 1,
         column: 6,
         isPrivate: false,
-        range: (startLine: 0, startColumn: 0, endLine: 0, endColumn: 14),
+        range: rangeOf('lib/dead.dart', 'void gone() {}'),
         removalBlocked: true,
       );
       final result = removeDeclarations([blocked], tempDir.path);

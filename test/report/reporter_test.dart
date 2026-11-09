@@ -79,12 +79,8 @@ void main() {
     removalBlocked: removalBlocked,
     hint: hint,
     onlyReferencedFrom: onlyReferencedFrom,
-    range: (
-      startLine: line - 1,
-      startColumn: column - 1,
-      endLine: line - 1,
-      endColumn: column - 1 + name.length,
-    ),
+    // The reports print the line and column, never the range.
+    range: (start: 0, end: name.length),
   );
 
   group('githubReport', () {

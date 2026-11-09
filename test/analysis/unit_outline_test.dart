@@ -324,7 +324,7 @@ class Holder(dynamic value) {
       await package.files.of(path);
 
       expect(
-        package.files.hasDynamicSignature(path, positionOfName(path, 'this')),
+        package.files.hasDynamicSignature(path, offsetOfName(path, 'this')),
         isTrue,
       );
     },

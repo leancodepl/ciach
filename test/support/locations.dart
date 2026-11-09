@@ -17,28 +17,19 @@ typedef LocationText = ({String file, int line, String text});
 /// Returns [location] as the tests compare it, with its file relative to
 /// [root].
 LocationText locationText(Location location, String root) {
-  final line = File(location.path).readAsLinesSync()[location.range.start.line];
+  final source = File(location.path).readAsStringSync();
   return (
     file: p.relative(location.path, from: root),
-    line: location.range.start.line + 1,
-    text: line.substring(
-      location.range.start.character,
-      location.range.end.character,
-    ),
+    line: positionIn(lineStartsOf(source), location.range.start).line + 1,
+    text: textIn(source, location.range),
   );
 }
 
-/// Returns the position of the [occurrence]th [name] in the file at [path],
+/// Returns the offset of the [occurrence]th [name] in the file at [path],
 /// counting from 0.
-Position positionOfName(String path, String name, {int occurrence = 0}) {
-  final source = File(path).readAsStringSync();
-  final offset = name.allMatches(source).elementAt(occurrence).start;
-  return positionIn(lineStartsOf(source), offset);
-}
+int offsetOfName(String path, String name, {int occurrence = 0}) =>
+    name.allMatches(File(path).readAsStringSync()).elementAt(occurrence).start;
 
 /// Returns the text of [source] that [range] covers.
-String textIn(String source, Range range) {
-  final starts = lineStartsOf(source);
-  int offsetOf(Position position) => starts[position.line] + position.character;
-  return source.substring(offsetOf(range.start), offsetOf(range.end));
-}
+String textIn(String source, Range range) =>
+    source.substring(range.start, range.end);

@@ -69,7 +69,7 @@ final class KeptDeclarations {
       }
       _skippedEntryPoints.add((
         path: relativePath,
-        line: candidate.outline.nameRange.start.line + 1,
+        line: candidate.positionOf(candidate.outline.nameRange.start).line + 1,
         name: candidate.name,
         reason: reason,
       ));
@@ -92,12 +92,13 @@ final class KeptDeclarations {
     supertypes: file.supertypes[candidate.outline.nameRange.start] ?? const {},
   );
 
-  /// Returns whether [declaration] is called by a framework or a tool. Such a
-  /// declaration has no reference in the source code. [containerMembers] are
-  /// the members that the rules keep in the type that declares it. Every
-  /// entry point that is found here is recorded, so that `--verbose` can
-  /// list it.
+  /// Returns whether [candidate], which the rules read as [declaration], is
+  /// called by a framework or a tool. Such a declaration has no reference in
+  /// the source code. [containerMembers] are the members that the rules keep
+  /// in the type that declares it. Every entry point that is found here is
+  /// recorded, so that `--verbose` can list it.
   bool isEntryPoint(
+    Candidate candidate,
     ResolvedDeclaration declaration,
     List<KeptMembers> containerMembers,
   ) {
@@ -119,7 +120,7 @@ final class KeptDeclarations {
     }
     _skippedEntryPoints.add((
       path: relativePath,
-      line: outline.nameRange.start.line + 1,
+      line: candidate.positionOf(outline.nameRange.start).line + 1,
       name: qualified,
       reason: reason,
     ));
@@ -143,7 +144,7 @@ final class KeptDeclarations {
     }
     _skippedEntryPoints.add((
       path: relativePath,
-      line: candidate.outline.nameRange.start.line + 1,
+      line: candidate.positionOf(candidate.outline.nameRange.start).line + 1,
       name: qualified,
       reason: 'kept by `// ${kept.marker}` on line ${kept.line + 1}',
     ));

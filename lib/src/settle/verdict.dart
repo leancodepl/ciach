@@ -152,9 +152,11 @@ final class Verdict {
   }) {
     final outline = candidate.outline;
     // An unnamed extension's name range is its `on` type.
-    final start = candidate.isUnnamedExtension
-        ? outline.codeRange.start
-        : outline.nameRange.start;
+    final position = candidate.positionOf(
+      candidate.isUnnamedExtension
+          ? outline.codeRange.start
+          : outline.nameRange.start,
+    );
     final name = outline.element.declarationName(candidate.container);
     // `extension on T` is no name to qualify members by.
     final container = candidate.isInUnnamedExtension
@@ -165,8 +167,8 @@ final class Verdict {
       kind: candidate.reportedKind,
       filePath: relativePosix(candidate.path, rootPath),
       // Positions are zero-based; report them one-based for humans.
-      line: start.line + 1,
-      column: start.character + 1,
+      line: position.line + 1,
+      column: position.column + 1,
       // A member of a private type is as private as the type, and no other
       // library can use an unnamed extension or its members.
       isPrivate:

@@ -7,7 +7,6 @@
 @Timeout(Duration(minutes: 5))
 library;
 
-import 'package:ciach/src/source/locations.dart';
 import 'package:test/test.dart';
 
 import '../support/locations.dart';
@@ -31,10 +30,7 @@ void main() {
     await package.files.of(path);
     return {
       for (final name in functions)
-        name: package.files.hasDynamicSignature(
-          path,
-          positionOfName(path, name),
-        ),
+        name: package.files.hasDynamicSignature(path, offsetOfName(path, name)),
     };
   }
 
@@ -127,8 +123,8 @@ class F {}
 
       expect(
         [
-          for (final position in file.needSuperArguments)
-            source.split('\n')[position.line],
+          for (final offset in file.needSuperArguments)
+            source.split('\n')[file.positionOf(offset).line],
         ],
         unorderedEquals([
           'class B extends Positional {}',
@@ -165,10 +161,7 @@ void c() => alsoMissing();
       final valid = await package.resolveNew('void a() {}\n');
 
       // The wording of the message differs between analyzer versions.
-      expect(
-        broken.firstError?.position,
-        const Position(line: 2, character: 12),
-      );
+      expect(broken.firstError?.offset, broken.content.indexOf('missing'));
       expect(broken.firstError?.message, contains("'missing'"));
       expect(valid.firstError, isNull);
     },

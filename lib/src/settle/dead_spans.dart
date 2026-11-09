@@ -45,34 +45,32 @@ final class DeadSpans {
 
   bool get isEmpty => _byPath.isEmpty;
 
-  bool covers(String path, Position position) =>
-      ownerOf(path, position) != null;
+  bool covers(String path, int offset) => ownerOf(path, offset) != null;
 
-  /// The outermost finding whose removal deletes [position] in [path]. The
+  /// The outermost finding whose removal deletes [offset] in [path]. The
   /// name of a type at the start of its own clause entry, like `C` in
   /// `class A with C<T> {}`, has no owner.
-  UnusedDeclaration? ownerOf(String path, Position position) => maxBy(
+  UnusedDeclaration? ownerOf(String path, int offset) => maxBy(
     [
       if (_byPath[path] case final spans?)
         for (final span in spans)
           // `--remove` deletes `C` with its entry, but if the name didn't
           // count as a reference, `C` would be reported as unused, and
           // `--remove` would leave the entry.
-          if (_contains(span.range, position) &&
-              !(span.isClauseEntry && position == _start(span.range)))
+          if (_contains(span.range, offset) &&
+              !(span.isClauseEntry && offset == span.range.start))
             span,
     ],
     (span) => span.range,
     compare: _compareByNesting,
   )?.owner;
 
-  /// Every finding whose removal deletes [position] in [path]. Unlike
-  /// [ownerOf], this includes the type whose clause entry starts at
-  /// [position].
-  Iterable<UnusedDeclaration> ownersOf(String path, Position position) => {
+  /// Every finding whose removal deletes [offset] in [path]. Unlike
+  /// [ownerOf], this includes the type whose clause entry starts at [offset].
+  Iterable<UnusedDeclaration> ownersOf(String path, int offset) => {
     if (_byPath[path] case final spans?)
       for (final span in spans)
-        if (_contains(span.range, position)) span.owner,
+        if (_contains(span.range, offset)) span.owner,
   };
 
   /// The findings whose removal deletes one of [refs], in source order. A
@@ -99,7 +97,7 @@ final class DeadSpans {
       _byPath[absoluteUnder(finding.filePath, rootPath)]?.any(
         (span) =>
             !identical(span.owner, finding) &&
-            _contains(span.range, _start(finding.fullRange)),
+            _contains(span.range, finding.fullRange.start),
       ) ??
       false;
 
@@ -112,23 +110,17 @@ final class DeadSpans {
     values: UnorderedIterableEquality(EqualityBy((span) => span.range)),
   );
 
-  static bool _contains(DeclarationRange range, Position position) =>
-      _start(range).atOrBefore(position) && position.atOrBefore(_end(range));
+  static bool _contains(DeclarationRange range, int offset) =>
+      range.start <= offset && offset <= range.end;
 
-  /// Orders two spans that both contain a position from the inner to the
+  /// Orders two spans that both contain an offset from the inner to the
   /// outer: the outer one starts earlier, or starts at the same place and ends
   /// later.
   static int _compareByNesting(DeclarationRange a, DeclarationRange b) =>
-      switch (_start(b).compareTo(_start(a))) {
-        0 => _end(a).compareTo(_end(b)),
+      switch (b.start.compareTo(a.start)) {
+        0 => a.end.compareTo(b.end),
         final byStart => byStart,
       };
-
-  static Position _start(DeclarationRange range) =>
-      .new(line: range.startLine, character: range.startColumn);
-
-  static Position _end(DeclarationRange range) =>
-      .new(line: range.endLine, character: range.endColumn);
 }
 
 /// `path` is the absolute path of the file that the span is in, and

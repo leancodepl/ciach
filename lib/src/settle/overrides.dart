@@ -113,7 +113,7 @@ final class OverrideRemovals {
   /// Whether [spans] cover the start of [removal].
   bool _isIn(DeadSpans spans, CoupledRemoval removal) => spans.covers(
     absoluteUnder(removal.filePath, _rootPath),
-    .new(line: removal.range.startLine, character: removal.range.startColumn),
+    removal.range.start,
   );
 
   /// The overrides of the dead [member], as spans to remove with it.
@@ -147,8 +147,8 @@ final class OverrideRemovals {
       return null;
     }
     if (file.markers.keeping(
-          start: node.range.start.line,
-          nameLine: start.line,
+          start: file.positionOf(node.range.start).line,
+          nameLine: file.positionOf(start).line,
         ) !=
         null) {
       return null;
@@ -171,12 +171,12 @@ final class OverrideRemovals {
     );
   }
 
-  /// The outline node under [parent] whose name starts at [position]. A name
+  /// The outline node under [parent] whose name starts at [offset]. A name
   /// is inside every range around it, so this descends.
-  static Outline? _nodeNamedAt(Outline parent, Position position) =>
-      switch (parent.childAt(position)) {
-        final child? when child.element.range?.start == position => child,
-        final child? => _nodeNamedAt(child, position),
+  static Outline? _nodeNamedAt(Outline parent, int offset) =>
+      switch (parent.childAt(offset)) {
+        final child? when child.element.range?.start == offset => child,
+        final child? => _nodeNamedAt(child, offset),
         null => null,
       };
 }

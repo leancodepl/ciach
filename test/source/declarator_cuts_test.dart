@@ -9,7 +9,6 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../support/outlines.dart';
-import '../support/removal.dart';
 import '../support/test_package.dart';
 
 /// Removes fields and top-level variables with cuts worked out from the
@@ -37,15 +36,17 @@ void main() {
     ];
     final cuts = package.files.declaratorCuts(removed);
     removeDeclarations([
+      // The remover reads the ranges, not the line and column.
       for (final declarator in removed)
-        decl(
-          startLine: declarator.name.line,
-          startColumn: declarator.name.character,
-          endLine: declarator.name.line,
-          endColumn: declarator.name.character + 1,
+        .new(
+          name: 'x',
           kind: .variable,
-          cut: cuts[declarator],
           filePath: p.relative(path, from: package.root),
+          line: 1,
+          column: 1,
+          isPrivate: false,
+          range: (start: declarator.name, end: declarator.name + 1),
+          cut: cuts[declarator],
         ),
     ], package.root);
     return File(path).readAsStringSync();

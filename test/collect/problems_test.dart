@@ -18,7 +18,7 @@ void main() {
           'Could not find the references.',
           failure,
           path: '/pkg/lib/a.dart',
-          position: const .new(line: 2, character: 4),
+          position: (line: 2, column: 4),
           name: 'A.foo',
         );
       });

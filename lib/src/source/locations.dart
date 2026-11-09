@@ -4,45 +4,20 @@
  *   harness: Claude Code
  */
 
-/// Places in source text: a [Position], a [Range] between two positions, and
-/// a [Location], which is a range in a file.
+/// Places in source text: a [Range] of offsets, and a [Location], which is
+/// a range in a file.
 library;
 
-/// A place in source text: a zero-based line, and a zero-based column in UTF-16
-/// code units, which is how Dart strings count characters.
-final class Position implements Comparable<Position> {
-  const Position({required this.line, required this.character});
-
-  final int line;
-  final int character;
-
-  /// Orders positions by line, then by column.
-  @override
-  int compareTo(Position other) => switch (line.compareTo(other.line)) {
-    0 => character.compareTo(other.character),
-    final byLine => byLine,
-  };
-
-  /// Whether this position is at or before [other].
-  bool atOrBefore(Position other) => compareTo(other) <= 0;
-
-  @override
-  bool operator ==(Object other) =>
-      other is Position && other.line == line && other.character == character;
-
-  @override
-  int get hashCode => Object.hash(line, character);
-
-  @override
-  String toString() => 'Position(line: $line, character: $character)';
-}
-
-/// The text between [start] and [end].
+/// The text from offset [start] to offset [end] in a file's content. Offsets
+/// count UTF-16 code units, as Dart strings do.
 final class Range {
   const Range({required this.start, required this.end});
 
-  final Position start;
-  final Position end;
+  final int start;
+  final int end;
+
+  /// Whether [offset] lies within this range, both ends included.
+  bool contains(int offset) => start <= offset && offset <= end;
 
   @override
   bool operator ==(Object other) =>

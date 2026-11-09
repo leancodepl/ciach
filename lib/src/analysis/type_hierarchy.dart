@@ -7,7 +7,6 @@
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:ciach/src/analysis/element_declaration.dart';
-import 'package:ciach/src/analysis/line_positions.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/reachability.dart';
@@ -135,10 +134,9 @@ final class TypeHierarchy {
       fragment.nameOffset,
       fragment.name,
     )) {
-      (final file?, final offset?, final name?) => file.lineInfo.locationOf(
-        file.source.fullName,
-        offset,
-        name.length,
+      (final file?, final offset?, final name?) => .new(
+        path: file.source.fullName,
+        range: .new(start: offset, end: offset + name.length),
       ),
       _ => null,
     };

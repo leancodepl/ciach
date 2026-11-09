@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:ciach/src/model/finder_result.dart';
-import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
@@ -35,7 +34,7 @@ void recordProblem(
   String summary,
   Object error, {
   required String path,
-  Position? position,
+  ({int line, int column})? position,
   String? name,
 }) {
   final collector = Zone.current[ProblemCollector._key] as ProblemCollector?;
@@ -50,7 +49,7 @@ void recordProblem(
     filePath:
         collector?.rootPath.let((root) => relativePosix(path, root)) ?? path,
     line: position?.line.let((line) => line + 1),
-    column: position?.character.let((character) => character + 1),
+    column: position?.column.let((column) => column + 1),
     name: name,
   );
   collector?._problems.add(problem);

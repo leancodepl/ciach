@@ -12,7 +12,7 @@ import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/source/line_info.dart';
 import 'package:ciach/src/analysis/comments.dart';
-import 'package:ciach/src/analysis/line_positions.dart';
+import 'package:ciach/src/analysis/entity_ranges.dart';
 import 'package:ciach/src/source/file_syntax.dart';
 import 'package:ciach/src/source/locations.dart';
 
@@ -77,9 +77,9 @@ bool isStateTypeArgumentAt(CompilationUnit unit, int offset) => switch (unit
 ) {
   final lineInfo = unit.lineInfo;
   Clause clauseOf(AstNode clause, Token keyword, List<NamedType> entries) => (
-    range: lineInfo.rangeOfEntity(clause),
-    entries: entries.map(lineInfo.rangeOfEntity).toList(),
-    whole: lineInfo.rangeOf(_spaceBefore(lineInfo, keyword), clause.end),
+    range: clause.range,
+    entries: [for (final entry in entries) entry.range],
+    whole: .new(start: _spaceBefore(lineInfo, keyword), end: clause.end),
     keepsOne: switch (clause) {
       WithClause(parent: ClassTypeAlias()) => true,
       _ => false,
@@ -92,11 +92,11 @@ bool isStateTypeArgumentAt(CompilationUnit unit, int offset) => switch (unit
       switch (parent) {
         WithClause(:final withKeyword, :final mixinTypes) => (
           clause: clauseOf(parent, withKeyword, mixinTypes),
-          entry: lineInfo.rangeOfEntity(entry),
+          entry: entry.range,
         ),
         ImplementsClause(:final implementsKeyword, :final interfaces) => (
           clause: clauseOf(parent, implementsKeyword, interfaces),
-          entry: lineInfo.rangeOfEntity(entry),
+          entry: entry.range,
         ),
         _ => null,
       },
@@ -119,27 +119,24 @@ int _spaceBefore(LineInfo lineInfo, Token keyword) =>
 ({VariableStatement statement, Range declarator})? declaratorAt(
   CompilationUnit unit,
   int offset,
-) {
-  final lineInfo = unit.lineInfo;
-  return switch (unit.nodeCovering(offset: offset)) {
-    VariableDeclaration(
-          parent: VariableDeclarationList(
-            :final variables,
-            parent: final AnnotatedNode statement &&
-                (FieldDeclaration() || TopLevelVariableDeclaration()),
-          ),
-        ) &&
-        final declarator =>
-      (
-        statement: (
-          range: lineInfo.rangeOfEntity(statement),
-          declarators: variables.map(lineInfo.rangeOfEntity).toList(),
+) => switch (unit.nodeCovering(offset: offset)) {
+  VariableDeclaration(
+        parent: VariableDeclarationList(
+          :final variables,
+          parent: final AnnotatedNode statement &&
+              (FieldDeclaration() || TopLevelVariableDeclaration()),
         ),
-        declarator: lineInfo.rangeOfEntity(declarator),
+      ) &&
+      final declarator =>
+    (
+      statement: (
+        range: statement.range,
+        declarators: [for (final variable in variables) variable.range],
       ),
-    _ => null,
-  };
-}
+      declarator: declarator.range,
+    ),
+  _ => null,
+};
 
 /// See [FileSyntax.isInBody]. [start] and [end] are the offsets of the
 /// declaration's code.

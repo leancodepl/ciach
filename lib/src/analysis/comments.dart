@@ -20,7 +20,7 @@ Iterable<({int offset, String text})> lineCommentsOf(
   // `next` is itself.
   for (var token = unit.beginToken; ; token = token.next!) {
     for (final comment in commentsBefore(token)) {
-      if (comment.type == TokenType.SINGLE_LINE_COMMENT) {
+      if (comment.type == .SINGLE_LINE_COMMENT) {
         yield (offset: comment.offset, text: comment.lexeme);
       }
     }

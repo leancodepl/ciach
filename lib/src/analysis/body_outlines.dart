@@ -38,12 +38,12 @@ final class _BodyOutlines extends RecursiveAstVisitor<void> {
   /// The outline of the test or group call [node], named after the function
   /// that it calls.
   Outline _call(MethodInvocation node, OutlineKind kind, List<Outline> inside) {
-    final range = _builder._rangeOf(node);
+    final range = node.range;
     return .new(
       element: .new(
         kind: kind,
         name: node.methodName.name,
-        range: _builder._rangeOf(node.methodName),
+        range: node.methodName.range,
       ),
       range: range,
       codeRange: range,

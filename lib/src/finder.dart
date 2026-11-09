@@ -326,7 +326,7 @@ final class _Run {
 
   void _logDropped(Candidate candidate) => _log.fine(
     'Skipped ${relativePosix(candidate.path, options.rootPath)}:'
-    '${candidate.outline.nameRange.start.line + 1} '
+    '${candidate.positionOf(candidate.outline.nameRange.start).line + 1} '
     '${candidate.name}: its namesake in another conditional-import '
     'variant is not checked.',
   );

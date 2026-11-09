@@ -7,7 +7,6 @@
 @Timeout(Duration(minutes: 5))
 library;
 
-import 'package:ciach/src/source/line_starts.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:test/test.dart';
@@ -27,19 +26,15 @@ void main() {
   /// A `/*label*/` comment right before the name that a test asks about.
   final marker = RegExp(r'/\*(?<label>\w+)\*/');
 
-  /// Writes [source] to a new file and returns its path, with the position
-  /// of each name that a [marker] marks in [source], by its label.
-  (String, Map<String, Position>) marked(String source) {
-    final path = package.writeNew(source);
-    final starts = lineStartsOf(source);
-    return (
-      path,
-      {
-        for (final match in marker.allMatches(source))
-          match.namedGroup('label')!: positionIn(starts, match.end),
-      },
-    );
-  }
+  /// Writes [source] to a new file and returns its path, with the offset of
+  /// each name that a [marker] marks in [source], by its label.
+  (String, Map<String, int>) marked(String source) => (
+    package.writeNew(source),
+    {
+      for (final match in marker.allMatches(source))
+        match.namedGroup('label')!: match.end,
+    },
+  );
 
   /// Writes [source] to a new file and returns the answer of [question] at
   /// each name that a [marker] marks in [source], by its label.
@@ -82,8 +77,8 @@ int total = 0;
               .new(
                 path: path,
                 range: .new(
-                  start: positionOfName(path, 'Shape', occurrence: occurrence),
-                  end: positionOfName(path, 'Shape', occurrence: occurrence),
+                  start: offsetOfName(path, 'Shape', occurrence: occurrence),
+                  end: offsetOfName(path, 'Shape', occurrence: occurrence),
                 ),
               ),
             ),

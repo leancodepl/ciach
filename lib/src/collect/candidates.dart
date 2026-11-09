@@ -9,6 +9,7 @@
  */
 
 import 'package:ciach/src/model/symbol_kind.dart';
+import 'package:ciach/src/source/line_starts.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
@@ -46,11 +47,15 @@ enum RefStatus {
 final class Candidate {
   const Candidate({
     required this.path,
+    required this.lineStarts,
     required this.outline,
     this.containerOutline,
   });
 
   final String path;
+
+  /// The offset at which each line of the file at [path] starts.
+  final List<int> lineStarts;
 
   final Outline outline;
 
@@ -117,6 +122,10 @@ final class Candidate {
 
   /// This candidate's own `(path, name)` key.
   DeclKey get key => .new(path, name);
+
+  /// The zero-based line and column of [offset] in this candidate's file.
+  ({int line, int column}) positionOf(int offset) =>
+      positionIn(lineStarts, offset);
 
   /// The `(path, container)` key of this candidate's enclosing declaration,
   /// or `null` when it has no container.

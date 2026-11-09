@@ -60,8 +60,8 @@ final class TransitiveSweep {
     final removable = removableIndices(candidateOf);
     // A type's own entry in a clause counts as one of its containers, so
     // that the entry doesn't keep the type alive.
-    Iterable<int> containers(String path, Position position) => [
-      for (final owner in spans.ownersOf(path, position)) candidateOf[owner]!,
+    Iterable<int> containers(String path, int offset) => [
+      for (final owner in spans.ownersOf(path, offset)) candidateOf[owner]!,
     ];
     final uses = [
       for (final i in removable)

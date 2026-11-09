@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:ciach/src/analysis/comments.dart';
 import 'package:ciach/src/model/removal_result.dart';
+import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/remove/declaration_spans.dart';
 import 'package:ciach/src/remove/emptied_files.dart';
@@ -82,35 +83,54 @@ RemovalResult removeDeclarations(
   }
 }
 
+/// What `--remove` deletes for a finding or for a removal coupled to one:
+/// `name` is for the log, and `cut` is set for a field or variable.
+typedef _Removal = ({
+  String filePath,
+  String name,
+  SymbolKind kind,
+  bool isEnumValue,
+  DeclarationRange range,
+  DeclarationRange fullRange,
+  DeclarationRange? cut,
+});
+
 /// The declarations to remove, and their coupled removals, by file.
-Map<String, List<UnusedDeclaration>> _byFile(
-  List<UnusedDeclaration> declarations,
-) => <UnusedDeclaration>[
-  // A blocked finding is reported but never auto-removed: deleting it safely
-  // would need a source rewrite (e.g. an `if (x case DeadType())` branch), so
-  // leave it — and anything coupled to it — entirely alone.
-  for (final decl in declarations.whereNot((decl) => decl.removalBlocked)) ...[
-    decl,
-    // Coupled removals are extra spans that must be deleted together with the
-    // declaration to keep the source compiling (a dead StatefulWidget's paired
-    // `State` subclass, or an override of a dead member), but that are not
-    // findings in their own right. Each names its own file, so group it under
-    // that file. Turn each into a synthetic declaration so it flows through
-    // the normal removal pass and its span merges with the rest.
-    for (final coupled in decl.coupledRemovals)
-      .new(
-        name: '',
-        kind: coupled.kind,
-        filePath: coupled.filePath,
-        line: coupled.range.startLine + 1,
-        column: coupled.range.startColumn + 1,
-        isPrivate: true,
-        range: coupled.range,
-        fullRange: coupled.fullRange,
-        cut: coupled.cut,
-      ),
-  ],
-].groupListsBy((decl) => decl.filePath);
+Map<String, List<_Removal>> _byFile(List<UnusedDeclaration> declarations) =>
+    <_Removal>[
+      // A blocked finding is reported but never auto-removed: deleting it
+      // safely would need a source rewrite (e.g. an `if (x case DeadType())`
+      // branch), so leave it — and anything coupled to it — entirely alone.
+      for (final decl in declarations.whereNot(
+        (decl) => decl.removalBlocked,
+      )) ...[
+        (
+          filePath: decl.filePath,
+          name: decl.qualifiedName,
+          kind: decl.kind,
+          isEnumValue: decl.isEnumValue,
+          range: decl.range,
+          fullRange: decl.fullRange,
+          cut: decl.cut,
+        ),
+        // Coupled removals are extra spans that must be deleted together
+        // with the declaration to keep the source compiling (a dead
+        // StatefulWidget's paired `State` subclass, or an override of a dead
+        // member), but that are not findings in their own right. Each names
+        // its own file, so group it under that file, where its span merges
+        // with the rest.
+        for (final coupled in decl.coupledRemovals)
+          (
+            filePath: coupled.filePath,
+            name: '',
+            kind: coupled.kind,
+            isEnumValue: false,
+            range: coupled.range,
+            fullRange: coupled.fullRange,
+            cut: coupled.cut,
+          ),
+      ],
+    ].groupListsBy((removal) => removal.filePath);
 
 /// The line of each comment in [keptComments], read from the files as they are
 /// once every change is written. A comment in a file that was deleted is left
@@ -164,22 +184,20 @@ class RemovalException implements Exception {
   String toString() => message;
 }
 
-/// Returns [content] with [decls] removed, and how far from the end of the
+/// Returns [content] with [removals] removed, and how far from the end of the
 /// result each `//` comment block kept directly above removed code starts.
 ({String updated, List<int> commentsFromEnd}) _removeFromContent(
   String content,
-  List<UnusedDeclaration> decls,
+  List<_Removal> removals,
 ) {
   final comments = _OwnLineComments(content);
-  int offsetOf(int line, int column) => comments.starts[line] + column;
-
   final enumSpans = [
-    for (final decl in decls.where((decl) => decl.isEnumValue))
-      spanFor(decl, content, offsetOf),
+    for (final removal in removals.where((removal) => removal.isEnumValue))
+      spanFor(content, removal.range, removal.fullRange, isEnumValue: true),
   ];
   final spans = [
-    for (final decl in decls.whereNot((decl) => decl.isEnumValue))
-      ?_spanOf(decl, content, offsetOf),
+    for (final removal in removals.whereNot((removal) => removal.isEnumValue))
+      ?_spanOf(removal, content),
     // Merge each enum's value spans, then drop a separator comma left orphaned
     // when a trailing run of values is removed from a compact single-line
     // enum.
@@ -279,22 +297,23 @@ final class _OwnLineComments {
   }
 }
 
-/// Returns the span to delete for [decl], which isn't an enum value: its
-/// [UnusedDeclaration.cut] if it has one, else [spanFor]. Returns `null` for
-/// a field or variable without a cut, which stays.
-Span? _spanOf(
-  UnusedDeclaration decl,
-  String content,
-  int Function(int line, int column) offsetOf,
-) {
-  if (decl.cut case final cut?) {
-    return _wholeLines(cut, content, offsetOf);
+/// Returns the span to delete for [removal], which isn't an enum value: its
+/// cut if it has one, else [spanFor]. Returns `null` for a field or variable
+/// without a cut, which stays.
+Span? _spanOf(_Removal removal, String content) {
+  if (removal.cut case final cut?) {
+    return _wholeLines(cut, content);
   }
-  if (!declaratorKinds.contains(decl.kind)) {
-    return spanFor(decl, content, offsetOf);
+  if (!declaratorKinds.contains(removal.kind)) {
+    return spanFor(
+      content,
+      removal.range,
+      removal.fullRange,
+      isEnumValue: false,
+    );
   }
   _log.fine(
-    'Left ${decl.qualifiedName} in ${decl.filePath} in place: the finder found no range to cut it out by.',
+    'Left ${removal.name} in ${removal.filePath} in place: the finder found no range to cut it out by.',
   );
   return null;
 }
@@ -302,15 +321,9 @@ Span? _spanOf(
 /// Returns [cut] as a span. When only whitespace surrounds it on its first and
 /// last lines, the span covers those whole lines, so a removed statement
 /// leaves no empty line behind.
-Span _wholeLines(
-  DeclarationRange cut,
-  String content,
-  int Function(int line, int column) offsetOf,
-) {
-  final start = offsetOf(cut.startLine, cut.startColumn);
-  final end = offsetOf(cut.endLine, cut.endColumn);
-  final whole = consumeLineEnd(content, end);
-  return whole == end
-      ? (start: start, end: end)
-      : (start: withIndentation(content, start), end: whole);
+Span _wholeLines(DeclarationRange cut, String content) {
+  final whole = consumeLineEnd(content, cut.end);
+  return whole == cut.end
+      ? cut
+      : (start: withIndentation(content, cut.start), end: whole);
 }

@@ -27,6 +27,20 @@ used to have the kind `typeParameter`. It now has the kind of that type and
 `isClauseEntry: true`. Code that builds a `CoupledRemoval` sets
 `isClauseEntry` too.
 
+### `DeclarationRange` holds offsets
+
+This concerns only code that uses `package:ciach` as a library.
+`DeclarationRange` is the type of `range`, `fullRange` and `cut` in an
+`UnusedDeclaration` and a `CoupledRemoval`. It held zero-based lines and
+columns: `startLine`, `startColumn`, `endLine` and `endColumn`. It is now
+`({int start, int end})`, offsets into the file's text that count UTF-16 code
+units, like the indices of a Dart `String`.
+
+`removeDeclarations` reads the ranges as offsets, so code that builds findings
+for it passes offsets too. The offset of a zero-based line and column is the
+column plus the index just after the line's preceding `\n`, or plus 0 on the
+first line. The one-based `line` and `column` of a finding don't change.
+
 ### `--kinds constant`
 
 ciach reports a `const` variable as a `variable` or a `field`, so

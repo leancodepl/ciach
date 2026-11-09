@@ -12,10 +12,7 @@ import 'package:ciach/src/source/outline.dart';
 /// The outline of a declaration named [name]; its ranges are irrelevant to
 /// the rules.
 Outline declared(String name, {OutlineKind kind = .function}) {
-  const range = Range(
-    start: .new(line: 0, character: 0),
-    end: .new(line: 0, character: 0),
-  );
+  const range = Range(start: 0, end: 0);
   return .new(
     element: .new(kind: kind, name: name, range: range),
     range: range,

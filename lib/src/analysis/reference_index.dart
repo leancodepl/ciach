@@ -8,7 +8,6 @@ import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:ciach/src/analysis/element_declaration.dart';
 import 'package:ciach/src/analysis/element_uses.dart';
-import 'package:ciach/src/analysis/line_positions.dart';
 import 'package:ciach/src/analysis/type_hierarchy.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:collection/collection.dart';
@@ -31,7 +30,10 @@ final class ReferenceIndex {
     for (final (:element, :offset, :length) in elementUses(unit)) {
       if (ElementDeclaration.of(element) case final declaration?) {
         (_uses[declaration] ??= []).add(
-          unit.lineInfo.locationOf(path, offset, length),
+          .new(
+            path: path,
+            range: .new(start: offset, end: offset + length),
+          ),
         );
       }
     }

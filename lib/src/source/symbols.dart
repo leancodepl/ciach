@@ -95,44 +95,35 @@ extension DeclarationNames on OutlineElement {
 }
 
 extension OutlineChildren on Outline {
-  /// The child covering [position].
-  Outline? childAt(Position position) {
+  /// The child covering [offset].
+  Outline? childAt(int offset) {
     final child = lastStartingAtOrBefore(
       children,
-      position,
+      offset,
       (child) => child.range.start,
     );
-    return child != null && position.atOrBefore(child.range.end) ? child : null;
+    return child != null && offset <= child.range.end ? child : null;
   }
 }
 
 extension RangeConversion on Range {
-  /// Whether [position] lies within this range, both ends included.
-  bool contains(Position position) =>
-      start.atOrBefore(position) && position.atOrBefore(end);
-
   /// This range as a [DeclarationRange].
-  DeclarationRange get toDeclarationRange => (
-    startLine: start.line,
-    startColumn: start.character,
-    endLine: end.line,
-    endColumn: end.character,
-  );
+  DeclarationRange get toDeclarationRange => (start: start, end: end);
 }
 
-/// The last of [items] starting at or before [position], or `null` when none
+/// The last of [items] starting at or before [offset], or `null` when none
 /// does. [items] must be in source order, as the outline lists declarations,
 /// which makes this a binary search.
 T? lastStartingAtOrBefore<T>(
   List<T> items,
-  Position position,
-  Position Function(T item) startOf,
+  int offset,
+  int Function(T item) startOf,
 ) {
   var lo = 0;
   var hi = items.length;
   while (lo < hi) {
     final mid = (lo + hi) >> 1;
-    if (startOf(items[mid]).atOrBefore(position)) {
+    if (startOf(items[mid]) <= offset) {
       lo = mid + 1;
     } else {
       hi = mid;

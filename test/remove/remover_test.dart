@@ -31,7 +31,14 @@ void alsoKept() {}
 ''';
     // `void danglingFunction() {}` is line index 3, columns 0..26.
     final result = applyRemoval(source, [
-      decl(startLine: 3, startColumn: 0, endLine: 3, endColumn: 26, docLine: 2),
+      decl(
+        source,
+        startLine: 3,
+        startColumn: 0,
+        endLine: 3,
+        endColumn: 26,
+        docLine: 2,
+      ),
     ]);
     expect(result, isNot(contains('danglingFunction')));
     expect(result, isNot(contains('Never referenced')));
@@ -41,15 +48,20 @@ void alsoKept() {}
 
   group('a field or variable', () {
     /// The `variable` of `lib.dart` named at [line]:[column], with [cut].
-    UnusedDeclaration declarator(int line, int column, DeclarationRange? cut) =>
-        decl(
-          startLine: line,
-          startColumn: column,
-          endLine: line,
-          endColumn: column + 1,
-          kind: .variable,
-          cut: cut,
-        );
+    UnusedDeclaration declarator(
+      String source,
+      int line,
+      int column,
+      DeclarationRange? cut,
+    ) => decl(
+      source,
+      startLine: line,
+      startColumn: column,
+      endLine: line,
+      endColumn: column + 1,
+      kind: .variable,
+      cut: cut,
+    );
 
     test('deletes its cut, extended to whole lines', () {
       const source = '''
@@ -61,12 +73,17 @@ class C {
 }
 ''';
       final result = applyRemoval(source, [
-        declarator(2, 12, (
-          startLine: 1,
-          startColumn: 2,
-          endLine: 2,
-          endColumn: 29,
-        )),
+        declarator(
+          source,
+          2,
+          12,
+          rangeIn(source, (
+            startLine: 1,
+            startColumn: 2,
+            endLine: 2,
+            endColumn: 29,
+          )),
+        ),
       ]);
       expect(result, '''
 class C {
@@ -79,19 +96,24 @@ class C {
     test('deletes only its cut when the statement keeps other variables', () {
       const source = 'int a = 1, b = 2, c = 3;\n';
       final result = applyRemoval(source, [
-        declarator(0, 11, (
-          startLine: 0,
-          startColumn: 11,
-          endLine: 0,
-          endColumn: 18,
-        )),
+        declarator(
+          source,
+          0,
+          11,
+          rangeIn(source, (
+            startLine: 0,
+            startColumn: 11,
+            endLine: 0,
+            endColumn: 18,
+          )),
+        ),
       ]);
       expect(result, 'int a = 1, c = 3;\n');
     });
 
     test('stays when it has no cut', () {
       const source = 'int a = 1, b = 2;\n';
-      expect(applyRemoval(source, [declarator(0, 4, null)]), source);
+      expect(applyRemoval(source, [declarator(source, 0, 4, null)]), source);
     });
   });
 
@@ -115,6 +137,7 @@ class C {
       // the name — matching how the analysis server reports whole-node
       // kinds (only `field`/`variable`/`constant` exclude their prefix).
       decl(
+        source,
         startLine: 3,
         startColumn: 0,
         endLine: 6,
@@ -123,6 +146,7 @@ class C {
         docLine: 2,
       ),
       decl(
+        source,
         startLine: 5,
         startColumn: 2,
         endLine: 5,
@@ -148,15 +172,25 @@ class Pair {
   final int left = 1, right = 2;
 }
 ''';
-    const statement = (startLine: 1, startColumn: 2, endLine: 1, endColumn: 32);
-    const right = UnusedDeclaration(
+    final statement = rangeIn(source, (
+      startLine: 1,
+      startColumn: 2,
+      endLine: 1,
+      endColumn: 32,
+    ));
+    final right = UnusedDeclaration(
       name: 'right',
       kind: .field,
       filePath: 'lib.dart',
       line: 2,
       column: 23,
       isPrivate: false,
-      range: (startLine: 1, startColumn: 22, endLine: 1, endColumn: 31),
+      range: rangeIn(source, (
+        startLine: 1,
+        startColumn: 22,
+        endLine: 1,
+        endColumn: 31,
+      )),
       cut: statement,
       coupledRemovals: [
         // `right` again, coupled to the member it overrides.
@@ -164,8 +198,18 @@ class Pair {
           filePath: 'lib.dart',
           kind: .field,
           isClauseEntry: false,
-          range: (startLine: 1, startColumn: 22, endLine: 1, endColumn: 31),
-          fullRange: (startLine: 1, startColumn: 22, endLine: 1, endColumn: 31),
+          range: rangeIn(source, (
+            startLine: 1,
+            startColumn: 22,
+            endLine: 1,
+            endColumn: 31,
+          )),
+          fullRange: rangeIn(source, (
+            startLine: 1,
+            startColumn: 22,
+            endLine: 1,
+            endColumn: 31,
+          )),
           cut: statement,
         ),
         // `left`, the statement's other variable.
@@ -173,8 +217,18 @@ class Pair {
           filePath: 'lib.dart',
           kind: .field,
           isClauseEntry: false,
-          range: (startLine: 1, startColumn: 12, endLine: 1, endColumn: 20),
-          fullRange: (startLine: 1, startColumn: 12, endLine: 1, endColumn: 20),
+          range: rangeIn(source, (
+            startLine: 1,
+            startColumn: 12,
+            endLine: 1,
+            endColumn: 20,
+          )),
+          fullRange: rangeIn(source, (
+            startLine: 1,
+            startColumn: 12,
+            endLine: 1,
+            endColumn: 20,
+          )),
           cut: statement,
         ),
       ],
@@ -200,27 +254,42 @@ class Mixed implements Halved {
 ''';
       // `int get dead;` is line 1, cols 2..15. The cut of its override is
       // `dead = 1, ` on line 5, cols 12..22, up to the next variable.
-      const member = UnusedDeclaration(
+      final member = UnusedDeclaration(
         name: 'dead',
         kind: .property,
         filePath: 'lib.dart',
         line: 2,
         column: 11,
         isPrivate: false,
-        range: (startLine: 1, startColumn: 2, endLine: 1, endColumn: 15),
+        range: rangeIn(source, (
+          startLine: 1,
+          startColumn: 2,
+          endLine: 1,
+          endColumn: 15,
+        )),
         coupledRemovals: [
           (
             filePath: 'lib.dart',
             kind: .field,
             isClauseEntry: false,
-            range: (startLine: 5, startColumn: 12, endLine: 5, endColumn: 20),
-            fullRange: (
+            range: rangeIn(source, (
               startLine: 5,
               startColumn: 12,
               endLine: 5,
               endColumn: 20,
-            ),
-            cut: (startLine: 5, startColumn: 12, endLine: 5, endColumn: 22),
+            )),
+            fullRange: rangeIn(source, (
+              startLine: 5,
+              startColumn: 12,
+              endLine: 5,
+              endColumn: 20,
+            )),
+            cut: rangeIn(source, (
+              startLine: 5,
+              startColumn: 12,
+              endLine: 5,
+              endColumn: 22,
+            )),
           ),
         ],
       );
@@ -260,26 +329,36 @@ class Kept {}
 ''';
       // `class DeadWidget { ... }` spans line 0 col 0 .. line 4 col 1.
       // `class _DeadWidgetState ... {}` is line 6, cols 0..51.
-      const widget = UnusedDeclaration(
+      final widget = UnusedDeclaration(
         name: 'DeadWidget',
         kind: .class$,
         filePath: 'lib.dart',
         line: 1,
         column: 7,
         isPrivate: false,
-        range: (startLine: 0, startColumn: 0, endLine: 4, endColumn: 1),
+        range: rangeIn(source, (
+          startLine: 0,
+          startColumn: 0,
+          endLine: 4,
+          endColumn: 1,
+        )),
         coupledRemovals: [
           (
             filePath: 'lib.dart',
             kind: .class$,
             isClauseEntry: false,
-            range: (startLine: 6, startColumn: 0, endLine: 6, endColumn: 51),
-            fullRange: (
+            range: rangeIn(source, (
               startLine: 6,
               startColumn: 0,
               endLine: 6,
               endColumn: 51,
-            ),
+            )),
+            fullRange: rangeIn(source, (
+              startLine: 6,
+              startColumn: 0,
+              endLine: 6,
+              endColumn: 51,
+            )),
             cut: null,
           ),
         ],
@@ -310,14 +389,19 @@ String describe(S s) => switch (s) {
   Dead() => 'dead',
 };
 ''';
-      const dead = UnusedDeclaration(
+      final dead = UnusedDeclaration(
         name: 'Dead',
         kind: .class$,
         filePath: 'lib.dart',
         line: 5,
         column: 7,
         isPrivate: false,
-        range: (startLine: 4, startColumn: 0, endLine: 4, endColumn: 23),
+        range: rangeIn(source, (
+          startLine: 4,
+          startColumn: 0,
+          endLine: 4,
+          endColumn: 23,
+        )),
         removalBlocked: true,
         // Even if a coupled span were attached, a blocked finding is skipped
         // whole — so the arm must survive too.
@@ -326,8 +410,18 @@ String describe(S s) => switch (s) {
             filePath: 'lib.dart',
             kind: .class$,
             isClauseEntry: false,
-            range: (startLine: 8, startColumn: 2, endLine: 9, endColumn: 0),
-            fullRange: (startLine: 8, startColumn: 2, endLine: 9, endColumn: 0),
+            range: rangeIn(source, (
+              startLine: 8,
+              startColumn: 2,
+              endLine: 9,
+              endColumn: 0,
+            )),
+            fullRange: rangeIn(source, (
+              startLine: 8,
+              startColumn: 2,
+              endLine: 9,
+              endColumn: 0,
+            )),
             cut: null,
           ),
         ],
@@ -354,7 +448,7 @@ enum Status {
 Status? statusHolder;
 ''';
       // `only` is line index 1, columns 2..6.
-      const blockedValue = UnusedDeclaration(
+      final blockedValue = UnusedDeclaration(
         name: 'only',
         kind: .enum$,
         filePath: 'lib.dart',
@@ -362,7 +456,12 @@ Status? statusHolder;
         column: 3,
         isPrivate: false,
         isEnumValue: true,
-        range: (startLine: 1, startColumn: 2, endLine: 1, endColumn: 6),
+        range: rangeIn(source, (
+          startLine: 1,
+          startColumn: 2,
+          endLine: 1,
+          endColumn: 6,
+        )),
         removalBlocked: true,
       );
 
@@ -388,7 +487,7 @@ class Holder {
 Holder? holderRef;
 ''';
       // `const Holder(this.label);` is line index 1, columns 2..27.
-      const blockedCtor = UnusedDeclaration(
+      final blockedCtor = UnusedDeclaration(
         name: 'new',
         kind: .constructor,
         filePath: 'lib.dart',
@@ -396,7 +495,12 @@ Holder? holderRef;
         column: 3,
         isPrivate: false,
         container: 'Holder',
-        range: (startLine: 1, startColumn: 2, endLine: 1, endColumn: 27),
+        range: rangeIn(source, (
+          startLine: 1,
+          startColumn: 2,
+          endLine: 1,
+          endColumn: 27,
+        )),
         removalBlocked: true,
       );
 
@@ -421,6 +525,7 @@ int useKept() => Kept(1).x;
       // `class DeadPoint(var int x, var int y);` is line index 3, columns 0..38.
       final result = applyRemoval(source, [
         decl(
+          source,
           startLine: 3,
           startColumn: 0,
           endLine: 3,
@@ -456,6 +561,7 @@ class Registry {
       final result = applyRemoval(source, [
         // `new deadNamed() : tag = null;` is line index 4, columns 2..30.
         decl(
+          source,
           startLine: 4,
           startColumn: 2,
           endLine: 4,
@@ -466,6 +572,7 @@ class Registry {
         ),
         // `factory deadRedirect() = Registry;` is line index 7, columns 2..35.
         decl(
+          source,
           startLine: 7,
           startColumn: 2,
           endLine: 7,
@@ -484,9 +591,8 @@ class Registry {
   );
 
   test('a file it cannot rewrite stops it, naming what it already rewrote', () {
-    File(
-      p.join(tempDir.path, 'lib.dart'),
-    ).writeAsStringSync('void a() {}\nvoid b() {}\n');
+    const source = 'void a() {}\nvoid b() {}\n';
+    File(p.join(tempDir.path, 'lib.dart')).writeAsStringSync(source);
     // A directory where the next file should be: reading it fails.
     Directory(p.join(tempDir.path, 'other.dart')).createSync();
     const unreadable = UnusedDeclaration(
@@ -496,12 +602,12 @@ class Registry {
       line: 1,
       column: 6,
       isPrivate: false,
-      range: (startLine: 0, startColumn: 0, endLine: 0, endColumn: 11),
+      range: (start: 0, end: 11),
     );
 
     expect(
       () => removeDeclarations([
-        decl(startLine: 0, startColumn: 0, endLine: 0, endColumn: 11),
+        decl(source, startLine: 0, startColumn: 0, endLine: 0, endColumn: 11),
         unreadable,
       ], tempDir.path),
       throwsA(
@@ -526,9 +632,9 @@ class C {
 }
 ''';
     final result = applyRemoval(source, [
-      decl(startLine: 1, startColumn: 2, endLine: 1, endColumn: 14),
-      decl(startLine: 2, startColumn: 2, endLine: 2, endColumn: 14),
-      decl(startLine: 4, startColumn: 2, endLine: 4, endColumn: 14),
+      decl(source, startLine: 1, startColumn: 2, endLine: 1, endColumn: 14),
+      decl(source, startLine: 2, startColumn: 2, endLine: 2, endColumn: 14),
+      decl(source, startLine: 4, startColumn: 2, endLine: 4, endColumn: 14),
     ]);
     expect(
       result,
@@ -549,7 +655,7 @@ class C {
 }
 ''';
     final result = applyRemoval(source, [
-      decl(startLine: 1, startColumn: 2, endLine: 1, endColumn: 14),
+      decl(source, startLine: 1, startColumn: 2, endLine: 1, endColumn: 14),
     ]);
     expect(result, contains('// coverage:ignore-start\n  void kept() {}'));
   });
@@ -580,8 +686,9 @@ void b() {}
 void c() {}
 ''';
       final lines = leftCommentLines(source, [
-        decl(startLine: 0, startColumn: 0, endLine: 0, endColumn: 11),
+        decl(source, startLine: 0, startColumn: 0, endLine: 0, endColumn: 11),
         decl(
+          source,
           startLine: 5,
           startColumn: 0,
           endLine: 5,
@@ -609,7 +716,7 @@ void b() {}
 ''';
       expect(
         leftCommentLines(source, [
-          decl(startLine: 2, startColumn: 0, endLine: 2, endColumn: 11),
+          decl(source, startLine: 2, startColumn: 0, endLine: 2, endColumn: 11),
         ]),
         isEmpty,
       );
@@ -630,8 +737,9 @@ void b() {}
 ''';
       expect(
         leftCommentLines(source, [
-          decl(startLine: 2, startColumn: 0, endLine: 2, endColumn: 11),
+          decl(source, startLine: 2, startColumn: 0, endLine: 2, endColumn: 11),
           decl(
+            source,
             startLine: 4,
             startColumn: 0,
             endLine: 7,
@@ -639,6 +747,7 @@ void b() {}
             kind: .class$,
           ),
           decl(
+            source,
             startLine: 6,
             startColumn: 2,
             endLine: 6,
@@ -662,7 +771,7 @@ void a() {}
 void _b() {}
 ''';
       final lines = leftCommentLines(source, [
-        decl(startLine: 7, startColumn: 0, endLine: 7, endColumn: 12),
+        decl(source, startLine: 7, startColumn: 0, endLine: 7, endColumn: 12),
       ]);
       expect(File(p.join(tempDir.path, 'lib.dart')).readAsStringSync(), '''
 void a() {}
@@ -685,7 +794,7 @@ void b() {}
 ''';
       File(p.join(tempDir.path, 'lib.dart')).writeAsStringSync(source);
       final result = removeDeclarations(
-        [decl(startLine: 5, startColumn: 0, endLine: 5, endColumn: 11)],
+        [decl(source, startLine: 5, startColumn: 0, endLine: 5, endColumn: 11)],
         tempDir.path,
         emptyFiles: ['gone.dart'],
       );
@@ -707,7 +816,7 @@ int a() => max(1, 2);
 ''';
       expect(
         leftCommentLines(source, [
-          decl(startLine: 3, startColumn: 0, endLine: 3, endColumn: 20),
+          decl(source, startLine: 3, startColumn: 0, endLine: 3, endColumn: 20),
         ]),
         isEmpty,
       );

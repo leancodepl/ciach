@@ -18,9 +18,9 @@ import 'package:ciach/src/source/list_cuts.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/symbols.dart';
 
-/// A field or top-level variable, identified by its file and the position of
+/// A field or top-level variable, identified by its file and the offset of
 /// its name.
-typedef DeclaratorAt = ({String path, Position name});
+typedef DeclaratorAt = ({String path, int name});
 
 extension DeclaratorCuts on FileSyntax {
   /// Returns the range `--remove` deletes for each of [declarators].

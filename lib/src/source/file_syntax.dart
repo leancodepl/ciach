@@ -65,10 +65,10 @@ abstract interface class FileSyntax {
   /// that variable, or `null` when no variable's name starts there.
   ({VariableStatement statement, Range declarator})? declaratorAt(
     String path,
-    Position name,
+    int name,
   );
 
-  /// Whether [position] in the file at [path] is in the body of the function,
+  /// Whether [offset] in the file at [path] is in the body of the function,
   /// method or constructor whose code is [declaration].
-  bool isInBody(String path, Position position, Range declaration);
+  bool isInBody(String path, int offset, Range declaration);
 }

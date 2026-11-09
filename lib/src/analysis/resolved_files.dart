@@ -12,7 +12,6 @@ import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:ciach/src/analysis/comments.dart';
 import 'package:ciach/src/analysis/declaration_annotation.dart';
-import 'package:ciach/src/analysis/line_positions.dart';
 import 'package:ciach/src/analysis/reference_index.dart';
 import 'package:ciach/src/analysis/reference_shapes.dart' as shapes;
 import 'package:ciach/src/analysis/resolved_class.dart';
@@ -54,7 +53,7 @@ final class ResolvedFiles implements FileSyntax {
 
   /// The element that each declaration of a resolved file declares, by the
   /// file's path and the start of the declaration's name.
-  final _elements = <String, Map<Position, Element>>{};
+  final _elements = <String, Map<int, Element>>{};
 
   /// Returns the file at [path], an absolute and normalized path, or `null`
   /// when the analyzer can't read or resolve it, such as a file whose path
@@ -94,39 +93,26 @@ final class ResolvedFiles implements FileSyntax {
   @override
   ({VariableStatement statement, Range declarator})? declaratorAt(
     String path,
-    Position name,
+    int name,
   ) => _at(path, name, shapes.declaratorAt);
 
   @override
-  bool isInBody(String path, Position position, Range declaration) =>
-      _at(path, position, (unit, offset) {
-        final lineInfo = unit.lineInfo;
-        return switch ((
-          lineInfo.offsetOf(declaration.start),
-          lineInfo.offsetOf(declaration.end),
-        )) {
-          (final start?, final end?) => shapes.isInBodyAt(
-            unit,
-            offset,
-            start,
-            end,
-          ),
-          _ => false,
-        };
-      }) ??
+  bool isInBody(String path, int offset, Range declaration) =>
+      _at(
+        path,
+        offset,
+        (unit, offset) =>
+            shapes.isInBodyAt(unit, offset, declaration.start, declaration.end),
+      ) ??
       false;
 
-  /// Returns what [read] reads at [position] in the parsed file at [path], or
-  /// `null` when the file can't be parsed or [position] isn't in it.
+  /// Returns what [read] reads at [offset] in the parsed file at [path], or
+  /// `null` when the file can't be parsed.
   T? _at<T extends Object>(
     String path,
-    Position position,
+    int offset,
     T? Function(CompilationUnit unit, int offset) read,
-  ) {
-    final unit = _parsed[path]?.unit;
-    final offset = unit?.lineInfo.offsetOf(position);
-    return unit == null || offset == null ? null : read(unit, offset);
-  }
+  ) => _parsed[path]?.unit.let((unit) => read(unit, offset));
 
   /// Resolves the Dart files that the analysis root's `analysis_options.yaml`
   /// files don't exclude, and the files at [paths], so that [referencesTo]
@@ -146,14 +132,14 @@ final class ResolvedFiles implements FileSyntax {
   /// Returns the references of the declaration whose name starts at [name]
   /// in the file at [path], from the files resolved so far, or `null` when
   /// that file isn't resolved or no declaration's name starts there.
-  List<Location>? referencesTo(String path, Position name) =>
+  List<Location>? referencesTo(String path, int name) =>
       _elements[path]?[name]?.let(_index.referencesTo);
 
   /// Returns the locations of the names of the members that override the
   /// member whose name starts at [name] in the file at [path], among the
   /// files resolved so far, or none when that file isn't resolved or no
   /// member's name starts there.
-  List<Location> overridesOf(String path, Position name) =>
+  List<Location> overridesOf(String path, int name) =>
       _elements[path]?[name]?.let(_hierarchy.overridesOf) ?? const [];
 
   /// Returns whether the signature of the function, method or constructor
@@ -162,7 +148,7 @@ final class ResolvedFiles implements FileSyntax {
   /// `void f(dynamic cb)` and in `f()`, whose return type is omitted, or a
   /// bare `Function`. Returns `null` when that file isn't resolved or no
   /// function, method or constructor's name starts there.
-  bool? hasDynamicSignature(String path, Position name) =>
+  bool? hasDynamicSignature(String path, int name) =>
       switch (_elements[path]?[name]) {
         final ExecutableElement function => _hasDynamicType(function.type),
         _ => null,
@@ -219,10 +205,9 @@ final class ResolvedFiles implements FileSyntax {
   static ResolvedFile _fileOf(
     ResolvedUnitResult result,
     Outline outline,
-    Map<Position, List<Annotation>> annotations,
+    Map<int, List<Annotation>> annotations,
     PackageConfig? config,
   ) {
-    final positionOf = result.lineInfo.positionOf;
     ResolvedClass classOf(InterfaceElement type) =>
         .new(type.displayName, _packageOf(type.library, config));
 
@@ -232,6 +217,7 @@ final class ResolvedFiles implements FileSyntax {
 
     return .new(
       content: result.content,
+      lineStarts: result.lineInfo.lineStarts,
       markers: .parse(result.content, lineCommentsOf(result.unit)),
       outline: outline,
       annotations: {
@@ -264,7 +250,7 @@ final class ResolvedFiles implements FileSyntax {
                 (ClassElement() || MixinElement()),
             :final nameOffset?,
           ))
-            positionOf(nameOffset): supertypesOf(type),
+            nameOffset: supertypesOf(type),
       },
       needSuperArguments: {
         for (final declaration in result.unit.declarations)
@@ -281,18 +267,12 @@ final class ResolvedFiles implements FileSyntax {
                     (parameter) => parameter.isRequired,
                   ) ??
                   true)
-            positionOf(nameOffset),
+            nameOffset,
       },
-      firstError:
-          minBy(
-            result.diagnostics.where(
-              (diagnostic) => diagnostic.severity == .error,
-            ),
-            (diagnostic) => diagnostic.offset,
-          )?.let(
-            (error) =>
-                (position: positionOf(error.offset), message: error.message),
-          ),
+      firstError: minBy(
+        result.diagnostics.where((diagnostic) => diagnostic.severity == .error),
+        (diagnostic) => diagnostic.offset,
+      )?.let((error) => (offset: error.offset, message: error.message)),
     );
   }
 

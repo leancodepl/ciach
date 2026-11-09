@@ -12,17 +12,12 @@ import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/util/extensions.dart';
 
-/// A `[start, end)` span within a file, using 0-based line/column positions
-/// (columns are UTF-16 code units), matching the Language Server Protocol.
+/// A `[start, end)` span of a file's content, as offsets in UTF-16 code
+/// units, which is how Dart strings count characters.
 ///
 /// Identifies the full extent of a declaration — including its body — so it
 /// can be located again for removal.
-typedef DeclarationRange = ({
-  int startLine,
-  int startColumn,
-  int endLine,
-  int endColumn,
-});
+typedef DeclarationRange = ({int start, int end});
 
 /// The kinds of declaration that can share a statement with others, like `a`
 /// and `b` in `int a = 1, b = 2;`. The `range` of one covers only `a = 1`, so

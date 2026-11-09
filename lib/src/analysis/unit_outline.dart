@@ -17,16 +17,12 @@
 library;
 
 import 'package:analyzer/dart/ast/ast.dart';
-import 'package:analyzer/dart/ast/syntactic_entity.dart';
 import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
-import 'package:analyzer/source/line_info.dart';
 import 'package:ciach/src/analysis/analyzer_versions.dart';
-import 'package:ciach/src/analysis/line_positions.dart';
-import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/analysis/entity_ranges.dart';
 import 'package:ciach/src/source/outline.dart';
-import 'package:ciach/src/util/extensions.dart';
 
 part 'body_outlines.dart';
 
@@ -36,11 +32,11 @@ part 'body_outlines.dart';
 /// has the annotations of its statement.
 ({
   Outline outline,
-  Map<Position, Element> elements,
-  Map<Position, List<Annotation>> annotations,
+  Map<int, Element> elements,
+  Map<int, List<Annotation>> annotations,
 })
 unitOutline(CompilationUnit unit) {
-  final builder = _OutlineBuilder(unit.lineInfo);
+  final builder = _OutlineBuilder();
   return (
     outline: builder._unit(unit),
     elements: builder._elements,
@@ -49,15 +45,12 @@ unitOutline(CompilationUnit unit) {
 }
 
 final class _OutlineBuilder {
-  _OutlineBuilder(this._lineInfo);
-
-  final LineInfo _lineInfo;
-  final _elements = <Position, Element>{};
-  final _annotations = <Position, List<Annotation>>{};
+  final _elements = <int, Element>{};
+  final _annotations = <int, List<Annotation>>{};
 
   Outline _unit(CompilationUnit unit) => _outline(
     unit,
-    .new(kind: .compilationUnit, name: '<unit>', range: _rangeOf(unit)),
+    .new(kind: .compilationUnit, name: '<unit>', range: unit.range),
     unit.declarations.expand(_declarations).toList(),
   );
 
@@ -74,7 +67,7 @@ final class _OutlineBuilder {
         .new(
           kind: .enum$,
           name: _nameOf(namePart.typeName),
-          range: _rangeOf(namePart.typeName),
+          range: namePart.typeName.range,
           usesOwnValues: _readsOwnValues(member),
         ),
         [
@@ -101,7 +94,7 @@ final class _OutlineBuilder {
           .new(
             kind: .functionTypeAlias,
             name: _nameOf(name),
-            range: _rangeOf(name),
+            range: name.range,
             parameters: parameters.toSource(),
             typeParameters: typeParameters?.toSource(),
           ),
@@ -116,7 +109,7 @@ final class _OutlineBuilder {
             _ => .typeAlias,
           },
           name: _nameOf(name),
-          range: _rangeOf(name),
+          range: name.range,
           parameters: switch (type) {
             GenericFunctionType(:final parameters) => parameters.toSource(),
             _ => null,
@@ -159,7 +152,7 @@ final class _OutlineBuilder {
     .new(
       kind: kind,
       name: _nameOf(name),
-      range: _rangeOf(name),
+      range: name.range,
       typeParameters: typeParameters?.toSource(),
     ),
     members,
@@ -178,7 +171,7 @@ final class _OutlineBuilder {
           (_, final onType? && != '') => 'extension on $onType',
           _ => '<unnamed extension>',
         },
-        range: (node.name ?? extendedType)?.let(_rangeOf),
+        range: (node.name ?? extendedType)?.range,
         typeParameters: node.typeParameters?.toSource(),
       ),
       _members(node.body),
@@ -205,11 +198,7 @@ final class _OutlineBuilder {
         PrimaryConstructorBody(:final thisKeyword, :final body) => [
           _outline(
             member,
-            .new(
-              kind: .constructor,
-              name: 'this',
-              range: _rangeOf(thisKeyword),
-            ),
+            .new(kind: .constructor, name: 'this', range: thisKeyword.range),
             _bodyOutlines(body),
           ),
         ],
@@ -234,7 +223,7 @@ final class _OutlineBuilder {
             kind: .constructor,
             name: [typeName.lexeme, ?constructorName?.name.lexeme].join('.'),
             // A named one is named from its `.`, as the analysis server does.
-            range: _rangeOf(constructorName ?? typeName),
+            range: (constructorName ?? typeName).range,
             parameters: formalParameters.toSource(),
             isInTypeHeader: true,
           ),
@@ -271,7 +260,7 @@ final class _OutlineBuilder {
           // `new` names the unnamed constructor.
           if (node.name?.lexeme case final name? && != 'new') name,
         ].join('.'),
-        range: _rangeOf(node.name ?? typeName ?? keyword ?? node),
+        range: (node.name ?? typeName ?? keyword ?? node).range,
         parameters: node.parameters.toSource(),
         isRedirectingFactory:
             node.factoryKeyword != null && node.redirectedConstructor != null,
@@ -289,7 +278,7 @@ final class _OutlineBuilder {
         isSetter: node.isSetter,
       ),
       name: _nameOf(node.name),
-      range: _rangeOf(node.name),
+      range: node.name.range,
       parameters: node.parameters?.toSource(),
       returnType: node.returnType?.toSource() ?? '',
       typeParameters: node.typeParameters?.toSource(),
@@ -309,7 +298,7 @@ final class _OutlineBuilder {
           isSetter: node.isSetter,
         ),
         name: _nameOf(node.name),
-        range: _rangeOf(node.name),
+        range: node.name.range,
         parameters: parameters?.toSource() ?? '',
         returnType: node.returnType?.toSource() ?? '',
         typeParameters: typeParameters?.toSource(),
@@ -326,7 +315,7 @@ final class _OutlineBuilder {
     .new(
       kind: kind,
       name: _nameOf(name),
-      range: _rangeOf(name),
+      range: name.range,
       isInTypeHeader: switch (node) {
         FormalParameter() => true,
         _ => false,
@@ -389,8 +378,8 @@ final class _OutlineBuilder {
     }
     return .new(
       element: element,
-      range: _lineInfo.rangeOf(start, end),
-      codeRange: _lineInfo.rangeOf(codeStart, node.end),
+      range: .new(start: start, end: end),
+      codeRange: .new(start: codeStart, end: node.end),
       children: children,
     );
   }
@@ -464,8 +453,6 @@ final class _OutlineBuilder {
     (_, true) => .setter,
     _ => kind,
   };
-
-  Range _rangeOf(SyntacticEntity entity) => _lineInfo.rangeOfEntity(entity);
 }
 
 /// Finds a read of the `values` of [_enum].

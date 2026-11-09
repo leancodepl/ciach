@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ciach/ciach.dart';
+import 'package:ciach/src/source/line_starts.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -16,9 +17,23 @@ String removeFrom(
   return file.existsSync() ? file.readAsStringSync() : '';
 }
 
-/// A finding in [filePath] whose doc comment or annotations start at
-/// [docLine]:[docColumn].
-UnusedDeclaration decl({
+/// The range of [source] between two zero-based lines and columns, as
+/// offsets.
+DeclarationRange rangeIn(
+  String source,
+  ({int startLine, int startColumn, int endLine, int endColumn}) lines,
+) {
+  final starts = lineStartsOf(source);
+  return (
+    start: starts[lines.startLine] + lines.startColumn,
+    end: starts[lines.endLine] + lines.endColumn,
+  );
+}
+
+/// A finding in [filePath] of [source], whose doc comment or annotations
+/// start at [docLine]:[docColumn].
+UnusedDeclaration decl(
+  String source, {
   required int startLine,
   required int startColumn,
   required int endLine,
@@ -37,18 +52,18 @@ UnusedDeclaration decl({
   column: startColumn + 1,
   isPrivate: false,
   isEnumValue: isEnumValue,
-  range: (
+  range: rangeIn(source, (
     startLine: startLine,
     startColumn: startColumn,
     endLine: endLine,
     endColumn: endColumn,
-  ),
-  fullRange: (
+  )),
+  fullRange: rangeIn(source, (
     startLine: docLine ?? startLine,
     startColumn: docColumn ?? (docLine == null ? startColumn : 0),
     endLine: endLine,
     endColumn: endColumn,
-  ),
+  )),
   cut: cut,
 );
 

@@ -5,11 +5,9 @@ import 'dart:io';
 
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/source/clause_entries.dart';
-import 'package:ciach/src/source/line_starts.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:test/test.dart';
 
-import '../support/removal.dart';
 import '../support/test_package.dart';
 
 /// Cuts entries from `with` and `implements` clauses with the syntax that the
@@ -31,15 +29,11 @@ void main() {
   ) async {
     final path = package.writeNew(source);
     await package.files.of(path);
-    final starts = lineStartsOf(source);
     final clauseStart = source.indexOf(clause);
     Range rangeOf(String name) {
       final start = source.indexOf(RegExp('\\b$name\\b'), clauseStart);
       expect(start, isNot(-1), reason: '$name after $clause');
-      return .new(
-        start: positionIn(starts, start),
-        end: positionIn(starts, start + name.length),
-      );
+      return .new(start: start, end: start + name.length);
     }
 
     return (
@@ -61,15 +55,17 @@ void main() {
     expect(entries, everyElement(isNotNull));
     final removals = clauseCuts(entries.nonNulls, package.root).values;
     removeDeclarations([
+      // The remover reads the ranges, not the line and column.
       for (final removal in removals.toSet())
-        decl(
-          startLine: removal.range.startLine,
-          startColumn: removal.range.startColumn,
-          endLine: removal.range.endLine,
-          endColumn: removal.range.endColumn,
+        .new(
+          name: 'x',
           kind: removal.kind,
-          cut: removal.cut,
           filePath: removal.filePath,
+          line: 1,
+          column: 1,
+          isPrivate: false,
+          range: removal.range,
+          cut: removal.cut,
         ),
     ], package.root);
     return File(path).readAsStringSync();

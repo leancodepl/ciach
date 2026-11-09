@@ -117,22 +117,22 @@ final class _Carriers {
         !_files.isDocReference(loc);
   }
 
-  /// The type the reference at [pos] hands its type to, [_root] when it
+  /// The type the reference at [offset] hands its type to, [_root] when it
   /// hands it to everyone, or `null` when it sits in a body, a directive or
   /// an extension no other package can import.
-  DeclKey? _carrierAt(String path, Position pos) {
+  DeclKey? _carrierAt(String path, int offset) {
     final unit = _outlines[path];
     if (unit == null) {
       return _root;
     }
-    final top = unit.childAt(pos);
+    final top = unit.childAt(offset);
     if (top == null) {
       return null;
     }
     final kind = top.element.kind;
     if (kind case .class$ || .mixin || .enum$ || .extension || .extensionType) {
-      final member = top.childAt(pos);
-      if (member != null && _hidesIn(member, top, path, pos)) {
+      final member = top.childAt(offset);
+      if (member != null && _hidesIn(member, top, path, offset)) {
         return null;
       }
       if (kind != .extension) {
@@ -143,12 +143,12 @@ final class _Carriers {
           ? _root
           : null;
     }
-    return _hidesIn(top, null, path, pos) ? null : _root;
+    return _hidesIn(top, null, path, offset) ? null : _root;
   }
 
-  /// Whether a mention at [pos] in the function-like [node] stays inside it:
+  /// Whether a mention at [offset] in the function-like [node] stays inside it:
   /// it sits in the body, and nothing the signature hands out is `dynamic`.
-  bool _hidesIn(Outline node, Outline? owner, String path, Position pos) {
+  bool _hidesIn(Outline node, Outline? owner, String path, int offset) {
     final element = node.element;
     if (element.kind
         case .field ||
@@ -158,7 +158,7 @@ final class _Carriers {
             .functionTypeAlias) {
       return false;
     }
-    if (!_files.isInBody(path, pos, node.codeRange) ||
+    if (!_files.isInBody(path, offset, node.codeRange) ||
         (element.typeParameters ?? '').isNotEmpty ||
         (owner?.element.typeParameters ?? '').isNotEmpty) {
       return false;

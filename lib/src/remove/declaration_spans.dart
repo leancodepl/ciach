@@ -5,25 +5,23 @@ library;
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/remove/text_spans.dart';
 
-/// Computes the span to delete for an enum value or a "whole-node" kind
-/// (class, function, method, property, …) whose [DeclarationRange] already
-/// covers the full declaration. Deletion starts at `fullRange`.
+/// Computes the span to delete in [content] for an enum value, when
+/// [isEnumValue], or a "whole-node" kind (class, function, method, property,
+/// …) whose [range] already covers the full declaration. Deletion starts at
+/// [fullRange], which adds the doc comment and annotations.
 Span spanFor(
-  UnusedDeclaration decl,
   String content,
-  int Function(int line, int column) offsetOf,
-) {
-  final range = decl.range;
-  final baseEnd = offsetOf(range.endLine, range.endColumn);
-  final fullStart = withIndentation(
-    content,
-    offsetOf(decl.fullRange.startLine, decl.fullRange.startColumn),
-  );
+  DeclarationRange range,
+  DeclarationRange fullRange, {
+  required bool isEnumValue,
+}) {
+  final baseEnd = range.end;
+  final fullStart = withIndentation(content, fullRange.start);
 
   var start = fullStart;
   var end = baseEnd;
 
-  if (decl.isEnumValue) {
+  if (isEnumValue) {
     (:start, :end) = _extendEnumValue(
       content,
       valueStart: fullStart,

@@ -9,7 +9,7 @@ library;
 
 import 'package:ciach/src/analysis/declaration_annotation.dart';
 import 'package:ciach/src/analysis/resolved_class.dart';
-import 'package:ciach/src/source/locations.dart';
+import 'package:ciach/src/source/line_starts.dart';
 import 'package:test/test.dart';
 
 import '../support/previews_package.dart';
@@ -22,13 +22,16 @@ void main() {
 
   tearDownAll(() => package.dispose());
 
-  Map<int, List<T>> byLine<T>(String source, Map<Position, T> byPosition) => {
-    for (final (line, _) in source.split('\n').indexed)
-      line: [
-        for (final MapEntry(key: position, :value) in byPosition.entries)
-          if (position.line == line) value,
-      ],
-  };
+  Map<int, List<T>> byLine<T>(String source, Map<int, T> byOffset) {
+    final starts = lineStartsOf(source);
+    return {
+      for (final (line, _) in source.split('\n').indexed)
+        line: [
+          for (final MapEntry(key: offset, :value) in byOffset.entries)
+            if (positionIn(starts, offset).line == line) value,
+        ],
+    };
+  }
 
   /// The class [type] from the package `app` that an annotation creates,
   /// whose supertypes are [supertypes] and `Object`.
@@ -141,7 +144,7 @@ import 'previews.dart' as previews;
       final file = await package.resolveNew(source);
 
       expect(file.annotations, {
-        Position(line: 2, character: source.split('\n')[2].indexOf('a()')): [
+        source.indexOf('a()'): [
           DeclarationAnnotation(
             'Preview',
             package: 'app',
