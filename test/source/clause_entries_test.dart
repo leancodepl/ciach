@@ -5,8 +5,8 @@ import 'dart:io';
 
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/source/clause_entries.dart';
+import 'package:ciach/src/source/line_starts.dart';
 import 'package:ciach/src/source/locations.dart';
-import 'package:ciach/src/source/source_index.dart';
 import 'package:test/test.dart';
 
 import '../support/removal.dart';
@@ -21,46 +21,34 @@ void main() {
 
   tearDownAll(() => package.dispose());
 
-  /// Writes [source] to a new file and resolves it.
-  Future<(String, SourceIndex)> index(String source) async {
-    final path = package.writeNew(source);
-    await package.files.of(path);
-    return (
-      path,
-      SourceIndex(package.files)..cacheLines(path, source.split('\n')),
-    );
-  }
-
   /// Returns the clause entries for [names], searched for in [source] after the
-  /// text [clause], as `clauseEntryAt` reads them.
-  Future<(String, SourceIndex, List<ClauseEntry?>)> entriesIn(
+  /// text [clause], as `clauseEntryAt` reads them, and the path of the new
+  /// file that holds [source].
+  Future<(String, List<ClauseEntry?>)> entriesIn(
     String source,
     String clause,
     List<String> names,
   ) async {
-    final (path, sources) = await index(source);
+    final path = package.writeNew(source);
+    await package.files.of(path);
+    final starts = lineStartsOf(source);
     final clauseStart = source.indexOf(clause);
-    int nameAt(String name) {
+    Range rangeOf(String name) {
       final start = source.indexOf(RegExp('\\b$name\\b'), clauseStart);
       expect(start, isNot(-1), reason: '$name after $clause');
-      return start;
+      return .new(
+        start: positionIn(starts, start),
+        end: positionIn(starts, start + name.length),
+      );
     }
 
-    final ranges = [
-      for (final name in names)
-        Range(
-          start: sources.positionOf(path, nameAt(name)),
-          end: sources.positionOf(path, nameAt(name) + name.length),
-        ),
-    ];
     return (
       path,
-      sources,
       [
-        for (final (i, range) in ranges.indexed)
-          sources.clauseEntryAt(
-            .new(path: path, range: range),
-            .new(kind: .mixin, name: names[i]),
+        for (final name in names)
+          package.files.clauseEntryAt(
+            .new(path: path, range: rangeOf(name)),
+            .new(kind: .mixin, name: name),
           ),
       ],
     );
@@ -69,7 +57,7 @@ void main() {
   /// Returns [source] after removing the [cut] names from the clause that
   /// starts with [clause].
   Future<String> cutFrom(String source, String clause, List<String> cut) async {
-    final (path, _, entries) = await entriesIn(source, clause, cut);
+    final (path, entries) = await entriesIn(source, clause, cut);
     expect(entries, everyElement(isNotNull));
     final removals = clauseCuts(entries.nonNulls, package.root).values;
     removeDeclarations([
@@ -183,8 +171,8 @@ ${types}abstract class A
 ${types}class A = B with C;
 class F extends B with C {}
 ''';
-      final (_, _, aliased) = await entriesIn(source, 'with C;', ['C']);
-      final (_, _, extended) = await entriesIn(source, 'with C {', ['C']);
+      final (_, aliased) = await entriesIn(source, 'with C;', ['C']);
+      final (_, extended) = await entriesIn(source, 'with C {', ['C']);
 
       expect(aliased.single?.clause.keepsOne, isTrue);
       expect(extended.single?.clause.keepsOne, isFalse);
@@ -203,7 +191,7 @@ class F extends B with C {}
   });
 
   test('returns no entry for a type argument of a clause entry', () async {
-    final (_, _, entries) = await entriesIn(
+    final (_, entries) = await entriesIn(
       '${types}abstract class A implements Comparable<C> {}\n',
       'implements',
       ['C'],
@@ -215,7 +203,7 @@ class F extends B with C {}
   test(
     'returns no entry for a type named outside a with or implements clause',
     () async {
-      final (_, _, entries) = await entriesIn(
+      final (_, entries) = await entriesIn(
         '${types}class A extends B {}\n',
         'extends',
         ['B'],

@@ -6,9 +6,7 @@ import 'package:ciach/src/settle/dead_spans.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
-import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
-import 'package:ciach/src/util/cached_map.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
@@ -31,8 +29,7 @@ typedef OverriddenMember = ({List<CoupledRemoval> removals, bool blocked});
 /// by candidate index across the rounds of a run.
 final class OverrideRemovals {
   OverrideRemovals(
-    this._files,
-    this._sources, {
+    this._files, {
     required Set<String> scannedPaths,
     required String rootPath,
   }) : _scannedPaths = scannedPaths,
@@ -40,17 +37,13 @@ final class OverrideRemovals {
 
   final ResolvedFiles _files;
 
-  final SourceIndex _sources;
-
   /// The files this run collected declarations from; nothing else is edited.
   final Set<String> _scannedPaths;
 
   final String _rootPath;
 
-  /// The `// ciach:` markers of each file an override lives in.
-  late final _markers = CachedMap<String, IgnoreMarkers>(
-    (path) => .parse(_sources.content(path)),
-  );
+  /// The `// ciach:` markers of each file an override lives in, by path.
+  final _markers = <String, IgnoreMarkers>{};
 
   /// The kinds of the overrides that are deleted. A `field` goes as a
   /// declarator, so it can share a statement.
@@ -151,19 +144,20 @@ final class OverrideRemovals {
     if (!_scannedPaths.contains(path)) {
       return null;
     }
-    final outline = _files.resolved(path)?.outline;
+    final file = _files.resolved(path);
     // [ResolvedFiles.overridesOf] gives where the override's name starts,
     // which is where an outline node's element range starts.
     final start = location.range.start;
-    final found = outline?.let((outline) => _nodeNamedAt(outline, start));
-    if (found == null || !_removableKinds.contains(found.node.element.kind)) {
+    final found = file?.outline.let((outline) => _nodeNamedAt(outline, start));
+    if (file == null ||
+        found == null ||
+        !_removableKinds.contains(found.node.element.kind)) {
       return null;
     }
     final node = found.node;
-    if (_markers[path].keeping(
-          start: node.range.start.line,
-          nameLine: start.line,
-        ) !=
+    if ((_markers[path] ??= .parse(
+          file.content,
+        )).keeping(start: node.range.start.line, nameLine: start.line) !=
         null) {
       return null;
     }

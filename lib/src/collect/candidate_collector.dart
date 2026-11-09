@@ -11,7 +11,6 @@ import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/outline.dart';
-import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
@@ -31,17 +30,14 @@ const _compileErrors =
 final class CandidateCollector {
   CandidateCollector({
     required this.options,
-    required SourceIndex sources,
     required FreezedUnions freezed,
     PublicApi? publicApi,
     ConditionalImports? conditionalImports,
-  }) : _sources = sources,
-       _freezed = freezed,
+  }) : _freezed = freezed,
        _publicApi = publicApi,
        _conditionalImports = conditionalImports ?? .empty;
 
   final FinderOptions options;
-  final SourceIndex _sources;
 
   /// Freezed-union tracking, fed as candidates are collected.
   final FreezedUnions _freezed;
@@ -73,7 +69,9 @@ final class CandidateCollector {
   ) async {
     final file = await files.of(path);
     if (file == null) {
-      recordProblem(_uncollectedFile, unresolvedFile, path: path);
+      if (!recordIfUnreadable(path)) {
+        recordProblem(_uncollectedFile, unresolvedFile, path: path);
+      }
       return const [];
     }
     if (file.firstError case (:final position, :final message)) {
@@ -89,7 +87,7 @@ final class CandidateCollector {
       path: path,
       relativePath: relativePath,
       resolved: file,
-      markers: _Markers(.parse(_sources.content(path))),
+      markers: _Markers(.parse(file.content)),
     );
     // The whole walk has to run before the filter: it records the entry-point
     // containers the filter drops, and a container comes before its members.

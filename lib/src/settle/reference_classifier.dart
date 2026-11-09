@@ -9,8 +9,8 @@
  */
 
 import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/source/file_syntax.dart';
 import 'package:ciach/src/source/locations.dart';
-import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 
 /// Decides whether a declaration is used, unused, or referenced only from doc
@@ -21,9 +21,9 @@ import 'package:ciach/src/source/symbols.dart';
 /// links, type-pattern matches) lives here, kept apart from the run
 /// orchestration.
 class ReferenceClassifier {
-  ReferenceClassifier(this._sources, {required this.unusedUnionMembers});
+  ReferenceClassifier(this._syntax, {required this.unusedUnionMembers});
 
-  final SourceIndex _sources;
+  final FileSyntax _syntax;
 
   /// Whether a class matched only by a type pattern (never constructed) counts
   /// as dead — the opt-in `--also union-members` behavior.
@@ -43,7 +43,7 @@ class ReferenceClassifier {
     if (external.isEmpty) {
       return .unused;
     }
-    return external.every(_sources.isDocReference) ? .docOnly : .used;
+    return external.every(_syntax.isDocReference) ? .docOnly : .used;
   }
 
   /// [refs] less the ones inside [candidate]'s own span.
@@ -67,7 +67,7 @@ class ReferenceClassifier {
       if (isSelfReference(candidate, loc)) {
         continue;
       }
-      if (_sources.isDocReference(loc)) {
+      if (_syntax.isDocReference(loc)) {
         hasExternalDoc = true;
         continue;
       }
@@ -78,7 +78,7 @@ class ReferenceClassifier {
       // self-reference. Any reference that is not confidently a type pattern
       // keeps the class alive — the conservative choice (nested sub-patterns
       // and pattern-variable declarations are intentionally not recognized).
-      if (unusedUnionMembers && _sources.isTypePattern(loc)) {
+      if (unusedUnionMembers && _syntax.isTypePattern(loc)) {
         hasPatternMatch = true;
         continue;
       }
@@ -97,11 +97,11 @@ class ReferenceClassifier {
   /// one inside the declaration's own span (body, signature, doc and
   /// annotation lines — text that goes when it does, so a recursive call or
   /// the unnamed constructor's declaration keeps nothing alive), or the
-  /// `State<Foo>` pairing ([SourceIndex.isStateTypeArgument]).
+  /// `State<Foo>` pairing ([FileSyntax.isStateTypeArgument]).
   bool isSelfReference(Candidate candidate, Location loc) =>
       (loc.path == candidate.path &&
           candidate.outline.range.contains(loc.range.start)) ||
-      _sources.isStateTypeArgument(loc);
+      _syntax.isStateTypeArgument(loc);
 
   /// Whether [candidate] — already classified as unused under
   /// `--also union-members` — is kept dead by *type patterns*: at least one
@@ -111,7 +111,7 @@ class ReferenceClassifier {
       refs.any(
         (loc) =>
             !isSelfReference(candidate, loc) &&
-            !_sources.isDocReference(loc) &&
-            _sources.isTypePattern(loc),
+            !_syntax.isDocReference(loc) &&
+            _syntax.isTypePattern(loc),
       );
 }

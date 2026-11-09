@@ -56,3 +56,18 @@ void recordProblem(
   collector?._problems.add(problem);
   _log.fine(problem);
 }
+
+const _unreadableFile = 'Could not read these files; skipped.';
+
+/// Records a problem for the file at [path] when it can't be read, with the
+/// reason, and returns whether it did. The analyzer reads a file that it
+/// can't read as empty, without the reason, so this reads it once more.
+bool recordIfUnreadable(String path) {
+  try {
+    File(path).readAsStringSync();
+    return false;
+  } on FileSystemException catch (e) {
+    recordProblem(_unreadableFile, e, path: path);
+    return true;
+  }
+}

@@ -2,7 +2,6 @@ import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
-import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/reachability.dart';
 import 'package:ciach/src/workspace/public_api.dart';
@@ -19,7 +18,7 @@ final class ReachableTypes {
 
   static ReachableTypes find({
     required ResolvedFiles files,
-    required SourceIndex sources,
+    required Set<String> scannedPaths,
     required PublicApi api,
     required List<Candidate> candidates,
     required List<List<Location>> refs,
@@ -34,12 +33,11 @@ final class ReachableTypes {
     final outlines = {
       for (final type in types.values)
         for (final loc in type.refs)
-          if (sources.scannedPaths.contains(loc.path) &&
-              api.isImportable(loc.path))
+          if (scannedPaths.contains(loc.path) && api.isImportable(loc.path))
             loc.path: ?files.resolved(loc.path)?.outline,
     };
 
-    final carriersOf = _Carriers(files, sources, api, outlines);
+    final carriersOf = _Carriers(files, api, outlines);
     final reachable = <DeclKey>{};
     final carriedBy = <DeclKey, Set<DeclKey>>{};
     for (final MapEntry(:key, value: type) in types.entries) {
@@ -95,10 +93,9 @@ typedef _Type = ({Candidate candidate, List<Location> refs});
 
 /// What hands a type out, read from the outlines of the files naming it.
 final class _Carriers {
-  _Carriers(this._files, this._sources, this._api, this._outlines);
+  _Carriers(this._files, this._api, this._outlines);
 
   final ResolvedFiles _files;
-  final SourceIndex _sources;
   final PublicApi _api;
   final Map<String, Outline> _outlines;
 
@@ -116,7 +113,7 @@ final class _Carriers {
     return _api.isImportable(path) &&
         !(path == type.candidate.path &&
             type.candidate.outline.range.contains(loc.range.start)) &&
-        !_sources.isDocReference(loc);
+        !_files.isDocReference(loc);
   }
 
   /// The type the reference at [pos] hands its type to, [_root] when it
@@ -160,7 +157,7 @@ final class _Carriers {
             .functionTypeAlias) {
       return false;
     }
-    if (!_sources.isInBody(path, pos, node.codeRange) ||
+    if (!_files.isInBody(path, pos, node.codeRange) ||
         (element.typeParameters ?? '').isNotEmpty ||
         (owner?.element.typeParameters ?? '').isNotEmpty) {
       return false;

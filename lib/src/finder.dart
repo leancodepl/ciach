@@ -30,9 +30,9 @@
 library;
 
 import 'dart:async';
-import 'dart:io';
 
 import 'package:ciach/src/analysis/language_versions.dart';
+import 'package:ciach/src/analysis/resolved_file.dart';
 import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidate_collector.dart';
 import 'package:ciach/src/collect/candidates.dart';
@@ -49,7 +49,6 @@ import 'package:ciach/src/settle/verdict.dart';
 import 'package:ciach/src/source/directives.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/locations.dart';
-import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:ciach/src/util/plural.dart';
@@ -62,8 +61,6 @@ import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
 final _log = Logger('ciach.finder');
-
-const _unreadableFile = 'Could not read these files; skipped.';
 
 /// Finds declarations that are never referenced.
 ///
@@ -104,20 +101,16 @@ final class _Run {
 
   final FinderOptions options;
 
-  /// The source text of every file touched this run, and the answers about
-  /// its code, shared by the classification and the structural detectors.
-  /// It is set once the analyzer is set up.
-  late final SourceIndex _sources;
-
-  /// The candidate files with nothing but directives and comments, as they
-  /// are read.
-  final _directiveOnly = <String>[];
+  /// The files under the analysis root as the analyzer resolves them, shared
+  /// by the classification and the structural detectors. It is set once the
+  /// analyzer is set up.
+  late final ResolvedFiles _files;
 
   /// Freezed-union tracking, fed as candidates are collected.
   final _freezed = FreezedUnions();
 
   late final _classifier = ReferenceClassifier(
-    _sources,
+    _files,
     unusedUnionMembers: options.unusedUnionMembers,
   );
 
@@ -133,7 +126,6 @@ final class _Run {
 
   late final _collector = CandidateCollector(
     options: options,
-    sources: _sources,
     freezed: _freezed,
     publicApi: _publicApi,
     conditionalImports: _conditionalImports,
@@ -141,7 +133,7 @@ final class _Run {
 
   late final _settler = Settler(
     options: options,
-    sources: _sources,
+    files: _files,
     freezed: _freezed,
     classifier: _classifier,
     verdict: .new(options: options, classifier: _classifier),
@@ -233,11 +225,7 @@ final class _Run {
     }
 
     final dartExecutable = findDartExecutable(explicit: options.dartExecutable);
-    final resolved = ResolvedFiles(
-      analysisRoot,
-      sdkPath: sdkPathOf(dartExecutable),
-    );
-    _sources = .new(resolved);
+    _files = .new(analysisRoot, sdkPath: sdkPathOf(dartExecutable));
 
     final Settled settled;
     final int declarationsChecked;
@@ -249,33 +237,30 @@ final class _Run {
         );
       }
 
-      // Phase 0: read every file. Generated files are read so that the
-      // references in them count, but no candidates are collected from them.
-      _log.info(
-        'Reading ${plural(files.length + discovered.referenceOnly.length, 'file', 'files')}…',
-      );
-      discovered.referenceOnly.forEach(_readFile);
-      final scanned = {
-        for (final path in files)
-          if (_readFile(path, checkEmpty: true)) path,
-      };
-      empty = _emptyFiles();
-
       // Phase 1: collect candidate declarations.
       _log.info(
         'Collecting declarations from ${plural(files.length, 'file', 'files')}…',
       );
       final collected = [
-        for (final path in scanned)
-          ...await _collector.collect(resolved, path, rootPath),
+        for (final path in files)
+          ...await _collector.collect(_files, path, rootPath),
       ];
       _collector.reportSkipped();
+      // The files whose declarations were collected.
+      final scanned = {for (final path in files) path: ?_files.resolved(path)};
+      empty = _emptyFiles(scanned);
 
       // Phase 2: find the references of every candidate in the files under
-      // the analysis root.
+      // the analysis root. Generated files are resolved so that the
+      // references in them count, but no candidates are collected from them.
       _log.info('Resolving the other files under the analysis root…');
-      await resolved.resolveAll(discovered.referenceOnly);
-      final fetched = _references(resolved, collected);
+      await _files.resolveAll(discovered.referenceOnly);
+      for (final path in discovered.referenceOnly) {
+        if (_files.resolved(path) == null) {
+          recordIfUnreadable(path);
+        }
+      }
+      final fetched = _references(collected, scanned.keys.toSet());
       final (:candidates, :refsByCandidate) = _conditionalImports.share(
         fetched.candidates,
         fetched.refsByCandidate,
@@ -287,14 +272,13 @@ final class _Run {
 
       // Phase 3: settle the verdicts; with `transitive`, in rounds.
       settled = _settler.settle(
-        resolved,
         candidates,
         refsByCandidate,
-        scannedPaths: scanned,
+        scannedPaths: scanned.keys.toSet(),
         rootPath: rootPath,
       );
     } finally {
-      await resolved.dispose();
+      await _files.dispose();
     }
 
     stopwatch.stop();
@@ -311,13 +295,17 @@ final class _Run {
     );
   }
 
-  /// The empty candidate files, root-relative, with the conditional-import
-  /// variants apart. One another package can import is left out.
-  ({List<String> files, List<String> variants}) _emptyFiles() {
+  /// The files of [scanned], by path, that hold nothing but directives and
+  /// comments, root-relative, with the conditional-import variants apart.
+  /// One another package can import is left out.
+  ({List<String> files, List<String> variants}) _emptyFiles(
+    Map<String, ResolvedFile> scanned,
+  ) {
     final files = <String>[];
     final variants = <String>[];
-    for (final path in _directiveOnly) {
-      if (_publicApi?.isImportable(path) ?? false) {
+    for (final MapEntry(key: path, value: file) in scanned.entries) {
+      if (!isDirectiveOnly(file.content) ||
+          (_publicApi?.isImportable(path) ?? false)) {
         continue;
       }
       (_conditionalImports.contains(path) ? variants : files).add(
@@ -340,54 +328,38 @@ final class _Run {
   );
 
   /// The references of [collected], less the candidates left unchecked.
+  /// [scannedPaths] are the files that the candidates were collected from.
   ///
   /// When other packages can import the scanned code, a member of a type
   /// that they can reach is part of its API, so only the members of the
   /// other types are checked.
   ({List<Candidate> candidates, List<List<Location>> refsByCandidate})
-  _references(ResolvedFiles files, List<Candidate> collected) {
+  _references(List<Candidate> collected, Set<String> scannedPaths) {
     final api = _publicApi;
     final gated = api == null
         ? const <Candidate>{}
         : collected.where(ReachableTypes.isGated).toSet();
     final fetched = referencesOf(
-      files,
+      _files,
       collected.whereNot(gated.contains).toList(),
     );
     if (api == null || gated.isEmpty) {
       return (candidates: fetched.checked, refsByCandidate: fetched.refs);
     }
     final types = ReachableTypes.find(
-      files: files,
-      sources: _sources,
+      files: _files,
+      scannedPaths: scannedPaths,
       api: api,
       candidates: fetched.checked,
       refs: fetched.refs,
     );
     final internal = referencesOf(
-      files,
+      _files,
       gated.where(types.isInternal).toList(),
     );
     return (
       candidates: [...fetched.checked, ...internal.checked],
       refsByCandidate: [...fetched.refs, ...internal.refs],
     );
-  }
-
-  /// Reads [path], noting it in [_directiveOnly] if [checkEmpty] and it has
-  /// nothing but directives. `false` if the file cannot be read.
-  bool _readFile(String path, {bool checkEmpty = false}) {
-    final String content;
-    try {
-      content = File(path).readAsStringSync();
-    } on FileSystemException catch (e) {
-      recordProblem(_unreadableFile, e, path: path);
-      return false;
-    }
-    _sources.cacheLines(path, content.split('\n'));
-    if (checkEmpty && isDirectiveOnly(content)) {
-      _directiveOnly.add(path);
-    }
-    return true;
   }
 }

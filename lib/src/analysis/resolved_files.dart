@@ -56,8 +56,8 @@ final class ResolvedFiles implements FileSyntax {
   final _elements = <String, Map<Position, Element>>{};
 
   /// Returns the file at [path], an absolute and normalized path, or `null`
-  /// when the analyzer can't resolve it, such as a file whose path isn't the
-  /// path of its URI.
+  /// when the analyzer can't read or resolve it, such as a file whose path
+  /// isn't the path of its URI.
   Future<ResolvedFile?> of(String path) => _files[path];
 
   /// Returns the file at [path] when [of] has resolved it already.
@@ -172,8 +172,9 @@ final class ResolvedFiles implements FileSyntax {
 
   Future<ResolvedFile?> _resolve(String path) async {
     for (final context in _contextsFor(path)) {
+      // A file that can't be read resolves as empty, but isn't.
       if (await context.currentSession.getResolvedUnit(path)
-          case final ResolvedUnitResult result) {
+          case ResolvedUnitResult(exists: true) && final result) {
         _hierarchy.add(result.unit);
         _index.add(path, result.unit);
         final (:outline, :elements, :annotations) = unitOutline(result.unit);
@@ -229,6 +230,7 @@ final class ResolvedFiles implements FileSyntax {
     };
 
     return .new(
+      content: result.content,
       outline: outline,
       annotations: {
         for (final MapEntry(key: name, value: declared) in annotations.entries)

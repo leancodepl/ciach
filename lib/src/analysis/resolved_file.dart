@@ -13,12 +13,16 @@ import 'package:ciach/src/source/outline.dart';
 /// entry-point rules read about their annotations and classes.
 final class ResolvedFile {
   const ResolvedFile({
+    required this.content,
     required this.outline,
     required this.annotations,
     required this.supertypes,
     required this.needSuperArguments,
     required this.firstError,
   });
+
+  /// The text of the file.
+  final String content;
 
   /// The outline of the whole file.
   final Outline outline;

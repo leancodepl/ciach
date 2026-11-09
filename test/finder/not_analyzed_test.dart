@@ -69,6 +69,33 @@ int broken() => missing();
     },
   );
 
+  test(
+    'a file that is not UTF-8, scanned or generated, is reported as unreadable and not as empty, and the run goes on',
+    () async {
+      for (final name in ['garbled.dart', 'garbled.g.dart']) {
+        File(
+          p.join(packagePath, 'lib', name),
+        ).writeAsBytesSync(const [0xff, 0xfe, 0xfd]);
+      }
+
+      final result = await Ciach(.new(rootPath: packagePath)).run();
+
+      expect(
+        [
+          for (final problem in result.problems)
+            if (problem.summary == 'Could not read these files; skipped.')
+              problem.location,
+        ],
+        ['lib/garbled.dart', 'lib/garbled.g.dart'],
+      );
+      expect(result.emptyFiles, isEmpty);
+      expect(result.unused.map((d) => d.qualifiedName), [
+        'Base.dead',
+        'broken',
+      ]);
+    },
+  );
+
   group('the CLI', () {
     Future<ProcessResult> runCli([List<String> args = const []]) =>
         Process.run(Platform.resolvedExecutable, [

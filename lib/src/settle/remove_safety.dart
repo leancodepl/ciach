@@ -9,8 +9,8 @@
  */
 
 import 'package:ciach/src/collect/candidates.dart';
+import 'package:ciach/src/source/file_syntax.dart';
 import 'package:ciach/src/source/locations.dart';
-import 'package:ciach/src/source/source_index.dart';
 
 /// Whether a class's superclass needs constructor arguments.
 typedef SuperclassNeedsArguments = bool Function(Candidate cls);
@@ -38,14 +38,14 @@ class RemoveSafety {
   });
 
   static RemoveSafety analyze(
-    SourceIndex sources,
+    FileSyntax syntax,
     List<Candidate> candidates,
     List<RefStatus> statuses,
     List<List<Location>> refsByCandidate,
     Map<String, Set<String>> deadClassNames,
     SuperclassNeedsArguments superclassNeedsArguments,
   ) {
-    final tally = _Tally(sources);
+    final tally = _Tally(syntax);
     for (final (i, candidate) in candidates.indexed) {
       tally.add(candidate, refsByCandidate[i], unused: statuses[i] == .unused);
     }
@@ -99,9 +99,9 @@ class RemoveSafety {
 }
 
 final class _Tally {
-  _Tally(this._sources);
+  _Tally(this._syntax);
 
-  final SourceIndex _sources;
+  final FileSyntax _syntax;
   final enumTypeStays = <DeclKey, bool>{};
   final enumValues = _PartCounts();
   final enumValuesIterated = <DeclKey>{};
@@ -133,7 +133,7 @@ final class _Tally {
     } else if (candidate.kind == .enum$) {
       enumTypeStays[candidate.key] = !unused;
       if (candidate.outline.element.usesOwnValues ||
-          refs.any(_sources.isEnumValuesAccess)) {
+          refs.any(_syntax.isEnumValuesAccess)) {
         enumValuesIterated.add(candidate.key);
       }
     } else if (candidate.isEnumValue) {

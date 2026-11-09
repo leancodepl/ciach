@@ -8,16 +8,16 @@ import 'package:ciach/src/model/symbol_kind.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/settle/verdict.dart';
 import 'package:ciach/src/source/declarator_cuts.dart';
-import 'package:ciach/src/source/source_index.dart';
+import 'package:ciach/src/source/file_syntax.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:collection/collection.dart';
 
 /// The text `--remove` deletes for a round's removable fields and top-level
 /// variables, worked out from their syntax nodes.
 final class VariableCuts {
-  VariableCuts(this._sources);
+  VariableCuts(this._syntax);
 
-  final SourceIndex _sources;
+  final FileSyntax _syntax;
 
   /// Returns [unused] with [UnusedDeclaration.cut] set on each removable field
   /// and top-level variable, both findings and coupled removals.
@@ -51,7 +51,7 @@ final class VariableCuts {
           if (isDeclarator(coupled.kind)) ofCoupled(coupled),
       ],
     ];
-    final cuts = _sources.declaratorCuts(declarators);
+    final cuts = _syntax.declaratorCuts(declarators);
     UnusedDeclaration withCuts(UnusedDeclaration finding) {
       final cut = isDeclarator(finding.kind) ? cuts[ofFinding(finding)] : null;
       final coupledRemovals = [

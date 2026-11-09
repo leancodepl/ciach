@@ -11,9 +11,9 @@ import 'package:ciach/src/settle/reference_classifier.dart';
 import 'package:ciach/src/settle/removable.dart';
 import 'package:ciach/src/settle/verdict.dart';
 import 'package:ciach/src/source/clause_entries.dart';
+import 'package:ciach/src/source/file_syntax.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
-import 'package:ciach/src/source/source_index.dart';
 import 'package:collection/collection.dart';
 
 /// Reports the used classes and mixins whose members are all removable
@@ -23,14 +23,14 @@ import 'package:collection/collection.dart';
 /// clauses.
 final class ClauseOnlyTypes {
   ClauseOnlyTypes({
-    required SourceIndex sources,
+    required FileSyntax syntax,
     required ReferenceClassifier classifier,
     required Verdict verdict,
-  }) : _sources = sources,
+  }) : _syntax = syntax,
        _classifier = classifier,
        _verdict = verdict;
 
-  final SourceIndex _sources;
+  final FileSyntax _syntax;
   final ReferenceClassifier _classifier;
   final Verdict _verdict;
 
@@ -63,7 +63,7 @@ final class ClauseOnlyTypes {
       final entries = [
         for (final loc in refs)
           if (scannedPaths.contains(loc.path))
-            ?_sources.clauseEntryAt(loc, candidate.outline.element),
+            ?_syntax.clauseEntryAt(loc, candidate.outline.element),
       ];
       if (entries.length == refs.length) {
         entriesOf[i] = entries;

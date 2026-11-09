@@ -18,7 +18,6 @@ import 'package:ciach/src/settle/variable_cuts.dart';
 import 'package:ciach/src/settle/verdict.dart';
 import 'package:ciach/src/settle/whole_types.dart';
 import 'package:ciach/src/source/locations.dart';
-import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/plural.dart';
 import 'package:collection/collection.dart';
@@ -48,23 +47,23 @@ typedef _Verdicts = ({
 final class Settler {
   Settler({
     required this.options,
-    required SourceIndex sources,
+    required ResolvedFiles files,
     required FreezedUnions freezed,
     required ReferenceClassifier classifier,
     required Verdict verdict,
-  }) : _sources = sources,
+  }) : _files = files,
        _freezed = freezed,
        _classifier = classifier,
        _verdict = verdict;
 
   final FinderOptions options;
-  final SourceIndex _sources;
+  final ResolvedFiles _files;
   final FreezedUnions _freezed;
   final ReferenceClassifier _classifier;
   final Verdict _verdict;
 
   late final _clauseOnly = ClauseOnlyTypes(
-    sources: _sources,
+    syntax: _files,
     classifier: _classifier,
     verdict: _verdict,
   );
@@ -74,7 +73,7 @@ final class Settler {
     verdict: _verdict,
   );
 
-  late final _variableCuts = VariableCuts(_sources);
+  late final _variableCuts = VariableCuts(_files);
 
   late final _wholeTypes = WholeTypes(verdict: _verdict);
 
@@ -91,15 +90,13 @@ final class Settler {
 
   /// The findings for [candidates], from their [refsByCandidate].
   Settled settle(
-    ResolvedFiles files,
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate, {
     required Set<String> scannedPaths,
     required String rootPath,
   }) {
     final overrides = OverrideRemovals(
-      files,
-      _sources,
+      _files,
       scannedPaths: scannedPaths,
       rootPath: rootPath,
     );
@@ -111,7 +108,6 @@ final class Settler {
     Map<UnusedDeclaration, int> candidateOf;
     for (var round = 1; ; round++) {
       final result = _round(
-        files,
         candidates,
         refsByCandidate,
         TransitiveSweep.liveRefs(refsByCandidate, deadSpans),
@@ -160,7 +156,6 @@ final class Settler {
   /// candidate index. [refsByCandidate] still holds the references into
   /// [deadSpans], for [DeadSpans.referrersAmong].
   ({_Verdicts settled, Map<UnusedDeclaration, int> candidateOf}) _round(
-    ResolvedFiles files,
     List<Candidate> candidates,
     List<List<Location>> refsByCandidate,
     List<List<Location>> liveRefs,
@@ -184,12 +179,12 @@ final class Settler {
     final deadClassNames = _deadClassNames(candidates, statuses);
 
     final safety = RemoveSafety.analyze(
-      _sources,
+      _files,
       candidates,
       statuses,
       liveRefs,
       deadClassNames,
-      (cls) => needsSuperArguments(files, cls),
+      (cls) => needsSuperArguments(_files, cls),
     );
 
     // `--remove` keeps a type that only doc comments mention, and its members.
@@ -359,7 +354,7 @@ final class Settler {
     final refs = liveRefs[i];
     final blockedByOverride = overridden?.blocked ?? false;
     final pairedState = candidate.isClassOrMixin
-        ? _sources.pairedStateRemovals(
+        ? _files.pairedStateRemovals(
             candidate,
             refs,
             candidates,
