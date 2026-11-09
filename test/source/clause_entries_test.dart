@@ -12,8 +12,8 @@ import 'package:test/test.dart';
 import '../support/removal.dart';
 import '../support/test_package.dart';
 
-/// Cuts entries from `with` and `implements` clauses with the tokens, the
-/// syntax nodes and the outline that the analyzer gives.
+/// Cuts entries from `with` and `implements` clauses with the syntax that the
+/// analyzer gives.
 void main() {
   late TestPackage package;
 
@@ -39,7 +39,6 @@ void main() {
     List<String> names,
   ) async {
     final (path, sources) = await index(source);
-    final unit = (await package.files.of(path))!.outline;
     final clauseStart = source.indexOf(clause);
     int nameAt(String name) {
       final start = source.indexOf(RegExp('\\b$name\\b'), clauseStart);
@@ -62,7 +61,6 @@ void main() {
           sources.clauseEntryAt(
             .new(path: path, range: range),
             .new(kind: .mixin, name: names[i]),
-            unit,
           ),
       ],
     );
@@ -71,9 +69,9 @@ void main() {
   /// Returns [source] after removing the [cut] names from the clause that
   /// starts with [clause].
   Future<String> cutFrom(String source, String clause, List<String> cut) async {
-    final (path, sources, entries) = await entriesIn(source, clause, cut);
+    final (path, _, entries) = await entriesIn(source, clause, cut);
     expect(entries, everyElement(isNotNull));
-    final removals = sources.clauseCuts(entries.nonNulls, package.root).values;
+    final removals = clauseCuts(entries.nonNulls, package.root).values;
     removeDeclarations([
       for (final removal in removals.toSet())
         decl(
@@ -178,7 +176,7 @@ ${types}abstract class A
   });
 
   test(
-    'reads from the outline whether a clause belongs to a mixin application class',
+    'tells whether a `with` clause belongs to a mixin application class',
     () async {
       const source =
           '''
@@ -188,8 +186,8 @@ class F extends B with C {}
       final (_, _, aliased) = await entriesIn(source, 'with C;', ['C']);
       final (_, _, extended) = await entriesIn(source, 'with C {', ['C']);
 
-      expect(aliased.single?.keepsOne, isTrue);
-      expect(extended.single?.keepsOne, isFalse);
+      expect(aliased.single?.clause.keepsOne, isTrue);
+      expect(extended.single?.clause.keepsOne, isFalse);
     },
   );
 

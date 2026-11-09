@@ -13,17 +13,14 @@ import 'package:analyzer/dart/element/type.dart';
 import 'package:ciach/src/analysis/declaration_annotation.dart';
 import 'package:ciach/src/analysis/line_positions.dart';
 import 'package:ciach/src/analysis/reference_index.dart';
+import 'package:ciach/src/analysis/reference_shapes.dart' as shapes;
 import 'package:ciach/src/analysis/resolved_class.dart';
 import 'package:ciach/src/analysis/resolved_file.dart';
-import 'package:ciach/src/analysis/selection_ranges.dart';
 import 'package:ciach/src/analysis/type_hierarchy.dart';
 import 'package:ciach/src/analysis/unit_outline.dart';
-import 'package:ciach/src/analysis/unit_tokens.dart';
 import 'package:ciach/src/source/file_syntax.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
-import 'package:ciach/src/source/selection_range.dart';
-import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:ciach/src/util/cached_map.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/workspace/packages.dart';
@@ -66,21 +63,68 @@ final class ResolvedFiles implements FileSyntax {
   /// Returns the file at [path] when [of] has resolved it already.
   ResolvedFile? resolved(String path) => _resolved[path];
 
-  /// Returns the tokens of the file at [path] when [of] has resolved it
-  /// already.
   @override
-  List<SemanticToken>? tokensOf(String path) => resolved(path)?.tokens;
+  bool isDocReference(Location location) =>
+      _at(location.path, location.range.start, shapes.isDocReferenceAt) ??
+      false;
 
   @override
-  SelectionRange? selectionRangeAt(String path, Position position) {
-    final parsed = _parsed[path];
-    if (parsed == null || position.line >= parsed.lineInfo.lineCount) {
-      return null;
-    }
-    return selectionRangeIn(
-      parsed.unit,
-      parsed.lineInfo.getOffsetOfLine(position.line) + position.character,
-    );
+  bool isTypePattern(Location location) =>
+      _at(location.path, location.range.start, shapes.isTypePatternAt) ?? false;
+
+  @override
+  bool isEnumValuesAccess(Location location) =>
+      _at(location.path, location.range.start, shapes.isEnumValuesAccessAt) ??
+      false;
+
+  @override
+  bool isStateTypeArgument(Location location) =>
+      _at(location.path, location.range.start, shapes.isStateTypeArgumentAt) ??
+      false;
+
+  @override
+  ({Clause clause, Range entry})? clauseAt(Location location, String name) =>
+      _at(
+        location.path,
+        location.range.start,
+        (unit, offset) => shapes.clauseAt(unit, offset, name),
+      );
+
+  @override
+  ({VariableStatement statement, Range declarator})? declaratorAt(
+    String path,
+    Position name,
+  ) => _at(path, name, shapes.declaratorAt);
+
+  @override
+  bool isInBody(String path, Position position, Range declaration) =>
+      _at(path, position, (unit, offset) {
+        final lineInfo = unit.lineInfo;
+        return switch ((
+          lineInfo.offsetOf(declaration.start),
+          lineInfo.offsetOf(declaration.end),
+        )) {
+          (final start?, final end?) => shapes.isInBodyAt(
+            unit,
+            offset,
+            start,
+            end,
+          ),
+          _ => false,
+        };
+      }) ??
+      false;
+
+  /// Returns what [read] reads at [position] in the parsed file at [path], or
+  /// `null` when the file can't be parsed or [position] isn't in it.
+  T? _at<T extends Object>(
+    String path,
+    Position position,
+    T? Function(CompilationUnit unit, int offset) read,
+  ) {
+    final unit = _parsed[path]?.unit;
+    final offset = unit?.lineInfo.offsetOf(position);
+    return unit == null || offset == null ? null : read(unit, offset);
   }
 
   /// Resolves the Dart files that the analysis root's `analysis_options.yaml`
@@ -186,7 +230,6 @@ final class ResolvedFiles implements FileSyntax {
 
     return .new(
       outline: outline,
-      tokens: unitTokens(result.unit, result.content),
       annotations: {
         for (final MapEntry(key: name, value: declared) in annotations.entries)
           name: [

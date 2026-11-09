@@ -5,7 +5,7 @@ import 'dart:io';
 
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/source/declarator_cuts.dart';
-import 'package:ciach/src/source/source_index.dart';
+import 'package:ciach/src/source/outline.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -13,7 +13,7 @@ import '../support/removal.dart';
 import '../support/test_package.dart';
 
 /// Removes fields and top-level variables with cuts worked out from the
-/// tokens and syntax nodes that the analyzer gives.
+/// syntax nodes that the analyzer gives.
 void main() {
   late TestPackage package;
 
@@ -25,23 +25,20 @@ void main() {
   /// as `--remove` would, and returns the result.
   Future<String> remove(String source, List<String> names) async {
     final path = package.writeNew(source);
-    final tokens = (await package.files.of(path))!.tokens;
-    final sources = SourceIndex(package.files)
-      ..cacheLines(path, source.split('\n'));
+    final outline = (await package.files.of(path))!.outline;
+    Iterable<Outline> nestedIn(Outline outline) => [
+      for (final child in outline.children) ...[child, ...nestedIn(child)],
+    ];
     final removed = [
       for (final name in names)
         (
           path: path,
-          name: tokens
-              .firstWhere(
-                (token) =>
-                    token.text == name &&
-                    token.modifiers.contains('declaration'),
-              )
-              .start,
+          name: nestedIn(
+            outline,
+          ).firstWhere((node) => node.element.name == name).nameRange.start,
         ),
     ];
-    final cuts = sources.declaratorCuts(removed);
+    final cuts = package.files.declaratorCuts(removed);
     removeDeclarations([
       for (final declarator in removed)
         decl(

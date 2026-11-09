@@ -277,7 +277,6 @@ final class Settler {
       );
     _removableBefore.addAll(removable);
     for (final (i, finding) in _clauseOnly.findings(
-      files,
       candidates,
       statuses,
       refsByCandidate,

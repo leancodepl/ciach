@@ -11,7 +11,6 @@
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/source_index.dart';
-import 'package:ciach/src/source/syntax_rules.dart';
 
 /// Whether a class's superclass needs constructor arguments.
 typedef SuperclassNeedsArguments = bool Function(Candidate cls);
@@ -134,7 +133,7 @@ final class _Tally {
     } else if (candidate.kind == .enum$) {
       enumTypeStays[candidate.key] = !unused;
       if (candidate.outline.element.usesOwnValues ||
-          refs.any(_sources.isDotValuesRef)) {
+          refs.any(_sources.isEnumValuesAccess)) {
         enumValuesIterated.add(candidate.key);
       }
     } else if (candidate.isEnumValue) {

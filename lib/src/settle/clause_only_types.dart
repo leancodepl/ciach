@@ -4,7 +4,6 @@
  *   harness: Claude Code
  */
 
-import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/settle/dead_spans.dart';
@@ -15,7 +14,6 @@ import 'package:ciach/src/source/clause_entries.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
 import 'package:ciach/src/source/source_index.dart';
-import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 
 /// Reports the used classes and mixins whose members are all removable
@@ -42,7 +40,6 @@ final class ClauseOnlyTypes {
   /// no finding. [refsByCandidate] still holds the references into [deadSpans],
   /// which name what a type is only referenced from.
   List<(int, UnusedDeclaration)> findings(
-    ResolvedFiles files,
     List<Candidate> candidates,
     List<RefStatus> statuses,
     List<List<Location>> refsByCandidate,
@@ -66,32 +63,22 @@ final class ClauseOnlyTypes {
       final entries = [
         for (final loc in refs)
           if (scannedPaths.contains(loc.path))
-            ?files
-                .resolved(loc.path)
-                ?.outline
-                .let(
-                  (unit) => _sources.clauseEntryAt(
-                    loc,
-                    candidate.outline.element,
-                    unit,
-                  ),
-                ),
+            ?_sources.clauseEntryAt(loc, candidate.outline.element),
       ];
       if (entries.length == refs.length) {
         entriesOf[i] = entries;
       }
     }
-    // Drop a type if any of its clause entries gets no removal: its file can't
-    // be parsed, or the entry would take every mixin of a mixin application
-    // class. Dropping a type keeps its entries, which
-    // changes the removals of other entries in the same clause, so repeat
-    // until each type left has all its removals.
-    var cuts = _sources.clauseCuts(entriesOf.values.flattened, rootPath);
+    // Drop a type if any of its clause entries gets no removal, because the
+    // entry would take every mixin of a mixin application class. Dropping a
+    // type keeps its entries, which changes the removals of other entries in
+    // the same clause, so repeat until each type left has all its removals.
+    var cuts = clauseCuts(entriesOf.values.flattened, rootPath);
     bool lacksCut(List<ClauseEntry> entries) =>
         !entries.every(cuts.containsKey);
     while (entriesOf.values.any(lacksCut)) {
       entriesOf.removeWhere((_, entries) => lacksCut(entries));
-      cuts = _sources.clauseCuts(entriesOf.values.flattened, rootPath);
+      cuts = clauseCuts(entriesOf.values.flattened, rootPath);
     }
     return [
       for (final MapEntry(key: i, value: entries) in entriesOf.entries)

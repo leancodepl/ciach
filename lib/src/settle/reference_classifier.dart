@@ -9,12 +9,9 @@
  */
 
 import 'package:ciach/src/collect/candidates.dart';
-import 'package:ciach/src/conventions/flutter_widgets.dart';
 import 'package:ciach/src/source/locations.dart';
-import 'package:ciach/src/source/reference_kinds.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
-import 'package:ciach/src/source/syntax_rules.dart';
 
 /// Decides whether a declaration is used, unused, or referenced only from doc
 /// comments, from its references.
@@ -81,7 +78,7 @@ class ReferenceClassifier {
       // self-reference. Any reference that is not confidently a type pattern
       // keeps the class alive — the conservative choice (nested sub-patterns
       // and pattern-variable declarations are intentionally not recognized).
-      if (unusedUnionMembers && _sources.isPatternRef(loc)) {
+      if (unusedUnionMembers && _sources.isTypePattern(loc)) {
         hasPatternMatch = true;
         continue;
       }
@@ -100,11 +97,11 @@ class ReferenceClassifier {
   /// one inside the declaration's own span (body, signature, doc and
   /// annotation lines — text that goes when it does, so a recursive call or
   /// the unnamed constructor's declaration keeps nothing alive), or the
-  /// `State<Foo>` pairing ([FlutterWidgets.isStatePairingReference]).
+  /// `State<Foo>` pairing ([SourceIndex.isStateTypeArgument]).
   bool isSelfReference(Candidate candidate, Location loc) =>
       (loc.path == candidate.path &&
           candidate.outline.range.contains(loc.range.start)) ||
-      _sources.isStatePairingReference(candidate.name, loc);
+      _sources.isStateTypeArgument(loc);
 
   /// Whether [candidate] — already classified as unused under
   /// `--also union-members` — is kept dead by *type patterns*: at least one
@@ -115,6 +112,6 @@ class ReferenceClassifier {
         (loc) =>
             !isSelfReference(candidate, loc) &&
             !_sources.isDocReference(loc) &&
-            _sources.isPatternRef(loc),
+            _sources.isTypePattern(loc),
       );
 }

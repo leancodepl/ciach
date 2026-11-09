@@ -2,7 +2,6 @@ import 'package:ciach/src/analysis/resolved_files.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/outline.dart';
-import 'package:ciach/src/source/reference_kinds.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/reachability.dart';
@@ -161,37 +160,11 @@ final class _Carriers {
             .functionTypeAlias) {
       return false;
     }
-    if (_bodyStart(node, path, pos) == null ||
+    if (!_sources.isInBody(path, pos, node.codeRange) ||
         (element.typeParameters ?? '').isNotEmpty ||
         (owner?.element.typeParameters ?? '').isNotEmpty) {
       return false;
     }
-    return _files.hasDynamicSignature(
-          path,
-          element.range?.start ?? node.codeRange.start,
-        ) ==
-        false;
-  }
-
-  /// Where the body of [node] that holds [pos] starts: the syntax node that
-  /// ends the declaration and opens with `{`, `=>`, `async` or `sync`.
-  int? _bodyStart(Outline node, String path, Position pos) {
-    final code = _sources.content(path);
-    for (
-      var range = _sources.selectionRangeAt(path, pos);
-      range != null && node.codeRange.contains(range.range.start);
-      range = range.parent
-    ) {
-      final start = _sources.offsetOf(path, range.range.start);
-      if (start != null &&
-          range.range.end == node.codeRange.end &&
-          range.range.start != node.codeRange.start &&
-          _bodyOpener.matchAsPrefix(code, start) != null) {
-        return start;
-      }
-    }
-    return null;
+    return _files.hasDynamicSignature(path, node.nameRange.start) == false;
   }
 }
-
-final _bodyOpener = RegExp(r'\{|=>|async\b|sync\b');

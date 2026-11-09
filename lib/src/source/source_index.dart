@@ -13,14 +13,12 @@ import 'dart:io';
 import 'package:ciach/src/source/file_syntax.dart';
 import 'package:ciach/src/source/line_starts.dart';
 import 'package:ciach/src/source/locations.dart';
-import 'package:ciach/src/source/selection_range.dart';
-import 'package:ciach/src/source/semantic_tokens.dart';
 import 'package:ciach/src/util/cached_map.dart';
 
 /// Per-file view of the source under analysis: its lines, content and line
-/// starts, each cached on first use, plus the tokens and the syntax nodes
-/// that [FileSyntax] gives.
-class SourceIndex {
+/// starts, each cached on first use, plus the answers about its code that
+/// [FileSyntax] gives.
+class SourceIndex implements FileSyntax {
   SourceIndex(this._syntax);
 
   final FileSyntax _syntax;
@@ -51,15 +49,33 @@ class SourceIndex {
   /// The lines of the file at [path], read (and cached) on demand.
   List<String> lines(String path) => _lines[path];
 
-  /// The tokens of [path], in order, or `null` when the file isn't
-  /// resolved. A file without tokens reads as all code, which only keeps
-  /// declarations.
-  List<SemanticToken>? semanticTokens(String path) => _syntax.tokensOf(path);
+  @override
+  bool isDocReference(Location location) => _syntax.isDocReference(location);
 
-  /// The syntax nodes enclosing [position] in [path], innermost first, or
-  /// `null` when the file can't be parsed.
-  SelectionRange? selectionRangeAt(String path, Position position) =>
-      _syntax.selectionRangeAt(path, position);
+  @override
+  bool isTypePattern(Location location) => _syntax.isTypePattern(location);
+
+  @override
+  bool isEnumValuesAccess(Location location) =>
+      _syntax.isEnumValuesAccess(location);
+
+  @override
+  bool isStateTypeArgument(Location location) =>
+      _syntax.isStateTypeArgument(location);
+
+  @override
+  ({Clause clause, Range entry})? clauseAt(Location location, String name) =>
+      _syntax.clauseAt(location, name);
+
+  @override
+  ({VariableStatement statement, Range declarator})? declaratorAt(
+    String path,
+    Position name,
+  ) => _syntax.declaratorAt(path, name);
+
+  @override
+  bool isInBody(String path, Position position, Range declaration) =>
+      _syntax.isInBody(path, position, declaration);
 
   /// Records the [lines] of a file that the run read, so its content isn't
   /// read from disk again, and marks the file as scanned.

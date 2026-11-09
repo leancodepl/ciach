@@ -323,10 +323,9 @@ explicit null check.
   `package:collection`, `package:path`, `Uri`, `package:xml` and
   `package_config`, in a library's own constants (the analyzer's `Keyword`),
   and in LeanCode's packages (`jaspr_class_scope`). Search sorted data with the
-  existing binary searches, `lastStartingAtOrBefore` in
-  `lib/src/source/symbols.dart` and `firstIndexAtOrAfter` in
-  `lib/src/source/semantic_tokens.dart`, instead of scanning it or writing
-  another one. When the same expression or hand-written pattern appears a
+  existing binary search, `lastStartingAtOrBefore` in
+  `lib/src/source/symbols.dart`, instead of scanning it or writing another
+  one. When the same expression or hand-written pattern appears a
   second time, give it a helper and replace every copy; share a function, not
   a regex constant.
 - Read Dart source through `package:analyzer` in `lib/src/analysis/` (the

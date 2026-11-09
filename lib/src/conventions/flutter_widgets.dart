@@ -10,53 +10,15 @@
 
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
+import 'package:ciach/src/source/file_syntax.dart';
 import 'package:ciach/src/source/locations.dart';
-import 'package:ciach/src/source/reference_kinds.dart';
-import 'package:ciach/src/source/semantic_tokens.dart';
-import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/paths.dart';
 
 /// Flutter `StatefulWidget`/`State` conventions: recognizing the `State<Widget>`
 /// pairing (so it isn't mistaken for an external use of the widget), and
 /// coupling a dead widget's private `State` subclass to the widget's removal.
-extension FlutterWidgets on SourceIndex {
-  /// Whether [loc] is [className] as the sole type argument in an
-  /// `extends State<…>` clause. That reference is not a use of the widget.
-  bool isStatePairingReference(String className, Location loc) {
-    final path = loc.path;
-    final position = loc.range.start;
-    final tokens = semanticTokens(path);
-    final argument = selectionRangeAt(path, position);
-    final arguments = argument?.parent;
-    final type = arguments?.parent;
-    final clause = type?.parent;
-    if (tokens == null ||
-        argument == null ||
-        arguments == null ||
-        type == null ||
-        clause == null) {
-      return false;
-    }
-    final name = tokens.startingAt(position);
-    if (name == null || name.text != className) {
-      return false;
-    }
-    // `State<Foo>`, not `State<Foo, Bar>`.
-    if (tokens.between(arguments.range.start, arguments.range.end).length !=
-        1) {
-      return false;
-    }
-    final state = tokens.startingAt(type.range.start);
-    final keyword = tokens.startingAt(clause.range.start);
-    return state != null &&
-        state.type == 'class' &&
-        state.text == 'State' &&
-        keyword != null &&
-        keyword.isKeyword &&
-        keyword.text == 'extends';
-  }
-
+extension FlutterWidgets on FileSyntax {
   /// The extra spans to remove alongside a dead [widget] class: each
   /// `State<Widget>` subclass, in any file, used only from within the widget
   /// (via `createState`). Returns an empty list for
@@ -77,7 +39,7 @@ extension FlutterWidgets on SourceIndex {
     final out = <CoupledRemoval>[];
     var blocked = false;
     for (final loc in widgetRefs) {
-      if (!isStatePairingReference(widget.name, loc)) {
+      if (!isStateTypeArgument(loc)) {
         continue;
       }
       final path = loc.path;

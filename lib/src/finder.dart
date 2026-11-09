@@ -16,7 +16,7 @@
 /// |-------------------|-----------------------------------------------------------------------|
 /// | `model/`          | The options a run takes and the findings and results it returns.      |
 /// | `workspace/`      | The package on disk: Dart files, pubspecs, directives, public API.    |
-/// | `source/`         | Source text and the syntax that the rules read: tokens, markers.      |
+/// | `source/`         | Source text, outlines, markers, and the syntax that the rules read.   |
 /// | `analysis/`       | The files as `package:analyzer` resolves them; nothing else uses it.  |
 /// | `conventions/`    | Framework rules that keep declarations alive: Flutter, freezed, l10n. |
 /// | `project_config/` | Entry points and generated files read from the project's own config.  |
@@ -104,9 +104,9 @@ final class _Run {
 
   final FinderOptions options;
 
-  /// The source text, tokens and syntax nodes of every file touched this
-  /// run, shared by the classification and the structural detectors. It is
-  /// set once the analyzer is set up.
+  /// The source text of every file touched this run, and the answers about
+  /// its code, shared by the classification and the structural detectors.
+  /// It is set once the analyzer is set up.
   late final SourceIndex _sources;
 
   /// The candidate files with nothing but directives and comments, as they
