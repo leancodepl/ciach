@@ -57,8 +57,7 @@ int consumeLineEnd(String content, int end) {
   return nextNewline?.let((newline) => newline + 1) ?? content.length;
 }
 
-/// Skips spaces and tabs from [from], but never across a line break — used to
-/// consume the gap after a removed enum value's comma.
+/// Skips spaces and tabs from [from], but never across a line break.
 int skipSameLineBlank(String content, int from) {
   var i = from;
   while (i < content.length && isSpaceOrTab(content[i])) {

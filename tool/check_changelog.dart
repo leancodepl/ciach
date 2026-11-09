@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:ciach/src/util/extensions.dart';
+import 'package:collection/collection.dart';
 
 /// Checks the CHANGELOG.md entries added since a base revision: each ends with
 /// a link to its pull request, `([#N](https://github.com/leancodepl/ciach/pull/N))`.
@@ -64,23 +65,10 @@ const _pulls = 'https://github.com/leancodepl/ciach/pull';
 /// A link to a pull request ending an entry, with the same number twice.
 final _link = RegExp(r'\(\[#(\d+)\]\(' + RegExp.escape(_pulls) + r'/\1\)\)$');
 
-/// The `- ` list items, each with its continuation lines.
-Iterable<String> _entries(String changelog) sync* {
-  final entry = StringBuffer();
-  for (final line in changelog.split('\n')) {
-    if (entry.isNotEmpty && line.startsWith('  ')) {
-      entry.write('\n$line');
-      continue;
-    }
-    if (entry.isNotEmpty) {
-      yield entry.toString();
-      entry.clear();
-    }
-    if (line.startsWith('- ')) {
-      entry.write(line);
-    }
-  }
-  if (entry.isNotEmpty) {
-    yield entry.toString();
-  }
-}
+/// The `- ` list items, each with the lines indented by two spaces that follow
+/// it.
+Iterable<String> _entries(String changelog) => changelog
+    .split('\n')
+    .splitBefore((line) => !line.startsWith('  '))
+    .where((lines) => lines.first.startsWith('- '))
+    .map((lines) => lines.join('\n'));

@@ -69,27 +69,23 @@ final class OverrideRemovals {
     required DeadSpans kept,
   }) {
     _lookUp(members.whereNot(_byMember.containsKey).toList(), candidates);
-    final byCandidate = <int, OverriddenMember>{};
-    var coupled = 0;
-    var couplingMembers = 0;
-    var blockedMembers = 0;
-    for (final index in members) {
-      var result = _byMember[index]!;
-      if (result.removals.any((removal) => _isIn(kept, removal))) {
-        result = blocked;
-      }
-      if (result.removals.isEmpty && !result.blocked) {
-        continue;
-      }
-      byCandidate[index] = result;
-      coupled += result.removals.length;
-      if (result.removals.isNotEmpty) {
-        couplingMembers++;
-      }
-      if (result.blocked) {
-        blockedMembers++;
-      }
-    }
+    final byCandidate = {
+      for (final index in members)
+        if (_byMember[index]! case final found
+            when found.blocked || found.removals.isNotEmpty)
+          index: found.removals.any((removal) => _isIn(kept, removal))
+              ? blocked
+              : found,
+    };
+    final coupled = byCandidate.values
+        .map((member) => member.removals.length)
+        .sum;
+    final couplingMembers = byCandidate.values
+        .where((member) => member.removals.isNotEmpty)
+        .length;
+    final blockedMembers = byCandidate.values
+        .where((member) => member.blocked)
+        .length;
     if (coupled > 0) {
       _log.fine(
         'Coupling ${plural(coupled, 'override', 'overrides')} to '
@@ -148,13 +144,12 @@ final class OverrideRemovals {
     // [ResolvedFiles.overridesOf] gives where the override's name starts,
     // which is where an outline node's element range starts.
     final start = location.range.start;
-    final found = file?.outline.let((outline) => _nodeNamedAt(outline, start));
+    final node = file?.outline.let((outline) => _nodeNamedAt(outline, start));
     if (file == null ||
-        found == null ||
-        !_removableKinds.contains(found.node.element.kind)) {
+        node == null ||
+        !_removableKinds.contains(node.element.kind)) {
       return null;
     }
-    final node = found.node;
     if ((_markers[path] ??= .parse(
           file.content,
         )).keeping(start: node.range.start.line, nameLine: start.line) !=
@@ -179,22 +174,12 @@ final class OverrideRemovals {
     );
   }
 
-  /// The outline node whose name starts at [position], with the node it is
-  /// declared in. A name is inside every range around it, so this descends.
-  static ({Outline node, Outline? parent})? _nodeNamedAt(
-    Outline root,
-    Position position,
-  ) {
-    var parent = root;
-    while (true) {
-      final child = parent.childAt(position);
-      if (child == null) {
-        return null;
-      }
-      if (child.element.range?.start == position) {
-        return (node: child, parent: parent);
-      }
-      parent = child;
-    }
-  }
+  /// The outline node under [parent] whose name starts at [position]. A name
+  /// is inside every range around it, so this descends.
+  static Outline? _nodeNamedAt(Outline parent, Position position) =>
+      switch (parent.childAt(position)) {
+        final child? when child.element.range?.start == position => child,
+        final child? => _nodeNamedAt(child, position),
+        null => null,
+      };
 }

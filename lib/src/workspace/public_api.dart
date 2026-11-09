@@ -165,22 +165,25 @@ final class _Directives {
     String path,
     PackageResolver packages,
   ) {
-    final exports = <_Export>[];
-    final parts = <String>[];
-    for (final directive in Directive.allIn(content)) {
-      switch (directive.keyword) {
-        case 'part' when !directive.isPartOf:
-          parts.addAll(directive.pathsFrom(path, packages).take(1));
-        case 'export' when directive.uris.isNotEmpty:
-          exports.add((
-            paths: directive.pathsFrom(path, packages),
-            names: _Names.parse(
-              directive.body.substring(directive.uris.last.end),
+    final directives = Directive.allIn(content).toList();
+    return .new(
+      [
+        for (final directive in directives)
+          if (directive case Directive(
+            keyword: 'export',
+            uris: [..., final last],
+          ))
+            (
+              paths: directive.pathsFrom(path, packages),
+              names: _Names.parse(directive.body.substring(last.end)),
             ),
-          ));
-      }
-    }
-    return .new(exports, parts);
+      ],
+      [
+        for (final directive in directives)
+          if (directive case Directive(keyword: 'part', isPartOf: false))
+            ...directive.pathsFrom(path, packages).take(1),
+      ],
+    );
   }
 
   final List<_Export> exports;

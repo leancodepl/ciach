@@ -30,33 +30,33 @@ String teamCityReport(FinderResult result, {String pathPrefix = '.'}) {
   )) {
     final typeId = 'ciach.${check.id}';
     if (declared.add(check)) {
-      _writeTeamCity(buffer, 'inspectionType', [
-        ('id', typeId),
-        ('name', check.title),
-        ('category', 'ciach'),
-        ('description', check.title),
-      ]);
+      buffer.writeln(
+        _serviceMessage('inspectionType', [
+          ('id', typeId),
+          ('name', check.title),
+          ('category', 'ciach'),
+          ('description', check.title),
+        ]),
+      );
     }
-    _writeTeamCity(buffer, 'inspection', [
-      ('typeId', typeId),
-      ('message', message),
-      ('file', file),
-      ?line?.let((line) => ('line', '$line')),
-      ('SEVERITY', check.notice ? 'WEAK WARNING' : 'WARNING'),
-    ]);
+    buffer.writeln(
+      _serviceMessage('inspection', [
+        ('typeId', typeId),
+        ('message', message),
+        ('file', file),
+        ?line?.let((line) => ('line', '$line')),
+        ('SEVERITY', check.notice ? 'WEAK WARNING' : 'WARNING'),
+      ]),
+    );
   }
   return buffer.toString();
 }
 
-void _writeTeamCity(
-  StringBuffer buffer,
-  String name,
-  List<(String, String)> attributes,
-) {
+String _serviceMessage(String name, List<(String, String)> attributes) {
   final rendered = [
     for (final (key, value) in attributes) "$key='${_escapeTeamCity(value)}'",
   ];
-  buffer.writeln('##teamcity[$name ${rendered.join(' ')}]');
+  return '##teamcity[$name ${rendered.join(' ')}]';
 }
 
 // Escaping per the service-message spec; `|` goes first.

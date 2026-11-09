@@ -5,10 +5,10 @@ import 'dart:io';
 
 import 'package:ciach/ciach.dart';
 import 'package:ciach/src/source/declarator_cuts.dart';
-import 'package:ciach/src/source/outline.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import '../support/outlines.dart';
 import '../support/removal.dart';
 import '../support/test_package.dart';
 
@@ -26,9 +26,6 @@ void main() {
   Future<String> remove(String source, List<String> names) async {
     final path = package.writeNew(source);
     final outline = (await package.files.of(path))!.outline;
-    Iterable<Outline> nestedIn(Outline outline) => [
-      for (final child in outline.children) ...[child, ...nestedIn(child)],
-    ];
     final removed = [
       for (final name in names)
         (

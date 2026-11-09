@@ -59,7 +59,9 @@ final class WholeTypes {
     };
   }
 
-  /// Reports a type once, instead of a finding for each of its members.
+  /// Returns [candidateOf], which maps each finding to its candidate's
+  /// index, with a type reported once instead of a finding for each of its
+  /// members.
   ///
   /// - A type in [reportOnlyTypes] gets one report-only finding with its hint.
   ///   Its members are not reported, so `--remove` keeps them all.
@@ -69,10 +71,9 @@ final class WholeTypes {
   ///
   /// Members of other types are still reported, and so is a member in
   /// [removableBefore], which an earlier round found removable.
-  void report(
-    List<UnusedDeclaration> unused,
-    List<Candidate> candidates,
+  Map<UnusedDeclaration, int> report(
     Map<UnusedDeclaration, int> candidateOf,
+    List<Candidate> candidates,
     ReportOnlyTypes reportOnlyTypes,
     Set<int> removableBefore,
     String rootPath,
@@ -80,7 +81,7 @@ final class WholeTypes {
     Candidate candidateFor(UnusedDeclaration finding) =>
         candidates[candidateOf[finding]!];
     final deadTypes = {
-      for (final finding in unused)
+      for (final finding in candidateOf.keys)
         if (candidateFor(finding) case final candidate
             when !finding.removalBlocked && candidate.container == null)
           candidate.key,
@@ -92,10 +93,9 @@ final class WholeTypes {
               !removableBefore.contains(candidateOf[finding]));
     }
 
-    final removalsOf = unused
+    final removalsOf = candidateOf.keys
         .where(
           (finding) =>
-              goesWithType(finding) &&
               deadTypes.contains(candidateFor(finding).containerKey) &&
               !finding.removalBlocked,
         )
@@ -104,30 +104,28 @@ final class WholeTypes {
           (removals, member) =>
               (removals ?? [])..addAll(member.coupledRemovals),
         );
-    unused.removeWhere(goesWithType);
-    for (final (j, finding) in unused.indexed.toList()) {
+    UnusedDeclaration withMemberRemovals(UnusedDeclaration finding) {
       final candidate = candidateFor(finding);
-      if (candidate.container != null) {
-        continue;
-      }
-      if (removalsOf[candidate.key] case final removals?
-          when removals.isNotEmpty) {
-        final folded = finding.copyWith(
-          coupledRemovals: {...finding.coupledRemovals, ...removals}.toList(),
-        );
-        unused[j] = folded;
-        candidateOf[folded] = candidateOf[finding]!;
-      }
+      return switch (removalsOf[candidate.key]) {
+        final removals?
+            when candidate.container == null && removals.isNotEmpty =>
+          finding.copyWith(
+            coupledRemovals: {...finding.coupledRemovals, ...removals}.toList(),
+          ),
+        _ => finding,
+      };
     }
-    for (final (:type, :hint) in reportOnlyTypes.values) {
-      final finding = _verdict.finding(
-        candidates[type],
-        rootPath,
-        removalBlocked: true,
-        hint: hint,
-      );
-      unused.add(finding);
-      candidateOf[finding] = type;
-    }
+
+    return {
+      for (final MapEntry(key: finding, value: i) in candidateOf.entries)
+        if (!goesWithType(finding)) withMemberRemovals(finding): i,
+      for (final (:type, :hint) in reportOnlyTypes.values)
+        _verdict.finding(
+          candidates[type],
+          rootPath,
+          removalBlocked: true,
+          hint: hint,
+        ): type,
+    };
   }
 }

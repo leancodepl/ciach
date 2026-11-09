@@ -169,10 +169,10 @@ ResolvedOptions resolveOptions(
     kinds: parseKinds(configuration.value(CiachOption.kinds)),
     includePublic: configuration.value(CiachOption.public),
     // An empty value, the command line's way to give none, is no glob.
-    exportedPackages: [
-      for (final glob in configuration.value(CiachOption.exportedPackages))
-        if (glob.isNotEmpty) glob,
-    ],
+    exportedPackages: configuration
+        .value(CiachOption.exportedPackages)
+        .where((glob) => glob.isNotEmpty)
+        .toList(),
     includeGenerated: configuration.value(CiachOption.generated),
     projectConfig: projectConfig,
     unusedTranslations: configuration.value(CiachOption.unusedTranslations),

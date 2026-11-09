@@ -18,6 +18,7 @@ import 'package:analyzer/source/source_range.dart';
 import 'package:analyzer_plugin/utilities/change_builder/change_builder_core.dart';
 import 'package:analyzer_plugin/utilities/fixes/fixes.dart';
 import 'package:analyzer_plugin/utilities/range_factory.dart';
+import 'package:collection/collection.dart';
 
 /// Flags a run of neighboring switch arms that have the same body, which
 /// `CLAUDE.md` wants as one arm whose patterns are joined with `||`. When the
@@ -83,7 +84,7 @@ class MergeSwitchArms({required super.context})
   )) {
     final AstNode switchNode => ArmRun.allIn(
       switchNode,
-    ).where((run) => run.arms[1].node == node).firstOrNull,
+    ).firstWhereOrNull((run) => run.arms[1].node == node),
     _ => null,
   };
 
@@ -198,28 +199,18 @@ final class _Arm({
       next.canMerge &&
       pattern != null &&
       body.isNotEmpty &&
-      body.length == next.body.length &&
-      Iterable<int>.generate(body.length)
-          .every((i) => body[i] == next.body[i]) &&
-      variables.length == next.variables.length &&
-      variables.containsAll(next.variables);
+      const ListEquality<String>().equals(body, next.body) &&
+      const SetEquality<_Variable>().equals(variables, next.variables);
 }
 
 /// A run of neighboring [arms] with the same body.
 final class ArmRun._(final List<_Arm> arms) {
   /// The runs of arms in [node], a switch expression or statement.
-  static Iterable<ArmRun> allIn(AstNode node) sync* {
-    final arms = _Arm.allIn(node);
-    var start = 0;
-    for (var i = 1; i <= arms.length; i++) {
-      if (i == arms.length || !arms[i - 1].mergesWith(arms[i])) {
-        if (i - start >= 2) {
-          yield ArmRun._(arms.sublist(start, i));
-        }
-        start = i;
-      }
-    }
-  }
+  static Iterable<ArmRun> allIn(AstNode node) =>
+      _Arm.allIn(node)
+          .splitBetween((arm, next) => !arm.mergesWith(next))
+          .where((arms) => arms.length >= 2)
+          .map(ArmRun._);
 
   /// Whether the last arm matches every value, so that the others are
   /// redundant.

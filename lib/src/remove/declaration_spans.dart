@@ -69,10 +69,7 @@ Span? spanFor(
 /// separator and the span is returned unchanged; the same-line guards leave
 /// multi-line enums untouched.
 Span absorbOrphanEnumComma(String content, Span span) {
-  var after = span.end;
-  while (after < content.length && isSpaceOrTab(content[after])) {
-    after++;
-  }
+  final after = skipSameLineBlank(content, span.end);
   if (after >= content.length || content[after] != '}') {
     return span;
   }

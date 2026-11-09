@@ -95,7 +95,7 @@ Future<int> _run(List<String> arguments) async {
 
   // The root named on the command line: a config file's own `path` can't decide
   // where that file is read from.
-  final projectDir = args.rest.isEmpty ? '.' : args.rest.first;
+  final projectDir = args.rest.firstOrNull ?? '.';
 
   final loaded = _loadOptions(
     args,

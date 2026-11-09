@@ -17,23 +17,18 @@ Future<void> main() async {
 
 /// The ciach version, read from the package's own pubspec so the site can
 /// never announce a stale number.
-String _ciachVersion() {
-  for (final candidate in ['../pubspec.yaml', 'pubspec.yaml']) {
-    final file = File(candidate);
-    if (!file.existsSync()) {
-      continue;
-    }
-    final source = file.readAsStringSync();
-    if (!RegExp(r'^name:\s*ciach\s*$', multiLine: true).hasMatch(source)) {
-      continue;
-    }
-    if (RegExp(
-          r'^version:\s*(?<version>\S+)',
-          multiLine: true,
-        ).firstMatch(source)
-        case final match?) {
-      return match.namedGroup('version')!;
-    }
-  }
-  throw StateError('No ciach pubspec.yaml found; build from the repository.');
-}
+String _ciachVersion() =>
+    ['../pubspec.yaml', 'pubspec.yaml']
+        .map(File.new)
+        .where((file) => file.existsSync())
+        .map((file) => file.readAsStringSync())
+        .where(_ciachName.hasMatch)
+        .map((source) => _version.firstMatch(source)?.namedGroup('version'))
+        .nonNulls
+        .firstOrNull ??
+    (throw StateError(
+      'No ciach pubspec.yaml found; build from the repository.',
+    ));
+
+final _ciachName = RegExp(r'^name:\s*ciach\s*$', multiLine: true);
+final _version = RegExp(r'^version:\s*(?<version>\S+)', multiLine: true);

@@ -14,6 +14,7 @@ import 'package:package_config/package_config.dart';
 import 'package:test/test.dart';
 
 import '../support/locations.dart';
+import '../support/outlines.dart';
 import '../support/test_package.dart';
 
 /// The outline that `unitOutline` builds, read through `ResolvedFiles`, which
@@ -55,14 +56,6 @@ void group(String description, void Function() body) {}
         (depth + 1, kind, name, nameText),
     ],
   ];
-
-  /// The nodes nested in [outline], each before the nodes nested in it.
-  Iterable<Outline> nestedIn(Outline outline) sync* {
-    for (final child in outline.children) {
-      yield child;
-      yield* nestedIn(child);
-    }
-  }
 
   test(
     'lists each declaration with its kind and name, and the members of each type',

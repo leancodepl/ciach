@@ -301,17 +301,21 @@ final class _Run {
   ({List<String> files, List<String> variants}) _emptyFiles(
     Map<String, ResolvedFile> scanned,
   ) {
-    final files = <String>[];
-    final variants = <String>[];
-    for (final MapEntry(key: path, value: file) in scanned.entries) {
-      if (!isDirectiveOnly(file.content) ||
-          (_publicApi?.isImportable(path) ?? false)) {
-        continue;
-      }
-      (_conditionalImports.contains(path) ? variants : files).add(
-        relativePosix(path, options.rootPath),
-      );
-    }
+    final empty = [
+      for (final MapEntry(key: path, value: file) in scanned.entries)
+        if (isDirectiveOnly(file.content) &&
+            !(_publicApi?.isImportable(path) ?? false))
+          path,
+    ];
+    String relative(String path) => relativePosix(path, options.rootPath);
+    final files = empty
+        .whereNot(_conditionalImports.contains)
+        .map(relative)
+        .toList();
+    final variants = empty
+        .where(_conditionalImports.contains)
+        .map(relative)
+        .toList();
     if (files.length + variants.length case final count && > 0) {
       _log.fine(
         'Found ${plural(count, 'empty file', 'empty files')}: ${[...files, ...variants].join(', ')}.',

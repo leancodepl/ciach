@@ -421,8 +421,9 @@ String _withAliasesNamed(
   if (source.length != body.length) {
     return '…';
   }
-  final byOffsetDescending = [...aliases]
-    ..sort((a, b) => b.offset.compareTo(a.offset));
+  final byOffsetDescending = aliases
+      .sortedBy<num>((alias) => alias.offset)
+      .reversed;
   for (final alias in byOffsetDescending) {
     final start = alias.offset - body.offset;
     source = source.replaceRange(start, start + alias.length, variable);

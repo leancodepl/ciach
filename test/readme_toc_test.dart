@@ -69,14 +69,10 @@ Iterable<({int line, String text})> _headings(List<String> lines) sync* {
 }
 
 /// The anchors that the list right [below] a heading links to, in order.
-Iterable<String> _listAnchors(List<String> lines, {required int below}) sync* {
-  for (final line in lines.skip(below + 1)) {
-    if (line.startsWith('#')) {
-      return;
-    }
-    yield* _linkAnchors(line);
-  }
-}
+Iterable<String> _listAnchors(List<String> lines, {required int below}) => lines
+    .skip(below + 1)
+    .takeWhile((line) => !line.startsWith('#'))
+    .expand(_linkAnchors);
 
 /// The anchors of the `[text](#anchor)` links in [line].
 Iterable<String> _linkAnchors(String line) =>

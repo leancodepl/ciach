@@ -38,14 +38,13 @@ final class KeptDeclarations {
     if (!_log.isLoggable(.FINE)) {
       return;
     }
-    _skippedEntryPoints.sort((a, b) {
-      final byFile = a.path.compareTo(b.path);
-      return byFile != 0 ? byFile : a.line.compareTo(b.line);
-    });
-    for (final skipped in _skippedEntryPoints) {
-      if (skipped.name == 'main') {
-        continue;
-      }
+    final sorted = _skippedEntryPoints.sorted(
+      (a, b) => switch (a.path.compareTo(b.path)) {
+        0 => a.line.compareTo(b.line),
+        final byFile => byFile,
+      },
+    );
+    for (final skipped in sorted.whereNot((it) => it.name == 'main')) {
       _log.fine(
         'Skipped ${skipped.path}:${skipped.line} ${skipped.name}: ${skipped.reason}.',
       );

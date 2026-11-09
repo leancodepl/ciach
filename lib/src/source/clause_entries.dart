@@ -75,26 +75,27 @@ Map<ClauseEntry, CoupledRemoval> _cutsInClause(
   final (:path, :clause, entry: _, kind: _) = removed.first;
   final filePath = relativePosix(path, rootPath);
   final byRange = {for (final entry in removed) entry.entry: entry};
-  final cuts = <ClauseEntry, CoupledRemoval>{};
-  for (final (i, j, cut) in listCuts(clause.entries, byRange.containsKey)) {
-    // A mixin application class needs at least one mixin: `class A = B;`
-    // doesn't compile. So when every mixin of one would go, none does.
-    if (cut == null && clause.keepsOne) {
-      continue;
-    }
-    final deleted = (cut ?? clause.whole).toDeclarationRange;
-    for (final entry in clause.entries.sublist(i, j)) {
-      final removedEntry = byRange[entry]!;
-      final range = entry.toDeclarationRange;
-      cuts[removedEntry] = (
-        filePath: filePath,
-        kind: removedEntry.kind,
-        isClauseEntry: true,
-        range: range,
-        fullRange: range,
-        cut: deleted,
-      );
-    }
-  }
-  return cuts;
+  return {
+    for (final (i, j, cut) in listCuts(clause.entries, byRange.containsKey))
+      // A mixin application class needs at least one mixin: `class A = B;`
+      // doesn't compile. So when every mixin of one would go, none does.
+      if (cut != null || !clause.keepsOne)
+        for (final removedEntry
+            in clause.entries.sublist(i, j).map((entry) => byRange[entry]!))
+          removedEntry: _removalOf(removedEntry, filePath, cut ?? clause.whole),
+  };
+}
+
+/// Returns the removal of [entry] from its clause, in the file at [filePath],
+/// relative to the root: it deletes [cut].
+CoupledRemoval _removalOf(ClauseEntry entry, String filePath, Range cut) {
+  final range = entry.entry.toDeclarationRange;
+  return (
+    filePath: filePath,
+    kind: entry.kind,
+    isClauseEntry: true,
+    range: range,
+    fullRange: range,
+    cut: cut.toDeclarationRange,
+  );
 }

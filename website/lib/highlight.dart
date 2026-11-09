@@ -142,9 +142,9 @@ List<Component> highlight(
 /// Highlights [source] and returns the tokens of each line separately, for
 /// callers that lay lines out themselves.
 List<List<Component>> highlightLines(String source, Language language) {
-  final highlighter = _highlighters.putIfAbsent(
-    language,
-    () => .new(language: language.name, theme: _theme),
+  final highlighter = _highlighters[language] ??= .new(
+    language: language.name,
+    theme: _theme,
   );
   final lines = <List<Component>>[<Component>[]];
   for (final (text, className) in _flatten(highlighter.highlight(source))) {
@@ -176,14 +176,17 @@ Iterable<(String, ClassName?)> _flatten(sh.TextSpan node) sync* {
   }
 }
 
-ClassName? _classFor(List<String> scopes) {
-  for (final scope in scopes.reversed) {
-    final parts = scope.split('.');
-    for (var length = parts.length; length > 0; length--) {
-      if (_scopeClasses[parts.take(length).join('.')] case final className?) {
-        return className;
-      }
-    }
+ClassName? _classFor(List<String> scopes) => scopes.reversed
+    .expand(_prefixesOf)
+    .map((prefix) => _scopeClasses[prefix])
+    .nonNulls
+    .firstOrNull;
+
+/// The dot-separated prefixes of [scope], longest first: `a.b.c`, `a.b` and
+/// `a` for `a.b.c`.
+Iterable<String> _prefixesOf(String scope) sync* {
+  final parts = scope.split('.');
+  for (var length = parts.length; length > 0; length--) {
+    yield parts.take(length).join('.');
   }
-  return null;
 }

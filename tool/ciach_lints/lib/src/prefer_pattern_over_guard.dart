@@ -144,16 +144,12 @@ class GuardRewrite._({
         ) ??
         guarded;
     final operands = _andOperands(whenClause.expression).toList();
-    final testsByVariable = <DeclaredVariablePattern, List<GuardTest>>{};
-    for (final operand in operands) {
-      final test = guardTestOf(operand);
-      if ((test, variables.declarations[test?.variable.element]) case (
-        final test?,
-        final declaration?,
-      )) {
-        (testsByVariable[declaration] ??= []).add(test);
-      }
-    }
+    final declarations = variables.declarations;
+    final testsByVariable = operands
+        .map(guardTestOf)
+        .nonNulls
+        .where((test) => declarations.containsKey(test.variable.element))
+        .groupListsBy((test) => declarations[test.variable.element]!);
     final moves = testsByVariable.entries
         .map((entry) => _Move.of(entry.key, entry.value, scope, content))
         .nonNulls
@@ -179,8 +175,9 @@ class GuardRewrite._({
   /// clause.
   late final String replacement = () {
     final pattern = guarded.pattern;
-    final edits = moves.map((move) => move.edit).toList()
-      ..sort((a, b) => a.range.offset.compareTo(b.range.offset));
+    final edits = moves
+        .map((move) => move.edit)
+        .sortedBy<num>((edit) => edit.range.offset);
     final pieces = <String>[];
     var cursor = pattern.offset;
     for (final edit in edits) {

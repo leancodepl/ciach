@@ -85,43 +85,32 @@ RemovalResult removeDeclarations(
 /// The declarations to remove, and their coupled removals, by file.
 Map<String, List<UnusedDeclaration>> _byFile(
   List<UnusedDeclaration> declarations,
-) {
-  final byFile = <String, List<UnusedDeclaration>>{};
-  for (final decl in declarations) {
-    // A blocked finding is reported but never auto-removed: deleting it safely
-    // would need a source rewrite (e.g. an `if (x case DeadType())` branch), so
-    // leave it — and anything coupled to it — entirely alone.
-    if (decl.removalBlocked) {
-      continue;
-    }
-    byFile.putIfAbsent(decl.filePath, () => []).add(decl);
+) => <UnusedDeclaration>[
+  // A blocked finding is reported but never auto-removed: deleting it safely
+  // would need a source rewrite (e.g. an `if (x case DeadType())` branch), so
+  // leave it — and anything coupled to it — entirely alone.
+  for (final decl in declarations.whereNot((decl) => decl.removalBlocked)) ...[
+    decl,
     // Coupled removals are extra spans that must be deleted together with the
     // declaration to keep the source compiling (a dead StatefulWidget's paired
     // `State` subclass, or an override of a dead member), but that are not
     // findings in their own right. Each names its own file, so group it under
     // that file. Turn each into a synthetic declaration so it flows through
     // the normal removal pass and its span merges with the rest.
-    for (final coupled in decl.coupledRemovals) {
-      final range = coupled.range;
-      byFile
-          .putIfAbsent(coupled.filePath, () => [])
-          .add(
-            .new(
-              name: '',
-              kind: coupled.kind,
-              filePath: coupled.filePath,
-              line: range.startLine + 1,
-              column: range.startColumn + 1,
-              isPrivate: true,
-              range: range,
-              fullRange: coupled.fullRange,
-              cut: coupled.cut,
-            ),
-          );
-    }
-  }
-  return byFile;
-}
+    for (final coupled in decl.coupledRemovals)
+      .new(
+        name: '',
+        kind: coupled.kind,
+        filePath: coupled.filePath,
+        line: coupled.range.startLine + 1,
+        column: coupled.range.startColumn + 1,
+        isPrivate: true,
+        range: coupled.range,
+        fullRange: coupled.fullRange,
+        cut: coupled.cut,
+      ),
+  ],
+].groupListsBy((decl) => decl.filePath);
 
 /// The line of each comment in [keptComments], read from the files as they are
 /// once every change is written. A comment in a file that was deleted is left
@@ -185,19 +174,19 @@ class RemovalException implements Exception {
   final comments = _OwnLineComments(content);
   int offsetOf(int line, int column) => comments.starts[line] + column;
 
-  final spans = [
-    for (final decl in decls.whereNot((decl) => decl.isEnumValue))
-      ?_spanOf(decl, content, lines, offsetOf),
-  ];
   final enumSpans = [
     for (final decl in decls.where((decl) => decl.isEnumValue))
       ?spanFor(decl, content, lines, offsetOf),
   ];
-  // Merge each enum's value spans, then drop a separator comma left orphaned
-  // when a trailing run of values is removed from a compact single-line enum.
-  for (final span in mergeSpans(enumSpans)) {
-    spans.add(absorbOrphanEnumComma(content, span));
-  }
+  final spans = [
+    for (final decl in decls.whereNot((decl) => decl.isEnumValue))
+      ?_spanOf(decl, content, lines, offsetOf),
+    // Merge each enum's value spans, then drop a separator comma left orphaned
+    // when a trailing run of values is removed from a compact single-line
+    // enum.
+    for (final span in mergeSpans(enumSpans))
+      absorbOrphanEnumComma(content, span),
+  ];
 
   if (spans.isEmpty) {
     return (updated: content, commentsFromEnd: const []);

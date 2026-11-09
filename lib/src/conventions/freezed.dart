@@ -48,31 +48,23 @@ class FreezedUnions {
     List<Candidate> candidates,
     List<RefStatus> statuses,
   ) {
-    final unionsWithUsedFromJson = <DeclKey>{};
-    for (final (i, c) in candidates.indexed) {
-      if (c.containerKey case final key?
-          when c.kind == .constructor &&
-              statuses[i] == .used &&
-              c.outline.element.declarationName(c.container) == 'fromJson') {
-        unionsWithUsedFromJson.add(key);
-      }
-    }
-
-    final arms = <int>{};
-    for (final (i, c) in candidates.indexed) {
-      if (statuses[i] != .unused) {
-        continue;
-      }
-      if (c.kind != .constructor) {
-        continue;
-      }
-      if (c.containerKey case final key?
-          when _annotatedClasses.contains(key) &&
-              unionsWithUsedFromJson.contains(key) &&
-              c.outline.element.isRedirectingFactory) {
-        arms.add(i);
-      }
-    }
-    return arms;
+    final unionsWithUsedFromJson = {
+      for (final (i, c) in candidates.indexed)
+        if (c.containerKey case final key?
+            when c.kind == .constructor &&
+                statuses[i] == .used &&
+                c.outline.element.declarationName(c.container) == 'fromJson')
+          key,
+    };
+    return {
+      for (final (i, c) in candidates.indexed)
+        if (c.containerKey case final key?
+            when statuses[i] == .unused &&
+                c.kind == .constructor &&
+                _annotatedClasses.contains(key) &&
+                unionsWithUsedFromJson.contains(key) &&
+                c.outline.element.isRedirectingFactory)
+          i,
+    };
   }
 }

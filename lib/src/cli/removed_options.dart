@@ -13,6 +13,7 @@
 library;
 
 import 'package:ciach/src/util/extensions.dart';
+import 'package:collection/collection.dart';
 
 /// What a removed option became: the values for the option with the config
 /// key `key` to take. No values set it to an empty list.
@@ -114,12 +115,9 @@ String? removedKindAdvice(String value) => value == 'constant'
 /// what to do instead, or `null` when they name none.
 String? removedOptionMessage(List<String> arguments) => arguments
     .takeWhile((argument) => argument != '--')
-    .indexed
-    .map(
-      (entry) => _removedMessage(
-        entry.$2,
-        next: arguments.elementAtOrNull(entry.$1 + 1),
-      ),
+    .mapIndexed(
+      (i, argument) =>
+          _removedMessage(argument, next: arguments.elementAtOrNull(i + 1)),
     )
     .nonNulls
     .firstOrNull;

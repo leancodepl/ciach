@@ -69,30 +69,17 @@ final class Verdict {
     Map<String, Set<String>> deadClassNames,
     RemoveSafety safety,
   ) {
-    if (freezedUnionArms.contains(index)) {
-      return true;
-    }
-    if (!options.reportToJson && isToJsonHook(candidate)) {
-      return true;
-    }
-    if (_isRemovedWithDeadClass(candidate, deadClassNames)) {
-      return true;
-    }
-    // Used through its members, never by name.
-    if (candidate.isExtension &&
-        !safety.deadExtensions.contains(candidate.key)) {
-      return true;
-    }
     final containerKey = candidate.containerKey;
-    if (containerKey == null) {
-      return false;
-    }
-    if (candidate.isExtensionMember &&
-        safety.deadExtensions.contains(containerKey)) {
-      return true;
-    }
-    return candidate.isEnumValue &&
-        safety.enumValuesIterated.contains(containerKey);
+    return freezedUnionArms.contains(index) ||
+        (!options.reportToJson && isToJsonHook(candidate)) ||
+        _isRemovedWithDeadClass(candidate, deadClassNames) ||
+        // Used through its members, never by name.
+        (candidate.isExtension &&
+            !safety.deadExtensions.contains(candidate.key)) ||
+        (candidate.isExtensionMember &&
+            safety.deadExtensions.contains(containerKey)) ||
+        (candidate.isEnumValue &&
+            safety.enumValuesIterated.contains(containerKey));
   }
 
   /// Whether a dead [candidate] is real but must *not* be auto-removed, because
@@ -123,11 +110,9 @@ final class Verdict {
             _classifier.isPatternMatchedClass(candidate, refs)) ||
         (groupGuards &&
             candidate.isEnumValue &&
-            containerKey != null &&
             safety.emptiedEnums.contains(containerKey)) ||
         (groupGuards &&
             candidate.kind == .constructor &&
-            containerKey != null &&
             safety.blockedCtorClasses.contains(containerKey)) ||
         _isHeaderDeclaration(candidate) ||
         _translations(candidate) != null;

@@ -2,7 +2,9 @@ import 'dart:io';
 
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/util/log.dart';
+import 'package:ciach/src/util/paths.dart';
 import 'package:ciach/src/workspace/packages.dart';
+import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
@@ -72,7 +74,7 @@ Iterable<String> packageDirs(String rootPath) {
   }
   final nested = {
     for (final libDir in scanPackageTree(rootPath).libDirs)
-      p.split(p.relative(p.dirname(libDir), from: rootPath)).join('/'),
+      relativePosix(p.dirname(libDir), rootPath),
   }..remove('.');
-  return ['', ...nested.toList()..sort()];
+  return ['', ...nested.sorted()];
 }

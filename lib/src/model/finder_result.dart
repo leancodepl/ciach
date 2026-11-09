@@ -11,6 +11,7 @@
 import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/util/extensions.dart';
+import 'package:collection/collection.dart';
 
 /// A declaration or file whose analysis failed; the run went on without it.
 class AnalysisProblem {
@@ -98,7 +99,8 @@ class FinderResult {
   final List<String> emptyVariants;
 
   /// [emptyFiles] and [emptyVariants] together, sorted.
-  List<String> get allEmptyFiles => [...emptyFiles, ...emptyVariants]..sort();
+  List<String> get allEmptyFiles =>
+      emptyFiles.followedBy(emptyVariants).sorted();
 
   /// Whether there is anything `--remove` would act on.
   bool get hasFindings => unused.isNotEmpty || emptyFiles.isNotEmpty;

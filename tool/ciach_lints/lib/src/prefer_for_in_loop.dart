@@ -329,7 +329,7 @@ String _unusedName(ForLoop<AstNode> loop) {
   return Iterable.generate(
     taken.length + 1,
     (n) => n == 0 ? 'element' : 'element${n + 1}',
-  ).firstWhere((name) => !taken.contains(name));
+  ).whereNot(taken.contains).first;
 }
 
 /// The uses of a loop's [index] and of its list, whose source is

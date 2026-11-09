@@ -58,7 +58,7 @@ final class _OutlineBuilder {
   Outline _unit(CompilationUnit unit) => _outline(
     unit,
     .new(kind: .compilationUnit, name: '<unit>', range: _rangeOf(unit)),
-    [for (final member in unit.declarations) ..._declarations(member)],
+    unit.declarations.expand(_declarations).toList(),
   );
 
   /// The outlines of the declarations that [member] holds: one, or one per
@@ -465,8 +465,7 @@ final class _OutlineBuilder {
     _ => kind,
   };
 
-  Range _rangeOf(SyntacticEntity entity) =>
-      _lineInfo.rangeOf(entity.offset, entity.end);
+  Range _rangeOf(SyntacticEntity entity) => _lineInfo.rangeOfEntity(entity);
 }
 
 /// Finds a read of the `values` of [_enum].

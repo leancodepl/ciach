@@ -13,7 +13,6 @@ import 'package:ciach/src/model/removal_result.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/report/annotations.dart';
 import 'package:ciach/src/report/style.dart';
-import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/plural.dart';
 import 'package:collection/collection.dart';
 
@@ -25,55 +24,40 @@ String textReport(
   bool verbose = false,
   int maxListed = 10,
 }) {
-  final buffer = StringBuffer();
-  _writeDeclarations(buffer, result.unused, style);
-
   final empty = result.allEmptyFiles;
-  if (empty.isNotEmpty) {
-    _writeHeading(
-      buffer,
-      'Empty files',
-      empty.length,
-      emptyFileContents,
-      style,
-    );
-    final variants = result.emptyVariants.toSet();
-    for (final file in empty) {
-      buffer.writeln(
+  final variants = result.emptyVariants.toSet();
+  return [
+    ..._declarationLines(result.unused, style),
+    if (empty.isNotEmpty) ...[
+      _heading('Empty files', empty.length, emptyFileContents, style),
+      for (final file in empty)
         [
           style.path(file),
           if (variants.contains(file)) style.caution('($emptyVariantNote)'),
         ].join('  '),
-      );
-    }
-    buffer.writeln();
-  }
-
-  if (result.docOnly.isNotEmpty) {
-    _writeHeading(
-      buffer,
-      'Referenced only from doc comments',
-      result.docOnly.length,
-      'not counted, never removed',
-      style,
-    );
-    _writeDeclarations(buffer, result.docOnly, style);
-  }
-
-  if (result.problems.isNotEmpty) {
-    _writeHeading(
-      buffer,
-      'Not analyzed',
-      result.problems.length,
-      'the analysis failed here',
-      style,
-      caution: true,
-    );
-    _writeProblems(buffer, result.problems, style, verbose, maxListed);
-  }
-
-  buffer.write(_summary(result, style));
-  return buffer.toString();
+      '',
+    ],
+    if (result.docOnly.isNotEmpty) ...[
+      _heading(
+        'Referenced only from doc comments',
+        result.docOnly.length,
+        'not counted, never removed',
+        style,
+      ),
+      ..._declarationLines(result.docOnly, style),
+    ],
+    if (result.problems.isNotEmpty) ...[
+      _heading(
+        'Not analyzed',
+        result.problems.length,
+        'the analysis failed here',
+        style,
+        caution: true,
+      ),
+      ..._problemLines(result.problems, style, verbose, maxListed),
+    ],
+    _summary(result, style),
+  ].join('\n');
 }
 
 /// What `--remove` did; `null` [removal] means the user declined.
@@ -123,8 +107,7 @@ String removalReport(
 }
 
 /// A section heading.
-void _writeHeading(
-  StringBuffer buffer,
+String _heading(
   String title,
   int count,
   String meaning,
@@ -132,20 +115,17 @@ void _writeHeading(
   bool caution = false,
 }) {
   final heading = style.heading('$title ($count)');
-  buffer.writeln(
-    '${caution ? style.caution(heading) : heading} ${style.note('· $meaning')}',
-  );
+  return '${caution ? style.caution(heading) : heading} ${style.note('· $meaning')}';
 }
 
-/// Writes one file-grouped, aligned block of [decls] to [buffer].
-void _writeDeclarations(
-  StringBuffer buffer,
+/// The lines of one file-grouped, aligned block of [decls].
+Iterable<String> _declarationLines(
   List<UnusedDeclaration> decls,
   Style style,
-) {
+) sync* {
   for (final MapEntry(key: file, value: fileDecls)
       in decls.groupListsBy((d) => d.filePath).entries) {
-    buffer.writeln(style.path(file));
+    yield style.path(file);
 
     // Column widths for tidy alignment (each group is non-empty).
     final locWidth = fileDecls.map((d) => '${d.line}:${d.column}'.length).max;
@@ -162,73 +142,60 @@ void _writeDeclarations(
         style.note('($visibility)'),
         ..._notes(decl, style),
       ];
-      buffer.writeln('  ${columns.join('  ')}');
+      yield '  ${columns.join('  ')}';
     }
-    buffer.writeln();
+    yield '';
   }
 }
 
-/// [problems] grouped by summary, cause, then file.
-void _writeProblems(
-  StringBuffer buffer,
+/// The lines of [problems], grouped by summary, cause, then file.
+Iterable<String> _problemLines(
   List<AnalysisProblem> problems,
   Style style,
   bool verbose,
   int maxListed,
-) {
+) sync* {
   for (final MapEntry(key: summary, value: ofSummary)
       in problems.groupListsBy((p) => p.summary).entries) {
-    buffer.writeln('  $summary');
+    yield '  $summary';
     for (final MapEntry(key: cause, value: ofCause)
         in ofSummary.groupListsBy((p) => p.cause).entries) {
-      _writeCause(buffer, cause, ofCause, style, verbose, maxListed);
+      yield* _causeLines(cause, ofCause, style, verbose, maxListed);
     }
   }
-  buffer.writeln();
+  yield '';
 }
 
-void _writeCause(
-  StringBuffer buffer,
+Iterable<String> _causeLines(
   String cause,
   List<AnalysisProblem> ofCause,
   Style style,
   bool verbose,
   int maxListed,
-) {
-  buffer.writeln('    ${style.failure(cause)}');
+) sync* {
+  yield '    ${style.failure(cause)}';
   final listed = verbose ? ofCause : ofCause.take(maxListed).toList();
   for (final MapEntry(key: file, value: inFile)
       in listed.groupListsBy((p) => p.filePath).entries) {
-    buffer.writeln('    ${style.path(file)}');
-    _writeProblemRows(buffer, inFile, style);
+    yield '    ${style.path(file)}';
+    yield* _problemRows(inFile, style);
   }
   if (ofCause.length > listed.length) {
-    buffer.writeln(
-      style.note(
-        '    … and ${ofCause.length - listed.length} more (-v lists them all)',
-      ),
+    yield style.note(
+      '    … and ${ofCause.length - listed.length} more (-v lists them all)',
     );
   }
 }
 
-void _writeProblemRows(
-  StringBuffer buffer,
-  List<AnalysisProblem> inFile,
-  Style style,
-) {
-  final rows = [
-    for (final p in inFile)
-      if (p.line != null) p,
-  ];
+Iterable<String> _problemRows(List<AnalysisProblem> inFile, Style style) sync* {
+  final rows = inFile.where((p) => p.line != null).toList();
   if (rows.isEmpty) {
     return;
   }
   final locWidth = rows.map((p) => '${p.line}:${p.column ?? 1}'.length).max;
   for (final p in rows) {
     final loc = '${p.line}:${p.column ?? 1}'.padRight(locWidth);
-    buffer.writeln(
-      '      ${style.position(loc)}${p.name?.let((name) => '  $name') ?? ''}',
-    );
+    yield '      ${[style.position(loc), ?p.name].join('  ')}';
   }
 }
 

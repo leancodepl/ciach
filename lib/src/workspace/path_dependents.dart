@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:ciach/src/project_config/project_files.dart';
+import 'package:ciach/src/util/paths.dart';
 import 'package:ciach/src/workspace/packages.dart';
+import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
 /// The packages in the git repository holding [rootPath], outside the
@@ -14,16 +16,13 @@ List<String> pathDependentsOutside(String rootPath, String analysisRoot) {
     return const [];
   }
   final repository = _repositoryOf(rootPath);
-  if (repository == null ||
-      p.equals(analysisRoot, repository) ||
-      p.isWithin(analysisRoot, repository)) {
+  if (repository == null || analysisRootContains(analysisRoot, repository)) {
     return const [];
   }
   return [
-    for (final libDir in scanPackageTree(repository).libDirs.toList()..sort())
+    for (final libDir in scanPackageTree(repository).libDirs.sorted())
       if (p.dirname(libDir) case final dir
-          when !p.equals(dir, analysisRoot) &&
-              !p.isWithin(analysisRoot, dir) &&
+          when !analysisRootContains(analysisRoot, dir) &&
               _dependsByPath(dir, rootPath))
         dir,
   ];
@@ -57,20 +56,21 @@ String? _repositoryOf(String dir) {
 /// `path:`.
 bool _dependsByPath(String dir, String target) {
   final pubspec = readPubspec(dir).yaml;
-  for (final section in const [
-    'dependencies',
-    'dev_dependencies',
-    'dependency_overrides',
-  ]) {
-    if (pubspec?[section] case final Map<Object?, Object?> deps) {
-      for (final dep in deps.values) {
-        if (dep case {
-          'path': final String path,
-        } when p.equals(p.normalize(p.join(dir, path)), target)) {
-          return true;
-        }
-      }
-    }
-  }
-  return false;
+  return [
+    for (final section in const [
+      'dependencies',
+      'dev_dependencies',
+      'dependency_overrides',
+    ])
+      if (pubspec?[section] case final Map<Object?, Object?> deps)
+        ...deps.values,
+  ].any(
+    (dep) => switch (dep) {
+      {'path': final String path} => p.equals(
+        p.normalize(p.join(dir, path)),
+        target,
+      ),
+      _ => false,
+    },
+  );
 }

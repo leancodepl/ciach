@@ -11,6 +11,7 @@ import 'package:ciach/src/project_config/flutter_widget_previews.dart';
 import 'package:ciach/src/project_config/flutterfire.dart';
 import 'package:ciach/src/project_config/project_files.dart';
 import 'package:ciach/src/project_config/serverpod.dart';
+import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 
 /// The entry points and generated files that are declared in a project's
@@ -28,44 +29,33 @@ final class ProjectConfig {
   /// such as the members of a pub workspace. Each package is read from its own
   /// files.
   factory ProjectConfig.read(String rootPath) {
-    final entryPoints = <EntryPoint>[];
-    final generatedGlobs = <String>{};
-    final translations = <Translations>[];
     final dirs = packageDirs(rootPath).toList();
     final pluginDirs = {
       for (final dir in dirs) ...analyzerPluginDirs(p.join(rootPath, dir)),
     };
-    for (final dir in dirs) {
-      final prefix = dir.isEmpty ? '' : escapeGlob(dir);
-      final packagePath = p.normalize(p.join(rootPath, dir));
-      final package = ProjectConfig._package(
-        packagePath,
-        loadedAsPlugin: pluginDirs.contains(packagePath),
-      );
-      entryPoints.addAll([
-        for (final e in package.entryPoints) e.within(prefix),
-      ]);
-      generatedGlobs.addAll([
-        for (final glob in package.generatedGlobs) p.posix.join(prefix, glob),
-      ]);
-      translations.addAll([
-        for (final t in package.translations)
-          (
-            dartFile: p.posix.join(dir, t.dartFile),
-            arbFile: p.posix.join(dir, t.arbFile),
-          ),
-      ]);
-    }
+    final packages = [
+      for (final dir in dirs)
+        ProjectConfig._package(
+          p.normalize(p.join(rootPath, dir)),
+          pluginDirs: pluginDirs,
+        )._within(dir),
+    ];
     return ProjectConfig(
-      entryPoints: entryPoints,
-      generatedGlobs: generatedGlobs.toList(),
-      translations: translations,
+      entryPoints: packages.expand((package) => package.entryPoints).toList(),
+      generatedGlobs: packages
+          .expand((package) => package.generatedGlobs)
+          .toSet()
+          .toList(),
+      translations: packages.expand((package) => package.translations).toList(),
     );
   }
 
+  /// Reads the package at [packagePath]. [pluginDirs] are the directories of
+  /// the packages that an `analysis_options.yaml` under the root loads as
+  /// plugins.
   factory ProjectConfig._package(
     String packagePath, {
-    required bool loadedAsPlugin,
+    required Set<String> pluginDirs,
   }) {
     final pubspec = readPubspec(packagePath);
     final buildYamls = readBuildYamls(packagePath);
@@ -81,7 +71,7 @@ final class ProjectConfig {
           ...serverpodEntryPoints(pubspec),
           ...analysisServerPluginEntryPoints(
             pubspec,
-            loadedAsPlugin: loadedAsPlugin,
+            loadedAsPlugin: pluginDirs.contains(packagePath),
           ),
           ...customLintEntryPoints(pubspec),
         ])
@@ -109,9 +99,26 @@ final class ProjectConfig {
 
   List<String> get generatedGlobsExceptTranslations {
     final templates = {for (final t in translations) escapeGlob(t.dartFile)};
-    return [
-      for (final glob in generatedGlobs)
-        if (!templates.contains(glob)) glob,
-    ];
+    return generatedGlobs.whereNot(templates.contains).toList();
+  }
+
+  /// Returns this config of the package in [dir], with its paths made
+  /// relative to the scanned root. [dir] is relative to the scanned root, and
+  /// `''` stands for the root itself.
+  ProjectConfig _within(String dir) {
+    final prefix = escapeGlob(dir);
+    return .new(
+      entryPoints: [for (final e in entryPoints) e.within(prefix)],
+      generatedGlobs: [
+        for (final glob in generatedGlobs) p.posix.join(prefix, glob),
+      ],
+      translations: [
+        for (final t in translations)
+          (
+            dartFile: p.posix.join(dir, t.dartFile),
+            arbFile: p.posix.join(dir, t.arbFile),
+          ),
+      ],
+    );
   }
 }

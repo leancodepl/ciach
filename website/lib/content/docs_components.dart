@@ -111,8 +111,7 @@ Component _table(List<Node> children, NodesBuilder builder) {
     for (final part in children)
       if (part case ElementNode(:final children?))
         for (final row in children)
-          if (row case ElementNode(tag: 'tr', :final children?))
-            [for (final cell in children) cell],
+          if (row case ElementNode(tag: 'tr', :final children?)) children,
   ];
   final columns = [for (final cell in rows.first) cell.innerText];
   final compare = columns.first.isEmpty;

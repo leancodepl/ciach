@@ -54,10 +54,10 @@ Set<String> parseAlso(List<String> raw) {
       for (final name in entry.split(','))
         if (name.trim() case final trimmed when trimmed.isNotEmpty) trimmed,
   };
-  for (final name in names) {
-    if (removedAlsoAdvice(name) case final advice?) {
-      throw FormatException('`$name` was removed: $advice.');
-    }
+  String? removedMessage(String name) =>
+      removedAlsoAdvice(name)?.let((advice) => '`$name` was removed: $advice.');
+  if (names.map(removedMessage).nonNulls.firstOrNull case final message?) {
+    throw FormatException(message);
   }
   if (names.whereNot(alsoNames.contains).firstOrNull case final unknown?) {
     throw FormatException(

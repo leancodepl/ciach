@@ -29,19 +29,15 @@ String describeFatalError(
     ),
     _ => ('Internal error: $error', true),
   };
-  final buffer = StringBuffer()
-    ..writeln('${style.errorLabel('error:')} $message');
-  if (isBug) {
-    buffer.writeln(
+  return [
+    '${style.errorLabel('error:')} $message',
+    if (isBug) ...[
       'This is a bug in ciach $ciachVersion; please report it at $_issueTracker with the -v output.',
-    );
-    if (verbose) {
-      buffer
-        ..writeln()
-        ..writeln(style.detail('$stackTrace'.trimRight()));
-    } else {
-      buffer.writeln(style.detail('Run with -v for the stack trace.'));
-    }
-  }
-  return buffer.toString();
+      if (verbose) ...[
+        '',
+        style.detail('$stackTrace'.trimRight()),
+      ] else
+        style.detail('Run with -v for the stack trace.'),
+    ],
+  ].map((line) => '$line\n').join();
 }

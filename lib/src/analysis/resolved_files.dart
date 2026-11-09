@@ -202,9 +202,9 @@ final class ResolvedFiles implements FileSyntax {
   /// it.
   List<AnalysisContext> _contextsFor(String path) {
     final contexts = _collection.contexts;
-    final holding =
-        contexts.where((context) => p.isWithin(_rootOf(context), path)).toList()
-          ..sort((a, b) => _rootOf(b).length.compareTo(_rootOf(a).length));
+    final holding = contexts
+        .where((context) => p.isWithin(_rootOf(context), path))
+        .sorted((a, b) => _rootOf(b).length.compareTo(_rootOf(a).length));
     return [...holding, ...contexts.whereNot(holding.contains)];
   }
 
@@ -304,9 +304,9 @@ final class ResolvedFiles implements FileSyntax {
       _hasDynamicType(returnType) ||
           formalParameters.any((parameter) => _hasDynamicType(parameter.type)),
     RecordType(:final positionalFields, :final namedFields) => [
-      ...positionalFields.map((field) => field.type),
-      ...namedFields.map((field) => field.type),
-    ].any(_hasDynamicType),
+      ...positionalFields,
+      ...namedFields,
+    ].any((field) => _hasDynamicType(field.type)),
     _ => false,
   };
 

@@ -49,12 +49,9 @@ class _DemoTriggerState() extends State<DemoTrigger> {
             JSArray<web.IntersectionObserverEntry> entries,
             web.IntersectionObserver _,
           ) {
-            for (final entry in entries.toDart) {
-              if (entry.isIntersecting) {
-                target.classList.add(DemoTrigger.play.name);
-                _observer?.disconnect();
-                return;
-              }
+            if (entries.toDart.any((entry) => entry.isIntersecting)) {
+              target.classList.add(DemoTrigger.play.name);
+              _observer?.disconnect();
             }
           })
           .toJS,

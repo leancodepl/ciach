@@ -110,17 +110,15 @@ Set<String> _withAppliedBuilders(
   Set<String> applied,
   Map<String, _Definition> definitions,
   String? rootName,
-) {
-  return reachableFrom(
-    applied,
-    (builder) => switch (definitions[builder]?.definition['applies_builders']) {
-      final List<Object?> more => [
-        for (final key in more.whereType<String>()) _builderKey(key, rootName),
-      ],
-      _ => const [],
-    },
-  );
-}
+) => reachableFrom(
+  applied,
+  (builder) => switch (definitions[builder]?.definition['applies_builders']) {
+    final List<Object?> more => [
+      for (final key in more.whereType<String>()) _builderKey(key, rootName),
+    ],
+    _ => const [],
+  },
+);
 
 /// Returns the builder key [key] in the form `pkg:name`. build_runner also
 /// accepts `pkg|name`, `:name` for a builder of the root package, and `name`

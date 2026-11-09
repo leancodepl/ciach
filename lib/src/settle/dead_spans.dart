@@ -11,31 +11,27 @@ final class DeadSpans {
   DeadSpans._(this._byPath);
 
   /// The spans of the findings `--remove` would delete, by absolute path.
-  factory DeadSpans.of(Iterable<UnusedDeclaration> findings, String rootPath) {
-    final byPath = <String, List<_Span>>{};
-    for (final finding in findings) {
-      if (finding.removalBlocked) {
-        continue;
-      }
-      byPath
-          .putIfAbsent(absoluteUnder(finding.filePath, rootPath), () => [])
-          .add((
-            range: finding.fullRange,
-            owner: finding,
-            isClauseEntry: false,
-          ));
-      for (final coupled in finding.coupledRemovals) {
-        byPath
-            .putIfAbsent(absoluteUnder(coupled.filePath, rootPath), () => [])
-            .add((
-              range: coupled.fullRange,
-              owner: finding,
-              isClauseEntry: coupled.isClauseEntry,
-            ));
-      }
-    }
-    return DeadSpans._(byPath);
-  }
+  factory DeadSpans.of(Iterable<UnusedDeclaration> findings, String rootPath) =>
+      ._(
+        [
+          for (final finding in findings)
+            if (!finding.removalBlocked) ...[
+              (
+                path: absoluteUnder(finding.filePath, rootPath),
+                range: finding.fullRange,
+                owner: finding,
+                isClauseEntry: false,
+              ),
+              for (final coupled in finding.coupledRemovals)
+                (
+                  path: absoluteUnder(coupled.filePath, rootPath),
+                  range: coupled.fullRange,
+                  owner: finding,
+                  isClauseEntry: coupled.isClauseEntry,
+                ),
+            ],
+        ].groupListsBy((span) => span.path),
+      );
 
   static final empty = DeadSpans._(const {});
 
@@ -57,24 +53,20 @@ final class DeadSpans {
   /// The outermost finding whose removal deletes [position] in [path]. The
   /// name of a type at the start of its own clause entry, like `C` in
   /// `class A with C<T> {}`, has no owner.
-  UnusedDeclaration? ownerOf(String path, Position position) {
-    final spans = _byPath[path];
-    if (spans == null) {
-      return null;
-    }
-    _Span? outermost;
-    for (final span in spans) {
-      // `--remove` deletes `C` with its entry, but if the name didn't count as
-      // a reference, `C` would be reported as unused, and `--remove` would
-      // leave the entry.
-      if (_contains(span.range, position) &&
-          !(span.isClauseEntry && position == _start(span.range)) &&
-          (outermost == null || _isOutside(span.range, outermost.range))) {
-        outermost = span;
-      }
-    }
-    return outermost?.owner;
-  }
+  UnusedDeclaration? ownerOf(String path, Position position) => maxBy(
+    [
+      if (_byPath[path] case final spans?)
+        for (final span in spans)
+          // `--remove` deletes `C` with its entry, but if the name didn't
+          // count as a reference, `C` would be reported as unused, and
+          // `--remove` would leave the entry.
+          if (_contains(span.range, position) &&
+              !(span.isClauseEntry && position == _start(span.range)))
+            span,
+    ],
+    (span) => span.range,
+    compare: _compareByNesting,
+  )?.owner;
 
   /// Every finding whose removal deletes [position] in [path]. Unlike
   /// [ownerOf], this includes the type whose clause entry starts at
@@ -91,16 +83,11 @@ final class DeadSpans {
     if (isEmpty) {
       return const [];
     }
-    final owners = <UnusedDeclaration>[];
-    for (final loc in refs) {
-      final owner = ownerOf(loc.path, loc.range.start);
-      if (owner != null && owners.none((seen) => identical(seen, owner))) {
-        owners.add(owner);
-      }
-    }
-    owners.sort(compareByLocation);
+    final owners = {
+      for (final loc in refs) ?ownerOf(loc.path, loc.range.start),
+    };
     return [
-      for (final owner in owners)
+      for (final owner in owners.sorted(compareByLocation))
         (
           qualifiedName: owner.qualifiedName,
           filePath: owner.filePath,
@@ -110,16 +97,13 @@ final class DeadSpans {
   }
 
   /// Whether another finding's removal deletes [finding] too.
-  bool enclosesInAnother(UnusedDeclaration finding, String rootPath) {
-    final spans = _byPath[absoluteUnder(finding.filePath, rootPath)];
-    if (spans == null) {
-      return false;
-    }
-    final start = _start(finding.fullRange);
-    return spans.any(
-      (span) => !identical(span.owner, finding) && _contains(span.range, start),
-    );
-  }
+  bool enclosesInAnother(UnusedDeclaration finding, String rootPath) =>
+      _byPath[absoluteUnder(finding.filePath, rootPath)]?.any(
+        (span) =>
+            !identical(span.owner, finding) &&
+            _contains(span.range, _start(finding.fullRange)),
+      ) ??
+      false;
 
   /// Whether [other] deletes the same source.
   bool sameAs(DeadSpans other) => _sameSource.equals(_byPath, other._byPath);
@@ -133,11 +117,14 @@ final class DeadSpans {
   static bool _contains(DeclarationRange range, Position position) =>
       _start(range).atOrBefore(position) && position.atOrBefore(_end(range));
 
-  /// Whether [a] is the outer of two spans that both contain a position: it
-  /// starts earlier, or starts at the same place and ends later.
-  static bool _isOutside(DeclarationRange a, DeclarationRange b) =>
-      _start(a).isBefore(_start(b)) ||
-      (_start(a) == _start(b) && _end(b).isBefore(_end(a)));
+  /// Orders two spans that both contain a position from the inner to the
+  /// outer: the outer one starts earlier, or starts at the same place and ends
+  /// later.
+  static int _compareByNesting(DeclarationRange a, DeclarationRange b) =>
+      switch (_start(b).compareTo(_start(a))) {
+        0 => _end(a).compareTo(_end(b)),
+        final byStart => byStart,
+      };
 
   static Position _start(DeclarationRange range) =>
       .new(line: range.startLine, character: range.startColumn);
@@ -146,9 +133,11 @@ final class DeadSpans {
       .new(line: range.endLine, character: range.endColumn);
 }
 
+/// `path` is the absolute path of the file that the span is in, and
 /// `isClauseEntry` is true for the span of a type's entry in a `with` or
 /// `implements` clause, which starts with the type's name.
 typedef _Span = ({
+  String path,
   DeclarationRange range,
   UnusedDeclaration owner,
   bool isClauseEntry,

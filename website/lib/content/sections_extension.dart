@@ -8,6 +8,7 @@
  *     - mark-ai-provenance
  */
 
+import 'package:collection/collection.dart';
 import 'package:jaspr_content/jaspr_content.dart';
 
 /// Wraps each `h2` and the nodes up to the next one in a `section` node that
@@ -15,29 +16,21 @@ import 'package:jaspr_content/jaspr_content.dart';
 /// `DocsComponents` renders such a node as a `DocSection`.
 class const SectionsExtension() implements PageExtension {
   @override
-  Future<List<Node>> apply(Page page, List<Node> nodes) async {
-    final sections = <Node>[];
-    var current = <Node>[];
-    Map<String, String>? attributes;
-
-    void close() {
-      if (attributes case final attributes?) {
-        sections.add(ElementNode('section', attributes, current));
-      } else {
-        sections.addAll(current);
-      }
-      current = [];
-    }
-
-    for (final node in nodes) {
-      if (node case ElementNode(tag: 'h2', attributes: {'id': final id})) {
-        close();
-        attributes = {'id': id, 'heading': node.innerText};
-      } else {
-        current.add(node);
-      }
-    }
-    close();
-    return sections;
-  }
+  Future<List<Node>> apply(Page page, List<Node> nodes) async => [
+    for (final part in nodes.splitBefore(_startsSection))
+      if (part case [
+        ElementNode(tag: 'h2', attributes: {'id': final id}) && final heading,
+        ...final rest,
+      ])
+        ElementNode('section', {'id': id, 'heading': heading.innerText}, rest)
+      // The nodes before the first `h2`.
+      else
+        ...part,
+  ];
 }
+
+/// Whether [node] is an `h2` with an `id`, which starts a section.
+bool _startsSection(Node node) => switch (node) {
+  ElementNode(tag: 'h2', attributes: {'id': _}) => true,
+  _ => false,
+};

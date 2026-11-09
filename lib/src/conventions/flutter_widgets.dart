@@ -14,6 +14,7 @@ import 'package:ciach/src/source/file_syntax.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/paths.dart';
+import 'package:collection/collection.dart';
 
 /// Flutter `StatefulWidget`/`State` conventions: recognizing the `State<Widget>`
 /// pairing (so it isn't mistaken for an external use of the widget), and
@@ -36,47 +37,35 @@ extension FlutterWidgets on FileSyntax {
     List<List<Location>> refsByCandidate,
     String rootPath,
   ) {
-    final out = <CoupledRemoval>[];
-    var blocked = false;
-    for (final loc in widgetRefs) {
-      if (!isStateTypeArgument(loc)) {
-        continue;
-      }
-      final path = loc.path;
-      // The widget's own `createState` return type is inside the widget and
-      // removed with it; only a pairing reference outside the widget points at
-      // the separate State subclass.
-      if (path == widget.path &&
-          widget.outline.codeRange.contains(loc.range.start)) {
-        continue;
-      }
-      final before = out.length;
-      for (final (j, state) in candidates.indexed) {
-        if (!state.isClassOrMixin ||
-            state.path != path ||
-            identical(state, widget) ||
-            !state.outline.codeRange.contains(loc.range.start)) {
-          continue;
-        }
-        if (_referencedOnlyWithin(
-          refsByCandidate[j],
-          widget.outline.codeRange,
-          widget.path,
-        )) {
-          out.add((
+    final widgetRange = widget.outline.codeRange;
+    bool holds(Candidate state, Location loc) =>
+        state.isClassOrMixin &&
+        state.path == loc.path &&
+        !identical(state, widget) &&
+        state.outline.codeRange.contains(loc.range.start);
+    // The State subclass that holds each pairing reference, with its index,
+    // or `null` when no candidate holds it. The widget's own `createState`
+    // return type is inside the widget and removed with it; only a pairing
+    // reference outside the widget points at the separate State subclass.
+    final states = [
+      for (final loc in widgetRefs)
+        if (isStateTypeArgument(loc) &&
+            !(loc.path == widget.path && widgetRange.contains(loc.range.start)))
+          candidates.indexed.firstWhereOrNull((found) => holds(found.$2, loc)),
+    ];
+    final removals = <CoupledRemoval>[
+      for (final (j, state) in states.nonNulls)
+        if (_referencedOnlyWithin(refsByCandidate[j], widgetRange, widget.path))
+          (
             filePath: relativePosix(state.path, rootPath),
             kind: state.reportedKind,
             isClauseEntry: false,
             range: state.outline.codeRange.toDeclarationRange,
             fullRange: state.outline.range.toDeclarationRange,
             cut: null,
-          ));
-        }
-        break;
-      }
-      blocked |= out.length == before;
-    }
-    return (removals: out, blocked: blocked);
+          ),
+    ];
+    return (removals: removals, blocked: removals.length < states.length);
   }
 
   /// Whether every *code* reference in [refs] lies within [enclosing] in [path]

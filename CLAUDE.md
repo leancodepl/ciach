@@ -281,8 +281,14 @@ explicit null check.
   literal gets busy, give its predicate a named local.
 - Keep an `Iterable` lazy when it is read once or in part, and use a `Set` when
   duplicates mean nothing.
-- Prefer collection methods (`where`, `firstWhereOrNull`) to loops with early
-  returns, tear-offs to lambdas that only forward, `min` and `max` to
+- Write a computation as an expression over collections, not as a loop that
+  fills a variable, counts or returns early: a collection literal, or the
+  methods of the SDK and `package:collection`, such as `any`,
+  `firstWhereOrNull`, `indexWhere`, `groupListsBy`, `groupFoldBy`,
+  `splitBefore`, `sum`, `maxBy` and `sorted`. Keep a loop for steps with side
+  effects, such as I/O, logging, `expect` and AST visitors, and for scanners,
+  binary searches and fixpoint loops.
+- Prefer tear-offs to lambdas that only forward, `min` and `max` to
   hand-written ternaries, and `package:collection` equalities to comparison
   loops. Write `map[key] ??= value` for a value that you already have, and
   memoize with `CachedMap`. `prefer_for_in_loop` replaces an index loop that

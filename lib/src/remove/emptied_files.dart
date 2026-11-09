@@ -129,23 +129,22 @@ final class _Package {
   }
 
   _Link _link(Directive directive, String from, String target) {
-    var link = _Link.none;
-    for (final uri in directive.uris) {
-      final resolved = _packages.resolve(uri.namedGroup('uri')!, from);
-      if (resolved == null) {
-        continue;
-      }
-      if (resolved == target) {
-        link = .droppable;
-      } else if (resolved == unknownPackage &&
-          _libPathMatches(uri.namedGroup('uri')!, target)) {
-        return .blocking;
-      }
+    final resolved = {
+      for (final uri in directive.uris.map((uri) => uri.namedGroup('uri')!))
+        uri: _packages.resolve(uri, from),
+    };
+    if (resolved.entries.any(
+      (entry) =>
+          entry.value == unknownPackage && _libPathMatches(entry.key, target),
+    )) {
+      return .blocking;
     }
-    if (link == .none) {
-      return link;
+    if (!resolved.containsValue(target)) {
+      return .none;
     }
-    return directive.isPartOf || directive.isConditional ? .blocking : link;
+    return directive.isPartOf || directive.isConditional
+        ? .blocking
+        : .droppable;
   }
 
   /// Whether an unknown package's [uri] could still mean [target].

@@ -38,17 +38,21 @@ final class ReachableTypes {
     };
 
     final carriersOf = _Carriers(files, api, outlines);
-    final reachable = <DeclKey>{};
-    final carriedBy = <DeclKey, Set<DeclKey>>{};
-    for (final MapEntry(:key, value: type) in types.entries) {
-      final carriers = carriersOf(type);
-      // A carrier that is not a type here, such as [_root], hands it out.
-      if (api.exposes(key.path, key.name) ||
-          !carriers.every(types.containsKey)) {
-        reachable.add(key);
-      }
-      carriedBy[key] = carriers.where(types.containsKey).toSet();
-    }
+    final carriersByType = {
+      for (final MapEntry(:key, value: type) in types.entries)
+        key: carriersOf(type),
+    };
+    final reachable = {
+      for (final MapEntry(:key, value: carriers) in carriersByType.entries)
+        // A carrier that is not a type here, such as [_root], hands it out.
+        if (api.exposes(key.path, key.name) ||
+            !carriers.every(types.containsKey))
+          key,
+    };
+    final carriedBy = {
+      for (final MapEntry(:key, value: carriers) in carriersByType.entries)
+        key: carriers.where(types.containsKey).toSet(),
+    };
     return ._(_unreached(types.keys, reachable, carriedBy).toSet());
   }
 
@@ -60,16 +64,13 @@ final class ReachableTypes {
   ) {
     final keys = types.toList();
     final indexOf = {for (final (i, key) in keys.indexed) key: i};
-    return unreached(
-      {for (var i = 0; i < keys.length; i++) i},
-      [
-        for (final key in reachable)
-          (target: indexOf[key]!, containers: const []),
-        for (final MapEntry(:key, value: carriers) in carriersOf.entries)
-          for (final carrier in carriers)
-            (target: indexOf[key]!, containers: [indexOf[carrier]!]),
-      ],
-    ).map((i) => keys[i]);
+    return unreached(indexOf.values.toSet(), [
+      for (final key in reachable)
+        (target: indexOf[key]!, containers: const []),
+      for (final MapEntry(:key, value: carriers) in carriersOf.entries)
+        for (final carrier in carriers)
+          (target: indexOf[key]!, containers: [indexOf[carrier]!]),
+    ]).map((i) => keys[i]);
   }
 
   /// The types that no other package can hold an instance of.

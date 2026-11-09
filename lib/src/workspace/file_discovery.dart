@@ -116,13 +116,10 @@ DiscoveredDartFiles discoverDartFiles(FinderOptions options) {
     candidates.add(absolute);
   }
 
-  candidates.sort();
-  referenceOnly.sort();
-  ignored.sort();
   return (
-    candidates: candidates,
-    referenceOnly: referenceOnly,
-    ignored: ignored,
+    candidates: candidates..sort(),
+    referenceOnly: referenceOnly..sort(),
+    ignored: ignored..sort(),
   );
 }
 

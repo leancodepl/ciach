@@ -12,6 +12,7 @@ import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/source/file_syntax.dart';
 import 'package:ciach/src/source/locations.dart';
 import 'package:ciach/src/source/symbols.dart';
+import 'package:collection/collection.dart';
 
 /// Decides whether a declaration is used, unused, or referenced only from doc
 /// comments, from its references.
@@ -47,10 +48,8 @@ class ReferenceClassifier {
   }
 
   /// [refs] less the ones inside [candidate]'s own span.
-  List<Location> externalRefs(Candidate candidate, List<Location> refs) => [
-    for (final loc in refs)
-      if (!isSelfReference(candidate, loc)) loc,
-  ];
+  List<Location> externalRefs(Candidate candidate, List<Location> refs) =>
+      refs.whereNot((loc) => isSelfReference(candidate, loc)).toList();
 
   /// Classifies a class by its references, ignoring self-references.
   ///
@@ -61,36 +60,23 @@ class ReferenceClassifier {
   /// outside reference keeps the class alive, so the failure mode is missing a
   /// dead class, never deleting a live one.
   RefStatus _classifyClass(Candidate candidate, List<Location> refs) {
-    var hasExternalDoc = false;
-    var hasPatternMatch = false;
-    for (final loc in refs) {
-      if (isSelfReference(candidate, loc)) {
-        continue;
-      }
-      if (_syntax.isDocReference(loc)) {
-        hasExternalDoc = true;
-        continue;
-      }
-      // With --also union-members, a reference that is confidently a *type
-      // pattern* (a `case`/if-case/while-case pattern, or a switch-expression
-      // arm) is a *match*, not a construction: if the type is never
-      // constructed, no such match can ever fire, so it is discounted like a
-      // self-reference. Any reference that is not confidently a type pattern
-      // keeps the class alive — the conservative choice (nested sub-patterns
-      // and pattern-variable declarations are intentionally not recognized).
-      if (unusedUnionMembers && _syntax.isTypePattern(loc)) {
-        hasPatternMatch = true;
-        continue;
-      }
-      // A real, non-pattern reference from outside: the class is used.
-      return .used;
+    final external = externalRefs(candidate, refs);
+    final code = external.whereNot(_syntax.isDocReference).toList();
+    if (code.isEmpty) {
+      return external.isEmpty ? .unused : .docOnly;
     }
+    // With --also union-members, a reference that is confidently a *type
+    // pattern* (a `case`/if-case/while-case pattern, or a switch-expression
+    // arm) is a *match*, not a construction: if the type is never
+    // constructed, no such match can ever fire, so it is discounted like a
+    // self-reference. Any reference that is not confidently a type pattern
+    // keeps the class alive — the conservative choice (nested sub-patterns
+    // and pattern-variable declarations are intentionally not recognized).
     // Matched-only-by-a-pattern (never constructed) is dead code, not a softer
     // doc-only report.
-    if (hasPatternMatch) {
-      return .unused;
-    }
-    return hasExternalDoc ? .docOnly : .unused;
+    return unusedUnionMembers && code.every(_syntax.isTypePattern)
+        ? .unused
+        : .used;
   }
 
   /// Whether [loc] is a reference to [candidate] that does not count as a use:

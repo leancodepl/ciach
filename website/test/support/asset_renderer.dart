@@ -9,6 +9,7 @@ import 'package:ciach_website/components/icons.dart';
 import 'package:ciach_website/main.server.options.dart';
 import 'package:ciach_website/palette.dart';
 import 'package:ciach_website/seo.dart';
+import 'package:collection/collection.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/server.dart';
 import 'package:path/path.dart' as p;
@@ -94,12 +95,10 @@ class AssetRenderer._(final Browser _browser, final HttpServer _server) {
       final loaded = await page.evaluate<List<Object?>>(
         '() => [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family.replace(/"/g, ""))',
       );
-      for (final family in fonts) {
-        if (!loaded.contains(family)) {
-          throw StateError(
-            'Web font not loaded: $family (loaded: ${loaded.join(', ')})',
-          );
-        }
+      if (fonts.whereNot(loaded.contains).firstOrNull case final family?) {
+        throw StateError(
+          'Web font not loaded: $family (loaded: ${loaded.join(', ')})',
+        );
       }
       return await page.screenshot(clip: .new(0, 0, width, height));
     } finally {

@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_class_scope/jaspr_class_scope.dart';
@@ -86,22 +87,17 @@ class _DocsTocState() extends State<DocsToc> {
   /// one once the page is scrolled to the bottom.
   void _update() {
     final threshold = web.window.innerHeight * 0.3;
-    String? active = component.ids.firstOrNull;
-    for (final id in component.ids) {
-      final element = web.document.getElementById(id);
-      if (element == null) {
-        continue;
-      }
-      if (element.getBoundingClientRect().top <= threshold) {
-        active = id;
-      }
-    }
+    final ids = component.ids;
+    final scrolledInto = ids.lastWhereOrNull(
+      (id) => switch (web.document.getElementById(id)) {
+        final element? => element.getBoundingClientRect().top <= threshold,
+        null => false,
+      },
+    );
     final atBottom =
         web.window.scrollY + web.window.innerHeight >=
         web.document.documentElement!.scrollHeight - 2;
-    if (atBottom && component.ids.isNotEmpty) {
-      active = component.ids.last;
-    }
+    final active = atBottom ? ids.lastOrNull : scrolledInto ?? ids.firstOrNull;
     if (active != _active && mounted) {
       setState(() => _active = active);
     }

@@ -17,10 +17,7 @@ typedef PackageTree = ({Set<String> dartFiles, Set<String> libDirs});
 PackageTree scanPackageTree(String root) {
   final files = _filesUnder(.new(root));
   return (
-    dartFiles: {
-      for (final file in files)
-        if (file.endsWith('.dart')) file,
-    },
+    dartFiles: files.where((file) => file.endsWith('.dart')).toSet(),
     libDirs: {
       for (final file in files)
         if (p.basename(file) == 'pubspec.yaml') p.join(p.dirname(file), 'lib'),
@@ -144,7 +141,7 @@ List<String> unresolvedPackages(Iterable<String> files, String root) {
           when p.equals(root, package) || p.isWithin(root, package))
         package,
   };
-  return roots.whereNot(packages.isResolved).toList()..sort();
+  return roots.whereNot(packages.isResolved).sorted();
 }
 
 /// Thrown when some scanned packages haven't had `pub get`.

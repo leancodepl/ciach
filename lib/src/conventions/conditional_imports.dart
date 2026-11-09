@@ -24,22 +24,27 @@ final class ConditionalImports {
   /// The files of each variant get the files of the other variants of the
   /// same directive as counterparts.
   factory ConditionalImports.scan(String rootPath) {
-    final counterparts = <String, Set<String>>{};
-    for (final variants in _DirectiveIndex(rootPath).conditionalVariants()) {
-      for (final (i, files) in variants.indexed) {
-        final otherFiles = {
-          for (final (j, other) in variants.indexed)
-            if (j != i) ...other,
-        };
-        for (final file in files) {
-          counterparts.putIfAbsent(file, () => {}).addAll(otherFiles);
-        }
-      }
-    }
+    // Each file of a variant, with the files of the directive's other
+    // variants.
+    final variantFiles = [
+      for (final variants in _DirectiveIndex(rootPath).conditionalVariants())
+        for (final (i, files) in variants.indexed)
+          for (final file in files)
+            (
+              file: file,
+              others: [
+                for (final (j, other) in variants.indexed)
+                  if (j != i) ...other,
+              ],
+            ),
+    ];
     // A file that two variants both export is not its own counterpart.
     return ._({
-      for (final MapEntry(key: file, value: others) in counterparts.entries)
-        file: others.difference({file}),
+      for (final MapEntry(key: file, value: occurrences)
+          in variantFiles.groupListsBy((it) => it.file).entries)
+        file: {
+          for (final (file: _, :others) in occurrences) ...others,
+        }.difference({file}),
     });
   }
 
@@ -99,21 +104,21 @@ final class ConditionalImports {
     final names = candidates.map(_pairingNameOf).toList();
     final namesakes = _namesakes(candidates, names);
     final dropped = _dropped(candidates, names, namesakes, declared);
-    final kept = <Candidate>[];
-    final keptRefs = <List<Location>>[];
-    for (final (i, candidate) in candidates.indexed) {
-      if (dropped.contains(i)) {
-        onDropped(candidate);
-        continue;
-      }
-      kept.add(candidate);
-      keptRefs.add([
-        ...refsByCandidate[i],
-        for (final j in namesakes[i])
-          ...classifier.externalRefs(candidates[j], refsByCandidate[j]),
-      ]);
-    }
-    return (candidates: kept, refsByCandidate: keptRefs);
+    candidates.whereIndexed((i, _) => dropped.contains(i)).forEach(onDropped);
+    return (
+      candidates: candidates
+          .whereIndexed((i, _) => !dropped.contains(i))
+          .toList(),
+      refsByCandidate: [
+        for (final (i, refs) in refsByCandidate.indexed)
+          if (!dropped.contains(i))
+            [
+              ...refs,
+              for (final j in namesakes[i])
+                ...classifier.externalRefs(candidates[j], refsByCandidate[j]),
+            ],
+      ],
+    );
   }
 
   /// The indices of the namesakes of each of [candidates]; see [_namesakes].
@@ -123,12 +128,10 @@ final class ConditionalImports {
   /// The indices of each candidate's namesakes: the [candidates] with the same
   /// pairing name in one of its [counterpartFilesOf].
   List<List<int>> _namesakes(List<Candidate> candidates, List<String?> names) {
-    final byName = <String, List<int>>{};
-    for (final (i, name) in names.indexed) {
-      if (name != null) {
-        byName.putIfAbsent(name, () => []).add(i);
-      }
-    }
+    final byName = [
+      for (final (i, name) in names.indexed)
+        if (name != null) i,
+    ].groupListsBy((i) => names[i]);
     return [
       for (final (i, candidate) in candidates.indexed)
         [

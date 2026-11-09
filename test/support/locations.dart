@@ -32,10 +32,7 @@ LocationText locationText(Location location, String root) {
 /// counting from 0.
 Position positionOfName(String path, String name, {int occurrence = 0}) {
   final source = File(path).readAsStringSync();
-  var offset = source.indexOf(name);
-  for (var i = 0; i < occurrence; i++) {
-    offset = source.indexOf(name, offset + 1);
-  }
+  final offset = name.allMatches(source).elementAt(occurrence).start;
   return positionIn(lineStartsOf(source), offset);
 }
 
