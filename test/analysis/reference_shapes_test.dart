@@ -60,7 +60,7 @@ void main() {
   }
 
   test(
-    'a reference in a doc comment is a doc reference, and one in code or in another comment is not',
+    'a reference in a doc comment is a doc reference, also after code on the same line, and one in code or in another comment is not',
     () {
       final path = package.writeNew('''
 /// Uses [Shape] and [Shape.area].
@@ -70,11 +70,14 @@ class Shape {
 }
 
 Shape make() => Shape();
+
+int count = 0; /// See [Shape].
+int total = 0;
 ''');
 
       expect(
         [
-          for (final occurrence in [0, 1, 2, 3, 4])
+          for (final occurrence in [0, 1, 2, 3, 4, 5, 6])
             package.files.isDocReference(
               .new(
                 path: path,
@@ -85,7 +88,7 @@ Shape make() => Shape();
               ),
             ),
         ],
-        [true, true, false, false, false],
+        [true, true, false, false, false, false, true],
       );
     },
   );
