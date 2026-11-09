@@ -8,20 +8,6 @@
  *     - mark-ai-provenance
  */
 
-extension StringExtensions on String {
-  int? indexOfOrNull(Pattern pattern, [int start = 0]) =>
-      switch (indexOf(pattern, start)) {
-        -1 => null,
-        final index => index,
-      };
-
-  /// This non-nullable type name without its type arguments: `Map` for
-  /// `Map<String, int>`.
-  String get withoutTypeArguments =>
-      indexOfOrNull('<')?.let((index) => substring(0, index).trimRight()) ??
-      this;
-}
-
 extension Let<T extends Object> on T {
   /// [transform] applied to this, for chaining after `?.`.
   R let<R>(R Function(T it) transform) => transform(this);

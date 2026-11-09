@@ -21,6 +21,8 @@ final _log = Logger('ciach.finder');
 
 const _uncollectedFile = 'Could not list declarations; file skipped.';
 
+const _unresolvedFile = 'The analyzer could not resolve the file.';
+
 const _compileErrors =
     'Has compile errors; the declarations that it uses may be reported.';
 
@@ -70,7 +72,7 @@ final class CandidateCollector {
     final file = await files.of(path);
     if (file == null) {
       if (!recordIfUnreadable(path)) {
-        recordProblem(_uncollectedFile, unresolvedFile, path: path);
+        recordProblem(_uncollectedFile, _unresolvedFile, path: path);
       }
       return const [];
     }

@@ -104,44 +104,21 @@ class UnusedDeclaration {
   /// declaration kinds.
   bool get isEnumValue => kind == .enumValue;
 
-  /// Extra spans — each in a named file — that must be removed together with
-  /// this declaration to keep the source compiling, but that are not
-  /// themselves reported as findings.
-  ///
-  /// For example:
-  ///
-  /// - a dead `StatefulWidget`'s paired private `State<Widget>` subclass, which
-  ///   is not independently "unused" (the widget's own `createState` references
-  ///   it) yet becomes uncompilable the moment the widget is deleted
-  ///   (`State<DeletedWidget>` no longer resolves).
-  /// - every override of a dead member, which `skipOverrides` keeps out of the
-  ///   findings and which would be left overriding nothing.
-  /// - each `with` or `implements` clause entry that names a removed class or
-  ///   mixin.
-  ///
-  /// Coupling a removal keeps `--remove` from breaking the build without
-  /// surfacing the coupled span as a separate report entry.
+  /// What `--remove` deletes with this declaration to keep the code
+  /// compiling, though it isn't a finding of its own: a dead widget's private
+  /// `State` subclass, the overrides of a dead member, and the `with` or
+  /// `implements` entries that name a removed type.
   final List<CoupledRemoval> coupledRemovals;
 
-  /// Whether this finding is real (the declaration is dead) but `--remove`
-  /// must *not* delete it automatically, because doing so safely would require
-  /// a source rewrite this tool won't attempt.
-  ///
-  /// Set for every dead sealed member surfaced by `--also union-members` (a
-  /// class that is only ever *matched* by a type pattern, never constructed):
-  /// deleting it would mean removing the member and rewriting every now-non-
-  /// exhaustive `switch`/`if`-`case` over its supertype. Also set for a member
-  /// whose override this tool won't delete — one in an unscanned file, or a
-  /// declaring parameter — which would be left overriding nothing. The declaration is still
-  /// reported so a human can act on it; it — and anything coupled to it — is
-  /// simply skipped by the remover.
+  /// Whether `--remove` leaves this dead declaration, and what is coupled to
+  /// it, in place, because removing it safely would take a source rewrite,
+  /// such as for a class that only type patterns match under
+  /// `--also union-members`. It is still reported.
   final bool removalBlocked;
 
-  /// An optional advisory note shown alongside the finding — extra context that
-  /// doesn't change whether or how it is removed. Set for a sole, zero-parameter
-  /// private constructor (`Foo._();`): it is reported and removable like any
-  /// other dead code, but the note nudges toward `abstract final class` as the
-  /// idiomatic way to make a static-only class non-instantiable.
+  /// A note shown with the finding, which doesn't change how it is removed,
+  /// such as a nudge toward `abstract final class` for a sole private
+  /// constructor `Foo._();`.
   final String? hint;
 
   /// With [FinderOptions.transitive], the findings that held this

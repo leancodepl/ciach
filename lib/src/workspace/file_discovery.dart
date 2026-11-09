@@ -8,22 +8,12 @@
  *     - mark-ai-provenance
  */
 
-import 'dart:io';
-
 import 'package:ciach/src/model/finder_options.dart';
+import 'package:ciach/src/util/paths.dart';
+import 'package:ciach/src/workspace/packages.dart';
 import 'package:collection/collection.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
-
-/// Directory names that never contain source worth analyzing.
-const _skippedDirs = {
-  '.dart_tool',
-  '.git',
-  'build',
-  '.fvm',
-  'node_modules',
-  '.widget_preview',
-};
 
 /// Filename suffixes produced by common Dart/Flutter code generators.
 const _generatedSuffixes = [
@@ -62,28 +52,16 @@ typedef DartFilePaths = ({
 DartFilePaths dartFilesByPath(FinderOptions options) {
   // Already absolute and normalized: `FinderOptions` is the only way in.
   final rootPath = options.rootPath;
-  final context = p.Context(style: .posix);
-  final includeGlobs = _globs(options.includeGlobs, context);
-  final excludeGlobs = _globs(options.excludeGlobs, context);
-  final generatedGlobs = _globs(options.additionalGeneratedGlobs, context);
+  final includeGlobs = _globs(options.includeGlobs);
+  final excludeGlobs = _globs(options.excludeGlobs);
+  final generatedGlobs = _globs(options.additionalGeneratedGlobs);
 
   final selected = <String>[];
   final unselected = <String>[];
   final generated = <String>[];
-  for (final file in Directory(
-    rootPath,
-  ).listSync(recursive: true, followLinks: false).whereType<File>()) {
-    if (!file.path.endsWith('.dart')) {
-      continue;
-    }
-    final absolute = p.normalize(file.absolute.path);
-    // Path relative to root, in POSIX form so globs behave predictably.
-    final relative = context.joinAll(
-      p.split(p.relative(absolute, from: rootPath)),
-    );
-    if (isInSkippedDir(relative)) {
-      continue;
-    }
+  for (final absolute in scanPackageTree(rootPath).dartFiles) {
+    // In POSIX form, so that globs behave predictably.
+    final relative = relativePosix(absolute, rootPath);
     if (!options.includeGenerated &&
         (generatedGlobs.any((glob) => glob.matches(relative)) ||
             _generatedSuffixes.any(p.basename(relative).endsWith))) {
@@ -107,9 +85,6 @@ bool _isSelected(String relative, List<Glob> include, List<Glob> exclude) =>
     (include.isEmpty || include.any((glob) => glob.matches(relative))) &&
     exclude.none((glob) => glob.matches(relative));
 
-List<Glob> _globs(List<String> patterns, p.Context context) => [
-  for (final pattern in patterns) .new(pattern, context: context),
+List<Glob> _globs(List<String> patterns) => [
+  for (final pattern in patterns) .new(pattern, context: p.posix),
 ];
-
-bool isInSkippedDir(String relativePath) =>
-    p.split(relativePath).any(_skippedDirs.contains);

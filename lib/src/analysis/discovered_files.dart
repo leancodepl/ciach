@@ -34,16 +34,9 @@ typedef DiscoveredDartFiles = ({
   List<String> ignored,
 });
 
-/// Discovers the `.dart` files under the configured root that should be
-/// scanned for declarations, honoring include/exclude globs and
-/// generated-file rules, and the excluded generated files as `referenceOnly`
-/// (see [DiscoveredDartFiles]), so that the caller can resolve the references
-/// in them.
-///
-/// Results are returned as absolute file paths, sorted for stable output.
-/// The reference-only set is deliberately not filtered by include/exclude
-/// globs — a reference can live in a generated file the user isn't scanning —
-/// though skipped directories (`build/`, `.dart_tool/`, …) are still excluded.
+/// Discovers the `.dart` files under the configured root, as absolute,
+/// sorted paths. The reference-only files ignore the include and exclude
+/// globs, since a reference can be in a file that the user doesn't scan.
 DiscoveredDartFiles discoverDartFiles(FinderOptions options) {
   final byPath = dartFilesByPath(options);
   final readsBanner = !options.includeGenerated;
@@ -111,9 +104,10 @@ final _banner = RegExp(
 );
 
 /// Returns whether the file with [content], which parses to [unit], starts
-/// with a banner that marks generated code. Only the comments before its
-/// first token are read. Doc comments are skipped, because a doc comment can
-/// mention generated code in a file that is not generated.
+/// with a banner that marks generated code: build_runner's in its first 300
+/// characters, or another in the comments before its first token. Doc
+/// comments are skipped, because a doc comment can mention generated code in
+/// a file that is not generated.
 bool isGeneratedBanner(String content, CompilationUnit unit) =>
     content.substring(0, min(content.length, 300)).contains(_buildBanner) ||
     _banner.hasMatch(

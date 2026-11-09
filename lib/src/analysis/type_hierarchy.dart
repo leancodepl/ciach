@@ -50,9 +50,8 @@ final class TypeHierarchy {
           subtype: _types[subtype]!,
       };
 
-  Iterable<ElementDeclaration> _directSubtypesOf(ElementDeclaration? type) => [
-    ...?_directSubtypes[type],
-  ];
+  Iterable<ElementDeclaration> _directSubtypesOf(ElementDeclaration? type) =>
+      _directSubtypes[type] ?? const {};
 
   /// Returns the locations of the names of the members that override
   /// [member], sorted by file and position, as the analysis server's

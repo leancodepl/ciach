@@ -28,10 +28,6 @@ import 'package:collection/collection.dart';
 import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
 
-/// The cause of a problem with a file that [ResolvedFiles.of] doesn't
-/// resolve.
-const unresolvedFile = 'The analyzer could not resolve the file.';
-
 /// The Dart files under an analysis root, and the files that they import, as
 /// `package:analyzer` resolves them in this process.
 final class ResolvedFiles implements FileSyntax {

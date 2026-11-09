@@ -75,17 +75,12 @@ class FinderResult {
     this.emptiedContainers = const [],
   });
 
-  /// Declarations with zero references of any kind — the tool's actual
-  /// "unused" verdict. Sorted by file then position. These, and only these,
-  /// are eligible for `--remove`.
+  /// The declarations that nothing references, sorted by file and position.
+  /// `--remove` deletes only these.
   final List<UnusedDeclaration> unused;
 
-  /// Declarations with no *code* references, but at least one dartdoc
-  /// `[Xxx]`-style comment link — informational, not a removal candidate.
-  /// A link resolves to a real declaration, so it counts as a reference;
-  /// reporting these separately surfaces likely-dead code
-  /// without risking deletion of something that really is pointed to, just
-  /// only from documentation. Sorted by file then position.
+  /// The declarations that only dartdoc links like `[Foo]` reference, sorted
+  /// by file and position. They are listed apart and never removed.
   final List<UnusedDeclaration> docOnly;
 
   /// Scanned files with nothing but comments and `library`, `import` or

@@ -5,7 +5,6 @@ library;
 
 import 'dart:math';
 
-import 'package:ciach/src/util/extensions.dart';
 import 'package:collection/collection.dart';
 
 /// A `[start, end)` character-offset span within a file's content.
@@ -39,8 +38,11 @@ int withIndentation(String content, int offset) {
 /// `// ignore:`, would otherwise apply to the line after it. Any other tool
 /// directive stays, so a range it opens or closes keeps both ends.
 int consumeLineEnd(String content, int end) {
-  final nextNewline = content.indexOfOrNull('\n', end);
-  final restOfLine = content.substring(end, nextNewline ?? content.length);
+  final newline = content.indexOf('\n', end);
+  final restOfLine = content.substring(
+    end,
+    newline < 0 ? content.length : newline,
+  );
   if (nextNonWhitespace(restOfLine, 0) case final i?) {
     final comment = restOfLine.substring(i);
     if (!comment.startsWith('//') ||
@@ -48,7 +50,7 @@ int consumeLineEnd(String content, int end) {
       return end;
     }
   }
-  return nextNewline?.let((newline) => newline + 1) ?? content.length;
+  return newline < 0 ? content.length : newline + 1;
 }
 
 /// Skips spaces and tabs from [from], but never across a line break.

@@ -5,10 +5,19 @@ import 'package:ciach/src/util/cached_map.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:ciach/src/util/plural.dart';
-import 'package:ciach/src/workspace/file_discovery.dart';
 import 'package:collection/collection.dart';
 import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
+
+/// Directory names that never contain source worth analyzing.
+const _skippedDirs = {
+  '.dart_tool',
+  '.git',
+  'build',
+  '.fvm',
+  'node_modules',
+  '.widget_preview',
+};
 
 /// The Dart files under a root, and the `lib/` of every package there.
 typedef PackageTree = ({Set<String> dartFiles, Set<String> libDirs});
@@ -30,7 +39,7 @@ PackageTree scanPackageTree(String root) {
 List<String> _filesUnder(Directory dir) => [
   for (final entity in dir.listSync(followLinks: false))
     if (entity case final Directory directory
-        when !isInSkippedDir(p.basename(directory.path)))
+        when !_skippedDirs.contains(p.basename(directory.path)))
       ..._filesUnder(directory)
     else if (entity case File(:final absolute))
       p.normalize(absolute.path),
@@ -53,7 +62,6 @@ const unknownPackage = '';
 /// `.dart_tool/package_config.json` nearest the file that names them.
 final class PackageResolver {
   late final _configByDir = CachedMap<String, PackageConfig?>(_findConfig);
-  late final _packageRootByDir = CachedMap<String, String?>(_findPackageRoot);
 
   /// [uri], written in [from], as an absolute path; [unknownPackage] for a
   /// package [from]'s config doesn't list; `null` for any other scheme.
@@ -80,24 +88,6 @@ final class PackageResolver {
       (true, _) => _read(file),
       (_, true) => null,
       _ => configOf(parent),
-    };
-  }
-
-  /// The root of the package that contains [dir], or `null` if there is none.
-  ///
-  /// The root is the nearest directory at or above [dir] with a
-  /// `pubspec.yaml`.
-  String? packageRootOf(String dir) => _packageRootByDir[dir];
-
-  String? _findPackageRoot(String dir) {
-    final parent = p.dirname(dir);
-    return switch ((
-      File(p.join(dir, 'pubspec.yaml')).existsSync(),
-      parent == dir,
-    )) {
-      (true, _) => dir,
-      (_, true) => null,
-      _ => packageRootOf(parent),
     };
   }
 
@@ -134,10 +124,13 @@ final class PackageResolver {
 /// `pub get` hasn't run for, sorted. Files outside any package are ignored.
 List<String> unresolvedPackages(Iterable<String> files, String root) {
   final packages = PackageResolver();
+  // A package's root is the nearest directory with a `pubspec.yaml`.
   final roots = {
-    for (final file in files)
-      if (packages.packageRootOf(p.dirname(file)) case final package?
-          when dirContains(root, package))
+    for (final dir in {for (final file in files) p.dirname(file)})
+      if (dirAndAncestors(dir).firstWhereOrNull(
+            (dir) => File(p.join(dir, 'pubspec.yaml')).existsSync(),
+          )
+          case final package? when dirContains(root, package))
         package,
   };
   return roots.whereNot(packages.isResolved).sorted();

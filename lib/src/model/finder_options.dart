@@ -86,24 +86,11 @@ class FinderOptions {
   /// reached polymorphically, which a plain reference search can miss).
   final bool skipOverrides;
 
-  /// Whether to also flag a class as dead when its only non-self references
-  /// are *type patterns* over its (sealed) supertype — `case` patterns in
-  /// `switch` statements / `if`-`case` / `while`-`case` headers, or
-  /// switch-*expression* arms — i.e. the type is *matched* but never
-  /// *constructed* anywhere.
-  ///
-  /// Off by default, and deliberately so: a `case Foo():` arm normally counts
-  /// as a real use of `Foo`, keeping it alive. When enabled, such a member is
-  /// **reported** as an unused `class` so a human can see it is never
-  /// constructed — but this is *report-only*: `--remove` deliberately leaves it
-  /// (and its pattern arms) in place, because removing a member of a sealed
-  /// union and rewriting the now-non-exhaustive `switch`es over it is a source
-  /// rewrite this tool won't attempt. Every finding surfaced by this flag is
-  /// marked as blocked for removal (`UnusedDeclaration.removalBlocked`).
-  ///
-  /// Detection is conservative: only a reference that is confidently a type
-  /// pattern is discounted; anything else (construction, type annotations,
-  /// nested sub-patterns, pattern-variable declarations) keeps the class alive.
+  /// Whether a class that only type patterns name, like `case Foo():`,
+  /// counts as unused: it is matched but never constructed. Off by default,
+  /// since a pattern normally counts as a use. Such a finding is report-only
+  /// (`UnusedDeclaration.removalBlocked`): removing the class would also mean
+  /// rewriting the `switch`es over its sealed supertype.
   final bool unusedUnionMembers;
 
   /// Whether to report a `toJson()` serialization hook as unused. Off by

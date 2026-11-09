@@ -41,13 +41,8 @@ extension DeclarationNames on OutlineElement {
   /// constructor is named with the class included (`Foo`, `Foo.named`), so the
   /// private marker is a segment after the last `.` starting with `_`; the
   /// unnamed constructor (no `.`) is never private here.
-  bool get isPrivateConstructor {
-    if (kind != .constructor) {
-      return false;
-    }
-    final dot = name.lastIndexOf('.');
-    return dot >= 0 && dot + 1 < name.length && name[dot + 1] == '_';
-  }
+  bool get isPrivateConstructor =>
+      kind == .constructor && name.contains('.') && isPrivateName(name);
 
   /// Whether this is a primary constructor's `this : …` body part, which the
   /// outline lists as a constructor named `this` — a name no ordinary

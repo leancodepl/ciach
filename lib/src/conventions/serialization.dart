@@ -1,6 +1,5 @@
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/source/outline.dart';
-import 'package:ciach/src/util/extensions.dart';
 
 /// Return types of a `toJson` hook.
 const _jsonValueTypes = {
@@ -27,10 +26,7 @@ bool isToJsonHook(Candidate candidate) => switch (candidate.outline.element) {
   ) =>
     // The source of the return type, like `Map<String, dynamic>?`.
     _jsonValueTypes.contains(
-      (returnType.endsWith('?')
-              ? returnType.substring(0, returnType.length - 1)
-              : returnType)
-          .withoutTypeArguments,
+      returnType.split(RegExp('[<?]')).first.trimRight(),
     ),
   _ => false,
 };

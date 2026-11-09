@@ -42,7 +42,7 @@ final class PublicApi {
         if (exported) p.join(dir, 'lib'),
     };
     final libDirOf = _libDirOf(tree.dartFiles, libDirs);
-    final libraries = _readDirectives(libDirOf.keys, .new());
+    final libraries = _readDirectives(libDirOf.keys);
     final libraryOf = _libraryOfParts(libraries);
     return ._(
       rootPath,
@@ -57,19 +57,40 @@ final class PublicApi {
   static Map<String, String> _libDirOf(
     Set<String> dartFiles,
     Set<String> libDirs,
-  ) => {for (final path in dartFiles) path: ?_nearestLibDir(path, libDirs)};
-
-  static String? _nearestLibDir(String path, Set<String> libDirs) =>
-      dirAndAncestors(p.dirname(path)).firstWhereOrNull(libDirs.contains);
-
-  static Map<String, _Directives> _readDirectives(
-    Iterable<String> paths,
-    PackageResolver packages,
   ) => {
-    for (final path in paths)
-      if (readSource(path) case final content?)
-        path: _Directives.parse(content, path, packages),
+    for (final path in dartFiles)
+      path: ?dirAndAncestors(
+        p.dirname(path),
+      ).firstWhereOrNull(libDirs.contains),
   };
+
+  /// The exports and parts of each library at [paths] that can be read.
+  static Map<String, _Directives> _readDirectives(Iterable<String> paths) {
+    final packages = PackageResolver();
+    return {
+      for (final path in paths)
+        if (readSource(path)?.let(directivesIn) case final directives?)
+          path: (
+            exports: [
+              for (final directive in directives)
+                if (directive case Directive(
+                  kind: .export,
+                  :final shown,
+                  :final hidden,
+                ))
+                  (
+                    paths: directive.pathsFrom(path, packages),
+                    names: .of(shown, hidden),
+                  ),
+            ],
+            parts: [
+              for (final directive in directives)
+                if (directive.kind == .part)
+                  ...directive.pathsFrom(path, packages).take(1),
+            ],
+          ),
+    };
+  }
 
   /// The library each part belongs to, through parts of parts.
   static Map<String, String> _libraryOfParts(
@@ -144,39 +165,8 @@ final class PublicApi {
   }
 }
 
-final class _Directives {
-  _Directives(this.exports, this.parts);
-
-  factory _Directives.parse(
-    String content,
-    String path,
-    PackageResolver packages,
-  ) {
-    final directives = directivesIn(content);
-    return .new(
-      [
-        for (final directive in directives)
-          if (directive case Directive(
-            kind: .export,
-            :final shown,
-            :final hidden,
-          ))
-            (
-              paths: directive.pathsFrom(path, packages),
-              names: .of(shown, hidden),
-            ),
-      ],
-      [
-        for (final directive in directives)
-          if (directive.kind == .part)
-            ...directive.pathsFrom(path, packages).take(1),
-      ],
-    );
-  }
-
-  final List<_Export> exports;
-  final List<String> parts;
-}
+/// The exports and the parts of a library.
+typedef _Directives = ({List<_Export> exports, List<String> parts});
 
 /// The files an `export` names, as absolute paths (several when conditional),
 /// and the names it lets through.
