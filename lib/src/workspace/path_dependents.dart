@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:ciach/src/project_config/project_files.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:ciach/src/workspace/packages.dart';
@@ -16,14 +14,13 @@ List<String> pathDependentsOutside(String rootPath, String analysisRoot) {
     return const [];
   }
   final repository = _repositoryOf(rootPath);
-  if (repository == null || analysisRootContains(analysisRoot, repository)) {
+  if (repository == null || dirContains(analysisRoot, repository)) {
     return const [];
   }
   return [
     for (final libDir in scanPackageTree(repository).libDirs.sorted())
       if (p.dirname(libDir) case final dir
-          when !analysisRootContains(analysisRoot, dir) &&
-              _dependsByPath(dir, rootPath))
+          when !dirContains(analysisRoot, dir) && _dependsByPath(dir, rootPath))
         dir,
   ];
 }
@@ -31,26 +28,14 @@ List<String> pathDependentsOutside(String rootPath, String analysisRoot) {
 /// The nearest directory that is or contains each of [dirs], absolute and
 /// normalized.
 String commonAncestor(List<String> dirs) {
-  var common = dirs.first;
-  for (final dir in dirs.skip(1)) {
-    while (!p.equals(common, dir) && !p.isWithin(common, dir)) {
-      common = p.dirname(common);
-    }
-  }
-  return common;
+  bool containsAll(String dir) =>
+      dirs.every((other) => dirContains(dir, other));
+  return dirAndAncestors(dirs.first).firstWhere(containsAll);
 }
 
 /// The nearest directory at or above [dir] with a `.git`.
-String? _repositoryOf(String dir) {
-  for (var current = dir; ; current = p.dirname(current)) {
-    if (FileSystemEntity.typeSync(p.join(current, '.git')) != .notFound) {
-      return current;
-    }
-    if (p.dirname(current) == current) {
-      return null;
-    }
-  }
-}
+String? _repositoryOf(String dir) =>
+    dirAndAncestors(dir).firstWhereOrNull(isRepositoryRoot);
 
 /// Whether the pubspec in [dir] depends on the package at [target] by
 /// `path:`.

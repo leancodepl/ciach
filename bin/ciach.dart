@@ -249,7 +249,7 @@ bool _analysisRootIsValid(FinderOptions options) {
     }
     // A root beside or below the scanned package would drop references, not
     // add them.
-    if (!analysisRootContains(analysisRoot, rootPath)) {
+    if (!dirContains(analysisRoot, rootPath)) {
       _log.severe(
         'The analysis root must contain the analyzed path: $analysisRoot does not contain $rootPath.',
       );

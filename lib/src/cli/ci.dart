@@ -1,7 +1,5 @@
-import 'dart:io';
-
+import 'package:ciach/src/util/paths.dart';
 import 'package:collection/collection.dart';
-import 'package:path/path.dart' as p;
 
 /// What a run on CI defaults to where nothing says otherwise: the one list the
 /// option resolution and the verbose log both read.
@@ -83,20 +81,13 @@ String? checkoutRoot(String scanRoot, {required String? checkoutDir}) {
   if (checkoutDir == null || checkoutDir.isEmpty) {
     return null;
   }
-  final checkout = p.normalize(p.absolute(checkoutDir));
-  var dir = p.normalize(p.absolute(scanRoot));
-  if (!p.equals(dir, checkout) && !p.isWithin(checkout, dir)) {
+  final checkout = checkoutDir.absoluteNormalized;
+  final scan = scanRoot.absoluteNormalized;
+  if (!dirContains(checkout, scan)) {
     return null;
   }
-  String? outermost;
-  while (true) {
-    // A file in a submodule or worktree, a directory in a plain clone.
-    if (FileSystemEntity.typeSync(p.join(dir, '.git')) != .notFound) {
-      outermost = dir;
-    }
-    if (p.equals(dir, checkout)) {
-      return outermost ?? checkout;
-    }
-    dir = p.dirname(dir);
-  }
+  return dirAndAncestors(scan)
+          .takeWhile((dir) => dirContains(checkout, dir))
+          .lastWhereOrNull(isRepositoryRoot) ??
+      checkout;
 }

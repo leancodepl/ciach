@@ -182,7 +182,7 @@ final class _Run {
     final stopwatch = Stopwatch()..start();
     final rootPath = options.rootPath;
     final analysisRoot = options.analysisRootPath ?? rootPath;
-    if (!analysisRootContains(analysisRoot, rootPath)) {
+    if (!dirContains(analysisRoot, rootPath)) {
       throw ArgumentError.value(
         options.analysisRootPath,
         'analysisRootPath',

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:ciach/src/project_config/project_files.dart';
 import 'package:ciach/src/util/cached_map.dart';
 import 'package:ciach/src/util/extensions.dart';
+import 'package:ciach/src/util/paths.dart';
 import 'package:ciach/src/util/plural.dart';
 import 'package:ciach/src/workspace/file_discovery.dart';
 import 'package:collection/collection.dart';
@@ -138,7 +139,7 @@ List<String> unresolvedPackages(Iterable<String> files, String root) {
   final roots = {
     for (final file in files)
       if (packages.packageRootOf(p.dirname(file)) case final package?
-          when p.equals(root, package) || p.isWithin(root, package))
+          when dirContains(root, package))
         package,
   };
   return roots.whereNot(packages.isResolved).sorted();

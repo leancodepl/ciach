@@ -8,6 +8,8 @@
  *     - mark-ai-provenance
  */
 
+import 'dart:io';
+
 import 'package:path/path.dart' as p;
 
 extension AbsolutePath on String {
@@ -36,7 +38,22 @@ String relativeUsagePosix(
     ? relativePosix(absPath, rootPath)
     : relativePosix(absPath, analysisRoot);
 
-/// Whether [analysisRoot] contains [rootPath] — the invariant a widened
-/// analysis root has to meet. Both must be absolute and normalized.
-bool analysisRootContains(String analysisRoot, String rootPath) =>
-    p.equals(analysisRoot, rootPath) || p.isWithin(analysisRoot, rootPath);
+/// Whether [dir] is [path] or a directory above it.
+bool dirContains(String dir, String path) =>
+    p.equals(dir, path) || p.isWithin(dir, path);
+
+/// [dir] and each directory above it, nearest first: `/a/b`, `/a` and `/`
+/// for `/a/b`.
+Iterable<String> dirAndAncestors(String dir) sync* {
+  for (var current = dir; ; current = p.dirname(current)) {
+    yield current;
+    if (p.dirname(current) == current) {
+      return;
+    }
+  }
+}
+
+/// Whether [dir] holds a `.git`: a directory in a plain clone, a file in a
+/// submodule or a worktree.
+bool isRepositoryRoot(String dir) =>
+    FileSystemEntity.typeSync(p.join(dir, '.git')) != .notFound;

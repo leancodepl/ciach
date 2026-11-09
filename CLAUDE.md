@@ -348,7 +348,7 @@ explicit null check.
   cached before you call an analyzer lookup too costly.
 - Keep each default, rule and fact in one place, and let everything else read
   it. When a type takes over a normalization or a check, delete the old copy,
-  or have both places call one shared predicate, such as `analysisRootContains`
+  or have both places call one shared predicate, such as `dirContains`
   in `lib/src/util/paths.dart`. Put new matching logic on the type that
   owns the concept, such as `EntryPoint.matches`, not in side maps. A check
   that guards correctness belongs in the library API, not only in the CLI. A

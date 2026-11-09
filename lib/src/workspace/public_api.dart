@@ -59,18 +59,8 @@ final class PublicApi {
     Set<String> libDirs,
   ) => {for (final path in dartFiles) path: ?_nearestLibDir(path, libDirs)};
 
-  static String? _nearestLibDir(String path, Set<String> libDirs) {
-    for (
-      var dir = p.dirname(path);
-      dir != p.dirname(dir);
-      dir = p.dirname(dir)
-    ) {
-      if (libDirs.contains(dir)) {
-        return dir;
-      }
-    }
-    return null;
-  }
+  static String? _nearestLibDir(String path, Set<String> libDirs) =>
+      dirAndAncestors(p.dirname(path)).firstWhereOrNull(libDirs.contains);
 
   static Map<String, _Directives> _readDirectives(
     Iterable<String> paths,
