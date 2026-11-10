@@ -107,16 +107,16 @@ void main() {
   });
 
   test('leaves out what Pigeon skips', () {
-    for (final (kind, keywords) in [
-      (OutlineKind.topLevelVariable, const <String>{}),
-      (OutlineKind.topLevelVariable, const {'final'}),
-      (OutlineKind.function, const <String>{}),
-      (OutlineKind.mixin, const {'mixin'}),
-      (OutlineKind.classTypeAlias, const {'class'}),
-      (OutlineKind.typeAlias, const {'typedef'}),
-      (OutlineKind.functionTypeAlias, const {'typedef'}),
-      (OutlineKind.extension, const {'extension'}),
-      (OutlineKind.extensionType, const {'extension', 'type'}),
+    for (final (kind, keywords) in const <(OutlineKind, Set<String>)>[
+      (.topLevelVariable, {}),
+      (.topLevelVariable, {'final'}),
+      (.function, {}),
+      (.mixin, {'mixin'}),
+      (.classTypeAlias, {'class'}),
+      (.typeAlias, {'typedef'}),
+      (.functionTypeAlias, {'typedef'}),
+      (.extension, {'extension'}),
+      (.extensionType, {'extension', 'type'}),
     ]) {
       expect(
         rule.matches(declaration(kind, keywords: keywords)),

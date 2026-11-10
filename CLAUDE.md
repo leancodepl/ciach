@@ -275,6 +275,9 @@ explicit null check.
   literal gets busy, give its predicate a named local.
 - Keep an `Iterable` lazy when it is read once or in part, and use a `Set` when
   duplicates mean nothing.
+- Write `const` once, on the outermost literal that can be constant, not on
+  each of its elements: `const <(OutlineKind, Set<String>)>[(.mixin, {'mixin'})]`,
+  not `[(OutlineKind.mixin, const {'mixin'})]`.
 - Prefer collection methods (`where`, `firstWhereOrNull`) to loops with early
   returns, tear-offs to lambdas that only forward, `min` and `max` to
   hand-written ternaries, and `package:collection` equalities to comparison
