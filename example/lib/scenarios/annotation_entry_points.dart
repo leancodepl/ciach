@@ -5,15 +5,17 @@
  */
 
 // Entry points that an annotation marks. Expected findings: everything, by
-// default. With a rule for the annotation class `Story`, only `notAStory`,
-// `deprecatedStory`, `constantStory`, `story`, which only `constantStory`
-// uses, `Gallery.new` and `Gallery.helper`.
+// default. With an `{annotation: Story}` rule, only `notAStory`,
+// `deprecatedStory`, `Gallery.new` and `Gallery.helper`. With
+// `subtypes: false`, the subtypes of `Story` and the declarations that they
+// annotate too. With `constants: false`, also `constantStory` and `story`,
+// which only `constantStory` uses.
 //
 // Scanned only by the dedicated tests; see
 // test/finder/annotation_entry_points_test.dart.
 
-/// The annotation class that the rule names. The rule leaves out the type
-/// parameter.
+/// The annotation class that the `{annotation: Story}` rule names. The rule
+/// leaves out the type parameter.
 class Story<T> {
   const Story();
 

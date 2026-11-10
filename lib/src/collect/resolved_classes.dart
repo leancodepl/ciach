@@ -5,8 +5,8 @@
  */
 
 /// Resolves the classes that the entry-point rules read: the class of each
-/// annotation that calls a constructor, such as `@DarkPreview()`, and the
-/// supertypes of each class. A rule can then match a subtype of the
+/// annotation that creates an object, such as `@DarkPreview()` or `@preview`,
+/// and the supertypes of each class. A rule can then match a subtype of the
 /// class that it names.
 library;
 
@@ -49,7 +49,7 @@ final class ResolvedClasses {
 
   /// The classes that the annotations create, by the file and the position
   /// of the name that the annotation's `@` is followed by: `Preview` in
-  /// `@Preview()`.
+  /// `@Preview()`, `preview` in `@preview`.
   final _annotationClasses = <(String, Position), List<AnnotationClass>>{};
 
   /// The supertypes of each class, by the file and the position of the
@@ -59,6 +59,10 @@ final class ResolvedClasses {
   /// The classes that a definition declares, by its file and position. The
   /// same annotation in many places has the same definition.
   final _byDefinition = <(String, Position), Future<List<_Hierarchy>>>{};
+
+  /// The classes of the objects that a constant holds, by the position of
+  /// its definition.
+  final _byConstant = <(String, Position), Future<List<_Hierarchy>>>{};
 
   /// A class and all its supertypes, by the file and the position of the
   /// class's name in its declaration.
@@ -85,17 +89,21 @@ final class ResolvedClasses {
     // such as `JsonKey` in `@JsonKey(...)` on every field.
     final constructorDefinitions = <String, Future<List<Location>>>{};
     await Future.wait([
-      if (lookups.contains(ServerLookup.annotationClasses))
-        for (final name in tokens.annotationNames())
+      for (final name in tokens.annotationNames())
+        if (name.readsConstant
+            ? lookups.contains(ServerLookup.constantClasses)
+            : lookups.contains(ServerLookup.annotationClasses))
           _resolveAnnotation(
             client,
             config,
             path,
-            name.token,
-            constructorDefinitions[name.written] ??= client.definition(
-              File(path).uri,
-              name.token.start,
-            ),
+            name,
+            name.readsConstant
+                ? client.definition(File(path).uri, name.token.start)
+                : constructorDefinitions[name.written] ??= client.definition(
+                    File(path).uri,
+                    name.token.start,
+                  ),
           ),
       if (lookups.contains(ServerLookup.supertypes))
         for (final symbol in symbols.where(
@@ -133,23 +141,27 @@ final class ResolvedClasses {
   Set<ResolvedClass> supertypesOf(String path, DocumentSymbol symbol) =>
       _byClassName[(path, symbol.selectionRange.start)] ?? const {};
 
-  /// Records the annotation whose name is [token] and whose [definitions]
-  /// are those of its name. Records nothing when its class can't be resolved.
+  /// Records the annotation called [name], whose [definitions] are those of
+  /// its name. Records nothing when its class can't be resolved.
   Future<void> _resolveAnnotation(
     LspClient client,
     PackageConfig? config,
     String path,
-    SemanticToken token,
+    AnnotationName name,
     Future<List<Location>> definitions,
   ) async {
+    final (:token, :readsConstant, written: _) = name;
     try {
       final hierarchies = await Future.wait([
         for (final definition in await definitions)
-          _declaredAt(client, config, definition),
+          if (readsConstant)
+            _heldBy(client, config, definition)
+          else
+            _declaredAt(client, config, definition),
       ]);
       _annotationClasses[(path, token.start)] = [
         for (final (:type, :supertypes) in hierarchies.flattened)
-          .new(type, supertypes),
+          .new(type, supertypes, readsConstant: readsConstant),
       ];
     } on LspRequestException catch (e) {
       recordProblem(
@@ -204,38 +216,56 @@ final class ResolvedClasses {
       definition.range.start,
     );
     return items.isEmpty
-        ? await _namedBy(client, config, definition)
+        ? await _heldBy(client, config, definition)
         : await Future.wait([
             for (final item in items) _hierarchyOf(client, config, item),
           ]);
   }
 
-  /// Returns the classes of the type that the typedef declared at
-  /// [definition] names, with their supertypes: `DarkPreview` for
-  /// `typedef AliasPreview = DarkPreview;`. It follows a typedef of a
-  /// typedef.
-  Future<List<_Hierarchy>> _namedBy(
+  /// Returns the classes of the objects that the constant declared at
+  /// [definition] holds, with their supertypes: `Preview` for
+  /// `const preview = Preview();`. It follows a constant that holds another
+  /// one, and a typedef, whose value is the type that it names. Returns
+  /// nothing for a value that no constructor call creates, such as a list.
+  Future<List<_Hierarchy>> _heldBy(
+    LspClient client,
+    PackageConfig? config,
+    Location definition,
+  ) => _byConstant[(definition.uri, definition.range.start)] ??= _requestHeldBy(
+    client,
+    config,
+    definition,
+  );
+
+  /// Requests the classes of the objects that the constant declared at
+  /// [definition] holds, with their supertypes, from [client].
+  Future<List<_Hierarchy>> _requestHeldBy(
     LspClient client,
     PackageConfig? config,
     Location definition,
   ) async {
     final path = SourceIndex.pathOf(definition.uri);
-    final type = typeNamedBy(
+    final value = valueNameAfter(
       _sources,
       path,
       await _sources.semanticTokensOf(client, path),
       definition.range.start,
     );
-    if (type == null) {
+    final resolveValue = switch (value?.type) {
+      'class' || 'type' => _declaredAt,
+      'property' || 'variable' => _heldBy,
+      _ => null,
+    };
+    if (value == null || resolveValue == null) {
       return const <_Hierarchy>[];
     }
     final definitions = await client.definition(
       .parse(definition.uri),
-      type.start,
+      value.start,
     );
     final classes = await Future.wait([
       for (final definition in definitions)
-        _declaredAt(client, config, definition),
+        resolveValue(client, config, definition),
     ]);
     return classes.flattened.toList();
   }

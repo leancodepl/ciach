@@ -58,20 +58,97 @@ void main() {
   );
 
   test(
-    'a rule for an annotation class keeps the declarations whose annotation calls a constructor of the class or of a subtype of it',
+    'an `annotation` rule keeps the declarations whose annotation creates an object of the class or of a subtype of it',
+    () async {
+      expect(
+        await findUnused(
+          entryPoints: [.annotationFromConfig('Story', package: 'sample_pkg')],
+        ),
+        {'deprecatedStory', 'notAStory', 'Gallery.new', 'Gallery.helper'},
+      );
+    },
+  );
+
+  test(
+    'with `subtypes: false`, an `annotation` rule keeps only the declarations annotated with the class itself',
     () async {
       expect(
         await findUnused(
           entryPoints: [
-            .annotationNamed(
+            .annotationFromConfig(
               'Story',
-              packages: const {'sample_pkg'},
-              subtypes: true,
-              reason: 'shown',
+              package: 'sample_pkg',
+              subtypes: false,
             ),
           ],
         ),
         {
+          'DarkStory',
+          'DarkerStory',
+          'StoryLike',
+          'darkStoryCard',
+          'darkerStoryCard',
+          'likeStoryCard',
+          'StoryAlias',
+          'aliasStoryCard',
+          'deprecatedStory',
+          'notAStory',
+          'Gallery.new',
+          'Gallery.helper',
+        },
+      );
+    },
+  );
+
+  test(
+    'with `constants: false`, an `annotation` rule keeps only the declarations whose annotation calls a constructor',
+    () async {
+      expect(
+        await findUnused(
+          entryPoints: [
+            .annotationFromConfig(
+              'Story',
+              package: 'sample_pkg',
+              constants: false,
+            ),
+          ],
+        ),
+        {
+          // Used only by `constantStory`.
+          'story',
+          'constantStory',
+          'deprecatedStory',
+          'notAStory',
+          'Gallery.new',
+          'Gallery.helper',
+        },
+      );
+    },
+  );
+
+  test(
+    'with `subtypes: false` and `constants: false`, an `annotation` rule keeps only the declarations annotated with the class by its own name',
+    () async {
+      expect(
+        await findUnused(
+          entryPoints: [
+            .annotationFromConfig(
+              'Story',
+              package: 'sample_pkg',
+              subtypes: false,
+              constants: false,
+            ),
+          ],
+        ),
+        {
+          'DarkStory',
+          'DarkerStory',
+          'StoryLike',
+          'darkStoryCard',
+          'darkerStoryCard',
+          'likeStoryCard',
+          'StoryAlias',
+          'aliasStoryCard',
           // Used only by `constantStory`.
           'story',
           'constantStory',

@@ -8,27 +8,28 @@ part of 'entry_points.dart';
 
 /// A rule that selects a declaration by an annotation on it: by the name
 /// written after the `@`, such as `JSExport` in `@JSExport()` and
-/// `reflectiveTest` in `@reflectiveTest`, or, with [subtypes], by the class
-/// that the annotation's constructor call creates or one of its supertypes.
-/// It optionally also checks the package that declares the annotation and
-/// the string literal that its first argument is.
+/// `reflectiveTest` in `@reflectiveTest`, or, with [subtypes] or
+/// [constants], by the class of the object that the annotation creates or
+/// one of its supertypes. It optionally also checks the package that declares
+/// the annotation and the string literal that its first argument is.
 final class AnnotationNamedEntryPoint extends EntryPoint {
   AnnotationNamedEntryPoint(
     this.annotation, {
     required this.packages,
     this.subtypes = false,
+    this.constants = false,
     this.argument,
     this.reason,
     this.members,
     super.files = const [],
   }) : assert(
-         argument == null || !subtypes,
-         'The argument is checked only without `subtypes`.',
+         argument == null || !(subtypes || constants),
+         'The argument is checked only without `subtypes` and `constants`.',
        ),
        super._();
 
-  /// The name written after the `@`, or with [subtypes], the name of the
-  /// class.
+  /// The name written after the `@`, or with [subtypes] or [constants], the
+  /// name of the class.
   final String annotation;
 
   /// The packages that may declare [annotation]: a package name, such as
@@ -40,6 +41,14 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
   /// of it can be, as `@DarkPreview()` is for `Preview`, also through a
   /// typedef.
   final bool subtypes;
+
+  /// Whether an annotation that reads a constant counts, such as `@story` for
+  /// `const story = Story();`.
+  final bool constants;
+
+  /// Whether the rule reads the class of the object that the annotation
+  /// creates, rather than the name after the `@`.
+  bool get _readsClass => subtypes || constants;
 
   /// The value of the string literal that the annotation's first argument
   /// has to be, such as `vm:entry-point` in `@pragma('vm:entry-point')`, or
@@ -53,15 +62,21 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
   final KeptMembers? members;
 
   @override
-  Set<String> get annotationNames => subtypes ? const {} : {annotation};
+  Set<String> get annotationNames => _readsClass ? const {} : {annotation};
 
   @override
-  Set<ServerLookup> get lookups => {if (subtypes) .annotationClasses};
+  Set<ServerLookup> get lookups => {
+    if (_readsClass) .annotationClasses,
+    if (constants) .constantClasses,
+  };
 
   @override
-  bool _selects(ResolvedDeclaration declaration) => subtypes
+  bool _selects(ResolvedDeclaration declaration) => _readsClass
       ? declaration.annotationClasses.any(
-          (it) => _isAnnotation(it.type) || it.supertypes.any(_isAnnotation),
+          (it) =>
+              (constants || !it.readsConstant) &&
+              (_isAnnotation(it.type) ||
+                  (subtypes && it.supertypes.any(_isAnnotation))),
         )
       : _annotatesByName(declaration);
 
@@ -88,6 +103,7 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
     annotation,
     packages: packages,
     subtypes: subtypes,
+    constants: constants,
     argument: argument,
     reason: reason,
     members: members,
@@ -103,6 +119,7 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
     'declarations annotated with `@$annotation`',
     'from ${packages.map(_libraryOf).join(' or ')}',
     if (subtypes) 'or a subtype of it',
+    if (_readsClass && !constants) 'by a constructor call',
     if (argument case final argument?) "with `'$argument'`",
   ].join(' ');
 }
