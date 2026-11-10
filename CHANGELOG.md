@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Stop reporting the declarations in Pigeon input files that Pigeon generates
+  code from. ([#183](https://github.com/leancodepl/ciach/pull/183))
 - Fix reporting the later variables of a top-level statement such as
   `@pragma('vm:entry-point') int a = 0, b = 0;`. Before, only `a` was kept by
   the annotation, or by a `// ciach:ignore` above the statement, and `b` was

@@ -204,6 +204,35 @@ void f() {}
         'override',
       ]);
     });
+
+    test('the tokens before the name run from the code to the name', () {
+      Outline outline({required bool withName}) => .fromJson({
+        'element': {
+          'kind': 'FUNCTION',
+          'name': 'f',
+          if (withName)
+            'range': {
+              'start': {'line': 2, 'character': 5},
+              'end': {'line': 2, 'character': 6},
+            },
+        },
+        'range': {
+          'start': {'line': 0, 'character': 0},
+          'end': {'line': 2, 'character': 11},
+        },
+        'codeRange': {
+          'start': {'line': 2, 'character': 0},
+          'end': {'line': 2, 'character': 11},
+        },
+      });
+      expect(
+        sources
+            .tokensBeforeName(path, outline(withName: true))
+            .map((t) => t.text),
+        ['void'],
+      );
+      expect(sources.tokensBeforeName(path, outline(withName: false)), isEmpty);
+    });
   });
 
   group('SemanticToken.stringValue', () {
