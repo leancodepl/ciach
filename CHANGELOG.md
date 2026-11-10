@@ -1,4 +1,4 @@
-## Unreleased
+## 0.7.2
 
 - Stop reporting the declarations in Pigeon input files that Pigeon generates
   code from. ([#183](https://github.com/leancodepl/ciach/pull/183))
