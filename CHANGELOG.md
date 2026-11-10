@@ -1,10 +1,7 @@
 ## Unreleased
 
-- Stop reporting what Pigeon reads from its input files, the Dart files that
-  import `package:pigeon/pigeon.dart`: their data classes, API classes, enums
-  and `const` top-level variables, with their members. Functions, mixins and
-  the other declarations that Pigeon skips are still reported.
-  ([#183](https://github.com/leancodepl/ciach/pull/183))
+- Stop reporting the declarations in Pigeon input files that Pigeon generates
+  code from. ([#183](https://github.com/leancodepl/ciach/pull/183))
 - Fix reporting the later variables of a top-level statement such as
   `@pragma('vm:entry-point') int a = 0, b = 0;`. Before, only `a` was kept by
   the annotation, or by a `// ciach:ignore` above the statement, and `b` was

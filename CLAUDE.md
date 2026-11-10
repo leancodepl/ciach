@@ -52,7 +52,9 @@ sentences, say what was added, fixed or changed, as they will see it, and keep
 it about as long as the entries around it, also after a later commit adds an
 effect to it. For a fix, say what went wrong before. Leave out how it was
 implemented: no class or method names, internal terms or reasoning about the
-code.
+code. Leave the details of a rule, such as which kinds of declaration it
+keeps, to the docs page: "Stop reporting the declarations in Pigeon input
+files that Pigeon generates code from."
 
 Every pull request that changes what users see adds its entry under
 `## Unreleased`, without being asked. Write one entry per change and name every
