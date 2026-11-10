@@ -14,10 +14,16 @@ final class DeadSpans {
   DeadSpans._(this._byPath);
 
   /// The spans of the findings `--remove` would delete, by absolute path.
-  factory DeadSpans.of(Iterable<UnusedDeclaration> findings, String rootPath) {
+  /// With [withReportOnly], the spans of the report-only findings are
+  /// included.
+  factory DeadSpans.of(
+    Iterable<UnusedDeclaration> findings,
+    String rootPath, {
+    bool withReportOnly = false,
+  }) {
     final byPath = <String, List<_Span>>{};
     for (final finding in findings) {
-      if (finding.removalBlocked) {
+      if (finding.removalBlocked && !withReportOnly) {
         continue;
       }
       byPath

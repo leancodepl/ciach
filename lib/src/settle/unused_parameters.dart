@@ -5,6 +5,7 @@ import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/model/unused_declaration.dart';
+import 'package:ciach/src/settle/dead_spans.dart';
 import 'package:ciach/src/source/parameters.dart';
 import 'package:ciach/src/source/reference_kinds.dart';
 import 'package:ciach/src/source/source_index.dart';
@@ -14,7 +15,7 @@ import 'package:ciach/src/util/concurrency.dart';
 import 'package:ciach/src/util/extensions.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show Location, Position, Range;
+import 'package:pro_lsp/pro_lsp.dart' show Location, Range;
 
 const _uncheckedParameters =
     'Could not check how a function is used; its parameters are not reported.';
@@ -37,17 +38,31 @@ final class UnusedParameters {
   final ReferenceFetch _fetch;
   final int _concurrency;
 
+  /// Whether the parameters of [candidate] are checked: it is a function,
+  /// method or constructor whose signature only its calls use, and not an
+  /// override.
+  bool checks(Candidate candidate) =>
+      candidate.hasCheckedParameters &&
+      _sources
+          .leadingMetadata(candidate.path, candidate.outline)
+          .none((t) => t.isAnnotationNamed('override'));
+
   /// Returns a report-only finding for each parameter of [owners] that is
-  /// never read. An owner that one of [findings] reports, or deletes with an
-  /// enclosing declaration, is left out.
+  /// never read. An owner that one of [findings] reports, alone or as part of
+  /// an enclosing declaration, is left out.
   Future<List<UnusedDeclaration>> findings(
     LspClient client,
     List<Candidate> owners,
     List<UnusedDeclaration> findings,
     String rootPath,
   ) async {
-    final reported = _Reported(findings, rootPath);
-    final live = owners.whereNot(reported.covers).toList();
+    final reported = DeadSpans.of(findings, rootPath, withReportOnly: true);
+    final live = owners
+        .whereNot(
+          (owner) =>
+              reported.covers(owner.path, owner.symbol.selectionRange.start),
+        )
+        .toList();
     await _fetch.fetchSelectionRanges(client, {
       for (final MapEntry(key: path, value: inFile)
           in live.groupListsBy((owner) => owner.path).entries)
@@ -179,32 +194,4 @@ final class UnusedParameters {
   /// Whether [name] is `_`, `__` or longer, which marks a parameter as unused
   /// on purpose.
   static bool _isWildcard(String name) => name.split('').every((c) => c == '_');
-}
-
-/// The findings of a scan, by absolute path, to tell whether one of them
-/// deletes a function, method or constructor.
-final class _Reported {
-  _Reported(Iterable<UnusedDeclaration> findings, String rootPath)
-    : _byPath = findings.groupListsBy(
-        (finding) => absoluteUnder(finding.filePath, rootPath),
-      );
-
-  final Map<String, List<UnusedDeclaration>> _byPath;
-
-  bool covers(Candidate owner) {
-    final name = owner.symbol.selectionRange.start;
-    return _byPath[owner.path]?.any(
-          (finding) => _contains(finding.fullRange, name),
-        ) ??
-        false;
-  }
-
-  static bool _contains(DeclarationRange range, Position position) =>
-      Position(
-        line: range.startLine,
-        character: range.startColumn,
-      ).atOrBefore(position) &&
-      position.atOrBefore(
-        .new(line: range.endLine, character: range.endColumn),
-      );
 }

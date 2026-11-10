@@ -23,27 +23,11 @@ import 'package:ciach/src/util/log.dart';
 import 'package:ciach/src/util/paths.dart';
 import 'package:ciach/src/workspace/public_api.dart';
 import 'package:collection/collection.dart';
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Range, SymbolKind;
+import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Range;
 
 final _log = Logger('ciach.finder');
 
 const _uncollectedFile = 'Could not list declarations; file skipped.';
-
-/// The declarations of one file that a scan checks: `candidates` get their
-/// references checked, and `parameterOwners` are the functions, methods and
-/// constructors whose bodies are checked for parameters that they never read.
-typedef CollectedFile = ({
-  List<Candidate> candidates,
-  List<Candidate> parameterOwners,
-});
-
-/// What a scan checks about one declaration.
-typedef _Checks = ({bool references, bool parameters});
-
-const _noChecks = (references: false, parameters: false);
-
-/// The kinds of declaration whose parameters are checked.
-const _parameterOwnerKinds = <SymbolKind>{.function, .method, .constructor};
 
 /// Which declarations get their references checked: every document symbol
 /// of a scanned file, less the kinds, visibilities, entry points and
@@ -93,7 +77,7 @@ final class CandidateCollector {
   void reportSkipped() => _kept.report();
 
   /// The declarations of the open file [path] worth checking.
-  Future<CollectedFile> collect(
+  Future<List<Candidate>> collect(
     LspClient client,
     String path,
     String rootPath,
@@ -115,10 +99,7 @@ final class CandidateCollector {
         rethrow;
       }
       recordProblem(_uncollectedFile, e, path: path);
-      return (
-        candidates: const <Candidate>[],
-        parameterOwners: const <Candidate>[],
-      );
+      return const [];
     }
     final tokens = await pendingTokens;
     final relativePath = relativePosix(path, rootPath);
@@ -132,7 +113,7 @@ final class CandidateCollector {
     final markers = _Markers(.parse(_sources.content(path)));
     // The whole walk has to run before the filter: it records the entry-point
     // containers the filter drops, and a container comes before its members.
-    final checked = _collect(
+    final candidates = _collect(
       uri,
       path,
       relativePath,
@@ -145,16 +126,7 @@ final class CandidateCollector {
       markers,
     ).toList();
     markers.warnAbout(relativePath);
-    return (
-      candidates: _kept.withoutContainers([
-        for (final (:candidate, :checks) in checked)
-          if (checks.references) candidate,
-      ], relativePath).toList(),
-      parameterOwners: [
-        for (final (:candidate, :checks) in checked)
-          if (checks.parameters) candidate,
-      ],
-    );
+    return _kept.withoutContainers(candidates, relativePath).toList();
   }
 
   /// Recursively walks the symbol tree, keeping only symbols worth checking,
@@ -162,7 +134,7 @@ final class CandidateCollector {
   ///
   /// [parentIsEnum] marks children of an enum declaration so their enum values
   /// are remapped to the `enum-value` kind.
-  Iterable<({Candidate candidate, _Checks checks})> _collect(
+  Iterable<Candidate> _collect(
     Uri uri,
     String path,
     String relativePath,
@@ -204,15 +176,14 @@ final class CandidateCollector {
         leadingMetadata,
         _sources.tokensBeforeName(path, outline),
       );
-      final checks = _checksOf(
+      if (_isCandidate(
         candidate,
         declaration,
         containerMembers: containerMembers,
         markers: markers,
         start: start,
-      );
-      if (checks.references || checks.parameters) {
-        yield (candidate: candidate, checks: checks);
+      )) {
+        yield candidate;
       }
       final (
         childContainer,
@@ -281,11 +252,10 @@ final class CandidateCollector {
             false);
   }
 
-  /// Returns what is checked about [candidate], which the rules read as
-  /// [declaration] and whose doc comment and annotations start on line
-  /// [start]: nothing when one of [markers] keeps it or the options leave it
-  /// out.
-  _Checks _checksOf(
+  /// Returns whether [candidate], which the rules read as [declaration] and
+  /// whose doc comment and annotations start on line [start], is checked:
+  /// neither kept by one of [markers] nor left out.
+  bool _isCandidate(
     Candidate candidate,
     ResolvedDeclaration declaration, {
     required List<KeptMembers> containerMembers,
@@ -298,43 +268,16 @@ final class CandidateCollector {
         )
         case final kept?) {
       _kept.byMarker(declaration.relativePath, candidate, kept);
-      return _noChecks;
-    }
-    final symbol = candidate.symbol;
-    final checks = (
-      references: options.kinds.contains(
-        symbol.reportedKind(
-          parentIsEnum: candidate.isEnumValue,
-          isExtensionType: candidate.isExtensionType,
-          isMixin: candidate.isMixin,
-          isTypeAlias: candidate.isTypeAlias,
-        ),
-      ),
-      // The signature of an operator, of an override and of a `call` method,
-      // which an object passed as a function also uses, is fixed.
-      parameters:
-          options.kinds.contains(parameterKind) &&
-          _parameterOwnerKinds.contains(symbol.kind) &&
-          !symbol.isOperator &&
-          !symbol.isCallMethod &&
-          declaration.leadingMetadata.none(
-            (t) => t.isAnnotationNamed('override'),
-          ),
-    );
-    if (!checks.references && !checks.parameters) {
-      return _noChecks;
+      return false;
     }
     return _shouldConsider(
-          candidate,
-          declaration,
-          containerMembers: containerMembers,
-        )
-        ? checks
-        : _noChecks;
+      candidate,
+      declaration,
+      containerMembers: containerMembers,
+    );
   }
 
-  /// Returns whether [candidate], of a kind that the options check, is
-  /// checked at all.
+  /// Returns whether the references to [candidate] should be checked.
   bool _shouldConsider(
     Candidate candidate,
     ResolvedDeclaration declaration, {
@@ -342,6 +285,13 @@ final class CandidateCollector {
   }) {
     final symbol = candidate.symbol;
     final leadingMetadata = declaration.leadingMetadata;
+    // A function, method or constructor of a kind that the options leave out
+    // is still collected when its parameters are checked.
+    if (!options.kinds.contains(candidate.reportedKind) &&
+        !(options.kinds.contains(parameterKind) &&
+            candidate.hasCheckedParameters)) {
+      return false;
+    }
     // Only the messages of a gen-l10n file are checked: removing one from the
     // ARB file leaves the code around them.
     if (translationsOf(candidate, options.translations, options.rootPath) !=

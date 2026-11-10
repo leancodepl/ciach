@@ -281,12 +281,16 @@ class Ciach {
         options.concurrency,
         (path) => opened.contains(path)
             ? _collector.collect(client, path, rootPath)
-            : .value((
-                candidates: const <Candidate>[],
-                parameterOwners: const <Candidate>[],
-              )),
+            : .value(const <Candidate>[]),
       );
-      final collected = [for (final file in perFile) ...file.candidates];
+      // With the kind `parameter`, the collector also returns the functions,
+      // methods and constructors of the kinds that the options leave out.
+      final parameterOwners = options.kinds.contains(parameterKind)
+          ? perFile.flattened.where(_unusedParameters.checks).toList()
+          : const <Candidate>[];
+      final collected = perFile.flattened
+          .where((c) => options.kinds.contains(c.reportedKind))
+          .toList();
       _collector.reportSkipped();
 
       // Phase 2: check references for every candidate through a single global
@@ -326,7 +330,7 @@ class Ciach {
       // Phase 4: the parameters that the bodies never read.
       final parameters = await _unusedParameters.findings(
         client,
-        [for (final file in perFile) ...file.parameterOwners],
+        parameterOwners,
         [...declarations.unused, ...declarations.docOnly],
         rootPath,
       );
