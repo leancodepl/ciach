@@ -195,8 +195,8 @@ LetShape? _conditionalShape(ConditionalExpression node) {
     ) => (
       target,
       switch (operator.type) {
-        TokenType.EQ_EQ => true,
-        TokenType.BANG_EQ => false,
+        .EQ_EQ => true,
+        .BANG_EQ => false,
         _ => null,
       },
     ),
@@ -281,8 +281,7 @@ class _Uses(final String source) extends GeneralizingAstVisitor<void> {
 
   @override
   void visitPostfixExpression(PostfixExpression node) {
-    if (node.operator.type == TokenType.BANG &&
-        node.operand.toSource() == source) {
+    if (node.operator.type == .BANG && node.operand.toSource() == source) {
       aliases.add(node);
       return;
     }
@@ -437,18 +436,20 @@ Expression? _chainRoot(Expression body, List<Expression> aliases) {
     PrefixedIdentifier(:final prefix) => (prefix, true),
     PropertyAccess(:final target?, isCascaded: false, :final operator) => (
       target,
-      operator.type == TokenType.PERIOD,
+      operator.type == .PERIOD,
     ),
     MethodInvocation(:final target?, isCascaded: false, :final operator) => (
       target,
-      operator?.type == TokenType.PERIOD,
+      operator?.type == .PERIOD,
     ),
     IndexExpression(:final target?, isCascaded: false, :final question) => (
       target,
       question == null,
     ),
-    PostfixExpression(operator: Token(type: TokenType.BANG), :final operand) =>
-      (operand, false),
+    PostfixExpression(operator: Token(type: .BANG), :final operand) => (
+      operand,
+      false,
+    ),
     _ => (null, false),
   };
   if (target == null) {

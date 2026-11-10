@@ -165,7 +165,7 @@ class const SiteFooter({required final String version, super.key})
                 a(href: '/docs#ci', [.text('CI setup')]),
               ]),
               li([
-                a(href: '/docs#config', [.text('Configuration')]),
+                a(href: '/docs#configuration-file', [.text('Configuration')]),
               ]),
               li([
                 a(href: '/docs#faq', [.text('FAQ')]),

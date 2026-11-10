@@ -154,7 +154,8 @@ class FinderOptions {
   /// primitive value kinds the server never emits for Dart declarations.
   ///
   /// The server reports an `extension` as [SymbolKind.namespace]; an
-  /// `extension type` shares it and is remapped to [SymbolKind.struct].
+  /// `extension type` shares it and is remapped to [SymbolKind.struct]. A
+  /// type alias, function type aliases included, is [SymbolKind.object].
   ///
   /// [parameterKind] reports the parameters that the body of a function,
   /// method or constructor never reads.
@@ -176,6 +177,7 @@ class FinderOptions {
     .variable,
     .constant,
     .enumMember,
+    .object,
     parameterKind,
   };
 }

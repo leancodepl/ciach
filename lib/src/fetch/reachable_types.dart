@@ -193,7 +193,7 @@ final class _Carriers {
         return null;
       }
       if (kind != .extension) {
-        return DeclKey(path, top.element.name);
+        return .new(path, top.element.name);
       }
       return !top.element.isUnnamedExtension &&
               _api.exposes(path, top.element.name)

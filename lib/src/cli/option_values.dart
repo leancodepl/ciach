@@ -33,6 +33,7 @@ const kindAliases = <String, SymbolKind>{
   'variable': .variable,
   'constant': .constant,
   'enum-value': .enumMember,
+  'typedef': .object,
   'parameter': parameterKind,
 };
 

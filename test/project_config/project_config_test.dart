@@ -30,7 +30,7 @@ void main() {
   };
 
   bool generated(List<String> globs, String path) => globs.any(
-    (glob) => Glob(glob, context: p.Context(style: .posix)).matches(path),
+    (glob) => Glob(glob, context: .new(style: .posix)).matches(path),
   );
 
   test('a file that does not parse is ignored', () {
@@ -63,7 +63,7 @@ flutter:
   test('frameworks and plugins, by dependency', () {
     write('pubspec.yaml', '''
 name: my_lints
-dependencies: {dart_frog: any, analysis_server_plugin: any}
+dependencies: {dart_frog: any, analysis_server_plugin: any, flutter: {sdk: flutter}}
 dev_dependencies: {serverpod: any, custom_lint_builder: any}
 ''');
 
@@ -72,9 +72,11 @@ dev_dependencies: {serverpod: any, custom_lint_builder: any}
       'middleware in routes/**_middleware.dart',
       'init in main.dart',
       'run in main.dart',
-      'public methods of `Endpoint` subclasses',
+      'public methods of `Endpoint` subtypes',
       'plugin in lib/main.dart',
       'createPlugin in lib/my_lints.dart',
+      'declarations annotated with `@Preview` from `package:flutter` or a subtype of it',
+      'declarations annotated with `@MultiPreview` from `package:flutter` or a subtype of it',
     });
   });
 
@@ -264,7 +266,7 @@ flutter: {plugin: {platforms: {linux: {dartPluginClass: LinuxPlugin}}}}
 
     final config = read();
     expect(rules(config), {
-      'public methods of `Endpoint` subclasses in pkgs/app/**',
+      'public methods of `Endpoint` subtypes in pkgs/app/**',
       'LinuxPlugin.registerWith in pkgs/plugin/lib/**',
     });
     expect(config.generatedGlobs, [

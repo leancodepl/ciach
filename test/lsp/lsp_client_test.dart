@@ -270,7 +270,7 @@ void main(List<String> args) {
 
       final startRoot = paramsOf('initialize')['rootUri']! as String;
       expect(startRoot, isNot(tmp.uri.toString()));
-      expect(Directory.fromUri(Uri.parse(startRoot)).existsSync(), isFalse);
+      expect(Directory.fromUri(.parse(startRoot)).existsSync(), isFalse);
       expect(paramsOf('textDocument/didOpen'), {
         'textDocument': {
           'uri': File(options).uri.toString(),

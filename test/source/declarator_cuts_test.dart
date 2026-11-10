@@ -39,10 +39,9 @@ void main() {
     File(path).writeAsStringSync(source);
     client.didOpen(File(path).uri, source);
     final sources = SourceIndex()..cacheLines(path, source.split('\n'));
-    final tokens = await semanticTokensOrEmpty(client, sources, path);
-    sources.cacheSemanticTokens(path, tokens);
+    final tokens = await sources.semanticTokensOf(client, path);
     final fetch = ReferenceFetch(
-      options: FinderOptions(rootPath: tempDir.path),
+      options: .new(rootPath: tempDir.path),
       sources: sources,
     );
     final removed = [

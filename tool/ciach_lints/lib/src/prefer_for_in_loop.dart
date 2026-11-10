@@ -221,7 +221,7 @@ class ForInLoopRewrite._({
       }
       final declaration = _declarationOfRead(body, uses.reads);
       final declared = declaration?.variables.variables.single;
-      return ForInLoopRewrite._(
+      return ._(
         beforeElement: uses.usesIndex ? 'final (${name.lexeme}, ' : 'final ',
         element: declared?.name.lexeme ?? _unusedName(loop),
         afterElement: uses.usesIndex ? ') in $source.indexed' : ' in $source',

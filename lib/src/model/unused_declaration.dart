@@ -63,6 +63,7 @@ extension SymbolKindLabel on SymbolKind {
     .null$ => 'null',
     .enumMember => 'enum value',
     .typeParameter => 'type parameter',
+    .object => 'typedef',
     parameterKind => 'parameter',
     _ => name,
   };

@@ -9,7 +9,7 @@ import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/source/clause_entries.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:path/path.dart' as p;
-import 'package:pro_lsp/pro_lsp.dart' show Location, Range;
+import 'package:pro_lsp/pro_lsp.dart' show Range;
 import 'package:test/test.dart';
 
 import '../support/removal.dart';
@@ -39,15 +39,12 @@ void main() {
     File(path).writeAsStringSync(source);
     client.didOpen(File(path).uri, source);
     final sources = SourceIndex()..cacheLines(path, source.split('\n'));
-    sources.cacheSemanticTokens(
-      path,
-      await semanticTokensOrEmpty(client, sources, path),
-    );
+    await sources.semanticTokensOf(client, path);
     return (
       path,
       sources,
       ReferenceFetch(
-        options: FinderOptions(rootPath: tempDir.path),
+        options: .new(rootPath: tempDir.path),
         sources: sources,
       ),
     );
@@ -87,7 +84,7 @@ void main() {
       [
         for (final (i, range) in ranges.indexed)
           sources.clauseEntryAt(
-            Location(uri: File(path).uri.toString(), range: range),
+            .new(uri: File(path).uri.toString(), range: range),
             names[i],
             unit,
           ),

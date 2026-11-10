@@ -148,7 +148,7 @@ class const CiachDemo({super.key}) extends StatelessComponent {
         ]),
         const DemoTrigger(targetId: 'remove-demo'),
         p(classes: Prose.more.name, const [
-          a(href: '/docs#removing', [
+          a(href: '/docs#removing-dead-code', [
             .text('What --remove refuses to touch →'),
           ]),
         ]),

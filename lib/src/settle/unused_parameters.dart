@@ -205,6 +205,6 @@ final class _Reported {
         character: range.startColumn,
       ).atOrBefore(position) &&
       position.atOrBefore(
-        Position(line: range.endLine, character: range.endColumn),
+        .new(line: range.endLine, character: range.endColumn),
       );
 }

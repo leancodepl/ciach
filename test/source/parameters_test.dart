@@ -3,7 +3,6 @@ library;
 
 import 'dart:io';
 
-import 'package:ciach/ciach.dart';
 import 'package:ciach/src/fetch/reference_fetch.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
@@ -43,10 +42,7 @@ void main() {
     File(path).writeAsStringSync(source);
     client.didOpen(File(path).uri, source);
     final sources = SourceIndex()..cacheLines(path, source.split('\n'));
-    sources.cacheSemanticTokens(
-      path,
-      await semanticTokensOrEmpty(client, sources, path),
-    );
+    await sources.semanticTokensOf(client, path);
     final function = (await client.outline(File(path).uri)).descendants
         .firstWhere(
           (node) =>
@@ -58,7 +54,7 @@ void main() {
               }.contains(node.element.kind),
         );
     await ReferenceFetch(
-      options: FinderOptions(rootPath: tempDir.path),
+      options: .new(rootPath: tempDir.path),
       sources: sources,
     ).fetchSelectionRanges(client, {
       path: {

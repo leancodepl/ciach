@@ -1,11 +1,14 @@
 import 'dart:io';
 
+import 'package:ciach/src/collect/annotation_packages.dart';
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/collect/kept_declarations.dart';
+import 'package:ciach/src/collect/resolved_classes.dart';
 import 'package:ciach/src/conventions/conditional_imports.dart';
+import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/freezed.dart';
 import 'package:ciach/src/conventions/gen_l10n.dart';
-import 'package:ciach/src/fetch/reference_fetch.dart';
+import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/lsp/exceptions.dart';
 import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
@@ -69,7 +72,17 @@ final class CandidateCollector {
   final ConditionalImports _conditionalImports;
 
   /// What this run leaves unchecked on purpose, and why.
-  late final _kept = KeptDeclarations(options.entryPoints, _sources);
+  late final _entryPoints = EntryPoints(options.entryPoints);
+
+  late final _resolvedClasses = ResolvedClasses(_sources, _entryPoints);
+
+  late final _annotationPackages = AnnotationPackages(_entryPoints);
+
+  late final _kept = KeptDeclarations(
+    _entryPoints,
+    _resolvedClasses,
+    _annotationPackages,
+  );
 
   /// The pairing names in each conditional-import variant that was read,
   /// candidates or not; see [ConditionalImports.share].
@@ -88,7 +101,7 @@ final class CandidateCollector {
     final uri = File(path).uri;
     final pendingSymbols = client.documentSymbol(uri);
     final pendingOutline = client.outline(uri);
-    final pendingTokens = semanticTokensOrEmpty(client, _sources, path);
+    final pendingTokens = _sources.semanticTokensOf(client, path);
     final List<DocumentSymbol> symbols;
     final Outline outline;
     try {
@@ -107,12 +120,16 @@ final class CandidateCollector {
         parameterOwners: const <Candidate>[],
       );
     }
-    _sources.cacheSemanticTokens(path, await pendingTokens);
+    final tokens = await pendingTokens;
+    final relativePath = relativePosix(path, rootPath);
+    await Future.wait([
+      _resolvedClasses.resolve(client, path, relativePath, tokens, symbols),
+      _annotationPackages.resolve(client, path, relativePath, tokens),
+    ]);
     if (_conditionalImports.contains(path)) {
       declaredInVariants[path] = ConditionalImports.pairingNames(symbols);
     }
-    final relativePath = relativePosix(path, rootPath);
-    final markers = _Markers(IgnoreMarkers.parse(_sources.content(path)));
+    final markers = _Markers(.parse(_sources.content(path)));
     // The whole walk has to run before the filter: it records the entry-point
     // containers the filter drops, and a container comes before its members.
     final checked = _collect(
@@ -122,9 +139,9 @@ final class CandidateCollector {
       symbols,
       null,
       null,
-      null,
+      const [],
       false,
-      _OutlineIndex(outline),
+      .new(outline),
       markers,
     ).toList();
     markers.warnAbout(relativePath);
@@ -152,7 +169,7 @@ final class CandidateCollector {
     List<DocumentSymbol> symbols,
     String? container,
     Candidate? containerCandidate,
-    ExportedMembers? containerExports,
+    List<KeptMembers> containerMembers,
     bool parentIsEnum,
     _OutlineIndex outlines,
     _Markers markers,
@@ -181,12 +198,16 @@ final class CandidateCollector {
           symbols,
         ),
       );
-      final exports = exportsOf(symbol, leadingMetadata) ?? containerExports;
-      final checks = _checksOf(
+      final declaration = _kept.declarationOf(
         relativePath,
         candidate,
         leadingMetadata,
-        containerExports: containerExports,
+        _sources.tokensBeforeName(path, outline),
+      );
+      final checks = _checksOf(
+        candidate,
+        declaration,
+        containerMembers: containerMembers,
         markers: markers,
         start: start,
       );
@@ -206,7 +227,7 @@ final class CandidateCollector {
         symbol.children ?? const [],
         childContainer,
         childContainerCandidate,
-        exports,
+        _kept.keptMembersOf(declaration) ?? containerMembers,
         symbol.kind == .enum$,
         outlines,
         markers,
@@ -260,14 +281,14 @@ final class CandidateCollector {
             false);
   }
 
-  /// Returns what is checked about [candidate], whose doc comment and
-  /// annotations start on line [start]: nothing when one of [markers] keeps it
-  /// or the options leave it out.
+  /// Returns what is checked about [candidate], which the rules read as
+  /// [declaration] and whose doc comment and annotations start on line
+  /// [start]: nothing when one of [markers] keeps it or the options leave it
+  /// out.
   _Checks _checksOf(
-    String relativePath,
     Candidate candidate,
-    Iterable<SemanticToken> leadingMetadata, {
-    required ExportedMembers? containerExports,
+    ResolvedDeclaration declaration, {
+    required List<KeptMembers> containerMembers,
     required _Markers markers,
     required int start,
   }) {
@@ -276,7 +297,7 @@ final class CandidateCollector {
           nameLine: candidate.symbol.selectionRange.start.line,
         )
         case final kept?) {
-      _kept.byMarker(relativePath, candidate, kept);
+      _kept.byMarker(declaration.relativePath, candidate, kept);
       return _noChecks;
     }
     final symbol = candidate.symbol;
@@ -286,6 +307,7 @@ final class CandidateCollector {
           parentIsEnum: candidate.isEnumValue,
           isExtensionType: candidate.isExtensionType,
           isMixin: candidate.isMixin,
+          isTypeAlias: candidate.isTypeAlias,
         ),
       ),
       // The signature of an operator, of an override and of a `call` method,
@@ -295,16 +317,17 @@ final class CandidateCollector {
           _parameterOwnerKinds.contains(symbol.kind) &&
           !symbol.isOperator &&
           !symbol.isCallMethod &&
-          leadingMetadata.none((t) => t.isAnnotationNamed('override')),
+          declaration.leadingMetadata.none(
+            (t) => t.isAnnotationNamed('override'),
+          ),
     );
     if (!checks.references && !checks.parameters) {
       return _noChecks;
     }
     return _shouldConsider(
-          relativePath,
           candidate,
-          leadingMetadata,
-          containerExports: containerExports,
+          declaration,
+          containerMembers: containerMembers,
         )
         ? checks
         : _noChecks;
@@ -313,12 +336,12 @@ final class CandidateCollector {
   /// Returns whether [candidate], of a kind that the options check, is
   /// checked at all.
   bool _shouldConsider(
-    String relativePath,
     Candidate candidate,
-    Iterable<SemanticToken> leadingMetadata, {
-    required ExportedMembers? containerExports,
+    ResolvedDeclaration declaration, {
+    required List<KeptMembers> containerMembers,
   }) {
     final symbol = candidate.symbol;
+    final leadingMetadata = declaration.leadingMetadata;
     // Only the messages of a gen-l10n file are checked: removing one from the
     // ARB file leaves the code around them.
     if (translationsOf(candidate, options.translations, options.rootPath) !=
@@ -326,12 +349,7 @@ final class CandidateCollector {
         !isTranslationMessage(candidate)) {
       return false;
     }
-    if (_kept.isEntryPoint(
-      relativePath,
-      candidate,
-      leadingMetadata,
-      containerExports,
-    )) {
+    if (_kept.isEntryPoint(declaration, containerMembers)) {
       return false;
     }
     if (symbol.kind == .namespace &&
@@ -354,23 +372,17 @@ final class CandidateCollector {
         leadingMetadata.any((t) => t.isAnnotationNamed('override'))) {
       return false;
     }
-    // Symbols reachable from native code / reflection are not really unused.
-    if (leadingMetadata.any(
-      (t) => t.type == 'string' && t.text.contains('vm:entry-point'),
-    )) {
-      return false;
-    }
     return true;
   }
 }
 
-/// The field statement that the symbols being collected belong to, for the
-/// declarators after the first.
+/// The variable statement that the symbols being collected belong to, for the
+/// declarators after the first. It declares fields or top-level variables.
 ///
-/// A field statement's doc comment, annotations and modifiers sit on its first
-/// declarator, so a later one (`b` in `@override final int a, b;`) reads that
-/// statement's instead of its own, which are empty. Likewise, a marker above
-/// the statement keeps every declarator.
+/// A variable statement's doc comment, annotations and modifiers sit on its
+/// first declarator, so a later one (`b` in `@override final int a, b;`) reads
+/// that statement's instead of its own, which are empty. Likewise, a marker
+/// above the statement keeps every declarator.
 final class _Statement {
   var _metadata = const <SemanticToken>[];
   var _start = 0;
@@ -381,11 +393,14 @@ final class _Statement {
     Outline outline,
     Iterable<SemanticToken> ownMetadata,
   ) {
-    final isField = outline.element.kind == .field;
-    if (isField && outline.range.start == outline.codeRange.start) {
+    final isVariable = const <OutlineKind>{
+      .field,
+      .topLevelVariable,
+    }.contains(outline.element.kind);
+    if (isVariable && outline.range.start == outline.codeRange.start) {
       return (leadingMetadata: _metadata, start: _start);
     }
-    _metadata = isField ? ownMetadata.toList() : const [];
+    _metadata = isVariable ? ownMetadata.toList() : const [];
     _start = outline.range.start.line;
     return (leadingMetadata: ownMetadata, start: _start);
   }

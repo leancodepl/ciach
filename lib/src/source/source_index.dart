@@ -10,11 +10,18 @@
 
 import 'dart:io';
 
+import 'package:ciach/src/lsp/exceptions.dart';
+import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/outline.dart';
+import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/line_starts.dart';
 import 'package:ciach/src/util/cached_map.dart';
+import 'package:ciach/src/util/extensions.dart';
 import 'package:pro_lsp/pro_lsp.dart' show Position, SelectionRange;
+
+const _noSemanticTokens =
+    'Could not read comments and annotations; findings may be missed.';
 
 /// Per-file view of the source under analysis: its lines, content and line
 /// starts, plus the server's semantic tokens and selection ranges, each cached
@@ -24,6 +31,10 @@ class SourceIndex {
     (path) => readFile(path)?.split('\n') ?? const [],
   );
   final _semanticTokens = <String, List<SemanticToken>>{};
+
+  /// The requests for semantic tokens that have not answered yet, so that
+  /// two callers that need the same file's tokens send one request.
+  final _pendingSemanticTokens = <String, Future<List<SemanticToken>>>{};
   final _selectionRanges = <String, Map<(int, int), SelectionRange>>{};
   late final _content = CachedMap<String, String>(
     (path) => lines(path).join('\n'),
@@ -57,6 +68,33 @@ class SourceIndex {
 
   List<SemanticToken>? semanticTokens(String path) => _semanticTokens[path];
 
+  /// Returns the semantic tokens of [path], which [client] sends the first
+  /// time they are needed, or an empty list if the server has none. A file
+  /// without tokens reads as all code, which only keeps declarations.
+  Future<List<SemanticToken>> semanticTokensOf(
+    LspClient client,
+    String path,
+  ) async =>
+      _semanticTokens[path] ??
+      await (_pendingSemanticTokens[path] ??= _requestSemanticTokens(
+        client,
+        path,
+      ));
+
+  /// Requests the semantic tokens of [path] from [client] and caches them.
+  Future<List<SemanticToken>> _requestSemanticTokens(
+    LspClient client,
+    String path,
+  ) async {
+    try {
+      final tokens = await client.semanticTokens(File(path).uri, lines(path));
+      return _semanticTokens[path] = tokens;
+    } on LspRequestException catch (e) {
+      recordProblem(_noSemanticTokens, e, path: path);
+      return _semanticTokens[path] = const [];
+    }
+  }
+
   bool hasSemanticTokens(String path) => _semanticTokens.containsKey(path);
 
   void cacheSelectionRange(
@@ -73,6 +111,15 @@ class SourceIndex {
   /// The syntax nodes enclosing [position] in [path], innermost first.
   SelectionRange? selectionRangeAt(String path, Position position) =>
       _selectionRanges[path]?[(position.line, position.character)];
+
+  /// The tokens from the start of [outline]'s code to its name, such as
+  /// `abstract` and `class` in `abstract class Api`.
+  Iterable<SemanticToken> tokensBeforeName(String path, Outline outline) =>
+      outline.element.range?.let(
+        (name) =>
+            semanticTokens(path)?.between(outline.codeRange.start, name.start),
+      ) ??
+      const [];
 
   /// The tokens of [outline]'s doc comment and annotations.
   Iterable<SemanticToken> leadingMetadata(String path, Outline outline) =>

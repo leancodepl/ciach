@@ -187,6 +187,7 @@ final class Verdict {
         parentIsEnum: candidate.isEnumValue,
         isExtensionType: candidate.isExtensionType,
         isMixin: candidate.isMixin,
+        isTypeAlias: candidate.isTypeAlias,
       ),
       filePath: relativePosix(candidate.path, rootPath),
       // LSP positions are zero-based; report them one-based for humans.

@@ -1,5 +1,6 @@
 import 'package:ciach/src/collect/candidates.dart';
 import 'package:ciach/src/source/symbols.dart';
+import 'package:ciach/src/util/extensions.dart';
 import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol;
 
 /// Return types of a `toJson` hook.
@@ -33,9 +34,5 @@ bool isJsonValueType(String? returnType) {
   if (name.endsWith('?')) {
     name = name.substring(0, name.length - 1).trimRight();
   }
-  final typeArgs = name.indexOf('<');
-  if (typeArgs >= 0) {
-    name = name.substring(0, typeArgs).trimRight();
-  }
-  return _jsonValueTypes.contains(name);
+  return _jsonValueTypes.contains(name.withoutTypeArguments);
 }

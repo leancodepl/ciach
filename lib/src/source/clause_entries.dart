@@ -173,7 +173,7 @@ extension ClauseEntries on SourceIndex {
         text.indexOf('\n', before) + 1,
       final before => before + 1,
     };
-    return Range(start: positionOf(path, from), end: clause.end);
+    return .new(start: positionOf(path, from), end: clause.end);
   }
 
   /// Whether the character at [offset] of [path] is in a `//` comment.

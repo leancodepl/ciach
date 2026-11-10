@@ -204,5 +204,73 @@ void f() {}
         'override',
       ]);
     });
+
+    test('the tokens before the name run from the code to the name', () {
+      Outline outline({required bool withName}) => .fromJson({
+        'element': {
+          'kind': 'FUNCTION',
+          'name': 'f',
+          if (withName)
+            'range': {
+              'start': {'line': 2, 'character': 5},
+              'end': {'line': 2, 'character': 6},
+            },
+        },
+        'range': {
+          'start': {'line': 0, 'character': 0},
+          'end': {'line': 2, 'character': 11},
+        },
+        'codeRange': {
+          'start': {'line': 2, 'character': 0},
+          'end': {'line': 2, 'character': 11},
+        },
+      });
+      expect(
+        sources
+            .tokensBeforeName(path, outline(withName: true))
+            .map((t) => t.text),
+        ['void'],
+      );
+      expect(sources.tokensBeforeName(path, outline(withName: false)), isEmpty);
+    });
+  });
+
+  group('SemanticToken.stringValue', () {
+    SemanticToken token(String type, String text) => .new(
+      line: 0,
+      character: 0,
+      length: text.length,
+      type: type,
+      modifiers: const {},
+      text: text,
+    );
+
+    test('is the text between the quotes of a plain string literal', () {
+      expect(
+        [
+          "'vm:entry-point'",
+          '"vm:entry-point"',
+          "r'vm:entry-point'",
+          "'''vm:entry-point'''",
+          '"""vm:entry-point"""',
+        ].map((text) => token('string', text).stringValue),
+        everyElement('vm:entry-point'),
+      );
+    });
+
+    test(
+      'is `null` for a string with an escape or an interpolation, and for another token',
+      () {
+        expect(
+          [
+            token('string', r"'vm:entry\-point'"),
+            token('string', r"'vm:$point'"),
+            token('string', '\'vm:entry-point"'),
+            token('variable', 'entryPoint'),
+          ].map((token) => token.stringValue),
+          everyElement(isNull),
+        );
+      },
+    );
   });
 }

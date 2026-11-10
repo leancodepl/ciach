@@ -22,6 +22,10 @@ class const CodeBlock({
 
   /// 1-based lines to render struck through as dead code.
   final Set<int> deadLines = const {},
+
+  /// Whether console output wraps like a terminal. Pass false for a report
+  /// with aligned columns, which scrolls instead.
+  final bool wrap = true,
   final bool lineNumbers = false,
   final ClassName? classes,
   super.key,
@@ -138,8 +142,8 @@ class const CodeBlock({
     css(Highlight.summary.selector).styles(color: okColor, fontWeight: .w600),
     css('${Highlight.punct.selector}, ${Highlight.operator.selector}')
         .styles(color: const .variable('--tk-function')),
-    // Transcripts wrap like a real terminal; code blocks keep scrolling because
-    // indentation there carries meaning.
+    // Transcripts wrap like a real terminal. Code and reports keep scrolling,
+    // because their columns carry meaning.
     css(_terminal.selector, [
       css('& pre').styles(
         color: text2Color,
@@ -182,8 +186,8 @@ class const CodeBlock({
     return figure(
       classes: [
         _root.name,
-        // Console output wraps like a terminal; real code scrolls.
-        if (language == .console) _terminal.name,
+        // Console output wraps like a terminal unless its columns matter.
+        if (language == .console && wrap) _terminal.name,
         if (lineNumbers) _numbered.name,
         ?classes?.name,
       ].join(' '),

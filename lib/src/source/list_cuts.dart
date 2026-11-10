@@ -33,10 +33,10 @@ Iterable<(int, int, Range?)> listCuts(
 /// Returns the range that removes items `[i, j)` of [items]; see [listCuts].
 Range? _cutOf(List<Range> items, int i, int j) {
   if (j < items.length) {
-    return Range(start: items[i].start, end: items[j].start);
+    return .new(start: items[i].start, end: items[j].start);
   }
   if (i > 0) {
-    return Range(start: items[i - 1].end, end: items[j - 1].end);
+    return .new(start: items[i - 1].end, end: items[j - 1].end);
   }
   return null;
 }

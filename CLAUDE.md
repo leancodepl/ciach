@@ -20,7 +20,8 @@ changelog, pull request descriptions and review replies.
   parameters you mean: `[rootPath]`.
 - Use the Dart spec's terms ("mixin application class"), not analysis server
   enum names (`CLASS_TYPE_ALIAS`). Don't use a term that you coined, such as
-  "walk" for a recursive pass. In user docs, say what happens to the user's
+  "walk" for a recursive pass or "fact" for a kind of server request, also
+  not in an identifier. In user docs, say what happens to the user's
   code: "the `import`s of it are removed", not "the directives that named it
   are dropped".
 - State what always happens as a fact. Write "may" only for what really
@@ -51,7 +52,9 @@ sentences, say what was added, fixed or changed, as they will see it, and keep
 it about as long as the entries around it, also after a later commit adds an
 effect to it. For a fix, say what went wrong before. Leave out how it was
 implemented: no class or method names, internal terms or reasoning about the
-code.
+code. Leave the details of a rule, such as which kinds of declaration it
+keeps, to the docs page: "Stop reporting the declarations in Pigeon input
+files that Pigeon generates code from."
 
 Every pull request that changes what users see adds its entry under
 `## Unreleased`, without being asked. Write one entry per change and name every
@@ -66,7 +69,7 @@ every change.
 
 # User docs
 
-README.md, the docs page in `website/lib/pages/docs_page.dart`, the `--help`
+README.md, the docs page in `website/content/docs.md`, the `--help`
 text and MIGRATION.md describe what ciach does and how to use it, in short,
 easy-to-follow sentences, not how it works inside.
 
@@ -76,6 +79,16 @@ easy-to-follow sentences, not how it works inside.
   add it to the example configs in README.md and `lib/src/cli/usage.dart`.
 - Take sample output from a real run on `example/`, and paste it as it is.
   Never compose it by hand.
+- README.md is the short path through ciach: install, run, read the report,
+  the options. The docs page holds every detail, written in Markdown with one
+  `##` section per file under `website/content/_partials/docs/`, which
+  `website/content/docs.md` includes in order, and each README section links
+  to its section there by the id that the heading generates.
+  Put a new detail on the docs page, and in README.md only when every user
+  needs it.
+- README.md starts with a `## Contents` list of its `##` and `###` headings.
+  `test/readme_toc_test.dart` checks it against the file, so run `dart test`
+  after changing a heading.
 - README.md covers the current version. Removed options and upgrade steps go in
   MIGRATION.md. Notes for library users go in the doc comment of the API that
   they concern, and notes on which tool versions a parser supports go next to
@@ -132,7 +145,8 @@ absolute, how the duplicates that a dedupe removes arise, or which known
 algorithm a loop implements. Define a domain term, such as "variant", where it
 first appears, and give a loop whose result isn't obvious a one-line example.
 Give concrete values: "the server names it `extension on String`", not "the
-server's placeholder name". A comment doesn't explain Dart, argue against an
+server's placeholder name". A comment doesn't explain Dart, such as why a
+field has a declared type, repeat a rule from this file, argue against an
 alternative that nobody proposed, or retell how the code came to be. Put a
 comment at the code that it explains: a reason why a step is skipped goes
 where the step runs, not next to the code before it.
@@ -147,13 +161,17 @@ at a workaround for a bug that a later pull request will fix.
 
 Name a thing after what it holds or returns, or a constructor after where its
 input comes from, in plain words: `libraryFiles`, `paths`,
-`EntryPoint.fromConfig`. Avoid metaphors (`span` for the files a directive can
+`EntryPoint.fromConfig`. A type that holds the class an annotation creates is
+`AnnotationClass`, not `ResolvedAnnotation`, which names what it came from.
+Avoid metaphors (`span` for the files a directive can
 choose between, `Spelling`), data-structure words that don't apply (`tree` for
 a cache), vague words (`checked`, `site`, `hit`, `target`) and compiler jargon
 (`Trivia`). Read the name as a word on its own (`uncut` became `lacksCut`),
 make sure it can't be read as its opposite (`dead` for containers not yet
 proven live), and avoid stutter (`button-button`). When two fields hold nearly
-the same data, make the difference show in their names.
+the same data, make the difference show in their names. Call one concept by one
+word in every identifier and label that names it: `SubtypeEntryPoint` and
+`publicMethodsOfSubtypes`, not `publicMethodsOfSubclasses` beside them.
 
 A name claims no more than the code does, and it doesn't list cases either.
 `_directiveEnd` claimed every directive for a function that skips only some,
@@ -190,7 +208,16 @@ plain sentences with no `\n`; the parser wraps them (`usageLineLength`).
 Use a dot shorthand wherever the context type lets you: `.new(path, c)`
 rather than `DeclKey(path, c)`, `.plain` rather than `Style.plain`, including
 inside lambdas whose return type the context already fixes. Never replace a
-shorthand with the full type name.
+shorthand with the full type name. Annotation arguments are the exception:
+`@Timeout(Duration(minutes: 5))` stays, since `package:test` parses it with
+an evaluator of its own that knows no shorthands. Give a top-level or static
+field a declared type when its initializer has a shorthand inside the
+arguments of another one, such as `const .new(.publicMembers, …)`: Dart 3.10,
+the SDK floor, can't resolve the inner shorthand while it infers the field's
+type, also with a type argument on a list literal (`<EntryPoint>[…]`). Don't
+name the inner class and ignore the lint instead. leancode_lint's
+`prefer_dot_shorthand` rule, enabled in `analysis_options.yaml`, enforces all
+of this.
 
 # Nullable chains
 
@@ -250,6 +277,9 @@ explicit null check.
   literal gets busy, give its predicate a named local.
 - Keep an `Iterable` lazy when it is read once or in part, and use a `Set` when
   duplicates mean nothing.
+- Write `const` once, on the outermost literal that can be constant, not on
+  each of its elements: `const <(OutlineKind, Set<String>)>[(.mixin, {'mixin'})]`,
+  not `[(OutlineKind.mixin, const {'mixin'})]`.
 - Prefer collection methods (`where`, `firstWhereOrNull`) to loops with early
   returns, tear-offs to lambdas that only forward, `min` and `max` to
   hand-written ternaries, and `package:collection` equalities to comparison
@@ -276,6 +306,10 @@ explicit null check.
 - Inline a local or a helper that is used once when its name adds nothing; keep
   one whose name says what a step does. Give a regex named groups, and return
   names and offsets rather than a `RegExpMatch`.
+- Give an asynchronous step a named method instead of a closure that is called
+  where it is written: `_pending[path] ??= _requestTokens(client, path)`, not
+  `_pending[path] ??= () async { … }()`. The caller then keeps an expression
+  body.
 - In `website/`, keep a component's styles next to it as Jaspr `@css`, make
   repeated pieces (buttons, cards, pills) components, and write `.only()`,
   `.symmetric()` or `.all()` rather than `fromLTRB()`.
@@ -299,7 +333,9 @@ explicit null check.
   `lib/src/lsp/semantic_tokens.dart`, instead of scanning it or writing another
   one. When the same expression or hand-written pattern appears a second time,
   give it a helper and replace every copy; share a function, not a regex
-  constant.
+  constant. This covers a filter on a general helper's result, too:
+  `directive.keyword == 'import'` became `Directive.importsIn` and
+  `isImport`.
 - Read Dart source through the analysis server (outline, selection ranges,
   semantic tokens, hover), not with regexes, text matching or a hand-written
   tokenizer. Text matching mistakes a parameter named `required` for the
@@ -329,6 +365,10 @@ explicit null check.
   fix that goes the other way. Ask first. Reject a wrong input with an error
   that names the right form. Extend an existing helper, such as `runCli` in the
   tests, instead of adding a second way to do the same thing.
+- Match a declaration that a library provides, such as `@pragma`, by its name
+  and by the package that declares it, not by the name alone: a project can
+  declare a `pragma` of its own. Make the package required, also in config
+  rules, rather than letting a missing one match any package.
 - Prefer a general rule to one package's or framework's special case, and say
   in the pull request why a special case stays. Report an idiom that has a
   cleaner replacement, with a hint, instead of skipping it, and report what
@@ -429,8 +469,13 @@ Keep a file under about 500 lines. Split by responsibility, not by line count:
 pull out a concern with its own state and name (the cross-library recovery,
 the transitive sweep), move a helper onto the type that owns its data
 (`DeadSpans.referrersAmong`), or give each variant its own file (the report
-formats). When a split moves code, keep the upstream names and wording, and
-leave a file that only moves with its existing content and header as it is.
+formats). When the subclasses of a sealed class are about 40 lines or longer
+each, give each one a `part` file of the sealed class's library, as the
+entry-point rules in `conventions/` do. Keep shorter subclasses next to the
+sealed class, as `_Char` in `prefer_single_string_literal.dart` and the two
+fixes in `version_matches_pubspec.dart` are. When a split moves
+code, keep the upstream names and wording, and leave a file that only moves
+with its existing content and header as it is.
 
 Test files have the same limit, with shared helpers in `test/support/`. Split
 a file in the pull request that pushes it past the limit, instead of promising
@@ -515,6 +560,8 @@ answer a question, and build nothing until the reviewer says yes.
 - First answer the question that the reviewer asked, in a sentence or two,
   without an essay. When asked whether a tool or package exists, search
   properly and recommend one, rather than handing back a list of options.
+  When a reply weighs several options, number them, give each one a line on
+  what it does and what it costs, and end with the one that you recommend.
 - If a fix meets only part of the concern, say which part.
 - A reply that says "Done in `abc1234`" names a commit on the pull request's
   branch. When a claim turns out wrong, correct it everywhere you posted it,
@@ -573,10 +620,14 @@ request that you didn't open, suggest the rule instead of pushing it.
 
 # GitHub workflows
 
-Pin each action to a commit SHA of its current major version, with the version
-in a comment: `actions/checkout@<sha> # v7.0.0`. A workflow holds only the
-steps that every run needs; one-time setup, such as assigning a domain, is done
-by hand. Indent a multi-line `run: |` script consistently.
+Reference each action by the full release tag of its current major version,
+such as `actions/checkout@v7.0.0` rather than `@v7`, and run `gh actions-lock`
+after you change a `uses:` line. The command pins every action, including the
+actions that a composite action uses, to a commit in
+`.github/workflows/actions.lock`, and the `lockfile` workflow fails when that
+file is out of date. A workflow holds only the steps that every run needs;
+one-time setup, such as assigning a domain, is done by hand. Indent a
+multi-line `run: |` script consistently.
 
 # Before pushing
 

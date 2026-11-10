@@ -169,6 +169,16 @@ class DefaultFirebaseOptions {}
     expect(result.warmOnly, isEmpty);
   });
 
+  test('files in `.widget_preview` are neither scanned nor opened', () {
+    write('lib/button.dart', 'class Button {}');
+    write('.widget_preview/lib/main.dart', 'void main() {}');
+
+    final result = discoverDartFilesSplit(.new(rootPath: tempDir.path));
+
+    expect(rel(result.candidates), {'lib/button.dart'});
+    expect(result.warmOnly, isEmpty);
+  });
+
   group('isGeneratedBanner', () {
     test('recognizes how each generator words it', () {
       for (final banner in [

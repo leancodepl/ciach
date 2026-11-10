@@ -19,7 +19,14 @@ import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
 
 /// Directory names that never contain source worth analyzing.
-const _skippedDirs = {'.dart_tool', '.git', 'build', '.fvm', 'node_modules'};
+const _skippedDirs = {
+  '.dart_tool',
+  '.git',
+  'build',
+  '.fvm',
+  'node_modules',
+  '.widget_preview',
+};
 
 /// Filename suffixes produced by common Dart/Flutter code generators.
 const _generatedSuffixes = [
@@ -127,7 +134,7 @@ bool _isSelected(String relative, List<Glob> include, List<Glob> exclude) =>
     exclude.none((glob) => glob.matches(relative));
 
 List<Glob> _globs(List<String> patterns, p.Context context) => [
-  for (final pattern in patterns) Glob(pattern, context: context),
+  for (final pattern in patterns) .new(pattern, context: context),
 ];
 
 bool isInSkippedDir(String relativePath) =>

@@ -16,3 +16,12 @@ analyzer:
     unnecessary_const_in_enum_constructor: ignore
     unnecessary_type_name_in_constructor: ignore
     use_primary_constructors: ignore
+
+plugins:
+  leancode_lint:
+    version: ^28.0.0
+    diagnostics:
+      cognitive_complexity: true
+      # The fixtures reference members both by dot shorthand and by their type
+      # name, so that ciach is tested on both forms.
+      prefer_dot_shorthand: false

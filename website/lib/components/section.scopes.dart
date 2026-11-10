@@ -10,5 +10,8 @@ const _$SectionScope = ClassScope('Section', 'o6eex0');
 /// The scope of [DocSection]'s class names.
 const _$DocSectionScope = ClassScope('DocSection', 'om8sf7');
 
+/// The scope of [DocHeading]'s class names.
+const _$DocHeadingScope = ClassScope('DocHeading', 'e19fc0');
+
 /// The scope of [Prose]'s class names.
 const _$ProseScope = ClassScope('Prose', '1ajp26');

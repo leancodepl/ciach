@@ -274,7 +274,7 @@ final class _RewrittenFile {
       rewritten,
       [
         for (final (:use, :offset) in callOffsets)
-          _WrappedUse(File(path).uri, use, positionIn(lineStarts, offset)),
+          .new(File(path).uri, use, positionIn(lineStarts, offset)),
       ],
       inserted,
       lineStarts,
@@ -306,9 +306,9 @@ final class _RewrittenFile {
       return sources.positionOf(path, offset - shift);
     }
 
-    return Location(
+    return .new(
       uri: location.uri,
-      range: Range(
+      range: .new(
         start: original(location.range.start),
         end: original(location.range.end),
       ),

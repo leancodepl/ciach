@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/conventions/gen_l10n.dart';
 import 'package:ciach/src/project_config/analysis_server_plugin.dart';
@@ -7,15 +9,19 @@ import 'package:ciach/src/project_config/custom_lint.dart';
 import 'package:ciach/src/project_config/dart_frog.dart';
 import 'package:ciach/src/project_config/flutter_gen_l10n.dart';
 import 'package:ciach/src/project_config/flutter_plugin.dart';
+import 'package:ciach/src/project_config/flutter_widget_previews.dart';
 import 'package:ciach/src/project_config/flutterfire.dart';
+import 'package:ciach/src/project_config/pigeon.dart';
 import 'package:ciach/src/project_config/project_files.dart';
 import 'package:ciach/src/project_config/serverpod.dart';
+import 'package:ciach/src/workspace/packages.dart';
 import 'package:path/path.dart' as p;
 
 /// The entry points and generated files that are declared in a project's
-/// pubspec.yaml, build.yaml and l10n.yaml. Files that cannot be parsed are
-/// ignored. `Ciach` does not read the project config by itself, so pass
-/// [entryPoints] and [generatedGlobs] to `FinderOptions`.
+/// pubspec.yaml, build.yaml, l10n.yaml, analysis_options.yaml, firebase.json
+/// and Pigeon input files. Files that cannot be parsed are ignored. `Ciach`
+/// does not read the project config by itself, so pass [entryPoints] and
+/// [generatedGlobs] to `FinderOptions`.
 final class ProjectConfig {
   const ProjectConfig({
     this.entryPoints = const [],
@@ -30,7 +36,12 @@ final class ProjectConfig {
     final entryPoints = <EntryPoint>[];
     final generatedGlobs = <String>{};
     final translations = <Translations>[];
-    final dirs = packageDirs(rootPath).toList();
+    if (!Directory(rootPath).existsSync()) {
+      return none;
+    }
+    final tree = scanPackageTree(rootPath);
+    final dirs = packageDirs(rootPath, tree);
+    final dartFiles = dartFilesByPackage(rootPath, dirs, tree);
     final pluginDirs = {
       for (final dir in dirs) ...analyzerPluginDirs(p.join(rootPath, dir)),
     };
@@ -40,6 +51,7 @@ final class ProjectConfig {
       final package = ProjectConfig._package(
         packagePath,
         loadedAsPlugin: pluginDirs.contains(packagePath),
+        dartFiles: dartFiles[dir] ?? const [],
       );
       entryPoints.addAll([
         for (final e in package.entryPoints) e.within(prefix),
@@ -62,9 +74,12 @@ final class ProjectConfig {
     );
   }
 
+  /// Reads the package in [packagePath], whose own Dart files are
+  /// [dartFiles].
   factory ProjectConfig._package(
     String packagePath, {
     required bool loadedAsPlugin,
+    required List<String> dartFiles,
   }) {
     final pubspec = readPubspec(packagePath);
     final buildYamls = readBuildYamls(packagePath);
@@ -73,6 +88,7 @@ final class ProjectConfig {
       entryPoints: {
         for (final rule in [
           ...flutterPluginEntryPoints(pubspec),
+          ...flutterWidgetPreviewEntryPoints(pubspec),
           for (final buildYaml in buildYamls)
             ...buildRunnerEntryPoints(pubspec, buildYaml),
           ...dartFrogEntryPoints(pubspec),
@@ -82,6 +98,7 @@ final class ProjectConfig {
             loadedAsPlugin: loadedAsPlugin,
           ),
           ...customLintEntryPoints(pubspec),
+          ...pigeonEntryPoints(packagePath, pubspec, dartFiles),
         ])
           '$rule': rule,
       }.values.toList(),

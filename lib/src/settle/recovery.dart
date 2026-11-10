@@ -109,7 +109,7 @@ final class ReferenceRecovery {
       }
       final start = candidate.symbol.selectionRange.start;
       warnings.add(
-        RecoveredReference(
+        .new(
           name: candidate.symbol.declarationName(candidate.container),
           container: candidate.container,
           filePath: relativePosix(candidate.path, rootPath),

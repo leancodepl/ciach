@@ -27,6 +27,7 @@ import 'package:path/path.dart' as p;
 import 'package:pro_lsp/pro_lsp.dart' show SymbolKind;
 import 'package:test/test.dart';
 
+import '../support/copy_tree.dart';
 import '../support/example_package.dart';
 
 void main() {
@@ -648,7 +649,7 @@ void main() {
     test('--remove keeps a doc-only type and its members', () async {
       final copy = Directory.systemTemp.createTempSync('ciach_doc_only_');
       addTearDown(() => copy.deleteSync(recursive: true));
-      copyTree(Directory(fixturePath), copy);
+      copyTree(.new(fixturePath), copy);
       final file = File(p.join(copy.path, fixture.single));
       final before = file.readAsStringSync();
 
@@ -901,7 +902,7 @@ void main() {
       () async {
         final copy = Directory.systemTemp.createTempSync('ciach_transitive_');
         addTearDown(() => copy.deleteSync(recursive: true));
-        copyTree(Directory(fixturePath), copy);
+        copyTree(.new(fixturePath), copy);
         Future<FinderResult> run() =>
             Ciach(.new(rootPath: copy.path, includeGlobs: fixture)).run();
 
@@ -947,7 +948,7 @@ void main() {
     test('--remove deletes each unused type and its members', () async {
       final copy = Directory.systemTemp.createTempSync('ciach_dead_types_');
       addTearDown(() => copy.deleteSync(recursive: true));
-      copyTree(Directory(fixturePath), copy);
+      copyTree(.new(fixturePath), copy);
       final file = File(p.join(copy.path, fixture.single));
       Future<FinderResult> run() =>
           Ciach(.new(rootPath: copy.path, includeGlobs: fixture)).run();
@@ -1209,7 +1210,7 @@ void main() {
       () async {
         final copy = Directory.systemTemp.createTempSync('ciach_clauses_');
         addTearDown(() => copy.deleteSync(recursive: true));
-        copyTree(Directory(fixturePath), copy);
+        copyTree(.new(fixturePath), copy);
         final result = await Ciach(
           .new(
             rootPath: copy.path,
@@ -1259,7 +1260,7 @@ void main() {
         addTearDown(logging.cancel);
         final copy = Directory.systemTemp.createTempSync('ciach_clauses_');
         addTearDown(() => copy.deleteSync(recursive: true));
-        copyTree(Directory(fixturePath), copy);
+        copyTree(.new(fixturePath), copy);
         Future<FinderResult> run({required bool transitive}) => Ciach(
           .new(
             rootPath: copy.path,
@@ -2174,18 +2175,4 @@ void main() {
       },
     );
   });
-}
-
-/// Copies [from] into [to], `.dart_tool` included.
-void copyTree(Directory from, Directory to) {
-  for (final entity in from.listSync(recursive: true, followLinks: false)) {
-    final relative = p.relative(entity.path, from: from.path);
-    final target = p.join(to.path, relative);
-    if (entity is Directory) {
-      Directory(target).createSync(recursive: true);
-    } else if (entity is File) {
-      File(target).parent.createSync(recursive: true);
-      entity.copySync(target);
-    }
-  }
 }
