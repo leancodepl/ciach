@@ -43,6 +43,11 @@ typedef CoupledRemoval = ({
   DeclarationRange? cut,
 });
 
+/// The kind of a parameter that the body of its function never reads. The
+/// server has no kind for a parameter, so ciach borrows the kind of a key,
+/// which no Dart declaration is otherwise.
+const parameterKind = SymbolKind.key;
+
 /// Human-friendly labels for [SymbolKind], used in reports.
 extension SymbolKindLabel on SymbolKind {
   /// A short, lower-case label (e.g. `class`, `enum value`).
@@ -59,6 +64,7 @@ extension SymbolKindLabel on SymbolKind {
     .enumMember => 'enum value',
     .typeParameter => 'type parameter',
     .object => 'typedef',
+    parameterKind => 'parameter',
     _ => name,
   };
 }

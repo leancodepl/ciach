@@ -43,5 +43,6 @@ Findings that cannot be removed without breaking the build are report-only, mark
 | The sole constructor of a live class with `final` fields, or whose superclass needs constructor arguments | the implicit default constructor can't replace it |
 | A primary constructor or its declaring parameters | only part of the class header |
 | A member whose override is a declaring parameter, or is in a file the run didn't scan | that override can't be deleted, and would be left overriding nothing |
+| An unused parameter | every call passes an argument for it |
 | A gen-l10n message | gen-l10n would generate it again from the ARB file |
 | A type that only doc comments mention | the links would dangle |

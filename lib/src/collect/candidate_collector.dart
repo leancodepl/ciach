@@ -15,6 +15,7 @@ import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/model/finder_options.dart';
+import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
@@ -284,14 +285,11 @@ final class CandidateCollector {
   }) {
     final symbol = candidate.symbol;
     final leadingMetadata = declaration.leadingMetadata;
-    if (!options.kinds.contains(
-      symbol.reportedKind(
-        parentIsEnum: candidate.isEnumValue,
-        isExtensionType: candidate.isExtensionType,
-        isMixin: candidate.isMixin,
-        isTypeAlias: candidate.isTypeAlias,
-      ),
-    )) {
+    // A function, method or constructor of a kind that the options leave out
+    // is still collected when its parameters are checked.
+    if (!options.kinds.contains(candidate.reportedKind) &&
+        !(options.kinds.contains(parameterKind) &&
+            candidate.hasCheckedParameters)) {
       return false;
     }
     // Only the messages of a gen-l10n file are checked: removing one from the

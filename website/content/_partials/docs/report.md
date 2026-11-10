@@ -62,6 +62,24 @@ lib/report.dart
 
 Each such finding names what it is only referenced from, so a chain can be judged by its root: `-f json` lists every finding a declaration depends on under the `onlyReferencedFrom` key, and the other formats show the first and a count. A report-only finding stays in the code, so what it references stays used. `--no-transitive` reports only what nothing references at all; the rest shows up after a removal and another run.
 
+### Unused parameters
+
+A parameter that the body of its function, method or constructor never reads is reported with the kind `parameter`:
+
+```console wrap=false
+lib/scenarios/unused_parameters.dart
+  15:28  parameter  _sum.unused  (private)  (unsafe to auto-remove — remove manually)  (also remove its argument at every call)
+
+Found 1 unused declaration in 1 file (scanned 1 file, 2 declarations, 1.0s)
+```
+
+Such a finding is report-only, because every call passes an argument for the parameter, and it counts toward `--set-exit-if-changed`. A parameter is not reported when something other than the calls fixes the signature, or when it is unused on purpose:
+
+- in an `@override` member, a member that another one overrides, a `call` method, and an abstract or `external` member;
+- in a function that code tears off, as `list.forEach(log)` does, and in an entry point;
+- a parameter named `_`, `this.x`, `super.x`, and a declaring parameter of a primary constructor, which is a field;
+- in a function that is reported as unused, also as a member of an unused class, or that a `// ciach:ignore` marker keeps.
+
 ### Not analyzed
 
 If the analysis server fails on a declaration or a file, the run goes on. That code is kept and listed under "Not analyzed" (`problems` in JSON); `-v` adds the stack traces.

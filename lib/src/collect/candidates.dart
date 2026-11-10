@@ -12,7 +12,7 @@ import 'package:ciach/src/lsp/outline.dart';
 import 'package:ciach/src/source/source_index.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:ciach/src/util/extensions.dart';
-import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location;
+import 'package:pro_lsp/pro_lsp.dart' show DocumentSymbol, Location, SymbolKind;
 
 /// A file path paired with a declaration name, used as a map key to look up
 /// per-declaration facts gathered by the remove-safety pre-pass.
@@ -110,6 +110,26 @@ final class Candidate {
   bool isNamedAt(Location location) =>
       SourceIndex.pathOf(location.uri) == path &&
       symbol.selectionRange.contains(location.range.start);
+
+  /// The kind that a finding for this declaration is reported with.
+  SymbolKind get reportedKind => symbol.reportedKind(
+    parentIsEnum: isEnumValue,
+    isExtensionType: isExtensionType,
+    isMixin: isMixin,
+    isTypeAlias: isTypeAlias,
+  );
+
+  /// Whether this is a function, method or constructor whose signature only
+  /// its calls use: not an operator, and not a `call` method, which an object
+  /// passed as a function also uses.
+  bool get hasCheckedParameters =>
+      const <SymbolKind>{
+        .function,
+        .method,
+        .constructor,
+      }.contains(symbol.kind) &&
+      !symbol.isOperator &&
+      !symbol.isCallMethod;
 
   /// This candidate's own `(path, name)` key.
   DeclKey get key => .new(path, symbol.name);

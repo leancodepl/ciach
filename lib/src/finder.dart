@@ -43,8 +43,10 @@ import 'package:ciach/src/lsp/lsp_client.dart';
 import 'package:ciach/src/lsp/problems.dart';
 import 'package:ciach/src/model/finder_options.dart';
 import 'package:ciach/src/model/finder_result.dart';
+import 'package:ciach/src/model/unused_declaration.dart';
 import 'package:ciach/src/settle/reference_classifier.dart';
 import 'package:ciach/src/settle/settler.dart';
+import 'package:ciach/src/settle/unused_parameters.dart';
 import 'package:ciach/src/settle/verdict.dart';
 import 'package:ciach/src/source/directives.dart';
 import 'package:ciach/src/source/ignore_markers.dart';
@@ -125,6 +127,12 @@ class Ciach {
   );
 
   late final _fetch = ReferenceFetch(options: options, sources: _sources);
+
+  late final _unusedParameters = UnusedParameters(
+    sources: _sources,
+    fetch: _fetch,
+    concurrency: options.concurrency,
+  );
 
   late final _settler = Settler(
     options: options,
@@ -275,7 +283,14 @@ class Ciach {
             ? _collector.collect(client, path, rootPath)
             : .value(const <Candidate>[]),
       );
-      final collected = [for (final list in perFile) ...list];
+      // With the kind `parameter`, the collector also returns the functions,
+      // methods and constructors of the kinds that the options leave out.
+      final parameterOwners = options.kinds.contains(parameterKind)
+          ? perFile.flattened.where(_unusedParameters.checks).toList()
+          : const <Candidate>[];
+      final collected = perFile.flattened
+          .where((c) => options.kinds.contains(c.reportedKind))
+          .toList();
       _collector.reportSkipped();
 
       // Phase 2: check references for every candidate through a single global
@@ -302,7 +317,7 @@ class Ciach {
       await _fetch.selectionRanges(client, candidates, refsByCandidate);
 
       // Phase 3: settle the verdicts; with `transitive`, in rounds.
-      settled = await _settler.settle(
+      final declarations = await _settler.settle(
         client,
         candidates,
         refsByCandidate,
@@ -310,6 +325,23 @@ class Ciach {
         rootPath: rootPath,
         analysisRoot: analysisRoot,
         probed: fetched.probed,
+      );
+
+      // Phase 4: the parameters that the bodies never read.
+      final parameters = await _unusedParameters.findings(
+        client,
+        parameterOwners,
+        [...declarations.unused, ...declarations.docOnly],
+        rootPath,
+      );
+      settled = (
+        unused: [
+          ...declarations.unused,
+          ...parameters,
+        ].sorted(compareByLocation),
+        docOnly: declarations.docOnly,
+        recovered: declarations.recovered,
+        emptied: declarations.emptied,
       );
     } finally {
       await client.dispose();

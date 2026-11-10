@@ -1,3 +1,11 @@
+## Unreleased
+
+- ciach now reports a parameter that the body of its function, method or
+  constructor never reads, with the kind `parameter`. Such a finding is
+  report-only and counts toward `--set-exit-if-changed`. Overrides, functions
+  that code tears off, and parameters named `_` are left out.
+  ([#156](https://github.com/leancodepl/ciach/pull/156))
+
 ## 0.7.2
 
 - Stop reporting the declarations in Pigeon input files that Pigeon generates
