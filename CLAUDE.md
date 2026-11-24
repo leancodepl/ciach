@@ -9,7 +9,9 @@ changelog, pull request descriptions and review replies.
   statement that the symbols belong to", not "the statement the symbols belong
   to". Don't stack nouns ("analysis server plugin entry point"); use a verb
   ("called by the analysis server"). Short means fewer ideas, not fewer words
-  per idea.
+  per idea. Give a sentence one idea, and split one that stacks clauses:
+  "selects a declaration whose annotation creates an object of the class
+  [annotation] or of a subtype instead" became two sentences.
 - Say things literally. Avoid stilted or figurative phrases such as "X, less
   the Y", "gives way to", "is dead with", "reads as unused" or "knows a CI
   runner from a terminal".
