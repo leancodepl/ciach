@@ -359,6 +359,9 @@ explicit null check.
   method to another, a value built twice, a one-field JSON object, an unused
   style or variant, or a factory left over from a refactor. Before wrapping a
   library call or its exception, check what the exception already carries.
+- Make every combination of an API's options work, as `matchesClass` and
+  `argument` of an annotation rule do, instead of forbidding one with an
+  assert. Keep the API to the fewest options that its callers need.
 - Don't put one caller's special case into a general function's result, such
   as a `null` placeholder in a list; handle it in that caller.
 - When a later step adds to data that an earlier step combined, such as the
