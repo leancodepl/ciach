@@ -227,18 +227,21 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     ),
   };
 
+  static const _nameRuleKeys = {'name', 'glob'};
+
+  static const _annotationRuleKeys = {
+    'annotation',
+    'package',
+    'subtypes',
+    'constants',
+    'glob',
+  };
+
   EntryPoint _entryPoint(String at, Object? rule) => switch (rule) {
-    {'name': final String name}
-        when const {'name', 'glob'}.containsAll(rule.keys) =>
+    {'name': final String name} when _nameRuleKeys.containsAll(rule.keys) =>
       _rule(at, rule['glob'], (files) => .fromConfig(name, files: files)),
     {'annotation': final String annotation}
-        when const {
-          'annotation',
-          'package',
-          'subtypes',
-          'constants',
-          'glob',
-        }.containsAll(rule.keys) =>
+        when _annotationRuleKeys.containsAll(rule.keys) =>
       _rule(
         at,
         rule['glob'],
