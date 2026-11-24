@@ -131,7 +131,9 @@ easy-to-follow sentences, not how it works inside.
 
 A function's doc comment starts with what the function does or returns
 ("Returns …"), says what a parameter holds when that isn't obvious, and gives
-an example when a term is abstract. Keep it about as short as the doc comments
+an example when a term is abstract. A comment that contrasts two things, such
+as the class of an annotation and the name after its `@`, shows a case where
+they differ: `@DarkPreview()` for a subclass of `Preview`. Keep it about as short as the doc comments
 of its neighbors. Leave the evidence for a claim, such as the SDK
 code that you read or how many runs you checked, to the pull request and the
 review reply. Don't add doc comments that the member's siblings lack or
