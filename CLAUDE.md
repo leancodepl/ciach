@@ -369,7 +369,7 @@ explicit null check.
   tests, instead of adding a second way to do the same thing.
   When a new caller needs the helper on another input, add a variant that
   takes the input and have the helper call it, so that the existing calls
-  stay as they are: `_boolean(key)` calls `_booleanAt(at, value)`.
+  stay as they are: `_string(key)` calls `_stringAt(at, value)`.
 - Match a declaration that a library provides, such as `@pragma`, by its name
   and by the package that declares it, not by the name alone: a project can
   declare a `pragma` of its own. Make the package required, also in config
