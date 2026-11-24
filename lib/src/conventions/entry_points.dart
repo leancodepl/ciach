@@ -53,9 +53,10 @@ sealed class EntryPoint {
   /// [annotation] that one of [packages] declares, and whose first argument
   /// is the string [argument] unless that is `null`. With [matchesClass], it
   /// selects a declaration whose annotation creates an object of the class
-  /// [annotation] or of a subtype instead, also through a typedef or a
-  /// constant, such as `@story` for `const story = Story();`. It keeps the
-  /// declaration for [reason] and, in a type, the [members].
+  /// [annotation] or of a subtype instead, whatever name the annotation is
+  /// written with: also `@DarkStory()`, `@StoryAlias()` or `@story` for a
+  /// `Story` rule. It keeps the declaration for [reason] and, in a type, the
+  /// [members].
   factory EntryPoint.annotationNamed(
     String annotation, {
     required Set<String> packages,

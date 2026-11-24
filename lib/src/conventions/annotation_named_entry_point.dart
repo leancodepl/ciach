@@ -9,9 +9,10 @@ part of 'entry_points.dart';
 /// A rule that selects a declaration by an annotation on it: by the name
 /// written after the `@`, such as `JSExport` in `@JSExport()` and
 /// `reflectiveTest` in `@reflectiveTest`, or, with [matchesClass], by the
-/// class of the object that the annotation creates or one of its supertypes.
-/// It optionally also checks the package that declares the annotation and the
-/// string literal that its first argument is.
+/// class of the object that the annotation creates, or a supertype of it,
+/// which the analysis server finds. It optionally also checks the package
+/// that declares the annotation and the string literal that its first
+/// argument is.
 final class AnnotationNamedEntryPoint extends EntryPoint {
   AnnotationNamedEntryPoint(
     this.annotation, {
@@ -35,11 +36,11 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
   /// `test_reflective_loader`, or an SDK library, such as `dart:core`.
   final Set<String> packages;
 
-  /// Whether the rule selects a declaration by the class of the object that
-  /// the annotation creates, rather than by the name after the `@`. The class
-  /// can be [annotation] or a subtype of it, as `@DarkPreview()` is for
-  /// `Preview`, also through a typedef or a constant, such as `@story` for
-  /// `const story = Story();`.
+  /// Whether the rule asks the analysis server for the class of the object
+  /// that the annotation creates, instead of comparing the name written after
+  /// the `@`. A rule for `Preview` then also matches `@DarkPreview()` for a
+  /// subclass, `@PreviewAlias()` for a typedef and `@preview` for
+  /// `const preview = Preview();`, whose names differ from `Preview`.
   final bool matchesClass;
 
   /// The value of the string literal that the annotation's first argument
