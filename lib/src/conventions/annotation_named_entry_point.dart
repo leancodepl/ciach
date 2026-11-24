@@ -6,13 +6,11 @@
 
 part of 'entry_points.dart';
 
-/// A rule that selects a declaration by an annotation on it: by the name
-/// written after the `@`, such as `JSExport` in `@JSExport()` and
-/// `reflectiveTest` in `@reflectiveTest`, or, with [matchesClass], by the
-/// class of the object that the annotation creates, or a supertype of it,
-/// which the analysis server finds. It optionally also checks the package
-/// that declares the annotation and the string literal that its first
-/// argument is.
+/// A rule that selects a declaration by an annotation on it. It compares the
+/// name after the `@`, such as `JSExport` in `@JSExport()`, or, with
+/// [matchesClass], the class of the annotation's object. It also checks the
+/// package that declares the annotation and, optionally, the string that its
+/// first argument is.
 final class AnnotationNamedEntryPoint extends EntryPoint {
   AnnotationNamedEntryPoint(
     this.annotation, {

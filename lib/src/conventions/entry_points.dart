@@ -49,14 +49,18 @@ sealed class EntryPoint {
     List<String> files,
   }) = SubtypeEntryPoint;
 
-  /// Creates a rule that selects every declaration with an annotation called
-  /// [annotation] that one of [packages] declares, and whose first argument
-  /// is the string [argument] unless that is `null`. With [matchesClass], it
-  /// selects a declaration whose annotation creates an object of the class
-  /// [annotation] or of a subtype instead, whatever name the annotation is
-  /// written with: also `@DarkStory()`, `@StoryAlias()` or `@story` for a
-  /// `Story` rule. It keeps the declaration for [reason] and, in a type, the
-  /// [members].
+  /// Creates a rule that keeps the declarations annotated with [annotation],
+  /// which one of [packages] declares. It keeps them for [reason] and, in a
+  /// type, also keeps the [members].
+  ///
+  /// The rule compares the name after the `@` with [annotation]. With
+  /// [argument], the annotation's first argument has to be that string, as
+  /// `'vm:entry-point'` is in `@pragma('vm:entry-point')`.
+  ///
+  /// With [matchesClass], the rule compares the class of the annotation's
+  /// object instead, and counts its subtypes. A rule for `Story` then also
+  /// keeps `@DarkStory()` for a subclass, `@StoryAlias()` for a typedef and
+  /// `@story` for `const story = Story();`.
   factory EntryPoint.annotationNamed(
     String annotation, {
     required Set<String> packages,
