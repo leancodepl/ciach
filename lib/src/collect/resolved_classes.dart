@@ -89,10 +89,8 @@ final class ResolvedClasses {
     // such as `JsonKey` in `@JsonKey(...)` on every field.
     final constructorDefinitions = <String, Future<List<Location>>>{};
     await Future.wait([
-      for (final name in tokens.annotationNames())
-        if (name.readsConstant
-            ? lookups.contains(ServerLookup.constantClasses)
-            : lookups.contains(ServerLookup.annotationClasses))
+      if (lookups.contains(ServerLookup.annotationClasses))
+        for (final name in tokens.annotationNames())
           _resolveAnnotation(
             client,
             config,
@@ -161,7 +159,7 @@ final class ResolvedClasses {
       ]);
       _annotationClasses[(path, token.start)] = [
         for (final (:type, :supertypes) in hierarchies.flattened)
-          .new(type, supertypes, readsConstant: readsConstant),
+          .new(type, supertypes),
       ];
     } on LspRequestException catch (e) {
       recordProblem(

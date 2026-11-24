@@ -7,9 +7,9 @@
 // Entry points that an annotation marks. Expected findings: everything, by
 // default. With an `{annotation: Story}` rule, only `notAStory`,
 // `deprecatedStory`, `Gallery.new` and `Gallery.helper`. With a rule that
-// leaves out subtypes, the subtypes of `Story` and the declarations that they
-// annotate too. With a rule that leaves out constants, also `constantStory`
-// and `story`, which only `constantStory` uses.
+// matches the name after the `@`, also the subtypes of `Story`, the
+// declarations that they or a typedef annotate, and `constantStory` and
+// `story`, which only `constantStory` uses.
 //
 // Scanned only by the dedicated tests; see
 // test/finder/annotation_entry_points_test.dart.

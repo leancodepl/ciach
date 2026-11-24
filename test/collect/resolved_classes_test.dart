@@ -109,20 +109,15 @@ class Holder {
 
   /// The class [type] from the package `app` that an annotation creates,
   /// whose supertypes are [supertypes] and `Object`.
-  AnnotationClass annotationClass(
-    String type,
-    List<String> supertypes, {
-    bool readsConstant = false,
-  }) => .new(app(type), {
-    for (final supertype in supertypes) app(supertype),
-    object,
-  }, readsConstant: readsConstant);
+  AnnotationClass annotationClass(String type, List<String> supertypes) => .new(
+    app(type),
+    {for (final supertype in supertypes) app(supertype), object},
+  );
 
   final rule = EntryPoint.annotationNamed(
     'Preview',
     packages: const {'app'},
-    subtypes: true,
-    constants: true,
+    matchesClass: true,
     reason: 'shown',
   );
 
@@ -185,12 +180,10 @@ void h() {}
             annotationClass('DarkPreview', ['Preview']),
           ],
           7: [annotationClass('Preview', [])],
-          8: [annotationClass('Preview', [], readsConstant: true)],
+          8: [annotationClass('Preview', [])],
           // `override` is an object of the private class `_Override`.
           9: [
-            AnnotationClass(const .new('_Override', null), {
-              object,
-            }, readsConstant: true),
+            AnnotationClass(const .new('_Override', null), {object}),
           ],
           10: isEmpty,
           // The name of a generic class has no type parameters.
@@ -213,13 +206,13 @@ void h() {}
           ],
           // A static constant, not a constructor of `Holder`.
           16: [
-            annotationClass('DarkPreview', ['Preview'], readsConstant: true),
+            annotationClass('DarkPreview', ['Preview']),
           ],
-          17: [annotationClass('Preview', [], readsConstant: true)],
+          17: [annotationClass('Preview', [])],
           // A constant that holds another one.
-          18: [annotationClass('Preview', [], readsConstant: true)],
+          18: [annotationClass('Preview', [])],
           19: [
-            annotationClass('DarkPreview', ['Preview'], readsConstant: true),
+            annotationClass('DarkPreview', ['Preview']),
           ],
           // A list is not created by a constructor call.
           20: isEmpty,
@@ -227,7 +220,7 @@ void h() {}
           21: [annotationClass('Preview', [])],
           // A static constant of a prefixed class.
           22: [
-            annotationClass('DarkPreview', ['Preview'], readsConstant: true),
+            annotationClass('DarkPreview', ['Preview']),
           ],
           23: isEmpty,
         },
@@ -236,7 +229,7 @@ void h() {}
   );
 
   test(
-    'resolves no constants for rules that count only constructor calls',
+    'resolves no annotations for rules that match the name after the `@`',
     () async {
       final (:path, :tokens, :classes, symbols: _) = await resolve(
         '''
@@ -246,12 +239,7 @@ import 'previews.dart';
 @Preview() void b() {}
 ''',
         [
-          .annotationNamed(
-            'Preview',
-            packages: const {'app'},
-            subtypes: true,
-            reason: 'shown',
-          ),
+          .annotationNamed('Preview', packages: const {'app'}, reason: 'shown'),
         ],
       );
 
@@ -263,10 +251,7 @@ import 'previews.dart';
               tokens.where((t) => t.line == line),
             ),
         ],
-        [
-          isEmpty,
-          [annotationClass('Preview', [])],
-        ],
+        [isEmpty, isEmpty],
       );
     },
   );

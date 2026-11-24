@@ -48,11 +48,7 @@ final class ResolvedClass {
 /// `Preview` for `@Preview()`, or for `@preview` with
 /// `const preview = Preview();`.
 final class AnnotationClass {
-  const AnnotationClass(
-    this.type,
-    this.supertypes, {
-    required this.readsConstant,
-  });
+  const AnnotationClass(this.type, this.supertypes);
 
   /// The class of the object.
   final ResolvedClass type;
@@ -60,26 +56,19 @@ final class AnnotationClass {
   /// All the supertypes of [type].
   final Set<ResolvedClass> supertypes;
 
-  /// Whether the annotation reads a constant, as `@preview` does, rather than
-  /// calling a constructor.
-  final bool readsConstant;
-
   static const _supertypesEquality = SetEquality<ResolvedClass>();
 
   @override
   bool operator ==(Object other) =>
       other is AnnotationClass &&
       other.type == type &&
-      other.readsConstant == readsConstant &&
       _supertypesEquality.equals(other.supertypes, supertypes);
 
   @override
-  int get hashCode =>
-      Object.hash(type, readsConstant, _supertypesEquality.hash(supertypes));
+  int get hashCode => Object.hash(type, _supertypesEquality.hash(supertypes));
 
   @override
-  String toString() =>
-      '${readsConstant ? 'constant ' : ''}$type, supertypes $supertypes';
+  String toString() => '$type, supertypes $supertypes';
 }
 
 /// A declaration that the entry-point rules are checked against.

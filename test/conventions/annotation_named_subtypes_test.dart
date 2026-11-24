@@ -20,10 +20,9 @@ void main() {
     String type, {
     List<String> supertypes = const [],
     String? package = 'stories',
-    bool readsConstant = false,
   }) => .new(.new(type, package), {
     for (final supertype in supertypes) .new(supertype, package),
-  }, readsConstant: readsConstant);
+  });
 
   /// Whether [rule] matches a function annotated with [annotationClasses].
   bool matchesCard(EntryPoint rule, List<AnnotationClass> annotationClasses) =>
@@ -36,12 +35,12 @@ void main() {
         ),
       );
 
-  group('EntryPoint.annotationNamed with `subtypes`', () {
+  group('EntryPoint.annotationNamed with `matchesClass`', () {
     test('matches a declaration annotated with the class or a subtype', () {
       final rule = EntryPoint.annotationNamed(
         'Story',
         packages: const {'stories'},
-        subtypes: true,
+        matchesClass: true,
         reason: 'shown',
       );
 
@@ -75,7 +74,7 @@ void main() {
       final rule = EntryPoint.annotationNamed(
         'Story',
         packages: const {'stories'},
-        subtypes: true,
+        matchesClass: true,
         reason: 'shown',
       );
 
@@ -101,7 +100,7 @@ void main() {
       final rule = EntryPoint.annotationNamed(
         'Story',
         packages: const {'stories'},
-        subtypes: true,
+        matchesClass: true,
         reason: 'shown',
         files: ['lib/stories/**'],
       );
@@ -135,14 +134,14 @@ void main() {
       final rule = EntryPoint.annotationNamed(
         'Story',
         packages: const {'stories'},
-        subtypes: true,
+        matchesClass: true,
         reason: 'shown',
       ).within('app');
 
       expect(rule, isA<AnnotationNamedEntryPoint>());
       rule as AnnotationNamedEntryPoint;
       expect(
-        (rule.annotation, rule.subtypes, rule.reason),
+        (rule.annotation, rule.matchesClass, rule.reason),
         ('Story', true, 'shown'),
       );
       expect(rule.packages, {'stories'});
@@ -153,7 +152,7 @@ void main() {
       final rule = EntryPoint.annotationNamed(
         'Story',
         packages: const {'stories'},
-        subtypes: true,
+        matchesClass: true,
         reason: 'shown',
       );
 
@@ -166,36 +165,15 @@ void main() {
       });
     });
 
-    test('without `subtypes`, a subclass of the annotation keeps nothing', () {
-      final rule = EntryPoint.annotationNamed(
-        'Story',
-        packages: const {'stories'},
-        reason: 'shown',
-      );
-
-      expect(
-        matchesCard(rule, [
-          annotationClass('DarkStory', supertypes: ['Story']),
-        ]),
-        isFalse,
-      );
-    });
-
     test(
-      'with `constants` and without `subtypes`, it counts only the class itself',
+      'without `matchesClass`, a subclass of the annotation keeps nothing',
       () {
         final rule = EntryPoint.annotationNamed(
           'Story',
           packages: const {'stories'},
-          constants: true,
           reason: 'shown',
         );
 
-        expect(matchesCard(rule, [annotationClass('Story')]), isTrue);
-        expect(
-          matchesCard(rule, [annotationClass('Story', readsConstant: true)]),
-          isTrue,
-        );
         expect(
           matchesCard(rule, [
             annotationClass('DarkStory', supertypes: ['Story']),
@@ -205,28 +183,10 @@ void main() {
       },
     );
 
-    test(
-      'with `subtypes` and without `constants`, it counts only a constructor call',
-      () {
-        final rule = EntryPoint.annotationNamed(
-          'Story',
-          packages: const {'stories'},
-          subtypes: true,
-          reason: 'shown',
-        );
-
-        expect(matchesCard(rule, [annotationClass('Story')]), isTrue);
-        expect(
-          matchesCard(rule, [annotationClass('Story', readsConstant: true)]),
-          isFalse,
-        );
-      },
-    );
-
     test('prints as the annotation, its package and its files', () {
       expect(
-        '${EntryPoint.annotationNamed('Story', packages: {'stories', 'dart:core'}, subtypes: true, reason: 'shown', files: ['lib/**'])}',
-        'declarations annotated with `@Story` from `package:stories` or `dart:core` or a subtype of it by a constructor call in lib/**',
+        '${EntryPoint.annotationNamed('Story', packages: {'stories', 'dart:core'}, matchesClass: true, reason: 'shown', files: ['lib/**'])}',
+        'declarations annotated with `@Story` from `package:stories` or `dart:core` or a subtype of it in lib/**',
       );
       expect(
         '${EntryPoint.annotationNamed('Story', packages: {'stories'}, reason: 'shown')}',
@@ -265,15 +225,6 @@ void main() {
       );
     });
 
-    test('counts a constant', () {
-      final rule = EntryPoint.annotationFromConfig('Story', package: 'stories');
-
-      expect(
-        matchesCard(rule, [annotationClass('Story', readsConstant: true)]),
-        isTrue,
-      );
-    });
-
     test('a package counts only the class from that package', () {
       final rule = EntryPoint.annotationFromConfig('Story', package: 'stories');
 
@@ -335,10 +286,7 @@ void main() {
 
       expect(rule, isA<AnnotationNamedEntryPoint>());
       rule as AnnotationNamedEntryPoint;
-      expect(
-        (rule.annotation, rule.subtypes, rule.constants),
-        ('Story', true, true),
-      );
+      expect((rule.annotation, rule.matchesClass), ('Story', true));
       expect(rule.packages, {'stories'});
       expect(rule.files, ['app/**']);
     });

@@ -51,18 +51,15 @@ sealed class EntryPoint {
 
   /// Creates a rule that selects every declaration with an annotation called
   /// [annotation] that one of [packages] declares, and whose first argument
-  /// is the string [argument] unless that is `null`. With [subtypes] or
-  /// [constants], it selects a declaration whose annotation creates an object
-  /// of the class [annotation] instead, also through a typedef: [subtypes]
-  /// counts an object of a subtype of the class too, and [constants] counts
-  /// an annotation that reads a constant, such as `@story` for
-  /// `const story = Story();`. It keeps the declaration for [reason] and, in
-  /// a type, the [members].
+  /// is the string [argument] unless that is `null`. With [matchesClass], it
+  /// selects a declaration whose annotation creates an object of the class
+  /// [annotation] or of a subtype instead, also through a typedef or a
+  /// constant, such as `@story` for `const story = Story();`. It keeps the
+  /// declaration for [reason] and, in a type, the [members].
   factory EntryPoint.annotationNamed(
     String annotation, {
     required Set<String> packages,
-    bool subtypes,
-    bool constants,
+    bool matchesClass,
     String? argument,
     String? reason,
     KeptMembers? members,
@@ -132,8 +129,7 @@ sealed class EntryPoint {
     return .annotationNamed(
       annotation,
       packages: {package},
-      subtypes: true,
-      constants: true,
+      matchesClass: true,
       files: files,
       reason: reason,
     );
@@ -292,13 +288,9 @@ enum MemberSelection {
 /// A kind of request that a rule needs the analysis server to answer before
 /// it can select a declaration.
 enum ServerLookup {
-  /// The class that an annotation's constructor call creates, and its
-  /// supertypes.
+  /// The class of the object that an annotation creates, through a
+  /// constructor call or a constant, and its supertypes.
   annotationClasses,
-
-  /// The class of the object that the constant an annotation reads holds,
-  /// and its supertypes.
-  constantClasses,
 
   /// The supertypes of a class.
   supertypes,

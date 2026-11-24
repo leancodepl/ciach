@@ -65,7 +65,7 @@ A matching declaration is neither reported nor removed. A member rule also keeps
 
 An `annotation` rule names a class, and `package` names the package that declares it. The rule keeps every declaration whose annotation creates an object of that class: a constructor call such as `@Story()`, also through a typedef, or a constant such as `@story` for `const story = Story();`. A class that extends, implements or mixes in the class counts too, such as `@DarkStory()` for `class DarkStory extends Story`.
 
-Widget previews are kept the same way, but only for the `Preview` and `MultiPreview` classes of Flutter, and only through a constructor call. `-v` names each skipped entry point.
+Widget previews are kept the same way, but only for the `Preview` and `MultiPreview` classes of Flutter. `-v` names each skipped entry point.
 
 ### Ignore markers
 

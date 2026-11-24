@@ -39,17 +39,15 @@ void main() {
     "keeps a declaration annotated with Flutter's `Preview` or `MultiPreview`, or a subtype of either",
     () {
       for (final annotationClass in [
-        AnnotationClass(const .new('Preview', 'flutter'), {
-          object,
-        }, readsConstant: false),
+        AnnotationClass(const .new('Preview', 'flutter'), {object}),
         AnnotationClass(const .new('DarkPreview', 'app'), {
           const .new('Preview', 'flutter'),
           object,
-        }, readsConstant: false),
+        }),
         AnnotationClass(const .new('ThemePreviews', 'app'), {
           const .new('MultiPreview', 'flutter'),
           object,
-        }, readsConstant: false),
+        }),
       ]) {
         expect(
           reasonFor(annotationClass),
@@ -63,22 +61,11 @@ void main() {
   test('a `Preview` from another package is not a widget preview', () {
     for (final package in ['app', null]) {
       expect(
-        reasonFor(
-          .new(.new('Preview', package), {object}, readsConstant: false),
-        ),
+        reasonFor(.new(.new('Preview', package), {object})),
         isNull,
         reason: 'for $package',
       );
     }
-  });
-
-  test('a constant is not a widget preview, as for flutter_tools', () {
-    expect(
-      reasonFor(
-        .new(const .new('Preview', 'flutter'), {object}, readsConstant: true),
-      ),
-      isNull,
-    );
   });
 
   test('a package that does not depend on Flutter has no preview rules', () {

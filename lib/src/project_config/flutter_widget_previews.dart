@@ -8,9 +8,8 @@ import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/project_config/project_files.dart';
 
 /// Returns the rules for the widget previews that `flutter widget-preview`
-/// shows: the declarations whose annotation calls a constructor of Flutter's
-/// `Preview` or `MultiPreview`, or of a subtype of either. As in
-/// flutter_tools, an annotation that reads a constant doesn't count.
+/// shows: the declarations whose annotation creates an object of Flutter's
+/// `Preview` or `MultiPreview`, or of a subtype of either.
 Iterable<EntryPoint> flutterWidgetPreviewEntryPoints(Pubspec pubspec) sync* {
   if (!pubspec.dependencies.contains('flutter')) {
     return;
@@ -19,7 +18,7 @@ Iterable<EntryPoint> flutterWidgetPreviewEntryPoints(Pubspec pubspec) sync* {
     yield .annotationNamed(
       annotation,
       packages: const {'flutter'},
-      subtypes: true,
+      matchesClass: true,
       reason: 'shown by `flutter widget-preview`',
     );
   }

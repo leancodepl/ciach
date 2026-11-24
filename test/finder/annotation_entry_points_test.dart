@@ -70,66 +70,7 @@ void main() {
   );
 
   test(
-    'an `annotationNamed` rule with `constants` and without `subtypes` keeps only the declarations annotated with the class itself',
-    () async {
-      expect(
-        await findUnused(
-          entryPoints: [
-            .annotationNamed(
-              'Story',
-              packages: {'sample_pkg'},
-              constants: true,
-              reason: 'shown',
-            ),
-          ],
-        ),
-        {
-          'DarkStory',
-          'DarkerStory',
-          'StoryLike',
-          'darkStoryCard',
-          'darkerStoryCard',
-          'likeStoryCard',
-          'StoryAlias',
-          'aliasStoryCard',
-          'deprecatedStory',
-          'notAStory',
-          'Gallery.new',
-          'Gallery.helper',
-        },
-      );
-    },
-  );
-
-  test(
-    'an `annotationNamed` rule with `subtypes` and without `constants` keeps only the declarations whose annotation calls a constructor',
-    () async {
-      expect(
-        await findUnused(
-          entryPoints: [
-            .annotationNamed(
-              'Story',
-              packages: {'sample_pkg'},
-              subtypes: true,
-              reason: 'shown',
-            ),
-          ],
-        ),
-        {
-          // Used only by `constantStory`.
-          'story',
-          'constantStory',
-          'deprecatedStory',
-          'notAStory',
-          'Gallery.new',
-          'Gallery.helper',
-        },
-      );
-    },
-  );
-
-  test(
-    'an `annotationNamed` rule without `subtypes` and `constants` keeps only the declarations annotated with the class by its own name',
+    'an `annotationNamed` rule without `matchesClass` keeps only the declarations annotated with the class by its own name',
     () async {
       expect(
         await findUnused(
