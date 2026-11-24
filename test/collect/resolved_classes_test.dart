@@ -35,6 +35,7 @@ void main() {
 class Preview {
   const Preview();
   const Preview.named();
+  const Preview.titled(String title, [String? subtitle]);
 }
 
 class DarkPreview extends Preview {
@@ -54,6 +55,12 @@ const sameAsPreview = preview;
 const heldPreview = Holder.held;
 
 const previewList = [Preview()];
+
+const titledPreview = Preview.titled('held');
+
+const sameAsTitled = titledPreview;
+
+const twoTitles = Preview.titled('held', 'second');
 
 class Typed<T> extends Preview {
   const Typed();
@@ -109,10 +116,14 @@ class Holder {
 
   /// The class [type] from the package `app` that an annotation creates,
   /// whose supertypes are [supertypes] and `Object`.
-  AnnotationClass annotationClass(String type, List<String> supertypes) => .new(
-    app(type),
-    {for (final supertype in supertypes) app(supertype), object},
-  );
+  AnnotationClass annotationClass(
+    String type,
+    List<String> supertypes, {
+    String? argument,
+  }) => .new(app(type), {
+    for (final supertype in supertypes) app(supertype),
+    object,
+  }, argument: argument);
 
   final rule = EntryPoint.annotationNamed(
     'Preview',
@@ -224,6 +235,42 @@ void h() {}
           ],
           23: isEmpty,
         },
+      );
+    },
+  );
+
+  test(
+    'records the first argument of the constructor call, at the `@` or in the value of a constant',
+    () async {
+      final (:path, :tokens, :classes, symbols: _) = await resolve(
+        '''
+import 'previews.dart';
+
+@Preview.titled('shown') void a() {}
+@titledPreview void b() {}
+@sameAsTitled void c() {}
+@twoTitles void d() {}
+@Preview() void e() {}
+''',
+        [rule],
+      );
+
+      expect(
+        [
+          for (final line in [2, 3, 4, 5, 6])
+            classes.annotationClassesOf(
+              path,
+              tokens.where((t) => t.line == line),
+            ),
+        ],
+        [
+          [annotationClass('Preview', [], argument: 'shown')],
+          [annotationClass('Preview', [], argument: 'held')],
+          // A constant that holds another one.
+          [annotationClass('Preview', [], argument: 'held')],
+          [annotationClass('Preview', [], argument: 'held')],
+          [annotationClass('Preview', [])],
+        ],
       );
     },
   );

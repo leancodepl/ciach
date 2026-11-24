@@ -235,16 +235,16 @@ void f() {}
     });
   });
 
-  group('SemanticToken.stringValue', () {
-    SemanticToken token(String type, String text) => .new(
-      line: 0,
-      character: 0,
-      length: text.length,
-      type: type,
-      modifiers: const {},
-      text: text,
-    );
+  SemanticToken token(String type, String text) => .new(
+    line: 0,
+    character: 0,
+    length: text.length,
+    type: type,
+    modifiers: const {},
+    text: text,
+  );
 
+  group('SemanticToken.stringValue', () {
     test('is the text between the quotes of a plain string literal', () {
       expect(
         [
@@ -268,6 +268,107 @@ void f() {}
             token('string', '\'vm:entry-point"'),
             token('variable', 'entryPoint'),
           ].map((token) => token.stringValue),
+          everyElement(isNull),
+        );
+      },
+    );
+  });
+
+  group('SemanticTokenLookup.annotationArgumentAfter', () {
+    // The tokens that the server gives annotations: their punctuation has
+    // the type `annotation`.
+    final at = token('annotation', '@');
+    final open = token('annotation', '(');
+    final close = token('annotation', ')');
+    SemanticToken string(String text) => token('string', text);
+    SemanticToken name(String text) => token('class', text);
+
+    test('is the first argument, from the `@` or from the name', () {
+      final tokens = [
+        at,
+        name('pragma'),
+        open,
+        string("'vm:entry-point'"),
+        close,
+      ];
+
+      expect(
+        (tokens.annotationArgumentAfter(0), tokens.annotationArgumentAfter(1)),
+        ('vm:entry-point', 'vm:entry-point'),
+      );
+    });
+
+    test('skips an import prefix, type arguments and a named constructor', () {
+      final prefixed = [
+        at,
+        token('variable', 'core'),
+        token('annotation', '.'),
+        name('pragma'),
+        open,
+        string("'a'"),
+        close,
+      ];
+      final typed = [
+        at,
+        name('Story'),
+        token('annotation', '<'),
+        name('int'),
+        token('annotation', '>('),
+        string("'b'"),
+        close,
+      ];
+      final named = [
+        at,
+        name('Story'),
+        token('annotation', '<'),
+        name('int'),
+        token('annotation', '>.'),
+        token('method', 'dark'),
+        open,
+        string("'c'"),
+        close,
+      ];
+
+      expect(
+        [
+          prefixed.annotationArgumentAfter(0),
+          typed.annotationArgumentAfter(0),
+          named.annotationArgumentAfter(0),
+        ],
+        ['a', 'b', 'c'],
+      );
+    });
+
+    test(
+      'is `null` without arguments and for a first argument that is no plain string',
+      () {
+        final cases = [
+          // `@story @Story('a')`: the argument of the next annotation is
+          // not the constant's.
+          [
+            at,
+            token('property', 'story'),
+            at,
+            name('Story'),
+            open,
+            string("'a'"),
+            close,
+          ],
+          // `@Story()`
+          [at, name('Story'), open, close],
+          // `@Story(b: 'a')`
+          [
+            at,
+            name('Story'),
+            open,
+            token('parameter', 'b'),
+            string("'a'"),
+            close,
+          ],
+        ];
+
+        expect(
+          cases.map((tokens) => tokens.annotationArgumentAfter(0)),
           everyElement(isNull),
         );
       },

@@ -100,6 +100,10 @@ typedef AnnotationName = ({
   /// Whether the annotation reads a constant, as `@preview` and
   /// `@Holder.held` do, rather than calling a constructor.
   bool readsConstant,
+
+  /// The value of the string literal that the annotation's first argument
+  /// is, as [SemanticTokenLookup.annotationArgumentAfter] returns it.
+  String? argument,
 });
 
 /// Decodes the relative-encoded [data] of a `semanticTokens/full` response.
@@ -199,23 +203,45 @@ extension SemanticTokenLookup on List<SemanticToken> {
     }
   }
 
+  /// Returns the value of the string literal that is the first argument of
+  /// the annotation whose `@` or name is at [index]: `vm:entry-point` in
+  /// `@pragma('vm:entry-point')` and in `@core.pragma('vm:entry-point')`.
+  /// Returns `null` for an annotation without arguments, such as `@story`,
+  /// and when the first argument is not a plain string literal.
+  String? annotationArgumentAfter(int index) {
+    // The server gives the punctuation of an annotation, and nothing else,
+    // the type `annotation`: `@`, `(`, `)`, `.`, `<`, and `>.` or `>(` after
+    // type arguments. The next `@` starts another annotation.
+    final i = indexWhere(
+      (t) => t.type == 'annotation' && (t.text == '@' || t.text.endsWith('(')),
+      index + 1,
+    );
+    return i >= 0 && this[i].text != '@'
+        ? elementAtOrNull(i + 1)?.stringValue
+        : null;
+  }
+
   /// Returns the name of the annotation that starts with the `@` at [index].
-  AnnotationName? _annotationNameAfter(int index) =>
-      switch (skip(index + 1).take(5).toList()) {
-        [
-          SemanticToken(isImportPrefix: true, :final text),
-          SemanticToken(text: '.'),
-          ...final rest,
-        ] =>
-          _annotationNameIn(rest, '$text.'),
-        final rest => _annotationNameIn(rest, ''),
-      };
+  AnnotationName? _annotationNameAfter(int index) {
+    final argument = annotationArgumentAfter(index);
+    return switch (skip(index + 1).take(5).toList()) {
+      [
+        SemanticToken(isImportPrefix: true, :final text),
+        SemanticToken(text: '.'),
+        ...final rest,
+      ] =>
+        _annotationNameIn(rest, '$text.', argument),
+      final rest => _annotationNameIn(rest, '', argument),
+    };
+  }
 
   /// Returns the name at the start of [tokens]. [tokens] follow the `@` of an
-  /// annotation and its import [prefix].
+  /// annotation and its import [prefix], and [argument] is the annotation's
+  /// first argument.
   static AnnotationName? _annotationNameIn(
     List<SemanticToken> tokens,
     String prefix,
+    String? argument,
   ) => switch (tokens) {
     // `held` in `@Holder.held` is a static constant of the class `Holder`.
     [
@@ -228,11 +254,13 @@ extension SemanticTokenLookup on List<SemanticToken> {
       token: constant,
       written: '$prefix${constant.text}',
       readsConstant: true,
+      argument: argument,
     ),
     [final name && SemanticToken(type: 'class' || 'type'), ...] => (
       token: name,
       written: '$prefix${name.text}',
       readsConstant: false,
+      argument: argument,
     ),
     _ => null,
   };

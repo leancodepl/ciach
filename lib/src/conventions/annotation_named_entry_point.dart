@@ -20,11 +20,7 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
     this.reason,
     this.members,
     super.files = const [],
-  }) : assert(
-         argument == null || !matchesClass,
-         'The argument is checked only without `matchesClass`.',
-       ),
-       super._();
+  }) : super._();
 
   /// The name written after the `@`, or with [matchesClass], the name of the
   /// class.
@@ -41,9 +37,11 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
   /// `const preview = Preview();`, whose names differ from `Preview`.
   final bool matchesClass;
 
-  /// The value of the string literal that the annotation's first argument
-  /// has to be, such as `vm:entry-point` in `@pragma('vm:entry-point')`, or
-  /// `null` for any arguments.
+  /// The value of the string literal that the first argument of the
+  /// constructor call has to be, such as `vm:entry-point` in
+  /// `@pragma('vm:entry-point')`, or `null` for any arguments. With
+  /// [matchesClass], the call can also be in the value of a constant, as in
+  /// `@entryPoint` for `const entryPoint = pragma('vm:entry-point');`.
   final String? argument;
 
   @override
@@ -61,7 +59,9 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
   @override
   bool _selects(ResolvedDeclaration declaration) => matchesClass
       ? declaration.annotationClasses.any(
-          (it) => _isAnnotation(it.type) || it.supertypes.any(_isAnnotation),
+          (it) =>
+              (argument == null || it.argument == argument) &&
+              (_isAnnotation(it.type) || it.supertypes.any(_isAnnotation)),
         )
       : _annotatesByName(declaration);
 
@@ -70,16 +70,12 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
 
   bool _annotatesByName(ResolvedDeclaration declaration) {
     final tokens = declaration.leadingMetadata.toList();
-    // The server gives the `(` of an annotation a token, so the first
-    // argument is the second token after the name.
     return tokens.indexed.any(
       (named) =>
           named.$2.isAnnotationNamed(annotation) &&
           packages.contains(declaration.annotationPackages[named.$2.start]) &&
           (argument == null ||
-              (tokens.elementAtOrNull(named.$1 + 1)?.text == '(' &&
-                  tokens.elementAtOrNull(named.$1 + 2)?.stringValue ==
-                      argument)),
+              tokens.annotationArgumentAfter(named.$1) == argument),
     );
   }
 

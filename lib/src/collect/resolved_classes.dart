@@ -62,7 +62,7 @@ final class ResolvedClasses {
 
   /// The classes of the objects that a constant holds, by the position of
   /// its definition.
-  final _byConstant = <(String, Position), Future<List<_Hierarchy>>>{};
+  final _byConstant = <(String, Position), Future<List<AnnotationClass>>>{};
 
   /// A class and all its supertypes, by the file and the position of the
   /// class's name in its declaration.
@@ -149,19 +149,16 @@ final class ResolvedClasses {
     AnnotationName name,
     Future<List<Location>> definitions,
   ) async {
-    final (:token, :readsConstant, written: _) = name;
+    final (:token, :readsConstant, :argument, written: _) = name;
     try {
-      final hierarchies = await Future.wait([
+      final classes = await Future.wait([
         for (final definition in await definitions)
           if (readsConstant)
             _heldBy(client, config, definition)
           else
-            _declaredAt(client, config, definition),
+            _createdBy(client, config, definition, argument),
       ]);
-      _annotationClasses[(path, token.start)] = [
-        for (final (:type, :supertypes) in hierarchies.flattened)
-          .new(type, supertypes),
-      ];
+      _annotationClasses[(path, token.start)] = classes.flattened.toList();
     } on LspRequestException catch (e) {
       recordProblem(
         _unresolvedAnnotation,
@@ -215,7 +212,14 @@ final class ResolvedClasses {
       definition.range.start,
     );
     return items.isEmpty
-        ? await _heldBy(client, config, definition)
+        ? [
+            for (final AnnotationClass(:type, :supertypes) in await _heldBy(
+              client,
+              config,
+              definition,
+            ))
+              (type: type, supertypes: supertypes),
+          ]
         : await Future.wait([
             for (final item in items) _hierarchyOf(client, config, item),
           ]);
@@ -226,7 +230,7 @@ final class ResolvedClasses {
   /// `const preview = Preview();`. It follows a constant that holds another
   /// one, and a typedef, whose value is the type that it names. Returns
   /// nothing for a value that no constructor call creates, such as a list.
-  Future<List<_Hierarchy>> _heldBy(
+  Future<List<AnnotationClass>> _heldBy(
     LspClient client,
     PackageConfig? config,
     Location definition,
@@ -238,25 +242,26 @@ final class ResolvedClasses {
 
   /// Requests the classes of the objects that the constant declared at
   /// [definition] holds, with their supertypes, from [client].
-  Future<List<_Hierarchy>> _requestHeldBy(
+  Future<List<AnnotationClass>> _requestHeldBy(
     LspClient client,
     PackageConfig? config,
     Location definition,
   ) async {
     final path = SourceIndex.pathOf(definition.uri);
+    final tokens = await _sources.semanticTokensOf(client, path);
     final value = valueNameAfter(
       _sources,
       path,
-      await _sources.semanticTokensOf(client, path),
+      tokens,
       definition.range.start,
     );
-    final resolveValue = switch (value?.type) {
-      'class' || 'type' => _declaredAt,
-      'property' || 'variable' => _heldBy,
+    final readsConstant = switch (value?.type) {
+      'class' || 'type' => false,
+      'property' || 'variable' => true,
       _ => null,
     };
-    if (value == null || resolveValue == null) {
-      return const <_Hierarchy>[];
+    if (value == null || readsConstant == null) {
+      return const [];
     }
     final definitions = await client.definition(
       .parse(definition.uri),
@@ -264,10 +269,34 @@ final class ResolvedClasses {
     );
     final classes = await Future.wait([
       for (final definition in definitions)
-        resolveValue(client, config, definition),
+        if (readsConstant)
+          _heldBy(client, config, definition)
+        else
+          _createdBy(
+            client,
+            config,
+            definition,
+            callArgumentAfter(_sources, path, tokens, value),
+          ),
     ]);
     return classes.flattened.toList();
   }
+
+  /// Returns the classes declared at [definition], as [_declaredAt] does, for
+  /// a constructor call whose first argument is [argument].
+  Future<List<AnnotationClass>> _createdBy(
+    LspClient client,
+    PackageConfig? config,
+    Location definition,
+    String? argument,
+  ) async => [
+    for (final (:type, :supertypes) in await _declaredAt(
+      client,
+      config,
+      definition,
+    ))
+      .new(type, supertypes, argument: argument),
+  ];
 
   /// Returns the class of [item] with all its supertypes. Their packages are
   /// those that [config] gives the files that declare them.

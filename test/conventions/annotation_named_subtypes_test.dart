@@ -20,9 +20,10 @@ void main() {
     String type, {
     List<String> supertypes = const [],
     String? package = 'stories',
+    String? argument,
   }) => .new(.new(type, package), {
     for (final supertype in supertypes) .new(supertype, package),
-  });
+  }, argument: argument);
 
   /// Whether [rule] matches a function annotated with [annotationClasses].
   bool matchesCard(EntryPoint rule, List<AnnotationClass> annotationClasses) =>
@@ -179,6 +180,33 @@ void main() {
             annotationClass('DarkStory', supertypes: ['Story']),
           ]),
           isFalse,
+        );
+      },
+    );
+
+    test(
+      'with an argument, matches only an object whose constructor call has that first argument',
+      () {
+        final rule = EntryPoint.annotationNamed(
+          'Story',
+          packages: const {'stories'},
+          matchesClass: true,
+          argument: 'shown',
+          reason: 'shown',
+        );
+
+        expect(
+          [
+            annotationClass('Story', argument: 'shown'),
+            annotationClass(
+              'DarkStory',
+              supertypes: ['Story'],
+              argument: 'shown',
+            ),
+            annotationClass('Story', argument: 'hidden'),
+            annotationClass('Story'),
+          ].map((it) => matchesCard(rule, [it])),
+          [true, true, false, false],
         );
       },
     );

@@ -1,5 +1,6 @@
 import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/conventions/test_reflective_loader.dart';
+import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:collection/collection.dart';
 import 'package:glob/glob.dart';
@@ -54,13 +55,13 @@ sealed class EntryPoint {
   /// type, also keeps the [members].
   ///
   /// The rule compares the name after the `@` with [annotation]. With
-  /// [argument], the annotation's first argument has to be that string, as
-  /// `'vm:entry-point'` is in `@pragma('vm:entry-point')`.
-  ///
-  /// With [matchesClass], the rule compares the class of the annotation's
-  /// object instead, and counts its subtypes. A rule for `Story` then also
-  /// keeps `@DarkStory()` for a subclass, `@StoryAlias()` for a typedef and
+  /// [matchesClass], it compares the class of the annotation's object
+  /// instead, and counts its subtypes. A rule for `Story` then also keeps
+  /// `@DarkStory()` for a subclass, `@StoryAlias()` for a typedef and
   /// `@story` for `const story = Story();`.
+  ///
+  /// With [argument], the first argument of the constructor call has to be
+  /// that string, as `'vm:entry-point'` is in `@pragma('vm:entry-point')`.
   factory EntryPoint.annotationNamed(
     String annotation, {
     required Set<String> packages,

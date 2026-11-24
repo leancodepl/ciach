@@ -58,11 +58,46 @@ SemanticToken? valueNameAfter(
   };
 }
 
+/// Returns the value of the string literal that is the first argument of the
+/// constructor call that [value] names in [path]: `held` for `Story` in
+/// `const story = Story<int>('held');` or `Story.dark('held')`. Returns
+/// `null` when no call follows [value], as for a typedef, and when the first
+/// argument is not a plain string literal. [tokens] are the semantic tokens
+/// of [path].
+String? callArgumentAfter(
+  SourceIndex sources,
+  String path,
+  List<SemanticToken> tokens,
+  SemanticToken value,
+) {
+  final i = tokens.indexWhere(
+    (token) => token.type == 'string',
+    tokens.firstIndexAtOrAfter(value.start) + 1,
+  );
+  if (i < 0) {
+    return null;
+  }
+  final between = sources
+      .content(path)
+      .substring(
+        sources.offsetOf(path, value.start)! + value.length,
+        sources.offsetOf(path, tokens[i].start),
+      );
+  return _beforeArgument.hasMatch(between) ? tokens[i].stringValue : null;
+}
+
 /// Matches what may come between the `=` and the name of the value: `const`,
 /// `new` and an import prefix. Regexes read the text around the value because
 /// the server gives none of `=`, `.`, `[` and `(` a token there.
 final _beforeValue = RegExp(
   r'^\s*(?:(?:const|new)\s+)?(?:[A-Za-z_$][\w$]*\s*\.\s*)?$',
+);
+
+/// Matches what may come between the name of a class and the string literal
+/// that the call to its constructor starts with: type arguments, the name of
+/// a named constructor and the `(`.
+final _beforeArgument = RegExp(
+  r'^\s*(?:<[^();]*>)?\s*(?:\.\s*[A-Za-z_$][\w$]*)?\s*\(\s*$',
 );
 
 /// Matches the `.` between a class name and a static constant.
