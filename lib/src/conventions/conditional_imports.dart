@@ -204,7 +204,7 @@ final class _DirectiveIndex {
     [library],
     (path) => [
       for (final directive in _directives[path])
-        if (directive.keyword != 'import' && !directive.isPartOf)
+        if (!directive.isImport && !directive.isPartOf)
           ...directive.pathsFrom(path, _packages).where(_files.contains),
     ],
   );

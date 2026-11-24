@@ -173,6 +173,7 @@ final class CandidateCollector {
         relativePath,
         candidate,
         leadingMetadata,
+        _sources.tokensBeforeName(path, outline),
       );
       if (_isCandidate(
         candidate,

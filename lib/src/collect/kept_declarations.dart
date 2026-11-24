@@ -86,17 +86,21 @@ final class KeptDeclarations {
   }
 
   /// Returns [candidate], whose doc comment and annotations are
-  /// [leadingMetadata], as the entry-point rules read it.
+  /// [leadingMetadata] and whose other tokens before its name are
+  /// [tokensBeforeName], as the entry-point rules read it.
   ResolvedDeclaration declarationOf(
     String relativePath,
     Candidate candidate,
     Iterable<SemanticToken> leadingMetadata,
+    Iterable<SemanticToken> tokensBeforeName,
   ) => .new(
     relativePath: relativePath,
     symbol: candidate.symbol,
     container: candidate.container,
     inEnum: candidate.containerSymbol?.kind == .enum$,
+    outlineKind: candidate.outline.element.kind,
     leadingMetadata: leadingMetadata,
+    tokensBeforeName: tokensBeforeName,
     annotationPackages: _annotationPackages.packagesOf(
       candidate.path,
       leadingMetadata,

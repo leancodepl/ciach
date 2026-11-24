@@ -2,7 +2,9 @@ import 'dart:io';
 
 import 'package:ciach/src/conventions/entry_points.dart';
 import 'package:ciach/src/util/log.dart';
+import 'package:ciach/src/util/paths.dart';
 import 'package:ciach/src/workspace/packages.dart';
+import 'package:collection/collection.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
@@ -62,17 +64,28 @@ Iterable<EntryPoint> configRule(
 String escapeGlob(String literal) =>
     literal.replaceAllMapped(RegExp(r'[*?\[\]{},\\]'), (m) => '\\${m[0]}');
 
-/// Returns the directories of the packages in [rootPath], as POSIX paths that
-/// are relative to [rootPath]. The first one is `''`, which stands for
-/// [rootPath] itself. It is followed by every nested directory that has a
-/// pubspec.yaml.
-Iterable<String> packageDirs(String rootPath) {
-  if (!Directory(rootPath).existsSync()) {
-    return const [];
-  }
+/// Returns the directories of the packages in [tree], which was scanned from
+/// [rootPath], as POSIX paths that are relative to [rootPath]. The first one
+/// is `''`, which stands for [rootPath] itself. It is followed by every nested
+/// directory that has a pubspec.yaml, sorted.
+List<String> packageDirs(String rootPath, PackageTree tree) {
   final nested = {
-    for (final libDir in scanPackageTree(rootPath).libDirs)
-      p.split(p.relative(p.dirname(libDir), from: rootPath)).join('/'),
+    for (final libDir in tree.libDirs)
+      relativePosix(p.dirname(libDir), rootPath),
   }..remove('.');
   return ['', ...nested.toList()..sort()];
 }
+
+/// Returns the Dart files of [tree], which was scanned from [rootPath], by
+/// the directory in [dirs] of the package that each file belongs to. A file
+/// in a nested package belongs to the nested package only.
+Map<String, List<String>> dartFilesByPackage(
+  String rootPath,
+  List<String> dirs,
+  PackageTree tree,
+) => groupBy(
+  tree.dartFiles,
+  // [dirs] are sorted, so the last one that contains a file is the innermost.
+  (file) =>
+      dirs.lastWhere((dir) => p.isWithin(p.absolute(rootPath, dir), file)),
+);

@@ -52,7 +52,9 @@ sentences, say what was added, fixed or changed, as they will see it, and keep
 it about as long as the entries around it, also after a later commit adds an
 effect to it. For a fix, say what went wrong before. Leave out how it was
 implemented: no class or method names, internal terms or reasoning about the
-code.
+code. Leave the details of a rule, such as which kinds of declaration it
+keeps, to the docs page: "Stop reporting the declarations in Pigeon input
+files that Pigeon generates code from."
 
 Every pull request that changes what users see adds its entry under
 `## Unreleased`, without being asked. Write one entry per change and name every
@@ -275,6 +277,9 @@ explicit null check.
   literal gets busy, give its predicate a named local.
 - Keep an `Iterable` lazy when it is read once or in part, and use a `Set` when
   duplicates mean nothing.
+- Write `const` once, on the outermost literal that can be constant, not on
+  each of its elements: `const <(OutlineKind, Set<String>)>[(.mixin, {'mixin'})]`,
+  not `[(OutlineKind.mixin, const {'mixin'})]`.
 - Prefer collection methods (`where`, `firstWhereOrNull`) to loops with early
   returns, tear-offs to lambdas that only forward, `min` and `max` to
   hand-written ternaries, and `package:collection` equalities to comparison
@@ -328,7 +333,9 @@ explicit null check.
   `lib/src/lsp/semantic_tokens.dart`, instead of scanning it or writing another
   one. When the same expression or hand-written pattern appears a second time,
   give it a helper and replace every copy; share a function, not a regex
-  constant.
+  constant. This covers a filter on a general helper's result, too:
+  `directive.keyword == 'import'` became `Directive.importsIn` and
+  `isImport`.
 - Read Dart source through the analysis server (outline, selection ranges,
   semantic tokens, hover), not with regexes, text matching or a hand-written
   tokenizer. Text matching mistakes a parameter named `required` for the

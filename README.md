@@ -172,7 +172,7 @@ that are report-only because removing them would not compile:
 | `--[no-]public` | on | Report public declarations too. Off reports only private ones: `_`-prefixed, or an unnamed extension and its members. |
 | `--[no-]generated` | off | Scan generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, …) too. |
 | `--exported-packages <glob>` | none | Packages that code outside the analysis imports, such as one published to pub.dev: their public API is not reported. Repeatable. See [Library packages][docs-packages]. |
-| `--[no-]project-config` | on | Read [entry points][docs-skips] and [generated files][docs-skips] from `pubspec.yaml`, `build.yaml`, `l10n.yaml`, `analysis_options.yaml` and `firebase.json`. |
+| `--[no-]project-config` | on | Read [entry points][docs-skips] and [generated files][docs-skips] from `pubspec.yaml`, `build.yaml`, `l10n.yaml`, `analysis_options.yaml`, `firebase.json` and Pigeon input files. |
 | `--[no-]unused-translations` | on | Report the unused messages in the gen-l10n template file an `l10n.yaml` configures. Report-only: remove them from the ARB file yourself. |
 | `--also <list>` | — | Also report what is [skipped by default](#what-it-skips-by-default): `overrides`, `operators`, `tojson`, `union-members`. |
 | `--[no-]transitive` | on | Also report declarations used only by other dead code, naming what uses them. See [Transitively dead code][docs-report]. |
