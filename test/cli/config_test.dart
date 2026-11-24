@@ -68,10 +68,6 @@ entry-points:
   - annotation: Story
     package: stories
     glob: 'lib/stories/**'
-  - annotation: Story
-    package: stories
-    subtypes: false
-    constants: false
 kinds: [class, function]
 format: github
 color: true
@@ -102,7 +98,6 @@ dart: /sdk/bin/dart
         'bootstrap',
         'Harness.start in test/a.dart or test/b.dart',
         'declarations annotated with `@Story` from `package:stories` or a subtype of it in lib/stories/**',
-        'declarations annotated with `@Story` from `package:stories`',
       ]);
       expect(resolved.additionalGeneratedGlobs, ['lib/l10n/**']);
       expect(resolved.kinds, <SymbolKind>{.class$, .function});
@@ -362,12 +357,10 @@ concurrency: 4
             "'entry-points[0].package' must be a string",
         'entry-points: [{annotation: A, package: "package:a"}]':
             'not a package name',
-        'entry-points: [{annotation: A, package: a, subtypes: yes}]':
-            "'entry-points[0].subtypes' must be true or false",
-        'entry-points: [{annotation: A, package: a, constants: 1}]':
-            "'entry-points[0].constants' must be true or false",
-        // `subtypes` and `constants` belong to an annotation rule.
-        'entry-points: [{name: a, subtypes: false}]':
+        // A config rule always counts subtypes and constants.
+        'entry-points: [{annotation: A, package: a, subtypes: false}]':
+            "'entry-points[0]' must be `{name:",
+        'entry-points: [{annotation: A, package: a, constants: false}]':
             "'entry-points[0]' must be `{name:",
         // A rule has a name or an annotation, not both.
         'entry-points: [{name: a, annotation: A}]':

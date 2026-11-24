@@ -181,10 +181,56 @@ void main() {
       );
     });
 
+    test(
+      'with `constants` and without `subtypes`, it counts only the class itself',
+      () {
+        final rule = EntryPoint.annotationNamed(
+          'Story',
+          packages: const {'stories'},
+          constants: true,
+          reason: 'shown',
+        );
+
+        expect(matchesCard(rule, [annotationClass('Story')]), isTrue);
+        expect(
+          matchesCard(rule, [annotationClass('Story', readsConstant: true)]),
+          isTrue,
+        );
+        expect(
+          matchesCard(rule, [
+            annotationClass('DarkStory', supertypes: ['Story']),
+          ]),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'with `subtypes` and without `constants`, it counts only a constructor call',
+      () {
+        final rule = EntryPoint.annotationNamed(
+          'Story',
+          packages: const {'stories'},
+          subtypes: true,
+          reason: 'shown',
+        );
+
+        expect(matchesCard(rule, [annotationClass('Story')]), isTrue);
+        expect(
+          matchesCard(rule, [annotationClass('Story', readsConstant: true)]),
+          isFalse,
+        );
+      },
+    );
+
     test('prints as the annotation, its package and its files', () {
       expect(
         '${EntryPoint.annotationNamed('Story', packages: {'stories', 'dart:core'}, subtypes: true, reason: 'shown', files: ['lib/**'])}',
         'declarations annotated with `@Story` from `package:stories` or `dart:core` or a subtype of it by a constructor call in lib/**',
+      );
+      expect(
+        '${EntryPoint.annotationNamed('Story', packages: {'stories'}, reason: 'shown')}',
+        'declarations annotated with `@Story` from `package:stories`',
       );
     });
   });
@@ -219,42 +265,12 @@ void main() {
       );
     });
 
-    test('by default counts a constant', () {
+    test('counts a constant', () {
       final rule = EntryPoint.annotationFromConfig('Story', package: 'stories');
 
       expect(
         matchesCard(rule, [annotationClass('Story', readsConstant: true)]),
         isTrue,
-      );
-    });
-
-    test('`subtypes: false` counts only the class itself', () {
-      final rule = EntryPoint.annotationFromConfig(
-        'Story',
-        package: 'stories',
-        subtypes: false,
-      );
-
-      expect(matchesCard(rule, [annotationClass('Story')]), isTrue);
-      expect(
-        matchesCard(rule, [
-          annotationClass('DarkStory', supertypes: ['Story']),
-        ]),
-        isFalse,
-      );
-    });
-
-    test('`constants: false` counts only a constructor call', () {
-      final rule = EntryPoint.annotationFromConfig(
-        'Story',
-        package: 'stories',
-        constants: false,
-      );
-
-      expect(matchesCard(rule, [annotationClass('Story')]), isTrue);
-      expect(
-        matchesCard(rule, [annotationClass('Story', readsConstant: true)]),
-        isFalse,
       );
     });
 
@@ -315,15 +331,13 @@ void main() {
       final rule = EntryPoint.annotationFromConfig(
         'Story',
         package: 'stories',
-        subtypes: false,
-        constants: false,
       ).within('app');
 
       expect(rule, isA<AnnotationNamedEntryPoint>());
       rule as AnnotationNamedEntryPoint;
       expect(
         (rule.annotation, rule.subtypes, rule.constants),
-        ('Story', false, false),
+        ('Story', true, true),
       );
       expect(rule.packages, {'stories'});
       expect(rule.files, ['app/**']);
@@ -333,10 +347,6 @@ void main() {
       expect(
         '${EntryPoint.annotationFromConfig('Story', package: 'stories', files: ['lib/**'])}',
         'declarations annotated with `@Story` from `package:stories` or a subtype of it in lib/**',
-      );
-      expect(
-        '${EntryPoint.annotationFromConfig('Story', package: 'stories', subtypes: false, constants: false)}',
-        'declarations annotated with `@Story` from `package:stories`',
       );
     });
 

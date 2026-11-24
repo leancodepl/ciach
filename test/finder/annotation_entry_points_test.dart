@@ -70,15 +70,16 @@ void main() {
   );
 
   test(
-    'with `subtypes: false`, an `annotation` rule keeps only the declarations annotated with the class itself',
+    'an `annotationNamed` rule with `constants` and without `subtypes` keeps only the declarations annotated with the class itself',
     () async {
       expect(
         await findUnused(
           entryPoints: [
-            .annotationFromConfig(
+            .annotationNamed(
               'Story',
-              package: 'sample_pkg',
-              subtypes: false,
+              packages: {'sample_pkg'},
+              constants: true,
+              reason: 'shown',
             ),
           ],
         ),
@@ -101,15 +102,16 @@ void main() {
   );
 
   test(
-    'with `constants: false`, an `annotation` rule keeps only the declarations whose annotation calls a constructor',
+    'an `annotationNamed` rule with `subtypes` and without `constants` keeps only the declarations whose annotation calls a constructor',
     () async {
       expect(
         await findUnused(
           entryPoints: [
-            .annotationFromConfig(
+            .annotationNamed(
               'Story',
-              package: 'sample_pkg',
-              constants: false,
+              packages: {'sample_pkg'},
+              subtypes: true,
+              reason: 'shown',
             ),
           ],
         ),
@@ -127,16 +129,15 @@ void main() {
   );
 
   test(
-    'with `subtypes: false` and `constants: false`, an `annotation` rule keeps only the declarations annotated with the class by its own name',
+    'an `annotationNamed` rule without `subtypes` and `constants` keeps only the declarations annotated with the class by its own name',
     () async {
       expect(
         await findUnused(
           entryPoints: [
-            .annotationFromConfig(
+            .annotationNamed(
               'Story',
-              package: 'sample_pkg',
-              subtypes: false,
-              constants: false,
+              packages: {'sample_pkg'},
+              reason: 'shown',
             ),
           ],
         ),

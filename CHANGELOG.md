@@ -2,8 +2,7 @@
 
 - An `entry-points` rule can name an annotation class with `annotation:` and
   its package with `package:`. It keeps the declarations whose annotation
-  creates an object of the class or of a subtype, and the keys `subtypes` and
-  `constants` narrow it.
+  creates an object of the class or of a subtype.
   ([#180](https://github.com/leancodepl/ciach/pull/180))
 
 ## 0.7.2

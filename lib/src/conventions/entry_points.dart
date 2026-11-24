@@ -102,8 +102,8 @@ sealed class EntryPoint {
   }
 
   /// Creates an [EntryPoint.annotationNamed] rule that comes from the
-  /// `entry-points` setting. Unless [subtypes] or [constants] is `false`, a
-  /// subtype of the class and a constant count too.
+  /// `entry-points` setting. A subtype of the class and a constant count
+  /// too.
   ///
   /// Throws a [FormatException] if [annotation] is not a class name or
   /// [package] is not a package name. The constructor throws for a glob that
@@ -111,8 +111,6 @@ sealed class EntryPoint {
   factory EntryPoint.annotationFromConfig(
     String annotation, {
     required String package,
-    bool? subtypes,
-    bool? constants,
     List<String> files = const [],
     String reason = _configReason,
   }) {
@@ -134,8 +132,8 @@ sealed class EntryPoint {
     return .annotationNamed(
       annotation,
       packages: {package},
-      subtypes: subtypes ?? true,
-      constants: constants ?? true,
+      subtypes: true,
+      constants: true,
       files: files,
       reason: reason,
     );

@@ -161,15 +161,13 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
   CiachOption<dynamic> _optionFor(String key) =>
       .values.firstWhere((option) => option.configKey == key);
 
-  bool? _boolean(String key) => _booleanAt(key, settings[key]);
-
-  String? _string(String key) => _stringAt(key, settings[key]);
-
-  bool? _booleanAt(String at, Object? value) => switch (value) {
+  bool? _boolean(String key) => switch (settings[key]) {
     null => null,
     final bool value => value,
-    final other => _wrong(at, 'true or false', other),
+    final other => _wrong(key, 'true or false', other),
   };
+
+  String? _string(String key) => _stringAt(key, settings[key]);
 
   String? _stringAt(String at, Object? value) => switch (value) {
     null => null,
@@ -229,13 +227,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
 
   static const _nameRuleKeys = {'name', 'glob'};
 
-  static const _annotationRuleKeys = {
-    'annotation',
-    'package',
-    'subtypes',
-    'constants',
-    'glob',
-  };
+  static const _annotationRuleKeys = {'annotation', 'package', 'glob'};
 
   EntryPoint _entryPoint(String at, Object? rule) => switch (rule) {
     {'name': final String name} when _nameRuleKeys.containsAll(rule.keys) =>
@@ -252,13 +244,11 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
               (throw FormatException(
                 "$path: '$at' needs `package:`, the package that declares `$annotation`, such as `package: stories`.",
               )),
-          subtypes: _booleanAt('$at.subtypes', rule['subtypes']),
-          constants: _booleanAt('$at.constants', rule['constants']),
           files: files,
         ),
       ),
     _ => throw FormatException(
-      "$path: '$at' must be `{name: <declaration>, glob: <glob, list of globs, or none>}` or `{annotation: <class>, package: <package>, subtypes: <true or false>, constants: <true or false>, glob: <glob, list of globs, or none>}`, got $rule.",
+      "$path: '$at' must be `{name: <declaration>, glob: <glob, list of globs, or none>}` or `{annotation: <class>, package: <package>, glob: <glob, list of globs, or none>}`, got $rule.",
     ),
   };
 
