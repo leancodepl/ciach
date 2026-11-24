@@ -138,10 +138,10 @@ as the class of an annotation and the name after its `@`, shows a case where
 they differ: `@DarkPreview()` for a subclass of `Preview`. Keep a doc comment
 about as short as the doc comments of its neighbors. Leave the evidence for a
 claim, such as the SDK code that you read or how many runs you checked, to the
-pull request and the review reply. Don't add doc comments that the member's siblings lack or
-that repeat the name, and don't describe the internal steps or why a caller
-needs the member. When a name confuses a reader, rename it instead of
-lengthening its comment.
+pull request and the review reply. Don't add doc comments that the member's
+siblings lack or that repeat the name, and don't describe the internal steps or
+why a caller needs the member. When a name confuses a reader, rename it instead
+of lengthening its comment.
 
 A comment says what the code can't show: why a condition needs all rather than
 any, which part of a category a function handles and why, whether paths are
