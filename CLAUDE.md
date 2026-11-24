@@ -361,10 +361,10 @@ explicit null check.
   references that conditional-import variants share, combine them again in
   that step, instead of keeping the step's input away from it.
 - Don't add what nobody asked for: a flag that turns the new behavior off, a
-  deprecated alias, a second accepted spelling of an input, a config key that
-  only narrows a rule whose wider match keeps more code (`subtypes: false` on
-  an `annotation` rule), or a second quick fix that goes the other way. Ask
-  first. Reject a wrong input with an error
+  deprecated alias, a second accepted spelling of an input, a config key or a
+  parameter that only narrows a rule whose wider match keeps more code
+  (`subtypes: false` on an `annotation` rule, also in code), or a second quick
+  fix that goes the other way. Ask first. Reject a wrong input with an error
   that names the right form. Extend an existing helper, such as `runCli` in the
   tests, instead of adding a second way to do the same thing.
   When a new caller needs the helper on another input, add a variant that
