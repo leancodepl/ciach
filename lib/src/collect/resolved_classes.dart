@@ -139,8 +139,9 @@ final class ResolvedClasses {
   Set<ResolvedClass> supertypesOf(String path, DocumentSymbol symbol) =>
       _byClassName[(path, symbol.selectionRange.start)] ?? const {};
 
-  /// Records the annotation called [name], whose [definitions] are those of
-  /// its name. Records nothing when its class can't be resolved.
+  /// Records the class of the annotation called [name]. [definitions] are the
+  /// definitions of the name. Records nothing when the class can't be
+  /// resolved.
   Future<void> _resolveAnnotation(
     LspClient client,
     PackageConfig? config,

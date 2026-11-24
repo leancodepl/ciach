@@ -211,8 +211,8 @@ extension SemanticTokenLookup on List<SemanticToken> {
         final rest => _annotationNameIn(rest, ''),
       };
 
-  /// Returns the name that [tokens], which follow the `@` and the import
-  /// [prefix] of an annotation, start with.
+  /// Returns the name at the start of [tokens]. [tokens] follow the `@` of an
+  /// annotation and its import [prefix].
   static AnnotationName? _annotationNameIn(
     List<SemanticToken> tokens,
     String prefix,

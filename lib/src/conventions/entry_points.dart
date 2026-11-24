@@ -103,9 +103,9 @@ sealed class EntryPoint {
     return .new(name: name, files: files, reason: reason);
   }
 
-  /// Creates an [EntryPoint.annotationNamed] rule that comes from the
-  /// `entry-points` setting. A subtype of the class and a constant count
-  /// too.
+  /// Creates an [EntryPoint.annotationNamed] rule from the `entry-points`
+  /// setting. The rule compares the class of the annotation's object, so a
+  /// subtype of the class and a constant count too.
   ///
   /// Throws a [FormatException] if [annotation] is not a class name or
   /// [package] is not a package name. The constructor throws for a glob that
