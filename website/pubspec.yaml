@@ -27,8 +27,8 @@ dev_dependencies:
   test: ^1.31.1
 
 # The head of jaspr's `next` branch, whose builder supports analyzer 13 and
-# newer. Keep the commit the same as for `jaspr_cli` in vercel.json and for
-# `jaspr_lints` in analysis_options.yaml, and go back to the version
+# newer. Keep the commit the same as for `jaspr_cli` in tool/netlify_build.sh
+# and for `jaspr_lints` in analysis_options.yaml, and go back to the version
 # constraints above once it is published.
 dependency_overrides:
   jaspr:

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Builds the static site into build/jaspr. Used by `vercel build` (see
-# vercel.json) and by anyone building locally; expects `dart` and `jaspr` on
-# PATH.
+# Builds the static site into build/jaspr. Used by tool/netlify_build.sh and
+# by anyone building locally; expects `dart` and `jaspr` on PATH.
 #
 # SITE_URL is the URL the build will be served from. It drives <base href>,
 # canonical and Open Graph URLs, the sitemap, and robots.txt: anything other

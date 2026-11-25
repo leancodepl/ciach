@@ -17,10 +17,7 @@ workflows:
         - 'dart-lang/setup-dart@v1.8.1'
         - 'leancodepl/mobile-tools@pana-score-v1.3'
         - 'leancodepl/mobile-tools@pub-release-v1'
-    '.github/workflows/website_preview.yml':
-        - 'actions/checkout@v7.0.1'
-        - 'dart-lang/setup-dart@v1.8.1'
-    '.github/workflows/website_production.yml':
+    '.github/workflows/website_checks.yml':
         - 'actions/checkout@v7.0.1'
         - 'dart-lang/setup-dart@v1.8.1'
 dependencies:

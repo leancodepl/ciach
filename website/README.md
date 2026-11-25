@@ -3,16 +3,18 @@
 The [ciach](https://pub.dev/packages/ciach) landing page, a static
 [Jaspr](https://jaspr.site) site. It uses Jaspr from the commit on the `next`
 branch that `dependency_overrides` in `pubspec.yaml` names. Activate the Jaspr
-CLI from the same commit with the `dart pub global activate` command in the
-`installCommand` of `vercel.json`, then run:
+CLI from the same commit with the `dart pub global activate` command in
+`tool/netlify_build.sh`, then run:
 
 ```bash
 dart pub get
 jaspr serve
 ```
 
-`bash tool/build.sh` builds it into `build/jaspr`; Vercel runs the same
-script from the GitHub workflows in `.github/workflows/website_*.yml`.
+`bash tool/build.sh` builds it into `build/jaspr`. Netlify builds the site
+through its GitHub App with `tool/netlify_build.sh`, which installs Dart and
+the Jaspr CLI and runs the same script: a Deploy Preview for each pull
+request, and production on every push to `main`.
 `dart test` renders the icons and the social card again, regenerates
 `favicon.svg` and the web manifest, and compares them all with the committed
 files (CI does this on every pull request); `UPDATE_GOLDENS=1 dart test`
