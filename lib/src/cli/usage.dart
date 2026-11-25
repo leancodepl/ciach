@@ -49,7 +49,7 @@ Config file:
         glob: 'lib/src/isolate.dart'
       - name: MyHost.callback         # a member, called from native code
         glob: 'lib/my_host.dart'
-      - annotation: Story             # what `@Story()` annotates
+      - annotation: Story             # declarations annotated with `Story`
         package: stories              # the package that declares `Story`
     kinds: [class, function]
     format: json

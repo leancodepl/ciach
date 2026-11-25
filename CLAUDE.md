@@ -98,9 +98,12 @@ easy-to-follow sentences, not how it works inside.
   they concern, and notes on which tool versions a parser supports go next to
   that parser. Leave out warnings about conventions that a lint already
   enforces.
-- Prefer a sentence and a short list to a long paragraph or a dense table, and
-  don't add an example that repeats the options table. Keep aligned blocks
-  aligned, such as the trailing `#` comments of a code sample.
+- Prefer a sentence and a short list to a long paragraph or a dense table:
+  give each kind of rule its own list item, and say a detail once, not in the
+  table and again below it. Don't add an example that repeats the options
+  table. Keep aligned blocks aligned, such as the trailing `#` comments of a
+  code sample, and let each of those comments say plainly what its line does:
+  "declarations annotated with `Story`", not "what `@Story()` annotates".
 - Check every list of defaults or effects against the code. When the docs
   describe a failure, name every effect that a user can see and where it shows
   up in the output.
