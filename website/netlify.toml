@@ -12,6 +12,15 @@
   publish = "build/jaspr"
   ignore = "bash tool/netlify_ignore.sh"
 
+# Serves the docs page at `/docs`, the URL that the site links to and the
+# sitemap lists, instead of redirecting it to `/docs/`. Without `force`, the
+# rule doesn't apply, because the `docs/` directory exists.
+[[redirects]]
+  from = "/docs"
+  to = "/docs/index.html"
+  status = 200
+  force = true
+
 [[headers]]
   for = "/*"
   [headers.values]
