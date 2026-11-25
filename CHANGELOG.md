@@ -1,10 +1,12 @@
 ## Unreleased
 
-- An `entry-points` rule can name an annotation class with `annotation:` and
-  its package with `package:`. It keeps the declarations whose annotation
-  creates an object of the class or of a subtype. A declaration annotated with
-  a constant that holds a Flutter `Preview` or `MultiPreview` is no longer
-  reported either.
+- Add `annotation` rules to `entry-points`. The rule
+  `{annotation: Story, package: stories}` keeps every declaration annotated
+  with `Story`, with a subtype of it, or with a constant that holds one.
+  ([#180](https://github.com/leancodepl/ciach/pull/180))
+- Stop reporting a declaration annotated with a constant that holds a Flutter
+  `Preview` or `MultiPreview`, such as `@preview` for
+  `const preview = Preview();`.
   ([#180](https://github.com/leancodepl/ciach/pull/180))
 
 ## 0.7.2
