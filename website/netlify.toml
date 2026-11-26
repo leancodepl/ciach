@@ -1,0 +1,53 @@
+# AI-Provenance:
+#   model: claude-opus-5-5
+#   harness: Claude Code
+
+# Netlify builds this site from the ciach repository through its GitHub App:
+# a Deploy Preview for each pull request, and production on every push to
+# main. The project's base directory is `website`, set in the Netlify UI, so
+# every path here is relative to it.
+
+[build]
+  command = "bash tool/netlify_build.sh"
+  publish = "build/jaspr"
+  ignore = "bash tool/netlify_ignore.sh"
+
+# Serves the docs page at `/docs`, the URL that the site links to and the
+# sitemap lists, instead of redirecting it to `/docs/`. Without `force`, the
+# rule doesn't apply, because the `docs/` directory exists.
+[[redirects]]
+  from = "/docs"
+  to = "/docs/index.html"
+  status = 200
+  force = true
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
+
+[[headers]]
+  for = "/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
+
+[[headers]]
+  for = "/favicon.*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
+
+[[headers]]
+  for = "/apple-touch-icon.png"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
+
+[[headers]]
+  for = "/icon-*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, stale-while-revalidate=86400"
