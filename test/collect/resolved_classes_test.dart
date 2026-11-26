@@ -35,6 +35,7 @@ void main() {
 class Preview {
   const Preview();
   const Preview.named();
+  const Preview.titled(String title, [String? subtitle]);
 }
 
 class DarkPreview extends Preview {
@@ -54,6 +55,12 @@ const sameAsPreview = preview;
 const heldPreview = Holder.held;
 
 const previewList = [Preview()];
+
+const titledPreview = Preview.titled('held');
+
+const sameAsTitled = titledPreview;
+
+const twoTitles = Preview.titled('held', 'second');
 
 class Typed<T> extends Preview {
   const Typed();
@@ -109,20 +116,24 @@ class Holder {
 
   /// The class [type] from the package `app` that an annotation creates,
   /// whose supertypes are [supertypes] and `Object`.
-  AnnotationClass annotationClass(String type, List<String> supertypes) => .new(
-    app(type),
-    {for (final supertype in supertypes) app(supertype), object},
-  );
+  AnnotationClass annotationClass(
+    String type,
+    List<String> supertypes, {
+    String? argument,
+  }) => .new(app(type), {
+    for (final supertype in supertypes) app(supertype),
+    object,
+  }, argument: argument);
 
   final rule = EntryPoint.annotationNamed(
     'Preview',
     packages: const {'app'},
-    subtypes: true,
+    matchesClass: true,
     reason: 'shown',
   );
 
   test(
-    'resolves the class of each annotation that calls a constructor, with all its supertypes, and of no annotation that reads a constant',
+    'resolves the class of each annotation with all its supertypes',
     () async {
       const source = '''
 import 'previews.dart';
@@ -180,8 +191,11 @@ void h() {}
             annotationClass('DarkPreview', ['Preview']),
           ],
           7: [annotationClass('Preview', [])],
-          8: isEmpty,
-          9: isEmpty,
+          8: [annotationClass('Preview', [])],
+          // `override` is an object of the private class `_Override`.
+          9: [
+            AnnotationClass(const .new('_Override', null), {object}),
+          ],
           10: isEmpty,
           // The name of a generic class has no type parameters.
           11: [
@@ -202,17 +216,89 @@ void h() {}
             annotationClass('Typed', ['Preview']),
           ],
           // A static constant, not a constructor of `Holder`.
-          16: isEmpty,
-          17: isEmpty,
-          18: isEmpty,
-          19: isEmpty,
+          16: [
+            annotationClass('DarkPreview', ['Preview']),
+          ],
+          17: [annotationClass('Preview', [])],
+          // A constant that holds another one.
+          18: [annotationClass('Preview', [])],
+          19: [
+            annotationClass('DarkPreview', ['Preview']),
+          ],
+          // A list is not created by a constructor call.
           20: isEmpty,
           // A named constructor of a prefixed class.
           21: [annotationClass('Preview', [])],
           // A static constant of a prefixed class.
-          22: isEmpty,
+          22: [
+            annotationClass('DarkPreview', ['Preview']),
+          ],
           23: isEmpty,
         },
+      );
+    },
+  );
+
+  test(
+    'records the first argument of the constructor call, at the `@` or in the value of a constant',
+    () async {
+      final (:path, :tokens, :classes, symbols: _) = await resolve(
+        '''
+import 'previews.dart';
+
+@Preview.titled('shown') void a() {}
+@titledPreview void b() {}
+@sameAsTitled void c() {}
+@twoTitles void d() {}
+@Preview() void e() {}
+''',
+        [rule],
+      );
+
+      expect(
+        [
+          for (final line in [2, 3, 4, 5, 6])
+            classes.annotationClassesOf(
+              path,
+              tokens.where((t) => t.line == line),
+            ),
+        ],
+        [
+          [annotationClass('Preview', [], argument: 'shown')],
+          [annotationClass('Preview', [], argument: 'held')],
+          // A constant that holds another one.
+          [annotationClass('Preview', [], argument: 'held')],
+          [annotationClass('Preview', [], argument: 'held')],
+          [annotationClass('Preview', [])],
+        ],
+      );
+    },
+  );
+
+  test(
+    'resolves no annotations for rules that match the name after the `@`',
+    () async {
+      final (:path, :tokens, :classes, symbols: _) = await resolve(
+        '''
+import 'previews.dart';
+
+@preview void a() {}
+@Preview() void b() {}
+''',
+        [
+          .annotationNamed('Preview', packages: const {'app'}, reason: 'shown'),
+        ],
+      );
+
+      expect(
+        [
+          for (final line in [2, 3])
+            classes.annotationClassesOf(
+              path,
+              tokens.where((t) => t.line == line),
+            ),
+        ],
+        [isEmpty, isEmpty],
       );
     },
   );

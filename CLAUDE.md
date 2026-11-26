@@ -9,7 +9,9 @@ changelog, pull request descriptions and review replies.
   statement that the symbols belong to", not "the statement the symbols belong
   to". Don't stack nouns ("analysis server plugin entry point"); use a verb
   ("called by the analysis server"). Short means fewer ideas, not fewer words
-  per idea.
+  per idea. Give a sentence one idea, and split one that stacks clauses:
+  "selects a declaration whose annotation creates an object of the class
+  [annotation] or of a subtype instead" became two sentences.
 - Say things literally. Avoid stilted or figurative phrases such as "X, less
   the Y", "gives way to", "is dead with", "reads as unused" or "knows a CI
   runner from a terminal".
@@ -54,7 +56,9 @@ effect to it. For a fix, say what went wrong before. Leave out how it was
 implemented: no class or method names, internal terms or reasoning about the
 code. Leave the details of a rule, such as which kinds of declaration it
 keeps, to the docs page: "Stop reporting the declarations in Pigeon input
-files that Pigeon generates code from."
+files that Pigeon generates code from." Show a new config form by an example,
+such as `{annotation: Story, package: stories}`, rather than by describing
+its keys.
 
 Every pull request that changes what users see adds its entry under
 `## Unreleased`, without being asked. Write one entry per change and name every
@@ -94,9 +98,12 @@ easy-to-follow sentences, not how it works inside.
   they concern, and notes on which tool versions a parser supports go next to
   that parser. Leave out warnings about conventions that a lint already
   enforces.
-- Prefer a sentence and a short list to a long paragraph or a dense table, and
-  don't add an example that repeats the options table. Keep aligned blocks
-  aligned, such as the trailing `#` comments of a code sample.
+- Prefer a sentence and a short list to a long paragraph or a dense table:
+  give each kind of rule its own list item, and say a detail once, not in the
+  table and again below it. Don't add an example that repeats the options
+  table. Keep aligned blocks aligned, such as the trailing `#` comments of a
+  code sample, and let each of those comments say plainly what its line does:
+  "declarations annotated with `Story`", not "what `@Story()` annotates".
 - Check every list of defaults or effects against the code. When the docs
   describe a failure, name every effect that a user can see and where it shows
   up in the output.
@@ -131,13 +138,15 @@ easy-to-follow sentences, not how it works inside.
 
 A function's doc comment starts with what the function does or returns
 ("Returns …"), says what a parameter holds when that isn't obvious, and gives
-an example when a term is abstract. Keep it about as short as the doc comments
-of its neighbors. Leave the evidence for a claim, such as the SDK
-code that you read or how many runs you checked, to the pull request and the
-review reply. Don't add doc comments that the member's siblings lack or
-that repeat the name, and don't describe the internal steps or why a caller
-needs the member. When a name confuses a reader, rename it instead of
-lengthening its comment.
+an example when a term is abstract. A comment that contrasts two things, such
+as the class of an annotation and the name after its `@`, shows a case where
+they differ: `@DarkPreview()` for a subclass of `Preview`. Keep a doc comment
+about as short as the doc comments of its neighbors. Leave the evidence for a
+claim, such as the SDK code that you read or how many runs you checked, to the
+pull request and the review reply. Don't add doc comments that the member's
+siblings lack or that repeat the name, and don't describe the internal steps or
+why a caller needs the member. When a name confuses a reader, rename it instead
+of lengthening its comment.
 
 A comment says what the code can't show: why a condition needs all rather than
 any, which part of a category a function handles and why, whether paths are
@@ -355,16 +364,24 @@ explicit null check.
   method to another, a value built twice, a one-field JSON object, an unused
   style or variant, or a factory left over from a refactor. Before wrapping a
   library call or its exception, check what the exception already carries.
+- Make every combination of an API's options work, as `matchesClass` and
+  `argument` of an annotation rule do, instead of forbidding one with an
+  assert. Keep the API to the fewest options that its callers need.
 - Don't put one caller's special case into a general function's result, such
   as a `null` placeholder in a list; handle it in that caller.
 - When a later step adds to data that an earlier step combined, such as the
   references that conditional-import variants share, combine them again in
   that step, instead of keeping the step's input away from it.
 - Don't add what nobody asked for: a flag that turns the new behavior off, a
-  deprecated alias, a second accepted spelling of an input, or a second quick
+  deprecated alias, a second accepted spelling of an input, a config key or a
+  parameter that only narrows a rule whose wider match keeps more code
+  (`subtypes: false` on an `annotation` rule, also in code), or a second quick
   fix that goes the other way. Ask first. Reject a wrong input with an error
   that names the right form. Extend an existing helper, such as `runCli` in the
   tests, instead of adding a second way to do the same thing.
+  When a new caller needs the helper on another input, add a variant that
+  takes the input and have the helper call it, so that the existing calls
+  stay as they are: `_string(key)` calls `_stringAt(at, value)`.
 - Match a declaration that a library provides, such as `@pragma`, by its name
   and by the package that declares it, not by the name alone: a project can
   declare a `pragma` of its own. Make the package required, also in config

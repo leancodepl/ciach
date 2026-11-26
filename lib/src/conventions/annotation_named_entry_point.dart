@@ -6,28 +6,23 @@
 
 part of 'entry_points.dart';
 
-/// A rule that selects a declaration by an annotation on it: by the name
-/// written after the `@`, such as `JSExport` in `@JSExport()` and
-/// `reflectiveTest` in `@reflectiveTest`, or, with [subtypes], by the class
-/// that the annotation's constructor call creates or one of its supertypes.
-/// It optionally also checks the package that declares the annotation and
-/// the string literal that its first argument is.
+/// A rule that selects a declaration by an annotation on it. It compares the
+/// name after the `@`, such as `JSExport` in `@JSExport()`, or, with
+/// [matchesClass], the class of the annotation's object. It also checks the
+/// package that declares the annotation and, optionally, the string that its
+/// first argument is.
 final class AnnotationNamedEntryPoint extends EntryPoint {
   AnnotationNamedEntryPoint(
     this.annotation, {
     required this.packages,
-    this.subtypes = false,
+    this.matchesClass = false,
     this.argument,
     this.reason,
     this.members,
     super.files = const [],
-  }) : assert(
-         argument == null || !subtypes,
-         'The argument is checked only without `subtypes`.',
-       ),
-       super._();
+  }) : super._();
 
-  /// The name written after the `@`, or with [subtypes], the name of the
+  /// The name written after the `@`, or with [matchesClass], the name of the
   /// class.
   final String annotation;
 
@@ -35,15 +30,18 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
   /// `test_reflective_loader`, or an SDK library, such as `dart:core`.
   final Set<String> packages;
 
-  /// Whether the rule selects a declaration by the class that the
-  /// annotation's constructor call creates, which [annotation] or a subtype
-  /// of it can be, as `@DarkPreview()` is for `Preview`, also through a
-  /// typedef.
-  final bool subtypes;
+  /// Whether the rule asks the analysis server for the class of the object
+  /// that the annotation creates, instead of comparing the name written after
+  /// the `@`. A rule for `Preview` then also matches `@DarkPreview()` for a
+  /// subclass, `@PreviewAlias()` for a typedef and `@preview` for
+  /// `const preview = Preview();`, whose names differ from `Preview`.
+  final bool matchesClass;
 
-  /// The value of the string literal that the annotation's first argument
-  /// has to be, such as `vm:entry-point` in `@pragma('vm:entry-point')`, or
-  /// `null` for any arguments.
+  /// The value of the string literal that the first argument of the
+  /// constructor call has to be, such as `vm:entry-point` in
+  /// `@pragma('vm:entry-point')`, or `null` for any arguments. With
+  /// [matchesClass], the call can also be in the value of a constant, as in
+  /// `@entryPoint` for `const entryPoint = pragma('vm:entry-point');`.
   final String? argument;
 
   @override
@@ -53,15 +51,17 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
   final KeptMembers? members;
 
   @override
-  Set<String> get annotationNames => subtypes ? const {} : {annotation};
+  Set<String> get annotationNames => matchesClass ? const {} : {annotation};
 
   @override
-  Set<ServerLookup> get lookups => {if (subtypes) .annotationClasses};
+  Set<ServerLookup> get lookups => {if (matchesClass) .annotationClasses};
 
   @override
-  bool _selects(ResolvedDeclaration declaration) => subtypes
+  bool _selects(ResolvedDeclaration declaration) => matchesClass
       ? declaration.annotationClasses.any(
-          (it) => _isAnnotation(it.type) || it.supertypes.any(_isAnnotation),
+          (it) =>
+              (argument == null || it.argument == argument) &&
+              (_isAnnotation(it.type) || it.supertypes.any(_isAnnotation)),
         )
       : _annotatesByName(declaration);
 
@@ -70,16 +70,12 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
 
   bool _annotatesByName(ResolvedDeclaration declaration) {
     final tokens = declaration.leadingMetadata.toList();
-    // The server gives the `(` of an annotation a token, so the first
-    // argument is the second token after the name.
     return tokens.indexed.any(
       (named) =>
           named.$2.isAnnotationNamed(annotation) &&
           packages.contains(declaration.annotationPackages[named.$2.start]) &&
           (argument == null ||
-              (tokens.elementAtOrNull(named.$1 + 1)?.text == '(' &&
-                  tokens.elementAtOrNull(named.$1 + 2)?.stringValue ==
-                      argument)),
+              tokens.annotationArgumentAfter(named.$1) == argument),
     );
   }
 
@@ -87,7 +83,7 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
   AnnotationNamedEntryPoint _withFiles(List<String> files) => .new(
     annotation,
     packages: packages,
-    subtypes: subtypes,
+    matchesClass: matchesClass,
     argument: argument,
     reason: reason,
     members: members,
@@ -102,7 +98,7 @@ final class AnnotationNamedEntryPoint extends EntryPoint {
   String get label => [
     'declarations annotated with `@$annotation`',
     'from ${packages.map(_libraryOf).join(' or ')}',
-    if (subtypes) 'or a subtype of it',
+    if (matchesClass) 'or a subtype of it',
     if (argument case final argument?) "with `'$argument'`",
   ].join(' ');
 }

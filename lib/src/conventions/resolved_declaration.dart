@@ -44,16 +44,22 @@ final class ResolvedClass {
       package?.let((package) => 'package:$package $name') ?? name;
 }
 
-/// The class that an annotation's constructor call creates, with its
-/// supertypes: `Preview` for `@Preview()`.
+/// The class of the object that an annotation creates, with its supertypes:
+/// `Preview` for `@Preview()`, or for `@preview` with
+/// `const preview = Preview();`.
 final class AnnotationClass {
-  const AnnotationClass(this.type, this.supertypes);
+  const AnnotationClass(this.type, this.supertypes, {this.argument});
 
-  /// The class that the constructor creates.
+  /// The class of the object.
   final ResolvedClass type;
 
   /// All the supertypes of [type].
   final Set<ResolvedClass> supertypes;
+
+  /// The value of the string literal that the first argument of the
+  /// constructor call is: `name` in `@Preview('name')`, and also for
+  /// `@preview` with `const preview = Preview('name');`.
+  final String? argument;
 
   static const _supertypesEquality = SetEquality<ResolvedClass>();
 
@@ -61,13 +67,19 @@ final class AnnotationClass {
   bool operator ==(Object other) =>
       other is AnnotationClass &&
       other.type == type &&
+      other.argument == argument &&
       _supertypesEquality.equals(other.supertypes, supertypes);
 
   @override
-  int get hashCode => Object.hash(type, _supertypesEquality.hash(supertypes));
+  int get hashCode =>
+      Object.hash(type, argument, _supertypesEquality.hash(supertypes));
 
   @override
-  String toString() => '$type, supertypes $supertypes';
+  String toString() => [
+    '$type',
+    if (argument case final argument?) "with '$argument'",
+    'supertypes $supertypes',
+  ].join(', ');
 }
 
 /// A declaration that the entry-point rules are checked against.
@@ -128,8 +140,7 @@ final class ResolvedDeclaration {
   /// `pragma` in `@pragma('vm:entry-point')`.
   final Map<Position, String> annotationPackages;
 
-  /// The classes that the constructor calls in the declaration's
-  /// annotations create.
+  /// The classes of the objects that the declaration's annotations create.
   final List<AnnotationClass> annotationClasses;
 
   /// All the supertypes of the declaration when it is a class, and none

@@ -167,10 +167,12 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     final other => _wrong(key, 'true or false', other),
   };
 
-  String? _string(String key) => switch (settings[key]) {
+  String? _string(String key) => _stringAt(key, settings[key]);
+
+  String? _stringAt(String at, Object? value) => switch (value) {
     null => null,
     final String value => value,
-    final other => _wrong(key, 'a string', other),
+    final other => _wrong(at, 'a string', other),
   };
 
   /// The strings under [key], accepting a bare string as a one-element list.
@@ -208,30 +210,54 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
     return values;
   }
 
-  /// The rules under [key]: `{name: …, glob: …}` maps, `glob` one glob, a list
-  /// of them, or absent for any file.
+  /// The rules under [key]: `{name: …, glob: …}` or
+  /// `{annotation: …, glob: …}` maps, `glob` one glob, a list of them, or
+  /// absent for any file.
   List<EntryPoint>? _entryPoints(String key) => switch (settings[key]) {
     null => null,
     final Iterable<Object?> rules => [
       for (final (i, rule) in rules.indexed) _entryPoint('$key[$i]', rule),
     ],
-    final other => _wrong(key, 'a list of `{name, glob}` rules', other),
-  };
-
-  static const _ruleFields = {'name', 'glob'};
-
-  EntryPoint _entryPoint(String at, Object? rule) => switch (rule) {
-    {'name': final String name, 'glob': final glob}
-        when _ruleFields.containsAll(rule.keys) =>
-      _rule(at, name, glob),
-    {'name': final String name} when _ruleFields.containsAll(rule.keys) =>
-      _rule(at, name, null),
-    _ => throw FormatException(
-      "$path: '$at' must be `{name: <declaration>, glob: <glob, list of globs, or none>}`, got $rule.",
+    final other => _wrong(
+      key,
+      'a list of `{name, glob}` or `{annotation, glob}` rules',
+      other,
     ),
   };
 
-  EntryPoint _rule(String at, String name, Object? glob) {
+  static const _nameRuleKeys = {'name', 'glob'};
+
+  static const _annotationRuleKeys = {'annotation', 'package', 'glob'};
+
+  EntryPoint _entryPoint(String at, Object? rule) => switch (rule) {
+    {'name': final String name} when _nameRuleKeys.containsAll(rule.keys) =>
+      _rule(at, rule['glob'], (files) => .fromConfig(name, files: files)),
+    {'annotation': final String annotation}
+        when _annotationRuleKeys.containsAll(rule.keys) =>
+      _rule(
+        at,
+        rule['glob'],
+        (files) => .annotationFromConfig(
+          annotation,
+          package:
+              _stringAt('$at.package', rule['package']) ??
+              (throw FormatException(
+                "$path: '$at' needs `package:`, the package that declares `$annotation`, such as `package: stories`.",
+              )),
+          files: files,
+        ),
+      ),
+    _ => throw FormatException(
+      "$path: '$at' must be `{name: <declaration>, glob: <glob, list of globs, or none>}` or `{annotation: <class>, package: <package>, glob: <glob, list of globs, or none>}`, got $rule.",
+    ),
+  };
+
+  /// Returns the rule that [create] makes from the files that [glob] lists.
+  EntryPoint _rule(
+    String at,
+    Object? glob,
+    EntryPoint Function(List<String> files) create,
+  ) {
     final files = switch (glob) {
       null => const <String>[],
       final String one => [one],
@@ -240,7 +266,7 @@ class ConfigFile implements ConfigurationBroker<CiachOption<dynamic>> {
       final other => _wrong('$at.glob', 'a glob or a list of globs', other),
     };
     try {
-      return .fromConfig(name, files: files);
+      return create(files);
     } on FormatException catch (e) {
       // The glob package's error carries the glob as its source; name it.
       final about = e.source is String ? "glob '${e.source}': " : '';

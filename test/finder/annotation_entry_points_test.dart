@@ -58,20 +58,39 @@ void main() {
   );
 
   test(
-    'a rule for an annotation class keeps the declarations whose annotation calls a constructor of the class or of a subtype of it',
+    'an `annotation` rule keeps the declarations whose annotation creates an object of the class or of a subtype of it',
+    () async {
+      expect(
+        await findUnused(
+          entryPoints: [.annotationFromConfig('Story', package: 'sample_pkg')],
+        ),
+        {'deprecatedStory', 'notAStory', 'Gallery.new', 'Gallery.helper'},
+      );
+    },
+  );
+
+  test(
+    'an `annotationNamed` rule without `matchesClass` keeps only the declarations annotated with the class by its own name',
     () async {
       expect(
         await findUnused(
           entryPoints: [
             .annotationNamed(
               'Story',
-              packages: const {'sample_pkg'},
-              subtypes: true,
+              packages: {'sample_pkg'},
               reason: 'shown',
             ),
           ],
         ),
         {
+          'DarkStory',
+          'DarkerStory',
+          'StoryLike',
+          'darkStoryCard',
+          'darkerStoryCard',
+          'likeStoryCard',
+          'StoryAlias',
+          'aliasStoryCard',
           // Used only by `constantStory`.
           'story',
           'constantStory',

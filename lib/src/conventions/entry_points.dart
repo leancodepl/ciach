@@ -1,5 +1,6 @@
 import 'package:ciach/src/conventions/resolved_declaration.dart';
 import 'package:ciach/src/conventions/test_reflective_loader.dart';
+import 'package:ciach/src/lsp/semantic_tokens.dart';
 import 'package:ciach/src/source/symbols.dart';
 import 'package:collection/collection.dart';
 import 'package:glob/glob.dart';
@@ -49,16 +50,22 @@ sealed class EntryPoint {
     List<String> files,
   }) = SubtypeEntryPoint;
 
-  /// Creates a rule that selects every declaration with an annotation called
-  /// [annotation] that one of [packages] declares, and whose first argument
-  /// is the string [argument] unless that is `null`. With [subtypes], it selects a declaration whose annotation calls
-  /// a constructor of the class [annotation] or of a subtype of it instead,
-  /// also through a typedef. It keeps the declaration for [reason] and, in a
-  /// type, the [members].
+  /// Creates a rule that keeps the declarations annotated with [annotation],
+  /// which one of [packages] declares. It keeps them for [reason] and, in a
+  /// type, also keeps the [members].
+  ///
+  /// The rule compares the name after the `@` with [annotation]. With
+  /// [matchesClass], it compares the class of the annotation's object
+  /// instead, and counts its subtypes. A rule for `Story` then also keeps
+  /// `@DarkStory()` for a subclass, `@StoryAlias()` for a typedef and
+  /// `@story` for `const story = Story();`.
+  ///
+  /// With [argument], the first argument of the constructor call has to be
+  /// that string, as `'vm:entry-point'` is in `@pragma('vm:entry-point')`.
   factory EntryPoint.annotationNamed(
     String annotation, {
     required Set<String> packages,
-    bool subtypes,
+    bool matchesClass,
     String? argument,
     String? reason,
     KeptMembers? members,
@@ -97,11 +104,49 @@ sealed class EntryPoint {
     return .new(name: name, files: files, reason: reason);
   }
 
+  /// Creates an [EntryPoint.annotationNamed] rule from the `entry-points`
+  /// setting. The rule compares the class of the annotation's object, so a
+  /// subtype of the class and a constant count too.
+  ///
+  /// Throws a [FormatException] if [annotation] is not a class name or
+  /// [package] is not a package name. The constructor throws for a glob that
+  /// does not parse.
+  factory EntryPoint.annotationFromConfig(
+    String annotation, {
+    required String package,
+    List<String> files = const [],
+    String reason = _configReason,
+  }) {
+    if (annotation.startsWith('@')) {
+      throw FormatException(
+        "'$annotation': write the class name without `@`, such as `${annotation.substring(1)}`.",
+      );
+    }
+    if (annotation.contains('.') || !_qualifiedName.hasMatch(annotation)) {
+      throw FormatException(
+        "'$annotation' is not a class name; expected an identifier such as 'Story'.",
+      );
+    }
+    if (!_packageName.hasMatch(package)) {
+      throw FormatException(
+        "'$package' is not a package name; expected a name such as 'storybook', without `package:`.",
+      );
+    }
+    return .annotationNamed(
+      annotation,
+      packages: {package},
+      matchesClass: true,
+      files: files,
+      reason: reason,
+    );
+  }
+
   static const _configReason = 'listed under `entry-points` in the config file';
   static final _posix = p.Context(style: .posix);
   static final _qualifiedName = RegExp(
     r'^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)?$',
   );
+  static final _packageName = RegExp(r'^[a-z_][a-z0-9_]*$');
 
   /// The file globs as written; empty matches any file.
   List<String> get files => [for (final glob in _globs) glob.pattern];
@@ -249,8 +294,8 @@ enum MemberSelection {
 /// A kind of request that a rule needs the analysis server to answer before
 /// it can select a declaration.
 enum ServerLookup {
-  /// The class that an annotation's constructor call creates, and its
-  /// supertypes.
+  /// The class of the object that an annotation creates, through a
+  /// constructor call or a constant, and its supertypes.
   annotationClasses,
 
   /// The supertypes of a class.

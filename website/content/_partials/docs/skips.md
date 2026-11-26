@@ -42,7 +42,7 @@ Some declarations are only called from code a tool generates, so nothing in the 
 | --- | --- |
 | `build.yaml` builders | the functions under `builder_factories` or `builder_factory` |
 | `pubspec.yaml` plugin | `registerWith` on each platform's `dartPluginClass` and on the web `pluginClass` |
-| `flutter` | the declarations annotated with Flutter's `@Preview` or `@MultiPreview`, or with a subtype of either, which `flutter widget-preview` shows |
+| `flutter` | the declarations annotated with Flutter's `@Preview` or `@MultiPreview`, with a subtype of either or with a constant that holds one, which `flutter widget-preview` shows |
 | `dart_frog` | `onRequest`, `middleware`, `init`, `run` |
 | `serverpod` | the classes that have Serverpod's `Endpoint` among their supertypes, and their public methods |
 | `analysis_server_plugin`, or a package an `analysis_options.yaml` under the root loads as a plugin by `path:` | `plugin` in `lib/main.dart` |
@@ -57,9 +57,17 @@ entry-points:
     glob: 'lib/my_host.dart'      # one glob or a list; omit for any file
   - name: bootstrap               # a top-level declaration
     glob: 'lib/src/isolate.dart'
+  - annotation: Story             # declarations annotated with `Story`
+    package: stories              # the package that declares `Story`
 ```
 
-A matching declaration is neither reported nor removed. A member rule also keeps its type, while the type's other members are still checked. A rule that names a class or extension type also keeps its unnamed constructor, but not its named ones. Name a constructor the way the report does: `MyWidget.new` or `MyWidget.named`. `-v` names each skipped entry point.
+A matching declaration is neither reported nor removed:
+
+- A `name` rule for a member also keeps its type. The type's other members are still checked.
+- A `name` rule for a class or extension type also keeps its unnamed constructor, but not its named ones. Name a constructor the way the report does: `MyWidget.new` or `MyWidget.named`.
+- An `annotation` rule keeps the declarations annotated with the class from `package`, also through a typedef, a subtype such as `@DarkStory()`, or a constant such as `@story` for `const story = Story();`.
+
+`-v` names each skipped entry point.
 
 ### Ignore markers
 
